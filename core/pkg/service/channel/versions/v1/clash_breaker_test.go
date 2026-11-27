@@ -77,13 +77,13 @@ var _ = Describe("Clash breaker", func() {
 			run(
 				ctx,
 				nil,
-				folder(first, groupv1.MetricsFolder),
-				folder(second, groupv1.MetricsFolder),
+				folder(first, v1.MetricsFolder),
+				folder(second, v1.MetricsFolder),
 			)
 			Expect(MustSucceed(resource.StagedRenames(db))).To(ConsistOf(
 				resource.Rename{
 					ID:     folder(second, "").ResourceID(),
-					From:   groupv1.MetricsFolder,
+					From:   v1.MetricsFolder,
 					Reason: resource.ReasonRepeat,
 				},
 			))
@@ -97,12 +97,12 @@ var _ = Describe("Clash breaker", func() {
 			ctx,
 			// v0.62 bound "Metrics" to the higher key, the top-level channel.
 			[]v1.Channel{
-				channel(1, groupv1.MetricsFolder, &first),
-				channel(2, groupv1.MetricsFolder, nil),
+				channel(1, v1.MetricsFolder, &first),
+				channel(2, v1.MetricsFolder, nil),
 				calc,
 			},
 			folder(first, "Plant"),
-			folder(second, groupv1.MetricsFolder),
+			folder(second, v1.MetricsFolder),
 		)
 		Expect(expressionOf(ctx, 3)).To(Equal("return Metrics_2 * 2"))
 	})

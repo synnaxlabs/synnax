@@ -16,14 +16,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	resourcev0 "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var _ = Describe("NameRuleMigration", func() {
+func groupID(k uuid.UUID) resource.ID {
+	return resource.ID{Type: resource.TypeGroup, Key: k.String()}
+}
+
+var _ = Describe("FolderNameRuleMigration", func() {
 	var (
 		db     *gorp.DB
 		first  = uuid.MustParse("00000000-0000-4000-8000-000000000001")
@@ -31,8 +36,8 @@ var _ = Describe("NameRuleMigration", func() {
 		third  = uuid.MustParse("00000000-0000-4000-8000-000000000003")
 	)
 	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
-	folder := func(key uuid.UUID, name string, parent *resource.ID) v1.Group {
-		return v1.Group{
+	folder := func(key uuid.UUID, name string, parent *resource.ID) groupv1.Group {
+		return groupv1.Group{
 			Key:    key,
 			Name:   name,
 			Scope:  resource.TypeChannel,
@@ -41,17 +46,17 @@ var _ = Describe("NameRuleMigration", func() {
 	}
 	// migrate stores groups, runs the migration, and returns the name of each group by
 	// key.
-	migrate := func(ctx context.Context, groups ...v1.Group) map[uuid.UUID]string {
+	migrate := func(ctx context.Context, groups ...groupv1.Group) map[uuid.UUID]string {
 		GinkgoHelper()
-		Expect(gorp.WrapWriter[v1.Key, v1.Group](db).Set(ctx, groups...)).
+		Expect(gorp.WrapWriter[groupv1.Key, groupv1.Group](db).Set(ctx, groups...)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "group",
-			Migrations: []gorp.Migration{v1.NameRuleMigration},
+			Migrations: []gorp.Migration{v1.FolderNameRuleMigration},
 		})).To(Succeed())
-		var stored []v1.Group
-		Expect(gorp.NewRetrieve[v1.Key, v1.Group]().
+		var stored []groupv1.Group
+		Expect(gorp.NewRetrieve[groupv1.Key, groupv1.Group]().
 			Entries(&stored).
 			Exec(ctx, db)).To(Succeed())
 		names := make(map[uuid.UUID]string, len(stored))
@@ -162,6 +167,15 @@ var _ = Describe("NameRuleMigration", func() {
 			)
 			Expect(names[first]).To(Equal("Stand_A"))
 			Expect(names[second]).To(Equal("Stand_A_2"))
+		})
+
+	It("Should rename a channel folder's '.' and leave a device folder's",
+		func(ctx SpecContext) {
+			devices := folder(second, "a.b", nil)
+			devices.Scope = resource.TypeDevice
+			names := migrate(ctx, folder(first, "a.b", nil), devices)
+			Expect(names[first]).To(Equal("a_b"))
+			Expect(names[second]).To(Equal("a.b"))
 		})
 
 	It("Should leave a folder of another scope alone", func(ctx SpecContext) {

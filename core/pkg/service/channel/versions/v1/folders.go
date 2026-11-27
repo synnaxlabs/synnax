@@ -16,44 +16,45 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/set"
 )
 
-// MetricsFolder is the name of the top-level channel folder in which a v0.62 Core
-// stored its metrics channels. The metrics service keeps its own copy of the name.
-const MetricsFolder = "Metrics"
-
-// NameRuleMigration renames each stored channel folder whose name a path cannot hold
-// (resource.NeedsRename), or whose name in NFC an earlier folder in the same parent
-// holds, and stages each rename (resource.StageRename). Names in NFC come first, then
-// the rest, each by key, which is a random order for v4 UUIDs. A new name is
+// FolderNameRuleMigration renames each stored channel folder whose name a path cannot
+// hold (resource.NeedsRename), or whose name in NFC an earlier folder in the same
+// parent holds, and stages each rename (resource.StageRename). Names in NFC come first,
+// then the rest, each by key, which is a random order for v4 UUIDs. A new name is
 // resource.SanitizeName of the old one, or "folder" when that is empty, with the first
 // suffix (_2, _3) that no other folder in the same parent holds. It writes each name
 // that it keeps in NFC, with no staged rename. It leaves each top-level MetricsFolder
-// to the clash pass of the channel table, which knows the one that the Core uses. It
-// runs after the step that sets each parent.
-var NameRuleMigration = migrate.New("v63_folder_name_rule", migrateNameRule)
+// to the clash pass, which knows the one that the Core uses, and each folder of another
+// scope as it is. It runs after the step of the group table that sets each parent.
+var FolderNameRuleMigration = migrate.New("v63_folder_name_rule", migrateFolderNameRule)
 
-// sibling is a name in a parent, or at the top when parent is zero.
-type sibling struct {
+// folderSibling is a name in a parent, or at the top when parent is zero.
+type folderSibling struct {
 	parent resource.ID
 	name   string
 }
 
-func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-	var groups []Group
-	if err := gorp.NewRetrieve[Key, Group]().
-		Where(gorp.Match(func(_ gorp.Context, g *Group) (bool, error) {
+func migrateFolderNameRule(
+	ctx context.Context,
+	tx gorp.Tx,
+	_ alamos.Instrumentation,
+) error {
+	var groups []groupv1.Group
+	if err := gorp.NewRetrieve[groupv1.Key, groupv1.Group]().
+		Where(gorp.Match(func(_ gorp.Context, g *groupv1.Group) (bool, error) {
 			return g.Scope == resource.TypeChannel, nil
 		})).
 		Entries(&groups).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	slices.SortFunc(groups, claimOrder)
-	moves, taken := markMoves(groups)
-	var changed []Group
+	slices.SortFunc(groups, claimFolderOrder)
+	moves, taken := markFolderMoves(groups)
+	var changed []groupv1.Group
 	for i, g := range groups {
 		if !moves[i] {
 			if nfc := resource.NormalizeName(g.Name); nfc != g.Name {
@@ -62,15 +63,15 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 			}
 			continue
 		}
-		parent := parentOf(g)
+		parent := folderParent(g)
 		base := resource.SanitizeName(g.Name)
 		if base == "" {
 			base = "folder"
 		}
 		name := resource.FreeName(base, func(name string) bool {
-			return taken.Contains(sibling{parent: parent, name: name})
+			return taken.Contains(folderSibling{parent: parent, name: name})
 		})
-		taken.Add(sibling{parent: parent, name: name})
+		taken.Add(folderSibling{parent: parent, name: name})
 		if err := resource.StageRename(
 			ctx,
 			tx,
@@ -83,12 +84,12 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		g.Name = name
 		changed = append(changed, g)
 	}
-	return gorp.WrapWriter[Key, Group](tx).Set(ctx, changed...)
+	return gorp.WrapWriter[groupv1.Key, groupv1.Group](tx).Set(ctx, changed...)
 }
 
-// claimOrder puts names in NFC first, then each by key, so each folder claims its name
-// before the folders after it.
-func claimOrder(a, b Group) int {
+// claimFolderOrder puts names in NFC first, then each by key, so each folder claims
+// its name before the folders after it.
+func claimFolderOrder(a, b groupv1.Group) int {
 	// On a tie in NFC, the name that is in NFC keeps it.
 	if aNFC, bNFC := resource.InNFC(a.Name), resource.InNFC(b.Name); aNFC != bNFC {
 		if aNFC {
@@ -99,21 +100,24 @@ func claimOrder(a, b Group) int {
 	return a.Key.Compare(b.Key)
 }
 
-// markMoves reports which of groups, in claim order, take a new name, and returns the
-// names that the others keep in each parent.
-func markMoves(groups []Group) ([]bool, set.Set[sibling]) {
+// markFolderMoves reports which of groups, in claim order, take a new name, and
+// returns the names that the others keep in each parent.
+func markFolderMoves(groups []groupv1.Group) ([]bool, set.Set[folderSibling]) {
 	var (
-		claimed = make(set.Set[sibling], len(groups))
+		claimed = make(set.Set[folderSibling], len(groups))
 		moves   = make([]bool, len(groups))
-		taken   = make(set.Set[sibling], len(groups))
-		metrics = sibling{name: MetricsFolder}
+		taken   = make(set.Set[folderSibling], len(groups))
+		metrics = folderSibling{name: MetricsFolder}
 	)
 	for i, g := range groups {
 		if resource.NeedsRename(g.Name) {
 			moves[i] = true
 			continue
 		}
-		at := sibling{parent: parentOf(g), name: resource.NormalizeName(g.Name)}
+		at := folderSibling{
+			parent: folderParent(g),
+			name:   resource.NormalizeName(g.Name),
+		}
 		if at == metrics {
 			taken.Add(at)
 			continue
@@ -127,7 +131,7 @@ func markMoves(groups []Group) ([]bool, set.Set[sibling]) {
 	return moves, taken
 }
 
-func parentOf(g Group) resource.ID {
+func folderParent(g groupv1.Group) resource.ID {
 	if g.Parent == nil {
 		return resource.ID{}
 	}

@@ -14,6 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -23,3 +26,8 @@ func TestGroup(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// nameRules holds the rule of channel folder names, as the service layer gives it.
+var nameRules = map[resource.Type]group.NameRule{
+	resource.TypeChannel: channel.CheckFolderName,
+}

@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
@@ -83,13 +84,11 @@ func storeV062(
 		channelversions.NewMigrations(1, parser.Config{}),
 		"v63_channel_name_rule",
 	)
-	markAppliedBefore(
-		ctx,
-		n.DB,
-		"Group",
+	// The chain of the group table holds no step of the upgrade.
+	markApplied(ctx, n.DB, "Group", lo.Map(
 		groupversions.Migrations,
-		"v63_folder_name_rule",
-	)
+		func(m gorp.Migration, _ int) string { return m.Key() },
+	)...)
 	alloc := make([]distchannel.Channel, len(names))
 	for i, name := range names {
 		alloc[i] = distchannel.Channel{
@@ -388,11 +387,11 @@ var _ = Describe("Name upgrade", func() {
 	It("Should move a top-level channel off the name of the Metrics folder and write "+
 		"its new name into text", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)
-		metrics := folder(groupv1.MetricsFolder)
+		metrics := folder(channelv1.MetricsFolder)
 		stored := storeV062(
 			ctx,
 			n,
-			[]string{groupv1.MetricsFolder, "doubled"},
+			[]string{channelv1.MetricsFolder, "doubled"},
 			func(cs []channelv1.Channel) { cs[1].Expression = "return Metrics * 2" },
 			metrics,
 		)
@@ -400,7 +399,7 @@ var _ = Describe("Name upgrade", func() {
 		check := func() {
 			GinkgoHelper()
 			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal("Metrics_2"))
-			Expect(folderName(ctx, n, metrics.Key)).To(Equal(groupv1.MetricsFolder))
+			Expect(folderName(ctx, n, metrics.Key)).To(Equal(channelv1.MetricsFolder))
 			Expect(expressionOf(ctx, n, stored[1].Key())).
 				To(Equal("return Metrics_2 * 2"))
 			Expect(sourceOf(ctx, n, arcs[0])).To(Equal("x := Metrics_2 * 2"))

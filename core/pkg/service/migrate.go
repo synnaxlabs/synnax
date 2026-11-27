@@ -436,7 +436,7 @@ func renameReason(reason resourcev0.Reason, noun string) (string, error) {
 	case resourcev0.ReasonMetricsFolder:
 		return fmt.Sprintf(
 			"the Core keeps the top-level name %q for its metrics folder",
-			groupv1.MetricsFolder,
+			channelv1.MetricsFolder,
 		), nil
 	}
 	return "", errors.Newf("unknown reason %d", reason)

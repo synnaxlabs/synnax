@@ -20,16 +20,19 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions"
-	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
+// MetricsFolder is the name of the top-level channel folder in which a v0.62 Core
+// stored its metrics channels. The metrics service keeps its own copy of the name.
+const MetricsFolder = "Metrics"
+
 // NewClashMigration returns the migration that renames one side of each channel and
 // channel folder that hold one name in NFC in one folder, and stages each rename
 // (resource.StageRename). The folder yields, unless a name pass renamed the channel and
-// not the folder, or the channel is top-level and holds groupv1.MetricsFolder. Of
+// not the folder, or the channel is top-level and holds MetricsFolder. Of
 // several top-level metrics folders, the one that holds the metrics index channel of
 // host keeps the name, or else the first by key. A folder takes the first suffix (_2,
 // _3) that no sibling holds, and a channel the first that also no other channel holds.
@@ -131,7 +134,7 @@ func parentKey(f group.Group) (group.Key, error) {
 }
 
 func (c *clash) resolve(ctx context.Context, index string) error {
-	metrics := sibling{name: groupv1.MetricsFolder}
+	metrics := sibling{name: MetricsFolder}
 	kept := c.metricsFolder(index)
 	for i := range c.folders {
 		if i != kept && c.at[i] == metrics {
@@ -182,7 +185,7 @@ func (c *clash) metricsFolder(index string) int {
 	}
 	kept := -1
 	for i, f := range c.folders {
-		if c.at[i] == (sibling{name: groupv1.MetricsFolder}) &&
+		if c.at[i] == (sibling{name: MetricsFolder}) &&
 			(kept < 0 || holder != nil && *holder == f.Key) {
 			kept = i
 		}

@@ -32,7 +32,10 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:        db,
+			NameRules: nameRules,
+		}))
 	})
 	unique := func(prefix string) string { return prefix + " " + uuid.New().String() }
 	write := func(ctx context.Context, f func(w group.Writer) error) error {

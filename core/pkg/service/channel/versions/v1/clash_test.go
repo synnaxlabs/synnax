@@ -175,11 +175,11 @@ var _ = Describe("NewClashMigration", func() {
 			channels, folders := migrate(
 				ctx,
 				clash,
-				[]v1.Channel{channel(1, groupv1.MetricsFolder, nil)},
-				folder(first, groupv1.MetricsFolder, nil),
+				[]v1.Channel{channel(1, v1.MetricsFolder, nil)},
+				folder(first, v1.MetricsFolder, nil),
 			)
-			Expect(channels[1]).To(Equal(groupv1.MetricsFolder + "_2"))
-			Expect(folders[first]).To(Equal(groupv1.MetricsFolder))
+			Expect(channels[1]).To(Equal(v1.MetricsFolder + "_2"))
+			Expect(folders[first]).To(Equal(v1.MetricsFolder))
 		})
 
 	It("Should rename a top-level channel named for the metrics folder when no "+
@@ -187,9 +187,9 @@ var _ = Describe("NewClashMigration", func() {
 		channels, _ := migrate(
 			ctx,
 			clash,
-			[]v1.Channel{channel(1, groupv1.MetricsFolder, nil)},
+			[]v1.Channel{channel(1, v1.MetricsFolder, nil)},
 		)
-		Expect(channels[1]).To(Equal(groupv1.MetricsFolder + "_2"))
+		Expect(channels[1]).To(Equal(v1.MetricsFolder + "_2"))
 	})
 
 	It("Should keep the name on the metrics folder that holds the metrics index of "+
@@ -200,12 +200,12 @@ var _ = Describe("NewClashMigration", func() {
 			ctx,
 			clash,
 			[]v1.Channel{index},
-			folder(first, groupv1.MetricsFolder, nil),
-			folder(second, groupv1.MetricsFolder, nil),
+			folder(first, v1.MetricsFolder, nil),
+			folder(second, v1.MetricsFolder, nil),
 		)
 		Expect(folders).To(Equal(map[uuid.UUID]string{
-			first:  groupv1.MetricsFolder + "_2",
-			second: groupv1.MetricsFolder,
+			first:  v1.MetricsFolder + "_2",
+			second: v1.MetricsFolder,
 		}))
 	})
 
@@ -217,12 +217,12 @@ var _ = Describe("NewClashMigration", func() {
 				ctx,
 				clash,
 				[]v1.Channel{index},
-				folder(second, groupv1.MetricsFolder, nil),
-				folder(first, groupv1.MetricsFolder, nil),
+				folder(second, v1.MetricsFolder, nil),
+				folder(first, v1.MetricsFolder, nil),
 			)
 			Expect(folders).To(Equal(map[uuid.UUID]string{
-				first:  groupv1.MetricsFolder,
-				second: groupv1.MetricsFolder + "_2",
+				first:  v1.MetricsFolder,
+				second: v1.MetricsFolder + "_2",
 			}))
 		})
 
@@ -232,13 +232,13 @@ var _ = Describe("NewClashMigration", func() {
 				ctx,
 				clash,
 				[]v1.Channel{
-					channel(1, groupv1.MetricsFolder, nil),
-					channel(2, groupv1.MetricsFolder+"_2", &second),
+					channel(1, v1.MetricsFolder, nil),
+					channel(2, v1.MetricsFolder+"_2", &second),
 				},
-				folder(first, groupv1.MetricsFolder, nil),
-				folder(second, groupv1.MetricsFolder+"_3", nil),
+				folder(first, v1.MetricsFolder, nil),
+				folder(second, v1.MetricsFolder+"_3", nil),
 			)
-			Expect(channels[1]).To(Equal(groupv1.MetricsFolder + "_4"))
+			Expect(channels[1]).To(Equal(v1.MetricsFolder + "_4"))
 		})
 
 	Describe("CalculationTextMigration", func() {
@@ -264,8 +264,8 @@ var _ = Describe("NewClashMigration", func() {
 				migrate(
 					ctx,
 					text,
-					[]v1.Channel{channel(1, groupv1.MetricsFolder, nil), calc},
-					folder(first, groupv1.MetricsFolder, nil),
+					[]v1.Channel{channel(1, v1.MetricsFolder, nil), calc},
+					folder(first, v1.MetricsFolder, nil),
 				)
 				Expect(
 					expressionOf(ctx, 2),
@@ -282,13 +282,13 @@ var _ = Describe("NewClashMigration", func() {
 				migrate(
 					ctx,
 					text,
-					[]v1.Channel{channel(1, groupv1.MetricsFolder, nil), calc},
-					folder(first, groupv1.MetricsFolder, nil),
+					[]v1.Channel{channel(1, v1.MetricsFolder, nil), calc},
+					folder(first, v1.MetricsFolder, nil),
 				)
 				Expect(expressionOf(ctx, 2)).To(Equal(calc.Expression))
 				Expect(resource.StagedTextSites(db)).To(ConsistOf(resource.TextSite{
 					Holder:  calc.ResourceID(),
-					Name:    groupv1.MetricsFolder,
+					Name:    v1.MetricsFolder,
 					NewName: "Metrics_2",
 					Line:    1,
 					Column:  7,

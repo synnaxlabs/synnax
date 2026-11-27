@@ -414,6 +414,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			}
 			return nil
 		},
+		NameRules: map[resource.Type]group.NameRule{
+			resource.TypeChannel: channel.CheckFolderName,
+		},
 	}); !ok(err, l.Group) {
 		return nil, err
 	}
