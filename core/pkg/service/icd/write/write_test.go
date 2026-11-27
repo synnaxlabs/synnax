@@ -107,23 +107,23 @@ func writeOf(m icd.Message, bindings ...icd.WriteBinding) icd.WriteMessage {
 	return icd.WriteMessage{Message: m.Key, Bindings: bindings}
 }
 
-var _ = Describe("NewDocuments", func() {
+var _ = Describe("NewPayloads", func() {
 	held := map[channel.Key]icdv0.Channel{valueKey: {DataType: telem.Float64T}}
-	documents := func(wm icd.WriteMessage, ic icd.ICD) (*write.Documents, error) {
-		return write.NewDocuments(wm, ic, held, "target")
+	payloads := func(wm icd.WriteMessage, ic icd.ICD) (*write.Payloads, error) {
+		return write.NewPayloads(wm, ic, held, "target")
 	}
-	// send returns the one document that the Documents of wm in ic builds from command,
-	// a frame of the channel with valueKey.
+	// send returns the one payload that the Payloads of wm in ic builds from command, a
+	// frame of the channel with valueKey.
 	send := func(wm icd.WriteMessage, ic icd.ICD, command telem.Series) string {
 		GinkgoHelper()
-		d := MustSucceed(documents(wm, ic))
+		d := MustSucceed(payloads(wm, ic))
 		skips := driver.NewSkips("command", driver.SkipHold)
-		var docs []string
-		for _, doc := range d.From(frame.NewUnary(valueKey, command), skips) {
-			docs = append(docs, string(doc))
+		var payloads []string
+		for _, payload := range d.From(frame.NewUnary(valueKey, command), skips) {
+			payloads = append(payloads, string(payload))
 		}
-		Expect(docs).To(HaveLen(1))
-		return docs[0]
+		Expect(payloads).To(HaveLen(1))
+		return payloads[0]
 	}
 
 	It("Should send the default of each field with no binding", func() {
@@ -197,7 +197,7 @@ var _ = Describe("NewDocuments", func() {
 			m := jsonMessage("Fixed", temp, v)
 			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
 			wm := writeOf(m, bind(temp), fixed(v, value))
-			Expect(documents(wm, ic)).Error().To(SatisfyAll(
+			Expect(payloads(wm, ic)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(expected)),
 			))
@@ -252,7 +252,7 @@ var _ = Describe("NewDocuments", func() {
 
 	DescribeTable("Should refuse a write the message cannot send",
 		func(wm icd.WriteMessage, expected string) {
-			Expect(documents(wm, plant)).Error().To(SatisfyAll(
+			Expect(payloads(wm, plant)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(expected)),
 			))

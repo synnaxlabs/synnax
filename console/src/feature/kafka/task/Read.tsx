@@ -43,6 +43,7 @@ import {
   type KindMessage,
   type MessagesOf,
   readsOf,
+  sourceKey,
   uniqueName,
 } from "@/feature/kafka/task/additions";
 import { createDiscoverModal } from "@/feature/kafka/task/Discover";
@@ -58,6 +59,7 @@ import {
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
@@ -149,8 +151,12 @@ const recordPrefix = (deviceName: string, topic: string, recordKey: string): str
     : `${prefix}_${channel.escapeInvalidName(recordKey)}`;
 };
 
-/** @returns the key of a record of topic in the read properties of a device. */
-const sourceKey = (topic: string, recordKey: string): string => `${topic}#${recordKey}`;
+/** The additions of a topic, and the ICD that its new records read. */
+interface TopicAdditions {
+  /** Absent, they read the ICD that the most records read, or a new one. */
+  icd?: icd.Key;
+  added: Addition[];
+}
 
 /** @returns where the device stores the channels of the messages of a record. */
 const storedSource = (
@@ -517,41 +523,49 @@ const Records: FC<RecordsProps> = ({
   };
 
   /**
-   * Puts messages in the ICD that the most records read, or in a new ICD named after
-   * the device for a task with no record, then adds the records that read them to
-   * their topics.
-   * @param recordsOf - Returns the records to add to each topic, by topic name.
+   * Puts the new messages of each topic in the ICD that the topic reads, else in the
+   * ICD that the most records read, else in a new ICD named after the device. Then it
+   * adds the records that read them to their topics.
+   * @param additions - The additions of each topic, by topic name.
    */
-  const addRecords = async (
-    messages: icd.Message[],
-    recordsOf: (icdKey: icd.Key) => Map<string, ReadRecord[]>,
-  ) => {
+  const addRecords = async (additions: Map<string, TopicAdditions>) => {
     if (client == null) throw new DisconnectedError();
-    let icdKey = ICD.mostRead(records);
-    if (icdKey == null)
-      icdKey = (await client.icds.create({ name: device.name, messages })).key;
-    else {
-      const format = ICD.formatOf(formats, icdKey);
+    const home = ICD.mostRead(records);
+    const newIn = (target?: icd.Key): icd.Message[] =>
+      [...additions.values()]
+        .filter(({ icd: k }) => (k ?? home) === target)
+        .flatMap(({ added }) => added.filter((a) => a.reused !== true))
+        .map(({ message }) => message);
+    const created =
+      home == null
+        ? (await client.icds.create({ name: device.name, messages: newIn() })).key
+        : undefined;
+    const targets = unique.unique(
+      [...additions.values()].map(({ icd: k }) => k ?? home),
+    );
+    for (const target of targets) {
+      if (target == null) continue;
+      const format = ICD.formatOf(formats, target);
       let after = format.value().messages.at(-1)?.key;
       format.batch(() => {
-        for (const message of messages) {
+        for (const message of newIn(target)) {
           format.insert(PICD.formPath.messages, message, after);
           after = message.key;
         }
       });
     }
-    for (const { key } of messages) made.current.add(key);
-    const added = recordsOf(icdKey);
-    const keys = [...added].map(([topic, recs]) => pushRecords(topic, recs));
-    const [{ key: shown }] = [...added.values()].flat();
+    for (const { added } of additions.values())
+      for (const { message, reused } of added)
+        if (reused !== true) made.current.add(message.key);
+    const added = [...additions].map(([topic, { icd: k, added: a }]) => {
+      const icdKey = k ?? home ?? created;
+      if (icdKey == null) throw new Error(`No ICD holds the messages of ${topic}`);
+      return [topic, createRecords(icdKey, a)] as const;
+    });
+    const keys = added.map(([topic, recs]) => pushRecords(topic, recs));
+    const [{ key: shown }] = added.flatMap(([, recs]) => recs);
     onSelect([shown]);
     onExpand((prev) => unique.unique([...prev, ...keys, shown]));
-  };
-
-  /** @returns the messages of the ICD that the most records read. */
-  const heldMessages = (): icd.Message[] => {
-    const home = ICD.mostRead(records);
-    return home == null ? [] : ICD.formatOf(formats, home).value().messages;
   };
 
   /** @returns the name of the topic of the selected item, or of the only topic. */
@@ -611,17 +625,27 @@ const Records: FC<RecordsProps> = ({
 
   /** Adds the fields that the user picks from topics, and any empty record. */
   const add = async () => {
+    const home = ICD.mostRead(records);
     const result = await addData({
       device,
       topic: selectedTopic(),
       topics: topics.map(({ name }) => name),
       reads: (name) => readsOf(topicRecords(name), messagesOf),
       label,
+      formats,
+      home,
     });
     if (result == null) return;
-    const additions = new Map<string, Addition[]>();
-    let held = heldMessages();
-    for (const { topic, shapes, picks } of result.topics) {
+    const additions = new Map<string, TopicAdditions>();
+    // The messages that this add puts in each ICD, by ICD key.
+    const making = new Map<icd.Key | undefined, icd.Message[]>();
+    const takenIn = (icdKey?: icd.Key): icd.Message[] => [
+      ...(icdKey == null ? [] : messagesOf(icdKey)),
+      ...(making.get(icdKey) ?? []),
+    ];
+    const make = (icdKey: icd.Key | undefined, messages: icd.Message[]) =>
+      making.set(icdKey, [...(making.get(icdKey) ?? []), ...messages]);
+    for (const { topic, shapes, picks, reading } of result.topics) {
       const records = topicRecords(topic);
       const reads = readsOf(records, messagesOf);
       const nameOf = (recordKey: string) => topicMessageName(topic, recordKey);
@@ -633,32 +657,41 @@ const Records: FC<RecordsProps> = ({
         nameOf,
       );
       extend(extensions, kinds);
-      held = [...held, ...kinds.map(({ message }) => message)];
-      const added = createAdditions(shapes, picks, reads, held, nameOf);
+      for (const { icd: k, message } of kinds) make(k, [message]);
+      const target = reading?.icd ?? home;
+      const added = createAdditions(
+        shapes,
+        picks,
+        reads,
+        takenIn(target),
+        nameOf,
+        reading,
+      );
       if (added.length === 0) continue;
-      additions.set(topic, added);
-      held = [...held, ...added.map(({ message }) => message)];
+      additions.set(topic, { icd: reading?.icd, added });
+      make(
+        target,
+        added.filter(({ reused }) => reused !== true).map(({ message }) => message),
+      );
     }
     if (result.record != null) {
-      const empty = {
-        message: createMessage(uniqueName(topicMessageName(result.record, ""), held)),
-        recordKeys: [""],
-      };
-      additions.set(result.record, [...(additions.get(result.record) ?? []), empty]);
+      const held = additions.get(result.record);
+      const name = topicMessageName(result.record, "");
+      const message = createMessage(uniqueName(name, takenIn(held?.icd ?? home)));
+      const empty: Addition = { message, recordKeys: [""], fields: [] };
+      additions.set(result.record, {
+        icd: held?.icd,
+        added: [...(held?.added ?? []), empty],
+      });
     }
     if (additions.size === 0) return;
-    await addRecords(
-      [...additions.values()].flat().map(({ message }) => message),
-      (icdKey) =>
-        new Map(
-          [...additions].map(([topic, added]) => [topic, createRecords(icdKey, added)]),
-        ),
-    );
+    await addRecords(additions);
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add data");
+  const isPreview = Task.useIsPreview();
 
   const rec =
     current == null ? undefined : records.find(({ key }) => key === current.source);
@@ -755,11 +788,12 @@ const Records: FC<RecordsProps> = ({
       title={title ?? undefined}
     >
       {details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            Add data to read the records of a topic
-          </Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No entry selected"
+          action={isPreview ? undefined : "Add data"}
+          onClick={handleAdd}
+        />
       )}
     </Task.Views.Panes>
   );
