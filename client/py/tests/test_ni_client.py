@@ -138,6 +138,14 @@ class TestNIChassisClient:
         one = client.ni.chassis.retrieve(resource_name=chassis.resource_name, one=True)
         assert one.key == chassis.key
 
+    def test_retrieve_one_by_name(self, client: sy.Synnax) -> None:
+        """Should return one chassis for a plain name."""
+        rack = client.racks.create(name="ni_chassis_rack")
+        chassis = _create_chassis(client, rack)
+        name = f"NI {uuid4()}"
+        client.ni.chassis.update(chassis.key, ni.chassis.ConfigurationUpdate(name=name))
+        assert client.ni.chassis.retrieve(name=name).key == chassis.key
+
     def test_update_identity(self, client: sy.Synnax) -> None:
         """Should write the identity group and keep the name."""
         rack = client.racks.create(name="ni_chassis_rack")

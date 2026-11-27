@@ -84,6 +84,17 @@ class Client:
     def retrieve(
         self,
         *,
+        name: str,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        **fields: Any,
+    ) -> Chassis: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
         where: Where | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
