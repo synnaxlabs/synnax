@@ -31,6 +31,8 @@ export const DEFAULT_STATE = {
   computedLineHeight: 16,
   rowEntries: [],
   searchedTo: "",
+  jump: { direction: "next", request: 0 },
+  jumpStatus: "",
 };
 
 const LINES = [

@@ -272,6 +272,8 @@ export class StreamMultiChannelLog
 
   /** Whether the entries hold the oldest stored sample of each shown channel. */
   get exhausted(): boolean {
+    // A log that shows no channel holds all there is to show.
+    if (this._channels.every((key) => this.hidden.has(key))) return true;
     const metas = this.shownMetas().map(([, m]) => m);
     return (
       metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)

@@ -725,6 +725,47 @@ describe("log/Base", () => {
     });
   });
 
+  describe("jump", () => {
+    const Jumper = (): ReactElement => {
+      const { jump, status } = Log.useJump();
+      return <button onClick={() => jump("previous")}>{`Jump ${status}`}</button>;
+    };
+
+    it("should pause the log and request a jump in one update", () => {
+      const { setState } = setupAether({ empty: false });
+      const onHold = vi.fn();
+      renderLog({ children: <Jumper />, hold: false, onHold, search: { text: "err" } });
+      fireEvent.click(screen.getByRole("button", { name: "Jump" }));
+      const update = setState.mock.calls.at(-1)?.[0];
+      expect(update(DEFAULT_STATE)).toMatchObject({
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(onHold).toHaveBeenCalledWith(true);
+    });
+
+    it("should neither pause nor jump for a search with no pattern", () => {
+      const { setState } = setupAether({ empty: false });
+      const onHold = vi.fn();
+      renderLog({
+        children: <Jumper />,
+        hold: false,
+        onHold,
+        search: { text: "(", mode: "regex" },
+      });
+      setState.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "Jump" }));
+      expect(setState).not.toHaveBeenCalled();
+      expect(onHold).not.toHaveBeenCalled();
+    });
+
+    it("should give children the status of the jump", () => {
+      setupAether({ empty: false, jumpStatus: "none" });
+      renderLog({ children: <Jumper /> });
+      expect(screen.getByText("Jump none")).toBeDefined();
+    });
+  });
+
   describe("wheel events", () => {
     it("should call setState on scroll up", () => {
       const { setState } = setupAether({ empty: false });

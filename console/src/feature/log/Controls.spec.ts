@@ -23,12 +23,19 @@ import { documentIn } from "@/session/window/testutil";
 
 const roles = new RoleClients(client);
 
-const stateZ = z.looseObject({});
+const stateZ = z.looseObject({
+  jump: z.object({ request: z.number(), direction: z.string() }).optional(),
+});
 
-// The real worker needs a canvas. The log renders its controls without one.
+// The real worker needs a canvas. This one finds no match for any jump.
 class WorkerStub extends aether.Leaf<typeof stateZ> {
   static readonly TYPE = "log";
   override schema = stateZ;
+
+  override afterUpdate(): void {
+    if ((this.state.jump?.request ?? 0) > 0 && this.state.jumpStatus !== "none")
+      this.setState((s) => ({ ...s, jumpStatus: "none" }));
+  }
 }
 
 const REGISTRY = { [WorkerStub.TYPE]: WorkerStub };
@@ -70,6 +77,67 @@ describe("log/Controls search", () => {
     expect(await screen.findByText("Invalid regex")).toBeDefined();
   });
 
+  it("should pause the log on a jump and show when no match is left", async () => {
+    const { key, store } = await renderLog(Content, { additionalRegistry: REGISTRY });
+    await openSearch("err");
+    fireEvent.keyDown(screen.getByLabelText("Search text"), { key: "Enter" });
+    expect(await screen.findByText("No more matches")).toBeDefined();
+    expect(documentIn(store.getState()[Session.Log.SLICE_NAME], key)?.hold).toBe(true);
+  });
+
+  it("should jump from the previous and next buttons", async () => {
+    await renderLog(Content, { additionalRegistry: REGISTRY });
+    await openSearch("err");
+    fireEvent.click(screen.getByRole("button", { name: "Previous match" }));
+    expect(await screen.findByText("No more matches")).toBeDefined();
+  });
+
+  // Returns a registry whose worker records the direction of each jump.
+  const recording = (directions: string[]): aether.ComponentRegistry => {
+    class Recorder extends WorkerStub {
+      override afterUpdate(): void {
+        const { jump } = this.state;
+        if (jump != null && jump.request > directions.length)
+          directions.push(jump.direction);
+      }
+    }
+    return { [Recorder.TYPE]: Recorder };
+  };
+
+  it("should jump to the next match from the button and Enter", async () => {
+    const directions: string[] = [];
+    await renderLog(Content, { additionalRegistry: recording(directions) });
+    await openSearch("err");
+    fireEvent.click(screen.getByRole("button", { name: "Next match" }));
+    await waitFor(() => expect(directions).toEqual(["next"]));
+    fireEvent.keyDown(screen.getByLabelText("Search text"), { key: "Enter" });
+    await waitFor(() => expect(directions).toEqual(["next", "next"]));
+  });
+
+  it("should jump to the previous match on Shift+Enter", async () => {
+    const directions: string[] = [];
+    await renderLog(Content, { additionalRegistry: recording(directions) });
+    await openSearch("err");
+    fireEvent.keyDown(screen.getByLabelText("Search text"), {
+      key: "Enter",
+      shiftKey: true,
+    });
+    await waitFor(() => expect(directions).toEqual(["previous"]));
+  });
+
+  it("should show while a jump reads stored lines", async () => {
+    class Reading extends WorkerStub {
+      override afterUpdate(): void {
+        if ((this.state.jump?.request ?? 0) > 0 && this.state.jumpStatus !== "reading")
+          this.setState((s) => ({ ...s, jumpStatus: "reading" }));
+      }
+    }
+    await renderLog(Content, { additionalRegistry: { [Reading.TYPE]: Reading } });
+    await openSearch("err");
+    fireEvent.keyDown(screen.getByLabelText("Search text"), { key: "Enter" });
+    expect(await screen.findByText("Reading stored lines")).toBeDefined();
+  });
+
   it("should end the search when the close button is clicked", async () => {
     const { key, store } = await renderLog(Content, { additionalRegistry: REGISTRY });
     await openSearch("err");
@@ -108,9 +176,9 @@ describe("log/Controls search", () => {
 
   it("should keep a copy in the search box from reaching the log", async () => {
     const onCopy = vi.fn();
-    const InLog = (): ReactElement =>
+    const InPage = (): ReactElement =>
       createElement("div", { onCopy }, createElement(Content));
-    await renderLog(InLog, { additionalRegistry: REGISTRY });
+    await renderLog(InPage, { additionalRegistry: REGISTRY });
     await openSearch("err");
     fireEvent.copy(screen.getByLabelText("Search text"));
     expect(onCopy).not.toHaveBeenCalled();

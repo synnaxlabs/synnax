@@ -745,6 +745,376 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("jump", () => {
+    const SEARCH = {
+      timestampsHidden: true,
+      channelNamesHidden: true,
+      search: { text: "err" },
+    };
+
+    // Returns count entries, of which the ones at matches match the search.
+    const lines = (count: number, matches: number[]): LogEntry[] =>
+      Array.from({ length: count }, (_, i) => ({
+        ...makeEntry(i),
+        value: matches.includes(i) ? `err ${i}` : `ok ${i}`,
+      }));
+
+    const jumpTo = (
+      updateState: (overrides: Record<string, unknown>) => void,
+      direction: string,
+      request: number,
+    ): void =>
+      updateState({ ...SEARCH, scrolling: true, jump: { direction, request } });
+
+    it("should move the view to the newest match before it", () => {
+      const { leaf, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(150);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
+    it("should show a match when the lines below it wrap", () => {
+      const wrapped = lines(1_000, [150]).map((entry, i) =>
+        i > 150 ? { ...entry, value: "ok ".repeat(80) } : entry,
+      );
+      const { leaf, updateState } = setup(wrapped, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(150);
+    });
+
+    it("should show the first row of a match that wraps to many rows", () => {
+      const tall = lines(1_000, [150]).map((entry, i) =>
+        i === 150 ? { ...entry, value: `err ${"x".repeat(1_500)}` } : entry,
+      );
+      const { leaf, updateState } = setup(tall, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(149);
+      expect(leaf.state.rowEntries).toContain(150);
+    });
+
+    it("should start the view at a match taller than the view", () => {
+      const tall = lines(1_000, [150]).map((entry, i) =>
+        i === 150 ? { ...entry, value: `err ${"x".repeat(20_000)}` } : entry,
+      );
+      const { leaf, updateState } = setup(tall, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries.slice(1).every((entry) => entry === 150)).toBe(true);
+    });
+
+    it("should show a match in a view of one row", () => {
+      const oneRow = box.construct({ x: 0, y: 0 }, { width: 500, height: 30 });
+      const { leaf, updateState } = setup(lines(1_000, [150]), oneRow, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toEqual([150]);
+    });
+
+    it("should move from the last match in either direction", () => {
+      const { leaf, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 2);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(20);
+      expect(leaf.state.rowEntries).not.toContain(150);
+      jumpTo(updateState, "next", 3);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(150);
+    });
+
+    it("should match the number as the leaf draws it at its precision", () => {
+      const numbers = Array.from({ length: 1_000 }, (_, i) => ({
+        ...makeEntry(i),
+        value: i === 150 ? "3.14159" : "2.71828",
+      }));
+      const drawn = {
+        ...SEARCH,
+        search: { text: "3.14$", mode: "regex" },
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, precision: 2 })],
+        channelDataTypes: { "1": "float64" },
+      };
+      const { leaf, updateState } = setup(numbers, REGION_500, drawn);
+      updateState({
+        ...drawn,
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      });
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(150);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
+    it("should scan each held line once while it reads", () => {
+      let reads = 0;
+      const counted = lines(1_000, []).map((entry) => {
+        const { value } = entry;
+        return Object.defineProperty({ ...entry }, "value", {
+          get: () => {
+            reads++;
+            return value;
+          },
+        });
+      });
+      const { leaf, source, updateState } = setup(counted, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      reads = 0;
+      source.notify();
+      source.notify();
+      // The view lays out a screen of lines, far fewer than a scan of all of them.
+      expect(reads).toBeLessThan(500);
+    });
+
+    it("should find a match that a read inserts among the held lines", () => {
+      const held = lines(1_000, []);
+      const { leaf, source, updateState } = setup(held, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      // Another channel's older page lands between the oldest held line and the view.
+      const inserted = { ...makeEntry(500.5), value: "err inserted" };
+      source.setEntries([...held.slice(0, 501), inserted, ...held.slice(501)]);
+      source.notify();
+      expect(leaf.state.jumpStatus).toBe("");
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(501);
+    });
+
+    it("should match held lines again when their format changes", () => {
+      const numbers = Array.from({ length: 1_000 }, (_, i) => ({
+        ...makeEntry(i),
+        value: i === 900 ? "3.14159" : "2.71828",
+      }));
+      const entry = (precision: number) =>
+        clientLog.channelEntryZ.parse({ channel: 1, precision });
+      const base = {
+        ...SEARCH,
+        search: { text: "3.14$", mode: "regex" },
+        channelDataTypes: { "1": "float64" },
+        channels: [entry(4)],
+      };
+      const { leaf, source, updateState } = setup(numbers, REGION_500, base);
+      const jumping = {
+        ...base,
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      };
+      updateState(jumping);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      updateState({ ...jumping, channels: [entry(2)], jumpStatus: "reading" });
+      source.notify();
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(900);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
+    it("should stay paused after a scroll down and a jump to the newest lines", () => {
+      const { leaf, updateState } = setup(lines(1_000, [20, 998]), REGION_500, SEARCH);
+      const at = (wheelPos: number, request: number, direction = "previous") =>
+        updateState({
+          ...SEARCH,
+          wheelPos,
+          scrolling: true,
+          jump: { direction, request },
+        });
+      at(0, 1);
+      at(0, 2);
+      // A scroll down by a few rows leaves the view far above the newest line.
+      at(-60, 2);
+      at(-60, 3, "next");
+      at(-60, 4, "next");
+      expect(leaf.state.scrolling).toBe(true);
+    });
+
+    it("should read older lines until it finds a match", () => {
+      const { leaf, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      const older = { ...makeEntry(-5), value: "err older" };
+      source.setEntries([older, ...lines(1_000, [])]);
+      source.notify();
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(0);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
+    it("should scan an older page whole when the read evicts the view", () => {
+      const held = lines(1_000, []);
+      const { leaf, source, updateState } = setup(held, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      const older = Array.from({ length: 1_000 }, (_, i) => ({
+        ...makeEntry(i - 1_000),
+        value: i === 500 ? "err older" : `ok ${i}`,
+      }));
+      // The page fills the log, so the newest held lines and the view leave it.
+      source.setEntries([...older, ...held.slice(0, 50)]);
+      source.notify();
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(500);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
+    it("should not jump back to a line that arrives while it reads", () => {
+      const held = lines(1_000, []);
+      const { leaf, source, updateState } = setup(held, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      source.setEntries([...held, { ...makeEntry(1_000), value: "err live" }]);
+      source.notify();
+      expect(leaf.state.jumpStatus).toBe("reading");
+    });
+
+    it("should report no more matches once the stored lines run out", () => {
+      const { leaf, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("none");
+      jumpTo(updateState, "next", 2);
+      expect(leaf.state.jumpStatus).toBe("none");
+    });
+
+    it("should read newer lines until it finds a match", () => {
+      const held = lines(1_000, [20]);
+      const { leaf, source, updateState } = setup(held, REGION_500, SEARCH);
+      source.live = false;
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "next", 2);
+      expect(source.loadNewerCalls).toBeGreaterThan(0);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      source.setEntries([...held, { ...makeEntry(1_000), value: "err" }]);
+      source.notify();
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(1_000);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
+    it("should stay paused after a jump to a match near the newest line", () => {
+      const { leaf, updateState } = setup(lines(1_000, [998]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.scrolling).toBe(true);
+    });
+
+    it("should end a jump that reads when the leaf resumes", () => {
+      const { leaf, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      updateState({
+        ...SEARCH,
+        scrolling: false,
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(leaf.state.jumpStatus).toBe("");
+      const calls = source.loadOlderCalls;
+      source.notify();
+      expect(source.loadOlderCalls).toBe(calls);
+    });
+
+    it("should start again from the view when the search changes", () => {
+      const { leaf, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      jumpTo(updateState, "previous", 2);
+      const changed = { ...SEARCH, search: { text: "ERR" } };
+      updateState({
+        ...changed,
+        scrolling: true,
+        jump: { direction: "previous", request: 2 },
+      });
+      updateState({
+        ...changed,
+        scrolling: true,
+        jump: { direction: "previous", request: 3 },
+      });
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(20);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
+    it("should start again from the view after the leaf resumes", () => {
+      const entries = lines(1_000, [20]);
+      const { leaf, source, updateState } = setup(entries, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      const live = { ...SEARCH, jump: { direction: "previous", request: 1 } };
+      updateState({ ...live, scrolling: false });
+      // The same entries, with a newer match that arrived live.
+      source.setEntries([...entries, { ...makeEntry(1_000), value: "err" }]);
+      source.notify();
+      jumpTo(updateState, "previous", 2);
+      expect(leaf.state.jumpStatus).toBe("");
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(1_000);
+    });
+
+    it("should resume the source when the leaf resumes with a jump status", () => {
+      const { leaf, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("none");
+      const live = {
+        ...SEARCH,
+        empty: false,
+        jumpStatus: "none",
+        jump: { direction: "previous", request: 1 },
+      };
+      updateState({ ...live, scrolling: false });
+      expect(source.resumeCalls).toBe(1);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
+    it("should return a paused view to its time when a filtered search changes", () => {
+      const entries = lines(400, []);
+      const filtered = { ...SEARCH, search: { text: "ok", filtered: true } };
+      const { leaf, source, updateState } = setup(entries, REGION_500, filtered);
+      const base = { ...filtered, region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 2000, scrolling: true });
+      source.exhausted = true;
+      updateState({
+        ...base,
+        wheelPos: 2000,
+        scrolling: true,
+        search: { text: "err", filtered: true },
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(leaf.state.jumpStatus).toBe("none");
+      const time = leaf.entries[leaf.scrollState.offset - 1].timestamp.valueOf();
+      source.exhausted = false;
+      // The source reloads only its newest entries when the filter changes.
+      source.setEntries(entries.slice(350));
+      const changed = { ...base, wheelPos: 2000, scrolling: true };
+      updateState({
+        ...changed,
+        search: { text: "o", filtered: true },
+        jumpStatus: "none",
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      source.setEntries(entries);
+      source.notify();
+      const shown = leaf.entries.filter((e) => e.timestamp.valueOf() <= time);
+      expect(leaf.scrollState.offset).toBe(shown.length);
+    });
+
+    it("should clear the jump status when the search changes", () => {
+      const { leaf, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
+      source.exhausted = true;
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("none");
+      updateState({
+        ...SEARCH,
+        search: { text: "ok" },
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      });
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+  });
+
   describe("color handling", () => {
     it("should use gray.l11 as text color when no custom color is set", () => {
       const { leaf } = setup([makeEntry(0)]);
