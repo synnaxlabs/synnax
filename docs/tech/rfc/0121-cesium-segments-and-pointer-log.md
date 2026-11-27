@@ -429,10 +429,13 @@ next log right after each switch, so a switch at three quarters finds it ready. 
 goes out as frames of at most 16 MiB, and a frame never ends past the commit limit
 unless it holds only deletes, Restarts, and Seals, and never past the end of the file. A
 frame that would cross three quarters goes to the next log once its file is ready; until
-then frames stop at those limits, and an entry that does not fit before them is refused.
-An entry larger than a frame is refused, so the compactor and progression encoding try
-no rewrite whose Replace would be larger than a frame. The file header is 64 bytes at
-offset 0, and again at 4,096. Frames start at 8,192.
+then frames stop at those limits. The first commit entry that does not fit before them
+is refused, and so is every later commit entry in queue order, of every writer, until
+the next log is ready, so the log stays a prefix of queue order for commits; deletes,
+Restarts, and Seals still go. Each writer of a refused entry takes the failure path of
+§5.4 step 4. An entry larger than a frame is refused, so the compactor and progression
+encoding try no rewrite whose Replace would be larger than a frame. The file header is
+64 bytes at offset 0, and again at 4,096. Frames start at 8,192.
 
 | Offset | Size | Type     | Meaning                                                                                                                                                                                                                                |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
