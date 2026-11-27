@@ -78,10 +78,22 @@ describe("UtilityButtons", () => {
     const TYPE = "test_read";
     const plotChannels: Task.PlotChannels = (config) =>
       Task.enabledChannels(configZ.parse(config).channels);
+    const ICD_TYPE = "test_icd_read";
+    const icdConfigZ = z.object({
+      channels: z.array(
+        z.object({
+          channel: z.number(),
+          field: z.object({ icd: z.string(), message: z.string(), key: z.string() }),
+        }),
+      ),
+    });
+    const icdPlotChannels: Task.PlotChannels = (config) =>
+      icdConfigZ.parse(config).channels;
 
     const renderPlot = async (
-      channels: { channel: number; disabled: boolean }[],
+      channels: object[],
       onStatuses?: (statuses: Status.NotificationSpec[]) => void,
+      type: string = TYPE,
     ) => {
       const { container, store } = await renderInTaskFormWithClient(
         <>
@@ -93,10 +105,12 @@ describe("UtilityButtons", () => {
           values: {
             key: "task_123",
             name: "My Task",
-            type: TYPE,
+            type,
             config: { channels },
           },
-          registry: createRegistry({ plotChannels: { [TYPE]: plotChannels } }),
+          registry: createRegistry({
+            plotChannels: { [TYPE]: plotChannels, [ICD_TYPE]: icdPlotChannels },
+          }),
         },
       );
       const proj = await client.projects.create({ name: uniqueName("proj") });
@@ -134,6 +148,88 @@ describe("UtilityButtons", () => {
         [value, index, text].map((channel) => ({ channel, disabled: false })),
       );
       expect((await findPlot(proj.key)).channels.y1).toEqual([value]);
+    });
+
+    /** @returns a channel for each units, filled by an ICD field with those units. */
+    const createFieldChannels = async (units: string[]) => {
+      const { key, messages } = await client.icds.create({
+        name: uniqueName("icd"),
+        messages: [
+          {
+            name: "m",
+            payload: {
+              format: "json",
+              fields: units.map((u, i) => ({
+                name: `f${i}`,
+                pointer: `/f${i}`,
+                type: "float",
+                units: u,
+              })),
+            },
+          },
+        ],
+      });
+      const [message] = messages;
+      return await Promise.all(
+        message.payload.fields.map(async (field) => ({
+          channel: await createChannel("float32"),
+          field: { icd: key, message: message.key, key: field.key },
+        })),
+      );
+    };
+
+    it("should give each unit an axis labeled with it, and channels with no units y1", async () => {
+      const fields = await createFieldChannels(["rpm", "", "degC", "rpm"]);
+      const proj = await renderPlot(fields, undefined, ICD_TYPE);
+      const { channels, axes } = await findPlot(proj.key);
+      const [rpm, none, degC, rpm2] = fields.map(({ channel }) => channel);
+      expect(channels).toMatchObject({
+        y1: [none],
+        y2: [rpm, rpm2],
+        y3: [degC],
+        y4: [],
+      });
+      expect([axes.y1.label, axes.y2.label, axes.y3.label]).toEqual([
+        "",
+        "rpm",
+        "degC",
+      ]);
+    });
+
+    it("should put the units past the fourth axis on y4", async () => {
+      const fields = await createFieldChannels(["V", "A", "Pa", "K", "Hz"]);
+      const proj = await renderPlot(fields, undefined, ICD_TYPE);
+      const { channels, axes } = await findPlot(proj.key);
+      const keys = fields.map(({ channel }) => channel);
+      expect(channels).toMatchObject({
+        y1: [keys[0]],
+        y2: [keys[1]],
+        y3: [keys[2]],
+        y4: [keys[3], keys[4]],
+      });
+      expect(axes.y4.label).toBe("K, Hz");
+    });
+
+    it("should put the channels of a deleted ICD on y1", async () => {
+      const fields = await createFieldChannels(["rpm"]);
+      const other = await createFieldChannels(["degC"]);
+      await client.icds.delete(fields[0].field.icd);
+      const proj = await renderPlot([...fields, ...other], undefined, ICD_TYPE);
+      const { channels, axes } = await findPlot(proj.key);
+      expect(channels).toMatchObject({
+        y1: [fields[0].channel],
+        y2: [other[0].channel],
+      });
+      expect([axes.y1.label, axes.y2.label]).toEqual(["", "degC"]);
+    });
+
+    it("should trim units, so blank units go on y1", async () => {
+      const fields = await createFieldChannels([" ", "rpm ", "rpm"]);
+      const proj = await renderPlot(fields, undefined, ICD_TYPE);
+      const { channels, axes } = await findPlot(proj.key);
+      const [blank, padded, rpm] = fields.map(({ channel }) => channel);
+      expect(channels).toMatchObject({ y1: [blank], y2: [padded, rpm] });
+      expect(axes.y2.label).toBe("rpm");
     });
 
     it("should report a task with no numeric channel to plot", async () => {

@@ -63,11 +63,11 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
-			Retarget: func(e *Secret, from, to rack.Key) {
+			Retarget: func(e *Secret, to map[rack.Key]rack.Key) {
 				switch v2 := e.Variant.(type) {
 				case FileSecret:
-					if v2.Rack == from {
-						v2.Rack = to
+					if t, ok := to[v2.Rack]; ok {
+						v2.Rack = t
 					}
 					e.Variant = v2
 				}

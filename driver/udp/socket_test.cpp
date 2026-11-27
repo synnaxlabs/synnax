@@ -188,7 +188,7 @@ TEST(Socket, ReceiveFromAnySender) {
     EXPECT_EQ(text(ASSERT_NIL_P(s->read(TIMEOUT))), "anyone");
     const auto err = s->write(bytes("x"), TIMEOUT);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "no remote host is set to send to");
+    EXPECT_EQ(err.data(), "no remote host is set to send to");
 }
 
 /// @brief it should keep reading and writing after a send to a port with no listener.
@@ -252,7 +252,7 @@ TEST(Socket, RefuseOversizedDatagram) {
     const auto err = s->write(big, TIMEOUT);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to send to 127.0.0.1:" + std::to_string(peer.port()) +
             ": 70000 bytes exceed the 65507 bytes of a datagram"
     );
@@ -263,8 +263,8 @@ TEST(Socket, FailWhenNoInterfaceHoldsAddress) {
     const Address addr{.local_address = "192.0.2.1"};
     const auto err = Socket::open(addr, TIMEOUT).second;
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
-    EXPECT_TRUE(err.data.starts_with("failed to bind UDP port 192.0.2.1:0: "))
-        << err.data;
+    EXPECT_TRUE(err.data().starts_with("failed to bind UDP port 192.0.2.1:0: "))
+        << err.data();
 }
 
 /// @brief it should refuse a port that another socket holds.
@@ -275,7 +275,7 @@ TEST(Socket, RefusePortInUse) {
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
     const auto prefix = "failed to bind UDP port 127.0.0.1:" +
                         std::to_string(peer.port()) + ": ";
-    EXPECT_TRUE(err.data.starts_with(prefix)) << err.data;
+    EXPECT_TRUE(err.data().starts_with(prefix)) << err.data();
 }
 
 /// @brief it should fail when the remote host does not resolve.
@@ -283,7 +283,8 @@ TEST(Socket, FailWhenHostDoesNotResolve) {
     const Address addr{.remote_host = "host.invalid", .remote_port = 80};
     const auto err = Socket::open(addr, TIMEOUT).second;
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
-    EXPECT_TRUE(err.data.starts_with("failed to resolve host.invalid: ")) << err.data;
+    EXPECT_TRUE(err.data().starts_with("failed to resolve host.invalid: "))
+        << err.data();
 }
 
 /// @brief it should refuse an invalid address.
@@ -291,7 +292,7 @@ TEST(Socket, RefuseInvalidAddress) {
     const auto assert_refuses = [](const Address &addr, const std::string &message) {
         const auto err = Socket::open(addr, TIMEOUT).second;
         ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-        EXPECT_EQ(err.data, message);
+        EXPECT_EQ(err.data(), message);
     };
     assert_refuses(
         {.remote_host = "127.0.0.1"},

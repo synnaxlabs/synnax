@@ -18,7 +18,7 @@ export const NETWORK: Device.Network = {
   key: INTEGRATION_KEY,
   name: "Kafka",
   title: "Kafka cluster",
-  description: "Consume and produce JSON messages on Kafka topics.",
+  description: "Consume and produce messages on Kafka topics.",
   icon: <Icon.Logo.Kafka />,
   make: MAKE,
   scanType: SCAN_TYPE,

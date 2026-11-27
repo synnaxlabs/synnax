@@ -82,7 +82,7 @@ int32_t synnax_writer_open(
 
         auto [writer, w_err] = client->client.telem.open_writer(wc);
         if (!w_err.ok()) {
-            set_err(err, CODE_ERROR, w_err.type, w_err.data);
+            set_err(err, CODE_ERROR, w_err.type(), w_err.data());
             return CODE_ERROR;
         }
         *out_writer = new SynnaxWriter(std::move(writer));
@@ -156,7 +156,7 @@ int32_t synnax_writer_write(
             );
         const auto w_err = writer->writer.write(frame);
         if (!w_err.ok()) {
-            set_err(err, CODE_ERROR, w_err.type, w_err.data);
+            set_err(err, CODE_ERROR, w_err.type(), w_err.data());
             return CODE_ERROR;
         }
         return CODE_OK;
@@ -250,7 +250,7 @@ int32_t synnax_writer_write_strings(
             );
         const auto w_err = writer->writer.write(frame);
         if (!w_err.ok()) {
-            set_err(err, CODE_ERROR, w_err.type, w_err.data);
+            set_err(err, CODE_ERROR, w_err.type(), w_err.data());
             return CODE_ERROR;
         }
         return CODE_OK;
@@ -273,7 +273,7 @@ synnax_writer_commit(SynnaxWriter *writer, int64_t *out_end_ts, SynnaxError *err
     try {
         auto [ts, c_err] = writer->writer.commit();
         if (!c_err.ok()) {
-            set_err(err, CODE_ERROR, c_err.type, c_err.data);
+            set_err(err, CODE_ERROR, c_err.type(), c_err.data());
             return CODE_ERROR;
         }
         if (out_end_ts != nullptr) *out_end_ts = ts.nanoseconds();
@@ -294,7 +294,7 @@ int32_t synnax_writer_close(SynnaxWriter *writer, SynnaxError *err) {
         const auto c_err = writer->writer.close();
         delete writer;
         if (!c_err.ok()) {
-            set_err(err, CODE_ERROR, c_err.type, c_err.data);
+            set_err(err, CODE_ERROR, c_err.type(), c_err.data());
             return CODE_ERROR;
         }
         return CODE_OK;

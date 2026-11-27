@@ -48,7 +48,6 @@ import {
   FaDocker,
   FaLinux,
   FaMicrophone,
-  FaMicrosoft,
   FaRegStar,
   FaSalesforce,
   FaStar,
@@ -231,7 +230,6 @@ import {
   SiFusionauth,
   SiGitea,
   SiGitlab,
-  SiGoogle,
   SiKeycloak,
   SiMqtt,
   SiNodedotjs,
@@ -289,11 +287,20 @@ import {
 
 import { CSS } from "@/css";
 import { Bridge } from "@/icon/Bridge";
+import { withBrandColor } from "@/icon/Colored";
 import { Device } from "@/icon/Device";
 import { EtherCAT } from "@/icon/EtherCAT";
 import { Fitting } from "@/icon/Fitting";
 import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
-import { Duo, JumpCloud, OneLogin, PingIdentity, Zitadel } from "@/icon/Identity";
+import {
+  Duo,
+  Google,
+  JumpCloud,
+  Microsoft,
+  OneLogin,
+  PingIdentity,
+  Zitadel,
+} from "@/icon/Identity";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
 import { New } from "@/icon/New";
@@ -437,41 +444,55 @@ export const QuestionMark = wrapSVGIcon(MdQuestionMark, "question-mark");
 export const Code = wrapSVGIcon(MdCode, "code");
 export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
 export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
+// Each color is the one the brand draws its logo in on that theme's background. Where a
+// brand gives no dark color, the dark one is its light color lifted to 4:1 contrast.
 export const Logo = {
   Apple: wrapSVGIcon(FaApple, "logo-apple"),
   Auth0: wrapSVGIcon(SiAuth0, "logo-auth0"),
-  Authelia: wrapSVGIcon(SiAuthelia, "logo-authelia"),
-  Authentik: wrapSVGIcon(SiAuthentik, "logo-authentik"),
-  AWS: wrapSVGIcon(FaAws, "logo-aws"),
-  Cloudflare: wrapSVGIcon(SiCloudflare, "logo-cloudflare"),
+  Authelia: withBrandColor(wrapSVGIcon(SiAuthelia, "logo-authelia"), {
+    light: "#3F51B4",
+    dark: "#6D86EE",
+  }),
+  Authentik: withBrandColor(wrapSVGIcon(SiAuthentik, "logo-authentik"), {
+    light: "#FD4B2D",
+  }),
+  AWS: withBrandColor(wrapSVGIcon(FaAws, "logo-aws"), "#FF9900"),
+  Cloudflare: withBrandColor(wrapSVGIcon(SiCloudflare, "logo-cloudflare"), "#F38020"),
   Docker: wrapSVGIcon(FaDocker, "logo-docker"),
-  Duo,
-  FusionAuth: wrapSVGIcon(SiFusionauth, "logo-fusionauth"),
-  Gitea: wrapSVGIcon(SiGitea, "logo-gitea"),
+  Duo: withBrandColor(Duo, "#74BF4B"),
+  FusionAuth: withBrandColor(wrapSVGIcon(SiFusionauth, "logo-fusionauth"), "#F58320"),
+  Gitea: withBrandColor(wrapSVGIcon(SiGitea, "logo-gitea"), "#609926"),
   Github: wrapSVGIcon(AiFillGithub, "logo-github"),
-  GitLab: wrapSVGIcon(SiGitlab, "logo-gitlab"),
-  Google: wrapSVGIcon(SiGoogle, "logo-google"),
-  JumpCloud,
-  Keycloak: wrapSVGIcon(SiKeycloak, "logo-keycloak"),
-  LabJack,
-  LinkedIn: wrapSVGIcon(AiFillLinkedin, "logo-linkedin"),
+  GitLab: withBrandColor(wrapSVGIcon(SiGitlab, "logo-gitlab"), "#E24329"),
+  Google,
+  JumpCloud: withBrandColor(JumpCloud, { light: "#002B49" }),
+  Keycloak: withBrandColor(wrapSVGIcon(SiKeycloak, "logo-keycloak"), {
+    light: "#00B8E3",
+  }),
+  LabJack: withBrandColor(LabJack, { light: "#8D0200", dark: "#E26050" }),
+  LinkedIn: withBrandColor(wrapSVGIcon(AiFillLinkedin, "logo-linkedin"), {
+    light: "#0A66C2",
+  }),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
-  Microsoft: wrapSVGIcon(FaMicrosoft, "logo-microsoft"),
+  Microsoft,
   Modbus,
-  MQTT: wrapSVGIcon(SiMqtt, "logo-mqtt"),
-  NI,
+  MQTT: withBrandColor(wrapSVGIcon(SiMqtt, "logo-mqtt"), { light: "#660066" }),
+  NI: withBrandColor(NI, "#03B585"),
   Okta: wrapSVGIcon(SiOkta, "logo-okta"),
   OneLogin,
-  OpenID: wrapSVGIcon(SiOpenid, "logo-openid"),
+  OpenID: withBrandColor(wrapSVGIcon(SiOpenid, "logo-openid"), { light: "#F7931E" }),
   Ory: wrapSVGIcon(SiOry, "logo-ory"),
   OPCUA,
   PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
-  PingIdentity,
-  Salesforce: wrapSVGIcon(FaSalesforce, "logo-salesforce"),
+  PingIdentity: withBrandColor(PingIdentity, { light: "#D20E0F", dark: "#F84337" }),
+  Salesforce: withBrandColor(wrapSVGIcon(FaSalesforce, "logo-salesforce"), "#00B3FF"),
   Sift,
-  Windows: wrapSVGIcon(FaWindows, "logo-windows"),
+  Windows: withBrandColor(wrapSVGIcon(FaWindows, "logo-windows"), {
+    light: "#0078D4",
+    dark: "#2F92F0",
+  }),
   EtherCAT,
-  Zitadel,
+  Zitadel: withBrandColor(Zitadel, "#FF8F00"),
   // Crops the view box to the mark, which fills only a thin strip of the original.
   HTTP: wrapSVGIcon((props) => <MdHttp {...props} viewBox="1 9 22 6" />, "logo-http"),
   Kafka: wrapSVGIcon(SiApachekafka, "logo-kafka"),

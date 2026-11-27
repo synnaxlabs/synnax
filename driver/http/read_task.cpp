@@ -186,7 +186,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             failed++;
             warnings.push_back(
                 std::string(to_string(req.method)) + " " + req.url +
-                " failed: " + req_err.data
+                " failed: " + req_err.data()
             );
             continue;
         }
@@ -214,7 +214,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         );
         if (read_err) {
             warnings.push_back(
-                "Failed to read the response from " + ep.path + ": " + read_err.data
+                "Failed to read the response from " + ep.path + ": " + read_err.data()
             );
             continue;
         }
@@ -231,7 +231,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             else
                 warnings.push_back(
                     "Failed to convert " + pointer + " for channel " +
-                    this->readers.channels.at(f.channel).name + ": " + f.error.data
+                    this->readers.channels.at(f.channel).name + ": " + f.error.data()
                 );
         }
     }
