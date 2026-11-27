@@ -90,8 +90,7 @@ std::pair<Readers, x::errors::Error> build_readers(
                 ),
             };
         auto [reader, err] = driver::icd::Reader::create(
-            ep.messages,
-            *ic,
+            {{.ic = *ic, .reads = ep.messages}},
             readers.channels
         );
         if (err) return {Readers{}, err.wrap(name)};

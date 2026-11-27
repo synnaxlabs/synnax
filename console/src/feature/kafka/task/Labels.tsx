@@ -25,7 +25,6 @@ export const TopicLabel = ({ name }: { name: string }): ReactElement => (
     kind="Topic"
     kindColor={TOPIC_KIND_COLOR}
     color={name === "" ? 8 : 10}
-    variant="code"
   >
     {name === "" ? "New topic" : name}
   </Task.Views.ItemLabel>
@@ -50,10 +49,7 @@ export const RecordLabel = ({
   const formats = ICD.useFormats();
   const format = PForm.useFieldValue(
     PICD.formPath.messages[message ?? ""].payload.format,
-    {
-      optional: true,
-      ctx: formats.get(icdKey),
-    },
+    { optional: true, ctx: formats.get(icdKey) },
   );
   return (
     <Flex.Box x align="center" className={CSS.B("kafka-record-label")}>
@@ -61,7 +57,6 @@ export const RecordLabel = ({
         kind={ICD.FORMAT_KINDS[format ?? "json"]}
         kindColor="var(--pluto-secondary-z)"
         color={recordKey === "" ? 8 : 10}
-        variant="code"
       >
         {recordKey === "" ? emptyLabel : recordKey}
       </Task.Views.ItemLabel>

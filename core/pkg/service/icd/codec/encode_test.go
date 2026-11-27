@@ -158,7 +158,8 @@ var _ = Describe("JSONEncoder", func() {
 				By("message " + m.Name)
 				enc := MustSucceed(codec.NewJSONEncoder(m))
 				for k, c := range f.Cases {
-					if c.Error != "" || c.Unmatched || c.Message != m.Name {
+					if c.Error != "" || len(c.Failures) > 0 || c.Unmatched ||
+						c.Message != m.Name {
 						continue
 					}
 					By("case " + strconv.Itoa(k))

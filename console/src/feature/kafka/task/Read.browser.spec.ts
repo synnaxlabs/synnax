@@ -21,6 +21,7 @@ import {
   holdRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import {
   array,
   DataType,
@@ -405,6 +406,8 @@ describe("Kafka read form", () => {
       expect(screen.getAllByRole("treeitem", { name: /JSON.*Any key/ })).toHaveLength(
         2,
       );
+      expect(treatment(screen.getByText("plant"))).toBe("prose");
+      expect(treatment(screen.getAllByText("Any key")[0])).toBe("prose");
     });
 
     it("should show no topics for a new task", async () => {

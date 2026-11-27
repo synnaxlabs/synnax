@@ -33,7 +33,15 @@
     },
     {
       "document": { "v": 1e39 },
-      "error": "field v: 1e39 overflows float32: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: 1e39 overflows float32: validation error"
+        }
+      ]
     }
   ]
 }
