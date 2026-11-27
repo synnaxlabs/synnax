@@ -337,6 +337,23 @@ TEST(Devices, FailsOnDeviceWhosePortIsHeld) {
     )) << err.data();
 }
 
+/// @brief it should acquire a device whose remote host does not resolve, and report the
+/// failed resolve on its turn.
+TEST(Devices, AcquiresDeviceWhoseRemoteDoesNotResolve) {
+    Devices devices;
+    Device dev{.key = "unresolved", .name = "unresolved"};
+    dev.props.local_address = "127.0.0.1";
+    dev.props.local_port = free_port();
+    dev.props.remote = synnax::udp::Remote{.host = "nonexistent.invalid", .port = 9000};
+    const auto conn = ASSERT_NIL_P(devices.acquire(dev));
+    auto guard = conn->lock();
+    const auto [socket, err] = guard.transport();
+    EXPECT_EQ(socket, nullptr);
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    EXPECT_TRUE(err.data().starts_with("failed to resolve nonexistent.invalid: "))
+        << err.data();
+}
+
 /// @brief it should fail to configure a task with no device and no entry or target, and
 /// name each.
 TEST(UDPFactory, NamesMissingFields) {
