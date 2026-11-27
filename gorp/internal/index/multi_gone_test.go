@@ -128,7 +128,7 @@ var _ = Describe("Multi gone keys", func() {
 			m.Stage(txn, 7, nil)
 			m.StageDelete(txn, 8)
 		}
-		<-done
+		Eventually(done).Should(BeClosed())
 		txn.end(false)
 		Expect(m.Holding(nil, false)).To(ConsistOf(7, 8))
 	})
