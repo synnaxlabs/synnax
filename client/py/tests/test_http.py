@@ -708,12 +708,12 @@ class TestHTTPRequestRows:
     def test_rejects_a_header_with_no_name(self) -> None:
         """Should reject a header row with no name."""
         with pytest.raises(ValidationError):
-            sy.http.Header(name="", value="json")
+            http.Header(name="", value="json")
 
     def test_rejects_a_query_parameter_with_no_name(self) -> None:
         """Should reject a query parameter row with no name."""
         with pytest.raises(ValidationError):
-            sy.http.QueryParam(parameter="", value="1")
+            http.QueryParam(parameter="", value="1")
 
     def test_keeps_absent_health_check_rows(self) -> None:
         """Should keep health check rows that a stored device omits."""
