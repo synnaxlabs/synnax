@@ -48,6 +48,15 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
         return {transport::CONFIG_ERROR, "macOS does not support mark or space parity"};
     if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
         return {transport::CONFIG_ERROR, "macOS does not support 1.5 stop bits"};
+    // The port moves raw bytes, with no line editing, echo, signals, or output
+    // processing.
+    settings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+    settings.c_iflag |= IGNPAR;
+    settings.c_oflag &= ~OPOST;
+    settings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    settings.c_cflag |= CREAD | CLOCAL;
+    settings.c_cc[VMIN] = 1;
+    settings.c_cc[VTIME] = 0;
     if (standard_rate(props.baud_rate))
         ::cfsetspeed(&settings, static_cast<speed_t>(props.baud_rate));
     settings.c_cflag &= ~CSIZE;

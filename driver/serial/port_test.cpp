@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
@@ -260,6 +261,22 @@ TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
     // A macOS pseudo-terminal lets programs without root open past TIOCEXCL.
     EXPECT_TRUE(exclusive(this->path()));
 #endif
+}
+
+/// @brief it should refuse a second open without changing the settings of the port in
+/// use.
+TEST_F(PtyTest, RefusesASecondOpenWithoutChangingTheSettingsOfThePortInUse) {
+    auto p = this->props();
+    p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
+    const auto first = ASSERT_NIL_P(Port::open(p));
+    const auto before = this->termios();
+    ASSERT_OCCURRED_AS_P(Port::open(this->props()), transport::UNREACHABLE_ERROR);
+    const auto after = this->termios();
+    EXPECT_EQ(after.c_iflag, before.c_iflag);
+    EXPECT_EQ(after.c_oflag, before.c_oflag);
+    EXPECT_EQ(after.c_cflag, before.c_cflag);
+    EXPECT_EQ(after.c_lflag, before.c_lflag);
+    EXPECT_TRUE(std::ranges::equal(after.c_cc, before.c_cc));
 }
 
 /// @brief it should refuse settings outside the schema and release the port.

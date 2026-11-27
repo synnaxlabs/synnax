@@ -25,11 +25,8 @@ namespace driver::serial::native {
 /// @brief a file descriptor on POSIX or a HANDLE on Windows.
 using Handle = std::intptr_t;
 
-/// @brief keeps other programs from opening the port while the Driver holds it.
-/// @returns UNREACHABLE_ERROR when another program holds the port.
-x::errors::Error lock(Handle handle, const std::string &port);
-
-/// @brief lets other programs open the port once the Driver closes it.
+/// @brief lets other programs open the port that device::open locked once the Driver
+/// closes it.
 void unlock(Handle handle);
 
 /// @brief applies the line settings in props to the open port. props must pass the

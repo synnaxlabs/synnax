@@ -22,6 +22,7 @@ cc_library(
         "//conditions:default": [],
     }),
     hdrs = [
+        "device.h",
         "errors.h",
         "line.h",
         "native.h",

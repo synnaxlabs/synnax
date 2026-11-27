@@ -26,6 +26,15 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
     if (auto err = check(props)) return err;
     if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
         return {transport::CONFIG_ERROR, "Linux does not support 1.5 stop bits"};
+    // The port moves raw bytes, with no line editing, echo, signals, or output
+    // processing.
+    settings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+    settings.c_iflag |= IGNPAR;
+    settings.c_oflag &= ~OPOST;
+    settings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    settings.c_cflag |= CREAD | CLOCAL;
+    settings.c_cc[VMIN] = 1;
+    settings.c_cc[VTIME] = 0;
     settings.c_cflag &= ~(CBAUD | (CBAUD << IBSHIFT));
     settings.c_cflag |= BOTHER | (BOTHER << IBSHIFT);
     settings.c_ispeed = props.baud_rate;
