@@ -893,6 +893,34 @@ TEST_F(TaskManagerTest, BootFailsAStartLeftLoading) {
     );
     EXPECT_FALSE(s.details.running);
     EXPECT_EQ(s.details.cmd, "start-cmd");
+    EXPECT_EQ(s.details.config_hash, task.config_hash);
+}
+
+/// @brief it should fail a start that a previous Driver run left loading with no
+/// config hash when the boot deploy builds no instance.
+TEST_F(TaskManagerTest, BootFailsAStartLeftLoadingWithNoInstance) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status loading;
+    loading.key = "boot-loading-unhandled";
+    loading.owner = synnax::task::resource_id(task.key);
+    loading.name = task.name;
+    loading.variant = synnax::status::VARIANT_LOADING;
+    loading.message = "Starting task";
+    loading.time = x::telem::TimeStamp::now();
+    loading.details.rack = rack.key;
+    loading.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(loading));
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Failed to start task";
+    });
+    EXPECT_FALSE(s.details.running);
+    EXPECT_TRUE(s.details.config_hash.empty());
 }
 
 /// @brief stores a status of task as an earlier Driver run left it, with "stored" as

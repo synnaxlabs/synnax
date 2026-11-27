@@ -901,8 +901,14 @@ void Manager::execute_op(
     // Only a boot deploy carries the stored task, and with it the stored status. A
     // cancelled one is answered by the stop that cancelled it, or by the next run.
     if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil() &&
-        operation.token().running())
-        this->replace_interrupted_status(op.task);
+        operation.token().running()) {
+        std::string deployed;
+        {
+            std::lock_guard entry_lock{entry->mu};
+            deployed = entry->deployed_hash;
+        }
+        this->replace_interrupted_status(op.task, deployed);
+    }
 }
 
 void Manager::announce_start(const synnax::task::Key &key, Operation &operation) {
@@ -919,7 +925,10 @@ void Manager::announce_start(const synnax::task::Key &key, Operation &operation)
     operation.step(status, this->op_timeout);
 }
 
-void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
+void Manager::replace_interrupted_status(
+    const synnax::task::Task &tsk,
+    const std::string &deployed_hash
+) {
     // A task that answered its own deploy, such as with an auto-start, owns its status.
     if (!tsk.status.has_value() || this->statuses->latest(tsk.key).has_value()) return;
     // A task moved here runs on its old Driver until a start arrives.
@@ -935,6 +944,7 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
+    status.details.config_hash = deployed_hash;
     const std::string cause = this->boot_run == 0 || this->runs == this->boot_run
                                 ? "The Driver restarted"
                                 : "The Driver lost its connection to the Core";

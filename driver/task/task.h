@@ -643,8 +643,12 @@ private:
     /// as stopped responding counts as running. Replaces only a status for this rack,
     /// does nothing once this Driver wrote a status for the task, and never starts the
     /// task. Call it after a boot deploy that configured the task, unless the deploy
-    /// was cancelled.
-    void replace_interrupted_status(const synnax::task::Task &tsk);
+    /// was cancelled. deployed_hash is the config hash of the instance that the deploy
+    /// built, or empty for none.
+    void replace_interrupted_status(
+        const synnax::task::Task &tsk,
+        const std::string &deployed_hash
+    );
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);
     /// @brief answers a stop that cancelled the start of a task, which left no live
