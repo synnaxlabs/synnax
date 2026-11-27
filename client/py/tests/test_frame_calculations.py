@@ -195,9 +195,9 @@ class TestCalculatedChannelIteration:
         data_ser = res[calc_channel.key]
         assert len(ts_ser) == 3
         assert ts_ser.alignment == data_ser.alignment
-        assert np.array_equal(ts_ser, np.array(idx_data_1, dtype=ts_ser.data_type.np))
+        assert np.array_equal(ts_ser, np.array(idx_data_1, dtype=np.int64))
         assert np.array_equal(
-            data_ser, np.array(src_data_1, dtype=data_ser.data_type.np)
+            data_ser, np.array(src_data_1, dtype=calc_channel.data_type.np)
         )
 
         idx_data_2 = seconds_linspace(9, count=3)
@@ -220,7 +220,7 @@ class TestCalculatedChannelIteration:
         assert ts_ser.alignment == data_ser.alignment
         assert np.array_equal(
             ts_ser,
-            np.array(idx_data_1 + idx_data_2, dtype=ts_ser.data_type.np),
+            np.array(idx_data_1 + idx_data_2, dtype=np.int64),
         )
 
         idx_data_0 = seconds_linspace(1, count=2)
@@ -243,11 +243,13 @@ class TestCalculatedChannelIteration:
         assert ts_ser.alignment == data_ser.alignment
         assert np.array_equal(
             ts_ser,
-            np.array(idx_data_0 + idx_data_1 + idx_data_2, dtype=ts_ser.data_type.np),
+            np.array(idx_data_0 + idx_data_1 + idx_data_2, dtype=np.int64),
         )
         assert np.array_equal(
             data_ser,
-            np.array(src_data_0 + src_data_1 + src_data_2, dtype=data_ser.data_type.np),
+            np.array(
+                src_data_0 + src_data_1 + src_data_2, dtype=calc_channel.data_type.np
+            ),
         )
 
     def test_conditional_calculated_channel(self, client: sy.Synnax) -> None:
@@ -297,9 +299,9 @@ class TestCalculatedChannelIteration:
         data_ser = res[calc_channel.key]
         assert len(ts_ser) == 3
         assert ts_ser.alignment == data_ser.alignment
-        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=np.int64))
         assert np.array_equal(
-            data_ser, np.array([5, 4, 4], dtype=data_ser.data_type.np)
+            data_ser, np.array([5, 4, 4], dtype=calc_channel.data_type.np)
         )
 
     def test_calculation_deleted_channel(self, client: sy.Synnax) -> None:
@@ -348,9 +350,9 @@ class TestCalculatedChannelIteration:
         data_ser = res[calc_channel.key]
         assert len(ts_ser) == 3
         assert ts_ser.alignment == data_ser.alignment
-        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=np.int64))
         assert np.array_equal(
-            data_ser, np.array([5, 4, 4], dtype=data_ser.data_type.np)
+            data_ser, np.array([5, 4, 4], dtype=calc_channel.data_type.np)
         )
         client.channels.delete(src_channel.key)
         with pytest.raises(Exception, match="undefined symbol"):
@@ -422,7 +424,7 @@ class TestCalculatedChannelIteration:
         assert np.array_equal(
             data_ser, np.array([12.0, 14.0, 16.0, 18.0, 20.0], dtype=np.float32)
         )
-        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=np.int64))
 
     def test_nested_calculated_channels_3_level(self, client: sy.Synnax) -> None:
         """Should correctly handle 3-level nested calculated channels (D → C → B → A)"""
@@ -489,7 +491,7 @@ class TestCalculatedChannelIteration:
         assert np.array_equal(
             data_ser, np.array([21.0, 27.0, 33.0, 39.0, 45.0], dtype=np.float32)
         )
-        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=np.int64))
 
     def test_nested_calculated_channels_diamond(self, client: sy.Synnax) -> None:
         """Should correctly handle diamond dependency pattern (E → C & D → A)"""
@@ -556,7 +558,7 @@ class TestCalculatedChannelIteration:
         assert np.array_equal(
             data_ser, np.array([16.0, 22.0, 28.0, 34.0, 40.0], dtype=np.float32)
         )
-        assert np.array_equal(ts_ser, np.array(idx_data, dtype=ts_ser.data_type.np))
+        assert np.array_equal(ts_ser, np.array(idx_data, dtype=np.int64))
 
     def test_circular_dependency_detection(self, client: sy.Synnax) -> None:
         """Should detect circular dependencies at channel creation time"""

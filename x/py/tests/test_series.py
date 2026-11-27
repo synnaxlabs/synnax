@@ -720,6 +720,10 @@ class TestMultiSeries:
         s = telem.MultiSeries([s1, s2])
         assert len(s) == 6
 
+    def test_empty_data_type(self) -> None:
+        """Should have no data type when it holds no series"""
+        assert telem.MultiSeries([]).data_type is None
+
     def test_construction_from_tuple(self) -> None:
         """Should accept a tuple and keep the series in order"""
         s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
