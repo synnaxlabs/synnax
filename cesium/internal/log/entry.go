@@ -57,8 +57,13 @@ func (e *Entry) Bytes() []byte {
 }
 
 // AddDeleteSeal appends s, the Seal of a segment that a Tombstone left with no live
-// pointer, as Add does.
-func (e *Entry) AddDeleteSeal(s *Seal) { e.Add(s) }
+// pointer. Unlike Add, it leaves the entry free to use the delete reserve, since the
+// delete frees nothing until the segment is sealed.
+func (e *Entry) AddDeleteSeal(s *Seal) {
+	fenced := e.fenced
+	e.Add(s)
+	e.fenced = fenced
+}
 
 // Reset empties the entry and keeps its byte buffer. It does not reuse the slice of
 // records that an Append took.
