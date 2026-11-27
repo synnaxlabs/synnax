@@ -344,8 +344,8 @@ func (r *snapshotRequest) run(s *State) {
 // claim with no owner and sends no error that a later call would receive.
 type waited struct {
 	request
-	// taken is waiting while the request waits, then taken once the owner takes it,
-	// or abandoned once its caller gives up.
+	// taken is waiting while the request waits, then taken once the owner takes it, or
+	// abandoned once its caller gives up.
 	taken atomic.Int32
 }
 
@@ -368,9 +368,8 @@ func (r *waited) fail(err error) {
 }
 
 // waitFor queues r for the owner and returns the error that done receives. When ctx
-// ends
-// before the owner takes r, it returns the error of ctx. Once the owner takes r, it
-// waits for r to end.
+// ends before the owner takes r, it returns the error of ctx. Once the owner takes r,
+// it waits for r to end.
 func waitFor(ctx context.Context, s *State, r request, done chan error) error {
 	w := &waited{request: r}
 	if err := s.enqueue(w); err != nil {

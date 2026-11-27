@@ -39,8 +39,8 @@ type Segment struct {
 	DataType uint8
 	// Sealed is true when the segment never grows again.
 	Sealed bool
-	// Length is the committed length in stream bytes, and TailCRC the running
-	// checksum of the unfinished last block there.
+	// Length is the committed length in stream bytes, and TailCRC the running checksum
+	// of the unfinished last block there.
 	Length, TailCRC uint32
 	// Pointers are the committed ranges, in stream order.
 	Pointers []Pointer
