@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <deque>
 #include <mutex>
 #include <optional>
 #include <thread>
@@ -193,10 +194,13 @@ private:
     /// @brief orders writes to ctx. Held during a write, so a write that blocks on the
     /// Core never holds mu. Acquire before mu.
     std::mutex write_mu;
-    /// @brief guards pending, sent, sent_at, closed, background, and last.
+    /// @brief guards answers, pending, sent, sent_at, closed, background, and last.
     std::mutex mu;
     /// @brief wakes the flusher when a status starts to wait or the handler closes.
     std::condition_variable cv;
+    /// @brief command answers that wait for a write in progress. The flusher sends them
+    /// in order, before pending and outside the window, even after close.
+    std::deque<synnax::task::Status> answers;
     /// @brief the latest status that waits for the window to end.
     std::optional<synnax::task::Status> pending;
     /// @brief the last status written to ctx.
@@ -244,6 +248,11 @@ private:
             return;
         }
         this->pending = std::move(status);
+        this->wake_flusher();
+    }
+
+    /// @brief starts the flusher on first use and wakes it. Requires mu.
+    void wake_flusher() {
         if (!this->flusher.joinable())
             this->flusher = std::thread([this] { this->flush(); });
         this->cv.notify_one();
@@ -257,23 +266,29 @@ private:
         return status;
     }
 
-    /// @brief sends the current status at once, outside the window, because the Console
-    /// waits for command acknowledgments. The status carries the latest state, so it
-    /// replaces a pending one.
+    /// @brief sends the current status outside the window, because the Console waits
+    /// for command acknowledgments. The status carries the latest state, so it replaces
+    /// a pending one. While another write is in progress, the flusher sends it after
+    /// that write. Never waits for a write.
     void set_status() {
         {
-            std::lock_guard write_lock(this->write_mu);
-            synnax::task::Status out;
+            std::unique_lock write_lock(this->write_mu, std::try_to_lock);
+            std::optional<synnax::task::Status> out;
             {
                 std::lock_guard lock(this->mu);
                 this->pending.reset();
                 out = this->take(this->status);
                 this->last = this->status;
                 this->last->details.cmd = driver::task::NO_COMMAND;
+                if (!write_lock.owns_lock() || !this->answers.empty()) {
+                    this->answers.push_back(std::move(*out));
+                    out.reset();
+                    this->wake_flusher();
+                }
                 // A command answer never shows background, so show it again after.
                 if (!this->closed) this->defer(this->shown(*this->last));
             }
-            this->ctx->set_status(out);
+            if (out.has_value()) this->ctx->set_status(*out);
         }
         // The key answers one command. Later unsolicited updates reuse this status
         // object and must not claim it.
@@ -294,8 +309,8 @@ private:
             this->last = this->status;
             auto status = this->shown(this->status);
             const auto now = std::chrono::steady_clock::now();
-            if (!write_lock.owns_lock() || same(status, this->sent) ||
-                now - this->sent_at < this->window) {
+            if (!write_lock.owns_lock() || !this->answers.empty() ||
+                same(status, this->sent) || now - this->sent_at < this->window) {
                 this->defer(std::move(status));
                 return;
             }
@@ -306,19 +321,22 @@ private:
         this->ctx->set_status(out);
     }
 
-    /// @brief sends each pending status when its window ends, until the handler closes.
+    /// @brief sends each command answer that waits, and each pending status when its
+    /// window ends, until the handler closes and no answer waits.
     void flush() {
         std::unique_lock lock(this->mu);
-        while (!this->closed) {
-            if (!this->pending.has_value()) {
-                this->cv.wait(lock);
-                continue;
-            }
-            // Another thread can start a new window while the flusher waits.
-            const auto deadline = this->sent_at + this->window;
-            if (std::chrono::steady_clock::now() < deadline) {
-                this->cv.wait_until(lock, deadline);
-                continue;
+        while (!this->closed || !this->answers.empty()) {
+            if (this->answers.empty()) {
+                if (!this->pending.has_value()) {
+                    this->cv.wait(lock);
+                    continue;
+                }
+                // Another thread can start a new window while the flusher waits.
+                const auto deadline = this->sent_at + this->window;
+                if (std::chrono::steady_clock::now() < deadline) {
+                    this->cv.wait_until(lock, deadline);
+                    continue;
+                }
             }
             // write_mu comes before mu, and another writer can take the pending status
             // or start a window while mu is released.
@@ -326,12 +344,21 @@ private:
             {
                 std::lock_guard write_lock(this->write_mu);
                 lock.lock();
-                if (this->closed || !this->pending.has_value() ||
-                    std::chrono::steady_clock::now() < this->sent_at + this->window)
+                synnax::task::Status status;
+                if (!this->answers.empty()) {
+                    status = std::move(this->answers.front());
+                    this->answers.pop_front();
+                    // The answer waited for the write before it.
+                    status.time = x::telem::TimeStamp::now();
+                } else if (
+                    !this->closed && this->pending.has_value() &&
+                    std::chrono::steady_clock::now() >= this->sent_at + this->window
+                ) {
+                    this->sent_at = std::chrono::steady_clock::now();
+                    status = this->take(std::move(*this->pending));
+                    this->pending.reset();
+                } else
                     continue;
-                this->sent_at = std::chrono::steady_clock::now();
-                auto status = this->take(std::move(*this->pending));
-                this->pending.reset();
                 lock.unlock();
                 this->ctx->set_status(status);
             }

@@ -483,6 +483,43 @@ TEST(TestBackgroundWarning, WarningSkipsABlockedWrite) {
     );
 }
 
+/// @brief it should answer commands at once while another status write blocks, and
+/// send each answer in order when the write ends, even after close.
+TEST(TestBackgroundWarning, AnswersSkipABlockedWrite) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    std::atomic blocking = false;
+    std::promise<void> release;
+    const auto released = release.get_future().share();
+    std::atomic writing = false;
+    ctx->on_set_status = [&] {
+        if (!blocking) return;
+        writing = true;
+        released.wait();
+    };
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
+    start(handler);
+    blocking = true;
+    handler.set_background_warning(BACKGROUND);
+    ASSERT_EVENTUALLY_TRUE(writing.load());
+    auto answer = std::async(std::launch::async, [&] {
+        handler.send_stop("stop");
+        handler.send_start("start");
+        handler.close();
+    });
+    const auto status = answer.wait_for(std::chrono::seconds(1));
+    blocking = false;
+    release.set_value();
+    ASSERT_EQ(status, std::future_status::ready);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 4);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[1].message, BACKGROUND.message);
+    EXPECT_EQ(statuses[2].details.cmd, "stop");
+    EXPECT_FALSE(statuses[2].details.running);
+    EXPECT_EQ(statuses[3].details.cmd, "start");
+    EXPECT_TRUE(statuses[3].details.running);
+}
+
 /// @brief it should not show a background warning while the task is stopped.
 TEST(TestBackgroundWarning, HiddenWhileStopped) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
