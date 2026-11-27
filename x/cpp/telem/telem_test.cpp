@@ -1594,6 +1594,17 @@ TEST(SizeTests, testParseFieldInvalidNumber) {
     ASSERT_EQ(parser.error_json()["errors"].size(), 2);
 }
 
+/// @brief it should reject a fractional JSON number and accept a whole one.
+TEST(SizeTests, testParseFieldFractionalNumber) {
+    json::Parser parser(json::json{{"fraction", 1.5}, {"whole", 2.0}});
+    ASSERT_EQ(parser.field<Size>("fraction"), Size());
+    ASSERT_EQ(parser.field<Size>("whole"), Size(2));
+    const auto errs = parser.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    ASSERT_EQ(errs[0]["path"], "fraction");
+    ASSERT_EQ(errs[0]["message"], "fractional numbers are not allowed");
+}
+
 /// @brief it should write a size to JSON as a number of bytes.
 TEST(SizeTests, testToJSON) {
     ASSERT_EQ((4 * MEGABYTE).to_json(), 4'000'000);

@@ -880,8 +880,8 @@ public:
     static std::pair<Size, errors::Error> parse(const std::string &text);
 
     /// @brief parses a size from a JSON number of bytes or a string accepted by
-    /// parse(const std::string &). Binds an error to the parser for a negative number
-    /// or a malformed string.
+    /// parse(const std::string &). Binds an error to the parser for a negative or
+    /// fractional number or a malformed string.
     /// @param parser the parser at the size value.
     static Size parse(x::json::Parser parser);
 
@@ -1059,7 +1059,12 @@ inline std::pair<Size, errors::Error> Size::parse(const std::string &text) {
 }
 
 inline Size Size::parse(x::json::Parser parser) {
-    if (!parser.get_json().is_string()) {
+    const auto j = parser.get_json();
+    if (!j.is_string()) {
+        if (j.is_number_float() && std::trunc(j.get<double>()) != j.get<double>()) {
+            parser.field_err("", "fractional numbers are not allowed");
+            return Size();
+        }
         const auto bytes = parser.field<std::int64_t>();
         if (bytes < 0) {
             parser.field_err("", "must be greater than or equal to 0");
