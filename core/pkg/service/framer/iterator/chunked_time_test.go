@@ -119,4 +119,78 @@ var _ = Describe("Chunked time", func() {
 		}
 		Expect(bounds).To(ContainElement(values[0].AlignmentBounds()))
 	})
+	It("Should read the time of the latest samples when the read requests the index",
+		func(ctx SpecContext) {
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:      channel.Keys{idx.Key(), d1.Key()},
+				Bounds:    telem.TimeRangeMax,
+				ChunkSize: 3,
+			}))
+			Expect(iter.SeekLast()).To(BeTrue())
+			Expect(iter.Prev(iterator.AutoSpan)).To(BeTrue())
+			fr := iter.Value()
+			Expect(iter.Close()).To(Succeed())
+			values := fr.Get(d1.Key()).Series
+			Expect(values).To(HaveLen(1))
+			stamps := fr.Get(idx.Key()).Series
+			bounds := make([]telem.AlignmentBounds, 0, len(stamps))
+			for _, s := range stamps {
+				bounds = append(bounds, s.AlignmentBounds())
+			}
+			Expect(bounds).To(ContainElement(values[0].AlignmentBounds()))
+		},
+	)
+
+	It("Should read the time of two clocks whose series share alignment bounds",
+		func(ctx SpecContext) {
+			other := &channel.Channel{
+				Name:     "other_index",
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, other)
+			})).To(Succeed())
+			data := &channel.Channel{
+				Name:       "other_data",
+				DataType:   telem.Float32T,
+				LocalIndex: other.LocalKey,
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, data)
+			})).To(Succeed())
+			keys := channel.Keys{other.Key(), data.Key()}
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: 20 * telem.SecondTS,
+				Keys:  keys,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(20, 21, 22),
+				telem.NewSeriesV[float32](4, 5, 6),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+				Keys:      channel.Keys{d1.Key(), data.Key()},
+				Bounds:    telem.TimeRangeMax,
+				ChunkSize: 3,
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+			fr := iter.Value()
+			Expect(iter.Close()).To(Succeed())
+			for clock, key := range map[channel.Key]channel.Key{
+				idx.Key():   d1.Key(),
+				other.Key(): data.Key(),
+			} {
+				values := fr.Get(key).Series
+				Expect(values).To(HaveLen(1))
+				stamps := fr.Get(clock).Series
+				bounds := make([]telem.AlignmentBounds, 0, len(stamps))
+				for _, s := range stamps {
+					bounds = append(bounds, s.AlignmentBounds())
+				}
+				Expect(bounds).To(ContainElement(values[0].AlignmentBounds()))
+			}
+		},
+	)
 })
