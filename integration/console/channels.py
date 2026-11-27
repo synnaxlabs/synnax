@@ -94,7 +94,7 @@ class ChannelClient(ResourceClient):
         self,
         *,
         name: str,
-        data_type: sy.telem.CrudeDataType = sy.DataType.UNKNOWN,
+        data_type: sy.telem.CrudeDataType | None = None,
         is_index: bool = False,
         index: str = "",
         virtual: bool = False,
@@ -117,6 +117,8 @@ class ChannelClient(ResourceClient):
                 self._select_kind("Virtual")
             elif not index:
                 raise ValueError("Index must be provided if is_index is False")
+            if data_type is None:
+                raise ValueError("Data type must be provided if is_index is False")
             data_type_str = str(sy.DataType(data_type))
             self.layout.click_btn("Data type")
             self.layout.select_from_dropdown(
@@ -149,7 +151,7 @@ class ChannelClient(ResourceClient):
 
         for i, ch_config in enumerate(channels):
             name = ch_config["name"]
-            data_type = ch_config.get("data_type", sy.DataType.UNKNOWN)
+            data_type = ch_config.get("data_type")
             is_index = ch_config.get("is_index", False)
             index = ch_config.get("index", "")
             virtual = ch_config.get("virtual", False)
@@ -174,6 +176,10 @@ class ChannelClient(ResourceClient):
                 elif not index:
                     raise ValueError(
                         f"Index must be provided for non-index channel: {name}"
+                    )
+                if data_type is None:
+                    raise ValueError(
+                        f"Data type must be provided for non-index channel: {name}"
                     )
                 data_type_str = str(sy.DataType(data_type))
                 self.layout.click_btn("Data type")

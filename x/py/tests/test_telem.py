@@ -866,6 +866,11 @@ class TestDataType:
     def test_construction(self, crude: sy.CrudeDataType, expected: sy.DataType) -> None:
         assert sy.DataType(crude) == expected
 
+    def test_empty_string(self) -> None:
+        """Should refuse an empty string, which names no data type."""
+        with pytest.raises(ValueError, match="'' is not a valid data type"):
+            sy.DataType("")
+
     @pytest.mark.parametrize(
         "crude",
         [np.float16, np.dtype(np.float16), np.float16(1), [np.float16(1)]],
@@ -923,7 +928,6 @@ class TestDataType:
     def test_all(self) -> None:
         """ALL should contain every data type exactly once."""
         assert set(sy.DataType.ALL) == {
-            sy.DataType.UNKNOWN,
             sy.DataType.UINT8,
             sy.DataType.UINT16,
             sy.DataType.UINT32,

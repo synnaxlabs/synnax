@@ -642,6 +642,21 @@ var _ = Describe("Writer", func() {
 			})
 
 			It(
+				"Should derive a calculated channel's data type when created without one",
+				func(ctx SpecContext) {
+					calcCh := channel.Channel{
+						Name:       "calculated_no_data_type",
+						Expression: "return 1.5 * 2.0",
+						Virtual:    true,
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &calcCh)
+					})).To(Succeed())
+					Expect(calcCh.DataType).To(Equal(telem.Float64T))
+				},
+			)
+
+			It(
 				"Should reject calculated channel with manually-specified index",
 				func(ctx SpecContext) {
 					calcCh := channel.Channel{

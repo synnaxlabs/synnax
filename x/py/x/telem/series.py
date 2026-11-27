@@ -23,7 +23,6 @@ from types import UnionType
 from typing import (
     Any,
     Final,
-    NoReturn,
     Protocol,
     TypeAlias,
     TypeIs,
@@ -163,14 +162,6 @@ class _VariableCodec[U: SampleValue]:
         return (self._decode(s) for s in _iter_variable(data))
 
 
-class _UnknownCodec:
-    def get(self, data: bytes, index: int) -> NoReturn:
-        raise ValueError("[Series] - a series of unknown data type has no samples")
-
-    def iter(self, data: bytes) -> Iterator[NoReturn]:
-        raise ValueError("[Series] - a series of unknown data type has no samples")
-
-
 def _decode_string(sample: bytes) -> str:
     return sample.decode("utf-8")
 
@@ -194,7 +185,6 @@ _CODECS: dict[DataType, _Codec[SampleValue]] = {
     DataType.STRING: _VariableCodec(_decode_string),
     DataType.JSON: _VariableCodec(_JSON.validate_json),
     DataType.BYTES: _VariableCodec(bytes),
-    DataType.UNKNOWN: _UnknownCodec(),
 }
 
 _SAMPLE_TYPES: dict[DataType, type] = {
@@ -347,7 +337,6 @@ class Series[T: SampleValue = SampleValue](ArrayOperators):
                     "[Series] - MultiSeries with more than one series cannot be "
                     "converted to a Series"
                 )
-            data_type = data_type or data.data_type
         elif isinstance(data, np.ndarray) or _is_pandas_series(data):
             if _is_pandas_series(data) and isinstance(data.dtype, pd.DatetimeTZDtype):
                 data = data.dt.tz_convert(None)
@@ -736,9 +725,10 @@ class MultiSeries[T: SampleValue = SampleValue](ArrayOperators):
         )
 
     @property
-    def data_type(self) -> DataType:
+    def data_type(self) -> DataType | None:
+        """:returns: The data type of the series, or None if there are none."""
         if len(self.series) == 0:
-            return DataType.UNKNOWN
+            return None
         return self.series[0].data_type
 
     def __len__(self) -> int:

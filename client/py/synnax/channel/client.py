@@ -24,6 +24,7 @@ from synnax.channel.retrieve import Retriever, params_where
 from synnax.channel.types_gen import (
     CountLimitedResponse,
     Cursor,
+    New,
     Operation,
     Order,
     Payload,
@@ -216,6 +217,9 @@ class Channel(Payload):
             group=self.group,
         )
 
+    def _to_new(self) -> New:
+        return New.model_validate(self.to_payload(), from_attributes=True)
+
 
 class Client:
     """The core py class for executing channel operations against a Synnax cluster."""
@@ -257,7 +261,7 @@ class Client:
     def create(
         self,
         *,
-        data_type: CrudeDataType = DataType.UNKNOWN,
+        data_type: CrudeDataType | None = None,
         name: str = "",
         index: Key = 0,
         is_index: bool = False,
@@ -283,7 +287,7 @@ class Client:
         self,
         channels: Channel | list[Channel] | None = None,
         *,
-        data_type: CrudeDataType = DataType.UNKNOWN,
+        data_type: CrudeDataType | None = None,
         name: str = "",
         is_index: bool = False,
         index: Key = 0,
@@ -298,7 +302,8 @@ class Client:
 
         Overload 1:
         :param data_type: The data type of the samples in the channel. For example,
-            `"float32"`.
+            `"float32"`. An index channel defaults to synnax.TIMESTAMP. A calculated
+            channel leaves it out, and the Core derives it from the expression.
         :param name: A name for the channel.
         :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have a data type of synnax.TIMESTAMP.
@@ -332,17 +337,17 @@ class Client:
         :returns: The created channels.
         """
 
-        _channels: list[Payload]
+        _channels: list[New]
         if channels is None:
-            if is_index and data_type == DataType.UNKNOWN:
+            if is_index and data_type is None:
                 data_type = DataType.TIMESTAMP
             if operations is None:
                 operations = []
             _channels = [
-                Payload(
+                New(
                     name=name,
                     leaseholder=leaseholder,
-                    data_type=DataType(data_type),
+                    data_type=None if data_type is None else DataType(data_type),
                     index=index,
                     is_index=is_index,
                     virtual=virtual if virtual is not None else len(expression) > 0,
@@ -352,9 +357,9 @@ class Client:
                 )
             ]
         elif isinstance(channels, Channel):
-            _channels = [channels.to_payload()]
+            _channels = [channels._to_new()]
         else:
-            _channels = [c.to_payload() for c in channels]
+            _channels = [c._to_new() for c in channels]
 
         created = self._sugar(self._creator.create(_channels, retrieve_if_name_exists))
         return created if isinstance(channels, list) else created[0]

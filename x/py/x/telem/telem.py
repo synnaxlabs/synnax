@@ -1388,7 +1388,6 @@ class DataType(str):
     def __repr__(self) -> str:
         return f"DataType({super().__repr__()})"
 
-    UNKNOWN: DataType
     UUID: DataType
     TIMESTAMP: DataType
     FLOAT64: DataType
@@ -1416,7 +1415,6 @@ def _const(name: str) -> DataType:
 
 
 DataType.UUID = _const("uuid")
-DataType.UNKNOWN = _const("")
 DataType.TIMESTAMP = _const("timestamp")
 DataType.FLOAT64 = _const("float64")
 DataType.FLOAT32 = _const("float32")
@@ -1433,7 +1431,6 @@ DataType.STRING = _const("string")
 DataType.BYTES = _const("bytes")
 DataType.BOOLEAN = _const("boolean")
 DataType.ALL = (
-    DataType.UNKNOWN,
     DataType.UINT8,
     DataType.UINT16,
     DataType.UINT32,

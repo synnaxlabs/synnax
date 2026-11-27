@@ -21,6 +21,9 @@ import {
 } from "@/channel/types.gen";
 import { util } from "@/util";
 
+/** Contains parameters for creating a new channel. */
+export type New = z.input<typeof payloadZ>;
+
 /** One or many channels, named by key or by name. */
 export type PrimitiveParams = Key | Name | Key[] | Name[];
 
