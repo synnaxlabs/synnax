@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/tree"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -318,6 +319,8 @@ type Layer struct {
 	// Channel is the highest-level channel service and owns calculated channel
 	// behavior.
 	Channel *channel.Service
+	// Tree makes the edits of the channel tree.
+	Tree *tree.Service
 	// Control reads the control state of channels and publishes every transfer on the
 	// control channel.
 	Control *control.Service
@@ -452,6 +455,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			}
 			return nil
 		},
+		// The channel tree opens after the group service, so the hook reads it when it
+		// runs.
+		DeleteMembers: map[resource.Type]group.DeleteMembers{
+			resource.TypeChannel: func(
+				ctx context.Context,
+				tx gorp.Tx,
+				groups []group.Key,
+			) error {
+				return l.Tree.DeleteMembers(ctx, tx, groups)
+			},
+		},
 	}); !ok(err, l.Group) {
 		return nil, err
 	}
@@ -505,6 +519,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ValidateNames:   cfg.ValidateChannelNames,
 		Status:          l.Status,
 	}); !ok(err, l.Channel) {
+		return nil, err
+	}
+	if l.Tree, err = tree.OpenService(tree.ServiceConfig{
+		Channel: l.Channel,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	channelGraph, err := calcgraph.Open(ctx, calcgraph.Config{
