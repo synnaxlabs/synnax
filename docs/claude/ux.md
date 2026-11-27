@@ -431,6 +431,9 @@ bound, a log precision, or the line plot X channel.
   access gets no menu.
 - An edit reaches every user of the item. When other places use the item and the Core
   can list them, the editor shows "Used by N".
+- When the Core refuses to delete an item that something uses, the delete dialog lists
+  the users before it asks and disables Delete while any remain, as for an ICD that a
+  task uses.
 
 ### Pickers
 
