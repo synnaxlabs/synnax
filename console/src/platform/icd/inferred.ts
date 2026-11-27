@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import { type json, type payload, uuid } from "@synnaxlabs/x";
+import { type json, map, type payload, uuid } from "@synnaxlabs/x";
 
 import { fieldNames } from "@/platform/icd/fieldNames";
 
@@ -57,6 +57,23 @@ export const createReadField = (inferred: Labeled, name: string): icd.JSONField 
     return createField({ ...inferred, kind: type }, name);
   const enumValues = labels.map((label, i) => ({ label, value: i.toString() }));
   return icd.jsonFieldZ.parse({ name, pointer, type, enumValues });
+};
+
+/**
+ * @returns one inferred field for each pointer of fields, in the order of the first
+ * field at that pointer. It is that first field with the sorted labels of every field
+ * at the pointer, or with no labels when one of them has none.
+ */
+export const mergeFields = <F extends Pick<json.InferredField, "pointer" | "enum">>(
+  fields: F[],
+): F[] => {
+  const byPointer = new Map<string, F[]>();
+  for (const f of fields) map.getOrInsert(byPointer, f.pointer, () => []).push(f);
+  return [...byPointer.values()].map((same) => {
+    const labels = same.map(({ enum: l }) => l);
+    if (labels.some((l) => l.length === 0)) return { ...same[0], enum: [] };
+    return { ...same[0], enum: [...new Set(labels.flat())].sort() };
+  });
 };
 
 /** @returns a read field for each inferred field, named after its pointer. */

@@ -958,6 +958,40 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should give a field that two shapes of one held message share the labels of both", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+      });
+      const { dev } = await renderRead({ entries: [entry] });
+      const withState = (shape: ReturnType<typeof createShape>, labels: string[]) => ({
+        ...shape,
+        fields: [...shape.fields, { ...STATUS, enum: labels }],
+      });
+      const dialog = await openKinds(
+        dev.rack,
+        withState(createShape("/temperature", "float", 44), ["OFF", "ON"]),
+        withState(createShape("/fault", "integer", 11), ["FAULT", "OFF"]),
+      );
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      await waitFor(async () =>
+        expect(
+          (await retrieveFields(entry.icd)).find(
+            ({ pointer }) => pointer === "/status",
+          ),
+        ).toMatchObject({
+          type: "integer",
+          enumValues: [
+            { label: "FAULT", value: "0" },
+            { label: "OFF", value: "1" },
+            { label: "ON", value: "2" },
+          ],
+        }),
+      );
+    });
+
     describe("split by value", () => {
       const KIND = {
         pointer: "/kind",

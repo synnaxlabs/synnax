@@ -137,6 +137,35 @@ describe("ICD inferred formats", () => {
     });
   });
 
+  describe("mergeFields", () => {
+    it("should give the field at a pointer the sorted labels of every shape", () => {
+      expect(
+        ICD.mergeFields([
+          { pointer: "/state", kind: "string", enum: ["OFF", "ON"] },
+          { pointer: "/speed", kind: "float", enum: [] },
+          { pointer: "/state", kind: "string", enum: ["FAULT", "OFF"] },
+        ]),
+      ).toEqual([
+        { pointer: "/state", kind: "string", enum: ["FAULT", "OFF", "ON"] },
+        { pointer: "/speed", kind: "float", enum: [] },
+      ]);
+    });
+
+    it.each([
+      ["first", [[], ["OFF", "ON"]]],
+      ["second", [["OFF", "ON"], []]],
+    ])("should give no labels when the %s shape has none", (_, labels) => {
+      const fields = labels.map((l) => ({
+        pointer: "/state",
+        kind: "string",
+        enum: l,
+      }));
+      expect(ICD.mergeFields(fields)).toEqual([
+        { pointer: "/state", kind: "string", enum: [] },
+      ]);
+    });
+  });
+
   describe("kindName", () => {
     it("should name the message of a kind after its present field", () => {
       expect(ICD.kindName("plant/pump", "/status/rpm")).toEqual(
