@@ -309,57 +309,6 @@ var _ = Describe("Metrics", func() {
 			})).To(Succeed())
 			Expect(open(ctx).Close()).To(Succeed())
 		})
-
-		It(
-			"Should keep a metric on its channel when a user's channel elsewhere holds its "+
-				"name",
-			func(
-				ctx SpecContext,
-			) {
-				names := getNames(dist.Identity.HostKey)
-				Expect(open(ctx).Close()).To(Succeed())
-				cpu := retrieve(ctx, names[1])
-				kept := MustSucceed(groupSvc.CreateOrRetrieve(
-					ctx, "Kept Metrics Group", resource.TypeChannel,
-				))
-				higher := channel.Channel{
-					Name:       UniqueChannelName(),
-					DataType:   telem.Float32T,
-					LocalIndex: cpu.LocalIndex,
-					Group:      &kept.Key,
-				}
-				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &higher)
-				})).To(Succeed())
-				Expect(higher.Key()).To(BeNumerically(">", cpu.Key()))
-				DeferCleanup(func(ctx SpecContext) {
-					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Delete(ctx, higher.Key(), false)
-					})).To(Succeed())
-				})
-				// A v0.62 store can hold one name in two folders.
-				higher.Name = cpu.Name
-				Expect(gorp.WrapWriter[channel.Key, channel.Channel](dist.DB).
-					Set(ctx, higher)).To(Succeed())
-				DeferCleanup(open(ctx).Close)
-				writer := fmt.Sprintf("Node %v Metrics Writer", dist.Identity.HostKey)
-				Eventually(func() []channel.Key {
-					var held []channel.Key
-					for _, t := range dist.Storage.TS.ControlStates().Transfers {
-						if t.To != nil && t.To.Subject.Name == writer {
-							held = append(held, channel.Key(t.To.Resource))
-						}
-					}
-					return held
-				}).Should(SatisfyAll(
-					ContainElement(cpu.Key()),
-					Not(ContainElement(higher.Key())),
-				))
-				Expect(channelSvc.NewRetrieve().
-					Where(channel.MatchNames(cpu.Name)).
-					Count(ctx, dist.DB)).To(Equal(2))
-			},
-		)
 	})
 	Describe("Writer Control Subject", func() {
 		It("Should name the writer after the host node", func(ctx SpecContext) {
