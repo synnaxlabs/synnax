@@ -39,3 +39,9 @@ filegroup(
         "//x/cpp/json:__pkg__",
     ],
 )
+
+filegroup(
+    name = "task_fixtures",
+    srcs = glob(["testdata/task/**/*.json"]),
+    visibility = ["//driver/icd:__pkg__"],
+)
