@@ -24,6 +24,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -144,6 +145,40 @@ func dialBroker(ctx context.Context, addr string, cfg clientConfig) error {
 		return cErr
 	}
 	return err
+}
+
+// connect dials the broker of cfg, as a connection test does, and then opens a client
+// with opts. It returns a driver.Failure when the broker is not reachable or refuses
+// the client.
+func connect(
+	ctx context.Context,
+	ins alamos.Instrumentation,
+	cfg clientConfig,
+	opts *paho.ClientOptions,
+) (*session, func(), error) {
+	u, err := url.Parse(cfg.url)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = dialBroker(ctx, u.Host, cfg); err != nil {
+		return nil, nil, err
+	}
+	client, disconnect, err := open(ctx, ins, paho.NewClient, opts)
+	if err != nil && ctx.Err() == nil {
+		err = connectFailure(err)
+	}
+	return client, disconnect, err
+}
+
+// settingsFailure returns the failure of a browse whose broker settings are not valid.
+func settingsFailure(err error) error {
+	return driver.Failure{
+		Message: "Invalid broker settings",
+		Description: fmt.Sprintf(
+			"%s. Edit the broker settings.",
+			errors.MessageWithout(err, validate.ErrValidation),
+		),
+	}
 }
 
 func connectFailure(err error) error {
@@ -510,7 +545,7 @@ func (s *scanner) listen(
 			once.Do(func() { close(stopped) })
 		}
 	})
-	client, disconnect, err := open(ctx, s.ins, paho.NewClient, opts)
+	client, disconnect, err := connect(ctx, s.ins, cfg, opts)
 	if err != nil {
 		return err
 	}

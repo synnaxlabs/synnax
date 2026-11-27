@@ -206,6 +206,24 @@ func (h *openHook) OnACLCheck(_ *mochi.Client, topic string, write bool) bool {
 	return write || !slices.Contains(h.refused, topic)
 }
 
+// refusingHook answers each connect with reason and closes the connection.
+type refusingHook struct {
+	mochi.HookBase
+	broker *testBroker
+	reason packets.Code
+}
+
+func (h *refusingHook) ID() string { return "refusing" }
+
+func (h *refusingHook) Provides(b byte) bool { return b == mochi.OnConnect }
+
+func (h *refusingHook) OnConnect(cl *mochi.Client, _ packets.Packet) error {
+	if err := h.broker.server.SendConnack(cl, h.reason, false, nil); err != nil {
+		return err
+	}
+	return h.reason
+}
+
 // unackedHook leaves the publishes on topic unanswered, so that each stays in flight,
 // until released is set.
 type unackedHook struct {
@@ -347,6 +365,8 @@ type brokerOptions struct {
 	username, password string
 	// refused holds the topic filters that an open broker refuses to subscribe to.
 	refused []string
+	// refusal, when set, is the reason with which the broker refuses each connect.
+	refusal packets.Code
 	port    int
 }
 
@@ -374,6 +394,11 @@ func startBrokerWith(opts brokerOptions) *testBroker {
 				Allow:    true,
 			}}},
 		})).To(Succeed())
+	}
+	if opts.refusal != (packets.Code{}) {
+		Expect(b.server.AddHook(
+			&refusingHook{broker: b, reason: opts.refusal}, nil,
+		)).To(Succeed())
 	}
 	Expect(b.server.AddHook(&connectHook{broker: b}, nil)).To(Succeed())
 	tcp := newTCPListener(listeners.Config{

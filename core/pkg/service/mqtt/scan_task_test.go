@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mochi-mqtt/server/v2/packets"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -1067,6 +1068,161 @@ var _ = Describe("Scan task", func() {
 				"Devices with keys [missing] not found: not found: query",
 			))
 		})
+	})
+
+	Describe("Browse failures", func() {
+		// command sends a command of cmdType about dev to a scan task and returns its
+		// answer.
+		command := func(
+			ctx context.Context,
+			dev device.Device,
+			cmdType string,
+			args msgpack.EncodedJSON,
+		) task.Status {
+			GinkgoHelper()
+			args["device"] = dev.Key
+			args["duration"] = 50
+			configured, t := scan(ctx)
+			return answer(ctx, configured, t, task.Command{
+				Type: cmdType, Key: cmdType, Args: args,
+			})
+		}
+
+		expectFailure := func(
+			stat task.Status,
+			message string,
+			description types.GomegaMatcher,
+		) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal(message))
+			Expect(stat.Description).To(description)
+		}
+
+		DescribeTable("Should report a broker that it cannot reach",
+			func(ctx SpecContext, cmdType string, args msgpack.EncodedJSON) {
+				broker := startBroker(0)
+				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
+				broker.stop()
+				expectFailure(
+					command(ctx, dev, cmdType, args),
+					"Failed to reach broker",
+					SatisfyAll(
+						HavePrefix(fmt.Sprintf(
+							"Could not reach 127.0.0.1:%d: ", broker.port,
+						)),
+						ContainSubstring("refused"),
+					),
+				)
+			},
+			Entry("a browse", "browse", msgpack.EncodedJSON{}),
+			Entry("a sample", "sample", msgpack.EncodedJSON{
+				"topics": []string{"plant/a"},
+			}),
+			Entry("a browse of Sparkplug B nodes",
+				"browse_sparkplug", msgpack.EncodedJSON{},
+			),
+			Entry("a browse of Sparkplug B tags",
+				"browse_sparkplug",
+				msgpack.EncodedJSON{"group": "plant", "edge_node": "line-1"},
+			),
+		)
+
+		DescribeTable("Should report why the broker refuses a browse",
+			func(
+				ctx SpecContext,
+				options func() brokerOptions,
+				properties msgpack.EncodedJSON,
+				message string,
+				description types.GomegaMatcher,
+			) {
+				broker := startBrokerWith(options())
+				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
+				expectFailure(
+					command(ctx, dev, "browse", msgpack.EncodedJSON{}),
+					message,
+					description,
+				)
+			},
+			Entry("credentials that it rejects",
+				func() brokerOptions {
+					return brokerOptions{username: "operator", password: "valve-7"}
+				},
+				msgpack.EncodedJSON{"username": "operator", "password": "wrong"},
+				"Authentication failed",
+				Equal("the broker rejected the username or password: not Authorized. "+
+					"Check the username and the password."),
+			),
+			Entry("a client ID that it rejects",
+				func() brokerOptions {
+					return brokerOptions{refusal: packets.ErrClientIdentifierNotValid}
+				},
+				msgpack.EncodedJSON{},
+				"Client ID rejected",
+				SatisfyAll(
+					HavePrefix("the broker rejected the client ID: "),
+					HaveSuffix(". Set a client ID that the broker accepts."),
+				),
+			),
+			Entry("a broker that is not available",
+				func() brokerOptions {
+					return brokerOptions{refusal: packets.ErrServerUnavailable}
+				},
+				msgpack.EncodedJSON{},
+				"Broker not available",
+				SatisfyAll(
+					HavePrefix("the broker is not available: "),
+					HaveSuffix(". Try again later."),
+				),
+			),
+			Entry(
+				"a plain connection to a TLS broker",
+				func() brokerOptions {
+					tlsCfg, _ := createCerts()
+					return brokerOptions{tls: tlsCfg}
+				},
+				msgpack.EncodedJSON{},
+				"Failed to connect",
+				HaveSuffix(
+					". Check that the TLS setting matches the port of the broker.",
+				),
+			),
+			Entry("a TLS connection to a plain broker",
+				func() brokerOptions { return brokerOptions{} },
+				msgpack.EncodedJSON{"secure": true},
+				"TLS handshake failed",
+				HaveSuffix(". Check that this port of the server uses TLS."),
+			),
+		)
+
+		DescribeTable("Should report broker settings that are not valid",
+			func(
+				ctx SpecContext,
+				properties msgpack.EncodedJSON,
+				description types.GomegaMatcher,
+			) {
+				dev := createBrokerDevice(ctx, rackKey, 0, properties)
+				expectFailure(
+					command(ctx, dev, "browse", msgpack.EncodedJSON{}),
+					"Invalid broker settings",
+					description,
+				)
+			},
+			Entry("a port of zero",
+				msgpack.EncodedJSON{"port": 0},
+				Equal("invalid broker properties: port: must be 1 to 65535. "+
+					"Edit the broker settings."),
+			),
+			Entry("a CA file that does not exist",
+				msgpack.EncodedJSON{
+					"port": 8883, "secure": true, "ca_file": "/no/such/ca.crt",
+				},
+				SatisfyAll(
+					HavePrefix("failed to read the CA file: "),
+					HaveSuffix(". Edit the broker settings."),
+				),
+			),
+		)
 	})
 
 	Describe("Sample", func() {
