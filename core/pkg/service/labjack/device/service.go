@@ -30,6 +30,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores each device's status.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Signals publishes sy_labjack_device_set and sy_labjack_device_delete.
