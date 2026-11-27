@@ -142,7 +142,8 @@ type Decimal = v0.Decimal
 // number or bigint values; other languages emit a concrete float64-based type.
 type Bounds = v0.Bounds
 
-// ClosedBounds is a closed interval [lower, upper] over an ordered numeric value space,
-// such as the range of a hardware input. The TypeScript binding is generic over T;
-// other languages emit a concrete float64-based type.
+// ClosedBounds is a nonempty closed interval [lower, upper] over an ordered numeric
+// value space, such as the range of a hardware input. lower must be below upper, so
+// equal ends are refused. The TypeScript binding is generic over T; other languages
+// emit a concrete float64-based type.
 type ClosedBounds = v0.ClosedBounds

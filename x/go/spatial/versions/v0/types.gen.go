@@ -277,9 +277,10 @@ type Bounds struct {
 	Upper float64 `json:"upper" msgpack:"upper"`
 }
 
-// ClosedBounds is a closed interval [lower, upper] over an ordered numeric value space,
-// such as the range of a hardware input. The TypeScript binding is generic over T;
-// other languages emit a concrete float64-based type.
+// ClosedBounds is a nonempty closed interval [lower, upper] over an ordered numeric
+// value space, such as the range of a hardware input. lower must be below upper, so
+// equal ends are refused. The TypeScript binding is generic over T; other languages
+// emit a concrete float64-based type.
 type ClosedBounds struct {
 	// Lower is the inclusive lower bound.
 	Lower float64 `json:"lower" msgpack:"lower"`
