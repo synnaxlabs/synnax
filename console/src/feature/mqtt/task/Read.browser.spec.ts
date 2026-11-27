@@ -3788,7 +3788,7 @@ describe("MQTT read form", () => {
     const created = await deploy(container, draft.key);
     const [first, second] = plainOf(created.config.entries[0]).messages;
     expect(first.bindings).toEqual([
-      { field: temperatureField.key, channel: temperature.key, dataType: "" },
+      { field: temperatureField.key, channel: temperature.key },
     ]);
     const moved = await client.channels.retrieve(second.bindings[0].channel);
     expect(moved.key).not.toBe(flow.key);

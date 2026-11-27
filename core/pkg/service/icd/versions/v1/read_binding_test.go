@@ -41,4 +41,10 @@ var _ = Describe("ReadBinding", func() {
 			new(telem.Int32T),
 		),
 	)
+
+	It("Should return the error of a binding that is not valid", func() {
+		var b v1.ReadBinding
+		Expect(json.Unmarshal([]byte(binding+`,"data_type":7}`), &b)).
+			To(MatchError(ContainSubstring("data_type")))
+	})
 })

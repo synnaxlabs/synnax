@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { DataType, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/platform/icd";
@@ -32,7 +32,54 @@ const binaryField = icd.binaryFieldZ.parse({
 
 const timestamp = jsonFieldOf({ type: "timestamp", timeFormat: "unix_ms" });
 
+const level = icd.jsonFieldZ.parse({
+  key: uuid.create(),
+  name: "level",
+  pointer: "/level",
+  type: "float",
+  scale: 1,
+  offset: 0,
+});
+
 describe("ICD", () => {
+  describe("suit", () => {
+    it.each([
+      [
+        "keep a data type that the field converts to",
+        DataType.FLOAT64.toString(),
+        true,
+      ],
+      [
+        "drop a data type that the field cannot convert to",
+        DataType.INT64.toString(),
+        false,
+      ],
+    ] as const)("should %s", (_, dataType, kept) => {
+      const binding = { field: level.key, channel: 7, dataType };
+      const suited = ICD.suit({ message: uuid.create(), bindings: [binding] }, [level]);
+      expect(suited.bindings).toEqual([
+        kept ? binding : { field: level.key, channel: 7 },
+      ]);
+    });
+
+    it("should keep a binding with no data type", () => {
+      const binding = { field: level.key, channel: 7 };
+      const suited = ICD.suit({ message: uuid.create(), bindings: [binding] }, [level]);
+      expect(suited.bindings).toEqual([binding]);
+    });
+  });
+
+  describe("reindex", () => {
+    it("should bind the new index field to the index channel with no data type", () => {
+      const message = uuid.create();
+      expect(ICD.reindex({ message, bindings: [] }, level.key, 9)).toEqual({
+        message,
+        index: level.key,
+        bindings: [{ field: level.key, channel: 9 }],
+      });
+    });
+  });
+
   describe("mostRead", () => {
     it("should return undefined when no source reads an ICD", () => {
       expect(ICD.mostRead([])).toBeUndefined();
