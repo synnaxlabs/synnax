@@ -503,3 +503,32 @@ func BenchmarkTextDecode(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkTextEncode(b *testing.B) {
+	b.Run("fields", func(b *testing.B) {
+		for _, n := range []uint32{1, 10, 100} {
+			b.Run(strconv.Itoa(int(n)), func(b *testing.B) {
+				m, line := textBenchMessage(n)
+				enc, err := codec.NewTextEncoder(m)
+				if err != nil {
+					b.Fatal(err)
+				}
+				samples := make([][]byte, n)
+				for i := range samples {
+					samples[i] = benchFloat
+				}
+				out, err := enc.Encode(nil, samples)
+				if err != nil || !bytes.Equal(out, line) {
+					b.Fatalf("encode: %q, %v", out, err)
+				}
+				b.ReportAllocs()
+				b.SetBytes(int64(len(line)))
+				for b.Loop() {
+					if out, err = enc.Encode(out[:0], samples); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+	})
+}
