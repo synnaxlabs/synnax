@@ -364,6 +364,21 @@ var _ = Describe("JSONEncoder", func() {
 		))
 	})
 
+	It("Should refuse a timestamp field with an unknown time format", func() {
+		key := uuid.New()
+		Expect(codec.NewJSONEncoder(message(
+			[]icd.JSONField{{Variant: icd.TimestampJSONField{
+				Key: key, Name: "t", Scale: 1, Pointer: "/t", TimeFormat: "unix_days",
+			}}},
+			codec.Binding{Field: key, DataType: telem.TimestampT},
+		))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(`message command: field t: unknown time format "unix_days": `+
+				`expected "iso8601", "unix_sec", "unix_ms", "unix_us", or "unix_ns": `+
+				"validation error"),
+		))
+	})
+
 	It("Should write the default of an unbound field with a zero scale", func() {
 		f := icd.JSONField{Variant: icd.FloatJSONField{
 			Key: uuid.New(), Name: "v", Pointer: "/v", Default: new(payload.Float(3)),

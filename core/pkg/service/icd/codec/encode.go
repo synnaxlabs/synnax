@@ -342,16 +342,19 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 // sampleField returns the xjson field that writes a sample of dt as a value of jf.
 func sampleField(jf icd.JSONField, dt telem.DataType) (xjson.Field, error) {
 	f := xjson.Field{DataType: dt, Enums: enumsOf(jf), Type: xjson.Number}
-	var err error
 	switch v := jf.Variant.(type) {
 	case icd.StringJSONField, icd.UuidJSONField, icd.BytesJSONField:
 		f.Type = xjson.String
 	case icd.BooleanJSONField:
 		f.Type = xjson.Boolean
 	case icd.TimestampJSONField:
-		f.TimeFormat, err = xjson.ParseTimeFormat(string(v.TimeFormat))
+		format, err := xjson.ParseTimeFormat(string(v.TimeFormat))
+		if err != nil {
+			return xjson.Field{}, err
+		}
+		f.TimeFormat = format
 	}
-	return f, err
+	return f, nil
 }
 
 // converted reports whether a field of kind k changes or checks the number that an
