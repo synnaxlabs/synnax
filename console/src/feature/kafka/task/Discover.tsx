@@ -253,21 +253,21 @@ const reusedFit = (
 };
 
 /**
- * @returns the reading of found when it reuses a message for a shape of free that
- * picks holds fields of.
+ * @returns the reading of found with a fit for only each shape of free that reuses a
+ * message, or nothing when no shape that picks holds fields of reuses one.
  */
 const reusedReading = (
   found: ICD.Reuse.Result,
   free: json.Shape[],
   picks: Picks,
-): ICD.Reuse.Reading | undefined =>
-  free.some(
-    (shape, i) =>
-      (picks.get(json.shapeKey(shape))?.size ?? 0) > 0 &&
-      reusedFit(found, shape, i) != null,
-  )
-    ? found.reading
-    : undefined;
+): ICD.Reuse.Reading | undefined => {
+  if (found.reading == null) return undefined;
+  const fits = free.map((shape, i) => reusedFit(found, shape, i));
+  const reuses = free.some(
+    (shape, i) => fits[i] != null && (picks.get(json.shapeKey(shape))?.size ?? 0) > 0,
+  );
+  return reuses ? { ...found.reading, fits } : undefined;
+};
 
 /**
  * @returns what the new records of a shape read, by the position of the shape in the

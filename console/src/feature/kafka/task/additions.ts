@@ -259,13 +259,13 @@ export const uniqueName = (base: string, taken: icd.Message[]): string => {
 /**
  * @returns the messages that new records read for each shape with picks. Each record
  * reads a key of the shape with no record of its own. A shape reads the message that
- * reading fits to it, when it is reusable. Else it gets a new message of the picked
- * fields, the fields that its keys carry, and its timestamp. A new message takes the
- * name that nameOf gives its first key. A shape that is one of several kinds adds the
- * name of its present field, and its message matches the documents that hold that
- * field.
+ * reading fits to it. Else it gets a new message of the picked fields, the fields that
+ * its keys carry, and its timestamp. A new message takes the name that nameOf gives its
+ * first key. A shape that is one of several kinds adds the name of its present field,
+ * and its message matches the documents that hold that field.
  * @param held - The messages whose names a new message must not take.
- * @param reading - The ICD that the new records read, with a fit for each free shape.
+ * @param reading - The ICD that the new records read, with a fit for each free shape
+ * that reuses a message of it.
  * @param appends - What messages gain in this add. A held message gains the fields
  * that its new records read and it lacks.
  */
@@ -285,8 +285,7 @@ export const createAdditions = (
     if (pointers == null || pointers.size === 0) return [];
     const carried = carriedFields(shape, reads);
     const fit = reading?.fits[i];
-    if (fit != null && isReusable(shape, fit))
-      return [reuse(shape, fit, pointers, carried, recordKeys, appends)];
+    if (fit != null) return [reuse(shape, fit, pointers, carried, recordKeys, appends)];
     const indexField = shape.index == null ? undefined : shape.fields[shape.index];
     const picked = shape.fields.filter(
       (f) => f === indexField || (pointers.has(f.pointer) && !carried.has(f.pointer)),
