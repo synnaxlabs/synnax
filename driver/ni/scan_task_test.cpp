@@ -236,7 +236,7 @@ loaded(const std::shared_ptr<syscfg::API> &api) {
     });
 }
 
-/// @brief returns a NI-DAQmx library that loads api on first use.
+/// @brief returns an NI-DAQmx library that loads api on first use.
 std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>>
 loaded(const std::shared_ptr<daqmx::API> &api) {
     return std::make_shared<x::lib::Lazy<daqmx::SugaredAPI>>([api] {
@@ -423,7 +423,7 @@ TEST(ScannerTest, testIgnoresSavedPatterns) {
     );
 }
 
-/// @brief a NI-DAQmx API whose device reads fail while failing is true.
+/// @brief an NI-DAQmx API whose device reads fail while failing is true.
 class FlakyAPI final : public daqmx::MockAPI {
 public:
     bool failing = false;
@@ -536,7 +536,7 @@ public:
     }
 };
 
-/// @brief a scanner over one physical device and a NI-DAQmx API.
+/// @brief a scanner over one physical device and an NI-DAQmx API.
 struct HardwareScanner {
     std::shared_ptr<FlakyAPI> dmx = std::make_shared<FlakyAPI>();
     Scanner scanner;

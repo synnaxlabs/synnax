@@ -214,7 +214,7 @@ public:
         x::errors::Error error = x::errors::NIL;
         int64 skew = 0;
         /// @brief whether the read waits up to five seconds for abort() before it
-        /// returns, as a NI-DAQmx read waits for samples that never arrive.
+        /// returns, as an NI-DAQmx read waits for samples that never arrive.
         bool waits_for_abort = false;
     };
 

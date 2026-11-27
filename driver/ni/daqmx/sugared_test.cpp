@@ -24,8 +24,8 @@ namespace driver::ni::daqmx {
 namespace {
 const std::string ERROR_MESSAGE = "Specified property is not supported.";
 
-/// @brief a NI-DAQmx API that holds device attributes and answers a call with no buffer
-/// with the size the value needs, as NI-DAQmx does.
+/// @brief an NI-DAQmx API that holds device attributes and answers a call with no
+/// buffer with the size the value needs, as NI-DAQmx does.
 class FakeAPI final : public MockAPI {
 public:
     std::unordered_map<int32, std::string> strings;
