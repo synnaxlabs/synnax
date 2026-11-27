@@ -966,7 +966,7 @@ func directMapConversion(
 
 // isStringEnum reports whether ref resolves to an enum with string members.
 func isStringEnum(ref resolution.TypeRef, data *templateData) bool {
-	resolved, ok := ref.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return false
 	}
