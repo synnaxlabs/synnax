@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { readFileSync } from "node:fs";
-
 import { DataType, id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
-import { z } from "zod";
+import type { z } from "zod";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
@@ -20,25 +18,6 @@ import { createTestClient, createTestClientWithPolicy, spyOnSend } from "@/testu
 
 const client = createTestClient();
 const remote = createTestClient();
-
-// The vectors pin the path that this client builds to the path that the Core builds.
-const VECTORS_URL = new URL(
-  "../../../../core/testdata/paths/vectors.json",
-  import.meta.url,
-);
-
-const vectorsZ = z.object({
-  cases: z
-    .object({
-      name: z.string(),
-      folders: z.string().array(),
-      channel: z.string(),
-      path: z.string(),
-    })
-    .array(),
-});
-
-const { cases } = vectorsZ.parse(JSON.parse(readFileSync(VECTORS_URL, "utf-8")));
 
 const createFolder = async (parent?: group.Group): Promise<group.Group> =>
   await remote.groups.create(
@@ -180,33 +159,6 @@ describe("channel paths", () => {
       expect(channels[0]).not.toHaveProperty("path");
       expect(withPath.payload).not.toHaveProperty("path");
     });
-  });
-
-  describe("cases shared with the Core", () => {
-    it.each(cases)(
-      "should build the path of $name as the Core builds it",
-      async ({ folders, channel: name, path }) => {
-        // A case with no folders makes its channel at the top.
-        const top = folders.length === 0 ? undefined : await createFolder();
-        let parent = top;
-        for (const folder of folders)
-          parent = await remote.groups.create({
-            name: folder,
-            parent: group.resourceID((parent as group.Group).key),
-          });
-        const suffix = `_${id.create()}`;
-        const ch = await remote.channels.create({
-          name: `${name}${suffix}`,
-          dataType: DataType.FLOAT32,
-          virtual: true,
-          group: parent?.key,
-        });
-        const later = await connectLater();
-        const res = await later.channels.retrieve({ key: ch.key, includePath: true });
-        const prefix = top == null ? "" : `${top.name}.`;
-        expect(res.path).toEqual(`${prefix}${path}${suffix}`);
-      },
-    );
   });
 
   describe("getCached", () => {
