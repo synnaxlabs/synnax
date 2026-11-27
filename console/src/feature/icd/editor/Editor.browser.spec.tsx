@@ -14,14 +14,17 @@ import {
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Portal } from "@synnaxlabs/lyra/portal";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { ICD } from "@/feature/icd";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
+import { focusedIn } from "@/platform/icd/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
@@ -53,22 +56,36 @@ const renderEditor = async (
   ic: icd.ICD,
   as: Synnax = client,
   selected: icd.MessageKey[] = [],
-): Promise<void> => {
+  focused?: icd.FieldKey,
+) => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
-  store.dispatch(Session.ICD.setSelected({ key: ic.key, selected }));
+  store.dispatch(Session.ICD.setSelected({ key: ic.key, selected, focused }));
   const { panelKey, tabKey } = await createResourceTab(client, icd.resourceID(ic.key));
   await primePanel(wrapper, panelKey);
-  await renderSuspended(
+  const ui = (
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <Content />
       </PlutoPanel.TabScope.Provider>
-    </PlutoPanel.Scope.Provider>,
-    { wrapper },
+    </PlutoPanel.Scope.Provider>
   );
+  // A panel hosts each tab through a portal, so a hidden tab is detached.
+  const tree = (hosted: boolean) => (
+    <Portal.Context>
+      <Portal.In itemKey={tabKey}>{ui}</Portal.In>
+      {hosted && <Portal.Out itemKey={tabKey} />}
+    </Portal.Context>
+  );
+  const { unmount, rerender } = await renderSuspended(tree(true), { wrapper });
   // The editor is a preview until the grant check resolves, and only an editor shows
   // Import.
   if (as === client) await screen.findByRole("button", { name: "Import" });
+  const reopen = async () => {
+    unmount();
+    await renderSuspended(tree(true), { wrapper });
+  };
+  const host = async (hosted: boolean) => await act(async () => rerender(tree(hosted)));
+  return { store, reopen, host };
 };
 
 const cell = (column: string, row: number): HTMLInputElement =>
@@ -191,6 +208,18 @@ const typeText = async (label: RegExp, text: string): Promise<HTMLInputElement> 
   return input;
 };
 
+/** Waits for input to refuse text, then checks that a hover shows error. */
+const expectRefused = async (
+  input: HTMLInputElement,
+  text: string,
+  error: string,
+): Promise<void> => {
+  await waitFor(() => expect(input.getAttribute("aria-invalid")).toBe("true"));
+  expect(input.value).toBe(text);
+  await userEvent.hover(input);
+  await screen.findByText(error);
+};
+
 const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {
   const { payload } = await retrieveMessage(key);
   if (payload.format !== "json") throw new Error("expected a JSON message");
@@ -245,6 +274,55 @@ describe("ICD editor", () => {
     await waitFor(async () =>
       expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
     );
+  });
+
+  describe("at a field that a task names", () => {
+    const createReading = () => {
+      const flow = createJSONField("Flow", "/flow");
+      return {
+        flow,
+        reading: createJSONMessage([createJSONField("Temp", "/temp"), flow]),
+      };
+    };
+
+    it("should focus and select the name of the field", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { store } = await renderEditor(ic, client, [reading.key], flow.key);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      expect(cell("Name", 2).selectionStart).toBe(0);
+      expect(cell("Name", 2).selectionEnd).toBe("Flow".length);
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should focus the field once its hidden tab shows", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { store, host } = await renderEditor(ic, client, [reading.key]);
+      await host(false);
+      const selected = [reading.key];
+      act(() => {
+        store.dispatch(
+          Session.ICD.setSelected({ key: ic.key, selected, focused: flow.key }),
+        );
+      });
+      await act(async () => {});
+      expect(focusedIn(store, ic.key)).toBe(flow.key);
+      await host(true);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should not focus the field again when the editor opens again", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { reopen } = await renderEditor(ic, client, [reading.key], flow.key);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      await reopen();
+      await screen.findByLabelText("Name 2");
+      await act(async () => {});
+      expect(document.activeElement).not.toBe(cell("Name", 2));
+    });
   });
 
   it("should open at the message that the session selects", async () => {
@@ -333,6 +411,109 @@ describe("ICD editor", () => {
         identifier: { fd: false, bitrateSwitched: false },
       });
     });
+  });
+
+  describe("CAN identifier", () => {
+    const renderCAN = async (extended: boolean = false): Promise<icd.ICD> => {
+      const ic = await createICD([
+        {
+          ...createMessage([]),
+          payload: {
+            format: "binary",
+            fields: [createBinaryField("Rpm", 0)],
+            identifier: {
+              type: "can",
+              id: 0x100,
+              extended,
+              fd: false,
+              bitrateSwitched: false,
+            },
+          },
+        },
+      ]);
+      await renderEditor(ic);
+      return ic;
+    };
+
+    const expectIDRefused = async (text: string, error: string): Promise<void> => {
+      await expectRefused(await typeText(/^ID/, text), text, error);
+      screen.getByText("CAN 0x100 · 1 field");
+    };
+
+    it("should keep text that is not a hex number in the ID, with its error", async () => {
+      const ic = await renderCAN();
+      await expectIDRefused("0x18FF5G", "ID must be a hex number, such as 0x1F0");
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        identifier: { id: 0x100 },
+      });
+    });
+
+    it.each(["0x20000000", "0x1FFFFFFFFF"])(
+      "should keep %s, above any CAN ID, in the ID with its error",
+      async (text) => {
+        await renderCAN(true);
+        await expectIDRefused(text, "A CAN ID is at most 0x1FFFFFFF");
+      },
+    );
+
+    it("should store an ID above the bound of a standard frame and show it", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x800");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+          identifier: { id: 0x800 },
+        }),
+      );
+      await expectRefused(id, "0x800", "id 0x800 exceeds the maximum 0x7FF");
+    });
+
+    it("should clear the bound error when Extended ID turns on", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x800");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      fireEvent.click(screen.getByLabelText("Extended ID"));
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBeNull());
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        identifier: { id: 0x800, extended: true },
+      });
+    });
+
+    it("should save an ID typed after a refused one and clear the error", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x18FF5G");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      await typeText(/^ID/, "0x7FF");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+          identifier: { id: 0x7ff },
+        }),
+      );
+      expect(id.getAttribute("aria-invalid")).toBeNull();
+      expect(id.value).toBe("0x7FF");
+    });
+
+    it("should put back the stored ID when Esc follows refused text", async () => {
+      await renderCAN();
+      const id = await typeText(/^ID/, "0x18FF5G");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      await userEvent.click(id);
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(id.value).toBe("0x100"));
+      expect(id.getAttribute("aria-invalid")).toBeNull();
+    });
+
+    it("should refuse a mask that is not a hex number", async () => {
+      await renderCAN();
+      const text = "0xZZ";
+      const mask = await typeText(/^Mask/, text);
+      await expectRefused(mask, text, "Mask must be a hex number, such as 0x7F0");
+    });
+  });
+
+  it("should keep a frame length that is not a whole number, with its error", async () => {
+    await renderEditor(await createICD([createMessage([createBinaryField("Rpm", 0)])]));
+    const length = await typeText(/^Length/, "1.5");
+    await expectRefused(length, "1.5", "Length must be a whole number of bytes");
   });
 
   it("should replace the payload when the format changes", async () => {
@@ -1402,6 +1583,31 @@ describe("ICD editor", () => {
       );
       expect(input.value).toBe("7E 7E 01");
     });
+
+    it.each<[string, icd.Framing, RegExp, string, string]>([
+      [
+        "delimiter",
+        { type: "delimited", delimiter: "\n" },
+        /^Delimiter/,
+        "\\q",
+        "Delimiter must be text, with escapes such as \\n or \\x1F",
+      ],
+      [
+        "sync bytes",
+        SYNC,
+        /^Sync bytes/,
+        "AA 5",
+        "Sync bytes must be pairs of hex digits, such as AA 55",
+      ],
+    ])(
+      "should keep %s text that does not parse, with its error",
+      async (_, framing, label, text, error) => {
+        const ic = await createFramedICD(framing);
+        await renderEditor(ic);
+        await expectRefused(await typeText(label, text), text, error);
+        expect(await retrieveStoredFraming(ic.key)).toEqual(framing);
+      },
+    );
 
     it("should set and remove the checksum of a sync framing", async () => {
       const ic = await createFramedICD(SYNC);

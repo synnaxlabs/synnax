@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 
+from synnax.serial.types import ReadTask, WriteTask
 from synnax.serial.types_gen import (
     FlowControl,
     Parity,
@@ -22,6 +23,8 @@ __all__ = [
     "Parity",
     "Properties",
     "ReadConfig",
+    "ReadTask",
     "StopBits",
     "WriteConfig",
+    "WriteTask",
 ]

@@ -11,7 +11,7 @@ import type { channel, icd } from "@synnaxlabs/client";
 import { DataType, payload } from "@synnaxlabs/x";
 
 /** The data type of the channel that a field of each kind takes by default. */
-export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
+const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
   float: DataType.FLOAT64.toString(),
   integer: DataType.INT64.toString(),
   unsigned: DataType.UINT64.toString(),
@@ -21,6 +21,12 @@ export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
   json: DataType.JSON.toString(),
   uuid: DataType.UUID.toString(),
   bytes: DataType.BYTES.toString(),
+};
+
+/** The type that a picker lists for a value of each kind. */
+export const VALUE_TYPES: Record<payload.Kind, string> = {
+  ...DEFAULT_DATA_TYPES,
+  boolean: DataType.BOOLEAN.toString(),
 };
 
 const isScaled = ({

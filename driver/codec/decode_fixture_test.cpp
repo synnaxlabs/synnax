@@ -63,7 +63,7 @@ nlohmann::json float_json(const double v) {
 
 /// @brief returns the JSON form of the one sample in s, as the fixtures write it.
 nlohmann::json sample_json(const x::telem::Series &s) {
-    const auto dt = s.data_type();
+    const auto &dt = s.data_type();
     if (dt == x::telem::FLOAT64_T) return float_json(s.at<double>(0));
     if (dt == x::telem::FLOAT32_T)
         return float_json(static_cast<double>(s.at<float>(0)));

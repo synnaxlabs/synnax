@@ -342,6 +342,32 @@ var _ = Describe("JSONEncoder", func() {
 			To(MatchError("message command: field temp: no sample and no default"))
 	})
 
+	DescribeTable("Should refuse a sample with no JSON number for a converted field",
+		func(variant icd.JSONFieldVariant, scale, sample float64, expected string) {
+			key := uuid.New()
+			f := icd.JSONField{Variant: variant}
+			f.SetBase(
+				icd.JSONBaseField{Key: key, Name: "v", Scale: scale, Pointer: "/v"},
+			)
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{f}, codec.Binding{Field: key, DataType: telem.Float64T},
+			)))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(sample)})).Error().To(
+				MatchError(
+					"message command: field v: " + expected + ": validation error",
+				),
+			)
+		},
+		Entry("a scaled float", icd.FloatJSONField{}, 2.0, math.NaN(),
+			"NaN is not a JSON number"),
+		Entry("an integer", icd.IntegerJSONField{}, 1.0, math.Inf(1),
+			"Infinity is not a JSON number"),
+		Entry("an unsigned", icd.UnsignedJSONField{}, 1.0, math.Inf(-1),
+			"-Infinity is not a JSON number"),
+		Entry("a boolean", icd.BooleanJSONField{}, 1.0, math.NaN(),
+			"NaN is not a JSON number"),
+	)
+
 	It("Should refuse a NaN default for a field with no binding", func() {
 		f := nanField("v", uuid.New())
 		Expect(codec.NewJSONEncoder(message([]icd.JSONField{f}))).Error().To(SatisfyAll(

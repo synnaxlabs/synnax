@@ -637,10 +637,19 @@ func appendJSONNumber(dst []byte, n number) ([]byte, error) {
 	if n.kind != floatNumber {
 		return n.appendText(dst), nil
 	}
-	if !xmath.Finite(n.f) {
-		return nil, errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
+	if err := checkFinite(n); err != nil {
+		return nil, err
 	}
 	return xstrconv.AppendFloat(dst, n.f, 64), nil
+}
+
+// checkFinite returns an error wrapping validate.ErrValidation when n is NaN or
+// infinite, which no JSON number holds.
+func checkFinite(n number) error {
+	if n.kind == floatNumber && !xmath.Finite(n.f) {
+		return errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
+	}
+	return nil
 }
 
 // numeric reports whether dt holds numbers: an integer, float, or boolean type.

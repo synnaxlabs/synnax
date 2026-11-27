@@ -20,10 +20,14 @@ import {
   formatEscaped,
   formatHexBytes,
   FormattedField,
+  orError,
   parseEscaped,
   parseHexBytes,
 } from "@/feature/icd/editor/FormattedField";
 import { CSS } from "@/platform/css";
+
+const SYNC_ERROR = "Sync bytes must be pairs of hex digits, such as AA 55";
+const DELIMITER_ERROR = "Delimiter must be text, with escapes such as \\n or \\x1F";
 
 type Type = icd.FramingType | "none";
 
@@ -138,7 +142,7 @@ const SyncFields = ({ path }: SyncFieldsProps): ReactElement => (
         label="Sync bytes"
         placeholder="AA 55"
         format={formatHexBytes}
-        parse={parseHexBytes}
+        parse={(text) => orError(parseHexBytes(text), SYNC_ERROR)}
       />
       <Form.NumericField path={path.maxLength} label="Max length" inputProps={BYTES} />
     </Flex.Box>
@@ -209,7 +213,7 @@ export const Framing = (): ReactElement => {
                 label="Delimiter"
                 placeholder="\n"
                 format={formatEscaped}
-                parse={parseEscaped}
+                parse={(text) => orError(parseEscaped(text), DELIMITER_ERROR)}
               />
             )}
             {type === "fixed" && (

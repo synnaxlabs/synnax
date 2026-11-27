@@ -33,9 +33,9 @@ using Settings = ::termios;
 x::errors::Error check(const synnax::serial::Properties &props);
 
 /// @brief writes the baud rate, character size, parity, stop bits, and flow control in
-/// props onto settings, and keeps its other fields. On macOS, a baud rate outside the
-/// termios table leaves the speeds unchanged, and the port sets the rate after it
-/// applies settings.
+/// props onto settings, and keeps its other fields. On Linux and macOS, it also puts
+/// the line in raw mode. On macOS, a baud rate outside the termios table leaves the
+/// speeds unchanged, and the port sets the rate after it applies settings.
 /// @returns CONFIG_ERROR when props fails check or the platform cannot express a
 /// setting.
 x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings);
