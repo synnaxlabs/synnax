@@ -203,7 +203,7 @@ export const createAdditions = (
       picked.map(({ pointer }) => pointer),
       [...carried.values()].map(({ name }) => name),
     );
-    const named = new Map(picked.map((f, i) => [f, ICD.createField(f, names[i])]));
+    const named = new Map(picked.map((f, i) => [f, ICD.createReadField(f, names[i])]));
     const fields = shape.fields.flatMap((f): icd.JSONField[] => {
       const field = carried.get(f.pointer);
       if (field != null) return [{ ...field, key: uuid.create() }];
@@ -328,7 +328,7 @@ export const createExtensions = (
         missing.map(({ pointer }) => pointer),
         holds.map(({ name }) => name),
       );
-      const added = missing.map((f, i) => ICD.createField(f, names[i]));
+      const added = missing.map((f, i) => ICD.createReadField(f, names[i]));
       extension.fields.push(...added);
       const existing = holds.filter((h) => picked.some((f) => f.pointer === h.pointer));
       extension.bindings.push({
@@ -352,7 +352,7 @@ const createKindMessage = (
   const indexField = shape.index == null ? undefined : shape.fields[shape.index];
   const kept = shape.fields.filter((f) => f === indexField || picked.includes(f));
   const names = ICD.fieldNames(kept.map(({ pointer }) => pointer));
-  const fields = kept.map((f, i) => ICD.createField(f, names[i]));
+  const fields = kept.map((f, i) => ICD.createReadField(f, names[i]));
   const message: icd.Message = {
     key: uuid.create(),
     name: uniqueName(

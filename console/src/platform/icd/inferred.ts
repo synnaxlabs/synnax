@@ -12,35 +12,57 @@ import { type json, type payload, uuid } from "@synnaxlabs/x";
 
 import { fieldNames } from "@/platform/icd/fieldNames";
 
-type Inferred = Pick<json.InferredField, "pointer" | "kind" | "timeFormat" | "enum">;
+type Inferred = Pick<json.InferredField, "pointer" | "kind" | "timeFormat">;
 
-/**
- * @returns the kind of the field that createField makes from an inferred field: an
- * integer for a string field with enum labels, so that its values plot.
- */
-export const fieldKind = ({
-  kind,
-  enum: labels,
-}: Pick<Inferred, "kind" | "enum">): payload.Kind =>
-  labels.length > 0 ? "integer" : kind;
+/** An inferred field with the enum labels that a read can map to numbers. */
+type Labeled = Inferred & Pick<json.InferredField, "enum">;
 
-/**
- * @returns a field named name that reads the values of an inferred field. A field with
- * enum labels reads each label as its position in the labels.
- */
-export const createField = (inferred: Inferred, name: string): icd.JSONField => {
-  const { pointer, timeFormat, enum: labels } = inferred;
-  const type = fieldKind(inferred);
-  if (labels.length === 0)
-    return icd.jsonFieldZ.parse({ name, pointer, type, timeFormat });
-  const enumValues = labels.map((label, i) => ({ label, value: i.toString() }));
-  return icd.jsonFieldZ.parse({ name, pointer, type, enumValues });
-};
+const INTEGER = /^-?(0|[1-9]\d*)$/;
+const NUMBER = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/;
+
+const spellNumbers = (labels: string[]): boolean => labels.every((l) => NUMBER.test(l));
+
+const createField = (
+  { pointer, kind, timeFormat }: Inferred,
+  name: string,
+): icd.JSONField => icd.jsonFieldZ.parse({ name, pointer, type: kind, timeFormat });
 
 /** @returns a field for each inferred field, named after its pointer. */
 export const createFields = (inferred: Inferred[]): icd.JSONField[] => {
   const names = fieldNames(inferred.map(({ pointer }) => pointer));
   return inferred.map((f, i) => createField(f, names[i]));
+};
+
+/**
+ * @returns the kind of the field that createReadField makes from an inferred field. A
+ * field with enum labels is a number, so that its values plot.
+ */
+export const readKind = ({
+  kind,
+  enum: labels,
+}: Pick<Labeled, "kind" | "enum">): payload.Kind => {
+  if (labels.length === 0) return kind;
+  if (spellNumbers(labels) && !labels.every((l) => INTEGER.test(l))) return "float";
+  return "integer";
+};
+
+/**
+ * @returns a field named name that reads the values of an inferred field. Enum labels
+ * that all spell numbers read as those numbers. Other labels read as their positions.
+ */
+export const createReadField = (inferred: Labeled, name: string): icd.JSONField => {
+  const { pointer, enum: labels } = inferred;
+  const type = readKind(inferred);
+  if (labels.length === 0 || spellNumbers(labels))
+    return createField({ ...inferred, kind: type }, name);
+  const enumValues = labels.map((label, i) => ({ label, value: i.toString() }));
+  return icd.jsonFieldZ.parse({ name, pointer, type, enumValues });
+};
+
+/** @returns a read field for each inferred field, named after its pointer. */
+export const createReadFields = (inferred: Labeled[]): icd.JSONField[] => {
+  const names = fieldNames(inferred.map(({ pointer }) => pointer));
+  return inferred.map((f, i) => createReadField(f, names[i]));
 };
 
 /** @returns the name of the kind of document that holds the field at present. */

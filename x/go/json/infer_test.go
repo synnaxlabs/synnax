@@ -467,11 +467,37 @@ var _ = Describe("Infer", func() {
 
 	It("Should give an enum label of 64 bytes", func() {
 		label := strings.Repeat("x", 64)
-		shapes, _ := xjson.Infer(documents("a", 2, func(int) string {
+		shapes, _ := xjson.Infer(documents("a", 3, func(i int) string {
+			if i == 0 {
+				return `{"state":"a"}`
+			}
 			return fmt.Sprintf(`{"state":%q}`, label)
 		}))
-		Expect(fieldAt(shapes[0], "/state").Enum).To(Equal([]string{label}))
+		Expect(fieldAt(shapes[0], "/state").Enum).To(Equal([]string{"a", label}))
 	})
+
+	It("Should not give an enum to a string field that holds one value", func() {
+		shapes, _ := xjson.Infer(documents("a", 3, func(int) string {
+			return `{"state":"ok"}`
+		}))
+		Expect(fieldAt(shapes[0], "/state").Enum).To(BeNil())
+	})
+
+	DescribeTable("Should not give an enum to a string field that holds other types",
+		func(other string) {
+			shapes, _ := xjson.Infer(documents("a", 5, func(i int) string {
+				if i == 4 {
+					return fmt.Sprintf(`{"state":%s}`, other)
+				}
+				return fmt.Sprintf(`{"state":%q}`, []string{"on", "off"}[i%2])
+			}))
+			state := fieldAt(shapes[0], "/state")
+			Expect(state.Kind).To(Equal(payload.KindString))
+			Expect(state.Enum).To(BeNil())
+		},
+		Entry("a number", "1"),
+		Entry("a boolean", "true"),
+	)
 
 	It("Should not give an enum to a string field with a value over 64 bytes", func() {
 		shapes, _ := xjson.Infer(documents("a", 3, func(i int) string {

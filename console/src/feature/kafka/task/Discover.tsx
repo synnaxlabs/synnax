@@ -16,7 +16,16 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { compare, id, json, search, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
+import {
+  compare,
+  id,
+  json,
+  type payload,
+  search,
+  TimeSpan,
+  TimeStamp,
+  unique,
+} from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
@@ -276,16 +285,20 @@ const rebase = (
   return withTopic(picks, topic, shapes, kept);
 };
 
-/** @returns the value that a pane shows for a field of a shape. */
+/**
+ * @returns the value that a pane shows for a field of a shape, as a field of the given
+ * kind.
+ */
 const valueOf = (
   key: string,
   field: json.InferredField,
+  kind: payload.Kind,
   newest: unknown[],
 ): ICD.Picker.Value => ({
   key,
   name: field.pointer === "" ? "Whole value" : field.pointer,
   sample: show(newestValue(newest, field.pointer)),
-  dataType: ICD.VALUE_TYPES[ICD.fieldKind(field)],
+  dataType: ICD.VALUE_TYPES[kind],
 });
 
 /**
@@ -355,7 +368,7 @@ const TopicValues = ({
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;
-        return { ...valueOf(key, f, newest), lock };
+        return { ...valueOf(key, f, ICD.readKind(f), newest), lock };
       }),
     };
   });
@@ -414,7 +427,7 @@ const WholeValues = ({
   label,
 }: WholeValuesProps) => {
   const newest = newestFirst(sample, shape);
-  const values = shape.fields.map((f) => valueOf(f.pointer, f, newest));
+  const values = shape.fields.map((f) => valueOf(f.pointer, f, f.kind, newest));
   return (
     <>
       <ICD.Picker.PaneHeader title={name} note={note} />

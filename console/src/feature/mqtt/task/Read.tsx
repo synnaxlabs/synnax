@@ -132,7 +132,7 @@ const createDraft = (
   index?: string,
   present?: string,
 ): Draft => {
-  const fields = ICD.createFields(leaves);
+  const fields = ICD.createReadFields(leaves);
   return {
     type: "plain",
     topic,

@@ -1239,7 +1239,7 @@ describe("MQTT Write form", () => {
               type: "string",
               kind: "string",
               sample: '"auto"',
-              enum: [],
+              enum: [] as string[],
             },
           ],
           count: 1,
@@ -1316,6 +1316,29 @@ describe("MQTT Write form", () => {
           channel: 0,
         })),
       );
+    });
+
+    it("should keep a string field with enum labels a string, in the dialog and the target", async () => {
+      const [setpoint, mode] = TOPIC.shapes[0].fields;
+      const labeled = {
+        ...TOPIC,
+        shapes: [
+          {
+            ...TOPIC.shapes[0],
+            fields: [setpoint, { ...mode, enum: ["auto", "manual"] }],
+          },
+        ],
+      };
+      const { dialog, draft } = await openOnPickedTopic([], labeled);
+      dialog.getByText("string");
+      expect(dialog.queryByText("int64")).toBeNull();
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, TOPIC.topic);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ICD.jsonFields(ic.messages[0])).toMatchObject([
+        { pointer: "/setpoint", type: "float" },
+        { pointer: "/mode", type: "string", enumValues: [] },
+      ]);
     });
 
     it("should infer the format of a topic from the shape that the most messages had, and mark it", async () => {
