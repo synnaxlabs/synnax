@@ -42,6 +42,7 @@ Invite struct {
         lets one provider account link to a user without a session. A user holds at most
         one invite, and it works once.
     """
+    @go entry
     @go marshal
     @go migrate
     @retrieve

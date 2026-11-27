@@ -22,7 +22,4 @@ var _ = Describe("Invite", func() {
 		key := uuid.New()
 		Expect(v0.Invite{Key: key}.GorpKey()).To(Equal(key))
 	})
-	It("Should return no options", func() {
-		Expect(v0.Invite{}.SetOptions()).To(BeNil())
-	})
 })
