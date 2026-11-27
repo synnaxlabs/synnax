@@ -353,7 +353,7 @@ var _ = Describe("Import CSV", func() {
 			),
 		).
 			Error().
-			To(MatchError(HavePrefix("data: line 2: ")))
+			To(MatchError(HavePrefix("line 2: ")))
 	})
 
 	header := "message,id,extended,length,field,start_bit,bit_length,byte_order," +
@@ -362,7 +362,7 @@ var _ = Describe("Import CSV", func() {
 		"Should reject an invalid table",
 		func(ctx SpecContext, csv, message string) {
 			Expect(importFile(ctx, icd.ImportFormatCSV, []byte(csv))).Error().
-				To(MatchError("data: " + message + ": validation error"))
+				To(MatchError(message + ": validation error"))
 		},
 		Entry("an empty file", "", "missing header row"),
 		Entry("an unknown column", "message,field,start_bit,bit_length,Color\n",
@@ -472,7 +472,7 @@ var _ = Describe("Import XLSX", func() {
 		}
 		data := replaceInSheet(toXLSX(rows), `r="B3"`, `r="3B"`)
 		Expect(importFile(ctx, icd.ImportFormatXLSX, data)).Error().
-			To(MatchError(HavePrefix("data: row 3: ")))
+			To(MatchError(HavePrefix("row 3: ")))
 	})
 
 	It("Should report the row of an invalid cell", func(ctx SpecContext) {
@@ -483,12 +483,12 @@ var _ = Describe("Import XLSX", func() {
 		}
 		Expect(importFile(ctx, icd.ImportFormatXLSX, toXLSX(rows))).Error().
 			To(MatchError(
-				`data: row 3, column start_bit: invalid integer "x": validation error`,
+				`row 3, column start_bit: invalid integer "x": validation error`,
 			))
 	})
 
 	It("Should reject data that is not a workbook", func(ctx SpecContext) {
 		Expect(importFile(ctx, icd.ImportFormatXLSX, []byte("message,field"))).Error().
-			To(MatchError(HavePrefix("data: invalid workbook: ")))
+			To(MatchError(HavePrefix("invalid workbook: ")))
 	})
 })

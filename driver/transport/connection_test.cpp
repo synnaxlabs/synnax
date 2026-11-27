@@ -152,7 +152,7 @@ TEST(Connections, RefuseOtherSettings) {
     const auto err = acquire(connections, "dev", {{"baud_rate", 115200}}, device)
                          .second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "another task has device dev open with other settings");
+    EXPECT_EQ(err.data(), "another task has device dev open with other settings");
     a.reset();
     ASSERT_NIL_P(acquire(connections, "dev", {{"baud_rate", 115200}}, device));
 }
@@ -176,7 +176,7 @@ TEST(Connection, ReopenAfterBackoff) {
         auto guard = conn.lock();
         const auto err = guard.transport().second;
         ASSERT_OCCURRED_AS(err, UNREACHABLE_ERROR);
-        EXPECT_EQ(err.data, "gone");
+        EXPECT_EQ(err.data(), "gone");
     }
     EXPECT_EQ(device->count(&Device::attempts), 1);
     clock.advance(x::telem::MILLISECOND);

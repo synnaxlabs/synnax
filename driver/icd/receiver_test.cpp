@@ -46,9 +46,18 @@ class Memory final : public transport::Transport {
     std::vector<std::uint8_t> held;
 
 public:
-    /// @brief chunks holds the result of each read to come. An empty chunk is a
-    /// timeout.
-    std::deque<std::pair<std::vector<std::uint8_t>, x::errors::Error>> chunks;
+    /// @brief Read is the result of one read. A read of no bytes is a timeout.
+    struct Read {
+        std::vector<std::uint8_t> bytes;
+        x::errors::Error err;
+        /// @brief errors is the number of line errors that the read reports.
+        std::size_t errors = 0;
+        /// @brief overruns is the number of overruns that the read reports.
+        std::size_t overruns = 0;
+    };
+
+    /// @brief chunks holds each read to come.
+    std::deque<Read> chunks;
     /// @brief time is the arrival time of each chunk.
     x::telem::TimeStamp time = ARRIVED;
     /// @brief timeouts holds the timeout of each read.
@@ -62,10 +71,16 @@ public:
     read(const x::telem::TimeSpan timeout) override {
         this->timeouts.push_back(timeout);
         if (this->chunks.empty()) return {{.time = this->time}, x::errors::NIL};
-        auto [bytes, err] = std::move(this->chunks.front());
+        auto r = std::move(this->chunks.front());
         this->chunks.pop_front();
-        this->held = std::move(bytes);
-        return {{.data = this->held, .time = this->time}, err};
+        this->held = std::move(r.bytes);
+        return {
+            {.data = this->held,
+             .time = this->time,
+             .errors = r.errors,
+             .overruns = r.overruns},
+            r.err,
+        };
     }
 
     x::errors::Error write(
@@ -78,7 +93,7 @@ public:
     }
 
     void push(std::vector<std::uint8_t> bytes) {
-        this->chunks.emplace_back(std::move(bytes), x::errors::NIL);
+        this->chunks.push_back({.bytes = std::move(bytes)});
     }
 
     void push(const std::string &text) {
@@ -414,9 +429,8 @@ TEST(Receiver, DropsBytesOnTransportError) {
     auto r = fixed();
     Memory t;
     t.push(std::vector<std::uint8_t>{0});
-    t.chunks.emplace_back(
-        std::vector<std::uint8_t>{},
-        x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed")
+    t.chunks.push_back(
+        {.err = x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed")}
     );
     t.push(std::vector<std::uint8_t>{0, 7});
     x::telem::Frame fr;
@@ -424,6 +438,72 @@ TEST(Receiver, DropsBytesOnTransportError) {
     ASSERT_OCCURRED_AS(r.read(t, fr).error, transport::UNREACHABLE_ERROR);
     ASSERT_NIL(r.read(t, fr).error);
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
+}
+
+/// @brief it should warn about the line errors and overruns of a read, and decode its
+/// frames.
+TEST(Receiver, WarnsAboutLineErrors) {
+    auto r = fixed();
+    Memory t;
+    t.chunks.push_back({.bytes = {0, 7}, .errors = 3, .overruns = 1});
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Received serial line errors");
+    ASSERT_EQ(
+        res.warning.description,
+        "The port reported parity errors, framing errors, or breaks, and receive "
+        "overruns. Check that the baud rate, parity, and data bits match the device."
+    );
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
+}
+
+/// @brief it should name only the kinds of line error that a read reports.
+TEST(Receiver, NamesEachKindOfLineError) {
+    auto r = fixed();
+    Memory t;
+    t.chunks.push_back({.errors = 1});
+    t.chunks.push_back({.overruns = 2});
+    x::telem::Frame fr;
+    ASSERT_EQ(
+        r.read(t, fr).warning.description,
+        "The port reported parity errors, framing errors, or breaks. Check that the "
+        "baud rate, parity, and data bits match the device."
+    );
+    ASSERT_EQ(
+        r.read(t, fr).warning.description,
+        "The port reported receive overruns. Check that the baud rate, parity, and "
+        "data bits match the device."
+    );
+    ASSERT_TRUE(r.read(t, fr).warning.empty());
+}
+
+/// @brief it should give equal warnings for reads with different counts of the same
+/// kinds of line error.
+TEST(Receiver, GivesSameWarningForDifferentLineErrorCounts) {
+    auto r = fixed();
+    Memory t;
+    t.chunks.push_back({.errors = 3, .overruns = 1});
+    t.chunks.push_back({.errors = 12, .overruns = 5});
+    x::telem::Frame fr;
+    const auto first = r.read(t, fr).warning;
+    ASSERT_FALSE(first.empty());
+    ASSERT_EQ(r.read(t, fr).warning, first);
+}
+
+/// @brief it should warn about the line errors of a read before a frame of the read
+/// that it cannot decode.
+TEST(Receiver, WarnsAboutLineErrorsBeforeDecodeErrors) {
+    auto r = create(lines());
+    Memory t;
+    const std::string text = "oven\n";
+    t.chunks.push_back(
+        {.bytes = std::vector<std::uint8_t>(text.begin(), text.end()), .errors = 2}
+    );
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Received serial line errors");
 }
 
 /// @brief it should drop the bytes of a partial frame on clear.
@@ -575,7 +655,7 @@ TEST(Receiver, RejectsQueryThatFramingCannotHold) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "entry 0: the framing cannot hold the poll query: the frame has 3 bytes, not "
         "the fixed length of 2"
     );
@@ -597,7 +677,7 @@ TEST(Receiver, RejectsPollRateOutOfRange) {
         );
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         ASSERT_EQ(
-            err.data,
+            err.data(),
             "entry 0: the poll rate must be above 0 Hz and at most 1 GHz, not " + text
         );
     }
@@ -942,7 +1022,7 @@ TEST(Receiver, RejectsEntriesThatReadOneMessage) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry(), cfg.entry()}, {cfg.ic}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "entries 0 and 1 both read message frame of ICD device");
+    ASSERT_EQ(err.data(), "entries 0 and 1 both read message frame of ICD device");
 }
 
 /// @brief it should refuse an entry after one that reads a binary message with no
@@ -953,7 +1033,7 @@ TEST(Receiver, RejectsEntryAfterBinaryCatchAll) {
     const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, b.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message frame of ICD device in entry 0 matches every frame, so entry 1 never "
         "gets one"
     );
@@ -973,7 +1053,7 @@ TEST(Receiver, RejectsEntryAfterTextCatchAll) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message frame of ICD first in entry 0 matches every frame, so entry 1 never "
         "gets one"
     );
@@ -993,7 +1073,7 @@ TEST(Receiver, RejectsJSONEntryAfterJSONCatchAll) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message frame of ICD first in entry 0 matches every JSON document, so entry 1 "
         "never gets one"
     );
@@ -1053,7 +1133,7 @@ TEST(Receiver, RejectsStreamICDWithoutFraming) {
     const auto cfg = pairs(std::nullopt);
     const auto err = refused({cfg.entry()}, {cfg.ic}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "ICD device has no framing to split the stream with");
+    ASSERT_EQ(err.data(), "ICD device has no framing to split the stream with");
 }
 
 /// @brief it should refuse entries whose ICDs frame the stream differently.
@@ -1067,7 +1147,7 @@ TEST(Receiver, RejectsICDsWithDifferentFramings) {
         merged(a.channels, b.channels)
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "ICDs first and second frame the stream differently");
+    ASSERT_EQ(err.data(), "ICDs first and second frame the stream differently");
 }
 
 /// @brief it should refuse an entry whose ICD does not exist.
@@ -1075,7 +1155,7 @@ TEST(Receiver, RejectsMissingICD) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry()}, {}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "entry 0: ICD " + cfg.ic.key.to_string() + " does not exist");
+    ASSERT_EQ(err.data(), "entry 0: ICD " + cfg.ic.key.to_string() + " does not exist");
 }
 
 /// @brief it should name the entry whose reader fails to create.
@@ -1083,7 +1163,7 @@ TEST(Receiver, NamesEntryWhoseReaderFails) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry()}, {cfg.ic});
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "entry 0: message frame: channel 2 does not exist");
+    ASSERT_EQ(err.data(), "entry 0: message frame: channel 2 does not exist");
 }
 
 /// @brief it should read each datagram with no framing as one message, and send the

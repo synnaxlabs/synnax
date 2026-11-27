@@ -78,7 +78,7 @@ public:
     /// @param status The status to create or update.
     /// @modifies status May update the key if auto-generated.
     /// @returns An error where ok() is false if the status could not be created.
-    /// Use err.message() to get the error message or err.type to get the error type.
+    /// Use err.message() to get the error message or err.type() to get the error type.
     template<typename Details = x::json::json>
     [[nodiscard]] x::errors::Error set(synnax::status::Status<Details> &status) const {
         grpc::status::SetRequest req;
@@ -102,7 +102,7 @@ public:
     /// @param statuses The statuses to create or update.
     /// @modifies statuses May update keys if auto-generated.
     /// @returns An error where ok() is false if the statuses could not be created. Use
-    /// err.message() to get the error message or err.type to get the error type. A
+    /// err.message() to get the error message or err.type() to get the error type. A
     /// status that does not convert to protobuf sends none of the batch and names the
     /// offending status key in the error.
     template<typename Details = x::json::json>
@@ -112,7 +112,7 @@ public:
         req.mutable_statuses()->Reserve(static_cast<int>(statuses.size()));
         for (const auto &s: statuses) {
             auto [pb, pb_err] = s.to_proto();
-            if (pb_err) return {pb_err, "status " + s.key + ": " + pb_err.data};
+            if (pb_err) return {pb_err, "status " + s.key + ": " + pb_err.data()};
             *req.add_statuses() = pb;
         }
         auto [res, err] = this->set_client->send("/status/set", req);
@@ -229,7 +229,7 @@ public:
     /// not raise an error.
     /// @param key The key of the status to delete.
     /// @returns An error where ok() is false if the status could not be deleted.
-    /// Use err.message() to get the error message or err.type to get the error type.
+    /// Use err.message() to get the error message or err.type() to get the error type.
     [[nodiscard]] x::errors::Error del(const std::string &key) const {
         return this->del(std::vector{key});
     }
@@ -239,7 +239,7 @@ public:
     /// not raise an error.
     /// @param keys The keys of the statuses to delete.
     /// @returns An error where ok() is false if the statuses could not be deleted.
-    /// Use err.message() to get the error message or err.type to get the error type.
+    /// Use err.message() to get the error message or err.type() to get the error type.
     [[nodiscard]] x::errors::Error del(const std::vector<std::string> &keys) const {
         grpc::status::DeleteRequest req;
         req.mutable_keys()->Add(keys.begin(), keys.end());

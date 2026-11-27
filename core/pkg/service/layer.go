@@ -367,6 +367,7 @@ func (l *Layer) Run(ctx context.Context) error {
 	g.Go(func() error { return l.License.Run(ctx) })
 	g.Go(func() error { return l.Certificate.Run(ctx) })
 	g.Go(func() error { return l.Rack.Run(ctx) })
+	g.Go(func() error { return l.Metrics.Run(ctx) })
 	return g.Wait()
 }
 

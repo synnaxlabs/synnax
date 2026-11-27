@@ -19,7 +19,7 @@ import {
 import type { Device } from "@/feature/mqtt/device/types";
 
 const browsedFieldZ = json.inferredFieldZ
-  .pick({ pointer: true, type: true, kind: true, timeFormat: true })
+  .pick({ pointer: true, type: true, kind: true, timeFormat: true, enum: true })
   .extend({
     /** The start of the JSON text of the last value heard. */
     sample: z.string(),

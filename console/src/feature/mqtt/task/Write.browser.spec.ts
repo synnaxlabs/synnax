@@ -1253,8 +1253,20 @@ describe("MQTT Write form", () => {
       shapes: [
         {
           fields: [
-            { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
-            { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+            {
+              pointer: "/setpoint",
+              type: "number",
+              kind: "float",
+              sample: "1",
+              enum: [],
+            },
+            {
+              pointer: "/mode",
+              type: "string",
+              kind: "string",
+              sample: '"auto"',
+              enum: [] as string[],
+            },
           ],
           count: 1,
         },
@@ -1332,6 +1344,29 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should keep a string field with enum labels a string, in the dialog and the target", async () => {
+      const [setpoint, mode] = TOPIC.shapes[0].fields;
+      const labeled = {
+        ...TOPIC,
+        shapes: [
+          {
+            ...TOPIC.shapes[0],
+            fields: [setpoint, { ...mode, enum: ["auto", "manual"] }],
+          },
+        ],
+      };
+      const { dialog, draft } = await openOnPickedTopic([], labeled);
+      dialog.getByText("string");
+      expect(dialog.queryByText("int64")).toBeNull();
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, TOPIC.topic);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ICD.jsonFields(ic.messages[0])).toMatchObject([
+        { pointer: "/setpoint", type: "float" },
+        { pointer: "/mode", type: "string", enumValues: [] },
+      ]);
+    });
+
     it("should infer the format of a topic from the shape that the most messages had, and mark it", async () => {
       const topic = {
         topic: "plant/pump/set",
@@ -1339,15 +1374,27 @@ describe("MQTT Write form", () => {
         shapes: [
           {
             fields: [
-              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+              {
+                pointer: "/setpoint",
+                type: "number",
+                kind: "float",
+                sample: "1",
+                enum: [],
+              },
             ],
             present: "/setpoint",
             count: 1,
           },
           {
             fields: [
-              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
-              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5", enum: [] },
+              {
+                pointer: "/mode",
+                type: "string",
+                kind: "string",
+                sample: '"auto"',
+                enum: [],
+              },
             ],
             present: "/rpm",
             count: 3,
@@ -1381,15 +1428,27 @@ describe("MQTT Write form", () => {
         shapes: [
           {
             fields: [
-              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+              {
+                pointer: "/setpoint",
+                type: "number",
+                kind: "float",
+                sample: "1",
+                enum: [],
+              },
             ],
             present: "/setpoint",
             count: setpoints,
           },
           {
             fields: [
-              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
-              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5", enum: [] },
+              {
+                pointer: "/mode",
+                type: "string",
+                kind: "string",
+                sample: '"auto"',
+                enum: [],
+              },
             ],
             present: "/rpm",
             count: rpms,
@@ -1438,6 +1497,7 @@ describe("MQTT Write form", () => {
         sample: "1700000000000",
         kind: "timestamp",
         timeFormat: "unix_ms",
+        enum: [],
       };
       const [shape] = TOPIC.shapes;
       const { dialog, draft } = await openOnPickedTopic([], {

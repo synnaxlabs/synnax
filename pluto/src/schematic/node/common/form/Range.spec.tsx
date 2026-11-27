@@ -38,7 +38,7 @@ const Host = ({ initial, ref }: HostProps): ReactElement => {
   }));
   return (
     <Base.Form<typeof schema> {...methods}>
-      <Form.BoundsFields path={path.bounds} />
+      <Form.RangeField path={path.bounds} />
     </Base.Form>
   );
 };
@@ -47,27 +47,25 @@ interface Fields {
   lower: HTMLInputElement;
   upper: HTMLInputElement;
   get: () => bounds.Bounds;
-  error: () => string | null;
+  invalid: () => boolean;
 }
 
 const setup = (initial: bounds.Bounds): Fields => {
   const ref: { current: Handle | null } = { current: null };
   const c = render(<Host initial={initial} ref={ref} />);
-  // The label carries a required indicator, so the accessible name is not exact.
   const field = (label: string): HTMLInputElement => {
-    const el = c.getByLabelText(new RegExp(label));
+    const el = c.getByLabelText(label);
     assert(el instanceof HTMLInputElement);
     return el;
   };
   return {
-    lower: field("Min value"),
-    upper: field("Max value"),
+    lower: field("Range start"),
+    upper: field("Range end"),
     get: () => {
       assert(ref.current != null);
       return ref.current.get();
     },
-    error: () =>
-      c.queryByText("Min value must be less than max value")?.textContent ?? null,
+    invalid: () => c.container.querySelector(".lyra--error") != null,
   };
 };
 
@@ -76,27 +74,27 @@ const commit = (input: HTMLInputElement, value: string): void => {
   fireEvent.blur(input);
 };
 
-describe("Form.BoundsFields", () => {
+describe("Form.RangeField", () => {
   it("should display the current lower and upper values", () => {
     const { lower, upper } = setup({ lower: 0, upper: 100 });
     expect(lower.value).toBe("0");
     expect(upper.value).toBe("100");
   });
 
-  it("should refuse a minimum at or above the maximum and keep the range", () => {
+  it("should hold a start at or above the end with an error", () => {
     const f = setup({ lower: 0, upper: 100 });
     commit(f.lower, "100");
     expect(f.get()).toEqual({ lower: 0, upper: 100 });
-    expect(f.lower.value).toBe("0");
-    expect(f.error()).toBe("Min value must be less than max value");
+    expect(f.lower.value).toBe("100");
+    expect(f.invalid()).toBe(true);
   });
 
-  it("should refuse a maximum at or below the minimum and keep the range", () => {
+  it("should hold an end at or below the start with an error", () => {
     const f = setup({ lower: 20, upper: 100 });
     commit(f.upper, "-50");
     expect(f.get()).toEqual({ lower: 20, upper: 100 });
-    expect(f.upper.value).toBe("100");
-    expect(f.error()).toBe("Min value must be less than max value");
+    expect(f.upper.value).toBe("-50");
+    expect(f.invalid()).toBe(true);
   });
 
   it("should clear the error after a valid edit", () => {
@@ -104,7 +102,7 @@ describe("Form.BoundsFields", () => {
     commit(f.lower, "150");
     commit(f.lower, "40");
     expect(f.get().lower).toBe(40);
-    expect(f.error()).toBeNull();
+    expect(f.invalid()).toBe(false);
   });
 
   it("should accept a minimum below the maximum untouched", () => {

@@ -137,7 +137,7 @@ const createBehavior = (key: FamilyKey): Behavior => {
     {
       type: "enumeration",
       key: ACTIVE,
-      name: "Active",
+      name: "State",
       enumeration: family.enumeration,
       match: { type: "within", bounds: { lower: 0.9, upper: 1.1 } },
       default: 0,

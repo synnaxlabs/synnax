@@ -160,7 +160,7 @@ TEST(IRTest, testTransitionFromProtoRejectsAnUnsetTarget) {
     pb.mutable_on()->set_param("out");
     const auto err = Transition::from_proto(pb).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "Target: no variant set");
+    ASSERT_EQ(err.data(), "Target: no variant set");
 }
 
 /// @brief it should access nodes by key using node()

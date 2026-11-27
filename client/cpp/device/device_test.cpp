@@ -581,7 +581,7 @@ TEST(DeviceTests, testRetrieveOneWhereNotFound) {
     const auto make = "none_make_" + std::to_string(gen_rand_device());
     const auto [_, err] = client.devices.retrieve(Where{.make = make}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "Found no device where make = \"" + make + "\"");
+    ASSERT_EQ(err.data(), "Found no device where make = \"" + make + "\"");
 }
 
 /// @brief it should reject a limit or a cursor on a retrieve of one device.
@@ -595,7 +595,7 @@ TEST(DeviceTests, testRetrieveDeviceRejectsPage) {
                   .second}) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
-                err.data,
+                err.data(),
                 "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
@@ -857,9 +857,9 @@ TEST(DeviceTests, testCreateDeviceWithMissingParent) {
     };
     const auto err = client.devices.create(child);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_TRUE(err.data.contains("device missing_" + rand + R"( does not exist")"))
+    EXPECT_TRUE(err.data().contains("device missing_" + rand + R"( does not exist")"))
         << err;
-    EXPECT_TRUE(err.data.contains(R"("path":["parent"])")) << err;
+    EXPECT_TRUE(err.data().contains(R"("path":["parent"])")) << err;
 }
 
 /// @brief it should create a device with no parent when none is given.
