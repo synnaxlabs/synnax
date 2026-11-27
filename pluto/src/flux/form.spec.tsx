@@ -10,6 +10,7 @@
 import { label, query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Form } from "@synnaxlabs/lyra/form";
+import { Status } from "@synnaxlabs/lyra/status";
 import { color, deep, TimeSpan } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
@@ -389,6 +390,79 @@ describe("useForm", () => {
       const fieldStatus = result.current.form.get(path.name).status;
       expect(fieldStatus.variant).toEqual("error");
       expect(fieldStatus.message).toEqual("Name is required");
+    });
+  });
+
+  describe("a save that fails to validate", () => {
+    // Holds the first save open, so a later save can queue behind it.
+    const renderInvalid = (autoSave = false) => {
+      const update = vi.fn();
+      const { promise: entered, resolve: enter } = Promise.withResolvers<void>();
+      const { promise: held, resolve: release } = Promise.withResolvers<void>();
+      const { result } = renderHook(
+        () => ({
+          ...Flux.createForm<Params, typeof formSchema>({
+            initialValues: { key: "", name: "John Doe", age: 25 },
+            schema: formSchema,
+            name: "test",
+            update: async () => {
+              update();
+              enter();
+              await held;
+            },
+          })({ query: null, autoSave, autoSaveDebounce: 0 }),
+          notifications: Status.useNotifications().statuses,
+        }),
+        { wrapper: Wrapper },
+      );
+      const focused = vi.fn();
+      act(() => {
+        result.current.form.addFocusHandler(path.name, focused);
+      });
+      return { result, update, focused, entered, release };
+    };
+
+    it("should ask the part that shows the first error to take focus", async () => {
+      const { result, update, focused } = renderInvalid();
+      act(() => result.current.form.set(path.name, ""));
+      expect(await result.current.saveAsync()).toBe(false);
+      expect(focused).toHaveBeenCalledWith("name");
+      expect(update).not.toHaveBeenCalled();
+      expect(result.current.notifications).toEqual([]);
+    });
+
+    it("should show the first error in a toast when no part takes focus", async () => {
+      const { result } = renderInvalid();
+      act(() => result.current.form.set(path.age, -1));
+      expect(await result.current.saveAsync()).toBe(false);
+      await waitFor(() =>
+        expect(result.current.notifications).toMatchObject([
+          { message: "Failed to update test", description: "Age must be positive" },
+        ]),
+      );
+    });
+
+    it("should not focus or toast when an autosave fails to validate", async () => {
+      const { result, update, focused } = renderInvalid(true);
+      act(() => result.current.form.set(path.name, ""));
+      await expectAlways(() => {
+        expect(focused).not.toHaveBeenCalled();
+        expect(result.current.notifications).toEqual([]);
+      });
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it("should focus the first error when a save joins a queued autosave", async () => {
+      const { result, focused, entered, release } = renderInvalid(true);
+      const running = result.current.saveAsync();
+      await entered;
+      // With no debounce, the edit queues its autosave behind the running save.
+      act(() => result.current.form.set(path.name, ""));
+      const joined = result.current.saveAsync();
+      await act(async () => release());
+      expect(await running).toBe(true);
+      expect(await joined).toBe(false);
+      expect(focused).toHaveBeenCalledWith("name");
     });
   });
 
