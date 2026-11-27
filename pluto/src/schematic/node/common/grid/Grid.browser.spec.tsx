@@ -15,6 +15,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
+  useEffect,
   useState,
 } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -60,6 +61,31 @@ const rotateButton = (container: HTMLElement): HTMLElement | null =>
   container.querySelector(".pluto-grid__rotate");
 
 describe("Grid item tagging", () => {
+  it("should keep its body mounted while an item comes and goes", () => {
+    const Badge = Grid.createItem(({ shown }: { shown: boolean }) =>
+      shown ? (
+        <Grid.Item itemKey="badge" location="bottom">
+          <div />
+        </Grid.Item>
+      ) : null,
+    );
+    const mounted = vi.fn();
+    const Body = (): ReactElement => {
+      useEffect(mounted, []);
+      return <div />;
+    };
+    const grid = (shown: boolean): ReactElement => (
+      <GridHost editable={false} nodeKey={NODE_KEY}>
+        <Badge shown={shown} />
+        <Body />
+      </GridHost>
+    );
+    const { rerender } = render(grid(false));
+    rerender(grid(true));
+    rerender(grid(false));
+    expect(mounted).toHaveBeenCalledTimes(1);
+  });
+
   it("should let createItem produce components that splitChildren resolves as items", () => {
     const Tagged = Grid.createItem<{ itemKey: string; loc: location.Location }>(
       ({ itemKey, loc }) => (

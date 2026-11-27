@@ -33,7 +33,8 @@ import (
 // result is formatter-canonical and carries the repository license header. It returns
 // "" for an ended or history-only chain, whose live source is hand-owned. It returns an
 // error wrapping validate.ErrValidation when the live source documents a declaration
-// the chain leaves undocumented, since the merge would erase that doc.
+// the chain leaves undocumented, or gives a resource type the chain lacks, since the
+// merge would erase it.
 func MergeLive(
 	ctx context.Context, r *Resolver, chain Chain, source string,
 ) (string, error) {
@@ -91,7 +92,7 @@ func MergeLive(
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse merged %s.oracle", livePath)
 	}
-	if err := checkErasedDocs(chain, surf, lc, merged); err != nil {
+	if err := checkErased(chain, surf, lc, merged); err != nil {
 		return "", err
 	}
 	return license(ctx, r.RepoRoot(), livePath+".oracle", formatted)
@@ -288,21 +289,26 @@ func (m *liveMerger) format(
 	return formatted, nil
 }
 
-// checkErasedDocs fails when the merge dropped a live doc from a declaration that it
-// wrote. It does not report a doc that differs from the chain's, or one on a restated
-// inherited field: neither can be told apart from a change to the version files.
-func checkErasedDocs(
+// checkErased fails when the merge dropped a live @doc or @resource from a declaration
+// that it wrote. It does not report one that differs from the chain's, or a doc on a
+// restated inherited field: neither can be told apart from a change to the version
+// files.
+func checkErased(
 	chain Chain, surf map[string]Definition, live, merged *liveContent,
 ) error {
 	byFile := make(map[string][]string)
-	for path := range live.documented {
-		if !merged.declared.Contains(path) || merged.documented.Contains(path) {
-			continue
+	collect := func(domain string, liveSet, mergedSet set.Set[string]) {
+		for path := range liveSet {
+			if !merged.declared.Contains(path) || mergedSet.Contains(path) {
+				continue
+			}
+			name, _, _ := strings.Cut(path, ".")
+			file := chain.FilePath(surf[name].Version) + ".oracle"
+			byFile[file] = append(byFile[file], "@"+domain+" of "+path)
 		}
-		name, _, _ := strings.Cut(path, ".")
-		file := chain.FilePath(surf[name].Version) + ".oracle"
-		byFile[file] = append(byFile[file], path)
 	}
+	collect("doc", live.documented, merged.documented)
+	collect("resource", live.typed, merged.typed)
 	if len(byFile) == 0 {
 		return nil
 	}
@@ -315,8 +321,8 @@ func checkErasedDocs(
 	}
 	return errors.Wrapf(
 		validate.ErrValidation,
-		"%s.oracle: sync would erase @doc: the version files own docs, so %s, "+
-			"or delete the doc from the live file",
+		"%s.oracle: sync would erase version-owned annotations: %s, "+
+			"or delete them from the live file",
 		chain.LivePath(),
 		strings.Join(lines, "; "),
 	)
@@ -466,6 +472,9 @@ func referencedNames(
 		}
 	case resolution.EnumForm:
 		n.refs(f.Extends)
+		if f.Narrows() {
+			n.ref(f.Superset)
+		}
 	case resolution.UnionForm:
 		n.union(f, resolve)
 	case resolution.DistinctForm:
@@ -583,10 +592,12 @@ type liveContent struct {
 	order       []string
 	raw         map[string]string
 	extras      map[string]*declExtras
-	// declared and documented hold dotted paths ("Task", "Task.key", "Mode.on"): every
-	// declaration in the source, and the ones that carry a @doc.
+	// declared, documented, and typed hold dotted paths ("Task", "Task.key",
+	// "Mode.on"): every declaration in the source, the ones that carry a @doc, and the
+	// ones that carry a @resource.
 	declared   set.Set[string]
 	documented set.Set[string]
+	typed      set.Set[string]
 }
 
 // domainNode is the shared shape of the parser's domain annotation contexts.
@@ -604,6 +615,7 @@ func extractLive(source string) (*liveContent, error) {
 		extras:     make(map[string]*declExtras),
 		declared:   make(set.Set[string]),
 		documented: make(set.Set[string]),
+		typed:      make(set.Set[string]),
 	}
 	if strings.TrimSpace(source) == "" {
 		return lc, nil
@@ -639,12 +651,15 @@ func (x *liveExtractor) text(ctx antlr.ParserRuleContext) string {
 	return string(x.runes[ctx.GetStart().GetStart() : ctx.GetStop().GetStop()+1])
 }
 
-// liveOwned passes each live-owned expression line of d to add and records a @doc on
-// path.
+// liveOwned passes each live-owned expression line of d to add, and records on path
+// whether d is a doc or a resource type.
 func (x *liveExtractor) liveOwned(d domainNode, path string, add func(line string)) {
 	name := d.IDENT().GetText()
-	if name == "doc" {
+	switch name {
+	case "doc":
 		x.lc.documented.Add(path)
+	case "resource":
+		x.lc.typed.Add(path)
 	}
 	content := d.DomainContent()
 	if content == nil {
@@ -829,7 +844,7 @@ func definitionName(def parser.IDefinitionContext) (string, bool) {
 			return s.IDENT().GetText(), true
 		}
 	case def.EnumDef() != nil:
-		return def.EnumDef().IDENT().GetText(), true
+		return def.EnumDef().IDENT(0).GetText(), true
 	case def.TypeDefDef() != nil:
 		return def.TypeDefDef().IDENT().GetText(), true
 	case def.UnionDef() != nil:

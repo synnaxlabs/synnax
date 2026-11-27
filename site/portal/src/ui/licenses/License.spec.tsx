@@ -91,7 +91,9 @@ const commit = async (label: string): Promise<void> => {
   fireEvent.click(screen.getByText("Rename"));
   const title = await waitFor(() => {
     const heading = screen.getByRole("heading", { name: LICENSE.label });
-    expect(heading.getAttribute("contenteditable")).toBe("true");
+    // asyncEdit sets contenteditable before the field reads Enter. The field takes the
+    // focus once it does.
+    expect(document.activeElement).toBe(heading);
     return heading;
   });
   title.innerText = label;

@@ -38,15 +38,14 @@ const createReader = (core: SyntheticCore, budget?: Size): tile.Reader =>
 const specs = (core: SyntheticCore, tiles = 3): tile.Spec[] => {
   const last = Number(NOW.valueOf() / grid.tileSpan(LEVEL).valueOf());
   const keys: channel.Key[] = [core.index.key, ...core.data.map((c) => c.key)];
-  return Array.from({ length: tiles }, (_, i) => last - tiles + 1 + i).flatMap(
-    (index) =>
-      keys.map((key) => ({
-        key,
-        level: LEVEL,
-        index,
-        pointLimit: POINT_LIMIT,
-        aggregation: "min_max" as const,
-      })),
+  return Array.from({ length: tiles }, (_, i) => last - tiles + 1 + i).flatMap((tile) =>
+    keys.map((key) => ({
+      key,
+      level: LEVEL,
+      tile,
+      pointLimit: POINT_LIMIT,
+      aggregation: "min_max" as const,
+    })),
   );
 };
 
@@ -99,10 +98,10 @@ const CYCLE = 20_000;
 
 const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
   const core = createCore(1);
-  const spec = (index: number): tile.Spec => ({
+  const spec = (n: number): tile.Spec => ({
     key: core.data[0].key,
     level: HELD_LEVEL,
-    index,
+    tile: n,
     pointLimit: POINT_LIMIT,
     aggregation: "min_max",
   });

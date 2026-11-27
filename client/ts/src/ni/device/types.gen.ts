@@ -74,16 +74,16 @@ export interface DigitalInputChannels extends z.infer<typeof digitalInputChannel
 /** Identity holds the device fields that the scanner owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack the device is connected to. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
   /** serial is the serial number of the device. Empty on simulated hardware. */
   serial: z.string().default(""),
   /**
    * resourceName is the NI-MAX resource name of the device, a GUID that survives
    * renames.
    */
-  resourceName: z.string().min(1, "resource_name is required"),
+  resourceName: z.string().min(1, "Resource name is required"),
   /** model is the product name of the device. */
-  model: z.string().min(1, "model is required"),
+  model: z.string().min(1, "Model is required"),
   /** chassis is the chassis that holds the device. Absent for a standalone device. */
   chassis: niChassis.keyZ.optional(),
 });
@@ -172,7 +172,7 @@ export interface Cursor extends z.infer<typeof cursorZ> {}
 /** Configuration holds the device fields that the user owns. */
 export const configurationZ = z.object({
   /** name is a human-readable name for the device. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /**
    * identifier is the prefix of the device's channel names. The device is unconfigured
    * while it is empty.
@@ -251,16 +251,16 @@ export const deviceZ = z.object({
   /** rack is the key of the rack the device is connected to. */
   rack: rack.keyZ,
   /** name is a human-readable name for the device. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** serial is the serial number of the device. Empty on simulated hardware. */
   serial: z.string().default(""),
   /**
    * resourceName is the NI-MAX resource name of the device, a GUID that survives
    * renames.
    */
-  resourceName: z.string().min(1, "resource_name is required"),
+  resourceName: z.string().min(1, "Resource name is required"),
   /** model is the product name of the device. */
-  model: z.string().min(1, "model is required"),
+  model: z.string().min(1, "Model is required"),
   /** chassis is the chassis that holds the device. Absent for a standalone device. */
   chassis: niChassis.keyZ.optional(),
   /**

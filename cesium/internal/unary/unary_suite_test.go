@@ -27,6 +27,21 @@ func TestUnary(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
+// hasDataFor returns whether db has data in tr, or true if a writer controls part of
+// tr.
+func hasDataFor(
+	ctx context.Context,
+	db *unary.DB,
+	tr telem.TimeRange,
+) (bool, error) {
+	hasData, release, err := db.OpenHold(ctx, tr)
+	if err != nil {
+		return false, err
+	}
+	release()
+	return hasData, nil
+}
+
 func deleteRange(ctx context.Context, db *unary.DB, tr telem.TimeRange) error {
 	del, release, err := db.OpenDelete(tr)
 	if err != nil {

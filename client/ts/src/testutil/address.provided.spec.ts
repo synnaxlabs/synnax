@@ -13,11 +13,12 @@ import { testCoreAddress } from "@/testutil";
 
 describe("testCoreAddress", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
-  it("should return the provided Core where there is no process", () => {
-    vi.stubGlobal("process", undefined);
+  it("should return the provided Core over the environment", () => {
+    vi.stubEnv("SYNNAX_TEST_HOST", "environment");
+    vi.stubEnv("SYNNAX_TEST_PORT", "2");
     expect(testCoreAddress()).toEqual({ host: "provided", port: 1 });
   });
 });

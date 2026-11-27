@@ -54,7 +54,7 @@ export const baseZ = z.object({
   /** key is the unique identifier for this certificate. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the certificate. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /**
    * uses are the resources that use the certificate and that the caller can read,
    * filled only when a retrieve request asks for them.
@@ -138,7 +138,7 @@ export const fileCertificateZ = baseZ.extend({
   /** details describes the leaf, as the file browser read it. */
   details: detailsZ.optional(),
   /** rack is the rack that reads the files. */
-  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
 });
 export interface FileCertificate extends z.infer<typeof fileCertificateZ> {}
 

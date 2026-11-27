@@ -29,6 +29,37 @@ var acronyms = set.New(
 	"api", "json", "oidc",
 )
 
+// Initialisms are lower-case words written fully upper-cased in Go identifiers and
+// human-readable labels (e.g. "id" -> "ID", "uri" -> "URI").
+var Initialisms = set.New(
+	"acl", "api", "ascii", "cpu", "css", "csv", "dbc", "dns", "eof", "guid", "html",
+	"http", "https", "icd", "id", "io", "ip", "iso", "json", "lhs", "oidc", "qps",
+	"ram", "rhs", "rpc", "sla", "smtp", "sql", "ssh", "svg", "tcp", "tls", "ttl", "udp",
+	"ui", "uid", "uri", "url", "usb", "utc", "utf", "uuid", "vm", "xlsx", "xml", "xmpp",
+	"xss", "xy",
+)
+
+// Label converts an identifier to sentence-case words for messages a user reads:
+// "resource_name" -> "Resource name", "redirect_uri" -> "Redirect URI". Known
+// initialisms and acronyms are upper-cased, along with their plurals ("ids" -> "IDs").
+func Label(s string) string {
+	words := strings.Split(TypeSnake(s), "_")
+	for i, w := range words {
+		singular, plural := strings.CutSuffix(w, "s")
+		switch {
+		case isAcronym(w):
+			words[i] = strings.ToUpper(w)
+		case plural && isAcronym(singular):
+			words[i] = strings.ToUpper(singular) + "s"
+		case i == 0:
+			words[i] = lo.Capitalize(w)
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+func isAcronym(w string) bool { return Initialisms.Contains(w) || acronyms.Contains(w) }
+
 // pascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase, fully
 // upper-casing any whole underscore-delimited segment that is a known acronym.
 // Whole-segment matching means a word that merely contains an acronym (e.g. "email",

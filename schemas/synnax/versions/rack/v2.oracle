@@ -35,11 +35,13 @@ Rack struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a collection container for hardware devices and tasks running on a specific
         Core. Racks are the integration point between the Core and physical hardware
         through the Driver.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "rack"
 }

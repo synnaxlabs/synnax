@@ -386,7 +386,7 @@ const drawLabel = (
   const width = x1 - x0;
   if (width < MIN_LABEL_WIDTH) return;
   const ctx = draw.canvas;
-  ctx.font = theme.fontString(draw.theme, { level: "small", code: true });
+  ctx.font = theme.fontString(draw.theme, { level: "small", variant: "numeric" });
   const timeWidth = ctx.textDimensions(time).width;
   ctx.font = theme.fontString(draw.theme, { level: "small" });
   const nameWidth = ctx.textDimensions(name).width;
@@ -399,7 +399,7 @@ const drawLabel = (
       justify: "right",
       level: "small",
       align: "center",
-      code: true,
+      variant: "numeric",
       color: color.setOpacity(c, TIME_ALPHA),
     });
   draw.text({
@@ -511,7 +511,7 @@ export const drawTooltip = (
     const end = timeRange.end.toString(format, "local");
     details = [`${start} to ${end}`, timeRange.span.toString()];
   }
-  ctx.font = theme.fontString(t, { level: "small", weight: 400, code: true });
+  ctx.font = theme.fontString(t, { level: "small", weight: 400, variant: "numeric" });
   const detailWidth = Math.max(...details.map((d) => ctx.measureText(d).width));
   ctx.font = theme.fontString(t, { level: "small", weight: 500 });
   const nameWidth = ctx.measureText(name).width + SWATCH_INDENT;
@@ -557,7 +557,7 @@ export const drawTooltip = (
         align: "center",
         weight: isName ? 500 : 400,
         shade: isName ? 11 : 9,
-        code: !isName,
+        variant: isName ? "prose" : "numeric",
       });
     },
   });

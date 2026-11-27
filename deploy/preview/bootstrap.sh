@@ -33,7 +33,6 @@ EOF
 chmod +x /usr/local/bin/preview
 
 docker network create preview
-/usr/local/bin/preview upgrade
 
 cat > /etc/systemd/system/preview-sweep.service << 'EOF'
 [Unit]
@@ -54,3 +53,7 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now preview-sweep.timer
+
+# The certificate fails until the parent zone delegates the domain. install.sh
+# then runs the upgrade again.
+/usr/local/bin/preview upgrade

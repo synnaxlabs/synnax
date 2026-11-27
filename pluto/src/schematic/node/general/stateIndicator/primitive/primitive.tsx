@@ -17,6 +17,7 @@ import type { CSSProperties, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
+import type { Options } from "@/schematic/node/common/options";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { size as nodeSize } from "@/schematic/node/common/size";
 
@@ -24,7 +25,7 @@ interface RenderProps extends Partial<
   Pick<schematic.StateIndicatorNodeConfig, "orientation" | "inlineSize" | "size">
 > {
   strokeColor?: color.Crude;
-  options: schematic.StateIndicatorNodeConfig["options"];
+  options: Options.State[];
   className?: string;
   matchedOptionKey?: string | null;
 }

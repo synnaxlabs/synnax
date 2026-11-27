@@ -9,7 +9,7 @@
 
 /// <reference types="vitest/config" />
 
-import { isProd, lib } from "@synnaxlabs/vite-plugin";
+import { isProd, lib, testCore } from "@synnaxlabs/vite-plugin";
 import { playwright } from "@vitest/browser-playwright";
 import { globSync } from "node:fs";
 import path from "path";
@@ -18,7 +18,7 @@ import type { TestProjectInlineConfiguration } from "vitest/config";
 
 import packageJSON from "./package.json" with { type: "json" };
 
-// Specs that read the test Core as a browser project provides it.
+// Specs that check that the test Core comes from the provided `synnaxTestCore`.
 const PROVIDED_CORE_SPECS = "src/**/*.provided.spec.ts";
 
 // Spec files that need a Node API, so only the Node project runs them.
@@ -40,8 +40,6 @@ const NODE_SPECS = [
   "src/**/where.spec.ts",
   // Reads the orphan vectors from the file system.
   "src/schematic/orphans.spec.ts",
-  // Checks the error for a Core that no project provides.
-  "src/testutil/address.spec.ts",
 ];
 
 // A stale entry would let a browser run a Node spec.
@@ -65,13 +63,6 @@ const browserProject = (
     exclude: [PROVIDED_CORE_SPECS, ...NODE_SPECS],
     benchmark: { include: [] },
     sequence: { groupOrder },
-    // A browser has no `process` to read the test Core from.
-    provide: {
-      synnaxTestCore: {
-        host: process.env.SYNNAX_TEST_HOST ?? "localhost",
-        port: Number(process.env.SYNNAX_TEST_PORT ?? 9090),
-      },
-    },
     browser: {
       enabled: true,
       headless: true,
@@ -124,6 +115,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    provide: testCore(),
     testTimeout: 15_000,
     expect: { poll: { timeout: 5000 } },
     projects: [

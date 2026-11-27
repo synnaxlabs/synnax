@@ -295,17 +295,9 @@ describe("NI chassis", async () => {
     it("should rename a chassis in a subscribed search", async () => {
       const token = `nichassis${Math.random().toString(36).slice(2)}`;
       const c = await create(token);
-      await expect
-        .poll(
-          async () =>
-            (
-              await client.resources.search({
-                searchTerm: token,
-                types: ["ni_chassis"],
-              })
-            ).length,
-        )
-        .toBe(1);
+      expect(
+        await client.resources.search({ searchTerm: token, types: ["ni_chassis"] }),
+      ).toHaveLength(1);
       const list = client.resources.watch({ searchTerm: token, types: ["ni_chassis"] });
       onTestFinished(list.onChange(() => {}));
       await list.retrieve();
@@ -322,17 +314,9 @@ describe("NI chassis", async () => {
     it("should drop a deleted chassis from a subscribed search", async () => {
       const token = `nichassis${Math.random().toString(36).slice(2)}`;
       const c = await create(token);
-      await expect
-        .poll(
-          async () =>
-            (
-              await client.resources.search({
-                searchTerm: token,
-                types: ["ni_chassis"],
-              })
-            ).length,
-        )
-        .toBe(1);
+      expect(
+        await client.resources.search({ searchTerm: token, types: ["ni_chassis"] }),
+      ).toHaveLength(1);
       const list = client.resources.watch({ searchTerm: token, types: ["ni_chassis"] });
       onTestFinished(list.onChange(() => {}));
       await list.retrieve();

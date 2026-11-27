@@ -33,4 +33,5 @@ mv /usr/local/bin/preview.new /usr/local/bin/preview
 /usr/local/bin/preview mark 1 none 0
 /usr/local/bin/preview down 1
 sha256sum /usr/local/bin/preview" \
-    INSTANCE=$instance "$dir/../../.github/scripts/run_preview_command.sh"
+    INSTANCE=$instance DOCUMENT=AWS-RunShellScript \
+    "$dir/../../.github/scripts/run_preview_command.sh"

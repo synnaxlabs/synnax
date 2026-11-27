@@ -24,6 +24,7 @@ import {
   expectDeleted,
   expectLive,
   holdRequests,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -84,12 +85,8 @@ describe("Label", () => {
           color: { type: "fixed" as const, value: "#E774D0" },
         })),
       );
-      await expect
-        .poll(async () => {
-          const results = await client.labels.retrieve({ searchTerm: prefix });
-          return results.map((l) => l.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.labels.retrieve({ searchTerm: prefix });
+      expect(results.map((l) => l.name).sort()).toEqual(names);
     });
     it("should retrieve labels by where", async () => {
       const prefix = `where-label-${id.create()}`;
@@ -449,7 +446,7 @@ describe("dispatch", () => {
     await expect(fresh.labels.dispatch(lbl.key, rename("Anomaly"))).rejects.toThrow(
       NotCachedError,
     );
-    expect(send).not.toHaveBeenCalled();
+    expect(requestsTo(send, "/label/dispatch")).toEqual([]);
   });
 
   it("should drop actions the Core refuses from the cached label", async () => {

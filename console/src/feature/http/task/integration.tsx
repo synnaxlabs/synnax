@@ -16,17 +16,12 @@ import {
   READ_TYPE,
   type ReadEndpoint,
 } from "@/feature/http/task/types";
-import { FLAGS } from "@/flags";
 import { Task } from "@/platform/task";
 
-const endpointChannels: (endpoint: ReadEndpoint) => Task.PlotEntry[] = FLAGS.icds
-  ? ({ icd, fields, messages }) =>
-      icd == null
-        ? fields
-        : messages.flatMap(({ bindings }) =>
-            bindings.map(({ channel }) => ({ channel, disabled: false })),
-          )
-  : ({ fields }) => fields;
+const endpointChannels = ({ messages }: ReadEndpoint): Task.PlotEntry[] =>
+  messages.flatMap(({ bindings }) =>
+    bindings.map(({ channel }) => ({ channel, disabled: false })),
+  );
 
 const readPlotChannels: Task.PlotChannels = (config) =>
   Task.enabledChannels(

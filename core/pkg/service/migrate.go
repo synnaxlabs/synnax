@@ -109,8 +109,8 @@ func newGroupRemovalReport(
 // rangeAliasDropMigration deletes the range aliases that an upgraded store holds.
 var rangeAliasDropMigration = migrate.Drop[string]("v62_drop_range_aliases", "Alias")
 
-// taskNames returns the task names that the migrations of PagerDuty, Kafka, and HTTP
-// read.
+// taskNames returns the task names that the migrations of PagerDuty, Kafka, HTTP, and
+// MQTT read.
 func taskNames(
 	svc *task.Service,
 ) func(context.Context, gorp.Tx, []task.Key) (map[task.Key]string, error) {

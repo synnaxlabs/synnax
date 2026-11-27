@@ -1,0 +1,56 @@
+{
+  "description": "An unsigned field reads a number in a string as an integer field does, within the range of its channel.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "v": "1"
+      },
+      "message": "reading",
+      "samples": [1]
+    },
+    {
+      "document": {
+        "v": "0xFF"
+      },
+      "message": "reading",
+      "samples": [255]
+    },
+    {
+      "document": {
+        "v": "256"
+      },
+      "error": "field v: 256 is out of range for uint8: validation error"
+    },
+    {
+      "document": {
+        "v": "-1"
+      },
+      "error": "field v: -1 is out of range for uint64: validation error"
+    }
+  ]
+}

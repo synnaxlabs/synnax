@@ -10,6 +10,7 @@
 package json_test
 
 import (
+	"fmt"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,6 +59,24 @@ var _ = Describe("ParseNumber", func() {
 		Entry("negative zero", "-0.0", integer[int64]{0, true},
 			integer[uint64]{0, true}, math.Copysign(0, -1)),
 		Entry("a fraction", "2.5", integer[int64]{}, integer[uint64]{}, 2.5),
+		Entry("an integer negative zero", "-0", integer[int64]{0, true},
+			integer[uint64]{0, true}, 0.0),
+		Entry("a whole number with an exponent", "25e-1", integer[int64]{},
+			integer[uint64]{}, 2.5),
+		Entry("a decimal of several digits", "1234.5678", integer[int64]{},
+			integer[uint64]{}, 1234.5678),
+		Entry("the largest exact power of ten", "1e22", integer[int64]{},
+			integer[uint64]{}, 1e22),
+		Entry("a power of ten past the exact ones", "1e23", integer[int64]{},
+			integer[uint64]{}, 1e23),
+		Entry("a fraction past the exact powers of ten", "1e-23", integer[int64]{},
+			integer[uint64]{}, 1e-23),
+		Entry("more digits than a float holds", "0.30000000000000000001",
+			integer[int64]{}, integer[uint64]{}, 0.3),
+		Entry("a number below the smallest float", "1e-400", integer[int64]{},
+			integer[uint64]{}, 0.0),
+		Entry("the smallest exponent", "1e-1048576", integer[int64]{},
+			integer[uint64]{}, 0.0),
 	)
 
 	DescribeTable("Should reject text that is not a number",
@@ -68,7 +87,48 @@ var _ = Describe("ParseNumber", func() {
 			))
 		},
 		Entry("a word", "x", `invalid number "x"`),
+		Entry("a sign alone", "-", `invalid number "-"`),
+		Entry("a point alone", ".", `invalid number "."`),
+		Entry("two points", "1.2.3", `invalid number "1.2.3"`),
+		Entry("an exponent with no digits", "1e", `invalid number "1e"`),
 		Entry("a number past a float64", "1e999", `invalid number "1e999"`),
+		Entry("an exponent past 2^20", "1e1048577", `invalid number "1e1048577"`),
+		Entry("an exponent below -2^20", "1e-1048577", `invalid number "1e-1048577"`),
+		Entry("zero with an exponent past 2^20", "0e1048577",
+			`invalid number "0e1048577"`),
+	)
+})
+
+var _ = Describe("ParseFloat64", func() {
+	DescribeTable("Should parse a decimal number as the nearest float64",
+		func(text string, expected float64) {
+			v := MustSucceed(xjson.ParseFloat64([]byte(text)))
+			Expect(math.Float64bits(v)).To(Equal(math.Float64bits(expected)))
+		},
+		Entry("a decimal", "-122.41941550000", -122.4194155),
+		Entry("an exponent", "1e3", 1000.0),
+		Entry("a leading point", ".5", 0.5),
+		Entry("a plus sign", "+7", 7.0),
+		Entry("an integer past a uint64", "18446744073709551617",
+			18446744073709551616.0),
+		Entry("a number below the smallest float", "1e-400", 0.0),
+		Entry("an integer negative zero", "-0", math.Copysign(0, -1)),
+	)
+	DescribeTable("Should reject text that is not a decimal number",
+		func(text string) {
+			Expect(xjson.ParseFloat64([]byte(text))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(fmt.Sprintf("invalid number %q: validation error", text)),
+			))
+		},
+		Entry("empty text", ""),
+		Entry("nan", "nan"),
+		Entry("inf", "inf"),
+		Entry("a hex number", "0x10"),
+		Entry("a number past a float64", "1e999"),
+		Entry("two points", "1.2.3"),
+		Entry("a leading space", " 1"),
+		Entry("an exponent below -2^20", "1e-1048577"),
 	)
 })
 

@@ -7,6 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -16,7 +17,6 @@ cc_library(
         "binary.cpp",
         "bits.cpp",
         "field.cpp",
-        "field.h",
         "json.cpp",
         "match.cpp",
         "mux.cpp",
@@ -27,6 +27,7 @@ cc_library(
         "binding.h",
         "bits.h",
         "errors.h",
+        "field.h",
         "json.h",
         "mux.h",
         "text.h",
@@ -35,6 +36,7 @@ cc_library(
     deps = [
         "//client/cpp/icd",
         "//driver/errors",
+        "//x/cpp/base64",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/json:read",
@@ -45,16 +47,33 @@ cc_library(
     ],
 )
 
+cc_binary(
+    name = "codec_bench",
+    srcs = ["codec_bench.cpp"],
+    deps = [
+        ":codec",
+        "//client/cpp/icd",
+        "//x/cpp/bench",
+        "//x/cpp/telem",
+        "//x/cpp/uuid",
+        "@google_benchmark//:benchmark",
+    ],
+)
+
 cc_test(
     name = "codec_test",
     srcs = [
         "binary_test.cpp",
         "bits_test.cpp",
         "decode_fixture_test.cpp",
+        "encode_fixture_test.cpp",
         "json_test.cpp",
         "text_test.cpp",
     ],
-    data = ["//core/pkg/service/icd:decode_fixtures"],
+    data = [
+        "//core/pkg/service/icd:decode_fixtures",
+        "//core/pkg/service/icd:encode_fixtures",
+    ],
     deps = [
         ":codec",
         "//client/cpp/icd",

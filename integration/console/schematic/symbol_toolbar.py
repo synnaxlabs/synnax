@@ -134,7 +134,8 @@ class SymbolToolbar:
 
     def create_symbol(self) -> SymbolEditor:
         """Open the symbol editor to create a new symbol."""
-        create_symbol_btn = self.toolbar.get_by_role(
+        # The empty symbol list shows an action of the same name.
+        create_symbol_btn = self.group_list.get_by_role(
             "button", name="Create symbol", exact=True
         ).first
         create_symbol_btn.click()

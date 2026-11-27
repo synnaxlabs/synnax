@@ -99,6 +99,17 @@ var _ = Describe("DecodeV13", func() {
 		),
 	)
 
+	It("Should import a zero scale in a v13 file as 1", func(ctx SpecContext) {
+		s, ok := MustSucceed2(versions.DecodeV13(
+			ctx,
+			LoadEnvelope("testdata/import_v13_zero_scale.json"),
+		))
+		Expect(ok).To(BeTrue())
+		valve, ok := s.Nodes[0].Config.Variant.(v13.ValveNodeConfig)
+		Expect(ok).To(BeTrue())
+		Expect(valve.Scale).To(Equal(1.0))
+	})
+
 	It("Should report a file of v14 or newer as not old", func(ctx SpecContext) {
 		env := imex.Envelope{Version: 14, Type: "schematic"}
 		s, ok := MustSucceed2(versions.DecodeV13(ctx, env))

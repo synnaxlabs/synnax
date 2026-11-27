@@ -11,14 +11,7 @@ package v2
 
 import (
 	"uuid"
-
-	"github.com/synnaxlabs/gorp"
 )
-
-var _ gorp.Entry[uuid.UUID] = KeyedConfig{}
-
-// GorpKey implements gorp.Entry.
-func (c KeyedConfig) GorpKey() uuid.UUID { return c.Key }
 
 // SetKey sets the key of the stored configuration record.
 func (c *KeyedConfig) SetKey(key uuid.UUID) { c.Key = key }

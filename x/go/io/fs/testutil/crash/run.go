@@ -83,6 +83,8 @@ func Run(ctx context.Context, cfg Config) (Result, error) {
 		files:  map[fault.ID]*syncs{},
 		before: r.beforeEvent,
 		after:  r.afterEvent,
+		writebackRefused: cfg.Profile == OldCorruption ||
+			cfg.Profile == NewCorruption || cfg.Profile == RepeatedReadFaults,
 	}
 	r.pending = r.snapshot(0)
 	if engine, err := cfg.Open(ctx, &countedFS{inner: disk, c: r.counter}); err != nil {
@@ -534,7 +536,11 @@ func (r *run) recover(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	defer func() { err = errors.Combine(err, engine.Close()) }()
+	defer func() {
+		if err = errors.Combine(err, engine.Close()); err != nil {
+			records, audit = nil, nil
+		}
+	}()
 	if records, err = engine.Recovered(r.ctx); err != nil {
 		return nil, nil, nil, err
 	}

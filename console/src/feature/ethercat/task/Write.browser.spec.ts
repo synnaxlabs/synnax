@@ -39,6 +39,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  getAddChannelButton,
   getChannelItemStatus,
   preloadForms,
   renderTaskFormTab,
@@ -250,7 +251,7 @@ describe("Write", () => {
     });
     // The footer shows once the form loads the slaves that its checks read.
     await screen.findByText(/^Start creates /);
-    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    fireEvent.click(getAddChannelButton());
     const added = await screen.findByRole("option", { name: /No entry/ });
     expect(
       screen

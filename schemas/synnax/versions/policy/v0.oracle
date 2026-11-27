@@ -22,9 +22,11 @@ Policy struct {
         @key
     }
 
-    @doc value  """
+    @doc value     """
         represents the old policy format with a subjects field that associated policies
         directly with users. Used only for reading legacy data during migration.
     """
+    @go entry
     @go migrate
+    @resource type "policy"
 }

@@ -14,10 +14,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/cockroachdb/pebble/v2/vfs"
@@ -123,6 +125,54 @@ func fromDisk(err error) bool {
 		errors.Is(err, errHalted)
 }
 
+// gate holds each create of a table file while it is shut, so a flush of Pebble, whose
+// first change to the disk is that create, waits until the engine lets it run. It
+// passes each other call, and every call once the engine stops.
+type gate struct {
+	*halt
+	mu     sync.Mutex
+	open   bool
+	opened chan struct{}
+}
+
+func newGate(h *halt) *gate { return &gate{halt: h, opened: make(chan struct{})} }
+
+func (g *gate) MaybeError(op errorfs.Op) error {
+	if op.Kind == errorfs.OpCreate && strings.HasSuffix(op.Path, ".sst") {
+		g.wait()
+	}
+	return g.halt.MaybeError(op)
+}
+
+func (g *gate) wait() {
+	for {
+		g.mu.Lock()
+		open, opened := g.open, g.opened
+		g.mu.Unlock()
+		if open {
+			return
+		}
+		select {
+		case <-opened:
+		case <-g.done:
+			return
+		}
+	}
+}
+
+// let opens the gate when open is true, and shuts it otherwise.
+func (g *gate) let(open bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	switch {
+	case open && !g.open:
+		g.open = true
+		close(g.opened)
+	case !open && g.open:
+		g.open, g.opened = false, make(chan struct{})
+	}
+}
+
 // keep is a Cleaner that removes no file. Pebble removes obsolete files on a goroutine
 // of its own, at no fixed event, so a removal would make the crash images of a run key
 // differ between runs. T is the file type of Pebble, which it does not export.
@@ -133,14 +183,18 @@ func (keep[T]) Clean(vfs.FS, T, string) error { return nil }
 func keeper[T any](func(vfs.FS, T, string) error) keep[T] { return keep[T]{} }
 
 // crashEngine adapts Pebble to the crash harness. One record is one key, the ID in
-// big-endian order, with the payload as its value. A Durable commit goes through the
-// kv.DB of pebblekv, which syncs the WAL as each commit of the Core does, and a Visible
-// commit does not sync. Every fifth commit flushes the memtable, and every tenth
-// compacts the keys, so a crash can land in each. After an error, the engine stops.
+// big-endian order, with the payload as its value. Each commit goes through the kv.DB
+// of pebblekv, which syncs the WAL as each commit of the Core does, so each acks
+// Durable: Pebble writes a NoSync commit at the next sync, from a goroutine of its own,
+// at no fixed event. Every fifth commit flushes the memtable, and every tenth compacts
+// the keys, so a crash can land in each. Each call returns once each flush that it
+// started ends, so a run key gives the same events in each run. After an error, the
+// engine stops.
 type crashEngine struct {
 	pebble  *pebble.DB
 	kv      kv.DB
 	halt    *halt
+	gate    *gate
 	commits int
 	// forced is true when the engine flushes and compacts on its own schedule.
 	forced bool
@@ -156,8 +210,10 @@ func openCrashEngine(
 	h := &halt{done: make(chan struct{})}
 	defer stopOnDiskPanic(h, &err)
 	logger := crashLogger{halt: h}
+	g := newGate(h)
+	g.let(true)
 	opts := &pebble.Options{
-		FS:                          errorfs.Wrap(pebblefs.New(fs), h),
+		FS:                          errorfs.Wrap(pebblefs.New(fs), g),
 		FormatMajorVersion:          pebble.FormatNewest,
 		Logger:                      logger,
 		EventListener:               &pebble.EventListener{BackgroundError: h.stop},
@@ -176,38 +232,59 @@ func openCrashEngine(
 	if err != nil {
 		return nil, errors.Combine(err, h.cause())
 	}
-	return &crashEngine{
+	e := &crashEngine{
 		pebble: db,
 		kv:     pebblekv.Wrap(db, logger),
 		halt:   h,
+		gate:   g,
 		forced: forced,
-	}, nil
+	}
+	e.settle()
+	return e, nil
+}
+
+// settle lets each flush of Pebble run to its end with the gate open, then shuts the
+// gate. A stop of the engine ends the wait, and so do ten seconds, which stop the
+// engine.
+func (e *crashEngine) settle() {
+	e.gate.let(true)
+	defer e.gate.let(false)
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		m := e.pebble.Metrics()
+		settled := m.MemTable.Count == 1 && m.Flush.NumInProgress == 0
+		if settled || e.halt.cause() != nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			e.halt.stop(errors.New("pebble: a flush did not end"))
+			return
+		}
+		time.Sleep(50 * time.Microsecond)
+	}
 }
 
 func (e *crashEngine) Commit(
 	ctx context.Context,
 	r crash.Record,
-	want crash.Ack,
+	_ crash.Ack,
 ) (ack crash.Ack, err error) {
 	if err = e.halt.cause(); err != nil {
 		return 0, err
 	}
 	defer stopOnDiskPanic(e.halt, &err)
 	key := binary.BigEndian.AppendUint64(nil, r.ID)
-	if want == crash.Durable {
-		err = e.kv.Set(ctx, key, r.Payload)
-	} else {
-		err = e.pebble.Set(key, r.Payload, pebble.NoSync)
-	}
+	err = e.kv.Set(ctx, key, r.Payload)
 	if err = errors.Combine(err, e.halt.cause()); err != nil {
 		e.halt.stop(err)
 		return 0, e.halt.cause()
 	}
 	e.commits++
+	e.settle()
 	// The Core never forces a flush. A forced one rotates the WAL under the lock of
 	// Pebble, where a panic on a failed write cannot be recovered.
 	if !e.forced {
-		return want, nil
+		return crash.Durable, nil
 	}
 	if e.commits%5 == 0 {
 		e.flush()
@@ -215,12 +292,14 @@ func (e *crashEngine) Commit(
 	if e.commits%10 == 0 {
 		e.compact(ctx)
 	}
-	return want, nil
+	return crash.Durable, nil
 }
 
 // compact compacts every key, and returns when the compaction ends or the engine stops.
 // Pebble retries a failed compaction until its context ends.
 func (e *crashEngine) compact(ctx context.Context) {
+	e.gate.let(true)
+	defer e.settle()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
@@ -237,6 +316,8 @@ func (e *crashEngine) compact(ctx context.Context) {
 
 // flush flushes the memtable, and returns when the flush ends or the engine stops.
 func (e *crashEngine) flush() {
+	e.gate.let(true)
+	defer e.settle()
 	done, err := e.pebble.AsyncFlush()
 	if err != nil {
 		e.halt.stop(err)
@@ -252,6 +333,11 @@ func (e *crashEngine) Recovered(context.Context) (records []crash.Record, err er
 	if err = e.halt.cause(); err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err != nil {
+			records = nil
+		}
+	}()
 	defer stopOnDiskPanic(e.halt, &err)
 	iter, err := e.kv.OpenIterator(kv.IteratorOptions{})
 	if err != nil {
@@ -268,6 +354,7 @@ func (e *crashEngine) Recovered(context.Context) (records []crash.Record, err er
 
 func (e *crashEngine) Close() (err error) {
 	defer stopOnDiskPanic(e.halt, &err)
+	e.gate.let(true)
 	return e.pebble.Close()
 }
 
@@ -299,25 +386,76 @@ func run(
 	ordered bool,
 ) (int, error) {
 	count := 0
+	_, err := crash.Run(ctx, config(profile, runKey, ordered, &count))
+	return count, err
+}
+
+// config returns the config of a run of the harness on Pebble, which counts the
+// Durable acks of the workload in count.
+func config(
+	profile crash.Profile,
+	runKey uint64,
+	ordered bool,
+	count *int,
+) crash.Config {
 	forced := profile != crash.SyncErrors && profile != crash.FullDisk &&
 		profile != crash.Mixed
-	_, err := crash.Run(ctx, crash.Config{
+	return crash.Config{
 		RunKey: runKey,
 		Open: func(ctx context.Context, fs xfs.FS) (crash.Engine, error) {
 			e, err := openCrashEngine(ctx, fs, forced)
 			if err != nil {
 				return nil, err
 			}
-			return acks{Engine: e, count: &count}, nil
+			return acks{Engine: e, count: count}, nil
 		},
-		Corrupt:        func(err error) bool { return errors.Is(err, pebble.ErrCorruption) },
+		Corrupt: func(err error) bool {
+			return errors.Is(err, pebble.ErrCorruption)
+		},
 		Commits:        20,
 		Stride:         1,
 		Profile:        profile,
 		EntriesOrdered: ordered,
-	})
-	return count, err
+	}
 }
+
+var _ = Describe("Crash harness, one order of events", func() {
+	It("Should give a run key the same result on one processor and on each of them",
+		func(ctx SpecContext) {
+			results := func() []string {
+				GinkgoHelper()
+				out := make([]string, 0, 3)
+				for _, c := range []struct {
+					profile crash.Profile
+					runKey  uint64
+				}{
+					{crash.OldCorruption, 0},
+					{crash.SyncErrors, 4},
+					{crash.Mixed, 0},
+				} {
+					count := 0
+					cfg := config(c.profile, c.runKey, false, &count)
+					res, err := crash.Run(ctx, cfg)
+					out = append(out, fmt.Sprintf(
+						"%d %d %d %d %d %v",
+						res.Recoveries,
+						res.Refusals,
+						res.Losses,
+						res.ReadFaults,
+						count,
+						err,
+					))
+				}
+				return out
+			}
+			procs := runtime.GOMAXPROCS(1)
+			DeferCleanup(func() { runtime.GOMAXPROCS(procs) })
+			one := results()
+			runtime.GOMAXPROCS(runtime.NumCPU())
+			Expect(results()).To(Equal(one))
+		},
+	)
+})
 
 // Each entry is what the harness finds in Pebble at FormatNewest, and why, with the
 // count of read faults at the break. The workload of each run flushes 4 times and
@@ -361,8 +499,8 @@ var _ = DescribeTable("Crash harness",
 		"invalid key=value syntax"),
 	// The OPTIONS file has no checksum, so a flipped byte in it stops the open with an
 	// error that is not pebble.ErrCorruption.
-	Entry("OldCorruption, OPTIONS: R4", crash.OldCorruption, uint64(0), crash.R4, 0,
-		"merger name from file"),
+	Entry("OldCorruption, OPTIONS: R4", crash.OldCorruption, uint64(3), crash.R4, 0,
+		"comparer name from file"),
 	// A flipped bit in the last block of the WAL ends the replay there, with no error,
 	// because Pebble looks for a synced offset only in later blocks.
 	Entry("OldCorruption, WAL: R1", crash.OldCorruption, uint64(1), crash.R1, 0,

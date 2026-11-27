@@ -21,16 +21,16 @@ export type Method = z.infer<typeof methodZ>;
 /** Credentials is a plaintext username and password pair presented at login. */
 export const credentialsZ = z.object({
   /** username is the login name of the password being proven. */
-  username: z.string().min(1, "username is required"),
+  username: z.string().min(1, "Username is required"),
   /** password is the plaintext password. It is never stored. */
-  password: z.string().min(1, "password is required"),
+  password: z.string().min(1, "Password is required"),
 });
 export interface Credentials extends z.infer<typeof credentialsZ> {}
 
 /** APIKeyCredentials is an API key presented at login. */
 export const apiKeyCredentialsZ = z.object({
   /** key is the full API key, as it was shown at creation. */
-  key: z.string().min(1, "key is required"),
+  key: z.string().min(1, "Key is required"),
 });
 export interface APIKeyCredentials extends z.infer<typeof apiKeyCredentialsZ> {}
 
@@ -40,13 +40,13 @@ export interface APIKeyCredentials extends z.infer<typeof apiKeyCredentialsZ> {}
  */
 export const oidcCredentialsZ = z.object({
   /** provider is the name of the provider in the Core's settings. */
-  provider: z.string().min(1, "provider is required"),
+  provider: z.string().min(1, "Provider is required"),
   /** code is the authorization code the provider returned. */
-  code: z.string().min(1, "code is required"),
+  code: z.string().min(1, "Code is required"),
   /** verifier is the PKCE code verifier that matches the login request. */
-  verifier: z.string().min(1, "verifier is required"),
+  verifier: z.string().min(1, "Verifier is required"),
   /** redirectUri is the redirect URI the login request used. */
-  redirectUri: z.string().min(1, "redirect_uri is required"),
+  redirectUri: z.string().min(1, "Redirect URI is required"),
 });
 export interface OIDCCredentials extends z.infer<typeof oidcCredentialsZ> {}
 

@@ -60,8 +60,8 @@ type WriteChannel = versions.WriteChannel
 // Record is the shape of every record a write task produces.
 type Record = versions.Record
 
-// WriteConfig configures a Kafka write task, which produces one record per sample of
-// each channel to a topic.
+// WriteConfig configures a Kafka write task that produces the ICD message of each
+// target to its topic.
 type WriteConfig = versions.WriteConfig
 
 // ReadTopic reads the records of one topic.
@@ -78,6 +78,9 @@ type InlineRead = versions.InlineRead
 
 // WriteTarget produces the JSON documents of one ICD message as records of a topic.
 type WriteTarget = versions.WriteTarget
+
+// InlineWrite holds the channels of a write config from before ICDs.
+type InlineWrite = versions.InlineWrite
 
 // Credentials carries the username and password of a SASL mechanism.
 type Credentials struct {

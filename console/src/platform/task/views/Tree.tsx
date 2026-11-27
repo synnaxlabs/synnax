@@ -14,7 +14,9 @@ import { Button } from "@synnaxlabs/lyra/button";
 import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Channel } from "@synnaxlabs/pluto";
@@ -40,6 +42,8 @@ export interface ChannelIconProps {
   skipped: boolean;
   /** Deploying the task replaces the channel with a new one. */
   replaced?: boolean;
+  /** The stored channel that deploying keeps when the form has none, or 0. */
+  stored?: channel.Key;
 }
 
 /** Marks a tree item whose channel deploying creates, or whose channel is gone. */
@@ -47,8 +51,10 @@ export const ChannelIcon = ({
   channel,
   skipped,
   replaced = false,
+  stored = 0,
 }: ChannelIconProps): ReactElement | null => {
-  const key = Form.useFieldValue(channel);
+  const own = Form.useFieldValue(channel);
+  const key = primitive.isNonZero(own) ? own : stored;
   const result = Channel.useResultName(primitive.isNonZero(key) ? { key } : null);
   if (replaced || !primitive.isNonZero(key))
     return skipped ? null : (
@@ -71,6 +77,23 @@ export const ChannelIcon = ({
     </Message>
   );
 };
+
+export interface TreeWarningProps {
+  message: string;
+  description: string;
+}
+
+/** Marks a tree item with a warning, which its tooltip explains. */
+export const TreeWarning = ({
+  message,
+  description,
+}: TreeWarningProps): ReactElement => (
+  <Message variant="warning" message={message} description={description}>
+    <Status.Indicator variant="warning" role="img" aria-label={message}>
+      <Icon.Warning />
+    </Status.Indicator>
+  </Message>
+);
 
 export interface TreeGroupItemProps extends Tree.ItemRenderProps<string> {
   /** Names the group. */
@@ -123,6 +146,8 @@ export interface TreeFieldItemProps extends Tree.ItemRenderProps<string> {
   skipped: boolean;
   /** Deploying the task replaces the channel with a new one. */
   replaced?: boolean;
+  /** The stored channel that deploying keeps when the form has none, or 0. */
+  stored?: channel.Key;
   /** Trails the label, such as an enabled checkbox. */
   children?: ReactNode;
 }
@@ -135,6 +160,7 @@ export const TreeFieldItem = ({
   off,
   skipped,
   replaced,
+  stored,
   children,
   ...props
 }: TreeFieldItemProps): ReactElement => (
@@ -149,7 +175,12 @@ export const TreeFieldItem = ({
       {label === "" ? emptyLabel : label}
     </Text.Text>
     {channel != null && (
-      <ChannelIcon channel={channel} skipped={skipped} replaced={replaced} />
+      <ChannelIcon
+        channel={channel}
+        skipped={skipped}
+        replaced={replaced}
+        stored={stored}
+      />
     )}
     {children}
   </Tree.Item>

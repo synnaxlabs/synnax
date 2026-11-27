@@ -109,6 +109,14 @@ type GateConfig[R Resource] struct {
 	//
 	// [OPTIONAL] Defaults to false.
 	Bounded *bool
+	// Exclusive marks a gate that no other gate joins: a gate that opens on its region
+	// waits until it releases, and LeadingState skips the region. It fails to open with
+	// control.ErrUnauthorized where a gate that is not exclusive controls TimeRange. A
+	// caller that holds several exclusive gates at once must open them in one fixed
+	// order, or two callers can wait on each other forever.
+	//
+	// [OPTIONAL] Defaults to false.
+	Exclusive *bool
 	// Subject sets the identity of the gate, and is used to track changes in control
 	// within the db.
 	//
@@ -133,6 +141,7 @@ func defaultGateConfig[R Resource]() GateConfig[R] {
 		ErrIfControlled:       new(false),
 		ErrOnUnauthorizedOpen: new(false),
 		Bounded:               new(false),
+		Exclusive:             new(false),
 	}
 }
 
@@ -145,6 +154,7 @@ func (c GateConfig[R]) Validate() error {
 	v.NotNil("err_if_controlled", c.ErrIfControlled)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
 	v.NotNil("bounded", c.Bounded)
+	v.NotNil("exclusive", c.Exclusive)
 	return v.Error()
 }
 
@@ -162,6 +172,7 @@ func (c GateConfig[R]) Override(other GateConfig[R]) GateConfig[R] {
 		other.ErrOnUnauthorizedOpen,
 	)
 	c.Bounded = override.Nil(c.Bounded, other.Bounded)
+	c.Exclusive = override.Nil(c.Exclusive, other.Exclusive)
 	return c
 }
 
@@ -219,15 +230,16 @@ func (c *Controller[R]) resourceAt(
 // OpenGate opens a new gate for the region occupying the specified time range. If the
 // region exists, the new gate joins its authority chain. If not, OpenGate creates the
 // region and calls cfg.OpenResource, which can block, while it holds no locks. Gates
-// for a region that is opening wait for it. If cfg.OpenResource fails, the region is
-// removed and a waiting gate opens the resource itself.
+// for a region that is opening, or that an exclusive gate holds, wait for it. If
+// cfg.OpenResource fails, the region is removed and a waiting gate opens the resource
+// itself.
 func (c *Controller[R]) OpenGate(
 	cfg GateConfig[R],
 ) (g *Gate[R], t Transfer, err error) {
 	if cfg, err = config.New(defaultGateConfig[R](), cfg); err != nil {
 		return g, t, err
 	}
-	if *cfg.Bounded {
+	if *cfg.Bounded || *cfg.Exclusive {
 		cfg.ErrIfControlled = new(true)
 	}
 	for {
@@ -289,7 +301,8 @@ func (c *Controller[R]) joinOrCreate(cfg GateConfig[R]) (
 }
 
 // finishOpening opens the resource of a region from joinOrCreate and its first gate. If
-// the resource fails to open or panics, it removes the region.
+// the resource fails to open or panics, it removes the region. An exclusive region
+// stays opening until its gate releases.
 func (c *Controller[R]) finishOpening(
 	r *region[R],
 	cfg GateConfig[R],
@@ -301,15 +314,15 @@ func (c *Controller[R]) finishOpening(
 	defer func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		opening := r.opening
-		r.opening = nil
-		defer close(opening)
 		if !opened {
 			c.unsafeRemove(r)
+			r.unsafeFinishOpening()
 			return
 		}
 		r.resource = res
-		g, t, err = r.open(cfg)
+		if g, t, err = r.open(cfg); err != nil || !*cfg.Exclusive {
+			r.unsafeFinishOpening()
+		}
 	}()
 	res, err = cfg.OpenResource()
 	opened = err == nil

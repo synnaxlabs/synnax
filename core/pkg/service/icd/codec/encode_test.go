@@ -39,11 +39,23 @@ func unprefixed(dt telem.DataType, sample []byte) []byte {
 	return data
 }
 
+// finite reports whether c writes each float sample of m as a number. The fixtures
+// write NaN and infinity as strings, as JSON holds neither.
+func finite(m codec.JSONMessage, c decodeCase) bool {
+	for k, b := range m.Bindings {
+		float := b.DataType == telem.Float64T || b.DataType == telem.Float32T
+		if float && c.Samples[k][0] == '"' {
+			return false
+		}
+	}
+	return true
+}
+
 // documentEntries returns an entry for each decode fixture that holds documents.
 func documentEntries() []TableEntry {
 	GinkgoHelper()
 	var entries []TableEntry
-	for _, path := range fixturePaths("decode") {
+	for _, path := range fixturePaths("decode", payload.FormatJSON) {
 		if readDecodeFixture(path).Error == "" {
 			entries = append(entries, fixtureEntry(path))
 		}
@@ -116,6 +128,17 @@ func floatField(name string, key icd.FieldKey, scale, offset float64) icd.JSONFi
 	}}
 }
 
+// nanField returns a float field at /name whose default is NaN.
+func nanField(name string, key icd.FieldKey) icd.JSONField {
+	return icd.JSONField{Variant: icd.FloatJSONField{
+		Key:     key,
+		Name:    name,
+		Scale:   1,
+		Pointer: "/" + name,
+		Default: new(payload.Float(math.NaN())),
+	}}
+}
+
 func message(fields []icd.JSONField, bindings ...codec.Binding) codec.JSONMessage {
 	return codec.JSONMessage{
 		Name:     "command",
@@ -148,6 +171,13 @@ var _ = Describe("JSONEncoder", func() {
 					samples := make([][]byte, len(m.Bindings))
 					for b, binding := range m.Bindings {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
+					}
+					if !finite(m, c) {
+						Expect(enc.Encode(nil, samples)).Error().To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("is not a JSON number")),
+						))
+						continue
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
 					again := newSamples(messages)
@@ -203,7 +233,7 @@ var _ = Describe("JSONEncoder", func() {
 				Expect(doc).To(MatchJSON([]byte(c.Document)))
 			}
 		}
-	}, fixtureEntries("encode"))
+	}, fixtureEntries("encode", payload.FormatJSON))
 
 	It("Should write the time of each encode for a now default", func() {
 		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
@@ -312,6 +342,71 @@ var _ = Describe("JSONEncoder", func() {
 			To(MatchError("message command: field temp: no sample and no default"))
 	})
 
+	DescribeTable("Should refuse a sample with no JSON number for a converted field",
+		func(variant icd.JSONFieldVariant, scale, sample float64, expected string) {
+			key := uuid.New()
+			f := icd.JSONField{Variant: variant}
+			f.SetBase(
+				icd.JSONBaseField{Key: key, Name: "v", Scale: scale, Pointer: "/v"},
+			)
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{f}, codec.Binding{Field: key, DataType: telem.Float64T},
+			)))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(sample)})).Error().To(
+				MatchError(
+					"message command: field v: " + expected + ": validation error",
+				),
+			)
+		},
+		Entry("a scaled float", icd.FloatJSONField{}, 2.0, math.NaN(),
+			"NaN is not a JSON number"),
+		Entry("an integer", icd.IntegerJSONField{}, 1.0, math.Inf(1),
+			"Infinity is not a JSON number"),
+		Entry("an unsigned", icd.UnsignedJSONField{}, 1.0, math.Inf(-1),
+			"-Infinity is not a JSON number"),
+		Entry("a boolean", icd.BooleanJSONField{}, 1.0, math.NaN(),
+			"NaN is not a JSON number"),
+	)
+
+	It("Should refuse a NaN default for a field with no binding", func() {
+		f := nanField("v", uuid.New())
+		Expect(codec.NewJSONEncoder(message([]icd.JSONField{f}))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("message command: field v: default: NaN is not a JSON number: "+
+				"validation error"),
+		))
+	})
+
+	It("Should refuse a timestamp field with an unknown time format", func() {
+		key := uuid.New()
+		Expect(codec.NewJSONEncoder(message(
+			[]icd.JSONField{{Variant: icd.TimestampJSONField{
+				Key: key, Name: "t", Scale: 1, Pointer: "/t", TimeFormat: "unix_days",
+			}}},
+			codec.Binding{Field: key, DataType: telem.TimestampT},
+		))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(`message command: field t: unknown time format "unix_days": `+
+				`expected "iso8601", "unix_sec", "unix_ms", "unix_us", or "unix_ns": `+
+				"validation error"),
+		))
+	})
+
+	It("Should fail only the encode of a nil sample for a bound NaN default", func() {
+		key := uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{nanField("v", key)},
+			codec.Binding{Field: key, DataType: telem.Float64T},
+		)))
+		Expect(enc.HasDefault(0)).To(BeTrue())
+		Expect(enc.Encode(nil, [][]byte{float64Sample(2.5)})).To(MatchJSON(`{"v":2.5}`))
+		Expect(enc.Encode(nil, [][]byte{nil})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("message command: field v: default: NaN is not a JSON number: "+
+				"validation error"),
+		))
+	})
+
 	DescribeTable("Should write a generated default beside a match rule",
 		func(match icd.JSONMatch, expectedType string) {
 			enc := MustSucceed(codec.NewJSONEncoder(codec.JSONMessage{
@@ -371,126 +466,103 @@ var _ = Describe("JSONEncoder", func() {
 		))
 	})
 
-	DescribeTable("Should refuse a command outside the min and max of its field",
-		func(field icd.JSONField, dt telem.DataType, sample []byte, expected string) {
-			enc := MustSucceed(codec.NewJSONEncoder(message(
-				[]icd.JSONField{field},
-				codec.Binding{Field: field.Base().Key, DataType: dt},
-			)))
-			Expect(enc.Check(0, sample)).To(MatchError(expected))
-			Expect(enc.Encode(nil, [][]byte{sample})).Error().To(MatchError(expected))
-		},
-		Entry("a float below the min",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Min: new(0.0),
-			}},
-			telem.Float64T, float64Sample(-1),
-			"message command: field v: -1 is below the min 0: validation error",
-		),
-		Entry("a float above the max",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(100.0),
-			}},
-			telem.Float64T, float64Sample(120),
-			"message command: field v: 120 is above the max 100: validation error",
-		),
-		Entry("a scaled float whose raw value is inside the max",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 10, Pointer: "/v", Max: new(100.0),
-			}},
-			telem.Float64T, float64Sample(120),
-			"message command: field v: 120 is above the max 100: validation error",
-		),
-		Entry("an integer above the max",
-			icd.JSONField{Variant: icd.IntegerJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
-			}},
-			telem.Int64T, telem.NewSeriesV[int64](11).Data,
-			"message command: field v: 11 is above the max 10: validation error",
-		),
-		Entry("a float32 above the max",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(0.1),
-			}},
-			telem.Float32T, telem.NewSeriesV(math.Nextafter32(0.1, 1)).Data,
-			"message command: field v: 0.10000000894069672 is above the max 0.1: "+
-				"validation error",
-		),
-		Entry("a float32 below the min",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Min: new(3.3),
-			}},
-			telem.Float32T, telem.NewSeriesV(math.Nextafter32(3.3, 0)).Data,
-			"message command: field v: 3.299999713897705 is below the min 3.3: "+
-				"validation error",
-		),
-	)
-
-	DescribeTable("Should write a command at the min or max of its field",
-		func(field icd.JSONField, dt telem.DataType, sample []byte, expected string) {
-			enc := MustSucceed(codec.NewJSONEncoder(message(
-				[]icd.JSONField{field},
-				codec.Binding{Field: field.Base().Key, DataType: dt},
-			)))
-			Expect(enc.Check(0, sample)).To(Succeed())
-			Expect(enc.Encode(nil, [][]byte{sample})).To(MatchJSON(expected))
-		},
-		Entry("a float at the min",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
-				Min: new(0.0), Max: new(100.0),
-			}},
-			telem.Float64T, float64Sample(0), `{"v":0}`,
-		),
-		Entry("a float at the max",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
-				Min: new(0.0), Max: new(100.0),
-			}},
-			telem.Float64T, float64Sample(100), `{"v":100}`,
-		),
-		Entry("an integer at the max",
-			icd.JSONField{Variant: icd.IntegerJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
-			}},
-			telem.Int64T, telem.NewSeriesV[int64](10).Data, `{"v":10}`,
-		),
-		Entry("a scaled float whose raw value is above the max",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 0.1, Pointer: "/v", Max: new(10.0),
-			}},
-			telem.Float64T, float64Sample(5), `{"v":50}`,
-		),
-		Entry("a float32 at the max",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Max: new(0.1),
-			}},
-			telem.Float32T, telem.NewSeriesV[float32](0.1).Data,
-			`{"v":0.10000000149011612}`,
-		),
-		Entry("a float32 at the min",
-			icd.JSONField{Variant: icd.FloatJSONField{
-				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v", Min: new(3.3),
-			}},
-			telem.Float32T, telem.NewSeriesV[float32](3.3).Data,
-			`{"v":3.299999952316284}`,
-		),
-	)
-
-	It("Should write the sample of a JSON field as it is", func() {
+	It("Should write a token of digits past an int as a member name", func() {
 		key := uuid.New()
 		enc := MustSucceed(codec.NewJSONEncoder(message(
-			[]icd.JSONField{{Variant: icd.JSONJSONField{
-				Key: key, Name: "config", Scale: 1, Pointer: "/config",
+			[]icd.JSONField{{Variant: icd.FloatJSONField{
+				Key: key, Name: "v", Scale: 1, Pointer: "/a/99999999999999999999",
 			}}},
-			codec.Binding{Field: key, DataType: telem.JSONT},
+			codec.Binding{Field: key, DataType: telem.Float64T},
 		)))
-		Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate":10}`)})).
-			To(MatchJSON(`{"config":{"rate":10}}`))
-		Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate"`)})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError("message command: field config: invalid JSON: validation error"),
-		))
+		Expect(string(MustSucceed(enc.Encode(nil, [][]byte{float64Sample(1.5)})))).
+			To(Equal(`{"a":{"99999999999999999999":1.5}}`))
+	})
+
+	Describe("Check", func() {
+		var (
+			key = uuid.New()
+			enc *codec.JSONEncoder
+		)
+		BeforeEach(func() {
+			enc = MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{floatField("v", key, 1, 0)},
+				codec.Binding{Field: key, DataType: telem.Float64T},
+			)))
+		})
+
+		It("Should encode a sample that differs from the checked sample", func() {
+			Expect(enc.Check(0, float64Sample(1.5))).To(Succeed())
+			Expect(enc.Encode(nil, [][]byte{float64Sample(2.5)})).
+				To(MatchJSON(`{"v":2.5}`))
+		})
+
+		It("Should encode a sample whose buffer changed after its check", func() {
+			sample := float64Sample(1.5)
+			Expect(enc.Check(0, sample)).To(Succeed())
+			copy(sample, float64Sample(2.5))
+			Expect(enc.Encode(nil, [][]byte{sample})).To(MatchJSON(`{"v":2.5}`))
+		})
+
+		It("Should keep the text of the last good sample after a failed check", func() {
+			expected := "message command: field v: NaN is not a JSON number: " +
+				"validation error"
+			Expect(enc.Check(0, float64Sample(1.5))).To(Succeed())
+			Expect(enc.Check(0, float64Sample(math.NaN()))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(1.5)})).
+				To(MatchJSON(`{"v":1.5}`))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(math.NaN())})).Error().
+				To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(expected)))
+		})
+
+		It("Should encode an empty string after the check of a nil sample", func() {
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{{Variant: icd.StringJSONField{
+					Key:     key,
+					Name:    "s",
+					Scale:   1,
+					Pointer: "/s",
+					Default: new("synnax"),
+				}}},
+				codec.Binding{Field: key, DataType: telem.StringT},
+			)))
+			Expect(enc.Check(0, nil)).To(Succeed())
+			Expect(enc.Encode(nil, [][]byte{{}})).To(MatchJSON(`{"s":""}`))
+			Expect(enc.Encode(nil, [][]byte{nil})).To(MatchJSON(`{"s":"synnax"}`))
+		})
+	})
+
+	Describe("JSON samples", func() {
+		var enc *codec.JSONEncoder
+		BeforeEach(func() {
+			key := uuid.New()
+			enc = MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{{Variant: icd.JSONJSONField{
+					Key: key, Name: "config", Scale: 1, Pointer: "/config",
+				}}},
+				codec.Binding{Field: key, DataType: telem.JSONT},
+			)))
+		})
+
+		It("Should write a JSON sample as it is", func() {
+			Expect(enc.Encode(nil, [][]byte{[]byte(`{"rate":10}`)})).
+				To(MatchJSON(`{"config":{"rate":10}}`))
+		})
+
+		DescribeTable("Should refuse a JSON sample that is not valid",
+			func(sample string) {
+				Expect(enc.Encode(nil, [][]byte{[]byte(sample)})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						"message command: field config: invalid JSON: validation error",
+					),
+				))
+			},
+			Entry("truncated text", `{"rate"`),
+			Entry("a repeated name", `{"rate":1,"rate":2}`),
+		)
 	})
 
 	DescribeTable("Should reject a message whose rule or default has no type",
@@ -639,6 +711,10 @@ var _ = Describe("CheckDefault", func() {
 			},
 			"120 is above the max 100: validation error",
 		),
+		Entry("a NaN float, which JSON cannot hold",
+			icd.FloatJSONField{Scale: 1, Default: new(payload.Float(math.NaN()))},
+			"NaN is not a JSON number: validation error",
+		),
 		Entry("a timestamp default with no type",
 			icd.TimestampJSONField{
 				TimeFormat: payload.TimeFormatUnixNs,
@@ -649,6 +725,51 @@ var _ = Describe("CheckDefault", func() {
 		Entry("a UUID default with no type",
 			icd.UuidJSONField{Default: &icd.UUIDDefault{}},
 			"type is required: validation error",
+		),
+	)
+})
+
+var _ = Describe("CheckWrite", func() {
+	DescribeTable(
+		"Should accept samples that can write a field",
+		func(k payload.Kind, scaled bool, dt telem.DataType) {
+			Expect(codec.CheckWrite(k, scaled, dt)).To(Succeed())
+		},
+		Entry("a channel of the kind of the field",
+			payload.KindString, false, telem.StringT,
+		),
+		Entry("a number channel to a field of another number kind",
+			payload.KindUnsigned, false, telem.Float64T,
+		),
+		Entry("a boolean channel to a number field",
+			payload.KindFloat, false, telem.BooleanT,
+		),
+		Entry(
+			"a float channel to a scaled field",
+			payload.KindInteger,
+			true,
+			telem.Float32T,
+		),
+	)
+
+	DescribeTable("Should refuse samples that cannot write a field",
+		func(k payload.Kind, scaled bool, dt telem.DataType, expected string) {
+			Expect(codec.CheckWrite(k, scaled, dt)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+		},
+		Entry("a channel whose kind does not write the field",
+			payload.KindFloat, false, telem.StringT,
+			"cannot write string channels to float fields: validation error",
+		),
+		Entry("a number channel to a string field",
+			payload.KindString, false, telem.Int32T,
+			"cannot write int32 channels to string fields: validation error",
+		),
+		Entry("an integer channel to a scaled field",
+			payload.KindInteger, true, telem.Int64T,
+			"a scaled field requires a float channel, not int64: validation error",
 		),
 	)
 })

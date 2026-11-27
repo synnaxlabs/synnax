@@ -51,6 +51,7 @@ inline x::json::json connection_json(const connection::Config &cfg) {
              ? ""
              : cfg.client_certificate_item.to_string()},
         {"certificate_validation_disabled", cfg.certificate_validation_disabled},
+        {"read_node_timeout", cfg.read_node_timeout.nanoseconds()},
     };
     if (!cfg.server_certificate_item.is_nil())
         j["server_certificate"] = cfg.server_certificate_item.to_string();

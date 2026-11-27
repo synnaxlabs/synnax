@@ -36,6 +36,13 @@ on:
         required: false
         type: boolean
         default: false
+      prebuilt:
+        description:
+          Whether the runner builds the binary with <module>/docker-build.sh and the Go
+          cache that main saves, in place of the Dockerfile's stage named binary
+        required: false
+        type: boolean
+        default: false
     outputs:
       image:
         description: The image, pinned by digest, or by tag when a fork built it
@@ -117,6 +124,79 @@ jobs:
             echo "found=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # Main builds the binary even when it finds the image, to save the Go cache that
+      # pull requests and merge groups restore.
+      - name: Set up Go
+        if:
+          &binary inputs.prebuilt && (steps.check.outputs.found != 'true' || github.ref
+          == 'refs/heads/main')
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: ${{ inputs.module }}/go.mod
+          cache: false
+
+      - name: Key the Go caches
+        id: go-key
+        if: *binary
+        env:
+          MODULE: ${{ inputs.module }}
+          SUM: ${{ hashFiles(format('{0}/go.sum', inputs.module)) }}
+        run: |
+          {
+            echo "build=$(go env GOCACHE)"
+            echo "modules=$(go env GOMODCACHE)"
+            echo "module=go-build-$MODULE-"
+            echo "sum=go-build-$MODULE-$SUM-"
+            echo "seconds=$(date +%s)"
+          } >> "$GITHUB_OUTPUT"
+
+      # A run reads the caches of its own ref and of main, never those of another pull
+      # request or merge group, so only main saves them.
+      - name: Restore the Go caches
+        id: go-cache
+        if: *binary
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ${{ steps.go-key.outputs.build }}
+            ${{ steps.go-key.outputs.modules }}
+          key: ${{ steps.go-key.outputs.sum }}${{ github.run_id }}
+          restore-keys: |
+            ${{ steps.go-key.outputs.sum }}
+            ${{ steps.go-key.outputs.module }}
+
+      - name: Build the binary
+        if: *binary
+        env:
+          MODULE: ${{ inputs.module }}
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          .github/scripts/go_mod_download.sh "$MODULE"
+          mkdir "$RUNNER_TEMP/binary"
+          cd "$MODULE" && ./docker-build.sh "$RUNNER_TEMP/binary"
+
+      # Go refreshes the mtime of an entry it uses, unless that mtime is less than an
+      # hour old, so an entry older than an hour before the build did not serve it.
+      - name: Trim the Go build cache
+        if: &save inputs.prebuilt && github.ref == 'refs/heads/main'
+        env:
+          BUILD: ${{ steps.go-key.outputs.build }}
+          START: ${{ steps.go-key.outputs.seconds }}
+        run: |
+          cd "$BUILD"
+          find . -type f -mmin "+$(( ($(date +%s) - START) / 60 + 61 ))" -delete
+          du -sh .
+
+      - name: Save the Go caches
+        if: *save
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ${{ steps.go-key.outputs.build }}
+            ${{ steps.go-key.outputs.modules }}
+          key: ${{ steps.go-cache.outputs.cache-primary-key }}
+
       - name: Set up Docker Buildx
         if: steps.check.outputs.found != 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
@@ -133,8 +213,15 @@ jobs:
             ${{ env.FORK == 'true' && format('type=docker,dest={0}/image.tar',
             runner.temp) || '' }}
           tags: ${{ steps.tag.outputs.image }}
-          cache-from: type=gha,scope=synnax-docker-${{ inputs.module }}
-          cache-to: type=gha,mode=max,scope=synnax-docker-${{ inputs.module }}
+          build-contexts:
+            ${{ inputs.prebuilt && format('binary={0}/binary', runner.temp) || '' }}
+          # A prebuilt binary leaves no layer worth a cache.
+          cache-from:
+            ${{ !inputs.prebuilt && format('type=gha,scope=synnax-docker-{0}',
+            inputs.module) || '' }}
+          cache-to:
+            ${{ !inputs.prebuilt && format('type=gha,mode=max,scope=synnax-docker-{0}',
+            inputs.module) || '' }}
 
       - name: Name the artifact of the image
         id: artifact

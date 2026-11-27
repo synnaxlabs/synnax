@@ -14,55 +14,43 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"go.uber.org/zap"
 )
 
-// readGroup holds the samples of one ICD message in the records of one key. It has one
-// index and one set of channels in the writer.
+// readGroup holds the samples of one group of an ICD message in the records of one key.
+// It has one set of channels in the writer. A group that is not stamped takes the Kafka
+// timestamps of its records.
 type readGroup struct {
+	read.Group
 	// name names the message and its record key in errors.
 	name string
-	// data[i] holds the current poll's samples of binding i. The decoder of the record
-	// appends to it.
-	data [][]byte
-	// columns[i] places the samples of binding i in data[i].
+	// columns[i] holds the current poll's samples of channel i.
 	columns []column
 	// rows are the current poll's records, which columns hold in arrival order.
 	rows []row
-	// stamp is the position in columns of the binding of the index field, or -1 when
-	// records are stamped with their Kafka timestamp.
-	stamp int
-	// index is the group's index channel, zero when its channels are virtual.
-	index channel.Key
-	// keys are the group's channels in the writer: the index first when no binding
-	// writes it.
+	// keys are the group's channels in the writer: the index first, when there is one.
 	keys channel.Keys
 	// last is the last timestamp written, seeded with the last stored one at start.
 	last telem.TimeStamp
@@ -72,11 +60,16 @@ type readGroup struct {
 
 // readRecord reads the records of one Kafka key as the messages of an ICD.
 type readRecord struct {
-	decoder *codec.JSON
-	// groups[i] holds the samples of message i of decoder.
+	source *read.Source
+	// groups[i] holds the samples of group i of source.
 	groups []*readGroup
-	// samples[i] is the data of groups[i], which decoder appends to.
-	samples [][][]byte
+}
+
+// recordID locates a record.
+type recordID struct {
+	topic     string
+	partition int32
+	offset    int64
 }
 
 // row is one record converted into a group's samples.
@@ -84,19 +77,15 @@ type row struct {
 	ts telem.TimeStamp
 	// pos is the record's position in the group's columns.
 	pos int
-	// topic, partition, and offset locate the record.
-	topic     string
-	partition int32
-	offset    int64
+	recordID
 }
 
 // readTask consumes topics and writes the fields of ICD messages into channels.
 type readTask struct {
+	*driver.Runner
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        ReadConfig
-	// status is the authority on this instance's current status.
-	status *driver.StatusHandler
 	// topics are the topics the task consumes: each one with an enabled record, in
 	// config order.
 	topics []string
@@ -104,37 +93,37 @@ type readTask struct {
 	records map[string]map[string]*readRecord
 	// groups holds the groups of every record.
 	groups []*readGroup
-	// writer writes every group's channels, nil once the consumer exits.
+	// writer writes every group's channels, nil once a write fails.
 	writer *framer.Writer
-	// client is the consumer, nil while stopped.
+	// client is the consumer of the current run.
 	client *kgo.Client
-	// closer releases the consumer, nil once released.
-	closer io.Closer
-	// sCtx is the consumer's context. A consumer that panics or fails without a report
-	// cancels it.
-	sCtx signal.Context
-	// failed is set before the consumer reports its failure.
-	failed atomic.Bool
 	// skips counts the records of the current run that the task reads and skips.
 	skips *driver.Skips
+	// skipped holds the records of the current poll that count as skipped, so that a
+	// record that loses several groups counts once.
+	skipped set.Set[recordID]
 	// reassigned is set when the group assigns partitions, which replay from the last
 	// committed offset.
 	reassigned atomic.Bool
 	// disconnected is true from a connection failure until records arrive again.
 	disconnected bool
-	// marks is the offsets the current poll consumed by topic and partition.
-	marks map[string]map[int32]kgo.EpochOffset
+	// heads is the last record of each partition the current poll read.
+	heads []*kgo.Record
 }
 
 var _ driver.Task = (*readTask)(nil)
 
-func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, error) {
+// configureRead returns the read task of t, and whether the factory starts it.
+func (f *factory) configureRead(
+	ctx context.Context,
+	t task.Task,
+) (*readTask, bool, error) {
 	var cfg ReadConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := cfg.Validate(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if _, err := resolveProperties(
 		ctx,
@@ -142,26 +131,32 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		f.cfg.Device,
 		cfg.Device,
 	); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	rt := &readTask{
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
-		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
-		marks:      make(map[string]map[int32]kgo.EpochOffset),
 	}
 	var err error
 	if rt.records, rt.groups, err = f.buildReadRecords(ctx, cfg); err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	if rt.Runner, err = driver.NewRunner(driver.RunnerConfig{
+		DB:              f.cfg.DB,
+		Status:          f.cfg.Status,
+		Instrumentation: f.cfg.Instrumentation,
+		Task:            t,
+		Open:            rt.open,
+	}); err != nil {
+		return nil, false, err
 	}
 	for _, topic := range cfg.Topics {
 		if _, ok := rt.records[topic.Name]; ok {
 			rt.topics = append(rt.topics, topic.Name)
-			rt.marks[topic.Name] = make(map[int32]kgo.EpochOffset)
 		}
 	}
-	return rt, nil
+	return rt, cfg.AutoStart, nil
 }
 
 // buildReadRecords resolves the enabled records of cfg against their ICDs and channels.
@@ -175,63 +170,48 @@ func (f *factory) buildReadRecords(
 	if err != nil {
 		return nil, nil, err
 	}
-	icds, err := retrieveICDs(ctx, f.cfg.DB, f.cfg.ICD, lo.Uniq(lo.Map(
-		enabled, func(r topicRecord, _ int) icd.Key { return r.ICD },
-	)))
-	if err != nil {
-		return nil, nil, err
-	}
-	var keys channel.Keys
-	for _, rec := range enabled {
-		for _, m := range rec.Messages {
-			for _, b := range m.Bindings {
-				keys = append(keys, b.Channel)
-			}
-		}
-	}
-	channels, err := f.readChannels(ctx, lo.Uniq(keys))
-	if err != nil {
-		return nil, nil, err
-	}
 	var (
 		records = make(map[string]map[string]*readRecord, len(cfg.Topics))
 		groups  []*readGroup
-		w       = writers{channels: channels, names: make(map[channel.Key]string)}
 	)
-	for _, rec := range enabled {
-		keys, ok := records[rec.topic]
-		if !ok {
-			keys = make(map[string]*readRecord)
-			records[rec.topic] = keys
-		}
-		if _, ok = keys[rec.RecordKey]; ok {
-			return nil, nil, errors.Wrapf(
-				validate.ErrValidation,
-				"topic %q: record key %q: claimed by more than one record",
-				rec.topic, rec.RecordKey,
-			)
-		}
-		rd, err := newReadRecord(rec.topic, rec.ReadRecord, icds[rec.ICD], channels)
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := check(ctx, snap, f.reads, &cfg, nil)
 		if err != nil {
-			return nil, nil, errors.Wrapf(
-				err, "topic %q: record key %q", rec.topic, rec.RecordKey,
-			)
+			return err
 		}
-		for _, g := range rd.groups {
-			if err = w.claim(g); err != nil {
-				return nil, nil, err
+		for _, rec := range enabled {
+			keys, ok := records[rec.topic]
+			if !ok {
+				keys = make(map[string]*readRecord)
+				records[rec.topic] = keys
 			}
+			if _, ok = keys[rec.RecordKey]; ok {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"topic %q: record key %q: claimed by more than one record",
+					rec.topic, rec.RecordKey,
+				)
+			}
+			source, err := c.Bind(rec.read)
+			if err != nil {
+				return err
+			}
+			rd := newReadRecord(rec.topic, rec.ReadRecord, source)
+			keys[rec.RecordKey] = rd
+			groups = append(groups, rd.groups...)
 		}
-		keys[rec.RecordKey] = rd
-		groups = append(groups, rd.groups...)
+		return nil
+	}); err != nil {
+		return nil, nil, err
 	}
 	return records, groups, nil
 }
 
-// topicRecord is a record of a read task and the name of its topic.
+// topicRecord is a record of a read task, the name of its topic, and its read.
 type topicRecord struct {
 	topic string
 	ReadRecord
+	read read.Read
 }
 
 // enabledRecords returns the enabled records of cfg. It returns a validation error when
@@ -239,10 +219,10 @@ type topicRecord struct {
 func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
 	names := make(set.Set[string], len(cfg.Topics))
 	var enabled []topicRecord
-	for i, topic := range cfg.Topics {
+	for t, topic := range cfg.Topics {
 		if topic.Name == "" {
 			return nil, errors.Wrapf(
-				validate.ErrValidation, "topics.%d.name: must not be empty", i,
+				validate.ErrValidation, "topics.%d.name: must not be empty", t,
 			)
 		}
 		if names.Contains(topic.Name) {
@@ -251,12 +231,13 @@ func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
 			)
 		}
 		names.Add(topic.Name)
-		for _, rec := range topic.Records {
+		for i, rec := range topic.Records {
 			if !rec.Disabled {
-				enabled = append(
-					enabled,
-					topicRecord{topic: topic.Name, ReadRecord: rec},
-				)
+				enabled = append(enabled, topicRecord{
+					topic:      topic.Name,
+					ReadRecord: rec,
+					read:       readOf(t, i, rec),
+				})
 			}
 		}
 	}
@@ -268,315 +249,23 @@ func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
 	return enabled, nil
 }
 
-// readChannels returns the channels of keys and the index channel of each, so that an
-// error can name an index channel that no binding names.
-func (f *factory) readChannels(
-	ctx context.Context,
-	keys channel.Keys,
-) (map[channel.Key]channel.Channel, error) {
-	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
-	if err != nil {
-		return nil, err
+// newReadRecord returns the record of rec, a record of topic, whose documents source
+// decodes.
+func newReadRecord(topic string, rec ReadRecord, source *read.Source) *readRecord {
+	rd := &readRecord{source: source}
+	for _, g := range source.Groups() {
+		rd.groups = append(rd.groups, &readGroup{
+			Group: g,
+			name: fmt.Sprintf(
+				"message %s of key %q of topic %q", g.Message, rec.RecordKey, topic,
+			),
+			columns: lo.Map(g.DataTypes, func(dt telem.DataType, _ int) column {
+				return newColumn(dt)
+			}),
+			keys: g.Keys(),
+		})
 	}
-	var indexes channel.Keys
-	for _, ch := range channels {
-		if _, ok := channels[ch.Index()]; !ok && !ch.IsIndex && ch.Index() != 0 {
-			indexes = append(indexes, ch.Index())
-		}
-	}
-	if len(indexes) == 0 {
-		return channels, nil
-	}
-	found, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(indexes))
-	if err != nil {
-		return nil, err
-	}
-	maps.Copy(channels, found)
-	return channels, nil
-}
-
-// writers holds the channels that the groups of a read task write to.
-type writers struct {
-	channels map[channel.Key]channel.Channel
-	// names names the group that writes to each channel.
-	names map[channel.Key]string
-}
-
-// claim takes the channels of g. Two groups on one index would write frames that lack
-// the channels of the other.
-func (w writers) claim(g *readGroup) error {
-	for _, key := range g.keys {
-		other, ok := w.names[key]
-		if !ok {
-			w.names[key] = g.name
-			continue
-		}
-		what := "channel"
-		if key == g.index {
-			what = "index channel"
-		}
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"records: %s and %s write to the same %s %s",
-			other, g.name, what, w.channels[key].Name,
-		)
-	}
-	return nil
-}
-
-// newReadRecord validates rec, a record of topic, against ic, the ICD it names, and
-// channels, which holds every channel that a binding of rec names.
-func newReadRecord(
-	topic string,
-	rec ReadRecord,
-	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
-) (*readRecord, error) {
-	if len(rec.Messages) == 0 {
-		return nil, errors.Wrap(validate.ErrValidation, "reads no messages")
-	}
-	var (
-		decoded = make([]codec.JSONMessage, len(rec.Messages))
-		rd      = &readRecord{
-			groups:  make([]*readGroup, len(rec.Messages)),
-			samples: make([][][]byte, len(rec.Messages)),
-		}
-		err error
-	)
-	for i, rm := range rec.Messages {
-		if rd.groups[i], err = newReadGroup(
-			topic, rec.RecordKey, rm, ic, channels, &decoded[i],
-		); err != nil {
-			return nil, err
-		}
-		rd.samples[i] = rd.groups[i].data
-	}
-	if rd.decoder, err = codec.NewJSON(decoded); err != nil {
-		return nil, err
-	}
-	return rd, nil
-}
-
-// newReadGroup validates rm, a message of the record of topic with recordKey, and fills
-// decoded with what the decoder needs to read it.
-func newReadGroup(
-	topic string,
-	recordKey string,
-	rm icd.ReadMessage,
-	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
-	decoded *codec.JSONMessage,
-) (*readGroup, error) {
-	i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
-		return m.Key == rm.Message
-	})
-	if i < 0 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"message %s does not exist in ICD %s", rm.Message, ic.Name,
-		)
-	}
-	msg := ic.Messages[i]
-	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
-	if !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
-		)
-	}
-	if len(rm.Bindings) == 0 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s binds no fields", msg.Name,
-		)
-	}
-	g := &readGroup{
-		name: fmt.Sprintf(
-			"message %s of key %q of topic %q", msg.Name, recordKey, topic,
-		),
-		data:      make([][]byte, len(rm.Bindings)),
-		columns:   make([]column, len(rm.Bindings)),
-		stamp:     -1,
-		replaying: true,
-	}
-	bindings, err := g.bind(rm, channels)
-	if err != nil {
-		return nil, errors.Wrapf(err, "message %s", msg.Name)
-	}
-	*decoded = codec.JSONMessage{Name: msg.Name, Payload: payload, Bindings: bindings}
-	if g.index != 0 && g.stamp == -1 {
-		g.keys = append(g.keys, g.index)
-	}
-	for _, b := range rm.Bindings {
-		g.keys = append(g.keys, b.Channel)
-	}
-	return g, nil
-}
-
-// bind sets the columns, the index channel, and the stamp of g from the bindings of rm
-// and their channels. It returns the codec binding of each.
-func (g *readGroup) bind(
-	rm icd.ReadMessage,
-	channels map[channel.Key]channel.Channel,
-) ([]codec.Binding, error) {
-	bindings := make([]codec.Binding, len(rm.Bindings))
-	for i, b := range rm.Bindings {
-		ch, ok := channels[b.Channel]
-		switch {
-		case b.Channel == 0:
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "binding %d has no channel", i,
-			)
-		case !ok:
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "channel %d does not exist", b.Channel,
-			)
-		}
-		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
-		g.columns[i] = newColumn(ch.DataType)
-		index := ch.Index()
-		if ch.IsIndex {
-			index = ch.Key()
-		}
-		if i == 0 {
-			g.index = index
-		} else if index != g.index {
-			return nil, errors.Wrap(
-				validate.ErrValidation, "every channel must share one index channel",
-			)
-		}
-		isIndexField := rm.Index != nil && *rm.Index == b.Field
-		switch {
-		case isIndexField && !ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"the index field must write to an index channel",
-			)
-		case !isIndexField && ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"only the index field can write to an index channel",
-			)
-		case isIndexField:
-			g.stamp = i
-		}
-	}
-	if rm.Index != nil && g.stamp == -1 {
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"the index field has no binding",
-		)
-	}
-	return bindings, nil
-}
-
-// Exec implements driver.Task. Start and stop answer the command with a status,
-// failures included, so Exec returns an error only when that status was not written.
-func (t *readTask) Exec(ctx context.Context, cmd task.Command) error {
-	var err, answerErr error
-	switch cmd.Type {
-	case "start":
-		err, answerErr = t.start(ctx, cmd.Key)
-	case "stop":
-		err, answerErr = t.stop(ctx, cmd.Key, true)
-	default:
-		return driver.ErrUnsupportedCommand
-	}
-	if answerErr != nil {
-		return errors.Combine(err, answerErr)
-	}
-	if err != nil {
-		t.factoryCfg.L.Error("failed to execute command",
-			zap.Stringer("task", t.task.Key),
-			zap.Stringer("command", cmd),
-			zap.Error(err),
-		)
-	}
-	return nil
-}
-
-// Stop implements driver.Task.
-func (t *readTask) Stop(sendStatus bool) error {
-	return errors.Combine(t.stop(context.TODO(), driver.NoCommand, sendStatus))
-}
-
-// isRunning reports whether the consumer is up. A consumer that failed on its own sets
-// failed, and one that panicked cancels sCtx. Neither releases the closer.
-func (t *readTask) isRunning() bool {
-	return t.closer != nil && !t.failed.Load() && t.sCtx.Err() == nil
-}
-
-func (t *readTask) release() error {
-	err := t.closer.Close()
-	t.closer = nil
-	t.client = nil
-	return err
-}
-
-// start returns the error that kept the consumer from starting, and the error of the
-// status write that answers cmdKey.
-func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr error) {
-	if t.isRunning() {
-		return nil, t.status.Ack(ctx, cmdKey, true)
-	}
-	if t.closer != nil {
-		if err := t.release(); err != nil {
-			t.factoryCfg.L.Warn("kafka consumer failed",
-				zap.Stringer("task", t.task.Key),
-				zap.Error(err),
-			)
-		}
-	}
-	if err = t.open(ctx); err != nil {
-		return err, t.status.Send(
-			ctx,
-			cmdKey,
-			status.VariantError,
-			false,
-			"Failed to start task",
-			err.Error(),
-		)
-	}
-	if answerErr = t.status.Send(
-		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
-	); answerErr != nil {
-		// The caller sees the start fail, so the consumer must not outlive it. The
-		// consumer never ran, so the start closes the writer itself.
-		return errors.Combine(t.release(), t.closeWriter()), answerErr
-	}
-	// The consumer writes statuses too, so it starts after this one to not be replaced.
-	t.sCtx.Go(
-		t.consume,
-		signal.RecoverWithErrOnPanic(),
-		signal.CancelOnFail(),
-		signal.DeferErr(t.closeWriter),
-	)
-	return nil, nil
-}
-
-// stop returns the error that ended the consumer and that no status reports, and the
-// error of the status write that answers cmdKey.
-func (t *readTask) stop(
-	ctx context.Context,
-	cmdKey string,
-	sendStatus bool,
-) (err, answerErr error) {
-	if t.closer == nil {
-		if sendStatus {
-			return nil, t.status.Ack(ctx, cmdKey, false)
-		}
-		return nil, nil
-	}
-	err = t.release()
-	if !sendStatus {
-		return err, nil
-	}
-	if err != nil {
-		return err, t.status.Send(
-			ctx, cmdKey, status.VariantError, false, "Failed to stop task", err.Error(),
-		)
-	}
-	return nil, t.status.Send(
-		ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "",
-	)
+	return rd
 }
 
 // resetOffset maps the configured start offset onto the consumer's reset offset. A
@@ -602,9 +291,11 @@ func (t *readTask) group() string {
 	return "kafka-" + t.task.Key.String()
 }
 
-// open connects the consumer. It writes no statuses and does not start the fetch loop:
-// start owns both.
-func (t *readTask) open(ctx context.Context) (err error) {
+// open connects the consumer and opens the writer. The run it returns consumes until
+// ctx ends, then commits the marked offsets and releases both.
+func (t *readTask) open(
+	ctx context.Context,
+) (run func(context.Context) error, err error) {
 	props, err := resolveProperties(
 		ctx,
 		t.factoryCfg.DB,
@@ -612,11 +303,11 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		t.cfg.Device,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cl, err := openClient(props, t.consumerOpts()...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		if err != nil {
@@ -626,41 +317,33 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	pingCtx, cancelPing := context.WithTimeout(ctx, t.factoryCfg.PingTimeout.Duration())
 	defer cancelPing()
 	if err = cl.Ping(pingCtx); err != nil {
-		return errors.Wrap(err, "connecting to cluster")
+		return nil, errors.Wrap(err, "connecting to cluster")
 	}
 	if t.cfg.StartOffset == StartOffsetNone {
 		if err = t.checkCommitted(pingCtx, cl); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if err = t.resetGroups(ctx); err != nil {
-		return err
+		return nil, err
 	}
-	sCtx, cancel := signal.Isolated(
-		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
-	)
-	// The writer outlives the start command and sCtx: a stop cancels sCtx, and the
-	// consumer must finish its write. The consumer closes it on exit.
+	// The writer outlives the start command, and a stop lets the run finish its write.
 	wCtx, cancelWriter := context.WithCancel(context.Background())
 	if t.writer, err = t.openWriter(wCtx); err != nil {
 		cancelWriter()
-		cancel()
-		return err
+		return nil, err
 	}
 	t.client = cl
-	t.sCtx = sCtx
-	t.failed.Store(false)
 	t.skips = driver.NewSkips("record", driver.SkipHold)
+	t.skipped = make(set.Set[recordID])
 	t.disconnected = false
-	stopConsumer := signal.NewHardShutdown(sCtx, cancel)
-	t.closer = xio.MultiCloser{
-		xio.CloserFunc(t.closeClient),
-		xio.CloserFunc(func() error {
-			defer cancelWriter()
-			return stopConsumer.Close()
-		}),
-	}
-	return nil
+	return func(ctx context.Context) (err error) {
+		defer func() {
+			err = errors.Combine(err, errors.Combine(t.closeClient(), t.closeWriter()))
+			cancelWriter()
+		}()
+		return t.consume(ctx)
+	}, nil
 }
 
 // consumerOpts returns the client options of the consumer.
@@ -685,14 +368,14 @@ func (t *readTask) resetGroups(ctx context.Context) error {
 	for _, g := range t.groups {
 		g.last = 0
 		g.replaying = false
-		if g.index == 0 {
+		if g.Index == 0 {
 			continue
 		}
-		var err error
-		if g.last, err = t.lastStored(ctx, g.index); err != nil {
+		last, err := driver.LastStored(ctx, t.factoryCfg.Framer, g.Index)
+		if err != nil {
 			return err
 		}
-		g.replaying = true
+		g.last, g.replaying = last, true
 	}
 	return nil
 }
@@ -730,8 +413,7 @@ func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 	return nil
 }
 
-// closeWriter releases the task's channels. It runs as the consumer exits, for any
-// reason, once no write is in progress.
+// closeWriter releases the task's channels.
 func (t *readTask) closeWriter() error {
 	if t.writer == nil {
 		return nil
@@ -758,9 +440,9 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 	for _, g := range t.groups {
 		keys = append(keys, g.keys...)
 	}
-	mode := ts.WriterModePersistStream
+	mode := cesium.WriterModePersistStream
 	if t.cfg.DataSavingDisabled {
-		mode = ts.WriterModeStreamOnly
+		mode = cesium.WriterModeStreamOnly
 	}
 	return t.factoryCfg.Framer.OpenWriter(ctx, framer.WriterConfig{
 		ControlSubject: control.Subject{
@@ -773,44 +455,12 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 		Mode:              mode,
 		// The offsets commit once Write returns, so the index must persist every
 		// commit before then or a crash loses samples Kafka will not replay.
-		AutoIndexPersistInterval: ts.AlwaysIndexPersistOnAutoCommit,
+		AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 	})
 }
 
-// lastStored returns the last timestamp stored in index, or zero when it is empty.
-func (t *readTask) lastStored(
-	ctx context.Context,
-	index channel.Key,
-) (last telem.TimeStamp, err error) {
-	it, err := t.factoryCfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   channel.Keys{index},
-		Bounds: telem.TimeRangeMax,
-	})
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if cErr := it.Close(); cErr != nil {
-			last, err = 0, errors.Join(err, cErr)
-		}
-	}()
-	if !it.SeekLast() || !it.Prev(iterator.AutoSpan) {
-		return 0, it.Error()
-	}
-	ms := it.Value().Get(index)
-	if len(ms.Series) == 0 {
-		return 0, nil
-	}
-	s := ms.Series[len(ms.Series)-1]
-	if s.Len() == 0 {
-		return 0, nil
-	}
-	return s.ValueAt[telem.TimeStamp](int(s.Len()) - 1), nil
-}
-
-// consume polls the topic until ctx ends. A connection failure sets a warning status
-// while the consumer retries. Any other fetch failure or a write failure stops it with
-// an error status.
+// consume polls the topics until ctx ends. A connection failure sets a warning status
+// while the consumer retries. Any other fetch failure or a write failure ends the run.
 func (t *readTask) consume(ctx context.Context) error {
 	for {
 		fetches := t.poll(ctx)
@@ -819,16 +469,19 @@ func (t *readTask) consume(ctx context.Context) error {
 			return nil
 		default:
 		}
-		if fetches.IsClientClosed() {
-			return nil
-		}
 		var fatal, transient error
 		fetches.EachError(func(topic string, partition int32, err error) {
 			// The deadline of poll ends a quiet poll, and is no failure.
 			if errors.Is(err, context.DeadlineExceeded) {
 				return
 			}
-			err = errors.Wrapf(err, "fetching %s/%d", topic, partition)
+			// franz-go reports an error of the whole consumer, such as a failed group
+			// join, with no topic.
+			if topic == "" {
+				err = errors.Wrapf(err, "consuming %s", strings.Join(t.topics, ", "))
+			} else {
+				err = errors.Wrapf(err, "fetching %s/%d", topic, partition)
+			}
 			if isConnectionErr(err) {
 				transient = cmp.Or(transient, err)
 			} else {
@@ -836,33 +489,22 @@ func (t *readTask) consume(ctx context.Context) error {
 			}
 		})
 		if fatal != nil {
-			return t.fail(ctx, "Failed to fetch records", fatal)
+			return fatal
 		}
-		// Recovery is reported before the batch, so a skip in it stays visible.
 		if transient != nil && !t.disconnected {
 			t.disconnected = true
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantWarning,
-				true,
-				"Lost connection to cluster",
-				transient.Error()+". The task retries until the cluster is reachable.",
-			)
+			t.Report(ctx, "", driver.Warning{
+				Message: "Lost connection to cluster",
+				Description: transient.Error() +
+					". The task retries until the cluster is reachable.",
+			}.Degraded())
 		}
-		if transient == nil && t.disconnected && fetches.NumRecords() > 0 {
+		// The skip report of the batch replaces the connection warning.
+		if transient == nil && fetches.NumRecords() > 0 {
 			t.disconnected = false
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantSuccess,
-				true,
-				"Reconnected to cluster",
-				"",
-			)
 		}
 		if err := t.process(ctx, fetches); err != nil {
-			return t.fail(ctx, "Failed to process records", err)
+			return err
 		}
 	}
 }
@@ -876,19 +518,6 @@ func (t *readTask) poll(ctx context.Context) kgo.Fetches {
 		defer cancel()
 	}
 	return t.client.PollFetches(ctx)
-}
-
-// fail reports the error that stops the consumer. It returns the error only when the
-// report fails, so a stop does not report a failure the status already shows. A start
-// that follows the status replaces the consumer instead of acknowledging the failure.
-func (t *readTask) fail(ctx context.Context, message string, err error) error {
-	t.failed.Store(true)
-	if sendErr := t.status.Send(
-		ctx, driver.NoCommand, status.VariantError, false, message, err.Error(),
-	); sendErr != nil {
-		return errors.Combine(err, sendErr)
-	}
-	return nil
 }
 
 // unavailable are the broker errors for a broker or coordinator that is down or
@@ -922,30 +551,23 @@ func isConnectionErr(err error) bool {
 func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 	if t.reassigned.Swap(false) {
 		for _, g := range t.groups {
-			g.replaying = g.index != 0
+			g.replaying = g.Index != 0
 		}
 	}
 	for _, g := range t.groups {
 		g.reset()
 	}
-	for _, marks := range t.marks {
-		clear(marks)
-	}
-	marked := false
+	clear(t.skipped)
+	t.heads = t.heads[:0]
+	// The records hold their batch buffers, which an idle task must not keep.
+	defer func() { clear(t.heads) }()
 	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
 		for _, rec := range p.Records {
 			t.convert(rec)
 		}
-		marks, ok := t.marks[p.Topic]
-		if !ok || len(p.Records) == 0 {
-			return
+		if len(p.Records) > 0 {
+			t.heads = append(t.heads, p.Records[len(p.Records)-1])
 		}
-		last := p.Records[len(p.Records)-1]
-		head := kgo.EpochOffset{Epoch: last.LeaderEpoch, Offset: last.Offset + 1}
-		if cur, ok := marks[p.Partition]; !ok || cur.Less(head) {
-			marks[p.Partition] = head
-		}
-		marked = true
 	})
 	var keys, size int
 	for _, g := range t.groups {
@@ -963,9 +585,7 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			return errors.Wrap(err, "writing records")
 		}
 	}
-	if marked {
-		t.client.MarkCommitOffsets(t.marks)
-	}
+	t.client.MarkCommitRecords(t.heads...)
 	return nil
 }
 
@@ -984,8 +604,9 @@ func (t *readTask) frame(keyCount, size int) frame.Frame {
 	return frame.NewMulti(keys, series)
 }
 
-// convert decodes rec into the samples of the group of its message. A record that is
-// not addressed to this task leaves nothing, and neither does one that is skipped.
+// convert decodes rec into the samples of the groups of its message. A record that is
+// not addressed to this task leaves nothing, and a group that loses a field leaves
+// nothing in that group.
 func (t *readTask) convert(rec *kgo.Record) {
 	keys := t.records[rec.Topic]
 	rd, ok := keys[string(rec.Key)]
@@ -1001,31 +622,24 @@ func (t *readTask) convert(rec *kgo.Record) {
 		partition: rec.Partition,
 		offset:    rec.Offset,
 	}
-	m, ok, failures, err := rd.decoder.Decode(rec.Value, rd.samples)
+	samples, ok, err := rd.source.Decode(rec.Value)
 	if err != nil {
 		t.skip(r, "Record value: "+err.Error())
-		return
-	}
-	if !ok {
+	} else if !ok {
 		t.skip(r, "Record value matches no message")
-		return
 	}
-	g := rd.groups[m]
-	if failures != nil {
-		for i := range g.data {
-			g.data[i] = g.data[i][:g.columns[i].end(len(g.rows))]
+	for _, s := range samples {
+		g := rd.groups[s.Group]
+		gr := r
+		gr.pos = len(g.rows)
+		for i, data := range s.Data {
+			g.columns[i].append(data)
 		}
-		t.skip(r, "Record value: "+failures[0].Err.Error())
-		return
+		if g.Stamped {
+			gr.ts = s.Stamp
+		}
+		g.rows = append(g.rows, gr)
 	}
-	r.pos = len(g.rows)
-	for i := range g.columns {
-		g.columns[i].appended(g.data[i])
-	}
-	if g.stamp >= 0 {
-		r.ts = telem.TimeStamp(telem.ByteOrder.Uint64(g.sample(g.stamp, r.pos)))
-	}
-	g.rows = append(g.rows, r)
 }
 
 // keep sorts the group's rows by timestamp and drops the replay. An indexed group drops
@@ -1039,9 +653,9 @@ func (t *readTask) keep(g *readGroup) {
 			if g.replaying {
 				continue
 			}
-			tie := g.stamp == -1 &&
+			tie := !g.Stamped &&
 				r.ts/telem.MillisecondTS == g.last/telem.MillisecondTS
-			if g.index != 0 && !tie {
+			if g.Index != 0 && !tie {
 				t.skip(r, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for %s",
 					r.ts, g.last, g.name,
@@ -1060,26 +674,17 @@ func (t *readTask) keep(g *readGroup) {
 func (g *readGroup) reset() {
 	g.rows = g.rows[:0]
 	for i := range g.columns {
-		g.data[i] = g.data[i][:0]
-		g.columns[i].ends = g.columns[i].ends[:0]
+		g.columns[i].reset()
 	}
 }
-
-// sample returns the sample of binding i at pos.
-func (g *readGroup) sample(i, pos int) []byte {
-	return g.columns[i].sample(g.data[i], pos)
-}
-
-// stamped returns true when the group's index samples come from Kafka timestamps.
-func (g *readGroup) stamped() bool { return g.index != 0 && g.stamp == -1 }
 
 func (g *readGroup) size() int {
 	var n int
-	if g.stamped() {
+	if g.Index != 0 {
 		n = len(g.rows) * int(telem.TimestampT.Density())
 	}
 	for i := range g.columns {
-		n += g.columns[i].size(g.data[i], g.rows)
+		n += g.columns[i].size(g.rows)
 	}
 	return n
 }
@@ -1090,7 +695,7 @@ func (g *readGroup) appendSeries(
 	series []telem.Series,
 	data []byte,
 ) ([]telem.Series, []byte) {
-	if g.stamped() {
+	if g.Index != 0 {
 		start := len(data)
 		for _, r := range g.rows {
 			data = telem.ByteOrder.AppendUint64(data, uint64(r.ts))
@@ -1103,7 +708,7 @@ func (g *readGroup) appendSeries(
 	for i := range g.columns {
 		start := len(data)
 		for _, r := range g.rows {
-			data = append(data, g.sample(i, r.pos)...)
+			data = append(data, g.columns[i].sample(r.pos)...)
 		}
 		series = append(series, telem.Series{
 			DataType: g.columns[i].dataType,
@@ -1113,8 +718,12 @@ func (g *readGroup) appendSeries(
 	return series, data
 }
 
-// skip counts the record of r as skipped. reason says why.
+// skip counts the record of r as skipped, once in a poll. reason says why.
 func (t *readTask) skip(r row, reason string) {
+	if t.skipped.Contains(r.recordID) {
+		return
+	}
+	t.skipped.Add(r.recordID)
 	t.skips.Skip(time.Now(), fmt.Sprintf(
 		"%s (topic %s, partition %d, offset %d).",
 		reason,
@@ -1133,37 +742,7 @@ func (t *readTask) reportSkips(ctx context.Context, now time.Time) {
 	}
 	var err error
 	if w != nil {
-		err = t.status.Warn(ctx, *w)
-	} else {
-		err = t.status.ClearWarning(ctx)
+		err = w.Degraded()
 	}
-	if err != nil {
-		t.factoryCfg.L.Error("failed to write task warning",
-			zap.Stringer("task", t.task.Key),
-			zap.Error(err),
-		)
-	}
-}
-
-func (t *readTask) setStatus(
-	ctx context.Context,
-	cmdKey string,
-	variant status.Variant,
-	running bool,
-	message string,
-	description string,
-) {
-	if err := t.status.Send(
-		ctx,
-		cmdKey,
-		variant,
-		running,
-		message,
-		description,
-	); err != nil {
-		t.factoryCfg.L.Error("failed to set task status",
-			zap.Stringer("task", t.task.Key),
-			zap.Error(err),
-		)
-	}
+	t.Report(ctx, "", err)
 }

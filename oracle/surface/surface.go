@@ -57,7 +57,14 @@ func typeLines(t resolution.Type) []string {
 		lines = append(lines, fieldLines(qn+".", f.Fields)...)
 		return append(lines, actionLines(qn, f.Actions)...)
 	case resolution.EnumForm:
-		lines := []string{qn + " enum" + refs(" extends ", f.Extends)}
+		header := qn + " enum"
+		if f.Narrows() {
+			header += " of " + ref(f.Superset)
+			if f.Exclusion {
+				header += " omit"
+			}
+		}
+		lines := []string{header + refs(" extends ", f.Extends)}
 		for _, v := range f.Values {
 			lines = append(lines, fmt.Sprintf("%s.%s = %v", qn, v.Name, quote(v.Value)))
 		}

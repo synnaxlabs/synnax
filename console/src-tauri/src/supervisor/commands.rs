@@ -10,6 +10,7 @@
 //! Binds the supervisor to the Tauri app: its commands, its status event, and its
 //! place in the app lifecycle.
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -42,7 +43,11 @@ pub struct Paths {
 /// The discovery file and API key, managed as app state. Each window of the app writes
 /// them.
 pub struct Discovery {
+    /// The discovery file in the config directory of the OS, or in the local data
+    /// directory on Windows.
     path: PathBuf,
+    /// The discovery file in `~/.synnax`, where Synnax Desktop 1.1 saved it.
+    legacy_path: PathBuf,
     /// The absolute path of the program that prints the API key.
     api_key_helper: PathBuf,
     /// Makes the compare and the write of each save one step.
@@ -127,10 +132,22 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
         .to_path_buf();
     let program = bin_dir.join(PROGRAM);
     let local = app.path().app_local_data_dir()?;
-    let log_dir = app.path().app_log_dir()?;
+    let home = app.path().home_dir()?;
+    let log_dir = if cfg!(target_os = "linux") {
+        linux_log_dir(std::env::var_os("XDG_STATE_HOME"), &home)
+    } else {
+        app.path().app_log_dir()?
+    };
     let version = app.package_info().version.to_string();
     let data_dir = local.join("core");
-    let discovery_path = discovery::path(&app.path().home_dir()?);
+    // The file holds the port and helper of this computer, so on Windows it goes in
+    // %LOCALAPPDATA%, which does not roam.
+    let discovery_dir = if cfg!(windows) {
+        app.path().local_data_dir()?
+    } else {
+        app.path().config_dir()?
+    };
+    let discovery_path = discovery::path(&discovery_dir);
     let cfg = Config::new(program, local, data_dir.clone(), log_dir.clone());
     // Supervisor::open spawns onto the current runtime, which setup does not enter.
     let supervisor = tauri::async_runtime::block_on(async { Supervisor::open(cfg) })?;
@@ -152,6 +169,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Er
     });
     app.manage(Discovery {
         path: discovery_path,
+        legacy_path: discovery::legacy_path(&home),
         api_key_helper: bin_dir.join(discovery::KEY_HELPER),
         lock: Mutex::new(()),
     });
@@ -256,8 +274,8 @@ pub async fn supervisor_reset<R: Runtime>(
     }
     supervisor.reset().await.map_err(|err| err.to_string())?;
     // The erased Core took the saved API key with it.
-    let path = discovery.path.clone();
-    blocking(move || discovery::remove_file(&path)).await?;
+    let paths = [discovery.path.clone(), discovery.legacy_path.clone()];
+    blocking(move || discovery::remove_files(&paths)).await?;
     // The data is gone, so a keychain that fails must not stop the restart. Without a
     // keychain there is no key to delete.
     if let Err(err) =
@@ -287,7 +305,7 @@ pub async fn supervisor_api_key(discovery: State<'_, Discovery>) -> Result<Optio
 pub async fn supervisor_legacy_api_key(
     discovery: State<'_, Discovery>,
 ) -> Result<Option<String>, String> {
-    let path = discovery.path.clone();
+    let path = discovery.legacy_path.clone();
     let _guard = discovery.lock.lock().await;
     blocking(move || discovery::legacy_key(&path)).await
 }
@@ -299,7 +317,7 @@ pub async fn supervisor_forget_legacy_api_key(
     api_key: String,
     discovery: State<'_, Discovery>,
 ) -> Result<(), String> {
-    let path = discovery.path.clone();
+    let path = discovery.legacy_path.clone();
     let _guard = discovery.lock.lock().await;
     blocking(move || discovery::forget_legacy_key(&path, &api_key)).await
 }
@@ -325,11 +343,12 @@ pub async fn supervisor_save_api_key(
         secure: false,
         api_key_helper: discovery.api_key_helper.clone(),
     };
-    let path = discovery.path.clone();
+    // Clients of Synnax 0.62 read only the legacy file. Drop it when 0.62 support ends.
+    let paths = [discovery.path.clone(), discovery.legacy_path.clone()];
     let _guard = discovery.lock.lock().await;
     blocking(move || {
         discovery::swap(
-            &path,
+            &paths,
             &discovery::key_entry()?,
             &file,
             &api_key,
@@ -337,6 +356,16 @@ pub async fn supervisor_save_api_key(
         )
     })
     .await
+}
+
+/// Returns the log directory on Linux: `synnax` in `state_home`, the value of
+/// `XDG_STATE_HOME`, or in `~/.local/state` when it is unset or relative.
+fn linux_log_dir(state_home: Option<OsString>, home: &Path) -> PathBuf {
+    state_home
+        .map(PathBuf::from)
+        .filter(|dir| dir.is_absolute())
+        .unwrap_or_else(|| home.join(".local").join("state"))
+        .join("synnax")
 }
 
 /// Stores the size of the data a reset is about to erase, for the next launch to report.
@@ -436,6 +465,19 @@ fn reveal(dir: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn places_the_linux_logs_in_the_state_directory() {
+        let home = Path::new("/home/u");
+        let default = home.join(".local").join("state").join("synnax");
+        assert_eq!(linux_log_dir(None, home), default);
+        assert_eq!(linux_log_dir(Some("state".into()), home), default);
+        let state = std::env::temp_dir().join("state");
+        assert_eq!(
+            linux_log_dir(Some(state.clone().into()), home),
+            state.join("synnax")
+        );
+    }
 
     #[test]
     fn holds_each_exit_until_the_core_stops_and_stops_it_once() {

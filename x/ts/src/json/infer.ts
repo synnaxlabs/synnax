@@ -11,44 +11,24 @@ import { z } from "zod";
 
 import { pointerZ, primitiveTypeZ } from "@/json/json";
 import { payload } from "@/payload";
-import { dataTypeZ } from "@/telem";
-
-/** The encodings of a timestamp in a JSON value. */
-export const TIME_FORMATS = [
-  "iso8601",
-  "unix_sec",
-  "unix_ms",
-  "unix_us",
-  "unix_ns",
-] as const;
-
-export const timeFormatZ = z.enum(TIME_FORMATS);
-
-export type TimeFormat = z.infer<typeof timeFormatZ>;
 
 /** A field that the Core inferred from a set of JSON documents. */
 export const inferredFieldZ = z.object({
   /** pointer locates the field in each document. */
   pointer: pointerZ,
-  /** dataType is the data type of a channel that holds the field. */
-  dataType: dataTypeZ,
   /** kind is the kind of a payload field that holds the values of the field. */
   kind: payload.kindZ,
   /** type is the JSON type of most values of the field. */
   type: primitiveTypeZ.exclude(["null"]),
   /** timeFormat is the encoding of a timestamp field. Undefined for any other field. */
-  timeFormat: timeFormatZ.optional(),
+  timeFormat: payload.timeFormatZ.optional(),
   /** enum holds the labels of a string field with few distinct values. */
   enum: z.array(z.string()),
-  /** count is the number of documents that hold the field. */
-  count: z.number(),
-  /** mismatched is the number of values that do not have the JSON type of the field. */
-  mismatched: z.number(),
 });
 
 export interface InferredField extends z.infer<typeof inferredFieldZ> {}
 
-/** The fields shared by documents from sources that hold the same set of fields. */
+/** The fields of one cluster of documents, from one or more sources. */
 export const shapeZ = z.object({
   /** sources name the sources of the documents, such as topics or record keys. */
   sources: z.array(z.string()),
@@ -58,6 +38,25 @@ export const shapeZ = z.object({
   index: z.number().transform((i) => (i < 0 ? undefined : i)),
   /** count is the number of documents. */
   count: z.number(),
+  /**
+   * present is the position in fields of the field that tells the documents apart from
+   * the other shapes of their sources.
+   */
+  present: z.number().transform((i) => (i < 0 ? undefined : i)),
 });
 
 export interface Shape extends z.infer<typeof shapeZ> {}
+
+/**
+ * @returns a key for a shape that stays the same across samples while its set of field
+ * pointers does.
+ */
+export const shapeKey = ({
+  fields,
+}: {
+  fields: Pick<InferredField, "pointer">[];
+}): string =>
+  fields
+    .map(({ pointer }) => pointer)
+    .sort()
+    .join("\n");

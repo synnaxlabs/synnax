@@ -733,16 +733,23 @@ const createResultSelector = <
       sliceEqual,
     );
     const settled = useSettled<ExtendedQuery, Data>(locals, client, memoQuery);
+    // The query that this mount last fetched.
+    const fetched = useRef<{ client: Client; query: ExtendedQuery } | null>(null);
+    // A reconnect drops a settled failure, and the effect then fetches again.
+    const unsettled = settled === undefined;
     // A render React discards must not fetch, and nothing dedupes one once the
     // in-flight entry clears, so the cold path starts its fetch after commit.
-    // A settled failure does not block the fetch: each new mount gets one fresh
-    // attempt (deps hold within a mount, so a failure cannot loop).
+    // A settled failure blocks only a fetch of the mount that settled it, so each new
+    // mount gets one fresh attempt and a failure cannot loop.
     useEffect(() => {
       if (client == null || memoQuery == null || slice.kind !== "none") return;
       const local = Suspend.localFor(locals, client);
       const params = { client, query: memoQuery };
       const prior = local.settled.get(query.hash(memoQuery));
       if (prior != null && "data" in prior) return;
+      const last = fetched.current;
+      if (prior != null && last?.client === client && last.query === memoQuery) return;
+      fetched.current = { client, query: memoQuery };
       // A failure settles, and the settled subscription reports it.
       Suspend.ensureFetch(
         params,
@@ -756,7 +763,7 @@ const createResultSelector = <
           local,
         }),
       ).catch(() => {});
-    }, [client, memoQuery, slice]);
+    }, [client, memoQuery, slice, unsettled]);
     if (client == null) return nullClientResult<Selected>(`retrieve ${name}`);
     if (memoQuery == null) return noQueryResult<Selected>(`retrieve ${name}`);
     if (slice.kind === "live")

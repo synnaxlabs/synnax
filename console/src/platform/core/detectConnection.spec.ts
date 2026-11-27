@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreSelectable?: boolean } => ({
+  engine: "web",
+}));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -66,6 +68,39 @@ describe("detectConnection", () => {
       port: 80,
       secure: false,
     });
+  });
+});
+
+describe("detectConnection on the dev server", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+    mocks.coreSelectable = true;
+  });
+
+  afterEach(() => {
+    mocks.coreSelectable = undefined;
+    localStorage.clear();
+  });
+
+  it("should return null, so the Console starts on the Cores list", () => {
+    expect(Core.detectConnection()).toBeNull();
+  });
+
+  it("should pin the Console to the Core on the stored dev port", () => {
+    localStorage.setItem("synnax-dev-connection-port", "9401");
+    expect(Core.detectConnection()).toEqual({
+      key: Session.Core.SERVED_KEY,
+      name: "Core",
+      host: "localhost",
+      port: 9401,
+      secure: false,
+    });
+  });
+
+  it("should drop the pin when the detach key is set", () => {
+    localStorage.setItem("synnax-dev-connection-port", "9401");
+    localStorage.setItem("synnax-dev-connection-detach", "");
+    expect(Core.detectConnection()).toBeNull();
   });
 });
 

@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
@@ -744,6 +745,81 @@ var _ = Describe("Go Types Plugin", func() {
 						content,
 					).To(ContainSubstring(`func (a AxisKey) IsValid() bool {`))
 					Expect(content).To(ContainSubstring(`type YAxisKey string`))
+				},
+			)
+
+			It("Should generate an exclusion as the members it does not omit", func() {
+				source := `
+					@go output "core/modbus"
+
+					DataType enum {
+						float64 = "float64"
+						int16   = "int16"
+						json    = "json"
+					}
+
+					Numeric enum of DataType omit {
+						json
+					}
+				`
+				table, diag := Analyze(source, "modbus", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type Numeric string`))
+				Expect(
+					content,
+				).To(ContainSubstring(`case NumericFloat64, NumericInt16:`))
+				Expect(content).ToNot(ContainSubstring(`NumericJSON`))
+			})
+
+			It(
+				"Should generate a narrowing enum as a standalone type of the kept members",
+				func() {
+					loader.Add("schemas/telem", `
+					@go output "x/go/telem"
+
+					DataType enum {
+						float64 = "float64"
+						int16   = "int16"
+						json    = "json"
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@go output "core/modbus"
+
+					DataType enum of telem.DataType {
+						int16
+						float64
+					}
+				`
+					table, diag := Analyze(source, "modbus", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+					resp := MustSucceed(
+						goPlugin.Generate(&plugin.Request{Resolutions: table}),
+					)
+					file, ok := lo.Find(resp.Files, func(f plugin.File) bool {
+						return strings.HasPrefix(f.Path, "core/modbus/")
+					})
+					Expect(ok).To(BeTrue())
+					content := string(file.Content)
+					Expect(content).To(ContainSubstring(`type DataType string`))
+					Expect(
+						content,
+					).To(ContainSubstring(`DataTypeInt16 DataType = "int16"`))
+					Expect(content).To(ContainSubstring(
+						`DataTypeFloat64 DataType = "float64"`,
+					))
+					Expect(
+						content,
+					).To(ContainSubstring(`case DataTypeInt16, DataTypeFloat64:`))
+					Expect(content).ToNot(ContainSubstring(`json`))
+					Expect(content).ToNot(ContainSubstring(`x/go/telem`))
 				},
 			)
 		})

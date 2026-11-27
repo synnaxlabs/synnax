@@ -69,8 +69,11 @@ const Content = (): ReactElement => {
   const copyAddress = (): void => {
     if (core != null) copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
-  // A browser Console only talks to the Core that served it.
-  const editable = activeKey != null && Session.Runtime.ENGINE === "tauri";
+  // a pinned dev Console logs in to its pinned Core, which would undo an edit
+  const editable =
+    activeKey != null &&
+    Session.Runtime.CORE_SELECTABLE &&
+    Core.detectConnection() == null;
   const editConnection = (): void => {
     if (activeKey == null) return;
     close();

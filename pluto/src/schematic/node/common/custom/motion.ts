@@ -396,11 +396,7 @@ const applies = (look: schematic.symbol.Look, ctx: Context): boolean => {
   const state = ctx.states.get(look.when.state);
   if (state == null) return false;
   const value = ctx.readings[look.when.state]?.value ?? NaN;
-  const read =
-    state.type === "enumeration" && Number.isNaN(value)
-      ? state.default
-      : matched(state, value);
-  return look.when.values.includes(read);
+  return look.when.values.includes(matched(state, value));
 };
 
 // resolve returns the motions that the looks in effect give each part, by part key. A

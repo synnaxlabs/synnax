@@ -42,22 +42,3 @@ func (lc *LabelConfig) Patch(c patch.Cursor) error {
 		return c.UnknownField()
 	}
 }
-
-// Patch applies the path action at c, which is not done, to the value.
-func (sm *StateMapping) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&sm.Key, c.Next())
-	case "name":
-		return patch.Value(&sm.Name, c.Next())
-	case "value":
-		return patch.Value(&sm.Value, c.Next())
-	case "color":
-		return patch.OptionalValue(&sm.Color, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// PatchKey returns the key that paths name the value by in a list.
-func (sm *StateMapping) PatchKey() string { return sm.Key }

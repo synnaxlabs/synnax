@@ -39,34 +39,56 @@ type subscriber struct {
 	// dropped is true once disconnectAll closes responses. Only the delta goroutine
 	// reads or writes it, and a delta restarted after a panic runs on the same one.
 	dropped bool
-	// mu guards missedRanges and orders the signal of a drop after its ranges.
+	// sent counts the responses the delta has put in responses. Only the delta
+	// goroutine reads or writes it.
+	sent uint64
+	// mu guards drops and orders the signal of a drop after its record.
 	mu sync.Mutex
-	// missedRanges holds the time range of each channel's dropped samples since the
-	// last takeMissed.
-	missedRanges map[channel.Key]telem.TimeRange
+	// drops holds the drops since the last takeMissed, oldest first, with one entry
+	// for each run of drops with no response put in responses between them.
+	drops []drop
 }
 
-// recordDrop adds the time ranges of the series of a dropped response to the missed
-// ranges and signals missed. A zero range stays zero, since part of the dropped
-// samples have no known time.
+// drop is a run of dropped responses.
+type drop struct {
+	// due is the number of responses put in responses before the run.
+	due uint64
+	// ranges holds the time range of each channel's dropped samples.
+	ranges map[channel.Key]telem.TimeRange
+}
+
+// addRange adds tr to the range of key in ranges. A zero range stays zero, since part
+// of the samples have no known time.
+func addRange(
+	ranges map[channel.Key]telem.TimeRange,
+	key channel.Key,
+	tr telem.TimeRange,
+) {
+	held, ok := ranges[key]
+	switch {
+	case !ok:
+		ranges[key] = tr
+	case held.IsZero() || tr.IsZero():
+		ranges[key] = telem.TimeRange{}
+	default:
+		ranges[key] = held.Union(tr)
+	}
+}
+
+// recordDrop adds a dropped response to the drops and signals missed.
 func (s *subscriber) recordDrop(res Response) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.missedRanges == nil {
-		s.missedRanges = make(map[channel.Key]telem.TimeRange)
+	if n := len(s.drops); n == 0 || s.drops[n-1].due != s.sent {
+		s.drops = append(s.drops, drop{
+			due:    s.sent,
+			ranges: make(map[channel.Key]telem.TimeRange),
+		})
 	}
+	ranges := s.drops[len(s.drops)-1].ranges
 	for key, series := range res.Frame.Entries() {
-		if series.Len() == 0 {
-			continue
-		}
-		held, ok := s.missedRanges[key]
-		switch {
-		case !ok:
-			s.missedRanges[key] = series.TimeRange
-		case held.IsZero() || series.TimeRange.IsZero():
-			s.missedRanges[key] = telem.TimeRange{}
-		default:
-			s.missedRanges[key] = held.Union(series.TimeRange)
+		if series.Len() > 0 {
+			addRange(ranges, key, series.TimeRange)
 		}
 	}
 	select {
@@ -75,18 +97,34 @@ func (s *subscriber) recordDrop(res Response) {
 	}
 }
 
-// takeMissed returns the missed ranges of every drop signaled so far and clears them.
-// It takes a signal still pending on missed, since the returned ranges cover it.
-func (s *subscriber) takeMissed() map[channel.Key]telem.TimeRange {
+// takeMissed removes the drops whose buffered responses are among the first received
+// responses and returns their merged ranges, with ok false if there are none. It takes
+// a signal still pending on missed when it removes drops. pending reports whether
+// drops remain. Only the receiver of responses may call it.
+func (s *subscriber) takeMissed(
+	received uint64,
+) (ranges map[channel.Key]telem.TimeRange, ok, pending bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	n := 0
+	for n < len(s.drops) && s.drops[n].due <= received {
+		n++
+	}
+	if n == 0 {
+		return nil, false, len(s.drops) > 0
+	}
 	select {
 	case <-s.missed:
 	default:
 	}
-	ranges := s.missedRanges
-	s.missedRanges = nil
-	return ranges
+	ranges = s.drops[0].ranges
+	for _, d := range s.drops[1:n] {
+		for key, tr := range d.ranges {
+			addRange(ranges, key, tr)
+		}
+	}
+	s.drops = slices.Delete(s.drops, 0, n)
+	return ranges, true, len(s.drops) > 0
 }
 
 // delta copies each relay response into the buffer of every subscriber that accepts
@@ -141,6 +179,7 @@ func (d *delta) send(res Response) {
 		}
 		select {
 		case s.responses <- res:
+			s.sent++
 		default:
 			if s.missedRequested {
 				s.recordDrop(res)

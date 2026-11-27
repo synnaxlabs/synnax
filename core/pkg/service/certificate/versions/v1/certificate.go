@@ -9,13 +9,6 @@
 
 package v1
 
-import (
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-)
-
-var _ gorp.Entry[Key] = Certificate{}
-
 // Details returns the details of the certificate's leaf, and false when they are
 // unknown: a file certificate saved without details, or a certificate with no variant.
 func (c Certificate) Details() (Details, bool) {
@@ -28,15 +21,4 @@ func (c Certificate) Details() (Details, bool) {
 		}
 	}
 	return Details{}, false
-}
-
-// GorpKey returns the certificate's storage key.
-func (c Certificate) GorpKey() Key { return c.Base().Key }
-
-// ResourceID returns the certificate's resource identifier.
-func (c Certificate) ResourceID() resource.ID {
-	return resource.ID{
-		Type: resource.TypeCertificate,
-		Key:  c.Base().Key.String(),
-	}
 }

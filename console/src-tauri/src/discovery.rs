@@ -45,9 +45,25 @@ pub struct File {
 /// The field where Synnax Desktop 1.1 saved the API key in the discovery file.
 const LEGACY_KEY: &str = "api_key";
 
-/// Returns the path of the discovery file in the given home directory.
-pub fn path(home: &Path) -> PathBuf {
-    home.join(".synnax").join("desktop.json")
+/// The folder of Synnax that holds the discovery file.
+const DIR: &str = if cfg!(target_os = "linux") {
+    "synnax"
+} else {
+    "Synnax"
+};
+
+const FILE: &str = "desktop.json";
+
+/// Returns the path of the discovery file in `dir`: the config directory of the OS, or
+/// the local data directory on Windows.
+pub fn path(dir: &Path) -> PathBuf {
+    dir.join(DIR).join(FILE)
+}
+
+/// Returns the path of the discovery file in the `.synnax` directory of `home`, where
+/// Synnax Desktop 1.1 saved it.
+pub fn legacy_path(home: &Path) -> PathBuf {
+    home.join(".synnax").join(FILE)
 }
 
 /// Returns the keychain entry of the API key.
@@ -126,13 +142,13 @@ pub fn print_key(key: io::Result<Entry>, out: &mut impl Write, err: &mut impl Wr
     }
 }
 
-/// Saves `api_key` in the keychain and `file` to `path`, but only when the saved key is
-/// `expected`, or, for `None`, when there is none. Callers must serialize their calls
-/// and forget a legacy key first, because the write drops it from the file.
+/// Saves `api_key` in the keychain and `file` to each of `paths`, but only when the
+/// saved key is `expected`, or, for `None`, when there is none. Callers must serialize
+/// their calls and forget a legacy key first, because the write drops it from the file.
 ///
 /// Returns whether it saved them.
 pub fn swap(
-    path: &Path,
+    paths: &[PathBuf],
     key: &Entry,
     file: &File,
     api_key: &str,
@@ -141,7 +157,9 @@ pub fn swap(
     if read_key(key)?.as_deref() != expected {
         return Ok(false);
     }
-    write(path, file)?;
+    for path in paths {
+        write(path, file)?;
+    }
     key.set_password(api_key).map_err(io::Error::other)?;
     Ok(true)
 }
@@ -160,12 +178,14 @@ fn write(path: &Path, file: &impl Serialize) -> io::Result<()> {
     std::fs::rename(partial, path)
 }
 
-/// Removes the discovery file at `path`, if it exists.
-pub fn remove_file(path: &Path) -> io::Result<()> {
-    match std::fs::remove_file(path) {
-        Err(err) if err.kind() != io::ErrorKind::NotFound => Err(err),
-        _ => Ok(()),
-    }
+/// Removes each discovery file in `paths` that exists.
+pub fn remove_files(paths: &[PathBuf]) -> io::Result<()> {
+    paths
+        .iter()
+        .try_for_each(|path| match std::fs::remove_file(path) {
+            Err(err) if err.kind() != io::ErrorKind::NotFound => Err(err),
+            _ => Ok(()),
+        })
 }
 
 /// Deletes the API key from the keychain, if it exists.
@@ -203,45 +223,55 @@ mod tests {
     }
 
     #[test]
-    fn places_the_file_in_the_synnax_directory_of_the_home() {
+    fn places_the_file_in_the_config_directory_and_the_home() {
+        let dir = Path::new("config");
+        let name = if cfg!(target_os = "linux") {
+            "synnax"
+        } else {
+            "Synnax"
+        };
+        assert_eq!(path(dir), dir.join(name).join("desktop.json"));
         let home = Path::new("home");
-        assert_eq!(path(home), home.join(".synnax").join("desktop.json"));
+        assert_eq!(legacy_path(home), home.join(".synnax").join("desktop.json"));
     }
 
     #[test]
-    fn saves_the_key_in_the_keychain_and_the_address_in_the_file() {
+    fn saves_the_key_in_the_keychain_and_the_address_in_each_file() {
         let dir = tempfile::tempdir().unwrap();
-        let path = path(dir.path());
+        let paths = [path(dir.path()), legacy_path(dir.path())];
         let key = key();
-        assert!(swap(&path, &key, &file(), "syk_secret", None).unwrap());
+        assert!(swap(&paths, &key, &file(), "syk_secret", None).unwrap());
         assert_eq!(read_key(&key).unwrap().as_deref(), Some("syk_secret"));
-        assert_eq!(
-            stored(&path),
-            serde_json::json!({
-                "host": "127.0.0.1",
-                "port": 4321,
-                "secure": false,
-                "api_key_helper": file().api_key_helper,
-            })
-        );
+        for path in &paths {
+            assert_eq!(
+                stored(path),
+                serde_json::json!({
+                    "host": "127.0.0.1",
+                    "port": 4321,
+                    "secure": false,
+                    "api_key_helper": file().api_key_helper,
+                })
+            );
+        }
     }
 
     #[test]
     fn swaps_only_when_the_keychain_holds_the_expected_key() {
         let dir = tempfile::tempdir().unwrap();
         let path = path(dir.path());
+        let paths = [path.clone()];
         let key = key();
-        assert!(!swap(&path, &key, &file(), "syk_secret", Some("syk_other")).unwrap());
+        assert!(!swap(&paths, &key, &file(), "syk_secret", Some("syk_other")).unwrap());
         assert!(!path.exists());
-        assert!(swap(&path, &key, &file(), "syk_secret", None).unwrap());
+        assert!(swap(&paths, &key, &file(), "syk_secret", None).unwrap());
         let next = File {
             port: 5432,
             ..file()
         };
-        assert!(!swap(&path, &key, &next, "syk_next", None).unwrap());
-        assert!(!swap(&path, &key, &next, "syk_next", Some("syk_other")).unwrap());
+        assert!(!swap(&paths, &key, &next, "syk_next", None).unwrap());
+        assert!(!swap(&paths, &key, &next, "syk_next", Some("syk_other")).unwrap());
         assert_eq!(read_key(&key).unwrap().as_deref(), Some("syk_secret"));
-        assert!(swap(&path, &key, &next, "syk_next", Some("syk_secret")).unwrap());
+        assert!(swap(&paths, &key, &next, "syk_next", Some("syk_secret")).unwrap());
         assert_eq!(read_key(&key).unwrap().as_deref(), Some("syk_next"));
         assert_eq!(stored(&path)["port"], 5432);
         assert!(!path.with_extension("json.partial").exists());
@@ -259,7 +289,7 @@ mod tests {
     #[test]
     fn reads_a_legacy_key_without_moving_it_to_the_keychain() {
         let dir = tempfile::tempdir().unwrap();
-        let path = path(dir.path());
+        let path = legacy_path(dir.path());
         write_legacy(&path);
         let key = key();
         assert_eq!(legacy_key(&path).unwrap().as_deref(), Some("syk_old"));
@@ -270,7 +300,7 @@ mod tests {
     #[test]
     fn forgets_only_the_given_legacy_key() {
         let dir = tempfile::tempdir().unwrap();
-        let path = path(dir.path());
+        let path = legacy_path(dir.path());
         write_legacy(&path);
         forget_legacy_key(&path, "syk_other").unwrap();
         assert_eq!(stored(&path)["api_key"], "syk_old");
@@ -340,30 +370,30 @@ mod tests {
     #[test]
     fn reads_no_key_when_nothing_is_saved() {
         let dir = tempfile::tempdir().unwrap();
-        assert_eq!(legacy_key(&path(dir.path())).unwrap(), None);
+        assert_eq!(legacy_key(&legacy_path(dir.path())).unwrap(), None);
         assert_eq!(read_key(&key()).unwrap(), None);
     }
 
     #[test]
     fn fails_to_read_a_malformed_file() {
         let dir = tempfile::tempdir().unwrap();
-        let path = path(dir.path());
+        let path = legacy_path(dir.path());
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, "not json").unwrap();
         assert!(legacy_key(&path).is_err());
     }
 
     #[test]
-    fn removes_the_file_and_the_key_and_accepts_missing_ones() {
+    fn removes_the_files_and_the_key_and_accepts_missing_ones() {
         let dir = tempfile::tempdir().unwrap();
-        let path = path(dir.path());
+        let paths = [path(dir.path()), legacy_path(dir.path())];
         let key = key();
-        assert!(swap(&path, &key, &file(), "syk_secret", None).unwrap());
-        remove_file(&path).unwrap();
+        assert!(swap(&paths, &key, &file(), "syk_secret", None).unwrap());
+        remove_files(&paths).unwrap();
         remove_key(&key).unwrap();
-        assert!(!path.exists());
+        assert!(paths.iter().all(|path| !path.exists()));
         assert!(matches!(key.get_password(), Err(Error::NoEntry)));
-        remove_file(&path).unwrap();
+        remove_files(&paths).unwrap();
         remove_key(&key).unwrap();
     }
 }

@@ -118,3 +118,23 @@ describe("StateIndicator.Symbol staleness", () => {
     );
   });
 });
+
+describe("StateIndicator.Symbol states", () => {
+  it("should draw the unknown state of a node that names no enumeration", async () => {
+    const { findByText } = render(
+      <StaleWrapper>
+        <ReactFlowProvider>
+          <StateIndicator.spec.Node
+            nodeKey="s1"
+            selected={false}
+            onConfigChange={vi.fn()}
+            config={schematic.stateIndicatorNodeConfigZ.parse({
+              variant: "state_indicator",
+            })}
+          />
+        </ReactFlowProvider>
+      </StaleWrapper>,
+    );
+    expect(await findByText("Unknown")).toBeTruthy();
+  });
+});

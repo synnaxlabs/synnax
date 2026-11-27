@@ -26,10 +26,12 @@ case "$*" in
 esac
 """
 
-# Saves the SSM command and reports that it succeeded.
+# Saves the SSM document and command, and reports that the command succeeded.
 FAKE_AWS = """#!/usr/bin/env bash
 case "$*" in
     *send-command*)
+        while [[ $1 != --document-name ]]; do shift; done
+        echo "$2" > "$FAKE_DIR/document"
         while [[ $1 != --parameters ]]; do shift; done
         echo "$2" > "$FAKE_DIR/parameters"
         echo command-1
@@ -72,6 +74,9 @@ def decoded(command: str, target: str) -> str:
 
 class TestInstall:
     """Tests for installing the preview script and settings on the running host."""
+
+    def test_should_send_a_shell_script(self, sent: str, tmp_path: Path) -> None:
+        assert (tmp_path / "document").read_text() == "AWS-RunShellScript\n"
 
     def test_should_write_the_applied_settings(self, sent: str) -> None:
         assert decoded(sent, "/etc/synnax-preview.env") == (

@@ -757,6 +757,71 @@ TEST_F(ConnectionPoolTest, BrowseStopsAtChildLimit) {
     EXPECT_FALSE(again[0].truncated);
 }
 
+/// @brief it should stop sending the parts of a read once its deadline passes.
+TEST_F(ConnectionPoolTest, ReadStopsAtDeadline) {
+    server_cfg.max_nodes_per_read = 1;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
+    const auto id = ASSERT_NIL_P(types::NodeId::parse("ns=1;s=TestDouble"));
+    types::ReadRequestBuilder builder;
+    for (int i = 0; i < 20; ++i)
+        builder.add_node(id.resolve({}).value());
+    const auto req = builder.build();
+    server->probe_delay = 100 * x::telem::MILLISECOND;
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(300);
+    ASSERT_OCCURRED_AS_P(conn.read(req, deadline), errors::DEADLINE_EXCEEDED);
+    server->probe_delay = x::telem::TimeSpan{};
+    ASSERT_NIL_P(conn.read(req));
+}
+
+/// @brief it should not try to connect once its deadline passes.
+TEST_F(ConnectionPoolTest, AcquireFailsAfterDeadline) {
+    Pool pool(testutil::create_store());
+    const auto sessions = server->sessions_created.load();
+    ASSERT_OCCURRED_AS_P(
+        pool.acquire(conn_cfg, "[test] ", std::chrono::steady_clock::now()),
+        errors::DEADLINE_EXCEEDED
+    );
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
+}
+
+/// @brief it should keep a connection that opens after its deadline, so the next
+/// caller uses it without a new session.
+TEST_F(ConnectionPoolTest, AcquireKeepsConnectionOpenedAfterDeadline) {
+    Pool pool(testutil::create_store());
+    server->probe_delay = 50 * x::telem::MILLISECOND;
+    const auto sessions = server->sessions_created.load();
+    ASSERT_NIL_P(pool.acquire(
+        conn_cfg,
+        "[test] ",
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(20)
+    ));
+    server->probe_delay = x::telem::TimeSpan{};
+    ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] "));
+    EXPECT_EQ(server->sessions_created.load(), sessions + 1);
+}
+
+/// @brief it should stop waiting for the connection attempt of another caller once its
+/// deadline passes.
+TEST_F(ConnectionPoolTest, AcquireStopsWaitingAtDeadline) {
+    Pool pool(testutil::create_store());
+    server->probe_delay = 200 * x::telem::MILLISECOND;
+    std::thread first([&] { ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] ")); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    ASSERT_OCCURRED_AS_P(
+        pool.acquire(
+            conn_cfg,
+            "[test] ",
+            std::chrono::steady_clock::now() + std::chrono::milliseconds(50)
+        ),
+        errors::DEADLINE_EXCEEDED
+    );
+    first.join();
+}
+
 /// @brief it should stop following continuation points once its deadline passes, and
 /// mark each node that it cut short.
 TEST_F(ConnectionPoolTest, BrowseStopsAtDeadline) {

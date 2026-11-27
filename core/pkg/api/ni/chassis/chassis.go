@@ -27,9 +27,11 @@ import (
 // ServiceConfig is the configuration for the NI chassis API service.
 type ServiceConfig struct {
 	// Chassis stores and retrieves chassis.
+	//
 	// [REQUIRED]
 	Chassis *chassis.Service
 	// Status retrieves chassis statuses.
+	//
 	// [REQUIRED]
 	Status *status.Service
 }

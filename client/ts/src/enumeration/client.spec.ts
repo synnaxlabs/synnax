@@ -134,12 +134,8 @@ describe("enumeration.Client", () => {
       const prefix = `searchable-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.enumerations.create(names.map((name) => ({ name })));
-      await expect
-        .poll(async () => {
-          const results = await client.enumerations.retrieve({ searchTerm: prefix });
-          return results.map((e) => e.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.enumerations.retrieve({ searchTerm: prefix });
+      expect(results.map((e) => e.name).sort()).toEqual(names);
     });
   });
 

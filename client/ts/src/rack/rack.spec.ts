@@ -274,12 +274,8 @@ describe("Rack", () => {
       const prefix = `searchable-rack-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.racks.create(names.map((name) => ({ name })));
-      await expect
-        .poll(async () => {
-          const results = await client.racks.retrieve({ searchTerm: prefix });
-          return results.map((r) => r.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.racks.retrieve({ searchTerm: prefix });
+      expect(results.map((r) => r.name).sort()).toEqual(names);
     });
   });
   describe("integrations", () => {

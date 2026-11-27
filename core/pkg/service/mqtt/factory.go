@@ -12,6 +12,7 @@ package mqtt
 import (
 	"context"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
@@ -147,6 +149,7 @@ type Factory struct {
 	pool     *pool
 	reporter driver.ConfigReporter
 	cfg      FactoryConfig
+	reads    read.Resolver
 	// edited holds the keys of the broker devices that changed since the last
 	// reconfigure.
 	edited struct {
@@ -169,7 +172,8 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		return nil, err
 	}
 	f := &Factory{
-		cfg: cfg,
+		cfg:   cfg,
+		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
 		pool: newPool(
 			cfg.Instrumentation,
 			cfg.DB,
@@ -280,7 +284,7 @@ func (f *Factory) ConfigureTask(
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
-	if autoStart {
+	if autoStart && cmdKey == driver.NoCommand {
 		if err = configured.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
@@ -334,9 +338,10 @@ func (f *Factory) retrieveChannels(
 		if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 			return f.cfg.Channel.NewRetrieve().
 				Where(channel.MatchKeys(keys...)).
+				SkipMissingKeys().
 				Entries(&channels).
 				Exec(ctx, snap)
-		}); err != nil && !errors.Is(err, query.ErrNotFound) {
+		}); err != nil {
 			return nil, err
 		}
 	}
@@ -345,22 +350,6 @@ func (f *Factory) retrieveChannels(
 		byKey[ch.Key()] = ch
 	}
 	return byKey, nil
-}
-
-func (f *Factory) retrieveICD(ctx context.Context, key icd.Key) (icd.ICD, error) {
-	var ic icd.ICD
-	err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return f.cfg.ICD.NewRetrieve().
-			Where(icd.MatchKeys(key)).
-			Entry(&ic).
-			Exec(ctx, snap)
-	})
-	if errors.Is(err, query.ErrNotFound) {
-		return icd.ICD{}, errors.Wrapf(
-			validate.ErrValidation, "icd: ICD %s does not exist", key,
-		)
-	}
-	return ic, err
 }
 
 func (f *Factory) configureRead(
@@ -372,18 +361,6 @@ func (f *Factory) configureRead(
 		return nil, false, err
 	}
 	dev, err := f.retrieveDevice(ctx, cfg.Device)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	enabled, keys, icdKeys, err := enabledReadEntries(cfg.Entries)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	channels, err := f.retrieveChannels(ctx, keys)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	icds, err := f.retrieveICDs(ctx, icdKeys)
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
@@ -399,11 +376,17 @@ func (f *Factory) configureRead(
 		subject:    control.Subject{Key: t.Key.String(), Name: t.Name},
 		ins:        f.cfg.Child(t.Key.String()),
 	}
-	writerKeys, indexes, err := src.addEntries(enabled, icds, channels)
-	if err != nil {
+	var w writers
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := check(ctx, snap, f.reads, &cfg, nil)
+		if err != nil {
+			return err
+		}
+		return src.addEntries(c, cfg.Entries, &w)
+	}); err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	rt, err := f.openRead(t, src, writerKeys, indexes, cfg.DataSavingDisabled)
+	rt, err := f.openRead(t, src, w.keys, w.indexes, cfg.DataSavingDisabled)
 	return rt, cfg.AutoStart, err
 }
 
@@ -435,124 +418,81 @@ func (f *Factory) openRead(
 	return rt, nil
 }
 
-// enabledReadEntries returns the enabled entries, the channels that they name, and the
-// ICDs that their messages belong to.
-func enabledReadEntries(
-	entries []ReadEntry,
-) ([]ReadEntryVariant, channel.Keys, []icd.Key, error) {
-	var (
-		enabled []ReadEntryVariant
-		keys    channel.Keys
-		icds    []icd.Key
-	)
-	for _, e := range entries {
-		switch entry := e.Variant.(type) {
-		case PlainReadEntry:
-			if entry.Disabled {
-				continue
-			}
-			icds = append(icds, entry.ICD)
-			for _, m := range entry.Messages {
-				for _, b := range m.Bindings {
-					keys = append(keys, b.Channel)
-				}
-			}
-		case SparkplugReadEntry:
-			if entry.Disabled {
-				continue
-			}
-			keys = append(keys, entry.Channel)
-		case nil:
-			return nil, nil, nil, errors.Wrap(
-				validate.ErrValidation, "entries: an entry is null",
-			)
-		default:
-			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
-		}
-		enabled = append(enabled, e.Variant)
-	}
-	if len(enabled) == 0 {
-		return nil, nil, nil, errors.Wrap(
-			validate.ErrValidation, "entries: the task has no enabled entries",
-		)
-	}
-	return enabled, keys, icds, nil
-}
-
-// retrieveICDs returns the ICDs of keys, by key.
+// retrieveICDs returns the ICDs of keys, by key. It returns a validation error for the
+// first key that has no ICD.
 func (f *Factory) retrieveICDs(
 	ctx context.Context,
 	keys []icd.Key,
 ) (map[icd.Key]icd.ICD, error) {
-	icds := make(map[icd.Key]icd.ICD)
+	var icds map[icd.Key]icd.ICD
+	if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		var err error
+		icds, err = f.cfg.ICD.NewRetrieve().
+			Where(icd.MatchKeys(keys...)).
+			SkipMissingKeys().
+			ByKey(ctx, snap)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 	for _, key := range keys {
-		if _, ok := icds[key]; ok {
-			continue
+		if _, ok := icds[key]; !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "icd: ICD %s does not exist", key,
+			)
 		}
-		ic, err := f.retrieveICD(ctx, key)
-		if err != nil {
-			return nil, err
-		}
-		icds[key] = ic
 	}
 	return icds, nil
 }
 
 // writers holds the channels that the messages and tags of a read task write to.
 type writers struct {
-	// names names the message or tag that writes to each channel.
-	names   map[channel.Key]string
 	keys    channel.Keys
 	indexes channel.Keys
 }
 
-// claim takes the channels of keys and their index for the writer name. Two writers on
-// one index would race for the rising order of its timestamps, or write frames that
-// lack the channels of the other.
-func (w *writers) claim(name string, keys channel.Keys, index channel.Key) error {
-	for _, key := range keys {
-		if other, ok := w.names[key]; ok {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"entries: %s and %s write to the same channel %d",
-				other, name, key,
-			)
-		}
-		w.names[key] = name
-		w.keys = append(w.keys, key)
-	}
+// add adds keys and their index channel.
+func (w *writers) add(keys channel.Keys, index channel.Key) {
+	w.keys = append(w.keys, keys...)
 	if index != 0 {
 		w.indexes = append(w.indexes, index)
+	}
+}
+
+// addEntries adds the topics and tags of the enabled entries to s, and their channels
+// to w. c is the Checker that check returned for the config of entries. It returns a
+// validation error when an entry is null or no entry is enabled.
+func (s *readSource) addEntries(c read.Checker, entries []ReadEntry, w *writers) error {
+	for i, e := range entries {
+		if err := s.addEntry(c, i, e.Variant, w); err != nil {
+			return err
+		}
+	}
+	if len(s.topics) == 0 && len(s.tags) == 0 {
+		return errors.Wrap(
+			validate.ErrValidation, "entries: the task has no enabled entries",
+		)
 	}
 	return nil
 }
 
-// addEntries adds the topics and tags of enabled to s. icds holds the ICD of each plain
-// entry. It returns the channels that the entries write to and their index channels.
-func (s *readSource) addEntries(
-	enabled []ReadEntryVariant,
-	icds map[icd.Key]icd.ICD,
-	channels map[channel.Key]channel.Channel,
-) (writerKeys, indexes channel.Keys, err error) {
-	w := writers{names: make(map[channel.Key]string)}
-	for _, variant := range enabled {
-		if err = s.addEntry(variant, icds, channels, &w); err != nil {
-			return nil, nil, err
-		}
-	}
-	return w.keys, w.indexes, nil
-}
-
-// addEntry adds the topic or tag of variant to s, and claims its channels in w.
+// addEntry adds the topic or tag of variant, entry i, to s, and its channels to w.
 func (s *readSource) addEntry(
+	c read.Checker,
+	i int,
 	variant ReadEntryVariant,
-	icds map[icd.Key]icd.ICD,
-	channels map[channel.Key]channel.Channel,
 	w *writers,
 ) error {
 	switch entry := variant.(type) {
 	case PlainReadEntry:
-		topic, err := newReadTopic(entry, icds[entry.ICD], channels)
+		if entry.Disabled {
+			return nil
+		}
+		source, err := c.Bind(readOf(i, entry))
+		if err != nil {
+			return err
+		}
+		topic, err := newReadTopic(entry, source)
 		if err != nil {
 			return err
 		}
@@ -563,15 +503,20 @@ func (s *readSource) addEntry(
 			)
 		}
 		s.topics[topic.topic] = topic
-		for _, m := range topic.messages {
-			name := "message " + m.name + " of topic " + topic.topic
-			if err = w.claim(name, m.keys, m.index); err != nil {
-				return err
-			}
+		for _, g := range topic.groups {
+			w.add(g.Keys(), g.Index)
 		}
 		return nil
 	case SparkplugReadEntry:
-		tag, err := newReadTag(entry, channels)
+		if entry.Disabled {
+			return nil
+		}
+		path := []string{"entries", strconv.Itoa(i), "channel"}
+		ch, err := c.BindTag(entry.Channel, path)
+		if err != nil {
+			return err
+		}
+		tag, err := newReadTag(entry, ch.IndexKey, ch.DataType)
 		if err != nil {
 			return err
 		}
@@ -581,7 +526,10 @@ func (s *readSource) addEntry(
 			)
 		}
 		s.tags[tag.tagID] = tag
-		return w.claim(tag.String(), tag.keys(), tag.index)
+		w.add(tag.keys(), tag.index)
+		return nil
+	case nil:
+		return errors.Wrap(validate.ErrValidation, "entries: an entry is null")
 	default:
 		panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 	}
@@ -733,9 +681,6 @@ func (f *Factory) configureEdge(
 	}
 	channels, err := f.retrieveChannels(ctx, keys)
 	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	if _, err = newClientConfig(dev); err != nil {
 		return nil, cfg.AutoStart, err
 	}
 	edge := &edgeNode{

@@ -43,6 +43,11 @@
         margin-right: calc(var(--lyra-tag-dot) / 4);
     }
 
+    /* A tag with no click of its own takes the cursor of what holds it. */
+    &.lyra-tag--passive {
+        cursor: inherit;
+    }
+
     /* The close overlays the leading icon, so it paints the tag's face to mask it,
        outranking the glyph default's transparent fill. Only its opacity fades, so it
        cross-fades with the icon while its mask snaps with the face. */

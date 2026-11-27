@@ -135,7 +135,9 @@ LinePlot struct {
         """
     }
 
+    @go entry
     @go imex
     @go marshal
     @go migrate
+    @resource type "lineplot"
 }

@@ -769,7 +769,17 @@ export class Lists<
     entry.refetchTimer = setTimeout(() => {
       entry.refetchTimer = undefined;
       // A failed refetch leaves the window in place, and the next read fetches it.
-      this.enqueue(entry, async () => await this.replace(entry)).catch(() => undefined);
+      this.enqueue(entry, async () => await this.replace(entry)).catch(
+        (exc: unknown) => {
+          if (
+            space.reportsFailedRefetch(this.hooks, {
+              subscribed: entry.handlers.size > 0,
+              covered: this.triggersCover(entry),
+            })
+          )
+            this.report(exc);
+        },
+      );
     }, space.DEFAULT_DEBOUNCE.milliseconds);
   }
 

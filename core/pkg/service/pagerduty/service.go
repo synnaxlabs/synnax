@@ -32,12 +32,15 @@ import (
 // ServiceConfig is the configuration for opening the PagerDuty task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Secret stores the routing key of each alert task.
+	//
 	// [REQUIRED]
 	Secret *secret.Service
 	// Rack is the Core's rack, which runs every alert task.
+	//
 	// [REQUIRED]
 	Rack rack.Key
 	alamos.Instrumentation

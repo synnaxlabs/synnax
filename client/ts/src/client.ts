@@ -86,7 +86,7 @@ export const synnaxParamsZ = z.object({
   sessionPersistent: z.boolean().default(false),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
-  secure: z.boolean().default(false),
+  secure: z.boolean().default(true),
   /**
    * The PEM text of a CA certificate that signs the Core's certificate, trusted along
    * with the runtime's default certificates. Turns on secure unless secure is false,
@@ -318,10 +318,10 @@ export default class Synnax extends framer.Client {
    * open, for a caller that saves the session token.
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
-   * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
-   * be configured to support TLS. Defaults to true with props.caCert, else to
+   * @param props.secure - Whether to connect to the cluster using TLS. Set it to false
+   * for a Core that runs with --insecure. Defaults to true with props.caCert, else to
    * SYNNAX_SECURE (true with SYNNAX_CA_CERT), then the value of Synnax Desktop when it
-   * gives the host, then false.
+   * gives the host, then true.
    * A Synnax client must be closed when it is no longer needed. This stops the
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
@@ -334,8 +334,8 @@ export default class Synnax extends framer.Client {
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
    * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
    * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
-   * cannot be read, if ~/.synnax/desktop.json cannot be read, or if Synnax Desktop is
-   * too old.
+   * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
+   * Desktop is too old.
    * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
    * Deno.
    * @throws {Error} in Node, if HTTP_PROXY or HTTPS_PROXY is set to a value that is not
@@ -584,6 +584,15 @@ export default class Synnax extends framer.Client {
   /** Supplies new credentials after an auth failure and resumes connecting. */
   reauthenticate(credentials: auth.Credentials): void {
     this.auth.setCredentials(credentials);
+    this.conn.notify({ type: "credentials.replaced" });
+  }
+
+  /**
+   * Resumes the session that the token names after an auth failure, without a new
+   * client, and resumes connecting. The client stops using its earlier credentials.
+   */
+  resume(token: string): void {
+    this.auth.setToken(token);
     this.conn.notify({ type: "credentials.replaced" });
   }
 

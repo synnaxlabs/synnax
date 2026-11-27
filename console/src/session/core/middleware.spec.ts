@@ -49,6 +49,7 @@ const createStore = (
       [Core.SLICE_NAME]: {
         ...Core.ZERO_SLICE_STATE,
         cores: Object.fromEntries(cores.map((c) => [c.key, c])),
+        order: cores.map((c) => c.key),
       },
     },
     middleware: (getDefault) => getDefault().concat(recorder, ...Core.MIDDLEWARE),

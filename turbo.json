@@ -9,6 +9,7 @@
     "configs/stylelint/*.json",
     "pnpm-workspace.yaml"
   ],
+  "globalPassThroughEnv": ["PNPM_CONFIG_GLOBAL_SHIMS"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -52,7 +53,11 @@
     "test": {
       "dependsOn": ["^build"],
       "env": ["SYNNAX_TEST_CACHE_KEY"],
-      "passThroughEnv": ["SYNNAX_TEST_HOST", "SYNNAX_TEST_PORT"]
+      "passThroughEnv": [
+        "SYNNAX_TEST_HOST",
+        "SYNNAX_TEST_PORT",
+        "SYNNAX_TEST_REQUEST_LOG"
+      ]
     },
     "cov": {
       "dependsOn": ["^build"],

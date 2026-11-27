@@ -18,11 +18,11 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Credential, User } from "@synnaxlabs/pluto";
 import { createContext, type ReactElement, use, useEffect } from "react";
 
+import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { useCreateModal } from "@/platform/credential/apikey/useCreateModal";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { Settings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "minmax(24rem, 1fr)" },
@@ -39,7 +39,7 @@ interface KeyItemProps extends List.ItemProps<auth.apiKey.Key> {
 
 const KeyItem = ({ sessions, ...rest }: KeyItemProps): ReactElement | null => {
   const k = List.useItem<auth.apiKey.Key, auth.apiKey.APIKey>(rest.itemKey);
-  const itemClass = Settings.useItemClass(rest.itemKey);
+  const itemClass = Collection.useItemClass(rest.itemKey);
   if (k == null) return null;
   return (
     <Select.Item<auth.apiKey.Key>
@@ -162,7 +162,7 @@ export const Table = ({ subject }: TableProps): ReactElement => {
       : null;
   return (
     <ActionsContext value={actions}>
-      <Settings.Table<auth.apiKey.Key, auth.apiKey.APIKey>
+      <Collection.Table<auth.apiKey.Key, auth.apiKey.APIKey>
         list={{ ...list, answered: keys.variant !== "loading", status: keys.status }}
         columns={COLUMNS}
         noun="API keys"
@@ -171,7 +171,7 @@ export const Table = ({ subject }: TableProps): ReactElement => {
         onCreate={async () => await openCreate({ subject })}
       >
         {({ key, ...p }) => <KeyItem key={key} {...p} sessions={sessionCount(key)} />}
-      </Settings.Table>
+      </Collection.Table>
     </ActionsContext>
   );
 };

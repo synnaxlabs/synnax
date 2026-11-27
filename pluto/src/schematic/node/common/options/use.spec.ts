@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { enumeration, schematic } from "@synnaxlabs/client";
+import { enumeration } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -20,22 +20,18 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 const client = createTestClient();
 const remote = createTestClient();
 
-const OPTIONS = schematic.stateMappingZ
-  .array()
-  .parse([{ key: "own", name: "Own", value: 7 }]);
-
 describe("Options.use", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  it("should return the options of a node that names no enumeration", () => {
-    const { result } = renderHook(() => Options.use({ options: OPTIONS }), { wrapper });
-    expect(result.current).toBe(OPTIONS);
+  it("should return no states for a node that names no enumeration", () => {
+    const { result } = renderHook(() => Options.use(undefined), { wrapper });
+    expect(result.current).toEqual([]);
   });
 
-  it("should return the entries of the enumeration in place of the options", async () => {
+  it("should return the entries of the enumeration", async () => {
     const created = await client.enumerations.create({
       name: `options-${id.create()}`,
       entries: [
@@ -48,10 +44,7 @@ describe("Options.use", () => {
         },
       ],
     });
-    const { result } = renderHook(
-      () => Options.use({ enumeration: created.key, options: OPTIONS }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => Options.use(created.key), { wrapper });
     await waitFor(() =>
       expect(result.current).toEqual([
         { key: "off", name: "Off", value: 0, color: undefined },

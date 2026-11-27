@@ -84,15 +84,17 @@ type staged[V comparable] struct {
 type delta[K, V comparable] struct {
 	// state is the staged state of each key. A key in state overrides committed state.
 	state map[K]staged[V]
-	// forward maps each staged value to the keys that hold it.
+	// forward maps each staged value to the keys that hold it. It is nil until a staged
+	// key holds a value.
 	forward map[V]holders[K]
+	// arena backs the values of setOne, and keys the first holder of each staged value,
+	// so a batch of staged keys allocates a few arrays instead of slices per key.
+	arena []V
+	keys  []K
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
-	return &delta[K, V]{
-		state:   make(map[K]staged[V]),
-		forward: make(map[V]holders[K]),
-	}
+	return &delta[K, V]{state: make(map[K]staged[V])}
 }
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
@@ -101,9 +103,43 @@ func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
 func (d *delta[K, V]) set(key K, values []V) {
 	d.unstage(key)
 	d.state[key] = staged[V]{values: values}
-	for _, v := range values {
-		addHolder(d.forward, v, key)
+	if len(values) > 0 && d.forward == nil {
+		d.forward = make(map[V]holders[K])
 	}
+	for _, v := range values {
+		d.addHolder(v, key)
+	}
+}
+
+// setOne stages value as the one value of key.
+func (d *delta[K, V]) setOne(key K, value V) {
+	d.arena = append(grow(d.arena), value)
+	n := len(d.arena)
+	d.set(key, d.arena[n-1:n:n])
+}
+
+// addHolder adds key to the staged holders of value. A first holder takes its slice
+// from keys.
+func (d *delta[K, V]) addHolder(value V, key K) {
+	h := d.forward[value]
+	if h.len() > 0 {
+		h.add(key)
+		d.forward[value] = h
+		return
+	}
+	d.keys = append(grow(d.keys), key)
+	n := len(d.keys)
+	h.few = d.keys[n-1 : n : n]
+	d.forward[value] = h
+}
+
+// grow returns s with room for one more element. A full s moves to a new array of twice
+// its size and leaves its elements in the old one, which the slices taken from it keep.
+func grow[T any](s []T) []T {
+	if len(s) < cap(s) {
+		return s
+	}
+	return make([]T, 0, max(1, 2*cap(s)))
 }
 
 func (d *delta[K, V]) delete(key K) {

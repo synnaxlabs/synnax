@@ -26,20 +26,12 @@ _ENTRY_LIST_SELECTOR = ".console-panes__list"
 # The tree labels the box that reads a field "Read <field name>".
 _READ_BOX_PREFIX = "Read "
 _EXPAND_SELECTOR = ".lyra-tree__expansion-indicator"
-# The list wraps a title in bidi isolates so a topic reads left to right.
-_LRI = "\N{LEFT-TO-RIGHT ISOLATE}"
-_PDI = "\N{POP DIRECTIONAL ISOLATE}"
 # The submit button of the add dialog counts the picks: "Add 4 fields".
 _SUBMIT_PICKS = re.compile(r"^Add \d+ ")
 # A listen of the dialog takes a few seconds before it lists anything.
 _LISTEN_TIMEOUT = 30000
 _TAG_NAME_PLACEHOLDER = "oven/temperature"
 _NO_COMMAND_CHANNEL = "No command channel"
-
-
-def _plain(title: str) -> str:
-    """Return a listed title without its bidi isolates."""
-    return title.strip().strip(_LRI + _PDI)
 
 
 class MQTTTask(TaskPage):
@@ -49,10 +41,10 @@ class MQTTTask(TaskPage):
     add_label: str
 
     def _rows(self) -> Locator:
-        raise NotImplementedError
+        return self._pane().locator(_ENTRY_LIST_SELECTOR).first.get_by_role("treeitem")
 
     def _title(self, title: str) -> Locator:
-        return self._rows().get_by_text(f"{_LRI}{title}{_PDI}", exact=True).first
+        return self._rows().get_by_text(title, exact=True).first
 
     def _details(self) -> Locator:
         return self._pane().locator(_DETAILS_SELECTOR).first
@@ -144,7 +136,7 @@ class MQTTTask(TaskPage):
         """Return the title of each listed entry, in order. A Sparkplug B entry is
         titled by its full tag path, such as ``Plant/Line1/Pump1/setpoint``."""
         titles = self._rows().locator(_ENTRY_TITLE_SELECTOR).all_inner_texts()
-        return [_plain(t) for t in titles]
+        return [t.strip() for t in titles]
 
     def disable_entry(self, title: str) -> None:
         """Disable a listed entry via its context menu."""
@@ -163,13 +155,11 @@ class MQTTRead(MQTTTask):
     pluto_label: str = ".console-task-configure--mqtt_read"
     add_label = "Add data"
 
-    def _rows(self) -> Locator:
-        return self._pane().locator(_ENTRY_LIST_SELECTOR).first.get_by_role("treeitem")
-
     def _read_boxes(self, title: str) -> list[Locator]:
         """Return the read box of each field under the listed entry ``title``, in the
         order of its messages and their formats. Expands the entry first."""
-        entry = self._rows().filter(has_text=f"{_LRI}{title}{_PDI}").first
+        name = self.page.get_by_text(title, exact=True)
+        entry = self._rows().filter(has=name).first
         if entry.get_attribute("aria-expanded") == "false":
             entry.locator(_EXPAND_SELECTOR).click()
         expect(entry).to_have_attribute("aria-expanded", "true", timeout=5000)
@@ -186,7 +176,7 @@ class MQTTRead(MQTTTask):
                 if inside:
                     break
                 label = row.locator(_ENTRY_TITLE_SELECTOR).inner_text()
-                inside = _plain(label) == title
+                inside = label.strip() == title
             elif inside:
                 box = row.get_by_role("checkbox", name=read)
                 # A topic with several messages has a tree item with no box for each.
@@ -224,14 +214,12 @@ class MQTTRead(MQTTTask):
 
 
 class MQTTWrite(MQTTTask):
-    """MQTT write task page."""
+    """MQTT write task page. The tree lists each target, with the fields of the message
+    format of a topic beneath it."""
 
     page_type: PageType = "mqtt_write"
     pluto_label: str = ".console-task-configure--mqtt_write"
     add_label = "Add targets"
-
-    def _rows(self) -> Locator:
-        return self._channel_list().get_by_role("option")
 
 
 class MQTTEdge(TaskPage):

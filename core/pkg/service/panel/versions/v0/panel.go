@@ -10,22 +10,10 @@
 package v0
 
 import (
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // Version is the portable schema version of the Panel shape this package defines. A
 // panel has no single-resource file form, so it is hand-written rather than generated
 // from a @go imex marker.
 const Version imex.Version = 0
-
-var _ gorp.Entry[Key] = Panel{}
-
-// GorpKey implements gorp.Entry.
-func (p Panel) GorpKey() Key { return p.Key }
-
-// ResourceID returns the resource.ID of the resource.
-func (p Panel) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypePanel, Key: p.Key.String()}
-}

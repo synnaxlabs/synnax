@@ -16,7 +16,9 @@ import (
 	"encoding/pem"
 	"math/big"
 	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -74,6 +76,26 @@ var _ = Describe("Factory", func() {
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateCAPair()).To(Succeed())
+		})
+	})
+	Describe("Permissions", func() {
+		It("Should keep the certificates directory and private keys private", func() {
+			if runtime.GOOS == "windows" {
+				Skip("Windows does not use Unix permission bits")
+			}
+			dir := filepath.Join(GinkgoT().TempDir(), "certs")
+			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+				CertsDir: dir,
+				KeySize:  testutil.SmallKeySize,
+				Hosts:    []address.Address{"localhost"},
+			}))
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePair()).To(Succeed())
+			Expect(MustSucceed(os.Stat(dir)).Mode().Perm()).To(Equal(xfs.UserRWX))
+			for _, key := range []string{"ca.key", "node.key"} {
+				info := MustSucceed(os.Stat(filepath.Join(dir, key)))
+				Expect(info.Mode().Perm()).To(Equal(xfs.UserRW))
+			}
 		})
 	})
 	Describe("CreateCAPairIfMissing", func() {

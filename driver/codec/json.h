@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -23,22 +24,26 @@
 
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/convert.h"
 #include "x/cpp/json/extract.h"
 #include "x/cpp/json/field.h"
+#include "x/cpp/json/number.h"
 #include "x/cpp/json/pointer.h"
+#include "x/cpp/json/template.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/binding.h"
 
 namespace driver::codec {
-/// @brief JSONMessage is a JSON message and the fields to decode from its documents.
+/// @brief JSONMessage is a JSON message and the fields of its documents that take
+/// samples.
 struct JSONMessage {
     /// @brief name identifies the message in errors.
     std::string name;
     /// @brief payload is the layout of the message's documents.
     synnax::icd::JSONPayload payload;
-    /// @brief bindings name the fields to decode, in sample order.
+    /// @brief bindings name the fields that take samples, in sample order.
     std::vector<Binding> bindings;
 };
 
@@ -100,7 +105,8 @@ class JSON {
         [[nodiscard]] std::vector<x::json::Pointer> pointers() const;
         /// @brief returns the message of a document, or nothing when it belongs to no
         /// message. values starts with the values of the document at pointers().
-        /// @returns VALIDATION when the document meets two rules.
+        /// @returns VALIDATION, with the first of their messages, when the document
+        /// meets two rules.
         std::pair<std::optional<std::size_t>, x::errors::Error>
         find(const std::vector<std::optional<std::string_view>> &values);
         /// @brief returns the message of the value rule that value meets, or nothing.
@@ -165,8 +171,8 @@ public:
     /// @returns CONFIG_ERROR when two value rules test different pointers, one document
     /// value can meet two value rules, a present rule tests a pointer at or above the
     /// pointer of another rule, two messages have no match rule, a binding names no
-    /// field of its message, or a field does not convert to the data type of its
-    /// binding.
+    /// field of its message, a bound field has a zero scale, or a field does not
+    /// convert to the data type of its binding.
     static std::pair<JSON, x::errors::Error>
     create(const std::vector<JSONMessage> &messages);
 
@@ -174,24 +180,152 @@ public:
     /// its bindings into its samples. A field with no value and no default, or with a
     /// value that does not convert, gets no sample and goes into its failures.
     /// @returns the index of the message in create order, or nothing when doc belongs
-    /// to no message.
-    /// @returns VALIDATION when doc is not JSON, or it meets two match rules.
+    /// to no message or is not JSON. When doc meets two match rules, the first of their
+    /// messages.
+    /// @returns VALIDATION when doc is not JSON, or, with the message, when it meets
+    /// two match rules.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view doc);
 
     /// @brief returns the samples of the last decode of message: one series for each
     /// binding, in binding order, each holding one sample, or none for a field in its
-    /// failures. They are unspecified after a decode that does not return message.
+    /// failures. They are unspecified after a decode that does not return message, or
+    /// returns an error.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
     }
 
     /// @brief returns the fields that the last decode of message could not decode, in
-    /// binding order. They are unspecified after a decode that does not return message.
+    /// binding order. They are unspecified after a decode that does not return message,
+    /// or returns an error.
     [[nodiscard]] const std::vector<Failure> &
     failures(const std::size_t message) const {
         return this->messages[message].failures;
+    }
+};
+
+/// @brief JSONEncoder encodes samples into the documents of one JSON message. It is not
+/// safe for concurrent use.
+class JSONEncoder {
+    /// @brief Generator makes a default that takes a new value at each encode.
+    enum class Generator : std::uint8_t { NONE, NOW, UUID };
+
+    /// @brief Default is the default of a field: fixed JSON text, or a generator.
+    struct Default {
+        std::optional<std::string> text;
+        Generator generator = Generator::NONE;
+        /// @brief time_format is the format of the time that NOW writes.
+        x::json::TimeFormat time_format = x::json::TimeFormat::ISO8601;
+
+        /// @brief returns the default of f, or no default when f has none. Its errors
+        /// do not name the default.
+        static std::pair<Default, x::errors::Error>
+        create(const synnax::icd::JSONField &f);
+        [[nodiscard]] bool defined() const {
+            return this->text.has_value() || this->generator != Generator::NONE;
+        }
+        /// @returns VALIDATION when there is no default.
+        [[nodiscard]] x::errors::Error append(std::string &out) const;
+    };
+
+    struct Field {
+        std::string name;
+        std::string_view kind;
+        /// @brief encoder writes the samples of every kind but JSON, whose samples are
+        /// JSON text. A converted field uses it only to find enum labels.
+        x::json::Encoder encoder;
+        /// @brief converted is true when a numeric sample needs a scale, a rounding, a
+        /// range check, or a change to a boolean before it is written.
+        bool converted = false;
+        bool scaled = false;
+        double scale = 1;
+        double offset = 0;
+        /// @brief base holds the min and max of the field.
+        synnax::icd::BaseField base;
+        /// @brief fallback is the default that an empty series writes.
+        Default fallback;
+        /// @brief density is the size of a sample, or 0 for a variable sample.
+        std::size_t density = 0;
+        /// @brief sample holds the bytes of the last sample that check passed, and text
+        /// its JSON text, which encode writes again for an equal sample. sample is
+        /// empty until check passes one.
+        std::string sample;
+        std::string text;
+
+        static std::pair<Field, x::errors::Error>
+        create(const synnax::icd::JSONField &f, const x::telem::DataType &dt);
+        /// @brief appends JSON text to out: sample i of s.
+        [[nodiscard]] x::errors::Error
+        append(const x::telem::Series &s, std::size_t i, std::string &out) const;
+        /// @brief appends JSON text to out: n, unscaled and rounded to the nearest
+        /// integer. It checks the limits against the value that the integer decodes to.
+        [[nodiscard]] x::errors::Error
+        append_integer(const x::json::Number &n, std::string &out) const;
+        /// @brief returns the bytes of sample i of s, which has the field's data type.
+        [[nodiscard]] std::string_view
+        bytes(const x::telem::Series &s, std::size_t i) const;
+    };
+
+    /// @brief Slot is a value of the document that changes between encodes.
+    struct Slot {
+        /// @brief binding is the binding whose sample fills the slot, or nothing for a
+        /// generated default.
+        std::optional<std::size_t> binding;
+        /// @brief fallback is the default of a slot with no binding.
+        Default fallback;
+    };
+
+    std::string name;
+    /// @brief document is the fixed text of each document around its slots.
+    x::json::Template document;
+    /// @brief fields holds the field of each binding.
+    std::vector<Field> fields;
+    /// @brief slots holds the slot of each field of document.
+    std::vector<Slot> slots;
+    /// @brief text is scratch space for the text of an encode or a check.
+    std::string text;
+
+public:
+    /// @brief creates an encoder of message. Each binding names a field that takes a
+    /// sample, in sample order, and every other field takes its default. A document
+    /// holds the value of the message's value rule and each field at its pointer. The
+    /// fields at or inside the pointer of a present rule give it its value.
+    /// @returns CONFIG_ERROR when a binding names no field, a field has two bindings, a
+    /// field has no binding and no default, a default is not valid, a bound field has a
+    /// zero scale, a binding's data type does not write to its field's kind, a scaled
+    /// field's channel is not a float, two pointers are equal or one holds the other, a
+    /// pointer holds an array index, or no field is at or inside the pointer of a
+    /// present rule.
+    static std::pair<JSONEncoder, x::errors::Error> create(const JSONMessage &message);
+
+    /// @brief encodes samples into payload, one document of the message. A scaled field
+    /// writes its sample before the scale and offset, and an integer field rounds it to
+    /// the nearest integer. A boolean field takes only 0 and 1 from a number channel. A
+    /// JSON field writes its sample as it is.
+    /// @param samples holds one series for each binding, in binding order. Each holds
+    /// the field's sample at index 0 and has the data type of its binding, or is empty
+    /// for a field that takes its default.
+    /// @returns VALIDATION when a field has no sample and no default, or a field cannot
+    /// hold its sample. The error names the message and the field.
+    x::errors::Error encode(
+        std::span<const x::telem::Series> samples,
+        std::vector<std::uint8_t> &payload
+    );
+
+    /// @brief returns the error that encode returns when binding holds sample i of s,
+    /// or NIL when the field of binding can hold it. The next encode of an equal sample
+    /// at binding reuses the text that check wrote.
+    [[nodiscard]] x::errors::Error
+    check(std::size_t binding, const x::telem::Series &s, std::size_t i);
+
+    /// @brief returns true when each field has a sample or a default, so encode has a
+    /// value for it.
+    /// @param samples is as in encode.
+    [[nodiscard]] bool ready(const std::span<const x::telem::Series> samples) const {
+        for (std::size_t b = 0; b < samples.size(); b++)
+            if (samples[b].empty() && !this->fields[b].fallback.defined()) return false;
+        return true;
     }
 };
 }

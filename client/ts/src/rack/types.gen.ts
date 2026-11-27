@@ -115,9 +115,9 @@ export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
  */
 export const payloadZ = z.object({
   /** key is the composite identifier for this rack. */
-  key: keyZ.refine((v) => v !== 0, "key is required"),
+  key: keyZ.refine((v) => v !== 0, "Key is required"),
   /** name is a human-readable name for the rack. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** embedded is true if this rack is embedded within the Synnax server process. */
   embedded: z.boolean().default(false),
   /** status is the current operational status of the rack. */
@@ -143,7 +143,7 @@ export const payloadZ = z.object({
 export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ.omit({ embedded: true, role: true, key: true }).extend({
-  key: keyZ.refine((v) => v !== 0, "key is required").default(0),
+  key: keyZ.refine((v) => v !== 0, "Key is required").default(0),
 });
 export interface New extends z.input<typeof newZ> {}
 

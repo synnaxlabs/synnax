@@ -11,20 +11,7 @@ package v2
 
 import (
 	"fmt"
-
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
-
-var _ gorp.Entry[Key] = Task{}
-
-// GorpKey implements gorp.Entry.
-func (t Task) GorpKey() Key { return t.Key }
-
-// ResourceID returns the unique resource identifier for the task.
-func (t Task) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeTask, Key: t.Key.String()}
-}
 
 // String returns the task's name and key, or just the key when unnamed.
 func (t Task) String() string {

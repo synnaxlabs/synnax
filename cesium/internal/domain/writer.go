@@ -38,18 +38,21 @@ type WriterConfig struct {
 	// Start marks the starting bound of the domain. This starting bound must not
 	// overlap with any existing domains within the DB. When Start is zero, OpenWriter
 	// checks nothing, and the writer cannot write until SetStart gives it a start.
+	//
 	// [OPTIONAL]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
 	// this parameter will allow the writer to write data to the domain without needing
 	// to validate each call to Commit. If this parameter is not defined, Commit must be
 	// called with a strictly increasing timestamp.
+	//
 	// [OPTIONAL]
 	End telem.TimeStamp
 	// AutoIndexPersistInterval is the frequency at which the changes to index are
 	// persisted to the disk. If AutoIndexPersistInterval <=0, then the writer persists
 	// changes to disk after every commit. Setting an AutoIndexPersistInterval is
 	// invalid if EnableAutoCommit is off.
+	//
 	// [OPTIONAL] Defaults to 1s
 	AutoIndexPersistInterval telem.TimeSpan
 	// OnRollover is invoked from inside Commit when the writer transitions from one
@@ -58,6 +61,7 @@ type WriterConfig struct {
 	// end, which is also the start timestamp of the new domain. Callers use this hook
 	// to flush per-domain state that accumulates across writes (e.g., per-domain
 	// offset tables, per-domain sample counters) and reset it for the new domain.
+	//
 	// [OPTIONAL]
 	OnRollover func(commitEnd telem.TimeStamp)
 }

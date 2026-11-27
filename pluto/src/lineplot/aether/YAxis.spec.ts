@@ -183,6 +183,30 @@ describe("YAxis", () => {
       expect(colors[0]).not.toEqual(color.rgba1(RAISED));
     });
 
+    it("should draw tick labels with tabular digits", () => {
+      const m = mount();
+      const region = box.construct(0, 0, 800, 600);
+      m.axis.render(
+        {
+          grid: {},
+          plot: region,
+          viewport: box.DECIMAL,
+          container: region,
+          canvases: ["lower2d"],
+          hold: false,
+          breaksHidden: false,
+          openBreaks: [],
+          layout: new lineplot.Layout([{ lower: 0, upper: 50 }], box.DECIMAL),
+        },
+        [],
+      );
+      const fonts = m.lower2d.calls
+        .filter((c) => c.op === "set:font")
+        .map((c) => String(c.args[0]));
+      expect(fonts).not.toHaveLength(0);
+      for (const font of fonts) expect(font).toContain("Inter Tabular");
+    });
+
     it("should draw the x axis before it returns the error of an x source", () => {
       const m = mount();
       const failed = vi.spyOn(line.Line.prototype, "xBounds").mockImplementation(() => {

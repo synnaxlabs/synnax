@@ -12,18 +12,8 @@ package v1
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/gorp"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
-
-var _ gorp.Entry[Key] = Task{}
-
-// GorpKey implements gorp.Entry.
-func (t Task) GorpKey() Key { return t.Key }
-
-// ResourceID returns the unique resource identifier for the task.
-func (t Task) ResourceID() resource.ID { return t.Key.ResourceID() }
 
 // Rack returns the key of the rack the task belongs to.
 func (t Task) Rack() rack.Key { return t.Key.Rack() }

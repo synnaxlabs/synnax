@@ -10,6 +10,7 @@
 import type { PropsWithChildren, ReactNode } from "react";
 
 import { Login, useCompleteBrowserLogin } from "@/feature/auth/Login";
+import { Core } from "@/platform/core";
 import { Session } from "@/session";
 
 const CompleteBrowserLogin = (): null => {
@@ -18,11 +19,11 @@ const CompleteBrowserLogin = (): null => {
 };
 
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
-  const selected = Session.Core.useSelectIsAnySelected();
+  const core = Session.Core.useSelectSelected();
   return (
     <>
       <CompleteBrowserLogin />
-      {selected ? children : <Login />}
+      {core != null && Core.hasLogin(core) ? children : <Login />}
     </>
   );
 };

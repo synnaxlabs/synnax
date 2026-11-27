@@ -18,6 +18,7 @@ from console.schematic import (
     Symbol,
     Value,
 )
+from synnax import enumeration
 from x import random_name
 
 # The default stale timeout is 5 s, and the sweep reports a transition up to 1 s late.
@@ -30,6 +31,15 @@ class StaleIndicator(ConsoleCase):
     Writes one sample to each channel, waits past the stale timeout, and checks that
     each symbol shows the stale indicator. A new sample clears it.
     """
+
+    states: enumeration.Enumeration | None = None
+
+    def teardown(self) -> None:
+        # The Core refuses to delete an enumeration that a schematic uses, so the
+        # schematic goes first.
+        super().teardown()
+        if self.states is not None:
+            self.client.enumerations.delete([self.states.key])
 
     def run(self) -> None:
         client = self.client
@@ -58,10 +68,13 @@ class StaleIndicator(ConsoleCase):
             data_type=sy.DataType.FLOAT64,
             index=index.key,
         )
-        options = [
-            sy.schematic.StateMapping(key="open", name="Open", value=1),
-            sy.schematic.StateMapping(key="closed", name="Closed", value=2),
-        ]
+        self.states = client.enumerations.create(
+            name=f"stale_states_{suffix}",
+            entries=[
+                enumeration.Entry(key="open", name="Open", value=1),
+                enumeration.Entry(key="closed", name="Closed", value=2),
+            ],
+        )
 
         schematic = self.console.pages.create(Schematic, f"stale_indicator_{suffix}")
         self._cleanup_pages.append(schematic.page_name)
@@ -71,7 +84,9 @@ class StaleIndicator(ConsoleCase):
         light.move(delta_x=-250, delta_y=0)
         indicator = schematic.create_symbol(
             StateIndicator(
-                label="Stale State", channel_name=state_ch.name, options=options
+                label="Stale State",
+                channel_name=state_ch.name,
+                enumeration=self.states.name,
             )
         )
         select = schematic.create_symbol(
@@ -79,7 +94,7 @@ class StaleIndicator(ConsoleCase):
                 label="Stale Select",
                 channel_name=command_ch.name,
                 state_channel_name=state_ch.name,
-                options=options,
+                enumeration=self.states.name,
             )
         )
         select.move(delta_x=250, delta_y=0)

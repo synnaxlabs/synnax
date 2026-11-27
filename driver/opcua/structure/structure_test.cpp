@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,6 +17,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/connection/connection.h"
+#include "driver/opcua/errors/errors.h"
 #include "driver/opcua/structure/structure.h"
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
@@ -123,6 +125,14 @@ TEST_F(TypesTest, testReadsDefinitions) {
     EXPECT_EQ(members[2].type, types.find(type_id(testutil::POINT_TYPE_ID)));
     const auto y = ASSERT_NIL_P(types.field(this->motor_type, {"Position", "Y"}));
     EXPECT_EQ(&y.type(), &UA_TYPES[UA_TYPES_FLOAT]);
+}
+
+/// @brief it should send no read once its deadline passes.
+TEST_F(TypesTest, testReadStopsAtDeadline) {
+    ASSERT_OCCURRED_AS_P(
+        Types::read(this->conn, {this->motor_type}, std::chrono::steady_clock::now()),
+        errors::DEADLINE_EXCEEDED
+    );
 }
 
 /// @brief it should describe a member that holds an array, which a field cannot read.

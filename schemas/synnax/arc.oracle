@@ -263,6 +263,7 @@ Arc union on type Type extends Base {
         code for reactive control systems. Compiles to WebAssembly for sandboxed
         execution.
     """
+    @go entry
     @go imex
     @go marshal
     @go migrate

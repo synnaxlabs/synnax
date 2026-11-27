@@ -11,13 +11,15 @@ package kafka
 
 import "github.com/synnaxlabs/x/telem"
 
-// column places the samples of one binding in the data its decoder appends to, in
-// arrival order. Its buffers survive across polls.
+// column holds the samples of one channel in arrival order. Its buffers survive across
+// polls.
 type column struct {
 	dataType telem.DataType
 	// density is the size of a sample, zero when samples vary in size.
 	density int
-	// ends[i] is the end of sample i in the data. It is only set when density is zero.
+	// data holds the current poll's samples.
+	data []byte
+	// ends[i] is the end of sample i in data. It is only set when density is zero.
 	ends []int
 }
 
@@ -29,43 +31,39 @@ func newColumn(dt telem.DataType) column {
 	return c
 }
 
-// sample returns sample i of data.
-func (c *column) sample(data []byte, i int) []byte {
+// append adds sample to the end of the column.
+func (c *column) append(sample []byte) {
+	c.data = append(c.data, sample...)
+	if c.density == 0 {
+		c.ends = append(c.ends, len(c.data))
+	}
+}
+
+// sample returns sample i.
+func (c *column) sample(i int) []byte {
 	if c.density != 0 {
-		return data[i*c.density : (i+1)*c.density]
+		return c.data[i*c.density : (i+1)*c.density]
 	}
 	start := 0
 	if i > 0 {
 		start = c.ends[i-1]
 	}
-	return data[start:c.ends[i]]
+	return c.data[start:c.ends[i]]
 }
 
-// end returns the end of the first n samples in the data.
-func (c *column) end(n int) int {
-	if c.density != 0 {
-		return n * c.density
-	}
-	if n == 0 {
-		return 0
-	}
-	return c.ends[n-1]
+// reset empties the column and keeps its buffers.
+func (c *column) reset() {
+	c.data = c.data[:0]
+	c.ends = c.ends[:0]
 }
 
-// appended records that a new sample ends data.
-func (c *column) appended(data []byte) {
-	if c.density == 0 {
-		c.ends = append(c.ends, len(data))
-	}
-}
-
-func (c *column) size(data []byte, rows []row) int {
+func (c *column) size(rows []row) int {
 	if c.density != 0 {
 		return len(rows) * c.density
 	}
 	n := 0
 	for _, r := range rows {
-		n += len(c.sample(data, r.pos))
+		n += len(c.sample(r.pos))
 	}
 	return n
 }

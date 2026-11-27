@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <string>
 
 #include "x/cpp/kv/kv.h"
@@ -21,7 +22,10 @@ protected:
 
     void SetUp() override {
         const auto temp_dir = std::filesystem::temp_directory_path();
-        temp_path = (temp_dir / "json_test" / "test.json").string();
+        temp_path = (temp_dir /
+                     ("json_test_" + std::to_string(std::random_device()())) /
+                     "test.json")
+                        .string();
     }
 
     void TearDown() override {
@@ -45,6 +49,21 @@ TEST_F(JSONTest, CreateNewFile) {
 
     auto kv = ASSERT_NIL_P(JSONFile::open_file(config));
     ASSERT_TRUE(std::filesystem::exists(temp_path));
+}
+
+/// @brief it should open a file named without a directory.
+TEST_F(JSONTest, OpenBareFileName) {
+    const auto dir = std::filesystem::path(temp_path).parent_path();
+    std::filesystem::create_directories(dir);
+    struct CwdGuard {
+        std::filesystem::path previous = std::filesystem::current_path();
+        ~CwdGuard() { std::filesystem::current_path(previous); }
+    } guard;
+    std::filesystem::current_path(dir);
+    JSONFileConfig config;
+    config.path = "bare.json";
+    auto kv = ASSERT_NIL_P(JSONFile::open_file(config));
+    ASSERT_TRUE(std::filesystem::exists(dir / "bare.json"));
 }
 
 /// @brief it should correctly set, get, and delete key-value pairs.

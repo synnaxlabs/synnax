@@ -462,6 +462,39 @@ Channel struct {
 		Expect(currency).To(BeTrue(), "expected a pin-currency finding")
 	})
 
+	It(
+		"Should fail a stored subset whose superset pin lags its current version",
+		func() {
+			write("schemas/x/versions/telem/v0.oracle", "Kind enum {\n\ta = \"a\"\n}\n")
+			write("schemas/x/versions/telem/v1.oracle", "Kind enum {\n\tb = \"b\"\n}\n")
+			write("schemas/x/telem.oracle", "Kind enum {\n\tb = \"b\"\n}\n")
+			write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/versions/telem/v0"
+
+Kept enum of telem.Kind {
+	a
+}
+
+Channel struct {
+	key uuid @key
+	kind Kept
+
+	@go marshal
+}
+`)
+			report := run(analyzeLive(liveV0))
+			Expect(report.Status).To(Equal(check.StatusFail))
+			messages := make([]string, 0, len(report.Findings))
+			for _, f := range report.Findings {
+				messages = append(messages, f.Message)
+			}
+			Expect(messages).To(ContainElement(
+				"schemas/synnax/channel's current surface resolves telem at v0, but " +
+					"schemas/x/telem's current version is v1",
+			))
+		},
+	)
+
 	It("Should fail a stored same-named pin lagging its dependency's current version",
 		func() {
 			write("schemas/x/versions/channel/v0.oracle", "Code = int64\n")
@@ -727,6 +760,60 @@ Channel struct {
 			}
 		}
 		Expect(minimality).To(BeTrue(), "expected a minimality finding")
+	})
+
+	It("Should count a subset as changed when its superset changes", func() {
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Base enum {
+	a = "a"
+	b = "b"
+}
+
+Kept enum of Base {
+	a
+}
+
+Channel struct {
+	key uuid @key
+	kind Kept
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Base enum {
+	a = "a"
+	b = "b"
+	c = "c"
+}
+
+Kept enum of Base {
+	a
+}
+
+Channel = v0.Channel
+`)
+		report := run(analyzeLive(`
+@go output "core/pkg/service/channel"
+
+Base enum {
+	a = "a"
+	b = "b"
+	c = "c"
+}
+
+Kept enum of Base {
+	a
+}
+
+Channel struct {
+	key uuid @key
+	kind Kept
+}
+`))
+		for _, f := range report.Findings {
+			Expect(f.FixHint).ToNot(Equal("use an alias: Kept = v0.Kept"))
+		}
 	})
 
 	It("Should pass a redeclaration that references a type redeclared with it", func() {

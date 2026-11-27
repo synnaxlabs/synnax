@@ -22,6 +22,7 @@ import { Schematic } from "@synnaxlabs/pluto";
 import pluralize from "pluralize";
 import type { ReactElement } from "react";
 
+import { Scroll } from "@/feature/schematic/symbol/edit/Scroll";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
 
@@ -30,15 +31,25 @@ const path = Schematic.Symbol.formPath;
 // WHOLE_DRAWING is the list key of the whole drawing, which has no part key.
 const WHOLE_DRAWING = "";
 
-export interface PartListProps extends Input.Control<Spec.Target> {
+export interface PartListProps extends Omit<Input.Control<Spec.Target>, "value"> {
+  /** value is the picked part, undefined for the whole drawing, or null for none. */
+  value: Spec.Target | null;
   onAdd: () => void;
 }
 
 interface PartListItemProps extends List.ItemRenderProps<string> {
+  // shapeCount is how many shapes the part reaches. The whole drawing has none.
+  shapeCount?: number;
   onDelete: (key: string) => void;
 }
 
+// countShapes returns how many shapes in drawing the selectors reach. A group counts as
+// each shape inside it.
+const countShapes = (drawing: Element, selectors: string[]): number =>
+  new Set(Schematic.Node.Region.graphics(drawing, selectors)).size;
+
 const PartListItem = ({
+  shapeCount,
   onDelete,
   ...props
 }: PartListItemProps): ReactElement | null => {
@@ -50,7 +61,7 @@ const PartListItem = ({
   const target = whole ? undefined : itemKey;
   const count = looks.filter((l) => l.part === target).length;
   const shapes =
-    part == null ? "Every shape" : pluralize("shape", part.selectors.length, true);
+    shapeCount == null ? "Every shape" : pluralize("shape", shapeCount, true);
   return (
     <Select.Item
       {...props}
@@ -96,7 +107,15 @@ const PartListItem = ({
 /** PartList lists the whole drawing and the parts of the symbol, and picks one. */
 export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElement => {
   const parts = Form.useFieldValue(path.data.parts);
+  const markup = Form.useFieldValue(path.data.drawing.markup);
   const { get, set } = Form.useContext();
+  const drawing = new DOMParser().parseFromString(
+    markup,
+    "image/svg+xml",
+  ).documentElement;
+  const shapeCounts = new Map(
+    parts.map((p) => [p.key, countShapes(drawing, p.selectors)]),
+  );
   const handleDelete = (key: string) => {
     set(path.data, Spec.removePart(get(path.data).value, key));
     if (value === key) onChange(undefined);
@@ -114,18 +133,24 @@ export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElemen
         </Header.Actions>
       </Header.Header>
       <Select.Frame
-        value={value ?? WHOLE_DRAWING}
+        value={value === null ? undefined : (value ?? WHOLE_DRAWING)}
         onChange={(key: string) => onChange(key === WHOLE_DRAWING ? undefined : key)}
         data={[WHOLE_DRAWING, ...parts.map((p) => p.key)]}
         closeDialogOnSelect={false}
+        cursor="selection"
       >
-        <List.Scroll y gap={1}>
+        <Scroll y gap={1}>
           <List.Items<string>>
             {({ key, ...rest }) => (
-              <PartListItem key={key} {...rest} onDelete={handleDelete} />
+              <PartListItem
+                key={key}
+                {...rest}
+                shapeCount={shapeCounts.get(key)}
+                onDelete={handleDelete}
+              />
             )}
           </List.Items>
-        </List.Scroll>
+        </Scroll>
       </Select.Frame>
     </Flex.Box>
   );

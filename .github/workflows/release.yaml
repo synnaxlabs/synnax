@@ -744,6 +744,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       # A run at the commit that the tag names finishes a partial publish, since the
       # registry skips what already went up. Any other run stops, so one version never
@@ -827,6 +828,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - *claim-py
 

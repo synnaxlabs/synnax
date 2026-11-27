@@ -97,3 +97,9 @@ type InlineEndpoint = versions.InlineEndpoint
 
 // InlineRead holds the fields of a read config from before ICDs.
 type InlineRead = versions.InlineRead
+
+// InlineWriteEndpoint is a write endpoint from before ICDs, which held its body inline.
+type InlineWriteEndpoint = versions.InlineWriteEndpoint
+
+// InlineWrite holds the bodies of a write config from before ICDs.
+type InlineWrite = versions.InlineWrite

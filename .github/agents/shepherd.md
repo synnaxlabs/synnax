@@ -38,9 +38,11 @@ When CI failed on the head:
 
 ## 3. Fix CodeQL alerts
 
-The CodeQL check failed on the head. Each `codeql` line in the work is an open alert
-that blocks the merge, with its file, line, rule, and message. The list can include
-alerts this pull request did not add. Fix only the alerts on lines it changed.
+The CodeQL check or the CodeQL gate failed on the head. Each `codeql` line in the work
+is an open alert that blocks the merge, with its file, line, rule, and message. A line
+from the CodeQL check can be an alert this pull request did not add: fix it only on a
+line the pull request changed. A line with `new alert` comes from the gate: the pull
+request opened it, so fix it, also on a line the pull request did not change.
 
 1. Fix the code at each alert so that the analysis can see the code is safe. CodeQL does
    not take a bound in a `switch` case as a guard. Use an `if`.

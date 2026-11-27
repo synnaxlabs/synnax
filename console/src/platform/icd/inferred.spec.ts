@@ -56,6 +56,18 @@ describe("ICD inferred formats", () => {
     });
   });
 
+  describe("kindName", () => {
+    it("should name the message of a kind after its present field", () => {
+      expect(ICD.kindName("plant/pump", "/status/rpm")).toEqual(
+        "plant/pump status_rpm",
+      );
+    });
+
+    it("should keep the name of a source with one kind", () => {
+      expect(ICD.kindName("plant/pump")).toEqual("plant/pump");
+    });
+  });
+
   describe("createMessage", () => {
     const field = ICD.createField({ pointer: "/v", kind: "float" }, "v");
 
@@ -77,6 +89,27 @@ describe("ICD inferred formats", () => {
 
     it("should name a message with an empty name Untitled", () => {
       expect(ICD.createMessage("", [], []).name).toEqual("Untitled");
+    });
+  });
+
+  describe("namedBy", () => {
+    it.each([
+      ["plant/oven", "plant/oven"],
+      ["plant/oven 2", "plant/oven"],
+      ["Untitled", ""],
+      ["Untitled 3", ""],
+    ])("should accept %j as a name for %j", (name, base) => {
+      expect(ICD.namedBy(name, base)).toBe(true);
+    });
+
+    it.each([
+      ["Oven", "plant/oven"],
+      ["plant/oven 2a", "plant/oven"],
+      ["plant/oven2", "plant/oven"],
+      ["plant/oven ", "plant/oven"],
+      ["Untitled", "plant/oven"],
+    ])("should reject %j as a name for %j", (name, base) => {
+      expect(ICD.namedBy(name, base)).toBe(false);
     });
   });
 });

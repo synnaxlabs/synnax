@@ -15,14 +15,14 @@ import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";
 import { Process } from "@/schematic/node/process";
 import { Pumps } from "@/schematic/node/pumps";
-import type { Variant } from "@/schematic/node/registry";
 import { Safety } from "@/schematic/node/safety";
 import { Valves } from "@/schematic/node/valves";
 import { Vessels } from "@/schematic/node/vessels";
 
 export interface Group extends group.Group {
   Icon: Icon.FC;
-  symbols: Variant[];
+  /** The keys of the toolbar symbols in the group: built-in names and node variants. */
+  symbols: string[];
 }
 
 export const GROUPS: Group[] = [

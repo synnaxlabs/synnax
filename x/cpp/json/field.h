@@ -96,21 +96,27 @@ public:
 
     /// @brief appends the sample of raw, one valid JSON value, to dst. dst holds the
     /// data type of the field and has room for one more sample.
-    /// - A timestamp takes a string in ISO 8601 format, and a number or a string
-    ///   holding one in a Unix format.
+    /// - A timestamp takes a string in ISO 8601 format. A Unix format takes a number,
+    ///   or a string that C's strtod reads whole as one after trimming whitespace from
+    ///   each end, and drops what is below a nanosecond.
     /// - A string takes a string, or the label of an enum. Any other value writes its
     ///   JSON text, as for JSON. JSON takes any value, compacted but spelled as raw.
     /// - A UUID takes its string form.
     /// - Bytes take a string of standard, padded base64.
     /// - A numeric or boolean sample takes a number that it can hold exactly, a
-    ///   boolean as 0 or 1, or the label of an enum.
+    ///   boolean as 0 or 1, the label of an enum, or a string that C's strtod reads
+    ///   whole as such a number, after trimming whitespace from each end.
     /// @returns VALIDATION, appending nothing, when raw does not convert.
     errors::Error append(std::string_view raw, telem::Series &dst);
 
+    /// @brief returns true when raw, one valid JSON value, is a string that is the
+    /// label of an enum.
+    [[nodiscard]] bool labeled(std::string_view raw);
+
     /// @brief appends the sample of v to dst, as append does for a JSON number equal to
-    /// v.
-    /// @returns VALIDATION, appending nothing, when v is not finite, the data type is
-    /// not numeric, or v does not convert to it.
+    /// v. A float data type takes any float, NaN and infinity included.
+    /// @returns VALIDATION, appending nothing, when the data type is not numeric or v
+    /// does not convert to it.
     errors::Error append_float(double v, telem::Series &dst) const;
 };
 
@@ -137,6 +143,10 @@ public:
     /// or an enum label is not valid UTF-8.
     static std::pair<Encoder, errors::Error> create(Field field);
 
+    /// @brief returns the JSON text of the first enum label that v matches, or nullptr
+    /// when it matches none. v has the data type of the field, and a boolean is 0 or 1.
+    [[nodiscard]] const std::string *label(const telem::SampleValue &v) const;
+
     /// @brief appends JSON text to out: sample i of s, which holds the data type of the
     /// field.
     /// - A timestamp takes the time format of the field.
@@ -149,4 +159,8 @@ public:
     [[nodiscard]] errors::Error
     append(const telem::Series &s, std::size_t i, std::string &out) const;
 };
+
+/// @brief reports whether text is one JSON value in which no object repeats a member
+/// name, as RFC 7493 requires.
+[[nodiscard]] bool valid(std::string_view text);
 }

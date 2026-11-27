@@ -33,7 +33,6 @@ type target struct {
 
 func (t target) path(name string) string { return t.fs.PathJoin(t.dir, name) }
 
-// targets returns the reference file systems of Pebble and pebblefs on a fault disk.
 // targets returns Pebble's memory FS and the adapter on a fault disk, each with an
 // empty directory to work in.
 func targets() map[string]target {

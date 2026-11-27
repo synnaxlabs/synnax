@@ -71,6 +71,16 @@ TEST(testConfig, testParserRequiredFieldZero) {
     EXPECT_EQ(parser.errors->at(1)["path"], "serial");
 }
 
+/// @brief it should report error when a required vector is empty.
+TEST(testConfig, testParserRequiredFieldEmptyVector) {
+    Parser parser(json{{"hosts", json::array()}, {"ports", {9092}}});
+    parser.required_field<std::vector<std::string>>("hosts");
+    EXPECT_EQ(parser.required_field<std::vector<int>>("ports"), std::vector{9092});
+    ASSERT_EQ(parser.errors->size(), 1);
+    EXPECT_EQ(parser.errors->at(0)["path"], "hosts");
+    EXPECT_EQ(parser.errors->at(0)["message"], "This field is required");
+}
+
 /// @brief it should report one error when a required field is missing or mistyped.
 TEST(testConfig, testParserRequiredFieldMissingOrMistyped) {
     Parser parser(json{{"serial", "abc"}});
@@ -1899,6 +1909,17 @@ TEST(testConfig, testStaticParseRejectsScalar) {
         ASSERT_EQ(parser.errors->size(), 1);
         EXPECT_EQ(parser.errors->at(0)["message"], "expected an object");
     }
+}
+
+/// @brief it should bind a child's own error to the child's path, with no separator.
+TEST(testConfig, testStaticParseErrorPath) {
+    Parser parser(json{{"outer", {{"scalar", "bad"}, {"object", 1}}}});
+    auto outer = parser.child("outer");
+    outer.field<ScalarWrapper>("scalar");
+    outer.field<DefaultedFields>("object");
+    ASSERT_EQ(parser.errors->size(), 2);
+    EXPECT_EQ(parser.errors->at(0)["path"], "outer.scalar");
+    EXPECT_EQ(parser.errors->at(1)["path"], "outer.object");
 }
 
 /// @brief it should bind one error when a keyed parse receives an array.

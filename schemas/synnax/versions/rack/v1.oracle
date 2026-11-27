@@ -40,11 +40,13 @@ Rack struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a collection container for hardware devices and tasks running on a specific
         cluster node. Racks serve as the integration point between the Synnax server and
         physical hardware via the Driver system.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "rack"
 }

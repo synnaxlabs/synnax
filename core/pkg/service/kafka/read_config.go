@@ -23,23 +23,10 @@ import (
 	"github.com/synnaxlabs/x/content"
 )
 
-// createICD returns the v1.CreateICD that lifts an ICD to the current shape and creates
-// it with svc.
-func createICD(svc *icd.Service) v1.CreateICD {
-	return func(ctx context.Context, tx gorp.Tx, old icdv0.ICD) error {
-		ic, err := icdv1.MigrateICD(ctx, old)
-		if err != nil {
-			return err
-		}
-		return svc.NewWriter(tx).Create(ctx, &ic)
-	}
-}
-
 // readResolver resolves read configs against the ICDs and channels they read.
 type readResolver struct {
 	icds     *icd.Service
 	channels icdv0.Channels
-	create   v1.CreateICD
 	reads    read.Resolver
 	ins      alamos.Instrumentation
 }
@@ -69,7 +56,7 @@ func (r readResolver) resolve(
 		}
 		icds[ic.Key] = ic
 	}
-	if err = r.check(ctx, snap, cfg, icds); err != nil || !ok {
+	if _, err = check(ctx, snap, r.reads, cfg, icds); err != nil || !ok {
 		return nil, err
 	}
 	return func(ctx context.Context, tx gorp.Tx) error {
@@ -89,24 +76,26 @@ func (r readResolver) hash(
 }
 
 // check checks each enabled record of cfg against its ICD, from icds or else read
-// through snap, and its channels.
-func (r readResolver) check(
+// through snap, and its channels. It returns the Checker that holds the claims of cfg.
+// A task save and a task configure both run it.
+func check(
 	ctx context.Context,
 	snap gorp.Snapshot,
+	resolver read.Resolver,
 	cfg *ReadConfig,
 	icds map[icd.Key]icd.ICD,
-) error {
+) (read.Checker, error) {
 	reads := readsOf(cfg)
-	c, err := r.reads.NewChecker(ctx, snap, reads, icds)
+	c, err := resolver.NewChecker(ctx, snap, reads, nil, icds)
 	if err != nil {
-		return err
+		return read.Checker{}, err
 	}
 	for _, rd := range reads {
 		if err = c.Read(rd); err != nil {
-			return err
+			return read.Checker{}, err
 		}
 	}
-	return nil
+	return c, nil
 }
 
 // readsOf returns the read of each enabled record of cfg.
@@ -117,13 +106,17 @@ func readsOf(cfg *ReadConfig) []read.Read {
 			if rec.Disabled {
 				continue
 			}
-			path := []string{"topics", strconv.Itoa(t), "records", strconv.Itoa(i)}
-			reads = append(reads, read.Read{
-				Path:     path,
-				ICD:      rec.ICD,
-				Messages: rec.Messages,
-			})
+			reads = append(reads, readOf(t, i, rec))
 		}
 	}
 	return reads
+}
+
+// readOf returns the read of rec, record i of topic t.
+func readOf(t, i int, rec ReadRecord) read.Read {
+	return read.Read{
+		Path:     []string{"topics", strconv.Itoa(t), "records", strconv.Itoa(i)},
+		ICD:      rec.ICD,
+		Messages: rec.Messages,
+	}
 }

@@ -13,26 +13,31 @@ import { user } from "@synnaxlabs/client";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, User } from "@synnaxlabs/pluto";
+import { Access, Synnax, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
+import { Core } from "@/platform/core";
 import { Credential } from "@/platform/credential";
 import { CSS } from "@/platform/css";
+import { Page } from "@/platform/page";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { Session } from "@/session";
 
-const Password = ({ userKey }: { userKey: user.Key }): ReactElement => {
-  const [changed, setChanged] = useState(false);
+const Password = ({ userKey }: { userKey: user.Key }): ReactElement | null => {
+  const client = Synnax.use();
+  const { password } = Core.useAcceptedMethods(client?.params);
+  const [message, setMessage] = useState<string | null>(null);
+  if (!password) return null;
   return (
-    <PlatformSettings.Card title="Password">
+    <Page.Card title="Password">
       <PlatformSettings.Body>
         <Credential.Password.Form
           subject={user.resourceID(userKey)}
-          onChanged={setChanged}
+          onMessage={setMessage}
         />
-        {changed && <Status.Summary variant="success" message="Changed password" />}
+        {message != null && <Status.Summary variant="success" message={message} />}
       </PlatformSettings.Body>
-    </PlatformSettings.Card>
+    </Page.Card>
   );
 };
 
@@ -72,14 +77,14 @@ export const ProfileSettings = (): ReactElement | null => {
   if (current == null) return null;
   return (
     <>
-      <PlatformSettings.Card>
+      <Page.Card>
         <Name current={current} />
         {core != null && core.username !== "" && (
           <PlatformSettings.Entry label="Username" description="You log in with it.">
             <Text.Text color={10}>{core.username}</Text.Text>
           </PlatformSettings.Entry>
         )}
-      </PlatformSettings.Card>
+      </Page.Card>
       <Password userKey={current.key} />
     </>
   );

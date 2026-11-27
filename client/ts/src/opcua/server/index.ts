@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as opcuaServer from "@/opcua/server/types.gen";
+export * as opcuaServer from "@/opcua/server/external";

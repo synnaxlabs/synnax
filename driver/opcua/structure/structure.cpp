@@ -148,7 +148,8 @@ const UA_DataTypeArray *Types::head() const {
 
 std::pair<Types, x::errors::Error> Types::read(
     const connection::Pool::Connection &conn,
-    const std::vector<UA_NodeId> &data_types
+    const std::vector<UA_NodeId> &data_types,
+    const std::chrono::steady_clock::time_point deadline
 ) {
     Types out;
     // The server's own IDs name no namespace URI, so each resolves to itself.
@@ -188,7 +189,7 @@ std::pair<Types, x::errors::Error> Types::read(
             req.add_node(seen_id(idx), UA_ATTRIBUTEID_DATATYPEDEFINITION);
             req.add_node(seen_id(idx), UA_ATTRIBUTEID_BROWSENAME);
         }
-        auto [res, err] = conn.read(req.build());
+        auto [res, err] = conn.read(req.build(), deadline);
         if (err) return {std::move(out), err};
         const auto &raw = res.get();
         for (std::size_t k = 0; k < current.size(); ++k) {

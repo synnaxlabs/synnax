@@ -10,10 +10,10 @@
 package icd
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/synnaxlabs/x/errors"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -25,6 +25,13 @@ const decodeRounding = 4 * 0x1p-52
 // scale and offset of b, is outside the min and max of b.
 func CheckRange(b BaseField, v float64) error {
 	return problemError(outOfRange(b, v, v, 0))
+}
+
+// CheckRawRange returns an error wrapping validate.ErrValidation when raw, a value
+// before the scale and offset of b, decodes outside the min and max of b. It allows the
+// float64 rounding of the decode, so a value that decodes to a limit passes.
+func CheckRawRange(b BaseField, raw float64) error {
+	return problemError(outOfRawRange(b, raw))
 }
 
 // outOfRawRange returns how raw, a value before the scale and offset of b, decodes
@@ -55,12 +62,12 @@ func outOfRange(b BaseField, raw, decoded, slack float64) (string, bool) {
 	default:
 		return "", false
 	}
+	text := func(v float64) string { return xstrconv.FormatFloat(v, 64) }
 	if raw == decoded {
-		return fmt.Sprintf("%v is %s %v", decoded, side, limit), true
+		return text(decoded) + " is " + side + " " + text(limit), true
 	}
-	return fmt.Sprintf(
-		"%v decodes to %v, which is %s %v", raw, decoded, side, limit,
-	), true
+	return text(raw) + " decodes to " + text(decoded) + ", which is " + side + " " +
+		text(limit), true
 }
 
 func problemError(message string, found bool) error {

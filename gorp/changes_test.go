@@ -329,6 +329,31 @@ var _ = Describe("Changes", func() {
 			),
 		)
 
+		It("Should record the links of a second write that keeps the new targets",
+			func(ctx SpecContext) {
+				Expect(devices.NewCreate().Entry(&device).Exec(ctx, db)).To(Succeed())
+				tx := DeferClose(db.OpenTx())
+				for range 2 {
+					Expect(devices.NewUpdate().
+						Where(gorp.MatchKeys[string, refDevice]("d")).
+						Change(func(_ gorp.Context, d refDevice) refDevice {
+							d.Rack = 2
+							return d
+						}).
+						Exec(ctx, tx)).To(Succeed())
+				}
+				Expect(gorp.ChangesOf(tx)).To(HaveExactElements(SatisfyAll(
+					HaveField("Kind", gorp.ChangeUpdate),
+					HaveField("Added", []gorp.Link{rackLink(2)}),
+					HaveField("Removed", []gorp.Link{rackLink(1)}),
+					HaveField(
+						"Links",
+						[]gorp.Link{rackLink(2), labelLink("l1"), labelLink("l2")},
+					),
+				)))
+			},
+		)
+
 		DescribeTable(
 			"Should remove every link of a deleted record",
 			func(ctx SpecContext, writes []write) {

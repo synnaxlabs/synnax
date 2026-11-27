@@ -107,18 +107,15 @@ default_raw(const synnax::icd::BinaryField &f) {
             if (!v.default_.has_value()) return {std::nullopt, x::errors::NIL};
             if constexpr (std::is_same_v<F, synnax::icd::FloatBinaryField>) {
                 const double d = v.default_->value;
-                const auto text = x::json::Number(d).to_string();
-                if (!std::isfinite(d))
-                    return {
-                        std::nullopt,
-                        x::errors::Error(CONFIG_ERROR, text + " is not finite"),
-                    };
                 if (encoding == Encoding::FLOAT64)
                     return {std::bit_cast<std::uint64_t>(d), x::errors::NIL};
                 if (std::abs(d) > std::numeric_limits<float>::max())
                     return {
                         std::nullopt,
-                        x::errors::Error(CONFIG_ERROR, text + " overflows float32"),
+                        x::errors::Error(
+                            CONFIG_ERROR,
+                            x::json::Number(d).to_string() + " overflows float32"
+                        ),
                     };
                 return {
                     std::bit_cast<std::uint32_t>(static_cast<float>(d)),

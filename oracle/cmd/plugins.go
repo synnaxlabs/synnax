@@ -16,6 +16,7 @@ import (
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	goactions "github.com/synnaxlabs/oracle/plugin/go/actions"
+	goentry "github.com/synnaxlabs/oracle/plugin/go/entry"
 	gofilter "github.com/synnaxlabs/oracle/plugin/go/filter"
 	gogroup "github.com/synnaxlabs/oracle/plugin/go/group"
 	goimex "github.com/synnaxlabs/oracle/plugin/go/imex"
@@ -62,6 +63,7 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		goactions.New(goactions.DefaultOptions()),
 		gopatch.New(gopatch.DefaultOptions()),
 		goimex.New(goimex.DefaultOptions()),
+		goentry.New(goentry.DefaultOptions()),
 		tsactions.New(tsactions.DefaultOptions()),
 		tsfilter.New(tsfilter.DefaultOptions()),
 		tsgroup.New(tsgroup.DefaultOptions()),

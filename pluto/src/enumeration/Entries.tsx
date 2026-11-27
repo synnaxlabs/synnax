@@ -30,17 +30,8 @@ import { formPath, useForm } from "@/enumeration/queries";
 
 const NAME = 0;
 const VALUE = 1;
-
-/** Where the color and abnormal cells sit in a row, or -1 for a hidden column. */
-interface Layout {
-  color: number;
-  abnormal: number;
-}
-
-const layoutOf = (colorHidden: boolean, abnormalHidden: boolean): Layout => ({
-  color: colorHidden ? -1 : 2,
-  abnormal: abnormalHidden ? -1 : colorHidden ? 2 : 3,
-});
+const COLOR = 2;
+const ABNORMAL = 3;
 
 /** Reads a fixed color as the hex box does, Auto from empty text, or null otherwise. */
 const parseColor = (text: string): color.Ref | undefined | null => {
@@ -49,27 +40,21 @@ const parseColor = (text: string): color.Ref | undefined | null => {
   return parsed == null ? null : { type: "fixed", value: parsed };
 };
 
-const toRow = (e: enumeration.Entry, layout: Layout): Input.TableCell[] => {
-  const row: Input.TableCell[] = [e.name, e.value];
-  if (layout.color >= 0) row[layout.color] = e.color;
-  if (layout.abnormal >= 0) row[layout.abnormal] = e.abnormal;
-  return row;
-};
+const toRow = (e: enumeration.Entry): Input.TableCell[] => [
+  e.name,
+  e.value,
+  e.color,
+  e.abnormal,
+];
 
-/** @returns the entry that the row shows. A hidden field keeps its value from prev. */
-const fromRow = (
-  row: Input.TableCell[],
-  layout: Layout,
-  prev: Pick<enumeration.Entry, "key"> & Partial<enumeration.Entry>,
-): enumeration.Entry => {
-  const ref =
-    layout.color < 0 ? prev.color : color.refZ.optional().parse(row[layout.color]);
+/** @returns the entry with key that the row shows. */
+const fromRow = (row: Input.TableCell[], key: string): enumeration.Entry => {
+  const ref = color.refZ.optional().parse(row[COLOR]);
   return {
-    key: prev.key,
+    key,
     name: String(row[NAME]),
     value: Number(row[VALUE]),
-    abnormal:
-      layout.abnormal < 0 ? (prev.abnormal ?? false) : row[layout.abnormal] === true,
+    abnormal: row[ABNORMAL] === true,
     ...(ref != null && { color: ref }),
   };
 };
@@ -189,10 +174,6 @@ export interface TableProps extends Pick<Input.TableProps, "autoFocus"> {
   onMove: (from: number, to: number) => void;
   /** Shows the entries read-only. */
   preview?: boolean;
-  /** Leaves out the Abnormal column, for entries that cannot be abnormal. */
-  abnormalHidden?: boolean;
-  /** Leaves out the Color column, for entries whose color draws nowhere. */
-  colorHidden?: boolean;
 }
 
 /**
@@ -206,11 +187,8 @@ export const Table = ({
   onChange,
   onMove,
   preview,
-  abnormalHidden = false,
-  colorHidden = false,
   autoFocus,
 }: TableProps): ReactElement => {
-  const layout = layoutOf(colorHidden, abnormalHidden);
   const [held, setHeld] = useState<ReadonlyMap<string, number>>(() => new Map());
   const resolve = Color.useResolve();
   const colors = Color.useResultList({});
@@ -254,7 +232,7 @@ export const Table = ({
   const shown = withHeld(holds);
   // Counts stored values too, since a held entry shows a value it does not store.
   const freeValue = (rows: Input.TableCell[][]): number =>
-    nextValue([...rows, ...value.map((e) => toRow(e, layout))]);
+    nextValue([...rows, ...value.map(toRow)]);
 
   const handleChange = (rows: Input.TableCell[][]): void => {
     const changed: enumeration.Entry[] = [];
@@ -268,14 +246,14 @@ export const Table = ({
     );
     rows.forEach((row, i) => {
       const prev = value.at(i);
-      let next = fromRow(row, layout, prev ?? { key: id.create() });
+      let next = fromRow(row, prev?.key ?? id.create());
       if (prev == null) {
         // A pasted entry saves with a free value and holds the one it repeats.
         if (clashing.has(i)) {
           nextHeld.set(next.key, next.value);
           next = {
             ...next,
-            value: freeValue([...rows, ...added.map((e) => toRow(e, layout))]),
+            value: freeValue([...rows, ...added.map(toRow)]),
           };
         }
         added.push(next);
@@ -329,7 +307,7 @@ export const Table = ({
   const warningsAt = (row: number): string[] => {
     const entry = value[row];
     if (entry == null) return [];
-    return check(entry, value, resolvePair, { abnormalHidden });
+    return check(entry, value, resolvePair);
   };
 
   const renderHaulPreview = (row: number): ReactElement => {
@@ -382,14 +360,14 @@ export const Table = ({
   return (
     <div className={CSS.B("entries")}>
       <Input.Table
-        value={shown.map((e) => toRow(e, layout))}
+        value={shown.map(toRow)}
         onChange={handleChange}
         resourceName="entry"
         preview={preview}
         autoFocus={autoFocus}
         cellStatus={cellStatus}
         createRow={(rows) =>
-          toRow({ key: "", name: "", value: freeValue(rows), abnormal: false }, layout)
+          toRow({ key: "", name: "", value: freeValue(rows), abnormal: false })
         }
         onRemove={handleRemove}
         onMove={onMove}
@@ -401,8 +379,8 @@ export const Table = ({
             {(props) => <Input.Text {...props} onlyChangeOnBlur />}
           </Input.TableColumn>,
           <Input.TableColumn key="value" name="Value" type="number" width={14} />,
-          ...(colorHidden ? [] : [colorColumn]),
-          ...(abnormalHidden ? [] : [abnormalColumn]),
+          colorColumn,
+          abnormalColumn,
         ]}
       </Input.Table>
     </div>

@@ -26,11 +26,13 @@ LinePlot struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a time-series visualization component for plotting telemetry data. Line plots
         support multiple channels, real-time streaming, and historical data display with
         zoom and pan capabilities.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "lineplot"
 }

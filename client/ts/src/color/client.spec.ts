@@ -15,7 +15,13 @@ import { group } from "@/group";
 import { NotCachedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import { resource } from "@/resource";
-import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  requestsTo,
+  spyOnSend,
+} from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -84,12 +90,8 @@ describe("color.Client", () => {
       const prefix = `searchable-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];
       await client.colors.create(names.map((name) => ({ name, light: "#00ff00" })));
-      await expect
-        .poll(async () => {
-          const results = await client.colors.retrieve({ searchTerm: prefix });
-          return results.map((n) => n.name).sort();
-        })
-        .toEqual(names);
+      const results = await client.colors.retrieve({ searchTerm: prefix });
+      expect(results.map((n) => n.name).sort()).toEqual(names);
     });
 
     it("should drop the keys that do not exist from a key list", async () => {
@@ -336,7 +338,7 @@ describe("color.Client", () => {
       await expect(fresh.colors.dispatch(named.key, rename("Anomaly"))).rejects.toThrow(
         NotCachedError,
       );
-      expect(send).not.toHaveBeenCalled();
+      expect(requestsTo(send, "/color/dispatch")).toEqual([]);
     });
 
     it("should drop the actions that the Core refuses from the cache", async () => {

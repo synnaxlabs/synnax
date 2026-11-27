@@ -53,6 +53,14 @@ describe("Region.extract", () => {
     expect(blueYellowRegion?.selectors).toContain("path:nth-of-type(1)");
   });
 
+  it("should name the regions Part 1, Part 2, and so on", () => {
+    const svg = createSVG(`
+      <rect style="stroke: #ff0000" />
+      <circle style="stroke: #0000ff" />
+    `);
+    expect(Region.extract(svg).map((r) => r.name)).toEqual(["Part 1", "Part 2"]);
+  });
+
   it("should treat 'none', undefined, and null as the same", () => {
     const svg = createSVG(`
       <rect style="stroke: none; fill: #00ff00" />

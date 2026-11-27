@@ -32,11 +32,12 @@ concurrency:
 
 jobs:
   # A Windows runner is slow to start and clone, so the core-windows job takes one only
-  # when it has a build to run.
+  # when it has a build to run. This job also finds the merge base for every surface.
   windows-runner:
     name: Pick the Windows runner
     runs-on: ubuntu-latest
     outputs:
+      base: ${{ steps.base.outputs.sha }}
       os: ${{ steps.pick.outputs.os }}
     timeout-minutes: 10
     steps:
@@ -47,13 +48,25 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # A force-push to a stacked parent can drop the event's base SHA from every
+      # branch, so the merge base comes from the base branch's current tip.
+      - name: Find the merge base
+        id: base
+        env:
+          BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+        run: |
+          if ! base=$(git merge-base "$BASE_REF" HEAD); then
+            echo "::error::Found no merge base between $BASE_REF and the head."
+            exit 1
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+
       - name: Pick the runner
         id: pick
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ steps.base.outputs.sha }}
         run: |
-          base=$(git merge-base "$BASE" HEAD)
-          if git diff --quiet "$base" HEAD -- core/cmd .github/scripts/surface.sh; then
+          if git diff --quiet "$BASE" HEAD -- core/cmd .github/scripts/surface.sh; then
             echo "os=ubuntu-latest" >> "$GITHUB_OUTPUT"
           else
             echo "os=windows-latest" >> "$GITHUB_OUTPUT"
@@ -119,16 +132,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Find the merge base and changed inputs
+      - name: Find the changed inputs
         id: base
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ needs.windows-runner.outputs.base }}
           PATHS: ${{ matrix.paths }} .github/scripts/surface.sh
         run: |
-          base=$(git merge-base "$BASE" HEAD)
-          echo "sha=$base" >> "$GITHUB_OUTPUT"
+          echo "sha=$BASE" >> "$GITHUB_OUTPUT"
           read -ra paths <<< "$PATHS"
-          if git diff --quiet "$base" HEAD -- "${paths[@]}"; then
+          if git diff --quiet "$BASE" HEAD -- "${paths[@]}"; then
             echo "touched=false" >> "$GITHUB_OUTPUT"
           else
             echo "touched=true" >> "$GITHUB_OUTPUT"
@@ -158,6 +170,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
           enable-cache: true
 
       - name: Compare the reports
@@ -205,11 +218,12 @@ jobs:
   # Label - Classify fetches the results from another run, and that request has no
   # retry, so it gets one artifact. Each surface keeps its own directory in it. The
   # originals stay, so a rerun of failed jobs merges every surface again. Artifact IDs
-  # do not follow upload order, so the name carries the attempt.
+  # do not follow upload order, so the name carries the attempt. It skips when no
+  # surface ran, so the failed job stays the only error.
   merge:
     name: Merge the results
     needs: surface
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.surface.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

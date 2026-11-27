@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>
@@ -124,6 +125,9 @@ struct RequestConfig {
 /// @brief default cap on in-flight requests sharing a base URL.
 constexpr std::size_t DEFAULT_MAX_CONCURRENT_REQUESTS = 6;
 
+/// @brief default cap on the size of a response body in bytes.
+constexpr std::int64_t DEFAULT_MAX_RESPONSE_SIZE = std::int64_t{16} * 1024 * 1024;
+
 /// @brief a fully resolved HTTP request.
 struct Request {
     /// @brief fully resolved URL (base + path + query params).
@@ -132,6 +136,8 @@ struct Request {
     std::string base_url;
     /// @brief cap on in-flight requests sharing base_url.
     std::size_t max_concurrent_requests = DEFAULT_MAX_CONCURRENT_REQUESTS;
+    /// @brief largest response body in bytes. A larger body fails the request.
+    std::int64_t max_response_size = DEFAULT_MAX_RESPONSE_SIZE;
     /// @brief HTTP method.
     Method method = Method::GET;
     /// @brief request timeout.
@@ -184,13 +190,13 @@ inline void validate_pointer(
 
 /// @brief validates an endpoint's method, headers, and query parameters,
 /// accumulating errors on parser. Header and query parameter names must be
-/// non-empty and unique within the endpoint.
+/// non-empty and unique within the endpoint, and header values non-empty.
 template<typename Endpoint>
 void validate_request(const Endpoint &ep, x::json::Parser &parser) {
     if (auto [method, err] = parse_method(ep.method); err)
         parser.field_err("endpoints.method", err);
     std::set<std::string> names;
-    for (const auto &h: ep.headers)
+    for (const auto &h: ep.headers) {
         if (h.name.empty())
             parser.field_err("endpoints.headers.name", "this field is required");
         else if (!names.insert(h.name).second)
@@ -198,6 +204,9 @@ void validate_request(const Endpoint &ep, x::json::Parser &parser) {
                 "endpoints.headers.name",
                 "duplicate header '" + h.name + "'"
             );
+        if (h.value.empty())
+            parser.field_err("endpoints.headers.value", "this field is required");
+    }
     std::set<std::string> params;
     for (const auto &qp: ep.query_params)
         if (qp.parameter.empty())

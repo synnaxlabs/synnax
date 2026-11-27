@@ -293,6 +293,12 @@ func (s *BaseOracleParserListener) EnterUnionBody(ctx *UnionBodyContext) {}
 // ExitUnionBody is called when production unionBody is exited.
 func (s *BaseOracleParserListener) ExitUnionBody(ctx *UnionBodyContext) {}
 
+// EnterVariantOmit is called when production variantOmit is entered.
+func (s *BaseOracleParserListener) EnterVariantOmit(ctx *VariantOmitContext) {}
+
+// ExitVariantOmit is called when production variantOmit is exited.
+func (s *BaseOracleParserListener) ExitVariantOmit(ctx *VariantOmitContext) {}
+
 // EnterNamedVariant is called when production NamedVariant is entered.
 func (s *BaseOracleParserListener) EnterNamedVariant(ctx *NamedVariantContext) {}
 

@@ -102,11 +102,13 @@ Log struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a visualization that shows the samples of its channels as text, one line per
         sample, in time order.
     """
+    @go entry
     @go imex
     @go marshal
     @go migrate
+    @resource type "log"
 }

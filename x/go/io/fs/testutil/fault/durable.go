@@ -182,7 +182,10 @@ func (d *disk) syncDir(n *node, p string) error {
 	if d.syncFails(hashPath(p), nth) {
 		return pathError("sync", p, syscall.EIO)
 	}
-	kept := d.pending[:0]
+	var (
+		kept    = d.pending[:0]
+		removed []*node
+	)
 	for i, c := range d.pending {
 		if !durable[i] {
 			kept = append(kept, c)
@@ -190,9 +193,57 @@ func (d *disk) syncDir(n *node, p string) error {
 		}
 		d.syncedThrough = max(d.syncedThrough, c.seq)
 		c.makeDurable()
+		for _, h := range c.halves {
+			if h.from != nil && h.from.dir && h.from != h.to {
+				removed = append(removed, h.from)
+			}
+		}
 	}
-	d.pending = kept
+	d.pending = d.dropDetached(kept, removed)
 	return nil
+}
+
+// dropDetached returns pending without each change whose directories no crash can
+// show: the live tree and the durable tree hold none of them, and no pending change
+// links one of them from a directory that a crash can show. No SyncDir reaches such a
+// directory. Only the durable changes that took the directories of removed off their
+// parents can make one.
+func (d *disk) dropDetached(pending []*change, removed []*node) []*change {
+	if len(removed) == 0 {
+		return pending
+	}
+	shown := set.Set[*node]{}
+	addShown(shown, d.root)
+	for grew := true; grew; {
+		grew = false
+		for _, c := range pending {
+			for _, h := range c.halves {
+				if h.to != nil && shown.Contains(h.dir) && !shown.Contains(h.to) {
+					addShown(shown, h.to)
+					grew = true
+				}
+			}
+		}
+	}
+	return slices.DeleteFunc(pending, func(c *change) bool {
+		return !slices.ContainsFunc(c.halves, func(h half) bool {
+			return shown.Contains(h.dir)
+		})
+	})
+}
+
+// addShown adds n to s, and each node under it in its live or its durable entries.
+func addShown(s set.Set[*node], n *node) {
+	if s.Contains(n) {
+		return
+	}
+	s.Add(n)
+	for _, child := range n.entries {
+		addShown(s, child)
+	}
+	for _, child := range n.durableEntries {
+		addShown(s, child)
+	}
 }
 
 // durableWith reports, for each pending change, if a SyncDir of the directory n makes

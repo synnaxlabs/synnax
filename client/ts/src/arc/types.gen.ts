@@ -145,7 +145,7 @@ export const baseZ = z.object({
   /** key is the unique identifier for this module. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the module. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** source is the Arc's source code, written as text or drawn as a graph. */
   source: sourceZ.prefault({ mode: "text" }),
   /** directory is the key of the directory that holds the Arc. */

@@ -303,8 +303,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Expect(MustSucceed(w.Commit(ctx))).
 								To(Equal(21*telem.SecondTS + 1))
 							MustSucceed(w.Close())
-							Expect(MustSucceed(db.HasDataFor(
+							Expect(MustSucceed(hasDataFor(
 								ctx,
+								db,
 								(12 * telem.SecondTS).Range(20*telem.SecondTS),
 							))).To(BeFalse())
 						},
@@ -484,8 +485,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							To(Equal(12*telem.SecondTS + 1))
 						MustSucceed(w.Close())
 						MustSucceed(live.Close())
-						Expect(MustSucceed(db.HasDataFor(
+						Expect(MustSucceed(hasDataFor(
 							ctx,
+							db,
 							(1 * telem.SecondTS).Range(3*telem.SecondTS),
 						))).To(BeTrue())
 					})
@@ -802,8 +804,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								MustSucceed(w.Commit(ctx)),
 							).To(Equal(7*telem.SecondTS + 1))
 							MustSucceed(w.Close())
-							Expect(MustSucceed(db.HasDataFor(
+							Expect(MustSucceed(hasDataFor(
 								ctx,
+								db,
 								(5 * telem.SecondTS).Range(6*telem.SecondTS),
 							))).To(BeTrue())
 						},
@@ -1676,8 +1679,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							).To(Equal(13*telem.SecondTS + 1))
 							MustSucceed(w2.Close())
 							MustSucceed(w1.Close())
-							Expect(MustSucceed(db.HasDataFor(
+							Expect(MustSucceed(hasDataFor(
 								ctx,
+								db,
 								(10 * telem.SecondTS).Range(11*telem.SecondTS),
 							))).To(BeTrue())
 						},

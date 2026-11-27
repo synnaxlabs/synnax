@@ -32,4 +32,6 @@ Certificate union on source secret.Source extends v0.Certificate {
             @doc value "is the rack that reads the files."
         }
     }
+
+    @resource type "certificate"
 }

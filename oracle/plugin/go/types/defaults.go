@@ -716,7 +716,8 @@ type constraintCheckData struct {
 	GoName    string
 	FieldName string
 	// Kind selects the assertion form: non_empty_string, min_len, max_len, pattern
-	// (string), min_bytes (bytes), non_zero (numeric or uuid), or ge, le, lt (numeric).
+	// (string), min_bytes (bytes), non_empty_slice (list), non_zero (numeric or uuid),
+	// or ge, le, lt (numeric).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one, the
 	// Go name of the compared field for lt, or the regex var for pattern.
@@ -762,6 +763,10 @@ func goConstraintChecks(
 	required := rules.Required && !field.Optional
 	var checks []constraintCheckData
 	switch {
+	case validation.IsList(field.Type):
+		if required {
+			checks = append(checks, check("non_empty_slice", ""))
+		}
 	case base == "uuid":
 		if required {
 			checks = append(checks, check("non_zero", ""))

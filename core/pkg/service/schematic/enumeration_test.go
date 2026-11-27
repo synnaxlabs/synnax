@@ -127,21 +127,17 @@ var _ = Describe("Enumeration references", func() {
 	})
 
 	Describe("Import", func() {
-		options := []schematic.StateMapping{{Key: "open", Name: "Open", Value: 1}}
 		exportNaming := func(ctx SpecContext, key enumeration.Key) imex.Envelope {
 			GinkgoHelper()
 			s := schematic.Schematic{
 				Name:    "exported",
 				Project: &proj.Key,
 				Nodes: []schematic.Node{
-					node("select", schematic.SelectNodeConfig{
-						Enumeration: &key,
-						Options:     options,
-					}),
-					node("indicator", schematic.StateIndicatorNodeConfig{
-						Enumeration: &key,
-						Options:     options,
-					}),
+					node("select", schematic.SelectNodeConfig{Enumeration: &key}),
+					node(
+						"indicator",
+						schematic.StateIndicatorNodeConfig{Enumeration: &key},
+					),
 				},
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -153,7 +149,7 @@ var _ = Describe("Enumeration references", func() {
 			})).To(Succeed())
 			return WireRoundTrip(env)
 		}
-		It("Should clear an enumeration that the Core lacks and keep the options", func(
+		It("Should clear an enumeration that the Core lacks", func(
 			ctx SpecContext,
 		) {
 			gone := createEnumeration(ctx, "Gone")
@@ -163,9 +159,6 @@ var _ = Describe("Enumeration references", func() {
 			})).To(Succeed())
 			res := importSchematic(ctx, env)
 			Expect(enumerationsOf(res)).To(Equal([]*enumeration.Key{nil, nil}))
-			sel, ok := res.Nodes[0].Config.Variant.(schematic.SelectNodeConfig)
-			Expect(ok).To(BeTrue())
-			Expect(sel.Options).To(Equal(options))
 		})
 
 		It("Should keep an enumeration that the Core has", func(ctx SpecContext) {

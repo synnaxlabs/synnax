@@ -100,8 +100,8 @@ export interface TableConfig<
 
 interface RegisteredTable {
   name: string;
-  trim: (size: number) => void;
-  size: () => number;
+  /** Drops the records past cap. A derived table drops what its source drops. */
+  trim?: (cap: number) => void;
   listeners: Listener[];
   reconcile?: () => Promise<void>;
   reset: () => void;
@@ -168,8 +168,9 @@ export class Cache {
     this.register(table);
     this.tables.push({
       name,
-      trim: (size) => table.trim(size),
-      size: () => table.size,
+      trim: (cap) => {
+        if (table.size > cap) table.trim(Math.floor(cap * TRIM_FLOOR));
+      },
       listeners: (listen ?? []).map((spec) => spec.bind(table)),
       reconcile: config.fetch == null ? undefined : async () => await table.reconcile(),
       reset: () => table.reset(),
@@ -182,8 +183,9 @@ export class Cache {
   /**
    * Creates a table materialized from another table owned by this cache. Composed
    * entries are replaced on source and trigger events, so entry identity changes
-   * exactly when composition changes; misses on read fetch through the source. Resets
-   * with the cache. No stream listeners of its own, so it may be created at any time.
+   * exactly when composition changes; misses on read fetch through the source. It holds
+   * an entry for each record that its source keeps through a trim. Resets with the
+   * cache. No stream listeners of its own, so it may be created at any time.
    */
   derive<Key extends record.Key, Value extends Keyed<Key>, Composed extends Keyed<Key>>(
     config: DerivedConfig<Key, Value, Composed>,
@@ -195,11 +197,8 @@ export class Cache {
       fetch: async (keys) => (await source.retrieve(keys)).map(compose),
     });
     this.detachers.push(bindDerived(table, { source, compose, triggers }));
-    this.register(table);
     this.tables.push({
       name,
-      trim: (size) => table.trim(size),
-      size: () => table.size,
       listeners: [],
       reset: () => table.reset(),
       clearPendingDeletes: () => table.clearPendingDeletes(),
@@ -236,9 +235,7 @@ export class Cache {
   private trim(): void {
     if (!this._live) return;
     const cap = this.params.recordCap ?? DEFAULT_RECORD_CAP;
-    this.tables.forEach(({ trim, size }) => {
-      if (size() > cap) trim(Math.floor(cap * TRIM_FLOOR));
-    });
+    this.tables.forEach(({ trim }) => trim?.(cap));
   }
 
   /**
@@ -293,6 +290,7 @@ export class Cache {
       onEpoch: (callback) => this.onEpoch(callback),
       onMissed: (callback) => this.onMissed(callback),
       epoch: () => this.epochCount,
+      live: () => this._live,
       maintained: () => !this.unmaintained && this.params.openStreamer != null,
       onError: this.onError,
       clock: this.params.clock,

@@ -42,6 +42,26 @@ describe("layouts.DetailsHeader", () => {
     expect(container.querySelector("p p, p div")).toBeNull();
   });
 
+  it("should name a selected item that has no path, and copy nothing", async () => {
+    const { container } = await renderInTaskForm(
+      <Task.Views.DetailsHeader path={null}>
+        <Task.Views.ItemLabel kind="Topic">plant.pumps</Task.Views.ItemLabel>
+      </Task.Views.DetailsHeader>,
+      { values: { config: { channels: [] } } },
+    );
+    expect(screen.getByText("plant.pumps")).toBeTruthy();
+    expect(screen.queryByText("Details")).toBeNull();
+    expect(getIconButton(container, "json").className).toContain("lyra--disabled");
+  });
+
+  it("should show Details when the title is false", async () => {
+    await renderInTaskForm(
+      <Task.Views.DetailsHeader path={null}>{false}</Task.Views.DetailsHeader>,
+      { values: { config: { channels: [] } } },
+    );
+    expect(screen.getByText("Details")).toBeTruthy();
+  });
+
   it("should not copy anything without a path", async () => {
     const writeText = stubClipboardWriteText();
     const { container } = await renderInTaskForm(

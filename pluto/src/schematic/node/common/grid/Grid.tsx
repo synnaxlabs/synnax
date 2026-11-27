@@ -83,7 +83,8 @@ const splitChildren = (
 ): { items: ItemProps[]; body: ReactNode[] } => {
   const items: ItemProps[] = [];
   const body: ReactNode[] = [];
-  Children.forEach(children, (child) => {
+  // Position keys keep the body mounted while items come and go.
+  Children.toArray(children).forEach((child) => {
     const item = resolveItem(child);
     if (item != null) items.push(item.props);
     else body.push(child);

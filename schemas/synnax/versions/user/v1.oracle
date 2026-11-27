@@ -29,10 +29,12 @@ User struct {
         @doc value "is the role that grants the user its permissions."
     }
 
-    @doc value  """
+    @doc value     """
         is an account entity representing a person accessing the Synnax system. Each
         user holds one role, which grants its permissions.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "user"
 }
