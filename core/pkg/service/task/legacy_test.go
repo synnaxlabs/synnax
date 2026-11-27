@@ -569,6 +569,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Rack:   rackSvc,
 		}))
 		secretSvc = secrettestutil.OpenService(ctx, db)
+		certSvc := MustOpen(certificate.OpenService(ctx, certificate.ServiceConfig{
+			DB:      db,
+			Secret:  secretSvc,
+			Status:  statusSvc,
+			Rack:    rackSvc.EmbeddedKey,
+			HostKey: 1,
+		}))
 		MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 		// The Arcs the Arc fixtures run.
 		Expect(gorp.NewCreate[arc.Key, arc.Arc]().Entries(&[]arc.Arc{
@@ -621,9 +628,13 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				ICD:     icdSvc,
 			})).Stores(),
 			MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
-				DB:      db,
-				Channel: channelSvc,
-				ICD:     icdSvc,
+				DB:          db,
+				Channel:     channelSvc,
+				ICD:         icdSvc,
+				Status:      statusSvc,
+				Secret:      secretSvc,
+				Certificate: certSvc,
+				Rack:        rackSvc,
 			})).Stores(),
 			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db})).Stores(),
 			MustOpen(modbus.OpenService(ctx, modbus.ServiceConfig{DB: db})).Stores(),
@@ -632,18 +643,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				Status: statusSvc,
 			})).Stores(),
 			MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
-				DB:     db,
-				Status: statusSvc,
-				Secret: secretSvc,
-				Certificate: MustOpen(
-					certificate.OpenService(ctx, certificate.ServiceConfig{
-						DB:      db,
-						Secret:  secretSvc,
-						Status:  statusSvc,
-						Rack:    rackSvc.EmbeddedKey,
-						HostKey: 1,
-					}),
-				),
+				DB:          db,
+				Status:      statusSvc,
+				Secret:      secretSvc,
+				Certificate: certSvc,
 			})).Stores(),
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
