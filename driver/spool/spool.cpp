@@ -40,14 +40,19 @@ x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
     return x::errors::Error(BASE_ERROR, msg + ": " + ec.message());
 }
 
-/// @returns the entries of dir.
+/// @brief starts the names of the AppleDouble files that macOS writes beside each file
+/// on a volume without extended attributes, such as FAT.
+const std::string APPLE_DOUBLE_PREFIX = "._";
+
+/// @returns the entries of dir, without AppleDouble files.
 std::pair<std::vector<std::filesystem::path>, x::errors::Error>
 list(const std::filesystem::path &dir) {
     std::error_code ec;
     std::vector<std::filesystem::path> paths;
     for (std::filesystem::directory_iterator it(dir, ec), end; !ec && it != end;
          it.increment(ec))
-        paths.push_back(it->path());
+        if (!it->path().filename().string().starts_with(APPLE_DOUBLE_PREFIX))
+            paths.push_back(it->path());
     if (ec) return {{}, fs_error("failed to list spool directory", ec)};
     return {std::move(paths), x::errors::NIL};
 }

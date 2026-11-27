@@ -921,6 +921,18 @@ TEST_F(SpoolTest, SetsAsideSegmentWithInvalidName) {
     this->expect_set_aside("abc.seg", CORRUPT);
 }
 
+/// @brief it should skip the AppleDouble files that macOS writes on FAT volumes.
+TEST_F(SpoolTest, SkipsAppleDoubleFiles) {
+    std::filesystem::create_directories(this->dir);
+    for (const auto *name: {"._0.seg", "._0.offset", "._0.seg.tmp.1"})
+        append_file(this->dir / name, "metadata");
+    const auto spool = this->open_spool();
+    EXPECT_TRUE(spool->segments().empty());
+    EXPECT_TRUE(spool->bad_segments().empty());
+    for (const auto *name: {"._0.seg", "._0.offset", "._0.seg.tmp.1"})
+        EXPECT_TRUE(std::filesystem::exists(this->dir / name)) << name;
+}
+
 /// @brief it should set aside a segment whose key is not in the form the spool writes.
 TEST_F(SpoolTest, SetsAsideSegmentWithNonCanonicalKey) {
     std::filesystem::create_directories(this->dir);
