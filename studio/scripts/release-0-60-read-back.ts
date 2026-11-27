@@ -109,7 +109,11 @@ const feed = (ch: Channels): schematic.New => ({
     {
       key: "reg",
       position: { x: 230, y: 160 },
-      config: { variant: "electric_regulator", scale: 1.6 },
+      config: {
+        variant: "symbol",
+        spec: { type: "builtin", name: "electric_regulator" },
+        scale: 1.6,
+      },
     },
     {
       key: "setpoint",

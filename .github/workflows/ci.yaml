@@ -776,6 +776,8 @@ jobs:
         if: steps.modules.outputs.affected != ''
         env:
           BASE: ${{ needs.changes.outputs.base }}
+          # The check reads only Go code, so the base takes no LFS download.
+          GIT_LFS_SKIP_SMUDGE: 1
         run: git worktree add --detach "$RUNNER_TEMP/base" "$BASE"
 
       # The check compiles nothing, and the modules download faster than a cache
@@ -1136,6 +1138,7 @@ jobs:
       coverage_flag: oracle
       directory: oracle
       install_antlr4: true
+      install_pnpm: true
       macos: *full
       windows: *full
     secrets:

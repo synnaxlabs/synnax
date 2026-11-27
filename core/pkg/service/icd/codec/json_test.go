@@ -131,6 +131,21 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	return nil
 }
 
+// expectSample checks that data, the sample of binding i with data type dt, is want.
+// MatchJSON reads each number as a float64, so an integer compares as text.
+func expectSample(dt telem.DataType, data []byte, want json.RawMessage, i int) {
+	GinkgoHelper()
+	actual := MustSucceed(json.Marshal(sampleJSON(dt, data)))
+	switch dt {
+	case telem.Int8T, telem.Int16T, telem.Int32T, telem.Int64T, telem.Uint8T,
+		telem.Uint16T, telem.Uint32T, telem.Uint64T, telem.TimestampT:
+		Expect(string(actual)).To(Equal(string(want)), "binding %d", i)
+	case telem.Float64T, telem.Float32T, telem.BooleanT, telem.StringT, telem.JSONT,
+		telem.UUIDT, telem.BytesT, telem.UnknownT:
+		Expect(actual).To(MatchJSON(want), "binding %d", i)
+	}
+}
+
 // floatJSON returns f as the fixtures write it: a number, or a string for NaN,
 // Infinity, and -Infinity.
 func floatJSON(f float64) any {
@@ -245,10 +260,7 @@ var _ = Describe("JSON", func() {
 				bindings := messages[m].Bindings
 				Expect(c.Samples).To(HaveLen(len(bindings)))
 				for k, b := range bindings {
-					actual := MustSucceed(
-						json.Marshal(sampleJSON(b.DataType, samples[m][k])),
-					)
-					Expect(actual).To(MatchJSON(c.Samples[k]), "binding %d", k)
+					expectSample(b.DataType, samples[m][k], c.Samples[k], k)
 				}
 				for other := range samples {
 					if other != m {
@@ -276,16 +288,16 @@ var _ = Describe("JSON", func() {
 		))
 	})
 
-	Describe("Generated defaults", func() {
-		decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
-			GinkgoHelper()
-			return MustSucceed(codec.NewJSON([]codec.JSONMessage{{
-				Name:     "reading",
-				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
-				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
-			}}))
-		}
+	decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
+		GinkgoHelper()
+		return MustSucceed(codec.NewJSON([]codec.JSONMessage{{
+			Name:     "reading",
+			Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+			Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
+		}}))
+	}
 
+	Describe("Generated defaults", func() {
 		It("Should fill a missing timestamp with the time of the read", func() {
 			dec := decoder(icd.JSONField{Variant: icd.TimestampJSONField{
 				Key: uuid.New(), Name: "ts", Scale: 1, Pointer: "/ts",
@@ -372,6 +384,22 @@ var _ = Describe("JSON", func() {
 		)
 	})
 
+	DescribeTable("Should write a JSON value as the document spells it, without spaces",
+		func(value, expected string) {
+			dec := decoder(icd.JSONField{Variant: icd.JSONJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+			}}, telem.JSONT)
+			samples := [][][]byte{make([][]byte, 1)}
+			_, ok := decode(dec, []byte(`{"v": `+value+`}`), samples)
+			Expect(ok).To(BeTrue())
+			Expect(string(samples[0][0][4:])).To(Equal(expected))
+		},
+		Entry("a fraction with a trailing zero", `1.0`, `1.0`),
+		Entry("a number past the range of a float", `1e999`, `1e999`),
+		Entry("members out of order", `{"z":1,"a":2}`, `{"z":1,"a":2}`),
+		Entry("spaces inside a value", `{ "a" : [ 1 , 2 ] }`, `{"a":[1,2]}`),
+	)
+
 	It("Should append to the samples of earlier documents", func() {
 		key := uuid.New()
 		dec := MustSucceed(codec.NewJSON([]codec.JSONMessage{
@@ -391,7 +419,7 @@ var _ = Describe("JSON", func() {
 			Expect(ok).To(BeTrue())
 		}
 		Expect(decodeError(dec, []byte(`{"v": "x"}`), samples)).
-			To(MatchError(validate.ErrValidation))
+			To(MatchError(`field v: invalid number "x": validation error`))
 		Expect(telem.Series{DataType: telem.Float64T, Data: samples[0][0]}).
 			To(MatchSeriesDataV[float64](1, 2))
 	})
@@ -432,11 +460,8 @@ var _ = Describe("JSON", func() {
 				Expect(ok).To(BeTrue())
 				Expect(failures).To(HaveLen(2))
 				Expect(failures[0].Binding).To(Equal(0))
-				Expect(failures[0].Missing).To(BeFalse())
-				Expect(failures[0].Err).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("field a: ")),
-				))
+				Expect(failures[0].Err).
+					To(MatchError(`field a: invalid number "x": validation error`))
 				Expect(failures[1].Binding).To(Equal(2))
 				Expect(samples[0][0]).To(BeEmpty())
 				Expect(series(samples[0][1])).To(MatchSeriesDataV[float64](2))
@@ -444,13 +469,12 @@ var _ = Describe("JSON", func() {
 			},
 		)
 
-		It("Should list a field with no value and no default as missing", func() {
+		It("Should list a field with no value and no default", func() {
 			dec, samples := reading(2)
 			_, _, failures, err := dec.Decode([]byte(`{"a": 1}`), samples)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(failures).To(HaveLen(1))
 			Expect(failures[0].Binding).To(Equal(1))
-			Expect(failures[0].Missing).To(BeTrue())
 			Expect(failures[0].Err).
 				To(MatchError("field b: no value at /b: validation error"))
 		})
@@ -500,13 +524,26 @@ var _ = Describe("JSON", func() {
 		})
 	})
 
+	It("Should reject a string default that is not valid UTF-8", func() {
+		f := icd.JSONField{Variant: icd.StringJSONField{
+			Key: uuid.New(), Name: "s", Scale: 1, Pointer: "/s", Default: new("\xff"),
+		}}
+		Expect(codec.NewJSON([]codec.JSONMessage{{
+			Name:     "reading",
+			Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+			Bindings: []codec.Binding{{Field: f.Base().Key, DataType: telem.StringT}},
+		}})).Error().To(MatchError(
+			"message reading: field s: default: jsontext: invalid UTF-8: validation error",
+		))
+	})
+
 	DescribeTable("Should accept the present rules that Infer gives the kinds of a key",
 		func(kinds ...string) {
 			docs := make([]xjson.Document, len(kinds))
 			for i, k := range kinds {
 				docs[i] = xjson.Document{Source: "pump", Data: []byte(k)}
 			}
-			shapes := xjson.Infer(docs)
+			shapes, _ := xjson.Infer(docs)
 			messages := make([]codec.JSONMessage, len(shapes))
 			for i, shape := range shapes {
 				key, field := uuid.New(), shape.Fields[0]
@@ -632,7 +669,7 @@ var _ = Describe("Converts", func() {
 	DescribeTable(
 		"Should report whether a field kind converts to a data type",
 		func(k payload.Kind, dt telem.DataType, expected bool) {
-			Expect(codec.Converts(k, dt)).To(Equal(expected))
+			Expect(codec.Converts(k, dt, false)).To(Equal(expected))
 		},
 		Entry("a kind to its own data type", payload.KindString, telem.StringT, true),
 		Entry("an integer to a float", payload.KindInteger, telem.Float32T, true),
@@ -651,5 +688,17 @@ var _ = Describe("Converts", func() {
 			telem.DataType("complex128"),
 			false,
 		),
+	)
+
+	DescribeTable(
+		"Should report whether a scaled field kind converts to a data type",
+		func(k payload.Kind, dt telem.DataType, expected bool) {
+			Expect(codec.Converts(k, dt, true)).To(Equal(expected))
+		},
+		Entry("an integer to a float", payload.KindInteger, telem.Float32T, true),
+		Entry("a float to a float", payload.KindFloat, telem.Float64T, true),
+		Entry("an integer to an integer", payload.KindInteger, telem.Int64T, false),
+		Entry("an unsigned to an unsigned", payload.KindUnsigned, telem.Uint8T, false),
+		Entry("a string to a float", payload.KindString, telem.Float64T, false),
 	)
 })

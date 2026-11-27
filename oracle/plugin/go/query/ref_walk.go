@@ -12,6 +12,7 @@ package query
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/synnaxlabs/oracle/internal/casing"
@@ -45,6 +46,8 @@ type refStep struct {
 	kind stepKind
 	// field is the Go name of the field a field or leaf step reads.
 	field string
+	// name is the Oracle name of that field, which is its segment in a path.
+	name string
 	// optional is true when a field step reads a pointer to a struct.
 	optional bool
 	// elem is the type of an array step's elements.
@@ -194,6 +197,7 @@ func (w *refWalker) walkField(
 			steps: append(slices.Clone(steps), refStep{
 				kind:  stepLeaf,
 				field: naming.GetFieldName(f),
+				name:  f.Name,
 			}),
 			field: f,
 			mode:  leafModeOf(f, isSlice),
@@ -228,6 +232,7 @@ func (w *refWalker) walkField(
 	fieldStep := refStep{
 		kind:     stepField,
 		field:    naming.GetFieldName(f),
+		name:     f.Name,
 		optional: f.Optional && !isSlice,
 	}
 	next := append(slices.Clone(steps), fieldStep)
@@ -386,17 +391,23 @@ type nestedRef struct {
 	// InlineBody is the body of the reference's Inline function, empty unless OnDelete
 	// is "Inline".
 	InlineBody string
+	// LocateBody is the body of the reference's Locate function, empty when the
+	// reference reaches each target through fields alone.
+	LocateBody string
 	// usesSlices is true when the generated code calls the slices package.
 	usesSlices bool
+	// usesStrconv and usesFmt are true when the generated code calls those packages.
+	usesStrconv, usesFmt bool
 }
 
 // renderer writes the Go code that walks the sites of one reference.
 type renderer struct {
-	r          *resolver.Resolver
-	ctx        *resolver.Context
-	info       refInfo
-	vars       int
-	usesSlices bool
+	r                    *resolver.Resolver
+	ctx                  *resolver.Context
+	info                 refInfo
+	vars                 int
+	usesSlices           bool
+	usesStrconv, usesFmt bool
 }
 
 func (rd *renderer) nextVar(prefix string) string {
@@ -460,56 +471,91 @@ func (rd *renderer) variantGoType(s refStep) string {
 	return prefix + casing.VariantTypeName(name, s.variant)
 }
 
-// walk writes code that reaches every leaf under nodes from expr. When mutable is true,
-// the code can assign to each leaf it reaches.
+// walkMode is what the code that walk writes does with each leaf it reaches.
+type walkMode uint8
+
+const (
+	// walkRead reads each leaf.
+	walkRead walkMode = iota
+	// walkWrite can assign to each leaf.
+	walkWrite
+	// walkLocate reads each leaf with the path to it.
+	walkLocate
+)
+
+// walk writes code that reaches every leaf under nodes from expr. In walkLocate mode,
+// leaf also gets the Go expressions of the path segments from e to the leaf, which
+// path starts.
 func (rd *renderer) walk(
 	b *strings.Builder,
 	nodes []*stepNode,
 	expr string,
-	mutable bool,
-	leaf func(b *strings.Builder, expr string),
+	mode walkMode,
+	path []string,
+	leaf func(b *strings.Builder, expr string, path []string),
 ) {
+	at := func(segment string) []string {
+		if mode != walkLocate {
+			return nil
+		}
+		return append(slices.Clone(path), segment)
+	}
 	var variants []*stepNode
 	for _, n := range nodes {
 		switch n.step.kind {
 		case stepLeaf:
 			if n.step.field == "" {
-				leaf(b, expr)
+				leaf(b, expr, path)
 				continue
 			}
-			leaf(b, expr+"."+n.step.field)
+			leaf(b, expr+"."+n.step.field, at(strconv.Quote(n.step.name)))
 		case stepField:
 			next := expr + "." + n.step.field
+			children := at(strconv.Quote(n.step.name))
 			if n.step.optional {
 				fmt.Fprintf(b, "if %s != nil {\n", next)
-				rd.walk(b, n.children, next, mutable, leaf)
+				rd.walk(b, n.children, next, mode, children, leaf)
 				b.WriteString("}\n")
 				continue
 			}
-			rd.walk(b, n.children, next, mutable, leaf)
+			rd.walk(b, n.children, next, mode, children, leaf)
 		case stepArray:
-			if mutable {
+			switch mode {
+			case walkWrite:
 				i := rd.nextVar("i")
 				fmt.Fprintf(b, "for %s := range %s {\n", i, expr)
-				rd.walk(b, n.children, fmt.Sprintf("%s[%s]", expr, i), mutable, leaf)
-			} else {
+				next := fmt.Sprintf("%s[%s]", expr, i)
+				rd.walk(b, n.children, next, mode, nil, leaf)
+			case walkLocate:
+				rd.usesStrconv = true
+				i, v := rd.nextVar("i"), rd.nextVar("v")
+				fmt.Fprintf(b, "for %s, %s := range %s {\n", i, v, expr)
+				rd.walk(b, n.children, v, mode, at("strconv.Itoa("+i+")"), leaf)
+			case walkRead:
 				v := rd.nextVar("v")
 				fmt.Fprintf(b, "for _, %s := range %s {\n", v, expr)
-				rd.walk(b, n.children, v, mutable, leaf)
+				rd.walk(b, n.children, v, mode, nil, leaf)
 			}
 			b.WriteString("}\n")
 		case stepMap:
-			v := rd.nextVar("v")
-			if !mutable {
-				fmt.Fprintf(b, "for _, %s := range %s {\n", v, expr)
-				rd.walk(b, n.children, v, mutable, leaf)
+			switch mode {
+			case walkWrite:
+				v, k := rd.nextVar("v"), rd.nextVar("k")
+				fmt.Fprintf(b, "for %s, %s := range %s {\n", k, v, expr)
+				rd.walk(b, n.children, v, mode, nil, leaf)
+				fmt.Fprintf(b, "%s[%s] = %s\n}\n", expr, k, v)
+			case walkLocate:
+				rd.usesFmt = true
+				k, v := rd.nextVar("k"), rd.nextVar("v")
+				fmt.Fprintf(b, "for %s, %s := range %s {\n", k, v, expr)
+				rd.walk(b, n.children, v, mode, at("fmt.Sprint("+k+")"), leaf)
 				b.WriteString("}\n")
-				continue
+			case walkRead:
+				v := rd.nextVar("v")
+				fmt.Fprintf(b, "for _, %s := range %s {\n", v, expr)
+				rd.walk(b, n.children, v, mode, nil, leaf)
+				b.WriteString("}\n")
 			}
-			k := rd.nextVar("k")
-			fmt.Fprintf(b, "for %s, %s := range %s {\n", k, v, expr)
-			rd.walk(b, n.children, v, mutable, leaf)
-			fmt.Fprintf(b, "%s[%s] = %s\n}\n", expr, k, v)
 		case stepVariant:
 			variants = append(variants, n)
 		}
@@ -521,8 +567,8 @@ func (rd *renderer) walk(
 	fmt.Fprintf(b, "switch %s := %s.Variant.(type) {\n", v, expr)
 	for _, n := range variants {
 		fmt.Fprintf(b, "case %s:\n", rd.variantGoType(n.step))
-		rd.walk(b, n.children, v, mutable, leaf)
-		if mutable {
+		rd.walk(b, n.children, v, mode, path, leaf)
+		if mode == walkWrite {
 			fmt.Fprintf(b, "%s.Variant = %s\n", expr, v)
 		}
 	}
@@ -533,38 +579,121 @@ func (rd *renderer) targetsBody(ref *walkedRef) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "var targets []%s\n", rd.info.TargetType())
 	mode := ref.sites[0].mode
-	rd.walk(&b, ref.tree(), "e", false, func(b *strings.Builder, expr string) {
-		switch mode {
-		case leafRequired:
-			fmt.Fprintf(b, "targets = append(targets, %s)\n", rd.target(expr))
-		case leafZero:
-			fmt.Fprintf(
-				b,
-				"if %s != %s {\ntargets = append(targets, %s)\n}\n",
-				expr,
-				rd.info.ZeroOperand(),
-				rd.target(expr),
-			)
-		case leafOptional:
-			fmt.Fprintf(
-				b,
-				"if %s != nil {\ntargets = append(targets, %s)\n}\n",
-				expr,
-				rd.target("*"+expr),
-			)
-		case leafSlice, leafMap:
-			k := rd.nextVar("k")
-			fmt.Fprintf(
-				b,
-				"for _, %s := range %s {\ntargets = append(targets, %s)\n}\n",
-				k,
-				expr,
-				rd.target(k),
-			)
-		}
-	})
+	rd.walk(
+		&b,
+		ref.tree(),
+		"e",
+		walkRead,
+		nil,
+		func(b *strings.Builder, expr string, _ []string) {
+			switch mode {
+			case leafRequired:
+				fmt.Fprintf(b, "targets = append(targets, %s)\n", rd.target(expr))
+			case leafZero:
+				fmt.Fprintf(
+					b,
+					"if %s != %s {\ntargets = append(targets, %s)\n}\n",
+					expr,
+					rd.info.ZeroOperand(),
+					rd.target(expr),
+				)
+			case leafOptional:
+				fmt.Fprintf(
+					b,
+					"if %s != nil {\ntargets = append(targets, %s)\n}\n",
+					expr,
+					rd.target("*"+expr),
+				)
+			case leafSlice, leafMap:
+				k := rd.nextVar("k")
+				fmt.Fprintf(
+					b,
+					"for _, %s := range %s {\ntargets = append(targets, %s)\n}\n",
+					k,
+					expr,
+					rd.target(k),
+				)
+			}
+		},
+	)
 	b.WriteString("return targets")
 	return b.String()
+}
+
+// locateBody returns the code that returns the path to the first place in e that holds
+// the target t, or nothing when ref reaches each target through fields alone.
+func (rd *renderer) locateBody(ref *walkedRef) string {
+	mode := ref.sites[0].mode
+	positioned := slices.ContainsFunc(ref.sites, func(s refSite) bool {
+		return slices.ContainsFunc(s.steps, func(st refStep) bool {
+			return st.kind == stepArray || st.kind == stepMap
+		})
+	})
+	if !positioned && mode != leafSlice && mode != leafMap {
+		return ""
+	}
+	var b strings.Builder
+	rd.walk(
+		&b,
+		ref.tree(),
+		"e",
+		walkLocate,
+		nil,
+		func(b *strings.Builder, expr string, path []string) {
+			rd.locateLeaf(b, expr, path, mode)
+		},
+	)
+	b.WriteString("return nil")
+	return b.String()
+}
+
+// locateLeaf writes code that returns path when the field at expr holds t, with the
+// index or map key of the element that holds it for a slice or map field.
+func (rd *renderer) locateLeaf(
+	b *strings.Builder,
+	expr string,
+	path []string,
+	mode leafMode,
+) {
+	found := func(path ...string) string {
+		return "return []string{" + strings.Join(path, ", ") + "}"
+	}
+	switch mode {
+	case leafRequired, leafZero:
+		fmt.Fprintf(b, "if %s == t {\n%s\n}\n", rd.operand(expr), found(path...))
+	case leafOptional:
+		fmt.Fprintf(
+			b,
+			"if %s != nil && %s == t {\n%s\n}\n",
+			expr,
+			rd.operand("*"+expr),
+			found(path...),
+		)
+	case leafSlice:
+		rd.usesStrconv = true
+		i, k := rd.nextVar("i"), rd.nextVar("k")
+		fmt.Fprintf(
+			b,
+			"for %s, %s := range %s {\nif %s == t {\n%s\n}\n}\n",
+			i,
+			k,
+			expr,
+			rd.operand(k),
+			found(slices.Concat(path, []string{"strconv.Itoa(" + i + ")"})...),
+		)
+	case leafMap:
+		rd.usesFmt = true
+		k, v := rd.nextVar("k"), rd.nextVar("v")
+		fmt.Fprintf(
+			b,
+			"for %s, %s := range %s {\nif %s == t {\n%s\n}\n}\n",
+			k,
+			v,
+			expr,
+			rd.operand(v),
+			found(slices.Concat(path, []string{"fmt.Sprint(" + k + ")"})...),
+		)
+	}
 }
 
 // detachBody returns the code that removes the target t from e, or nothing when the
@@ -585,52 +714,59 @@ func (rd *renderer) detachBody(ref *walkedRef) (string, error) {
 // ref, whose sites hold no required field.
 func (rd *renderer) detachLeafBody(ref *walkedRef, mode leafMode) string {
 	var b strings.Builder
-	rd.walk(&b, ref.tree(), "e", true, func(b *strings.Builder, expr string) {
-		switch mode {
-		case leafZero:
-			fmt.Fprintf(
-				b,
-				"if %s == t {\n%s = %s\n}\n",
-				rd.target(expr),
-				expr,
-				rd.info.Zero,
-			)
-		case leafOptional:
-			fmt.Fprintf(
-				b,
-				"if %s != nil && %s == t {\n%s = nil\n}\n",
-				expr,
-				rd.target("*"+expr),
-				expr,
-			)
-		case leafSlice:
-			rd.usesSlices = true
-			k := rd.nextVar("k")
-			fmt.Fprintf(
-				b,
-				"%s = slices.DeleteFunc(%s, func(%s %s) bool {\nreturn %s == t\n})\n",
-				expr,
-				expr,
-				k,
-				rd.info.ElemGoType,
-				rd.target(k),
-			)
-		case leafMap:
-			k, v := rd.nextVar("k"), rd.nextVar("v")
-			fmt.Fprintf(
-				b,
-				"for %s, %s := range %s {\nif %s == t {\ndelete(%s, %s)\n}\n}\n",
-				k,
-				v,
-				expr,
-				rd.operand(v),
-				expr,
-				k,
-			)
-		case leafRequired:
-			panic("detach walk reached a required leaf")
-		}
-	})
+	rd.walk(
+		&b,
+		ref.tree(),
+		"e",
+		walkWrite,
+		nil,
+		func(b *strings.Builder, expr string, _ []string) {
+			switch mode {
+			case leafZero:
+				fmt.Fprintf(
+					b,
+					"if %s == t {\n%s = %s\n}\n",
+					rd.target(expr),
+					expr,
+					rd.info.Zero,
+				)
+			case leafOptional:
+				fmt.Fprintf(
+					b,
+					"if %s != nil && %s == t {\n%s = nil\n}\n",
+					expr,
+					rd.target("*"+expr),
+					expr,
+				)
+			case leafSlice:
+				rd.usesSlices = true
+				k := rd.nextVar("k")
+				fmt.Fprintf(
+					b,
+					"%s = slices.DeleteFunc(%s, func(%s %s) bool {\nreturn %s == t\n})\n",
+					expr,
+					expr,
+					k,
+					rd.info.ElemGoType,
+					rd.target(k),
+				)
+			case leafMap:
+				k, v := rd.nextVar("k"), rd.nextVar("v")
+				fmt.Fprintf(
+					b,
+					"for %s, %s := range %s {\nif %s == t {\ndelete(%s, %s)\n}\n}\n",
+					k,
+					v,
+					expr,
+					rd.operand(v),
+					expr,
+					k,
+				)
+			case leafRequired:
+				panic("detach walk reached a required leaf")
+			}
+		},
+	)
 	return b.String()
 }
 
@@ -685,8 +821,9 @@ func (rd *renderer) detachElemBody(
 		&b,
 		buildTree([][]refStep{head}),
 		"e",
-		true,
-		func(b *strings.Builder, expr string) {
+		walkWrite,
+		nil,
+		func(b *strings.Builder, expr string, _ []string) {
 			v := rd.nextVar("v")
 			fmt.Fprintf(
 				b,
@@ -700,8 +837,9 @@ func (rd *renderer) detachElemBody(
 				b,
 				buildTree(suffixes),
 				v,
-				false,
-				func(b *strings.Builder, expr string) {
+				walkRead,
+				nil,
+				func(b *strings.Builder, expr string, _ []string) {
 					fmt.Fprintf(b, "if %s == t {\nreturn true\n}\n", rd.target(expr))
 				},
 			)
@@ -715,63 +853,70 @@ func (rd *renderer) detachElemBody(
 // through every leaf under nodes. A @ref array that holds to drops from instead.
 func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 	var b strings.Builder
-	rd.walk(&b, nodes, "e", true, func(b *strings.Builder, expr string) {
-		switch mode {
-		case leafRequired, leafZero:
-			fmt.Fprintf(
-				b,
-				"if %s == from {\n%s\n}\n",
-				rd.operand(expr),
-				rd.assign(expr),
-			)
-		case leafOptional:
-			assign := "*" + expr + " = to"
-			if rd.info.IsID {
-				assign = rd.assign(expr)
+	rd.walk(
+		&b,
+		nodes,
+		"e",
+		walkWrite,
+		nil,
+		func(b *strings.Builder, expr string, _ []string) {
+			switch mode {
+			case leafRequired, leafZero:
+				fmt.Fprintf(
+					b,
+					"if %s == from {\n%s\n}\n",
+					rd.operand(expr),
+					rd.assign(expr),
+				)
+			case leafOptional:
+				assign := "*" + expr + " = to"
+				if rd.info.IsID {
+					assign = rd.assign(expr)
+				}
+				fmt.Fprintf(
+					b,
+					"if %s != nil && %s == from {\n%s\n}\n",
+					expr,
+					rd.operand("*"+expr),
+					assign,
+				)
+			case leafSlice:
+				rd.usesSlices = true
+				k, i := rd.nextVar("k"), rd.nextVar("i")
+				elem := fmt.Sprintf("%s[%s]", expr, i)
+				fmt.Fprintf(
+					b,
+					"if slices.ContainsFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
+						"return %[4]s == to\n}) {\n"+
+						"%[1]s = slices.DeleteFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
+						"return %[4]s == from\n})\n"+
+						"} else {\nfor %[5]s := range %[1]s {\n"+
+						"if %[6]s == from {\n%[7]s\n}\n}\n}\n",
+					expr,
+					k,
+					rd.info.ElemGoType,
+					rd.operand(k),
+					i,
+					rd.operand(elem),
+					rd.assign(elem),
+				)
+			case leafMap:
+				k, v := rd.nextVar("k"), rd.nextVar("v")
+				fmt.Fprintf(
+					b,
+					"for %s, %s := range %s {\nif %s == from {\n%s\n%s[%s] = %s\n}\n}\n",
+					k,
+					v,
+					expr,
+					rd.operand(v),
+					rd.assign(v),
+					expr,
+					k,
+					v,
+				)
 			}
-			fmt.Fprintf(
-				b,
-				"if %s != nil && %s == from {\n%s\n}\n",
-				expr,
-				rd.operand("*"+expr),
-				assign,
-			)
-		case leafSlice:
-			rd.usesSlices = true
-			k, i := rd.nextVar("k"), rd.nextVar("i")
-			elem := fmt.Sprintf("%s[%s]", expr, i)
-			fmt.Fprintf(
-				b,
-				"if slices.ContainsFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
-					"return %[4]s == to\n}) {\n"+
-					"%[1]s = slices.DeleteFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
-					"return %[4]s == from\n})\n"+
-					"} else {\nfor %[5]s := range %[1]s {\n"+
-					"if %[6]s == from {\n%[7]s\n}\n}\n}\n",
-				expr,
-				k,
-				rd.info.ElemGoType,
-				rd.operand(k),
-				i,
-				rd.operand(elem),
-				rd.assign(elem),
-			)
-		case leafMap:
-			k, v := rd.nextVar("k"), rd.nextVar("v")
-			fmt.Fprintf(
-				b,
-				"for %s, %s := range %s {\nif %s == from {\n%s\n%s[%s] = %s\n}\n}\n",
-				k,
-				v,
-				expr,
-				rd.operand(v),
-				rd.assign(v),
-				expr,
-				k,
-				v,
-			)
-		}
-	})
+		},
+	)
 	return b.String()
 }
 
@@ -870,22 +1015,29 @@ func (rd *renderer) inlineBody(ref *walkedRef) (string, error) {
 		rd.info.ElemGoType,
 		rd.info.TargetGoType,
 	)
-	rd.walk(&b, buildTree(heads), "e", true, func(b *strings.Builder, expr string) {
-		for _, l := range leaves {
-			v := rd.nextVar("v")
-			fmt.Fprintf(
-				b,
-				"if %s, ok := %s.Variant.(%s); ok && %s.%s == t {\n"+
-					"%s.Variant = target.Inline()\n}\n",
-				v,
-				expr,
-				l.variant,
-				v,
-				l.field,
-				expr,
-			)
-		}
-	})
+	rd.walk(
+		&b,
+		buildTree(heads),
+		"e",
+		walkWrite,
+		nil,
+		func(b *strings.Builder, expr string, _ []string) {
+			for _, l := range leaves {
+				v := rd.nextVar("v")
+				fmt.Fprintf(
+					b,
+					"if %s, ok := %s.Variant.(%s); ok && %s.%s == t {\n"+
+						"%s.Variant = target.Inline()\n}\n",
+					v,
+					expr,
+					l.variant,
+					v,
+					l.field,
+					expr,
+				)
+			}
+		},
+	)
 	b.WriteString("return nil\n")
 	return b.String(), nil
 }
@@ -898,21 +1050,28 @@ func (rd *renderer) inlineDetachBody(ref *walkedRef) (string, error) {
 		return "", err
 	}
 	var b strings.Builder
-	rd.walk(&b, buildTree(heads), "e", true, func(b *strings.Builder, expr string) {
-		for _, l := range leaves {
-			v := rd.nextVar("v")
-			fmt.Fprintf(
-				b,
-				"if %s, ok := %s.Variant.(%s); ok && %s.%s == t {\n%s = nil\n}\n",
-				v,
-				expr,
-				l.variant,
-				v,
-				l.field,
-				expr,
-			)
-		}
-	})
+	rd.walk(
+		&b,
+		buildTree(heads),
+		"e",
+		walkWrite,
+		nil,
+		func(b *strings.Builder, expr string, _ []string) {
+			for _, l := range leaves {
+				v := rd.nextVar("v")
+				fmt.Fprintf(
+					b,
+					"if %s, ok := %s.Variant.(%s); ok && %s.%s == t {\n%s = nil\n}\n",
+					v,
+					expr,
+					l.variant,
+					v,
+					l.field,
+					expr,
+				)
+			}
+		},
+	)
 	return b.String(), nil
 }
 
@@ -970,7 +1129,9 @@ func renderNestedRefs(
 			return nil, errors.Wrap(err, typ.QualifiedName)
 		}
 		nr.RetargetBody = rd.retargetBody(ref.tree(), mode)
+		nr.LocateBody = rd.locateBody(ref)
 		nr.usesSlices = rd.usesSlices
+		nr.usesStrconv, nr.usesFmt = rd.usesStrconv, rd.usesFmt
 		out = append(out, nr)
 	}
 	return out, nil
@@ -1043,6 +1204,17 @@ func (r referencesInfo) needsSlices() bool {
 		r.Refs,
 		func(ref nestedRef) bool { return ref.usesSlices },
 	)
+}
+
+func (r referencesInfo) needsStrconv() bool {
+	return slices.ContainsFunc(
+		r.Refs,
+		func(ref nestedRef) bool { return ref.usesStrconv },
+	)
+}
+
+func (r referencesInfo) needsFmt() bool {
+	return slices.ContainsFunc(r.Refs, func(ref nestedRef) bool { return ref.usesFmt })
 }
 
 func extractReferencesInfo(

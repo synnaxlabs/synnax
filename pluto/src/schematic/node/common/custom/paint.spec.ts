@@ -29,38 +29,9 @@ const createSpec = (
 ): schematic.symbol.Spec =>
   schematic.symbol.specZ.parse({
     drawing: { type: "svg", markup: "<svg/>" },
-    variant: "static",
     parts: [{ key: "body", name: "Body", selectors: [".body"] }],
     ...spec,
   });
-
-describe("Custom.listValues", () => {
-  const entries: enumeration.Entry[] = [
-    { key: "closed", value: 0, name: "Closed", abnormal: false },
-    { key: "open", value: 1, name: "Open", abnormal: false },
-  ];
-
-  it("should list Base and Active for an actuator", () => {
-    expect(Custom.listValues(createSpec({ variant: "actuator" }))).toEqual([
-      { key: "base", value: 0, name: "Base" },
-      { key: "active", value: 1, name: "Active" },
-    ]);
-  });
-
-  it("should list only Base for a static symbol, whatever its entries", () => {
-    expect(Custom.listValues(createSpec({ variant: "static" }), entries)).toEqual([
-      { key: "closed", value: 0, name: "Closed" },
-    ]);
-  });
-
-  it("should name each value after its entry", () => {
-    const one = entries.slice(0, 1);
-    expect(Custom.listValues(createSpec({ variant: "actuator" }), one)).toEqual([
-      { key: "closed", value: 0, name: "Closed" },
-      { key: "active", value: 1, name: "Active" },
-    ]);
-  });
-});
 
 describe("Custom.applies", () => {
   const fault: schematic.symbol.State = {
@@ -251,29 +222,6 @@ describe("Custom.usePaints", () => {
     return result.current;
   };
 
-  describe("useRegions", () => {
-    it("should give each part the colors of its looks at the value", async () => {
-      const spec = createSpec({
-        states: [
-          { type: "enumeration", key: "active", name: "Active", enumeration: valve },
-        ],
-        looks: [
-          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
-        ],
-      });
-      const { result } = renderHook(() => Custom.useRegions(spec, 1), { wrapper });
-      await waitFor(() => expect(result.current).toBeDefined());
-      expect(result.current).toEqual([
-        {
-          key: "body",
-          name: "Body",
-          selectors: [".body"],
-          fillColor: color.construct("#00ff00"),
-        },
-      ]);
-    });
-  });
-
   describe("entry paint", () => {
     const createEntrySpec = (match: schematic.symbol.Matcher = { type: "exact" }) =>
       createSpec({
@@ -406,22 +354,6 @@ describe("Custom.usePaints", () => {
         { selectors: [".body"], stroke: BANDED_NODE },
       ]);
     });
-
-    it("should draw the override in place of the looks", async () => {
-      const spec = createSpec({ looks: [STROKE] });
-      const regions = [
-        {
-          key: "body",
-          name: "Body",
-          selectors: [".body"],
-          strokeColor: color.construct("#123456"),
-        },
-      ];
-      const override = { key: "closed", name: "Closed", regions };
-      expect(await renderPaints(spec, 0, { override })).toEqual([
-        { selectors: [".body"], stroke: color.construct("#123456") },
-      ]);
-    });
   });
 
   describe("theme band", () => {
@@ -460,16 +392,6 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
-    it("should draw an override that copies the looks the same as the looks", async () => {
-      const spec = createEntryFillSpec();
-      const { result } = renderHook(() => Custom.useRegions(spec, 1), { wrapper });
-      await waitFor(() => expect(result.current).toBeDefined());
-      const override = { key: "open", name: "Open", regions: result.current ?? [] };
-      expect(await renderPaints(spec, 1, { override })).toEqual(
-        await renderPaints(spec, 1),
-      );
-    });
-
     it("should draw a color stroke in the band and a color fill as stored", async () => {
       const spec = createSpec({
         looks: [
@@ -482,22 +404,6 @@ describe("Custom.usePaints", () => {
         ],
       });
       expect(await renderPaints(spec, 0)).toEqual([
-        { selectors: [".body"], stroke: BANDED_WHITE, fill: WHITE },
-      ]);
-    });
-
-    it("should draw an override stroke in the band and its fill as stored", async () => {
-      const regions = [
-        {
-          key: "body",
-          name: "Body",
-          selectors: [".body"],
-          strokeColor: WHITE,
-          fillColor: WHITE,
-        },
-      ];
-      const override = { key: "base", name: "Base", regions };
-      expect(await renderPaints(createSpec({}), 0, { override })).toEqual([
         { selectors: [".body"], stroke: BANDED_WHITE, fill: WHITE },
       ]);
     });
@@ -533,16 +439,6 @@ describe("Custom.usePaints", () => {
       expect(await renderPaints(createNoColorSpec(), 0)).toEqual([
         { selectors: [".body"], fill: LIGHT.colors.gray.l11 },
       ]);
-    });
-
-    it("should draw an override that copies the looks for an entry with no color", async () => {
-      const spec = createNoColorSpec();
-      const { result } = renderHook(() => Custom.useRegions(spec, 0), { wrapper });
-      await waitFor(() => expect(result.current).toBeDefined());
-      const override = { key: "base", name: "Base", regions: result.current ?? [] };
-      expect(await renderPaints(spec, 0, { override })).toEqual(
-        await renderPaints(spec, 0),
-      );
     });
 
     it.each([

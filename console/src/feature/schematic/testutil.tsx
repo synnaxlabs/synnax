@@ -289,7 +289,6 @@ export const createSymbolPayload = (name: string): schematic.symbol.New => ({
   name,
   data: {
     drawing: { type: "svg", markup: SYMBOL_SVG },
-    variant: "static",
     handles: [],
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
   },

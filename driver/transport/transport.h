@@ -36,13 +36,23 @@ namespace driver::transport {
 /// datagram.
 constexpr std::size_t BUFFER_SIZE = std::size_t{64} * 1024;
 
+/// @brief WRITE_TIMEOUT is the longest that one write to a device waits.
+const x::telem::TimeSpan WRITE_TIMEOUT = x::telem::SECOND;
+
 /// @brief Chunk is the bytes that one read gives.
 struct Chunk {
     /// @brief data is the bytes that arrived, valid until the next call on the
-    /// transport. It is empty when nothing arrived before the timeout.
+    /// transport. It is empty only when the timeout elapsed first.
     std::span<const std::uint8_t> data;
     /// @brief time is the host time at which the bytes arrived.
     x::telem::TimeStamp time;
+    /// @brief errors is the number of parity errors, framing errors, and breaks that a
+    /// serial line received. data leaves out the bytes that had them.
+    std::size_t errors = 0;
+    /// @brief overruns is the number of receive overruns that a serial line reported
+    /// since the last read: bytes that the UART or the OS dropped because the Driver
+    /// read too slowly.
+    std::size_t overruns = 0;
 };
 
 /// @brief Transport is a connection to a device, such as a serial port, a TCP client,

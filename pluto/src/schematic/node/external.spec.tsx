@@ -42,28 +42,22 @@ describe("symbol forms that wrap a shared form", () => {
     });
     expect(screen.getByRole("tab", { name: "Fill" }).ariaSelected).toBe("true");
   });
-
-  it("should pass the selected tab and actions through the switch form", () => {
-    const { Form: SwitchForm } = Node.REGISTRY.switch;
-    render(
-      <SwitchForm tab="style" onTabChange={vi.fn()} actions={<button>Swap</button>} />,
-      { wrapper: createFormWrapper("switch") },
-    );
-    expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true");
-    expect(screen.getByRole("button", { name: "Swap" })).toBeDefined();
-  });
 });
 
+// The symbols toolbar draws each grouped symbol that is not a built-in with its
+// variant's preview.
+const PREVIEWED = [...new Set(Node.GROUPS.flatMap((g) => g.symbols))]
+  .filter((key) => !Node.BUILT_INS.has(key))
+  .map((key) => Node.variantZ.parse(key));
+
 describe("symbol previews", () => {
-  it.each(Node.STATIC_SPECS)(
-    "should render the $key preview from its default config",
-    ({ key, Preview }) => {
-      const { container } = render(
-        <SynnaxWrapper>
-          <Preview {...Node.createConfig({ variant: key })} scale={0.75} />
-        </SynnaxWrapper>,
-      );
-      expect(container.firstChild).not.toBeNull();
-    },
-  );
+  it.each(PREVIEWED)("should render the %s preview from its default config", (key) => {
+    const { Preview } = Node.resolveSpec(key);
+    const { container } = render(
+      <SynnaxWrapper>
+        <Preview {...Node.createConfig({ variant: key })} scale={0.75} />
+      </SynnaxWrapper>,
+    );
+    expect(container.firstChild).not.toBeNull();
+  });
 });

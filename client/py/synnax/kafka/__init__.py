@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.kafka.types import ReadTask, WriteTask
 from synnax.kafka.types_gen import (
     SASL,
     Credentials,
@@ -16,13 +17,10 @@ from synnax.kafka.types_gen import (
     ReadConfig,
     ReadRecord,
     ReadTopic,
-    Record,
-    RecordKey,
     ScanConfig,
     ScramSha256SASL,
     ScramSha512SASL,
     StartOffset,
-    WriteChannel,
     WriteConfig,
     WriteTarget,
 )
@@ -35,14 +33,13 @@ __all__ = [
     "Properties",
     "ReadConfig",
     "ReadRecord",
+    "ReadTask",
     "ReadTopic",
-    "Record",
-    "RecordKey",
     "ScanConfig",
     "ScramSha256SASL",
     "ScramSha512SASL",
     "StartOffset",
-    "WriteChannel",
     "WriteConfig",
     "WriteTarget",
+    "WriteTask",
 ]

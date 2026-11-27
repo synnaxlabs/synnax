@@ -20,7 +20,6 @@ import { Color } from "@/feature/color";
 import { Enumeration } from "@/feature/enumeration";
 import { ICD } from "@/feature/icd";
 import { Label } from "@/feature/label";
-import { FLAGS } from "@/flags";
 import type { Page } from "@/platform/page";
 
 export const GROUPS: Page.Group[] = [
@@ -49,17 +48,13 @@ export const GROUPS: Page.Group[] = [
         Content: Enumeration.Settings,
         useVisible: useEnumerationsVisible,
       },
-      ...(FLAGS.icds
-        ? [
-            {
-              key: "icds",
-              name: "ICDs",
-              icon: <Icon.Library />,
-              Content: ICD.Settings,
-              useVisible: useICDsVisible,
-            },
-          ]
-        : []),
+      {
+        key: "icds",
+        name: "ICDs",
+        icon: <Icon.Library />,
+        Content: ICD.Settings,
+        useVisible: useICDsVisible,
+      },
     ],
   },
 ];

@@ -26,6 +26,11 @@ describe("Schematic.Node.BUILT_INS", () => {
     );
   });
 
+  it("should list each symbol in a group of the symbols toolbar", () => {
+    const grouped = new Set(Node.GROUPS.flatMap((g) => g.symbols));
+    expect([...Node.BUILT_INS.keys()].filter((name) => !grouped.has(name))).toEqual([]);
+  });
+
   it("should hold no spec for a name that only an object prototype has", () => {
     expect(Node.BUILT_INS.get("constructor")).toBeUndefined();
   });

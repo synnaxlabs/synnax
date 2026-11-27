@@ -74,11 +74,13 @@ void assert_refuses(const std::vector<TextMessage> &messages, const std::string 
     EXPECT_EQ(err.data, text);
 }
 
-/// @brief asserts that decoding line with dec fails with text.
+/// @brief asserts that line matches a message of dec and then fails to decode with
+/// text.
 void assert_rejects(Text &dec, const std::string_view line, const std::string &text) {
     const auto [message, err] = dec.decode(line);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data, text);
+    EXPECT_TRUE(message.has_value());
 }
 
 /// @brief returns the first sample of series s of message m in dec.
@@ -301,6 +303,13 @@ TEST(Text, RefuseNonFloatChannel) {
         {message("a", {at("f", 0)}, "", x::telem::INT32_T)},
         "message a: field f: cannot write float values to int32 channels"
     );
+}
+
+/// @brief it should refuse a field with a zero scale.
+TEST(Text, RefuseZeroScale) {
+    auto f = at("f", 0);
+    f.scale = 0;
+    assert_refuses({message("a", {f})}, "message a: field f: scale must be non-zero");
 }
 
 /// @brief it should write a NaN default for a line with no value for its field.
@@ -622,6 +631,23 @@ TEST(TextEncoder, RefuseInvalidFields) {
     );
 }
 
+/// @brief it should refuse a bound field with a zero scale, and write the default of an
+/// unbound one.
+TEST(TextEncoder, RefuseZeroScale) {
+    auto zero = at("a", 0);
+    zero.scale = 0;
+    assert_encoder_refuses(
+        message("cmd", {zero}),
+        "message cmd: field a: scale must be non-zero"
+    );
+    auto unbound = at("b", 1);
+    unbound.scale = 0;
+    unbound.default_ = 7;
+    auto m = message("cmd", {at("a", 0)});
+    m.payload.fields.emplace_back(unbound);
+    EXPECT_EQ(encode(m, series_of(x::telem::Series(3.0))), "3,7");
+}
+
 /// @brief it should encode without allocating once its scratch space has grown.
 TEST(TextEncoder, EncodeWithoutAllocating) {
     auto t = tagged("t", "T=");
@@ -639,8 +665,7 @@ TEST(TextEncoder, EncodeWithoutAllocating) {
     EXPECT_EQ(std::string(payload.begin(), payload.end()), "$SET,-123456789,T=2.5");
 }
 
-/// @brief it should check a sample of a binding as encode does, and report which fields
-/// have a default.
+/// @brief it should check a sample of a binding as encode does.
 TEST(TextEncoder, CheckSample) {
     auto b = at("b", 1);
     b.default_ = 1;
@@ -652,8 +677,15 @@ TEST(TextEncoder, CheckSample) {
     const auto err = enc.check(1, s, 1);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data, "message cmd: field b: NaN is not finite");
-    EXPECT_FALSE(enc.has_default(0));
-    EXPECT_TRUE(enc.has_default(1));
+}
+
+/// @brief it should be ready when each field has a sample or a default.
+TEST(TextEncoder, Ready) {
+    auto b = at("b", 1);
+    b.default_ = 1;
+    const auto enc = ASSERT_NIL_P(TextEncoder::create(message("cmd", {at("a", 0), b})));
+    EXPECT_FALSE(enc.ready(series_of(none(), none())));
+    EXPECT_TRUE(enc.ready(series_of(x::telem::Series(2.5), none())));
 }
 
 namespace {

@@ -16,7 +16,10 @@ import { deep, type TimeStamp } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
+import { Rack } from "@/platform/rack";
 import { Bar } from "@/platform/task/controls/Bar";
+import { useRegistry } from "@/platform/task/registry";
+import { formPath } from "@/platform/task/types";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
@@ -111,6 +114,17 @@ export const Controls = ({
   const key = useKey();
   const drifted = useDrifted();
   const canControl = Framer.useCanCommand();
+  const type = Form.useFieldValue(formPath.type);
+  const rackKey = Form.useFieldValue(formPath.rack, { optional: true }) ?? null;
+  const integration = useRegistry().getIntegration(type);
+  const args =
+    integration == null
+      ? null
+      : { integration: integration.prefix, name: integration.name };
+  // A deploy moves the task to the rack of its device, so only a block on every rack
+  // disables Start.
+  const blocked = Rack.useBlockedReason(args && { ...args, rack: null });
+  const warning = Rack.useBlockedReason(args && { ...args, rack: rackKey });
 
   const handleDeploy = () => {
     if (key == null) return;
@@ -134,6 +148,12 @@ export const Controls = ({
     failure.taskStatusTime?.valueOf() === taskStatus?.time.valueOf()
   )
     shownStatus = failure.status;
+  else if (warning != null && !running)
+    shownStatus = status.create({
+      name: taskStatus?.name ?? "",
+      variant: "warning",
+      ...warning,
+    });
   let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
   // On a running task, a loading variant disables Redeploy and keeps Stop enabled.
   if (configuring) startStopVariant = running ? "loading" : undefined;
@@ -144,7 +164,7 @@ export const Controls = ({
       running={running}
       drifted={drifted}
       hideActions={!canControl}
-      disabled={configuring && !running}
+      disabled={(configuring || blocked != null) && !running}
       startStopVariant={startStopVariant}
       settings={<Settings />}
       onDeploy={handleDeploy}

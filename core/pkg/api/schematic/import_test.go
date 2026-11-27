@@ -48,7 +48,6 @@ var _ = Describe("Import of an old file with a symbol copy", func() {
 			Group: &g.Key,
 			Data: symbol.Spec{
 				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
-				Variant: "static",
 				States: []symbol.State{
 					{Variant: symbol.EnumerationState{Key: "active"}},
 				},

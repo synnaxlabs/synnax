@@ -25,7 +25,6 @@ export interface AddNodeProps<V extends Node.Variant = Node.Variant> {
 }
 
 export const useAddNode = () => {
-  const client = Synnax.use();
   const dispatch = useSingleDispatch();
 
   return <V extends Node.Variant>({
@@ -34,10 +33,6 @@ export const useAddNode = () => {
     config: input,
   }: AddNodeProps<V>) => {
     const config: Node.Config = Node.createConfig(input);
-    if (Node.isCustomConfig(config)) {
-      const sym = client?.schematics.symbols.watch(config.specKey).getCached();
-      if (query.isLive(sym)) config.label.label = sym.name;
-    }
     dispatch(
       schematic.setNode({ node: { key, position: position ?? xy.ZERO, config } }),
     );
@@ -51,7 +46,6 @@ const customName = (client: Client, key: string): string | undefined => {
 
 // The label a symbol takes on creation: a custom symbol's name, or its spec's label.
 const defaultLabel = (client: Client, config: Node.Config): string | undefined => {
-  if (Node.isCustomConfig(config)) return customName(client, config.specKey);
   if (config.variant !== "symbol") {
     const spec = Node.resolveSpec(config.variant);
     return spec.label ?? spec.name;

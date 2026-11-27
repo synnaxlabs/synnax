@@ -13,6 +13,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -165,6 +166,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k6, v7 := range e.AnalogInput.Channels {
+					if v7 == t {
+						return []string{"analog_input", "channels", fmt.Sprint(k6)}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Device, t channel.Key) {
 				for k2, v3 := range e.AnalogInput.Channels {
 					if v3 == t {
@@ -194,6 +203,14 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k6, v7 := range e.AnalogOutput {
+					if v7.StateIndex == t {
+						return []string{"analog_output", fmt.Sprint(k6), "state_index"}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Device, t channel.Key) {
 				for k3, v2 := range e.AnalogOutput {
@@ -226,6 +243,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k6, v7 := range e.AnalogOutput {
+					if v7.Command == t {
+						return []string{"analog_output", fmt.Sprint(k6), "command"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Device, t channel.Key) {
 				for k3, v2 := range e.AnalogOutput {
 					if v2.Command == t {
@@ -256,6 +281,14 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k6, v7 := range e.AnalogOutput {
+					if v7.State == t {
+						return []string{"analog_output", fmt.Sprint(k6), "state"}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Device, t channel.Key) {
 				for k3, v2 := range e.AnalogOutput {
@@ -288,6 +321,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k6, v7 := range e.CounterInput {
+					if v7.Index == t {
+						return []string{"counter_input", fmt.Sprint(k6), "index"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Device, t channel.Key) {
 				for k3, v2 := range e.CounterInput {
 					if v2.Index == t {
@@ -318,6 +359,14 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k6, v7 := range e.CounterInput {
+					if v7.Channel == t {
+						return []string{"counter_input", fmt.Sprint(k6), "channel"}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Device, t channel.Key) {
 				for k3, v2 := range e.CounterInput {
@@ -350,6 +399,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k6, v7 := range e.DigitalInput {
+					if v7.Index == t {
+						return []string{"digital_input", fmt.Sprint(k6), "index"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Device, t channel.Key) {
 				for k3, v2 := range e.DigitalInput {
 					if v2.Index == t {
@@ -380,6 +437,16 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k11, v12 := range e.DigitalInput {
+					for k13, v14 := range v12.Lines {
+						if v14 == t {
+							return []string{"digital_input", fmt.Sprint(k11), "lines", fmt.Sprint(k13)}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Device, t channel.Key) {
 				for k4, v3 := range e.DigitalInput {
@@ -417,6 +484,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k6, v7 := range e.DigitalOutput {
+					if v7.StateIndex == t {
+						return []string{"digital_output", fmt.Sprint(k6), "state_index"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Device, t channel.Key) {
 				for k3, v2 := range e.DigitalOutput {
 					if v2.StateIndex == t {
@@ -449,6 +524,16 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k11, v12 := range e.DigitalOutput {
+					for k13, v14 := range v12.Lines {
+						if v14.Command == t {
+							return []string{"digital_output", fmt.Sprint(k11), "lines", fmt.Sprint(k13), "command"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Device, t channel.Key) {
 				for k4, v3 := range e.DigitalOutput {
@@ -488,6 +573,16 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				for k11, v12 := range e.DigitalOutput {
+					for k13, v14 := range v12.Lines {
+						if v14.State == t {
+							return []string{"digital_output", fmt.Sprint(k11), "lines", fmt.Sprint(k13), "state"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Device, t channel.Key) {
 				for k4, v3 := range e.DigitalOutput {

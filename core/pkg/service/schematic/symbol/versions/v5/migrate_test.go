@@ -513,12 +513,11 @@ var _ = Describe("Actuate", func() {
 
 	It("Should make a spec an actuator that holds its looks on value 0 on value 1, "+
 		"when no look holds on value 1", func() {
-		spec := v5.Actuate(v5.Spec{Variant: "static", Looks: []v5.Look{
+		spec := v5.Actuate(v5.Spec{Looks: []v5.Look{
 			{Key: "a", When: equals(0)},
 			{Key: "b", When: equals(2)},
 			{Key: "c"},
 		}})
-		Expect(spec.Variant).To(Equal("actuator"))
 		Expect(spec.Looks).To(Equal([]v5.Look{
 			{Key: "a", When: equals(0, 1)},
 			{Key: "b", When: equals(2)},

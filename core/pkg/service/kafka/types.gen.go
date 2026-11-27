@@ -60,8 +60,8 @@ type WriteChannel = versions.WriteChannel
 // Record is the shape of every record a write task produces.
 type Record = versions.Record
 
-// WriteConfig configures a Kafka write task, which produces one record per sample of
-// each channel to a topic.
+// WriteConfig configures a Kafka write task that produces the ICD message of each
+// target to its topic.
 type WriteConfig = versions.WriteConfig
 
 // ReadTopic reads the records of one topic.

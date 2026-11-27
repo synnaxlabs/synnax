@@ -408,9 +408,8 @@ var _ = Describe("ImportCustomNodes", func() {
 				Enumeration: &e.Key,
 				Match:       symbol.Matcher{Variant: symbol.ExactMatcher{}},
 			}}},
-			Looks:   []symbol.Look{{Key: "look-1", When: on(0)}},
-			Variant: "static",
-			Scale:   1,
+			Looks: []symbol.Look{{Key: "look-1", When: on(0)}},
+			Scale: 1,
 		}}
 		Expect(gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&tank).Exec(ctx, db)).
 			To(Succeed())

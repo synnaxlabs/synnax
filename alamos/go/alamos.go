@@ -85,11 +85,15 @@ func New(key string, options ...Option) Instrumentation {
 		option(&ins)
 	}
 	if ins.T != nil {
-		ins.T.meta = ins.Meta
-		ins.T.otel = ins.T.config.OtelProvider.Tracer(ins.Meta.Key)
+		t := *ins.T
+		t.meta = ins.Meta
+		t.otel = t.config.OtelProvider.Tracer(ins.Meta.Key)
+		ins.T = &t
 	}
 	if ins.R != nil {
-		ins.R.meta = ins.Meta
+		r := *ins.R
+		r.meta = ins.Meta
+		ins.R = &r
 	}
 	return ins
 }

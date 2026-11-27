@@ -42,7 +42,7 @@ describe("Device.useConnectModal", () => {
         integrations: ["opc"],
       });
       await open({ rack: rack.key });
-      const reasons = await screen.findAllByText(`${rack.name} is not running`);
+      const reasons = await screen.findAllByText("Driver not running");
       expect(reasons).toHaveLength(Device.INTEGRATIONS.length);
     });
 

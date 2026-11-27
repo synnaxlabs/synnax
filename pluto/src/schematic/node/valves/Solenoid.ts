@@ -1,0 +1,43 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import type { schematic } from "@synnaxlabs/client";
+
+import { Custom } from "@/schematic/node/common/custom";
+import svg from "@/schematic/node/valves/Solenoid.svg?raw";
+
+const HANDLES: schematic.symbol.Handle[] = [
+  { key: "1", position: { x: 0.022989, y: 0.695652 }, orientation: "left" },
+  { key: "2", position: { x: 0.977011, y: 0.695652 }, orientation: "right" },
+  { key: "3", position: { x: 0.333333, y: 0.177778 }, orientation: "left" },
+  { key: "4", position: { x: 0.5, y: 0.028986 }, orientation: "top" },
+  { key: "5", position: { x: 0.666667, y: 0.177778 }, orientation: "right" },
+];
+
+export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
+  family: "valve",
+  svg,
+  handles: HANDLES,
+});
+
+/** NORMALLY_OPEN_SYMBOL is the solenoid valve that is open at rest. */
+export const NORMALLY_OPEN_SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
+  family: "normallyOpenValve",
+  svg,
+  handles: HANDLES,
+  parts: [
+    { key: "body", name: "Body", selectors: [".pluto-body"] },
+    { key: "coil", name: "Coil", selectors: [".pluto-solenoid-valve__coil"] },
+  ],
+  looks: [
+    Custom.STROKE_LOOK,
+    Custom.createFillLook(0, "body"),
+    Custom.createFillLook(1, "coil"),
+  ],
+});

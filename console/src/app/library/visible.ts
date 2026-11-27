@@ -10,8 +10,6 @@
 import { color, enumeration, icd, label } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { FLAGS } from "@/flags";
-
 export const useLabelsVisible = (): boolean =>
   Access.useUpdateGranted(label.TYPE_RESOURCE_ID);
 
@@ -22,7 +20,7 @@ export const useEnumerationsVisible = (): boolean =>
   Access.useUpdateGranted(enumeration.TYPE_RESOURCE_ID);
 
 export const useICDsVisible = (): boolean =>
-  Access.useRetrieveGranted(icd.TYPE_RESOURCE_ID) && FLAGS.icds;
+  Access.useRetrieveGranted(icd.TYPE_RESOURCE_ID);
 
 /** Reports whether the user can use any section of the Library. */
 export const useVisible = (): boolean => {

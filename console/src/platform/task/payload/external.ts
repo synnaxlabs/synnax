@@ -8,5 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/task/payload/DataTypeField";
-export * from "@/platform/task/payload/EnumMappingSection";
-export * from "@/platform/task/payload/TimeFormatField";

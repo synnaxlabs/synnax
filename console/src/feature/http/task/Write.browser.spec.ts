@@ -52,6 +52,8 @@ const retrieveEndpoints = async (key: task.Key) =>
 const createField = (name: string, type: icd.JSONField["type"]): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type });
 
+const NO_FIELDS = "Message has no fields";
+
 /** Creates an ICD that holds one JSON message of the fields, with unique names. */
 const createFormat = async (fields: icd.JSONField[]) => {
   const message = icd.messageZ.parse({
@@ -426,6 +428,18 @@ describe("Write", () => {
       if (stored.payload.format !== "json") throw new Error("expected a JSON message");
       expect(stored.payload.fields.map((f) => f.name)).toEqual(["value", "Field 2"]);
     });
+  });
+
+  it("should mark an endpoint until its message has a field", async () => {
+    const { ic, message } = await createFormat([]);
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [])]);
+    const item = await screen.findByRole("treeitem", { name: /\/setpoint/ });
+    await within(item).findByRole("img", { name: NO_FIELDS });
+    fireEvent.click(item);
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await waitFor(() =>
+      expect(within(item).queryByRole("img", { name: NO_FIELDS })).toBeNull(),
+    );
   });
 
   it("should duplicate an endpoint with its message, but no command channels", async () => {

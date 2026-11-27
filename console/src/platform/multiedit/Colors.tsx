@@ -32,8 +32,6 @@ export interface ColorFieldProps {
    * typed or custom color, and undefined when the user picks Auto.
    */
   onChange: (value?: color.Ref) => void;
-  /** If true, the picker hides the palettes, for a field that stores fixed colors. */
-  palettesHidden?: boolean;
 }
 
 /**
@@ -45,7 +43,6 @@ export const ColorField = ({
   label,
   values,
   onChange,
-  palettesHidden = false,
 }: ColorFieldProps): ReactElement => {
   const [first] = values;
   const mixed = values.some(
@@ -62,7 +59,7 @@ export const ColorField = ({
         mixed={mixed}
         fallback={first.fallback}
         onChange={binding.onChange}
-        library={palettesHidden ? undefined : binding.library}
+        library={binding.library}
       />
     </Input.Item>
   );
@@ -81,10 +78,7 @@ interface Held {
   groups: ColorRef[][];
 }
 
-/**
- * A swatch for each color the selection stores. A change recolors every holder. A
- * swatch hides the palettes while a holder is value only.
- */
+/** A swatch for each color the selection stores. A change recolors every holder. */
 export const SelectionColors = ({
   refs,
   onChange,
@@ -113,7 +107,6 @@ export const SelectionColors = ({
                 setHeld(state.resolve(arg, visible) ? { id, groups } : null)
               }
               onChange={(c) => onChange(current, c)}
-              palettesHidden={current.some((r) => r.valueOnly === true)}
             />
           );
         })}
@@ -128,13 +121,11 @@ interface GroupSwatchProps extends Pick<
 > {
   value: color.Ref;
   onChange: (value: color.Ref) => void;
-  palettesHidden: boolean;
 }
 
 const GroupSwatch = ({
   value,
   onChange,
-  palettesHidden,
   ...rest
 }: GroupSwatchProps): ReactElement | null => {
   const binding = Color.useBinding(value, (c) => {
@@ -148,7 +139,7 @@ const GroupSwatch = ({
       {...rest}
       value={binding.value}
       onChange={binding.onChange}
-      library={palettesHidden ? undefined : binding.library}
+      library={binding.library}
     />
   );
 };

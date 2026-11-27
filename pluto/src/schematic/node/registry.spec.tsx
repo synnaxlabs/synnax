@@ -17,11 +17,8 @@ import { Node } from "@/schematic/node";
 import { GroupBox } from "@/schematic/node/groupBox";
 import { createSynnaxWrapper, renderForm } from "@/testutil";
 
-const createSymbol = (variant: string): schematic.symbol.Symbol =>
-  schematic.symbol.symbolZ.parse({
-    name: "Pump",
-    data: { drawing: { type: "svg", markup: "<svg></svg>" }, variant },
-  });
+const createSetpoint = (input: object = {}): Node.Config =>
+  schematic.nodeConfigZ.parse({ variant: "setpoint", ...input });
 
 describe("Schematic.Node.resolveSpec", () => {
   it("should return the registered spec for a variant", () => {
@@ -33,13 +30,18 @@ describe("Schematic.Node.resolveSpec", () => {
   });
 });
 
-describe("Schematic.Node.REGISTRY", () => {
-  // The node cutover adds the drawing of normally_open_solenoid_valve.
+describe("Schematic.Node.BUILT_INS", () => {
   it("should draw every symbol that the Core ships", async () => {
     const builtins = await createTestClient().schematics.symbols.retrieveBuiltins();
     expect(
-      builtins.map((b) => b.name).filter((name) => !(name in Node.REGISTRY)),
-    ).toEqual(["normally_open_solenoid_valve"]);
+      builtins.map((b) => b.name).filter((name) => !Node.BUILT_INS.has(name)),
+    ).toEqual([]);
+  });
+});
+
+describe("Schematic.Node.REGISTRY", () => {
+  it("groupBox should exist in the registry", () => {
+    expect(Node.REGISTRY).toHaveProperty(GroupBox.VARIANT);
   });
 });
 
@@ -56,66 +58,6 @@ describe("Schematic.Node.isConfig", () => {
     expect(Node.isConfig(schematic.pipeEdgeConfigZ.parse({ variant: "pipe" }))).toBe(
       false,
     );
-  });
-});
-
-describe("Schematic.Node.isCustomVariant", () => {
-  it("should accept every custom variant", () => {
-    for (const variant of Node.CUSTOM_VARIANTS)
-      expect(Node.isCustomVariant(variant)).toBe(true);
-  });
-
-  it("should reject a built-in variant", () => {
-    expect(Node.isCustomVariant("tank")).toBe(false);
-  });
-
-  it("should reject an unset variant", () => {
-    expect(Node.isCustomVariant(undefined)).toBe(false);
-  });
-});
-
-describe("Schematic.Node.isCustomConfig", () => {
-  it("should accept a custom symbol config", () => {
-    const config = Node.createConfig({ variant: "custom_static", specKey: "spec-1" });
-    expect(Node.isCustomConfig(config)).toBe(true);
-  });
-
-  it("should reject a built-in symbol config", () => {
-    expect(Node.isCustomConfig(Node.createConfig({ variant: "tank" }))).toBe(false);
-  });
-});
-
-describe("Schematic.Node.STATIC_SPECS", () => {
-  it("should not include custom variants", () => {
-    const keys = Node.STATIC_SPECS.map((s) => s.key);
-    for (const variant of Node.CUSTOM_VARIANTS) expect(keys).not.toContain(variant);
-  });
-
-  it("should include all non-custom registry entries except groupBox and symbol", () => {
-    const expectedKeys = Object.keys(Node.REGISTRY).filter(
-      (k) => !Node.isCustomVariant(k) && k !== GroupBox.VARIANT && k !== "symbol",
-    );
-    const actualKeys = Node.STATIC_SPECS.map((s) => s.key);
-    expect(actualKeys).toEqual(expect.arrayContaining(expectedKeys));
-    expect(actualKeys).toHaveLength(expectedKeys.length);
-  });
-
-  it("should not include groupBox", () => {
-    const keys = Node.STATIC_SPECS.map((s) => s.key);
-    expect(keys).not.toContain(GroupBox.VARIANT);
-  });
-
-  it("should not include the symbol variant", () => {
-    expect(Node.STATIC_SPECS.map((s) => s.key)).not.toContain("symbol");
-  });
-
-  it("groupBox should exist in the registry", () => {
-    expect(Node.REGISTRY).toHaveProperty(GroupBox.VARIANT);
-  });
-
-  it("custom variants should exist in the registry", () => {
-    for (const variant of Node.CUSTOM_VARIANTS)
-      expect(Node.REGISTRY).toHaveProperty(variant);
   });
 });
 
@@ -153,35 +95,14 @@ describe("Schematic.Node.createConfig", () => {
     expect(Node.createConfig({ variant: "text_box", value: "" }).value).toBe("");
   });
 
-  it("should carry a custom symbol's spec key", () => {
-    const config = Node.createConfig({ variant: "custom_static", specKey: "spec-1" });
-    expect(config.specKey).toBe("spec-1");
-    expect(config.stateOverrides).toEqual([]);
-  });
-
   it("should reject an unknown variant", () => {
     expect(() => Node.createConfig({ variant: "not-a-symbol" } as never)).toThrow();
-  });
-});
-
-describe("Schematic.Node.customVariant", () => {
-  it("should draw a static symbol as a custom static node", () => {
-    expect(Node.customVariant(createSymbol("static"))).toBe("custom_static");
-  });
-
-  it("should draw an actuator as a custom actuator", () => {
-    expect(Node.customVariant(createSymbol("actuator"))).toBe("custom_actuator");
   });
 });
 
 describe("Schematic.Node.symbolKey", () => {
   it("should return the variant of a built-in symbol", () => {
     expect(Node.symbolKey(Node.createConfig({ variant: "tank" }))).toBe("tank");
-  });
-
-  it("should return the spec key of a custom symbol", () => {
-    const config = Node.createConfig({ variant: "custom_static", specKey: "spec-1" });
-    expect(Node.symbolKey(config)).toBe("spec-1");
   });
 
   it("should return the name of the built-in that a symbol node draws", () => {
@@ -233,7 +154,7 @@ describe("Schematic.Node.builtInLabel", () => {
 });
 
 describe("Schematic.Node.builtInName", () => {
-  it("should return the name of the variant that draws the built-in", () => {
+  it("should return the toolbar name of the built-in", () => {
     expect(Node.builtInName("angled_valve")).toBe("Angled");
   });
 
@@ -267,52 +188,35 @@ describe("Schematic.Node.changeConfig", () => {
   });
 
   it("should keep each field the new variant accepts", () => {
-    const valve = Node.createConfig({
-      variant: "valve",
+    const setpoint = createSetpoint({
       label: { label: "OX-1" },
       orientation: "top",
-      scale: 2,
       stateChannel: 12,
-      commandChannel: 13,
     });
-    const changed = Node.changeConfig(valve, { variant: "solenoid_valve" });
+    const changed = Node.changeConfig(setpoint, {
+      variant: "symbol",
+      spec: { type: "builtin", name: "solenoid_valve" },
+    });
     expect(changed).toMatchObject({
-      variant: "solenoid_valve",
+      variant: "symbol",
+      spec: { type: "builtin", name: "solenoid_valve" },
       label: { label: "OX-1" },
       orientation: "top",
-      scale: 2,
-      stateChannel: 12,
-      commandChannel: 13,
-      normallyOpen: false,
     });
   });
 
   it("should drop the fields the new variant does not accept", () => {
-    const valve = Node.createConfig({ variant: "valve", stateChannel: 12 });
-    const changed = Node.changeConfig(valve, { variant: "tank" });
+    const setpoint = createSetpoint({ stateChannel: 12 });
+    const changed = Node.changeConfig(setpoint, { variant: "tank" });
     expect(changed.variant).toBe("tank");
     expect(changed).not.toHaveProperty("stateChannel");
   });
 
   it("should fill the new variant's defaults", () => {
-    const changed = Node.changeConfig(Node.createConfig({ variant: "valve" }), {
+    const changed = Node.changeConfig(Node.createConfig({ variant: "box" }), {
       variant: "value",
     });
     expect(changed.inlineSize).toBe(70);
-  });
-
-  it("should take the spec key of the new custom symbol", () => {
-    const config = Node.createConfig({
-      variant: "custom_static",
-      specKey: "spec-1",
-      stateOverrides: [{ key: "base", name: "Base" }],
-    });
-    const changed = Node.changeConfig(config, {
-      variant: "custom_static",
-      specKey: "spec-2",
-    });
-    expect(changed.specKey).toBe("spec-2");
-    expect(changed.stateOverrides).toEqual([]);
   });
 
   it("should take the spec of the new symbol node and keep its bindings", () => {

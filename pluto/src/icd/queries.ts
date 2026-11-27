@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import { deep, verbs } from "@synnaxlabs/x";
+import { deep, errors, verbs } from "@synnaxlabs/x";
 import type { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -94,18 +94,49 @@ export const { useUpdate: useImport } = Flux.createUpdate<ImportParams, icd.ICD>
     await client.icds.import(key, data, format),
 });
 
-export const formSchema = icd.icdZ.pick({ name: true, messages: true });
+export interface ImportNewParams extends Omit<ImportParams, "key"> {
+  name: string;
+}
+
+/**
+ * Creates an ICD named name from imported data, and deletes it when the import fails.
+ * When the delete fails too, the error names the ICD that stays.
+ */
+export const { useUpdate: useImportNew } = Flux.createUpdate<ImportNewParams, icd.ICD>({
+  name: RESOURCE_NAME,
+  verbs: IMPORT_VERBS,
+  update: async ({ client, data: { name, format, data } }) => {
+    const { key } = await client.icds.create({ name, messages: [] });
+    try {
+      return await client.icds.import(key, data, format);
+    } catch (e) {
+      const failure = errors.fromUnknown(e);
+      try {
+        await client.icds.delete(key);
+      } catch (d) {
+        throw new Error(
+          `${failure.message}. The empty ICD "${name}" stays, because it could not ` +
+            `be deleted: ${errors.fromUnknown(d).message}`,
+          { cause: d },
+        );
+      }
+      throw failure;
+    }
+  },
+});
+
+export const formSchema = icd.icdZ.pick({ name: true, messages: true, framing: true });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 /**
- * A form over the name and messages of a cached ICD. Each edit reaches the Core as a
- * path action. Problems do not stop an edit: {@link useCheck} shows them.
+ * A form over the name, messages, and framing of a cached ICD. Each edit reaches the
+ * Core as a path action. Problems do not stop an edit: {@link useCheck} shows them.
  */
 export const useForm = Flux.createDocumentForm<icd.Key, icd.ICD, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   domain: (client) => client.icds,
   useEnsure,
-  toValues: ({ name, messages }) => ({ name, messages }),
+  toValues: ({ name, messages, framing }) => ({ name, messages, framing }),
 });

@@ -37,6 +37,7 @@ export const GROUP: Group = {
     "regulator_manual",
     "relief_valve",
     "solenoid_valve",
+    "normally_open_solenoid_valve",
     "spring_loaded_relief_valve",
     "three_way_valve",
     "three_way_ball_valve",

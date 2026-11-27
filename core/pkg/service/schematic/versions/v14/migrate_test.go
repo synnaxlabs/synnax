@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
@@ -333,20 +334,6 @@ var _ = Describe("MigrateStalenessConfig", func() {
 	})
 })
 
-var _ = Describe("MigrateToggleConfig", func() {
-	It("Should keep the staleness timeout and drop the color", func(ctx SpecContext) {
-		out := MustSucceed(v14.MigrateToggleConfig(ctx, v13.ToggleConfig{
-			StalenessTimeout: 3 * telem.Second,
-			StalenessColor:   shade(1),
-			StateChannel:     7,
-		}))
-		Expect(out.StalenessConfig).To(Equal(
-			v14.StalenessConfig{StalenessTimeout: 3 * telem.Second},
-		))
-		Expect(out.StateChannel).To(BeEquivalentTo(7))
-	})
-})
-
 var _ = Describe("MigrateNode", func() {
 	It("Should keep the node and store its colors as fixed colors",
 		func(ctx SpecContext) {
@@ -412,6 +399,56 @@ var _ = Describe("MigrateSchematic", func() {
 			pipe, ok := out.Edges[0].Config.Variant.(v14.PipeEdgeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(pipe.StrokeColor).To(Equal(fixed(2)))
+		},
+	)
+	It(
+		"Should turn a switch that faced right or bottom upright and keep its edges",
+		func(ctx SpecContext) {
+			switchNode := func(key string, o spatial.OuterLocation) v13.Node {
+				var cfg v13.SwitchNodeConfig
+				cfg.Orientation = o
+				return v13.Node{Key: key, Config: v13.NodeConfig{Variant: cfg}}
+			}
+			var valve v13.ValveNodeConfig
+			valve.Orientation = spatial.OuterLocationRight
+			end := func(node, param string) v13.Handle {
+				return v13.Handle{Node: node, Param: param}
+			}
+			out := MustSucceed(v14.MigrateSchematic(ctx, v13.Schematic{
+				Nodes: []v13.Node{
+					switchNode("right", spatial.OuterLocationRight),
+					switchNode("bottom", spatial.OuterLocationBottom),
+					switchNode("left", spatial.OuterLocationLeft),
+					{Key: "valve", Config: v13.NodeConfig{Variant: valve}},
+				},
+				Edges: []v13.Edge{
+					{Key: "a", Source: end("right", "1"), Target: end("valve", "1")},
+					{Key: "b", Source: end("valve", "2"), Target: end("bottom", "2")},
+					{Key: "c", Source: end("left", "1"), Target: end("bottom", "1")},
+				},
+			}))
+			orientations := lo.Map(
+				out.Nodes,
+				func(n v14.Node, _ int) spatial.OuterLocation {
+					cfg, ok := n.Config.Variant.(v14.SymbolNodeConfig)
+					Expect(ok).To(BeTrue())
+					return cfg.Orientation
+				},
+			)
+			Expect(orientations).To(Equal([]spatial.OuterLocation{
+				spatial.OuterLocationLeft,
+				spatial.OuterLocationTop,
+				spatial.OuterLocationLeft,
+				spatial.OuterLocationRight,
+			}))
+			ends := lo.Map(out.Edges, func(e v14.Edge, _ int) [2]v14.Handle {
+				return [2]v14.Handle{e.Source, e.Target}
+			})
+			Expect(ends).To(Equal([][2]v14.Handle{
+				{end("right", "2"), end("valve", "1")},
+				{end("valve", "2"), end("bottom", "1")},
+				{end("left", "1"), end("bottom", "2")},
+			}))
 		},
 	)
 	It(

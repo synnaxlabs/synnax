@@ -9,13 +9,7 @@
 
 import "@/feature/kafka/task/Task.css";
 
-import {
-  channel,
-  DisconnectedError,
-  icd,
-  kafka,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, DisconnectedError, icd, kafka } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -197,19 +191,31 @@ const TopicItem = (props: Tree.ItemRenderProps<string>) => {
   return <Task.Views.TreeGroupItem {...props} label={<TopicLabel name={name} />} />;
 };
 
+const MISSING_DESCRIPTION =
+  "The ICD no longer has this message. Add a message to the record, then remove this one.";
+
 const RecordItem = (props: Tree.ItemRenderProps<string>) => {
   const ctx = PForm.useContext();
   const topic = topicOf(ctx.get(root.config.topics).value, props.itemKey);
   const path = recordPath(topic, props.itemKey);
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
   const recordKey = PForm.useFieldValue(path.recordKey, { optional: true });
-  if (disabled == null || recordKey == null) return null;
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const messages = PForm.useFieldValue(path.messages, { optional: true });
+  if (disabled == null || recordKey == null || icdKey == null) return null;
   return (
     <Task.Views.TreeGroupItem
       {...props}
       label={<RecordLabel recordKey={recordKey} emptyLabel={ANY_KEY} />}
       off={disabled}
     >
+      {messages != null && (
+        <ICD.MessageMark
+          icdKey={icdKey}
+          messages={messages.map(({ message }) => message)}
+          missingDescription={() => MISSING_DESCRIPTION}
+        />
+      )}
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
   );
@@ -231,8 +237,7 @@ const useMessageProps = (
     // A new index field keeps the channel of the old one.
     indexChannel: bindings.find(({ field }) => field === index)?.channel ?? 0,
     sourceLabel: "Kafka timestamp",
-    missingDescription:
-      "The ICD no longer has this message. Add a message to the record, then remove this one.",
+    missingDescription: MISSING_DESCRIPTION,
   };
 };
 
@@ -437,6 +442,7 @@ const Records: FC<RecordsProps> = ({
     sourceOf: (r) => r,
     pathOf,
     SourceItem: RecordItem,
+    missingDescription: () => MISSING_DESCRIPTION,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an enabled record reads it. A record that reads one message also reuses
     // the channels of its earlier messages, so a new message format keeps its channels.
@@ -742,25 +748,20 @@ const prefixOf = (deviceName: string, { topic, source }: BoundMessage) =>
   recordPrefix(deviceName, topic.name, source.recordKey);
 
 /**
- * Plans the channels of each message, in deploy order with one namer. A message plans
+ * Plans the channels of each message, in deploy order with one planner. A message plans
  * with the channels that earlier ones keep added to written, so it leaves a stored
- * channel that another binding writes. Reads from the Core alone. Throws between
- * messages once signal aborts.
+ * channel that another binding writes.
  */
-const planRead = async (
-  client: Synnax,
+const planRead = (
+  planner: Task.Planner,
   dev: Pick<Device.Device, "name" | "properties">,
   bound: BoundMessage[],
   written: Set<channel.Key>,
-  signal?: AbortSignal,
-): Promise<ICD.MessagePlan[]> => {
-  const namer = Task.createNamer(client);
+): ICD.MessagePlan[] => {
   const plans: ICD.MessagePlan[] = [];
   for (const b of bound) {
-    signal?.throwIfAborted();
-    const plan = await ICD.planMessage(
-      client,
-      namer,
+    const plan = ICD.planMessage(
+      planner,
       b,
       prefixOf(dev.name, b),
       dev.properties.read[storedKeyOf(b)],
@@ -804,10 +805,8 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
     prefix: prefixOf(device.name, b),
     props: device.properties.read[storedKeyOf(b)],
   }));
-  const plans = Task.useChannelPlans(
-    sources,
-    async (client, signal) =>
-      await planRead(client, device, bound, writtenChannels(topics), signal),
+  const plans = Task.useChannelPlans(sources, (planner) =>
+    planRead(planner, device, bound, writtenChannels(topics)),
   );
   const reads = bound.map(({ topic, source, read }, i): ICD.PlannedRead => ({
     path: recordPath(topic.key, source.key),
@@ -890,7 +889,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   // A deploy that fails partway keeps the channels it made for the next one.
   const before = deep.copy(dev.properties);
   try {
-    const plans = await planRead(client, dev, bound, writtenChannels(config.topics));
+    const plans = await Task.planChannels(client, (planner) =>
+      planRead(planner, dev, bound, writtenChannels(config.topics)),
+    );
     for (const [i, b] of bound.entries())
       await ICD.applyMessage(client, b, plans[i], {
         read: dev.properties.read,

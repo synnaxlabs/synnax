@@ -827,8 +827,6 @@ bound, a log precision, or the line plot X channel.
   list, its tooltip says that deploying skips it.
 - A missing channel shows the name deploying will use, and a rename edits that name. Its
   data type unlocks too, because deploying creates a new channel.
-- A channel that the form picks, as in Kafka write, is never new. It reads "No channel"
-  before a pick and "Channel not found" after its channel is deleted.
 - A channel name input shows the same state icons at its start. An item in a group tree
   shows them at its end, before its switch, so the pointers keep one left edge. Neither
   shows an icon or a tooltip for a skipped channel: the tree strikes through the item or

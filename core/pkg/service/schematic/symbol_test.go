@@ -34,7 +34,6 @@ func heater() symbol.Symbol {
 		Name: "Heater",
 		Data: symbol.Spec{
 			Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
-			Variant: "static",
 			States: []symbol.State{
 				{Variant: symbol.EnumerationState{
 					BaseState: symbol.BaseState{Key: "active", Name: "Active"},
