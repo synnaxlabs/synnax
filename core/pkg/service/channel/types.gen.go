@@ -81,6 +81,30 @@ func (d Direction) IsValid() bool {
 	}
 }
 
+// Tag returns the Tag of a generated reference whose holder uses its targets as d says,
+// or 0 when d is not valid.
+func (d Direction) Tag() uint8 {
+	switch d {
+	case DirectionRead:
+		return 1
+	case DirectionWrite:
+		return 2
+	}
+	return 0
+}
+
+// DirectionOfTag returns the Direction whose Tag is tag, and false when no value has
+// it.
+func DirectionOfTag(tag uint8) (d Direction, ok bool) {
+	switch tag {
+	case 1:
+		return DirectionRead, true
+	case 2:
+		return DirectionWrite, true
+	}
+	return d, false
+}
+
 // Where is a filter that selects channels.
 type Where struct {
 	// And matches when every child matches.

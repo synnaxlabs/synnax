@@ -11,6 +11,7 @@ import type { schematic } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { type ReactElement, type RefCallback, useState } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Control } from "@/schematic/node/common/control";
@@ -189,10 +190,7 @@ export const Node = ({
     sinks: bind.sinks(commandChannels),
     stalenessTimeout,
   });
-  const { deleted, watchers } = Deleted.useAny([
-    ...bind.channels(states),
-    ...commandChannels,
-  ]);
+  const deleted = Channel.useAnyDeleted([...bind.channels(states), ...commandChannels]);
   const value = bind.values(states, readings);
   const missing = bind.missing(states, readings);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -229,59 +227,56 @@ export const Node = ({
   const unmatched = Custom.useUnmatched(bound.spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   return (
-    <>
-      {watchers}
-      <Grid.Grid
-        editable={selected}
-        nodeKey={nodeKey}
+    <Grid.Grid
+      editable={selected}
+      nodeKey={nodeKey}
+      orientation={orientation}
+      onRotate={onConfigChange}
+      {...scaleResize}
+    >
+      <Label.Label config={label} onChange={onConfigChange} />
+      <Control.State
+        config={config.control ?? DEFAULT_CONTROL}
+        channels={commandChannels}
+        deleted={deleted}
+        onChange={onConfigChange}
+      />
+      <Indicator.Slot
+        stale={bind.stale(states, readings)}
+        unknown={missing.size > 0 || unmatched}
+      />
+      {deleted && <Deleted.Item />}
+      <Drawn
+        {...bound}
+        color={color}
         orientation={orientation}
-        onRotate={onConfigChange}
-        {...scaleResize}
+        scale={scale}
+        motionDisabled={motionDisabled}
+        value={value}
+        readings={bind.stateReadings(states, readings)}
+        onClick={onClick}
+        partClicks={deleted ? undefined : partClicks}
+        onClickDelay={config.onClickDelay}
+        anchorRef={setAnchor}
+        disabled={deleted}
+      />
+      <Dialog.Frame
+        visible={promptVisible}
+        onVisibleChange={setPromptVisible}
+        anchor={anchor}
       >
-        <Label.Label config={label} onChange={onConfigChange} />
-        <Control.State
-          config={config.control ?? DEFAULT_CONTROL}
-          channels={commandChannels}
-          deleted={deleted}
-          onChange={onConfigChange}
-        />
-        <Indicator.Slot
-          stale={bind.stale(states, readings)}
-          unknown={missing.size > 0 || unmatched}
-        />
-        {deleted && <Deleted.Item />}
-        <Drawn
-          {...bound}
-          color={color}
-          orientation={orientation}
-          scale={scale}
-          motionDisabled={motionDisabled}
-          value={value}
-          readings={bind.stateReadings(states, readings)}
-          onClick={onClick}
-          partClicks={deleted ? undefined : partClicks}
-          onClickDelay={config.onClickDelay}
-          anchorRef={setAnchor}
-          disabled={deleted}
-        />
-        <Dialog.Frame
-          visible={promptVisible}
-          onVisibleChange={setPromptVisible}
-          anchor={anchor}
-        >
-          {/* The prompt mounts for each open, so a typed value never outlives it. */}
-          {promptVisible && request != null && (
-            <Prompt
-              request={request}
-              onSend={(s) => {
-                setPromptVisible(false);
-                send(s);
-              }}
-            />
-          )}
-        </Dialog.Frame>
-      </Grid.Grid>
-    </>
+        {/* The prompt mounts for each open, so a typed value never outlives it. */}
+        {promptVisible && request != null && (
+          <Prompt
+            request={request}
+            onSend={(s) => {
+              setPromptVisible(false);
+              send(s);
+            }}
+          />
+        )}
+      </Dialog.Frame>
+    </Grid.Grid>
   );
 };
 

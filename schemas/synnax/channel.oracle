@@ -317,9 +317,10 @@ Direction enum {
     }
 
     @cpp omit
-    @doc value "is how a record uses a channel."
-    @go output "core/pkg/service/channel"
+    @doc value      "is how a record uses a channel."
+    @go output      "core/pkg/service/channel"
     @pb omit
+    @ref directions
 }
 
 Use struct {

@@ -19,20 +19,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Tags that generated references to a channel carry. Oracle writes them for
-// `@ref direction read` and `@ref direction write`.
-const (
-	// ReadTag is the Tag of a reference whose holder reads the channel.
-	ReadTag uint8 = 1
-	// WriteTag is the Tag of a reference whose holder writes the channel.
-	WriteTag uint8 = 2
-)
-
-var tagDirections = map[uint8]Direction{
-	ReadTag:  DirectionRead,
-	WriteTag: DirectionWrite,
-}
-
 func compareUses(a, b Use) int {
 	return cmp.Or(
 		strings.Compare(a.Holder.Table, b.Holder.Table),
@@ -76,7 +62,7 @@ func (s *Service) Uses(
 			if d.Tag == 0 {
 				continue
 			}
-			dir, ok := tagDirections[d.Tag]
+			dir, ok := DirectionOfTag(d.Tag)
 			if !ok {
 				return nil, errors.Newf(
 					"reference %s of %s has unknown tag %d",

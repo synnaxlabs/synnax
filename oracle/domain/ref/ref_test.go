@@ -36,6 +36,25 @@ func field(exprs ...resolution.Expression) resolution.Field {
 	return f
 }
 
+func enum(refExpr bool, names ...string) resolution.Type {
+	values := make([]resolution.EnumValue, len(names))
+	for i, n := range names {
+		values[i] = resolution.EnumValue{Name: n, Value: n}
+	}
+	t := resolution.Type{
+		Name:    "Direction",
+		Form:    resolution.EnumForm{Values: values},
+		Domains: map[string]resolution.Domain{},
+	}
+	if refExpr {
+		t.Domains["ref"] = resolution.Domain{
+			Name:        "ref",
+			Expressions: []resolution.Expression{expr("directions")},
+		}
+	}
+	return t
+}
+
 var _ = Describe("Ref", func() {
 	Describe("Declares", func() {
 		It("Should declare a reference for a @ref with an on_delete", func() {
@@ -83,6 +102,24 @@ var _ = Describe("Ref", func() {
 			Entry("no value", field(expr("direction"))),
 			Entry("two values", field(expr("direction", "read", "write"))),
 		)
+	})
+
+	Describe("EnumDirections", func() {
+		It("Should read the direction that each value of the enum names", func() {
+			Expect(MustSucceed(ref.EnumDirections(enum(true, "write", "read")))).
+				To(Equal([]ref.Direction{ref.Write, ref.Read}))
+		})
+
+		It("Should read no directions from an enum with no @ref directions", func() {
+			Expect(MustSucceed(ref.EnumDirections(enum(false, "read")))).To(BeNil())
+		})
+
+		It("Should refuse a value that names no direction", func() {
+			Expect(ref.EnumDirections(enum(true, "read", "both"))).Error().
+				To(MatchError(
+					"@ref directions enum Direction: value both names no direction",
+				))
+		})
 	})
 
 	Describe("Direction", func() {
