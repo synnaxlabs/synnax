@@ -94,10 +94,16 @@ a transient or interrupted Core error never ends `read`.
 `spool::Spool` (NEW) is one per Driver, in the state directory
 (`driver/rack/state.h:17-28`), capped at 10 GB by default in the Driver config. A full
 spool refuses new frames and counts them, so each segment stays contiguous. A segment
-holds one forwarder's outage: the cluster key, the channels and subject, and the frames
-as `pb::Frame` records (`x/cpp/telem/frame.h:185`). The forwarder spools
-`states->filter(fr, subject)`, the frame the bus publishes, and drops virtual calculated
-channels (`core/pkg/service/channel/writer.go:407-408`).
+holds one forwarder's outage: a header with the cluster key, the subject, and the
+channels with their data types, then the frames as `driver.spool.pb.Frame` records
+without data types, and a close record when its writer closes. A writer starts a new
+segment at 1 GiB, so space frees as segments drain. The spool syncs each second or each
+64 MB. A reader of a closed segment treats any damage as corrupt. At open, the spool
+cuts the damaged tail of a segment without a close record, syncs it, and closes it. The
+cap, a 1 GB free-space floor, the segment size, and both sync limits are Driver config
+settings. The forwarder spools `states->filter(fr, subject)`, the frame the bus
+publishes, and drops virtual calculated channels
+(`core/pkg/service/channel/writer.go:407-408`).
 
 The spool and the outbox (§3.4) share one file format, `journal` (NEW). A file starts
 with a magic for its kind, a format version, flags, a random salt, the sync size and
@@ -120,6 +126,8 @@ a commit succeeds (RFC 0095 §4.0 and §4.4).
   drainer retries with backoff.
 - **Commit reaches stored data**: The drainer drops the overlap and counts it.
 - **Segment from another cluster**: The drainer deletes and counts it.
+- **Segment fails its checks**: The spool renames it to `<key>.seg.bad`, keeps it, and
+  reports it in a rack status. A read error repeats, so the drainer never skips a frame.
 
 Frames the Core had not read when a Core writer fails are lost, because writes are not
 acked per frame (`client/cpp/framer/writer.cpp:57-60`). The forwarder reports the loss
