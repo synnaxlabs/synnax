@@ -20,11 +20,8 @@
     --pluto-control-width: 64rem;
 }
 
-/* The name keeps at least two fifths of an option. The entries fold into the rest and
-   end at the option's own padding, so the entries of all options line up at the end. */
+/* The name keeps at least two fifths of an option. */
 .pluto-enumeration-select__entries {
     flex: 0 1 auto;
-    justify-content: flex-end;
     max-width: 60%;
-    padding-right: 0;
 }

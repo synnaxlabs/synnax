@@ -102,7 +102,7 @@ describe("Enumeration select", () => {
     );
     fireEvent.click(c.getByRole("button", { name: "Enumeration" }));
     const option = await c.findByRole("option", { name: e.name });
-    expect(option.textContent).toBe(`${e.name}OpenClosed`);
+    expect(option.textContent).toBe(`${e.name}Open, Closed`);
   });
 
   it("should name the schematics that an edit changes", async () => {
