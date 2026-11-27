@@ -387,11 +387,52 @@ var _ = Describe("Handle", func() {
 				},
 			)
 
+			It(
+				"Should open a held file past the limit when every open file is in use, "+
+					"and close idle files to return under the limit",
+				func() {
+					newBudget(1)
+					first := MustSucceed(b.Create(fs, "1.seg"))
+					write(first, "1.seg")
+					second := MustSucceed(b.Create(fs, "2.seg"))
+					write(second, "2.seg")
+					firstFile := MustSucceed(first.Hold())
+					secondFile := MustSucceed(second.Hold())
+					Expect(fs.MaxOpen()).To(Equal(2))
+					p := make([]byte, 5)
+					Expect(firstFile.ReadAt(p, 0)).To(Equal(5))
+					Expect(string(p)).To(Equal("1.seg"))
+					Expect(secondFile.ReadAt(p, 0)).To(Equal(5))
+					Expect(string(p)).To(Equal("2.seg"))
+					first.Release()
+					second.Release()
+					third := MustSucceed(b.Create(fs, "3.seg"))
+					ops := fs.Ops()
+					Expect(ops[len(ops)-3:]).To(Equal(
+						[]string{"close 1.seg", "close 2.seg", "open 3.seg"},
+					))
+					for _, h := range []*segment.Handle{first, second, third} {
+						Expect(h.Close()).To(Succeed())
+					}
+				},
+			)
+
+			It("Should close a held handle only after its Release", func() {
+				h := MustSucceed(newBudget(1).Create(fs, "1.seg"))
+				MustSucceed(h.Hold())
+				closed := make(chan error, 1)
+				go func() { closed <- h.Close() }()
+				Consistently(closed).ShouldNot(Receive())
+				h.Release()
+				Eventually(closed).WithTimeout(syncTimeout).Should(Receive(BeNil()))
+			})
+
 			It("Should refuse every call after Close", func() {
 				h := MustSucceed(newBudget(1).Create(fs, "1.seg"))
 				Expect(h.Close()).To(Succeed())
 				closed := "segment file 1.seg: segment handle is closed"
 				Expect(syncOf(h)).To(MatchError(closed))
+				Expect(h.Hold()).Error().To(MatchError(closed))
 				Expect(h.ReadAt(make([]byte, 1), 0)).Error().To(MatchError(closed))
 				Expect(h.WriteAt([]byte("x"), 0)).Error().To(MatchError(closed))
 				Expect(h.Close()).To(Succeed())

@@ -10,6 +10,7 @@
 package segment
 
 import (
+	"io"
 	"os"
 	"path"
 	"sync"
@@ -62,8 +63,10 @@ type Handle struct {
 	prev, next *Handle
 }
 
-// acquire returns the open file of h and counts the caller as a user of it.
-func (h *Handle) acquire() (xfs.File, error) {
+// acquire returns the open file of h and counts the caller as a user of it. When every
+// open file of the budget is in use, acquire waits for one to become idle, or opens the
+// file past the limit when past is true.
+func (h *Handle) acquire(past bool) (xfs.File, error) {
 	b := h.b
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -80,6 +83,9 @@ func (h *Handle) acquire() (xfs.File, error) {
 		case b.open < b.limit:
 			return h.openFile()
 		case b.idle.prev == &b.idle:
+			if past {
+				return h.openFile()
+			}
 			b.cond.Wait()
 		default:
 			b.evict(b.idle.prev)
@@ -149,9 +155,17 @@ func (h *Handle) fail(err error) {
 	}
 }
 
+// Hold keeps the file of h open until Release and returns it for reads that skip the
+// budget. It opens past the limit of the budget instead of waiting for an idle file.
+// Each Hold needs one Release.
+func (h *Handle) Hold() (io.ReaderAt, error) { return h.acquire(true) }
+
+// Release ends a Hold.
+func (h *Handle) Release() { h.release(false) }
+
 // ReadAt reads len(p) bytes from file offset off.
 func (h *Handle) ReadAt(p []byte, off int64) (int, error) {
-	file, err := h.acquire()
+	file, err := h.acquire(false)
 	if err != nil {
 		return 0, err
 	}
@@ -164,7 +178,7 @@ func (h *Handle) ReadAt(p []byte, off int64) (int, error) {
 func (h *Handle) WriteAt(p []byte, off int64) (int, error) {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
-	file, err := h.acquire()
+	file, err := h.acquire(false)
 	if err != nil {
 		return 0, err
 	}

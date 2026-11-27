@@ -130,8 +130,8 @@ var _ = Describe("Sync check", func() {
 			}
 			Expect(len(tried)).To(BeNumerically(">=", 32))
 			Expect(lost).To(BeEmpty(), fmt.Sprintf(
-				"of %d run keys, Sync returned nil after a failed sync and the bytes it "+
-					"acked are not durable after a crash",
+				"of %d run keys, Sync returned nil after a failed sync and the "+
+					"bytes it acked are not durable after a crash",
 				len(tried),
 			))
 		},
@@ -164,7 +164,8 @@ var _ = Describe("Sync check", func() {
 					Consistently(synced, 200*time.Millisecond).ShouldNot(Receive())
 					close(release)
 					Expect(<-synced).To(MatchError(ContainSubstring(
-						"segment file 1.seg failed, and it is never synced or written again",
+						"segment file 1.seg failed, and it is never synced or " +
+							"written again",
 					)))
 					second := <-created
 					Expect(second.Close()).To(Succeed())
@@ -174,7 +175,8 @@ var _ = Describe("Sync check", func() {
 			)
 
 			It(
-				"Should run the sync before a budget close inside the width of the pool",
+				"Should run the sync before a budget close inside the width of the "+
+					"pool",
 				func() {
 					b := MustSucceed(segment.NewBudget(2, 1, segment.GoExecutor))
 					first := MustSucceed(b.Create(fs, "1.seg"))

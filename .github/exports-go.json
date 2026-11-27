@@ -6,6 +6,105 @@
   "pending": [
     {
       "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "BodyStart",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Checkpointer",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "ChunkSize",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Clean",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Config",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Encode",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "ErrIncomplete",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Header",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Name",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "New",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Read",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "SectorSize",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "name": "Write",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "receiver": "Checkpointer",
+      "name": "Head",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "receiver": "Checkpointer",
+      "name": "Prepare",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/checkpoint",
+      "receiver": "Checkpointer",
+      "name": "Run",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/log",
       "name": "Ack",
       "caller": "sy-6398-17c-pointer-log-engine"
@@ -215,12 +314,6 @@
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/place",
-      "name": "Head",
-      "caller": "sy-6398-17b-pointer-log-state"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/place",
       "name": "Part",
       "caller": "sy-6569-18c-parts"
     },
@@ -355,6 +448,13 @@
       "package": "github.com/synnaxlabs/cesium/internal/segment",
       "receiver": "Writer",
       "name": "Len",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/segment",
+      "receiver": "Writer",
+      "name": "Pending",
       "caller": "sy-6398-17c-pointer-log-engine"
     },
     {
