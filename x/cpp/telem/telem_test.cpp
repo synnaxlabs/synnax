@@ -1503,6 +1503,11 @@ TEST(SizeTests, testParseErrorReasons) {
     ASSERT_EQ(reason("1KB1B"), "expected a space after each unit");
     ASSERT_EQ(reason("1MB 1GB"), "each unit may appear at most once, largest first");
     ASSERT_EQ(reason("1KB 1KB"), "each unit may appear at most once, largest first");
+    ASSERT_EQ(reason(""), "expected a number followed by a unit (B, KB, MB, GB, TB)");
+    ASSERT_EQ(
+        reason(" \t"),
+        "expected a number followed by a unit (B, KB, MB, GB, TB)"
+    );
 }
 
 /// @brief it should cut a long input to 64 characters in a parse error.

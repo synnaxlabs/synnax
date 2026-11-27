@@ -1055,7 +1055,8 @@ inline std::pair<Size, errors::Error> Size::parse(const std::string &text) {
             return invalid("exceeds the maximum size");
         total += count * unit;
     }
-    if (terms == 0) return invalid("expected a number followed by a unit");
+    if (terms == 0)
+        return invalid("expected a number followed by a unit (B, KB, MB, GB, TB)");
     return {Size(total), errors::NIL};
 }
 
