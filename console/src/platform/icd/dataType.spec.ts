@@ -19,9 +19,16 @@ const fieldOf = (type: payload.Kind, scale = 1, offset = 0) =>
     name: "v",
     pointer: "/v",
     type,
+    timeFormat: "unix_ms",
     scale,
     offset,
   });
+
+const textFieldOf = (scale = 1) =>
+  icd.textFieldZ.parse({ key: uuid.create(), name: "t", encoding: "delimited", scale });
+
+const binaryFieldOf = (kind: icd.BinaryFieldType, bitLength: number) =>
+  icd.binaryFieldZ.parse({ key: uuid.create(), name: "b", kind, bitLength });
 
 describe("ICD data types", () => {
   describe("converts", () => {
@@ -38,9 +45,7 @@ describe("ICD data types", () => {
       ["timestamp", DataType.TIMESTAMP, true],
       ["timestamp", DataType.INT64, false],
     ] as const)("should report whether %s converts to %s", (kind, dt, expected) => {
-      expect(ICD.converts({ type: kind, scale: 1, offset: 0 }, dt.toString())).toBe(
-        expected,
-      );
+      expect(ICD.converts(fieldOf(kind), dt.toString())).toBe(expected);
     });
 
     it.each([
@@ -63,6 +68,34 @@ describe("ICD data types", () => {
         DataType.FLOAT64,
         true,
       ],
+    ] as const)("should report whether %s converts to %s", (_, field, dt, expected) => {
+      expect(ICD.converts(field, dt.toString())).toBe(expected);
+    });
+
+    it.each([
+      [DataType.FLOAT64, true],
+      [DataType.FLOAT32, true],
+      [DataType.INT64, false],
+      [DataType.STRING, false],
+    ] as const)("should report whether a text field converts to %s", (dt, expected) => {
+      expect(ICD.converts(textFieldOf(), dt.toString())).toBe(expected);
+    });
+
+    it.each([
+      ["a 16-bit unsigned field", binaryFieldOf("unsigned", 16), DataType.UINT16, true],
+      ["a 16-bit unsigned field", binaryFieldOf("unsigned", 16), DataType.INT16, false],
+      ["a 16-bit unsigned field", binaryFieldOf("unsigned", 16), DataType.INT32, true],
+      ["a 16-bit unsigned field", binaryFieldOf("unsigned", 16), DataType.UINT8, false],
+      [
+        "a 16-bit unsigned field",
+        binaryFieldOf("unsigned", 16),
+        DataType.FLOAT32,
+        true,
+      ],
+      ["an 8-bit integer field", binaryFieldOf("integer", 8), DataType.INT8, true],
+      ["an 8-bit integer field", binaryFieldOf("integer", 8), DataType.UINT8, false],
+      ["a 32-bit float field", binaryFieldOf("float", 32), DataType.FLOAT32, true],
+      ["a 32-bit float field", binaryFieldOf("float", 32), DataType.INT64, false],
     ] as const)("should report whether %s converts to %s", (_, field, dt, expected) => {
       expect(ICD.converts(field, dt.toString())).toBe(expected);
     });
@@ -107,6 +140,9 @@ describe("ICD data types", () => {
       ["an unscaled unsigned field", fieldOf("unsigned"), "uint64"],
       ["an integer field with a scale", fieldOf("integer", 0.5), "float64"],
       ["an unsigned field with an offset", fieldOf("unsigned", 1, 4), "float64"],
+      ["a text field", textFieldOf(), "float64"],
+      ["a binary integer field", binaryFieldOf("integer", 12), "int64"],
+      ["a binary unsigned field", binaryFieldOf("unsigned", 16), "uint64"],
     ] as const)(
       "should give a binding that names no data type the default of %s",
       (_, field, expected) => {
