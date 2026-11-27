@@ -24,8 +24,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// With no check before Allocate, the table's unique check is the one check, and a clash
-// fails with a UniqueError that names the holder, at the position of the request.
 var _ = Describe("Clash checks", func() {
 	var (
 		db       *gorp.DB
