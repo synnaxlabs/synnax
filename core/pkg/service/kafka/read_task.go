@@ -46,9 +46,7 @@ type readGroup struct {
 	read.Group
 	// name names the message and its record key in errors.
 	name string
-	// data[i] holds the current poll's samples of channel i.
-	data [][]byte
-	// columns[i] places the samples of channel i in data[i].
+	// columns[i] holds the current poll's samples of channel i.
 	columns []column
 	// rows are the current poll's records, which columns hold in arrival order.
 	rows []row
@@ -261,12 +259,10 @@ func newReadRecord(topic string, rec ReadRecord, source *read.Source) *readRecor
 			name: fmt.Sprintf(
 				"message %s of key %q of topic %q", g.Message, rec.RecordKey, topic,
 			),
-			data: make([][]byte, len(g.Channels)),
 			columns: lo.Map(g.DataTypes, func(dt telem.DataType, _ int) column {
 				return newColumn(dt)
 			}),
-			keys:      g.Keys(),
-			replaying: true,
+			keys: g.Keys(),
 		})
 	}
 	return rd
@@ -637,8 +633,7 @@ func (t *readTask) convert(rec *kgo.Record) {
 		gr := r
 		gr.pos = len(g.rows)
 		for i, data := range s.Data {
-			g.data[i] = append(g.data[i], data...)
-			g.columns[i].appended(g.data[i])
+			g.columns[i].append(data)
 		}
 		if g.Stamped {
 			gr.ts = s.Stamp
@@ -679,14 +674,8 @@ func (t *readTask) keep(g *readGroup) {
 func (g *readGroup) reset() {
 	g.rows = g.rows[:0]
 	for i := range g.columns {
-		g.data[i] = g.data[i][:0]
-		g.columns[i].ends = g.columns[i].ends[:0]
+		g.columns[i].reset()
 	}
-}
-
-// sample returns the sample of channel i at pos.
-func (g *readGroup) sample(i, pos int) []byte {
-	return g.columns[i].sample(g.data[i], pos)
 }
 
 func (g *readGroup) size() int {
@@ -695,7 +684,7 @@ func (g *readGroup) size() int {
 		n = len(g.rows) * int(telem.TimestampT.Density())
 	}
 	for i := range g.columns {
-		n += g.columns[i].size(g.data[i], g.rows)
+		n += g.columns[i].size(g.rows)
 	}
 	return n
 }
@@ -719,7 +708,7 @@ func (g *readGroup) appendSeries(
 	for i := range g.columns {
 		start := len(data)
 		for _, r := range g.rows {
-			data = append(data, g.sample(i, r.pos)...)
+			data = append(data, g.columns[i].sample(r.pos)...)
 		}
 		series = append(series, telem.Series{
 			DataType: g.columns[i].dataType,
