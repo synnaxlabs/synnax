@@ -32,11 +32,18 @@ namespace {{.Namespace}} {
 
 template <typename {{.TypeParamNames}}>
 {{.Name}}<{{.TypeParamNames}}> {{.Name}}<{{.TypeParamNames}}>::parse(x::json::Parser parser) {
-    return {{.Name}}<{{.TypeParamNames}}>{
+    {{if .LessThans}}{{.Name}}<{{.TypeParamNames}}> result{{else}}return {{.Name}}<{{.TypeParamNames}}>{{end}}{
 {{- range $j, $f := .Fields}}
         .{{$f.Name}} = {{$f.ParseExpr}},
 {{- end}}
     };
+{{- range .LessThans}}
+    if (!(result.{{.Member}} < result.{{.OtherMember}}))
+        parser.field_err("{{.Key}}", {{.Message}});
+{{- end}}
+{{- if .LessThans}}
+    return result;
+{{- end}}
 }
 
 template <typename {{.TypeParamNames}}>
@@ -57,6 +64,10 @@ inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {
 {{- range .Fields}}
     result.{{.Name}} = {{.ParseExpr}};
 {{- end}}
+{{- range .LessThans}}
+    if (!(result.{{.Member}} < result.{{.OtherMember}}))
+        parser.field_err("{{.Key}}", {{.Message}});
+{{- end}}
     return result;
 }
 
@@ -73,11 +84,18 @@ inline x::json::json {{.Name}}::to_json() const {
 {{- else}}
 
 inline {{.Name}} {{.Name}}::parse(x::json::Parser{{ if .Fields }} parser{{ end }}) {
-    return {{.Name}}{
+    {{if .LessThans}}{{.Name}} result{{else}}return {{.Name}}{{end}}{
 {{- range .Fields}}
         .{{.Name}} = {{.ParseExpr}},
 {{- end}}
     };
+{{- range .LessThans}}
+    if (!(result.{{.Member}} < result.{{.OtherMember}}))
+        parser.field_err("{{.Key}}", {{.Message}});
+{{- end}}
+{{- if .LessThans}}
+    return result;
+{{- end}}
 }
 
 inline x::json::json {{.Name}}::to_json() const {

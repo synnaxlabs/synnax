@@ -19,6 +19,15 @@ describe("ClosedBounds", () => {
         upper: 10,
       });
     });
+
+    it.each([
+      ["equal bounds", { lower: 5, upper: 5 }],
+      ["a lower above the upper", { lower: 10, upper: 0 }],
+    ])("should refuse %s", (_, value) => {
+      const result = closedBounds.closedBoundsZ().safeParse(value);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues.map((issue) => issue.path)).toEqual([["lower"]]);
+    });
   });
 
   describe("contains", () => {

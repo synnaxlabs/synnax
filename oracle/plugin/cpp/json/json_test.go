@@ -82,6 +82,30 @@ var _ = Describe("C++ JSON Plugin", func() {
 			},
 		)
 
+		It("Should refuse a value that breaks an lt rule on parse", func() {
+			source := `
+				@cpp output "x/cpp/thing"
+
+				Range struct {
+					lower float64 { @cpp validate lt upper }
+					upper float64
+				}
+
+				Band struct {
+					min float64 { @cpp validate lt max "min must be below max" }
+					max float64
+				}
+			`
+			resp := MustGenerate(source, "thing", loader, jsonPlugin)
+			ExpectContent(resp, "json.gen.h").ToContain(
+				`Range result{`,
+				"if (!(result.lower < result.upper))\n"+
+					`        parser.field_err("lower", "must be less than upper");`,
+				`parser.field_err("min", "min must be below max");`,
+				"    return result;\n}",
+			)
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func() {
 				source := `

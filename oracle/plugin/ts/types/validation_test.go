@@ -539,6 +539,29 @@ var _ = Describe("Validation Rules", func() {
 			)
 	})
 
+	It("Should refine a struct with an lt rule", func() {
+		source := `
+			@ts output "out"
+
+			Range struct {
+				lower float64 { @ts validate lt upper }
+				upper float64
+			}
+
+			Bounds struct<T extends numeric = float64> {
+				lower T { @ts validate lt upper "lower must be below upper" }
+				upper T
+			}
+		`
+		resp := MustGenerate(source, "range", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`.refine((v) => v.lower < v.upper, { path: ["lower"], `+
+				`message: "must be less than upper" })`,
+			`.refine((v) => v.lower < v.upper, { path: ["lower"], `+
+				`message: "lower must be below upper" })`,
+		)
+	})
+
 	It("Should leave fields without validation untouched", func() {
 		source := `
 			@ts output "out"

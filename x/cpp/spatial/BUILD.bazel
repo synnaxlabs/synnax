@@ -32,6 +32,7 @@ cc_test(
     srcs = ["spatial_test.cpp"],
     deps = [
         ":spatial",
+        "//x/cpp/errors",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

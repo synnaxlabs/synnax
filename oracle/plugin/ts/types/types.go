@@ -799,10 +799,35 @@ func (p *Plugin) processStruct(
 	} else {
 		p.processFlatFields(&sd, entry, form, table, data)
 	}
+	sd.Refines = lessThanRefines(entry, table)
 	if sd.CoalesceTypeParams {
 		computeCoalescedTypes(&sd)
 	}
 	return sd
+}
+
+// lessThanRefines returns the Zod refinements of the `@ts validate lt` rules on the
+// fields of t, inherited fields included.
+func lessThanRefines(t resolution.Type, table *resolution.Table) string {
+	fields, _ := resolution.RecordFields(t, table)
+	var b strings.Builder
+	for _, f := range fields {
+		lt := validation.LessThan(f.Domains, "ts")
+		if lt == nil {
+			continue
+		}
+		message := lt.Message
+		if message == "" {
+			message = "must be less than " + lt.Field
+		}
+		name := FieldName(f.Name)
+		fmt.Fprintf(
+			&b,
+			".refine((v) => v.%s < v.%s, { path: [%q], message: %s })",
+			name, FieldName(lt.Field), name, strconv.Quote(message),
+		)
+	}
+	return b.String()
 }
 
 func (p *Plugin) processAlias(
@@ -3461,7 +3486,10 @@ type structData struct {
 	// Strict is true for a filter, its request, and its operator types. Each rejects
 	// unknown keys, so a stale field fails instead of selecting every record. Each
 	// leaves its defaults to the Core, so the cache sees only the fields a caller set.
-	Strict             bool
+	Strict bool
+	// Refines holds the Zod refinements of the struct's lt rules, appended to its object
+	// schema.
+	Refines            string
 	IsAlias            bool
 	IsSingleParam      bool
 	IsGeneric          bool
@@ -3653,7 +3681,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- end }}
     {{ .TSName }}: {{ .ZodType }},
 {{- end }}
-  });
+  }){{ .Refines }};
 {{- if $.GenerateTypes }}
 export interface {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.BareConstraint }}{{ if $p.HasDefault }} = {{ $p.BareDefault }}{{ end }}{{ end }}> {
 {{- range .Fields }}
@@ -3709,7 +3737,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
 {{- end }}
 {{- end }}
     })
-{{- end }};
+{{- end }}{{ .Refines }};
 {{- else }}
   z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
@@ -3721,7 +3749,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
     {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-  });
+  }){{ .Refines }};
 {{- end }}
 {{- else }}
 
@@ -3783,7 +3811,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
 {{- end }}
 {{- end }}
     })
-{{- end }};
+{{- end }}{{ .Refines }};
 {{- else }}
   z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
@@ -3795,7 +3823,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
     {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-  });
+  }){{ .Refines }};
 {{- end }}
 {{- end }}
 {{- end }}
@@ -3874,7 +3902,7 @@ export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ 
 {{- end }}
 {{- end }}
   })
-{{- end }};
+{{- end }}{{ .Refines }};
 {{- end }}
 {{- if $.GenerateTypes }}
 {{- if .TypeOnly }}
@@ -3911,7 +3939,7 @@ export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.{{ if .Stric
   {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-});
+}){{ .Refines }};
 {{- else }}
 export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
@@ -3926,7 +3954,7 @@ export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}
   {{ .TSName }}: {{ .ZodType }},
 {{- end }}
 {{- end }}
-});
+}){{ .Refines }};
 {{- if $.GenerateTypes }}
 {{- if .Request }}
 export type {{ .TSName }} = z.infer<typeof {{ camelCase .TSName }}Z>;

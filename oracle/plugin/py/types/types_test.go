@@ -4124,6 +4124,29 @@ var _ = Describe("Collection type aliases and maps", func() {
 		},
 	)
 
+	It("Should emit a model validator for an lt rule", func() {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Range struct {
+				lower float64 { @py validate lt upper }
+				upper float64
+			}
+		`
+		resp := MustGenerate(source, "range", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"from typing import Self",
+			"from pydantic import BaseModel, model_validator",
+			`    @model_validator(mode="after")
+    def _check_lower_lt(self) -> Self:
+        if not self.lower < self.upper:
+            raise ValueError("lower: must be less than upper")
+        return self`,
+		)
+	})
+
 	It(
 		"Should not emit model_rebuild() for a struct with no forward reference",
 		func() {

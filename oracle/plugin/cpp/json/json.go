@@ -341,7 +341,35 @@ func (p *Plugin) processStruct(
 	for _, field := range fields {
 		serializer.Fields = append(serializer.Fields, p.processField(field, s, data))
 	}
+	serializer.LessThans = lessThans(s, data.table)
 	return serializer, nil
+}
+
+// lessThans returns the checks of the `@cpp validate lt` rules on the fields of s,
+// inherited fields included.
+func lessThans(s resolution.Type, table *resolution.Table) []lessThanData {
+	fields, _ := resolution.RecordFields(s, table)
+	var checks []lessThanData
+	for _, f := range fields {
+		lt := validation.LessThan(f.Domains, "cpp")
+		if lt == nil {
+			continue
+		}
+		other, _ := lo.Find(fields, func(o resolution.Field) bool {
+			return o.Name == lt.Field
+		})
+		message := lt.Message
+		if message == "" {
+			message = "must be less than " + lt.Field
+		}
+		checks = append(checks, lessThanData{
+			Member:      memberName(f),
+			OtherMember: memberName(other),
+			Key:         f.Name,
+			Message:     strconv.Quote(message),
+		})
+	}
+	return checks
 }
 
 // serializerTypeParams returns the type parameters of form that have no default.
@@ -1346,6 +1374,17 @@ type serializerData struct {
 	ParentTypes    []parentTypeData
 	HasExtends     bool
 	IsGeneric      bool
+	// LessThans holds the checks that parse runs on the parsed value.
+	LessThans []lessThanData
+}
+
+// lessThanData is a parse check that the member Member is less than OtherMember. It
+// reports Message on the JSON key Key.
+type lessThanData struct {
+	Member      string
+	OtherMember string
+	Key         string
+	Message     string
 }
 
 type parentTypeData struct {

@@ -331,6 +331,9 @@ func processStructDecl(
 	if err = addFilterInput(typ, &sd, table, data); err != nil {
 		return structData{}, err
 	}
+	if !sd.Skip && !sd.IsAlias {
+		addLessThanValidators(typ, &sd, table, data)
+	}
 	// The alias keeps a field named override from shadowing the decorator in the
 	// class body.
 	if sd.KeyField != "" && !sd.Skip && !sd.IsAlias {
@@ -683,6 +686,38 @@ func typeDefBaseToPython(
 // only a required key yields a __hash__.
 func hashableKey(field resolution.Field) bool {
 	return key.HasKey(field) && !field.Optional
+}
+
+// addLessThanValidators appends to sd a Pydantic validator for each `@py validate lt`
+// rule on the fields of typ, inherited fields included.
+func addLessThanValidators(
+	typ resolution.Type,
+	sd *structData,
+	table *resolution.Table,
+	data *templateData,
+) {
+	fields, _ := resolution.RecordFields(typ, table)
+	for _, f := range fields {
+		lt := validation.LessThan(f.Domains, "py")
+		if lt == nil {
+			continue
+		}
+		message := lt.Message
+		if message == "" {
+			message = "must be less than " + lt.Field
+		}
+		name, other := fieldName(f.Name), fieldName(lt.Field)
+		data.imports.addPydantic("model_validator")
+		data.imports.addTyping("Self")
+		if sd.Validators != "" {
+			sd.Validators += "\n\n"
+		}
+		sd.Validators += fmt.Sprintf(`    @model_validator(mode="after")
+    def _check_%s_lt(self) -> Self:
+        if not self.%s < self.%s:
+            raise ValueError(%s)
+        return self`, name, name, other, strconv.Quote(f.Name+": "+message))
+	}
 }
 
 func processStruct(

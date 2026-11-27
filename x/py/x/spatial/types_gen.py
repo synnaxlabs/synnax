@@ -11,9 +11,9 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias
+from typing import Literal, Self, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 X_LOCATION_LEFT: Literal["left"] = "left"
 
@@ -233,9 +233,9 @@ class Bounds(BaseModel):
 
 class ClosedBounds(BaseModel):
     """Is a nonempty closed interval [lower, upper] over an ordered numeric value space,
-    such as the range of a hardware input. Go validation refuses a lower that is not
-    below upper. The TypeScript binding is generic over T; other languages emit a
-    concrete float64-based type.
+    such as the range of a hardware input. Validation refuses a lower that is not below
+    upper. The TypeScript binding is generic over T; other languages emit a concrete
+    float64-based type.
 
     Attributes:
         lower: Is the inclusive lower bound.
@@ -244,6 +244,12 @@ class ClosedBounds(BaseModel):
 
     lower: float
     upper: float
+
+    @model_validator(mode="after")
+    def _check_lower_lt(self) -> Self:
+        if not self.lower < self.upper:
+            raise ValueError("lower: must be less than upper")
+        return self
 
 
 class Viewport(BaseModel):

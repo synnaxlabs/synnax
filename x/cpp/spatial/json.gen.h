@@ -169,10 +169,13 @@ inline x::json::json Bounds::to_json() const {
 }
 
 inline ClosedBounds ClosedBounds::parse(x::json::Parser parser) {
-    return ClosedBounds{
+    ClosedBounds result{
         .lower = parser.field<double>("lower"),
         .upper = parser.field<double>("upper"),
     };
+    if (!(result.lower < result.upper))
+        parser.field_err("lower", "must be less than upper");
+    return result;
 }
 
 inline x::json::json ClosedBounds::to_json() const {
