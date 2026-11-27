@@ -704,7 +704,11 @@ export interface JSONFieldProps {
   autoFocus?: boolean;
   /** Called with each new name, while the form still holds the old one. */
   onNameChange?: (name: string) => void;
+  /** A command channel fills the field, so the scale and offset convert in reverse. */
+  commanded?: boolean;
 }
+
+const WRITE_CONVERSION = "The task sends (value − offset) ÷ scale.";
 
 /**
  * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
@@ -715,6 +719,7 @@ export const JSONField = ({
   actions,
   autoFocus = false,
   onNameChange,
+  commanded = false,
 }: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
@@ -756,7 +761,12 @@ export const JSONField = ({
       {isNumberKind(type) && (
         <>
           <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
-            {(p) => <ScaleControl {...p} offset={path.offset} />}
+            {(p) => (
+              <>
+                <ScaleControl {...p} offset={path.offset} />
+                {commanded && <Input.HelpText>{WRITE_CONVERSION}</Input.HelpText>}
+              </>
+            )}
           </Form.Field>
           <Form.TextField path={path.units} label="Units" padHelpText={false} />
         </>
