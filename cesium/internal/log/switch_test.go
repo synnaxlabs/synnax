@@ -108,6 +108,32 @@ var _ = Describe("Switch", func() {
 			}
 
 			It(
+				"Should write the entries that queue past three quarters in one frame "+
+					"while the next file is not ready",
+				func() {
+					open(func(uint64) {})
+					fill()
+					fs.Hold()
+					first := l.Append(of(&log.Drop{Key: 1}))
+					Eventually(fs.Held()).Should(Receive())
+					later := make([]log.Ack, 5)
+					for i := range later {
+						later[i] = l.Append(of(&log.Drop{Key: uint32(i + 2)}))
+					}
+					fs.Free()
+					seq := MustSucceed(first.Wait()) + 1
+					for _, a := range later {
+						Expect(a.Wait()).Error().ToNot(HaveOccurred())
+					}
+					frames := walkLog(logBytes(fs, generation), generation)
+					Expect(frames).To(ContainElement(SatisfyAll(
+						HaveField("Sequence", seq),
+						HaveField("Count", uint32(len(later))),
+					)))
+				},
+			)
+
+			It(
 				"Should switch to the next log before a frame passes three quarters, "+
 					"and link it to the last frame",
 				func() {
@@ -138,8 +164,8 @@ var _ = Describe("Switch", func() {
 			)
 
 			It(
-				"Should go on in the live log past three quarters until the next file is "+
-					"ready, then switch",
+				"Should go on in the live log past three quarters until the next file "+
+					"is ready, then switch",
 				func() {
 					asked := make(chan uint64, 4)
 					open(func(next uint64) { asked <- next })
