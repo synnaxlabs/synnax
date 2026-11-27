@@ -182,7 +182,17 @@ func (s *Service) NewStream(
 		}
 	}
 	distCfg := cfg.distribution()
-	distCfg.Keys = lo.Uniq(append(distCfg.Keys, indexes...))
+	// A chunked read counts the samples of each channel on its own, so it reads each
+	// index beside the chunks of its data instead of chunking the index too.
+	chunked := cfg.ChunkSize > 0 && calcTransform == nil && len(indexes) > 0
+	var times *chunkTime
+	if chunked {
+		if times, err = newChunkTime(ctx, s.cfg.Framer, cfg, indexes); err != nil {
+			return nil, err
+		}
+	} else {
+		distCfg.Keys = lo.Uniq(append(distCfg.Keys, indexes...))
+	}
 	if calcTransform != nil {
 		// A calculation must see every sample its expression was written over. Fed a
 		// strided or aggregated input, a stateful expression returns a different signal
@@ -191,11 +201,18 @@ func (s *Service) NewStream(
 	}
 	dist, err := s.cfg.Framer.NewStreamIterator(ctx, distCfg)
 	if err != nil {
+		if times != nil {
+			err = errors.Combine(err, times.indexes.Close())
+		}
 		return nil, err
 	}
 	p.SetSegment("distribution", dist)
 	var routeInletsTo, routeOutletFrom address.Address = "distribution", "distribution"
-	if calcTransform == nil && len(indexes) > 0 {
+	if times != nil {
+		p.SetSegment("time", times)
+		p.MustConnect[Response](routeOutletFrom, "time", 25)
+		routeOutletFrom = "time"
+	} else if calcTransform == nil && len(indexes) > 0 {
 		p.SetSegment("time", newTimeFilter(cfg.Keys, cfg.UntimedKeys))
 		p.MustConnect[Response](routeOutletFrom, "time", 25)
 		routeOutletFrom = "time"
