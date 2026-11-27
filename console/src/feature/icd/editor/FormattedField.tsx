@@ -10,7 +10,19 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import type { deep } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import { type ReactElement, useState } from "react";
+
+/** What the text of a field holds: a value, or a sentence on why it holds none. */
+export type Parsed<V> = { value: V } | { error: string };
+
+/** @returns value as parsed, or error when value is null. */
+export const orError = <V,>(value: V | null, error: string): Parsed<V> =>
+  value == null ? { error } : { value };
+
+interface Refused {
+  text: string;
+  error: string;
+}
 
 export interface FormattedFieldProps<V> {
   path: deep.Target<V | undefined>;
@@ -22,14 +34,14 @@ export interface FormattedFieldProps<V> {
   /** Whether clearing the text removes the value. */
   optional?: boolean;
   format: (value: V) => string;
-  /** @returns the value the text holds, or null when it holds none. */
-  parse: (text: string) => V | null;
+  parse: (text: string) => Parsed<V>;
 }
 
 /**
- * A text input for a value the user writes in a format, such as a hexadecimal ID. The
- * text commits on blur or Enter, and text that does not parse leaves the value as it
- * was.
+ * A text input for a value the user writes in a format, such as a hexadecimal ID, in a
+ * row of fields. The text commits on blur or Enter. Text that does not parse stays in
+ * the input with its error until the next edit, and the value stays as it was. The
+ * input shows an error, and hover shows its message.
  */
 export const FormattedField = <V,>({
   path,
@@ -42,21 +54,24 @@ export const FormattedField = <V,>({
 }: FormattedFieldProps<V>): ReactElement => {
   const { set, mode } = Form.useContext();
   const state = Form.useFieldState(path, { optional });
+  const [refused, setRefused] = useState<Refused | null>(null);
   const value = state?.value;
   const handleChange = (text: string) => {
+    setRefused(null);
     if (optional && text.trim() === "") return set(path, undefined);
     const parsed = parse(text);
-    if (parsed != null) set(path, parsed);
+    if ("error" in parsed) setRefused({ text, error: parsed.error });
+    else set(path, parsed.value);
   };
   return (
     <Input.Item
       label={label}
-      padHelpText
-      helpText={state?.status.message}
-      status={state?.status.variant}
+      showHelpText={false}
+      helpText={refused?.error ?? state?.status.message}
+      status={refused == null ? state?.status.variant : "error"}
     >
       <Input.Text
-        value={value == null ? "" : format(value)}
+        value={refused?.text ?? (value == null ? "" : format(value))}
         onChange={handleChange}
         placeholder={placeholder}
         endContent={unit}
@@ -67,12 +82,15 @@ export const FormattedField = <V,>({
   );
 };
 
-/** Parses an integer written in decimal or, with a 0x prefix, in hexadecimal. */
-export const parseInteger = (text: string): number | null => {
+/**
+ * Parses a whole number of 0 or more, written in decimal or, with a 0x prefix, in
+ * hexadecimal.
+ */
+export const parseUnsigned = (text: string): number | null => {
   const trimmed = text.trim();
   if (trimmed === "") return null;
   const value = Number(trimmed);
-  return Number.isInteger(value) ? value : null;
+  return Number.isInteger(value) && value >= 0 ? value : null;
 };
 
 /** Formats an integer in hexadecimal with a 0x prefix. */

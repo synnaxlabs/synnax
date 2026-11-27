@@ -19,6 +19,7 @@ import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { ICD } from "@/feature/icd";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
@@ -191,6 +192,18 @@ const typeText = async (label: RegExp, text: string): Promise<HTMLInputElement> 
   return input;
 };
 
+/** Waits for input to refuse text, then checks that a hover shows error. */
+const expectRefused = async (
+  input: HTMLInputElement,
+  text: string,
+  error: string,
+): Promise<void> => {
+  await waitFor(() => expect(input.getAttribute("aria-invalid")).toBe("true"));
+  expect(input.value).toBe(text);
+  await userEvent.hover(input);
+  await screen.findByText(error);
+};
+
 const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {
   const { payload } = await retrieveMessage(key);
   if (payload.format !== "json") throw new Error("expected a JSON message");
@@ -333,6 +346,81 @@ describe("ICD editor", () => {
         identifier: { fd: false, bitrateSwitched: false },
       });
     });
+  });
+
+  describe("CAN identifier", () => {
+    const renderCAN = async (extended: boolean = false): Promise<icd.ICD> => {
+      const ic = await createICD([
+        {
+          ...createMessage([]),
+          payload: {
+            format: "binary",
+            fields: [createBinaryField("Rpm", 0)],
+            identifier: {
+              type: "can",
+              id: 0x100,
+              extended,
+              fd: false,
+              bitrateSwitched: false,
+            },
+          },
+        },
+      ]);
+      await renderEditor(ic);
+      return ic;
+    };
+
+    const expectIDRefused = async (text: string, error: string): Promise<void> => {
+      await expectRefused(await typeText(/^ID/, text), text, error);
+      screen.getByText("CAN 0x100 · 1 field");
+    };
+
+    it("should keep text that is not a hex number in the ID, with its error", async () => {
+      const ic = await renderCAN();
+      await expectIDRefused("0x18FF5G", "ID must be a hex number, such as 0x1F0");
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        identifier: { id: 0x100 },
+      });
+    });
+
+    it.each([
+      [false, "0x800", "An 11-bit ID is at most 0x7FF"],
+      [true, "0x20000000", "A 29-bit ID is at most 0x1FFFFFFF"],
+      [true, "0x1FFFFFFFFF", "A 29-bit ID is at most 0x1FFFFFFF"],
+    ])(
+      "should refuse an ID above the bound of its frame type (extended %s, %s)",
+      async (extended, text, error) => {
+        await renderCAN(extended);
+        await expectIDRefused(text, error);
+      },
+    );
+
+    it("should save an ID typed after a refused one and clear the error", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x800");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      await typeText(/^ID/, "0x7FF");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+          identifier: { id: 0x7ff },
+        }),
+      );
+      expect(id.getAttribute("aria-invalid")).toBeNull();
+      expect(id.value).toBe("0x7FF");
+    });
+
+    it("should refuse a mask that is not a hex number", async () => {
+      await renderCAN();
+      const text = "0xZZ";
+      const mask = await typeText(/^Mask/, text);
+      await expectRefused(mask, text, "Mask must be a hex number, such as 0x7F0");
+    });
+  });
+
+  it("should keep a frame length that is not a whole number, with its error", async () => {
+    await renderEditor(await createICD([createMessage([createBinaryField("Rpm", 0)])]));
+    const length = await typeText(/^Length/, "1.5");
+    await expectRefused(length, "1.5", "Length must be a whole number of bytes");
   });
 
   it("should replace the payload when the format changes", async () => {
@@ -1402,6 +1490,31 @@ describe("ICD editor", () => {
       );
       expect(input.value).toBe("7E 7E 01");
     });
+
+    it.each<[string, icd.Framing, RegExp, string, string]>([
+      [
+        "delimiter",
+        { type: "delimited", delimiter: "\n" },
+        /^Delimiter/,
+        "\\q",
+        "Delimiter must be text, with escapes such as \\n or \\x1F",
+      ],
+      [
+        "sync bytes",
+        SYNC,
+        /^Sync bytes/,
+        "AA 5",
+        "Sync bytes must be pairs of hex digits, such as AA 55",
+      ],
+    ])(
+      "should keep %s text that does not parse, with its error",
+      async (_, framing, label, text, error) => {
+        const ic = await createFramedICD(framing);
+        await renderEditor(ic);
+        await expectRefused(await typeText(label, text), text, error);
+        expect(await retrieveStoredFraming(ic.key)).toEqual(framing);
+      },
+    );
 
     it("should set and remove the checksum of a sync framing", async () => {
       const ic = await createFramedICD(SYNC);
