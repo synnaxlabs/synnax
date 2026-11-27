@@ -13,6 +13,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
+import type { z } from "zod";
 
 import { LabJack } from "@/feature/labjack";
 import { Modals } from "@/platform/modals";
@@ -27,7 +28,11 @@ const Harness = ({ details }: { details: unknown }): ReactElement => {
     <>
       <button
         onClick={() =>
-          add({ variant: "info", message: "LabJack T7 connected", details })
+          add<z.ZodUnknown>({
+            variant: "info",
+            message: "LabJack T7 connected",
+            details,
+          })
         }
       >
         add
