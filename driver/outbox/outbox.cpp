@@ -433,10 +433,10 @@ x::errors::Error Outbox::push(pb::Call request, Call call) {
             return x::errors::Error(
                 FULL,
                 bytes_full ? "The Driver holds " + std::to_string(this->cfg.max_bytes) +
-                                 " bytes of calls that the Core has not taken. Check "
+                                 " bytes of changes that the Core has not taken. Check "
                                  "the connection to the Core."
                            : "The Driver holds " + std::to_string(this->calls.size()) +
-                                 " calls that the Core has not taken, the most it "
+                                 " changes that the Core has not taken, the most it "
                                  "can hold. Check the connection to the Core."
             );
         }

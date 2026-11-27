@@ -306,7 +306,7 @@ TEST_F(RangesTest, WarnsOnBlankName) {
     EXPECT_EQ(this->outbox->size(), 0);
     ASSERT_EQ(calls.size(), 1u);
     EXPECT_EQ(calls[0].message, "Failed to create range");
-    EXPECT_EQ(calls[0].description, "The range name is empty. Dropped 1 calls.");
+    EXPECT_EQ(calls[0].description, "The range name is empty. Dropped 1 range change.");
 }
 
 /// @brief it should warn and drop a create the Core rejects.
@@ -344,7 +344,7 @@ TEST_F(RangesTest, ReadsAVarBoundParentAtFireTime) {
     EXPECT_EQ(calls[0].message, "Failed to create range");
     EXPECT_EQ(
         calls[0].description,
-        "The parent key \"not-a-uuid\" is not a valid range key. Dropped 1 calls."
+        "The parent key \"not-a-uuid\" is not a valid range key. Dropped 1 range change."
     );
 }
 
@@ -409,7 +409,7 @@ TEST_F(RangesTest, WarnsOnInvalidEndKey) {
     EXPECT_EQ(calls[0].message, "Failed to end range");
     EXPECT_EQ(
         calls[0].description,
-        "The key \"not-a-uuid\" is not a valid range key. Dropped 1 calls."
+        "The key \"not-a-uuid\" is not a valid range key. Dropped 1 range change."
     );
 }
 
@@ -472,9 +472,9 @@ TEST(CallsTest, ReportsRefusedCallsOnce) {
     const auto got = reports->snapshot();
     ASSERT_EQ(got.size(), 2u);
     EXPECT_EQ(got[0].message, CREATE_FAILURE_MSG);
-    EXPECT_EQ(got[0].description, "outbox is full. Dropped 2 calls.");
+    EXPECT_EQ(got[0].description, "outbox is full. Dropped 2 range changes.");
     EXPECT_EQ(got[1].message, END_FAILURE_MSG);
-    EXPECT_EQ(got[1].description, "outbox is full. Dropped 1 calls.");
+    EXPECT_EQ(got[1].description, "outbox is full. Dropped 1 range change.");
 }
 
 /// @brief it should count and report each reason of a message on its own.
@@ -487,8 +487,8 @@ TEST(CallsTest, ReportsEachReasonOnItsOwn) {
     calls.report_refused();
     const auto got = reports->snapshot();
     ASSERT_EQ(got.size(), 2u);
-    EXPECT_EQ(got[0].description, "The range name is empty. Dropped 1 calls.");
-    EXPECT_EQ(got[1].description, "outbox is full. Dropped 2 calls.");
+    EXPECT_EQ(got[0].description, "The range name is empty. Dropped 1 range change.");
+    EXPECT_EQ(got[1].description, "outbox is full. Dropped 2 range changes.");
 }
 
 #ifndef _WIN32
@@ -563,7 +563,7 @@ TEST_F(RangesTest, ReportsRefusedCreatesOnceSent) {
     ASSERT_EVENTUALLY_EQ(reports->snapshot().size(), 1u);
     const auto calls = reports->snapshot();
     EXPECT_EQ(calls[0].message, "Failed to create range");
-    EXPECT_TRUE(calls[0].description.ends_with(" Dropped 1 calls."));
+    EXPECT_TRUE(calls[0].description.ends_with(" Dropped 1 range change."));
     EXPECT_FALSE(this->retrieve(output_of(first)).name.empty());
     this->outbox.reset();
 }

@@ -81,7 +81,8 @@ public:
         for (const auto &[key, count]: reports)
             this->report(
                 key.first,
-                key.second + " Dropped " + std::to_string(count) + " calls."
+                key.second + " Dropped " + std::to_string(count) +
+                    (count == 1 ? " range change." : " range changes.")
             );
     }
 

@@ -522,7 +522,7 @@ TEST_F(OutboxTest, RefusesCreateWhenRangeCallsFill) {
     EXPECT_EQ(
         err.data,
         "The Driver holds " + std::to_string(FULL_BYTES) +
-            " bytes of calls that the Core has not taken. Check the connection to "
+            " bytes of changes that the Core has not taken. Check the connection to "
             "the Core."
     );
     EXPECT_EQ(outbox->refused(), 1);

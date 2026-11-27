@@ -63,11 +63,12 @@ status::Health outbox_stuck(
     return {
         .variant = synnax::status::VARIANT_WARNING,
         .message = OUTBOX_STUCK_MSG,
-        .description = "The Core has not taken an Arc status set for " +
-                       stuck_after.to_string() + ": " + sentence(err) +
-                       " Check that the Driver can reach the Core and that the Core "
-                       "is running. The Driver keeps the sets in " +
-                       dir.string() + " and sends them once the Core takes them.",
+        .description =
+            "The Core has not taken the first Arc status set or range change for " +
+            stuck_after.to_string() + ": " + sentence(err) +
+            " Check that the Driver can reach the Core and that the Core "
+            "is running. The Driver keeps them in " +
+            dir.string() + " and sends them once the Core takes them.",
     };
 }
 

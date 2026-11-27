@@ -291,8 +291,9 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="outbox_max_payload" default="65536">
-  The number of bytes of the largest status set. The Driver drops a larger set and shows
-  a warning. Use a value up to 67108864. In the configuration file, it goes in `outage`.
+  The number of bytes of the largest Arc status set or range change. The Driver drops a
+  larger one and shows a warning. Use a value up to 67108864. In the configuration file,
+  it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_compact_share" default="0.25">
@@ -302,35 +303,37 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="outbox_segment_calls" default="1000">
-  The number of status sets in one outbox file before the Driver starts the next file.
-  In the configuration file, it goes in `outage`.
+  The number of Arc status sets and range changes in one outbox file before the Driver
+  starts the next file. In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_send_timeout" default="10">
-  The number of seconds that the Driver waits for the Core to take one status set. In
-  the configuration file, it goes in `outage`.
+  The number of seconds that the Driver waits for the Core to take one Arc status set or
+  range change. In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_retry_interval" default="1">
-  The number of seconds that the Driver waits before it first sends an Arc status set
-  again to an unreachable Core. Each next wait is twice as long. In the configuration
-  file, it goes in `outage`.
+  The number of seconds that the Driver waits before it first sends an Arc status set or
+  range change again to an unreachable Core. Each next wait is twice as long. In the
+  configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_max_retry_interval" default="5">
   The largest number of seconds that the Driver waits between two tries to send an Arc
-  status set to an unreachable Core. In the configuration file, it goes in `outage`.
+  status set or range change to an unreachable Core. In the configuration file, it goes
+  in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_sync_interval" default="1">
-  The largest number of seconds between a status set and the time the Driver writes it
-  to the disk. A power loss can lose the sets of this time. In the configuration file,
-  it goes in `outage`.
+  The largest number of seconds between an Arc status set or range change and the time
+  the Driver writes it to the disk. A power loss can lose the changes of this time. In
+  the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_stuck_after" default="300">
-  The number of seconds that the Core can refuse the first waiting status set before the
-  rack status shows "Outbox stuck". In the configuration file, it goes in `outage`.
+  The number of seconds that the Core can refuse the first waiting Arc status set or
+  range change before the rack status shows "Outbox stuck". In the configuration file,
+  it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_status_keys" default="1024">

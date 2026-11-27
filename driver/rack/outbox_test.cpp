@@ -190,11 +190,11 @@ TEST(OutboxStuckTest, Warns) {
     EXPECT_EQ(health.message, OUTBOX_STUCK_MSG);
     EXPECT_EQ(
         health.description,
-        "The Core has not taken an Arc status set for " +
+        "The Core has not taken the first Arc status set or range change for " +
             (5 * x::telem::MINUTE).to_string() +
             ": connection refused. Check that the Driver can reach the Core and that "
-            "the Core is running. The Driver keeps the sets in /data/outbox and sends "
-            "them once the Core takes them."
+            "the Core is running. The Driver keeps them in /data/outbox and sends them "
+            "once the Core takes them."
     );
 }
 }
