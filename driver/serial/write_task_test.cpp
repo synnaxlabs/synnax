@@ -239,7 +239,7 @@ TEST_F(SerialWriteTask, SharesPortWithReadTask) {
         std::make_unique<Source>(
             this->ports,
             Device{.key = "device", .name = "device", .props = this->props()},
-            ASSERT_NIL_P(this->ports->claim_read(this->props().port, t)),
+            ASSERT_NIL_P(this->ports->claim_read("device", t)),
             std::move(receiver),
             std::vector{ch},
             true

@@ -51,9 +51,9 @@ Sink::Sink(
     sender(std::move(sender)) {}
 
 x::errors::Error Sink::start(const std::string &, x::breaker::Breaker &) {
-    auto [lease, err] = this->ports->acquire(this->device);
+    auto [conn, err] = this->ports->acquire(this->device);
     if (err) return err;
-    this->lease = std::move(lease);
+    this->conn = std::move(conn);
     {
         std::lock_guard lock(this->held_mu);
         this->held = {};
@@ -71,13 +71,13 @@ x::errors::Error Sink::stop() {
     }
     this->cv.notify_all();
     if (this->sends.joinable()) this->sends.join();
-    this->lease = {};
+    this->conn = nullptr;
     return x::errors::NIL;
 }
 
 x::errors::Error Sink::write(x::telem::Frame &frame) {
     std::lock_guard lock(this->mu);
-    auto guard = this->lease.conn->lock();
+    auto guard = this->conn->lock();
     const auto [t, err] = guard.transport();
     if (err) return err;
     auto [warning, write_err] = this->sender.write(*t, frame);
@@ -100,13 +100,13 @@ void Sink::run() {
 }
 
 x::telem::TimeSpan Sink::send() {
-    auto guard = this->lease.conn->lock();
+    auto guard = this->conn->lock();
     auto [t, err] = guard.transport();
     x::telem::TimeSpan wait;
     if (err)
         // A closed port sends nothing until the connection may open it again.
         wait = x::telem::TimeSpan(
-            this->lease.conn->retry_at() - std::chrono::steady_clock::now()
+            this->conn->retry_at() - std::chrono::steady_clock::now()
         );
     else {
         std::tie(wait, err) = this->sender.send(*t);

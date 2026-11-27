@@ -29,6 +29,7 @@
 #include "driver/serial/ports.h"
 #include "driver/serial/serial.h"
 #include "driver/task/task.h"
+#include "driver/transport/connection.h"
 
 namespace driver::serial {
 /// @brief WRITE_TASK_TYPE is the type of the task that sends ICD messages on a serial
@@ -46,8 +47,8 @@ class Sink final : public common::Sink {
     std::condition_variable cv;
     icd::Sender sender;
     bool running = false;
-    /// @brief lease is the use of the port while the sink runs.
-    Ports::Lease lease;
+    /// @brief conn is the connection to the port while the sink runs.
+    std::shared_ptr<transport::Connection> conn;
     /// @brief sends runs the targets with a period.
     std::thread sends;
     /// @brief held_mu guards held.
