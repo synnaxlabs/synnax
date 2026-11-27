@@ -27,9 +27,9 @@ TEST(DigitalOutputChannels, RoundTripsLines) {
     const auto parsed = Configuration::parse(parser);
     ASSERT_NIL(parser.error());
     const auto &port = parsed.digital_output.at(2);
-    ASSERT_EQ(port.state_index, 1);
-    ASSERT_EQ(port.lines.at(7).command, 2);
-    ASSERT_EQ(port.lines.at(7).state, 3);
+    ASSERT_EQ(port.state_index, 1U);
+    ASSERT_EQ(port.lines.at(7).command, 2U);
+    ASSERT_EQ(port.lines.at(7).state, 3U);
 }
 
 /// @brief it should round trip the analog input channels keyed by port number.
@@ -38,7 +38,7 @@ TEST(AnalogInputPorts, RoundTripsChannels) {
     x::json::Parser parser(ports.to_json());
     const auto parsed = AnalogInputPorts::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(parsed.temperature, 2);
+    ASSERT_EQ(parsed.temperature, 2U);
     ASSERT_EQ(parsed.channels.at(3), 4);
 }
 
