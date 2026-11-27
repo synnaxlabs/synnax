@@ -201,6 +201,17 @@ var _ = Describe("Discover", func() {
 			return browsedTopic{}
 		}
 
+		It("Should browse a cluster with a seed broker that does not answer",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				// No network routes 192.0.2.1, a documentation address.
+				brokers := append([]string{"192.0.2.1:9092"}, cluster.ListenAddrs()...)
+				topics := browse(ctx, kafka.Properties{Brokers: brokers})
+				Expect(named(topics, topic).Name).To(Equal(topic))
+			},
+		)
+
 		It("Should describe each topic", func(ctx SpecContext) {
 			jsonTopic, srTopic, emptyTopic := uniqueTopic(), uniqueTopic(), uniqueTopic()
 			Expect(cluster.CreateTopic(jsonTopic, 2, nil)).To(Succeed())

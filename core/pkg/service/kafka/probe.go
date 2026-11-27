@@ -61,11 +61,9 @@ func testConnection(ctx context.Context, props Properties) error {
 // dialSeed opens a TCP connection to the first seed broker that answers, and returns
 // its address.
 func dialSeed(ctx context.Context, brokers []string) (net.Conn, string, error) {
-	var (
-		dialer   net.Dialer
-		failures []string
-	)
-	for _, addr := range brokers {
+	var dialer net.Dialer
+	errs := make([]error, len(brokers))
+	for i, addr := range brokers {
 		addr = withPort(addr)
 		dialCtx, cancel := context.WithTimeout(ctx, stageTimeout)
 		conn, err := dialer.DialContext(dialCtx, "tcp", addr)
@@ -73,9 +71,45 @@ func dialSeed(ctx context.Context, brokers []string) (net.Conn, string, error) {
 		if err == nil {
 			return conn, addr, nil
 		}
-		failures = append(failures, fmt.Sprintf("Could not reach %s: %s.", addr, err))
+		errs[i] = err
 	}
-	return nil, "", driver.Failure{
+	return nil, "", unreachable(brokers, errs)
+}
+
+// reachSeed dials every seed broker of brokers at once and returns the address of the
+// first that takes a TCP connection. It fails as dialSeed does when none does.
+func reachSeed(ctx context.Context, brokers []string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, stageTimeout)
+	defer cancel()
+	var dialer net.Dialer
+	errs := make([]error, len(brokers))
+	done := make(chan int, len(brokers))
+	for i, addr := range brokers {
+		go func() {
+			conn, err := dialer.DialContext(ctx, "tcp", withPort(addr))
+			if err == nil {
+				err = conn.Close()
+			}
+			errs[i] = err
+			done <- i
+		}()
+	}
+	for range brokers {
+		if i := <-done; errs[i] == nil {
+			return withPort(brokers[i]), nil
+		}
+	}
+	return "", unreachable(brokers, errs)
+}
+
+// unreachable returns the failure for seed brokers that each failed to connect with the
+// error at the same index of errs.
+func unreachable(brokers []string, errs []error) error {
+	failures := make([]string, len(brokers))
+	for i, addr := range brokers {
+		failures[i] = fmt.Sprintf("Could not reach %s: %s.", withPort(addr), errs[i])
+	}
+	return driver.Failure{
 		Message: "Failed to reach broker",
 		Description: strings.Join(failures, " ") + " Check the address and port of " +
 			"each broker, and that the network of the Core can reach them.",

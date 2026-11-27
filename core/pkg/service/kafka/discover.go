@@ -239,16 +239,21 @@ func (d topicDetail) readable() bool {
 		slices.Contains(d.operations, kadm.OpAll)
 }
 
-// openCluster opens a client to the cluster of props and returns it with describeTopics
-// of topics. The cluster gets the time that the connect test gives it to answer, and
-// openCluster fails as the connect test does. The caller closes the client.
+// openCluster opens a client to the first seed broker of props that answers, and
+// returns it with describeTopics of topics. The broker gets the time that the connect
+// test gives it to answer, and openCluster fails as the connect test does. The caller
+// closes the client.
 func openCluster(
 	ctx context.Context,
 	props Properties,
 	topics []string,
 ) (*kgo.Client, map[string]topicDetail, error) {
+	seed, err := reachSeed(ctx, props.Brokers)
+	if err != nil {
+		return nil, nil, err
+	}
 	var auth authHook
-	cl, err := openClient(props, kgo.WithHooks(&auth))
+	cl, err := openClient(props, kgo.SeedBrokers(seed), kgo.WithHooks(&auth))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -262,11 +267,7 @@ func openCluster(
 	if ctx.Err() != nil {
 		return nil, nil, err
 	}
-	conn, _, dErr := dialSeed(ctx, props.Brokers)
-	if dErr != nil {
-		return nil, nil, dErr
-	}
-	return nil, nil, errors.Combine(clusterFailure(props, &auth, err), conn.Close())
+	return nil, nil, clusterFailure(props, &auth, err)
 }
 
 // describeTopics returns the metadata of topics, or of every topic that the client may
