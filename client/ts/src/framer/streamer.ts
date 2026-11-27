@@ -9,21 +9,8 @@
 
 /// <reference lib="esnext.disposable" preserve="true" />
 
-import {
-  EOF,
-  type Stream,
-  Unreachable,
-  type WebSocketClient,
-} from "@synnaxlabs/freighter";
-import {
-  disposable,
-  errors,
-  Rate,
-  sync,
-  TimeRange,
-  TimeSpan,
-  zod,
-} from "@synnaxlabs/x";
+import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
+import { disposable, errors, Rate, TimeRange, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -38,7 +25,6 @@ const reqZ = z.object({
   downsampleFactor: z.uint32(),
   throttleRate: Rate.z.optional(),
   excludeGroups: z.uint32().array().optional(),
-  keepAlive: TimeSpan.z.optional(),
   ackRequested: z.boolean().optional(),
   missedRequested: z.boolean().optional(),
 });
@@ -51,8 +37,6 @@ export interface StreamerRequest extends z.infer<typeof reqZ> {}
 
 const resZ = z.object({
   frame: frameZ,
-  /** Marks an empty response the Core emits so a dead connection is detectable. */
-  keepAlive: z.boolean().optional(),
   /** Marks the empty response that answers a request with ackRequested set. */
   ack: z.boolean().optional(),
   /** Marks the empty response the Core sends after it drops frames for the streamer. */
@@ -85,10 +69,6 @@ const intermediateStreamerConfigZ = z.object({
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    Core. Used for telemetry bypass deduplication. */
   excludeGroups: z.uint32().array().default([]),
-  /** Interval at which the Core emits keep-alive responses so a silently dead
-   connection fails reads instead of hanging forever. TimeSpan.ZERO turns off this
-   deadline, and the client's streamKeepAlive still applies. Defaults to 5 seconds. */
-  keepAlive: TimeSpan.z.default(TimeSpan.seconds(5)),
 });
 
 /** Zod schema for {@link StreamerConfig}. A bare channel list parses as a config. */
@@ -153,8 +133,8 @@ export interface Streamer
   close: () => void;
   /**
    * Read the next frame of telemetry.
-   * @throws {Unreachable} if the stream stays silent past the keep-alive deadline: the
-   * connection is presumed dead.
+   * @throws {Unreachable} if the stream receives nothing for the client's keep-alive
+   * timeout: the connection is presumed dead.
    * @throws {UnexpectedError} if the Core sends an ack that answers no update.
    */
   read: () => Promise<Frame>;
@@ -186,7 +166,6 @@ export const createStreamOpener =
       cfg.downsampleFactor,
       cfg.throttleRate,
       cfg.excludeGroups,
-      cfg.keepAlive,
       onMissed,
     );
     await stream.send({
@@ -194,11 +173,10 @@ export const createStreamOpener =
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
       excludeGroups: cfg.excludeGroups,
-      keepAlive: cfg.keepAlive,
       missedRequested: onMissed != null,
     });
     try {
-      await streamer.receiveOpenAck();
+      await stream.receive();
     } catch (e) {
       streamer.close();
       throw errors.fromUnknown(e);
@@ -218,10 +196,6 @@ export const openStreamer = async (
   config: StreamerConfig,
 ): Promise<Streamer> => await createStreamOpener(retrieveChannels, client)(config);
 
-// Missing this many keep-alive intervals in a row fails the pending read: one is normal
-// jitter, three is a dead connection.
-const KEEP_ALIVE_DEADLINE_FACTOR = 3;
-
 class BaseStreamer implements Streamer {
   declare [Symbol.dispose]: () => void;
   declare [Symbol.asyncDispose]: () => Promise<void>;
@@ -234,7 +208,6 @@ class BaseStreamer implements Streamer {
   private readonly downsampleFactor: number;
   private readonly throttleRate: Rate;
   private readonly excludeGroups: number[];
-  private readonly deadline: TimeSpan;
   private readonly onMissed?: MissedHandler;
   // Updates waiting on an ack, oldest first. The Core acks in request order.
   private readonly pendingAcks: PromiseWithResolvers<void>[] = [];
@@ -246,7 +219,6 @@ class BaseStreamer implements Streamer {
     downsampleFactor: number = 1,
     throttleRate: Rate = new Rate(0),
     excludeGroups: number[] = [],
-    keepAlive: TimeSpan = TimeSpan.ZERO,
     onMissed?: MissedHandler,
   ) {
     this.stream = new StreamProxy("Streamer", stream);
@@ -254,9 +226,6 @@ class BaseStreamer implements Streamer {
     this.downsampleFactor = downsampleFactor;
     this.throttleRate = throttleRate;
     this.excludeGroups = excludeGroups;
-    this.deadline = TimeSpan.milliseconds(
-      keepAlive.milliseconds * KEEP_ALIVE_DEADLINE_FACTOR,
-    );
     this.onMissed = onMissed;
   }
 
@@ -278,14 +247,13 @@ class BaseStreamer implements Streamer {
     while (true) {
       let res: z.infer<typeof resZ>;
       try {
-        res = await this.receiveWithDeadline();
+        res = await this.stream.receive();
       } catch (e) {
         const err = errors.fromUnknown(e);
         this.failure = err;
         this.pendingAcks.splice(0).forEach(({ reject }) => reject(err));
         throw err;
       }
-      if (res.keepAlive === true) continue;
       if (res.ack === true) {
         const ack = this.pendingAcks.shift();
         if (ack == null)
@@ -300,30 +268,6 @@ class BaseStreamer implements Streamer {
       const { keys, series } = res.frame;
       return this.adapter.adapt(new Frame(keys, series.map(seriesFromPayload)));
     }
-  }
-
-  /**
-   * Waits for the response that acks the open request.
-   * @throws {Unreachable} if the stream stays silent past the keep-alive deadline.
-   */
-  async receiveOpenAck(): Promise<void> {
-    // A keep-alive can beat the open ack onto the wire, so the ack is the first
-    // non-keep-alive response.
-    let res = await this.receiveWithDeadline();
-    while (res.keepAlive === true) res = await this.receiveWithDeadline();
-  }
-
-  private async receiveWithDeadline(): Promise<z.infer<typeof resZ>> {
-    const received = this.stream.receive();
-    if (this.deadline.isZero) return await received;
-    return await sync.withTimeout(
-      received,
-      this.deadline,
-      () =>
-        new Unreachable({
-          message: `streamer received no response for ${this.deadline.toString()}`,
-        }),
-    );
   }
 
   async update(
