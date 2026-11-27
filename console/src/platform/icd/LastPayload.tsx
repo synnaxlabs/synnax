@@ -17,6 +17,7 @@ import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import type { Flux } from "@synnaxlabs/pluto";
 import { type payload, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import { Fragment, type ReactElement, useEffect, useState } from "react";
 
@@ -36,6 +37,30 @@ const BYTES_PER_ROW = 8;
 const SOURCE_DEBOUNCE = TimeSpan.milliseconds(500);
 const BYTE_LIMIT = 256;
 const PART_LIMIT = 64;
+// The characters that a text value loses from each end, as the Core trims it.
+const TRIMMED = /^[ \t\r]+|[ \t\r]+$/g;
+
+const trim = (text: string): string => text.replace(TRIMMED, "");
+
+/**
+ * @returns the tag that each part shows: the longest tag that starts it, on the first
+ * part that the tag claims. A tagged field reads only that part.
+ */
+const tagsOf = (parts: string[], tags: string[]): (string | undefined)[] => {
+  const claimed = new Set<string>();
+  return parts.map((part) => {
+    const text = trim(part);
+    const tag = tags
+      .filter((t) => text.startsWith(t))
+      .reduce<string | undefined>(
+        (a, b) => (a == null || b.length > a.length ? b : a),
+        undefined,
+      );
+    if (tag == null || claimed.has(tag)) return undefined;
+    claimed.add(tag);
+    return tag;
+  });
+};
 
 const Note = ({ children }: { children: string }): ReactElement => (
   <Text.Text level="small" color={9}>
@@ -43,18 +68,47 @@ const Note = ({ children }: { children: string }): ReactElement => (
   </Text.Text>
 );
 
-const Parts = ({ line, delimiter }: { line: string; delimiter: string }) => {
-  const parts = line.split(delimiter);
+interface PartsProps {
+  line: string;
+  payload: icd.TextPayload;
+  /** The key of the field whose part to mark. */
+  field?: icd.FieldKey;
+}
+
+const Parts = ({ line, payload, field }: PartsProps) => {
+  const parts = line.split(payload.delimiter);
+  const tags = tagsOf(
+    parts,
+    payload.fields.flatMap((f) => (f.encoding === "tagged" ? [f.tag] : [])),
+  );
+  const marked = payload.fields.find(({ key }) => key === field);
+  let position = -1;
+  let value = "";
+  if (marked?.encoding === "delimited" && marked.position < parts.length) {
+    position = marked.position;
+    value = trim(parts[position]);
+  } else if (marked?.encoding === "tagged") {
+    position = tags.indexOf(marked.tag);
+    if (position >= 0) value = trim(trim(parts[position]).slice(marked.tag.length));
+  }
   return (
     <>
       <Flex.Box x wrap className={CSS.BE("icd-last-payload", "parts")}>
-        {parts.slice(0, PART_LIMIT).map((part, position) => (
-          <Flex.Box y gap="tiny" key={position}>
+        {parts.slice(0, PART_LIMIT).map((part, i) => (
+          <Flex.Box
+            y
+            gap="tiny"
+            key={i}
+            className={CSS.cls(
+              CSS.BE("icd-last-payload", "part"),
+              i === position && CSS.M("marked"),
+            )}
+          >
             <Text.Text level="small" variant="code">
               {part}
             </Text.Text>
             <Text.Text level="small" color={8}>
-              {position}
+              {tags[i] == null ? i : `${i} · ${tags[i]}`}
             </Text.Text>
           </Flex.Box>
         ))}
@@ -62,6 +116,7 @@ const Parts = ({ line, delimiter }: { line: string; delimiter: string }) => {
       {parts.length > PART_LIMIT && (
         <Note>{`Shows the first ${PART_LIMIT} parts.`}</Note>
       )}
+      {value !== "" && <Note>{`Last value ${value}`}</Note>}
     </>
   );
 };
@@ -95,16 +150,16 @@ const Bytes = ({ hex }: { hex: string }) => {
   );
 };
 
-interface PayloadProps {
+interface PayloadProps extends Pick<PartsProps, "field"> {
   payload: icd.TextPayload | icd.BinaryPayload;
   sample: Sample;
 }
 
-const Payload = ({ payload, sample }: PayloadProps): ReactElement => {
+const Payload = ({ payload, sample, field }: PayloadProps): ReactElement => {
   if (sample.payload === "") return <Note>The last payload is empty.</Note>;
   if (sample.format === "binary") return <Bytes hex={sample.payload} />;
   if (payload.format === "text")
-    return <Parts line={sample.payload} delimiter={payload.delimiter} />;
+    return <Parts line={sample.payload} payload={payload} field={field} />;
   return (
     <Text.Text
       level="small"
@@ -116,15 +171,14 @@ const Payload = ({ payload, sample }: PayloadProps): ReactElement => {
   );
 };
 
-export interface LastPayloadProps {
-  /** The payload of the message that the source sends. */
-  payload: icd.TextPayload | icd.BinaryPayload;
-  /** Names the source, such as a topic, in a failure. A new source listens again. */
+export interface UseLastPayloadArgs {
+  /** What the payload belongs to, such as a task entry. A new key listens at once. */
+  key: string;
+  /**
+   * Names the source, such as a topic, in a failure. A new source listens once it stops
+   * changing. An empty source listens to nothing.
+   */
   source: string;
-  /** Says what a listen does while it runs, such as "Listening for 3 seconds". */
-  pendingMessage: string;
-  /** Says that a listen found no message. */
-  emptyMessage: string;
   /**
    * Listens to the source.
    * @returns its last message, or null when it finds none.
@@ -132,35 +186,79 @@ export interface LastPayloadProps {
   sample: (client: Synnax) => Promise<Sample | null>;
 }
 
+export interface LastPayloadState {
+  /** The latest listen. One in flight keeps the answer of the one before. */
+  result: Flux.Result<{ sample: Sample | null }>;
+  /** True while the source changes, before it listens. */
+  settling: boolean;
+  /** Listens again. */
+  listen: () => void;
+}
+
 /**
- * The last payload of a source, laid out as its message reads it: the parts of a text
- * line with their positions, or the bytes of a binary payload with their offsets.
- * Listens on mount, once the source stops changing, and on Listen again.
+ * Listens for the last payload of a source on mount, on a new key, once the source
+ * stops changing, and on listen. Call it above the panes that show the source and its
+ * fields, so that they share one listen.
  */
-export const LastPayload = ({
-  payload,
+export const useLastPayload = ({
+  key,
   source,
-  pendingMessage,
-  emptyMessage,
   sample,
-}: LastPayloadProps): ReactElement => {
-  const [settled, setSettled] = useState(source);
-  const settle = useDebouncedCallback(setSettled, SOURCE_DEBOUNCE, []);
+}: UseLastPayloadArgs): LastPayloadState => {
+  const [settled, setSettled] = useState({ key, source });
+  if (settled.key !== key) setSettled({ key, source });
+  const settle = useDebouncedCallback(
+    (next: string) => setSettled({ key, source: next }),
+    SOURCE_DEBOUNCE,
+    [key],
+  );
   useEffect(() => {
     settle(source);
     return () => settle.cancel();
   }, [source, settle]);
   const { result, listen } = useListen<{ sample: Sample | null }>(
-    async (client) => ({ sample: await sample(client) }),
-    { message: "Failed to read the last payload", name: settled },
-    [settled],
+    async (client) => ({
+      sample: settled.source === "" ? null : await sample(client),
+    }),
+    { message: "Failed to read the last payload", name: settled.source },
+    [settled.key, settled.source],
   );
+  return {
+    result,
+    settling: settled.key !== key || settled.source !== source,
+    listen,
+  };
+};
+
+export interface LastPayloadProps extends Pick<PartsProps, "field"> {
+  /** The listen that useLastPayload returns. */
+  state: LastPayloadState;
+  /** The payload of the message that the source sends. */
+  payload: icd.TextPayload | icd.BinaryPayload;
+  /** Says what a listen does while it runs, such as "Listening for 3 seconds". */
+  pendingMessage: string;
+  /** Says that a listen found no message. */
+  emptyMessage: string;
+}
+
+/**
+ * The last payload of a source, laid out as its message reads it: the parts of a text
+ * line with their positions, or the bytes of a binary payload with their offsets. A
+ * text field marks the part that it reads and shows its value.
+ */
+export const LastPayload = ({
+  state: { result, settling, listen },
+  payload,
+  field,
+  pendingMessage,
+  emptyMessage,
+}: LastPayloadProps): ReactElement => {
   let body: ReactElement;
   if (result.variant === "error") body = <Status.Summary status={result.status} />;
-  else if (result.variant === "loading" || result.data == null || source !== settled)
+  else if (result.variant === "loading" || result.data == null || settling)
     body = <Note>{pendingMessage}</Note>;
   else if (result.data.sample == null) body = <Note>{emptyMessage}</Note>;
-  else body = <Payload payload={payload} sample={result.data.sample} />;
+  else body = <Payload payload={payload} sample={result.data.sample} field={field} />;
   return (
     <PForm.Section
       title="Last payload"

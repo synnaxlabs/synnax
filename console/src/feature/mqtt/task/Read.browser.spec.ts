@@ -2484,6 +2484,41 @@ describe("MQTT read form", () => {
         ).toBe("text");
       });
 
+      it("should mark the part of a field and show its last value", async () => {
+        const scanner = await openSampled({
+          ...TEXT,
+          fields: [
+            icd.textFieldZ.parse({
+              key: uuid.create(),
+              name: "temperature",
+              encoding: "delimited",
+              position: 1,
+            }),
+            icd.textFieldZ.parse({
+              key: uuid.create(),
+              name: "pressure",
+              encoding: "tagged",
+              tag: "P=",
+            }),
+          ],
+        });
+        await scanner.answer(sampled("text", "$LN,21.7, P=101.2 ,ok"));
+        expect((await screen.findByText("P=101.2")).nextSibling?.textContent).toBe(
+          "2 · P=",
+        );
+        // The field shares the listen of its topic, so it shows the payload at once.
+        fireEvent.click(screen.getByRole("treeitem", { name: /temperature/ }));
+        await screen.findByText("Last value 21.7");
+        expect(screen.getByText("21.7").parentElement?.className).toContain(
+          "console--marked",
+        );
+        fireEvent.click(screen.getByRole("treeitem", { name: /pressure/ }));
+        await screen.findByText("Last value 101.2");
+        expect(screen.getByText("P=101.2").parentElement?.className).toContain(
+          "console--marked",
+        );
+      });
+
       it("should say that the last payload is empty", async () => {
         const scanner = await openSampled({ format: "binary", fields: [] });
         await scanner.answer(sampled("binary", ""));

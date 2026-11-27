@@ -289,13 +289,56 @@ const MessageDetails = ({
   );
 };
 
-interface FieldDetailsProps extends MessagePanelProps {
-  field: ICD.TreeField;
+interface LastPayloadProps extends Pick<
+  ICD.LastPayloadProps,
+  "state" | "payload" | "field"
+> {
+  /** The name of the topic of the record. */
+  name: string;
+  recordKey: string;
 }
 
-const FieldDetails = ({ device, topic, ...rest }: FieldDetailsProps) => {
+/** The last payload of a record. */
+const LastPayload = ({ name, recordKey, ...rest }: LastPayloadProps) => (
+  <ICD.LastPayload
+    {...rest}
+    pendingMessage={`Reading ${name}`}
+    emptyMessage={
+      recordKey === ""
+        ? `Read no records from ${name}.`
+        : `Read no record with key ${recordKey} from ${name}.`
+    }
+  />
+);
+
+interface FieldDetailsProps extends MessagePanelProps {
+  field: ICD.TreeField;
+  /** The listen of the record, when it listens. */
+  lastPayload?: ICD.LastPayloadState;
+}
+
+const FieldDetails = ({ device, topic, lastPayload, ...rest }: FieldDetailsProps) => {
   const prefix = usePrefix(device.name, topic, rest.path);
-  return <ICD.FieldDetails {...rest} prefix={prefix} />;
+  const name = PForm.useFieldValue(topicPath(topic).name);
+  const recordKey = PForm.useFieldValue(rest.path.recordKey);
+  const message = PForm.useFieldValue(rest.path.messages[rest.read].message);
+  const read = PForm.useFieldValue(PICD.formPath.messages[message].payload, {
+    optional: true,
+    ctx: rest.format,
+  });
+  return (
+    <ICD.FieldDetails {...rest} prefix={prefix}>
+      {lastPayload != null && read != null && read.format !== "json" && (
+        <LastPayload
+          state={lastPayload}
+          payload={read}
+          field={rest.field.key}
+          name={name}
+          recordKey={recordKey}
+        />
+      )}
+    </ICD.FieldDetails>
+  );
 };
 
 /** The name of a topic. */
@@ -329,6 +372,8 @@ interface RecordDetailsProps {
   /** Makes the record read a new message of the format with no fields. */
   onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
+  /** The listen of the record, when it listens. */
+  lastPayload?: ICD.LastPayloadState;
 }
 
 /**
@@ -345,6 +390,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   onFormatChange,
   onFormatCreate,
   bindDisabled,
+  lastPayload,
 }) => {
   const isPreview = Task.useIsPreview();
   const name = PForm.useFieldValue(topicPath(topic).name);
@@ -393,23 +439,14 @@ const RecordDetails: FC<RecordDetailsProps> = ({
             />
           )}
         </PForm.Section>
-        {name !== "" &&
-          read != null &&
-          read.format !== "json" &&
-          ICD.isTaskFormat(read.format) && (
-            <ICD.LastPayload
-              key={device.key}
-              payload={read}
-              source={recordKey === "" ? name : `${name}, key ${recordKey}`}
-              pendingMessage={`Reading ${name}`}
-              emptyMessage={
-                recordKey === ""
-                  ? `Read no records from ${name}.`
-                  : `Read no record with key ${recordKey} from ${name}.`
-              }
-              sample={(client) => lastRecord(client, device, name, recordKey)}
-            />
-          )}
+        {lastPayload != null && read != null && read.format !== "json" && (
+          <LastPayload
+            state={lastPayload}
+            payload={read}
+            name={name}
+            recordKey={recordKey}
+          />
+        )}
         {reads.length === 1 && (
           <MessageSections
             topic={topic}
@@ -678,6 +715,28 @@ const Records: FC<RecordsProps> = ({
     current == null ? undefined : records.find(({ key }) => key === current.source);
   const topic = rec == null ? "" : topicOf(topics, rec.key);
   const format = rec == null ? undefined : formats.get(rec.icd);
+  // The record and field panes of a record that reads one message share one listen.
+  const single = rec != null && rec.messages.length === 1 ? rec : undefined;
+  const singleFormat = PForm.useFieldValue(
+    PICD.formPath.messages[single?.messages[0].message ?? ""].payload.format,
+    { optional: true, ctx: format },
+  );
+  const name = topics.find(({ key }) => key === topic)?.name ?? "";
+  const listened =
+    single != null &&
+    name !== "" &&
+    singleFormat != null &&
+    singleFormat !== "json" &&
+    ICD.isTaskFormat(singleFormat);
+  const recordKey = single?.recordKey ?? "";
+  let source = "";
+  if (listened) source = recordKey === "" ? name : `${name}, key ${recordKey}`;
+  const lastPayloadState = ICD.useLastPayload({
+    key: `${device.key}/${single?.key ?? ""}`,
+    source,
+    sample: (client) => lastRecord(client, device, name, recordKey),
+  });
+  const lastPayload = listened ? lastPayloadState : undefined;
   let details = null;
   let title = null;
   let detailsPath: deep.Target<unknown> | null = null;
@@ -707,6 +766,7 @@ const Records: FC<RecordsProps> = ({
         field={current.field}
         format={format}
         device={device}
+        lastPayload={lastPayload}
       />
     );
   } else if (rec != null && format != null && current?.kind === "message") {
@@ -740,6 +800,7 @@ const Records: FC<RecordsProps> = ({
           onFormatChange={(icdKey, message) => setMessage(rec.key, icdKey, message)}
           onFormatCreate={(format) => setNewMessage(rec.key, format)}
           bindDisabled={bindDisabled}
+          lastPayload={lastPayload}
         />
       );
   }
