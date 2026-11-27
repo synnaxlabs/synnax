@@ -37,7 +37,7 @@ func (c *core) load(s *Snapshot) error {
 			if err := c.checkSegment(ch.Key, seg); err != nil {
 				return err
 			}
-			st := &segState{key: ch.Key, vis: seg, dur: durable{
+			st := &segEntry{key: ch.Key, vis: seg, dur: durable{
 				created:  true,
 				sealed:   seg.Sealed,
 				length:   seg.Length,

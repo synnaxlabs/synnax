@@ -29,8 +29,8 @@ func refuse(format string, args ...any) error {
 // core is the data of the state and the rules that change it. Only the owner uses it.
 type core struct {
 	versions set.Set[uint16]
-	channels map[uint32]*chanState
-	segments map[uint64]*segState
+	channels map[uint32]*keyEntry
+	segments map[uint64]*segEntry
 	intents  set.Set[uint32]
 	// sequence is the sequence of the last durable entry.
 	sequence uint64
@@ -50,17 +50,17 @@ type core struct {
 func newCore(versions set.Set[uint16]) *core {
 	return &core{
 		versions: versions,
-		channels: map[uint32]*chanState{},
-		segments: map[uint64]*segState{},
+		channels: map[uint32]*keyEntry{},
+		segments: map[uint64]*segEntry{},
 		intents:  set.Set[uint32]{},
 		keys:     set.Set[uint32]{},
 	}
 }
 
-func (c *core) channel(key uint32) *chanState {
+func (c *core) channel(key uint32) *keyEntry {
 	ch, ok := c.channels[key]
 	if !ok {
-		ch = &chanState{key: key}
+		ch = &keyEntry{key: key}
 		c.channels[key] = ch
 		c.keysChanged = true
 	}
@@ -138,7 +138,7 @@ func (c *core) create(r *log.Create) error {
 		s.dur.created = true
 		return nil
 	}
-	s := &segState{key: r.Key, vis: Segment{
+	s := &segEntry{key: r.Key, vis: Segment{
 		ID:       r.Segment,
 		Clock:    r.Clock,
 		Version:  r.Version,
