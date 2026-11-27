@@ -48,6 +48,7 @@ cc_test(
     ],
     deps = [
         ":file",
+        "//driver/outbox/testutil",
         "//x/cpp/defer",
         "//x/cpp/fs",
         "//x/cpp/testutil",

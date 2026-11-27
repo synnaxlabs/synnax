@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -70,6 +73,39 @@ with_clock_skew(const Health &health, const synnax::connection::State &conn) {
     };
 }
 
+/// @brief a health that another thread raises and clears. Safe for concurrent use.
+class Alert {
+    mutable std::mutex mu;
+    std::optional<Health> health;
+
+public:
+    /// @brief makes the heartbeat report health.
+    void raise(Health health) {
+        std::lock_guard lock(this->mu);
+        this->health = std::move(health);
+    }
+
+    /// @brief makes the heartbeat report its own health again.
+    void clear() {
+        std::lock_guard lock(this->mu);
+        this->health.reset();
+    }
+
+    /// @returns the raised health, or std::nullopt when none is raised.
+    [[nodiscard]] std::optional<Health> get() const {
+        std::lock_guard lock(this->mu);
+        return this->health;
+    }
+};
+
+/// @brief returns the health that alert raised when health is a success, and health
+/// otherwise.
+inline Health with_alert(const Health &health, const std::shared_ptr<Alert> &alert) {
+    if (alert == nullptr || health.variant != ::synnax::status::VARIANT_SUCCESS)
+        return health;
+    return alert->get().value_or(health);
+}
+
 class Source final : public driver::pipeline::Base {
     /// @brief the key of the rack the heartbeat is for.
     const synnax::rack::Key rack_key;
@@ -78,13 +114,15 @@ class Source final : public driver::pipeline::Base {
     x::loop::Timer loop;
     std::shared_ptr<task::Context> ctx;
     const Health health;
+    std::shared_ptr<Alert> alert;
 
 public:
     Source(
         const synnax::rack::Rack &rack,
         synnax::task::Task task,
         const std::shared_ptr<task::Context> &ctx,
-        Health health
+        Health health,
+        std::shared_ptr<Alert> alert
     ):
         Base(
             x::breaker::Config{
@@ -100,7 +138,8 @@ public:
         task(std::move(task)),
         loop(x::loop::Timer(EMISSION_RATE)),
         ctx(ctx),
-        health(std::move(health)) {}
+        health(std::move(health)),
+        alert(std::move(alert)) {}
 
     /// @brief writes the started status, then starts the heartbeat. The status is in
     /// place when this returns, so a status that the last run left is never kept.
@@ -116,7 +155,7 @@ public:
         while (breaker.running()) {
             this->loop.wait(breaker);
             const auto health = with_clock_skew(
-                this->health,
+                with_alert(this->health, this->alert),
                 this->ctx->client->connectivity->state()
             );
             synnax::rack::Status status{
@@ -197,9 +236,10 @@ public:
         const synnax::rack::Rack &rack,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx,
-        Health health = {}
+        Health health = {},
+        std::shared_ptr<Alert> alert = nullptr
     ):
-        pipe(rack, task, ctx, std::move(health)) {
+        pipe(rack, task, ctx, std::move(health), std::move(alert)) {
         this->pipe.start();
     }
 
@@ -213,7 +253,8 @@ public:
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        Health health = {}
+        Health health = {},
+        std::shared_ptr<Alert> alert = nullptr
     ) {
         auto rack_key = task.rack;
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
@@ -228,15 +269,24 @@ public:
             ctx->set_status(stat);
             return nullptr;
         }
-        return std::make_unique<Task>(rack, task, ctx, std::move(health));
+        return std::make_unique<Task>(
+            rack,
+            task,
+            ctx,
+            std::move(health),
+            std::move(alert)
+        );
     }
 };
 
 struct Factory final : task::Factory {
     /// @brief what the heartbeat of each configured task reports.
     const Health health;
+    /// @brief a health that the heartbeat reports over a health that is a success.
+    const std::shared_ptr<Alert> alert;
 
-    explicit Factory(Health health = {}): health(std::move(health)) {}
+    explicit Factory(Health health = {}, std::shared_ptr<Alert> alert = nullptr):
+        health(std::move(health)), alert(std::move(alert)) {}
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -245,7 +295,7 @@ struct Factory final : task::Factory {
         x::breaker::Breaker &cancel
     ) override {
         if (task.type == TASK_TYPE)
-            return {Task::configure(ctx, task, this->health), true};
+            return {Task::configure(ctx, task, this->health, this->alert), true};
         return {nullptr, false};
     }
 

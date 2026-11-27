@@ -58,6 +58,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/modbus",
         "//driver/modbus/testutil",
+        "//driver/outbox/testutil",
         "//driver/pipeline/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -87,6 +88,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/modbus",
         "//driver/modbus/testutil",
+        "//driver/outbox/testutil",
         "//driver/pipeline/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -104,6 +106,7 @@ cc_test(
     deps = [
         "//driver/modbus",
         "//driver/modbus/testutil",
+        "//driver/outbox/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

@@ -65,16 +65,19 @@ cc_library(
         "//driver/ethercat",
         "//driver/file",
         "//driver/http",
+        "//driver/journal",
         "//driver/labjack:names",
         "//driver/modbus:names",
         "//driver/ni:names",
         "//driver/opcua",
+        "//driver/outbox",
         "//driver/rack/status",
         "//driver/secret",
         "//driver/task",
         "//x/cpp/args",
         "//x/cpp/defer",
         "//x/cpp/env",
+        "//x/cpp/fs:file",
         "//x/cpp/kv",
         "//x/cpp/log",
         "//x/cpp/os",
@@ -117,6 +120,7 @@ cc_test(
     deps = [
         "//driver/labjack:names",
         "//driver/ni:names",
+        "//driver/outbox/testutil",
         "//driver/rack",
         "//driver/task",
         "@googletest//:gtest_main",
@@ -131,6 +135,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ni:names",
+        "//driver/outbox/testutil",
         "//driver/rack",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -145,6 +150,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/labjack:names",
+        "//driver/outbox/testutil",
         "//driver/rack",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -158,10 +164,28 @@ cc_test(
         "//driver/version",
     ],
     deps = [
+        "//driver/outbox",
         "//driver/rack",
         "//x/cpp/defer",
         "//x/cpp/env",
         "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "outbox_test",
+    srcs = ["outbox_test.cpp"],
+    deps = [
+        ":rack",
+        "//driver/journal",
+        "//driver/outbox",
+        "//freighter/cpp:freighter",
+        "//x/cpp/fs:file",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@abseil-cpp//absl/crc:crc32c",
         "@googletest//:gtest_main",
     ],
 )
@@ -176,9 +200,15 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/journal",
+        "//driver/outbox",
+        "//driver/outbox/testutil",
         "//driver/rack",
         "//driver/rack/status",
+        "//x/cpp/defer",
+        "//x/cpp/fs:file",
         "//x/cpp/kv",
+        "@abseil-cpp//absl/crc:crc32c",
         "@googletest//:gtest_main",
     ],
 )

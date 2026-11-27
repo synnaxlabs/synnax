@@ -70,6 +70,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/common",
+        "//driver/outbox/testutil",
         "//driver/pipeline/testutil",
         "//x/cpp/defer",
         "//x/cpp/sync",
@@ -90,6 +91,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/common",
+        "//driver/outbox/testutil",
         "//driver/task",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
@@ -104,6 +106,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/common",
+        "//driver/outbox/testutil",
         "//driver/pipeline/testutil",
         "//x/cpp/sync",
         "//x/cpp/testutil",

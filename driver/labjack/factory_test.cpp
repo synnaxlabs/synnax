@@ -18,6 +18,7 @@
 
 #include "driver/labjack/device/mock.h"
 #include "driver/labjack/labjack.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::labjack {
 /// @brief the description of a configure or scan that fails because LJM does not load.
@@ -46,7 +47,10 @@ protected:
     void SetUp() override {
         this->cancel.start();
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
-        this->ctx = std::make_shared<task::MockContext>(this->client);
+        this->ctx = std::make_shared<task::MockContext>(
+            this->client,
+            ::driver::outbox::testutil::open(this->client->statuses)
+        );
         const auto rack = ASSERT_NIL_P(this->client->racks.create("labjack_factory"));
         auto dev = synnax::device::Device{
             .key = make_unique_channel_name("labjack_factory_device"),

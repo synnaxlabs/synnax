@@ -32,6 +32,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/task/task.h"
 
 namespace driver::task {
@@ -645,7 +646,16 @@ protected:
         conn.port = pipe->port;
         const auto piped = std::make_shared<synnax::Synnax>(conn);
         const auto piped_rack = ASSERT_NIL_P(piped->racks.retrieve(rack.key));
-        manager = std::make_unique<Manager>(piped_rack, piped, std::move(factory), cfg);
+        manager = std::make_unique<Manager>(
+            piped_rack,
+            piped,
+            std::move(factory),
+            std::pair{
+                ::driver::outbox::testutil::open(piped->statuses),
+                x::errors::NIL
+            },
+            cfg
+        );
     }
 
     /// @brief starts a manager that reaches the Core through pipe, and runs it again
@@ -689,7 +699,16 @@ protected:
     }
 
     void start_manager(std::unique_ptr<Factory> factory, ManagerConfig cfg = {}) {
-        manager = std::make_unique<Manager>(rack, client, std::move(factory), cfg);
+        manager = std::make_unique<Manager>(
+            rack,
+            client,
+            std::move(factory),
+            std::pair{
+                ::driver::outbox::testutil::open(client->statuses),
+                x::errors::NIL
+            },
+            cfg
+        );
         std::promise<void> started;
         thread = std::thread([&] {
             ASSERT_NIL(manager->run([&] { started.set_value(); }));
@@ -3857,7 +3876,12 @@ protected:
 TEST_F(ShutdownTest, DuringConfiguration) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();
-    auto manager = std::make_unique<Manager>(rack, client, std::move(factory));
+    auto manager = std::make_unique<Manager>(
+        rack,
+        client,
+        std::move(factory),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
+    );
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
@@ -3886,7 +3910,12 @@ TEST_F(ShutdownTest, DuringConfiguration) {
 TEST_F(ShutdownTest, WithPendingOps) {
     auto factory = std::make_unique<BlockingTaskFactory>();
     auto *f = factory.get();
-    auto manager = std::make_unique<Manager>(rack, client, std::move(factory));
+    auto manager = std::make_unique<Manager>(
+        rack,
+        client,
+        std::move(factory),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
+    );
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
@@ -3976,6 +4005,7 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
         rack,
         client,
         std::move(factory),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL},
         ManagerConfig{
             .op_timeout = 60 * x::telem::SECOND,
             .poll_interval = 1 * x::telem::SECOND,
@@ -4062,7 +4092,12 @@ public:
 TEST_F(ShutdownTest, ParallelTaskStop) {
     // Each task takes 200ms to stop
     auto factory = std::make_unique<SlowStopFactory>(200 * x::telem::MILLISECOND);
-    auto manager = std::make_unique<Manager>(rack, client, std::move(factory));
+    auto manager = std::make_unique<Manager>(
+        rack,
+        client,
+        std::move(factory),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
+    );
 
     std::promise<void> started;
     std::thread thread([&] { manager->run([&] { started.set_value(); }); });
@@ -4130,6 +4165,7 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
         rack,
         client,
         std::move(factory),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL},
         ManagerConfig{
             .op_timeout = 60 * x::telem::SECOND,
             .poll_interval = 1 * x::telem::SECOND,
@@ -4319,11 +4355,36 @@ TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
 
 using SynnaxContextTest = TaskManagerTest;
 
+/// @brief it should give tasks the outbox it was built with.
+TEST_F(SynnaxContextTest, ReturnsInjectedOutbox) {
+    const auto outbox = ::driver::outbox::testutil::open(client->statuses);
+    const auto ctx = std::make_shared<SynnaxContext>(
+        client,
+        std::make_shared<StatusCache>(client->statuses),
+        std::pair{outbox, x::errors::NIL}
+    );
+    ASSERT_EQ(ASSERT_NIL_P(ctx->outbox()), outbox);
+}
+
+/// @brief it should give tasks the error that kept the outbox from opening.
+TEST_F(SynnaxContextTest, ReturnsOutboxError) {
+    const auto ctx = std::make_shared<SynnaxContext>(
+        client,
+        std::make_shared<StatusCache>(client->statuses),
+        std::pair<std::shared_ptr<::driver::outbox::Outbox>, x::errors::Error>{
+            nullptr,
+            ::driver::outbox::CORRUPT
+        }
+    );
+    ASSERT_OCCURRED_AS_P(ctx->outbox(), ::driver::outbox::CORRUPT);
+}
+
 /// @brief it should send the latest status of each task again, with no command key.
 TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     const auto ctx = std::make_shared<SynnaxContext>(
         client,
         std::make_shared<StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL},
         nullptr,
         nullptr,
         rack.key
@@ -4614,7 +4675,12 @@ TEST_F(TaskManagerTest, MissedTaskChangesSyncTasksInPlace) {
     // The open ack.
     stream->push({});
     const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
-    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    manager = std::make_unique<Manager>(
+        managed_rack,
+        managed,
+        std::move(factory),
+        std::pair{::driver::outbox::testutil::open(managed->statuses), x::errors::NIL}
+    );
     std::promise<void> started;
     thread = std::thread([&] {
         ASSERT_NIL(manager->run([&] { started.set_value(); }));
@@ -4684,7 +4750,12 @@ TEST_F(TaskManagerTest, MissedChangesReadControlStateAndRackNameAgain) {
     // The open ack.
     stream->push({});
     const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
-    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    manager = std::make_unique<Manager>(
+        managed_rack,
+        managed,
+        std::move(factory),
+        std::pair{::driver::outbox::testutil::open(managed->statuses), x::errors::NIL}
+    );
     std::promise<void> started;
     thread = std::thread([&] {
         ASSERT_NIL(manager->run([&] { started.set_value(); }));
@@ -4763,7 +4834,12 @@ TEST_F(TaskManagerTest, FailedControlReadOnAMissKeepsTheMirror) {
     auto factory = std::make_unique<ContextCaptureFactory>();
     auto *f = factory.get();
     const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
-    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
+    manager = std::make_unique<Manager>(
+        managed_rack,
+        managed,
+        std::move(factory),
+        std::pair{::driver::outbox::testutil::open(managed->statuses), x::errors::NIL}
+    );
     std::promise<void> started;
     std::promise<x::errors::Error> ended;
     thread = std::thread([&] {
@@ -4970,6 +5046,10 @@ protected:
             managed_rack,
             managed,
             std::move(factory),
+            std::pair{
+                ::driver::outbox::testutil::open(managed->statuses),
+                x::errors::NIL
+            },
             ManagerConfig{.poll_interval = poll_interval}
         );
         std::promise<void> started;

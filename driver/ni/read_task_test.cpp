@@ -23,6 +23,7 @@
 #include "driver/ni/daqmx/mock.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/read_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 /// @brief it should correctly parse a basic analog read task.
@@ -326,7 +327,10 @@ protected:
         cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_analog_read");
         ASSERT_NIL(p.error());
 
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     }
 
@@ -890,7 +894,10 @@ protected:
         cfg = std::make_unique<ReadTaskConfig>(client, p, "ni_digital_read");
         ASSERT_NIL(p.error());
 
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     }
 
@@ -1097,7 +1104,10 @@ protected:
         cfg = std::make_unique<ni::ReadTaskConfig>(client, p, "ni_counter_read");
         ASSERT_NIL(p.error());
 
-        ctx = std::make_shared<task::MockContext>(client);
+        ctx = std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        );
         mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     }
 
@@ -1835,7 +1845,10 @@ protected:
             -> std::pair<std::unique_ptr<hardware::Reader<double>>, x::errors::Error> {
             return {std::make_unique<PacedReader>(), x::errors::NIL};
         };
-        run.ctx = std::make_shared<task::MockContext>(this->client);
+        run.ctx = std::make_shared<task::MockContext>(
+            this->client,
+            ::driver::outbox::testutil::open(this->client->statuses)
+        );
         run.writers = std::make_shared<pipeline::testutil::CoreWriterFactory>(
             this->client
         );

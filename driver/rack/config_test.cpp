@@ -8,8 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -19,6 +23,7 @@
 #include "x/cpp/kv/kv.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
 #include "driver/version/version.h"
@@ -153,7 +158,10 @@ TEST_F(RackConfigTest, IncompatibleCoreRunsOnlyRackStatus) {
     x::breaker::Breaker cancel;
     cancel.start();
     auto tasks = factory->configure_initial_tasks(
-        std::make_shared<task::MockContext>(client),
+        std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        ),
         rack,
         cancel
     );
@@ -195,7 +203,10 @@ TEST_F(RackConfigTest, FileBrowserFollowsIntegration) {
         x::breaker::Breaker cancel;
         cancel.start();
         auto tasks = factory->configure_initial_tasks(
-            std::make_shared<task::MockContext>(client),
+            std::make_shared<task::MockContext>(
+                client,
+                ::driver::outbox::testutil::open(client->statuses)
+            ),
             rack,
             cancel
         );
@@ -619,6 +630,158 @@ TEST_F(RackConfigTest, LoadManagerConfigFromFile) {
     const auto cfg = ASSERT_NIL_P(Config::load(config_args, brk));
     ASSERT_EQ(cfg.manager.worker_count, 8);
     ASSERT_EQ(cfg.manager.op_timeout, 15 * x::telem::SECOND);
+}
+
+/// @brief it should use the outbox defaults when no source sets them.
+TEST_F(RackConfigTest, OutboxConfigDefaults) {
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    const outbox::Config def;
+    ASSERT_EQ(cfg.outbox.max_bytes, std::uint64_t{64} * 1024 * 1024);
+    ASSERT_EQ(cfg.outbox.max_calls, def.max_calls);
+    ASSERT_EQ(cfg.outbox.max_payload, def.max_payload);
+    ASSERT_EQ(cfg.outbox.compact_share, def.compact_share);
+    ASSERT_EQ(cfg.outbox.segment_calls, def.segment_calls);
+    ASSERT_EQ(cfg.outbox.send_timeout, def.send_timeout);
+    ASSERT_EQ(cfg.outbox.retry.base_interval, def.retry.base_interval);
+    ASSERT_EQ(cfg.outbox.retry.max_interval, def.retry.max_interval);
+    ASSERT_EQ(cfg.outbox.sync_interval, def.sync_interval);
+    ASSERT_EQ(cfg.outbox.stuck_after, def.stuck_after);
+}
+
+/// @brief it should load the outbox settings from the outage section of the config
+/// file.
+TEST_F(RackConfigTest, LoadOutboxConfigFromFile) {
+    const std::string config_path = "/tmp/rack-config-test/outbox-config.json";
+    std::ofstream config_file(config_path);
+    config_file << R"({"outage": {
+        "outbox_size": 1048576,
+        "outbox_max_calls": 500,
+        "outbox_max_payload": 1024,
+        "outbox_compact_share": 0.5,
+        "outbox_segment_calls": 50,
+        "outbox_send_timeout": 3,
+        "outbox_retry_interval": 0.5,
+        "outbox_max_retry_interval": 30,
+        "outbox_sync_interval": 2,
+        "outbox_stuck_after": 60
+    }})";
+    config_file.close();
+    x::defer::defer cleanup([&] { std::remove(config_path.c_str()); });
+    x::args::Parser config_args(
+        std::vector<
+            std::string>{"program", "--state-file", STATE_PATH, "--config", config_path}
+    );
+    const auto cfg = ASSERT_NIL_P(Config::resolve(config_args, brk));
+    ASSERT_EQ(cfg.outbox.max_bytes, 1048576);
+    ASSERT_EQ(cfg.outbox.max_calls, 500);
+    ASSERT_EQ(cfg.outbox.max_payload, 1024);
+    ASSERT_EQ(cfg.outbox.compact_share, 0.5);
+    ASSERT_EQ(cfg.outbox.segment_calls, 50);
+    ASSERT_EQ(cfg.outbox.send_timeout, 3 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.retry.base_interval, 500 * x::telem::MILLISECOND);
+    ASSERT_EQ(cfg.outbox.retry.max_interval, 30 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.sync_interval, 2 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.stuck_after, x::telem::MINUTE);
+}
+
+/// @brief it should load the outbox settings from environment variables.
+TEST_F(RackConfigTest, LoadOutboxConfigFromEnvironmentVariables) {
+    const std::vector<std::pair<std::string, std::string>> vars = {
+        {"SYNNAX_DRIVER_OUTBOX_SIZE", "2097152"},
+        {"SYNNAX_DRIVER_OUTBOX_MAX_CALLS", "300"},
+        {"SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD", "2048"},
+        {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "0.1"},
+        {"SYNNAX_DRIVER_OUTBOX_SEGMENT_CALLS", "20"},
+        {"SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT", "4"},
+        {"SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "2"},
+        {"SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL", "120"},
+        {"SYNNAX_DRIVER_OUTBOX_SYNC_INTERVAL", "3"},
+        {"SYNNAX_DRIVER_OUTBOX_STUCK_AFTER", "90"},
+    };
+    for (const auto &[k, v]: vars)
+        x::env::set(k, v);
+    x::defer::defer unset_env([&] {
+        for (const auto &[k, _]: vars)
+            x::env::unset(k);
+    });
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.outbox.max_bytes, 2097152);
+    ASSERT_EQ(cfg.outbox.max_calls, 300);
+    ASSERT_EQ(cfg.outbox.max_payload, 2048);
+    ASSERT_EQ(cfg.outbox.compact_share, 0.1);
+    ASSERT_EQ(cfg.outbox.segment_calls, 20);
+    ASSERT_EQ(cfg.outbox.send_timeout, 4 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.retry.base_interval, 2 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.retry.max_interval, 2 * x::telem::MINUTE);
+    ASSERT_EQ(cfg.outbox.sync_interval, 3 * x::telem::SECOND);
+    ASSERT_EQ(cfg.outbox.stuck_after, 90 * x::telem::SECOND);
+}
+
+/// @brief it should take a compact share between 0 and 1.
+TEST_F(RackConfigTest, TakesCompactShareInRange) {
+    x::env::set("SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "0.25");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE");
+    });
+    ASSERT_EQ(ASSERT_NIL_P(Config::resolve(args, brk)).outbox.compact_share, 0.25);
+}
+
+/// @brief it should refuse a compact share of 0, 1, or outside them, and a payload past
+/// the journal limit.
+TEST_F(RackConfigTest, RefuseOutOfRangeOutboxSettings) {
+    for (const auto &[name, value]: std::vector<std::pair<std::string, std::string>>{
+             {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "0"},
+             {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "1"},
+             {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "-0.5"},
+             {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "1.5"},
+             {"SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD", "67108865"},
+         }) {
+        x::env::set(name, value);
+        ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+        x::env::unset(name);
+    }
+}
+
+/// @brief it should refuse a duration too large for a TimeSpan, or not a number, and
+/// keep the default.
+TEST_F(RackConfigTest, RefuseOutOfRangeOutboxDurations) {
+    for (const auto *value: {"1e12", "nan", "inf"}) {
+        x::env::set("SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT", value);
+        ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT");
+    }
+    x::env::set("SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "nan");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE");
+    });
+    ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+}
+
+/// @brief it should refuse a retry interval above the largest one, and a payload above
+/// the outbox size.
+TEST_F(RackConfigTest, RefuseConflictingOutboxSettings) {
+    for (const auto &vars:
+         std::vector<std::vector<std::pair<std::string, std::string>>>{
+             {{"SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "10"},
+              {"SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL", "5"}},
+             {{"SYNNAX_DRIVER_OUTBOX_SIZE", "1024"},
+              {"SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD", "2048"}},
+         }) {
+        for (const auto &[k, v]: vars)
+            x::env::set(k, v);
+        ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+        for (const auto &[k, _]: vars)
+            x::env::unset(k);
+    }
+}
+
+/// @brief it should refuse an outbox setting that is not greater than 0.
+TEST_F(RackConfigTest, RefuseNonPositiveOutboxSetting) {
+    x::env::set("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "0");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL");
+    });
+    ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
 }
 
 /// @brief it should load the secrets folder from the config file as an absolute path.

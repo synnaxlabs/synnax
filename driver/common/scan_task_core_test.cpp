@@ -20,6 +20,7 @@
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/task/task.h"
 
 namespace driver::common {
@@ -140,7 +141,10 @@ TEST(TestScanTask, testWritesDeviceHierarchyOnce) {
 
     ScanTask scan_task(
         std::move(scanner),
-        std::make_shared<task::MockContext>(client),
+        std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 100,
@@ -187,7 +191,10 @@ TEST(TestScanTask, testSendsTheStatusOfANewDevice) {
     task.name = "Test Scan Task";
     ScanTask scan_task(
         std::make_unique<FixedScanner>(std::vector{dev}),
-        std::make_shared<task::MockContext>(client),
+        std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 100,
@@ -212,7 +219,10 @@ std::unique_ptr<ScanTask> new_scan_task(
     task.name = "Test Scan Task";
     return std::make_unique<ScanTask>(
         std::make_unique<FixedScanner>(std::move(devices)),
-        std::make_shared<task::MockContext>(client),
+        std::make_shared<task::MockContext>(
+            client,
+            ::driver::outbox::testutil::open(client->statuses)
+        ),
         task,
         x::breaker::Config{},
         x::telem::HERTZ * 100,

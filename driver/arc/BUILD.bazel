@@ -53,6 +53,7 @@ cc_test(
         "//driver/bypass",
         "//driver/bypass/pipeline",
         "//driver/control",
+        "//driver/outbox/testutil",
         "//driver/pipeline/testutil",
         "//driver/task",
         "//x/cpp/defer",
