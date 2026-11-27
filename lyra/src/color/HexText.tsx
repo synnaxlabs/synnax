@@ -40,7 +40,7 @@ export interface HexTextProps extends Omit<
   /** The hex digits, or a name, to show while the user is not editing. */
   text: string;
   /**
-   * If true, `text` is a name, shown in the text font until the user edits it. A commit
+   * If true, `text` is a name, shown in its own case until the user edits it. A commit
    * of the same name changes nothing, even when the name is also a color.
    */
   named?: boolean;
