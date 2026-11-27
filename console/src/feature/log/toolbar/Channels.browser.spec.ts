@@ -15,6 +15,8 @@ import { describe, expect, it } from "vitest";
 
 import { Toolbar } from "@/feature/log/toolbar";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
+import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { pickOption } from "@/testutil";
 
 const createChannel = async (
@@ -35,6 +37,11 @@ const entry = (
 ): log.ChannelEntry => log.channelEntryZ.parse({ channel: channelKey, ...overrides });
 
 const roles = new RoleClients(client);
+
+type Store = Awaited<ReturnType<typeof renderLog>>["store"];
+
+const hiddenIn = (store: Store, key: string): channel.Key[] | undefined =>
+  documentIn(store.getState()[Session.Log.SLICE_NAME], key)?.hiddenChannels;
 
 const renderChannels = (channels: log.ChannelEntry[] = [], as?: Client) =>
   renderLog(Toolbar, { log: { channels }, as });
@@ -282,6 +289,17 @@ describe("Log toolbar channels tab", () => {
     });
   });
 
+  it("hides and shows a channel while keeping its row and settings", async () => {
+    const ch = await createChannel();
+    const { key, store } = await renderChannels([entry(ch, { alias: "pressure" })]);
+    fireEvent.click(await screen.findByRole("button", { name: "Hide channel" }));
+    await waitFor(() => expect(hiddenIn(store, key)).toEqual([ch]));
+    expect(channelRows()).toHaveLength(1);
+    expect(screen.getByDisplayValue("pressure")).toBeDefined();
+    fireEvent.click(await screen.findByRole("button", { name: "Show channel" }));
+    await waitFor(() => expect(hiddenIn(store, key)).toEqual([]));
+  });
+
   it("removes the row of a deleted channel", async () => {
     const deleted = await createChannel();
     await renderChannels([entry(deleted)]);
@@ -332,6 +350,17 @@ describe("Log toolbar channels tab permissions", () => {
     const local = await screen.findByText("Local");
     await waitFor(() => expect(isFrozen(local.closest("button"))).toBe(true));
     expect(isFrozen(screen.getByText("Precise date").closest("button"))).toBe(true);
+  });
+
+  it("should let a viewer hide a channel", async () => {
+    const ch = await createChannel();
+    const { key, store, result } = await renderChannels(
+      [entry(ch)],
+      await roles.get("Viewer"),
+    );
+    await waitFor(() => expect(isAddRowFrozen(result)).toBe(true));
+    fireEvent.click(screen.getByRole("button", { name: "Hide channel" }));
+    await waitFor(() => expect(hiddenIn(store, key)).toEqual([ch]));
   });
 
   it("should freeze the add row for a viewer", async () => {

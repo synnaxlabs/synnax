@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, type status } from "@synnaxlabs/client";
+import { channel, log, type status } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import {
   array,
@@ -61,6 +61,7 @@ export const logStateZ = log.logZ
     // channelColors: each channel's color reference resolved for the theme (never
     // persisted)
     channelColors: z.record(z.string(), color.colorZ).default({}),
+    hiddenChannels: z.array(channel.keyZ).default([]),
     telem: logSourceSpecZ.default(noopLogSourceSpec),
     font: text.levelZ.default("p"),
     color: color.colorZ.optional(),
@@ -403,6 +404,16 @@ export class Log
     // Always call setChannels — the source short-circuits if unchanged. This handles
     // both initial setup (where prevState === state) and subsequent changes.
     i.telem.wrapped.setChannels?.(channelKeys);
+    const { hiddenChannels } = this.state;
+    // A new filter reloads the entries, so a paused view returns to its time.
+    if (
+      this.state.scrolling &&
+      this.seeking == null &&
+      !array.equal(hiddenChannels, this.prevState.hiddenChannels)
+    )
+      this.seeking =
+        this.entries[this.scrollState.offset - 1]?.timestamp.valueOf() ?? null;
+    i.telem.wrapped.setFilter?.({ hiddenChannels });
     const { data } = i.telem.value();
     this.entries = data;
 
@@ -451,7 +462,8 @@ export class Log
       }
       // Auto-resume live mode when the viewport is back on the newest entry. A pause
       // taken at the bottom starts there, so it takes a return or a downward scroll. A
-      // drag selection that reaches the bottom counts as a pause taken there.
+      // drag selection that reaches the bottom counts as a pause taken there. A view
+      // that waits for its time stays paused.
       if (scrollState.offset < this.entries.length || scrollState.tail > 0)
         scrollState.awayFromEnd = true;
       else if (this.state.selecting)
@@ -461,6 +473,7 @@ export class Log
           awayFromEnd: false,
         });
       else if (
+        this.seeking == null &&
         i.telem.wrapped.live !== false &&
         (scrollState.awayFromEnd || dist < 0)
       ) {
@@ -884,16 +897,18 @@ export class Log
     this.moveView(0, lineHeight);
     if (this.entries.length === 0) return;
     const reached = time >= this.entries[0].timestamp.valueOf();
+    const lo = reached
+      ? array.partitionPoint(
+          this.entries.length,
+          (i) => this.entries[i].timestamp.valueOf() > time,
+        )
+      : 0;
+    this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
+    this.scrollState.tail = 0;
     if (!reached && telem.wrapped.exhausted === false) return;
-    if (reached) {
-      const lo = array.partitionPoint(
-        this.entries.length,
-        (i) => this.entries[i].timestamp.valueOf() > time,
-      );
-      this.scrollState.offset = Math.max(this.calcMinOffset(lineHeight), lo);
-      this.scrollState.tail = 0;
-    }
     this.seeking = null;
+    // A view that lands on the newest entry starts there, as a pause does.
+    this.scrollState.awayFromEnd = false;
     this.anchors.scroll = this.entries[this.scrollState.offset - 1];
   }
 

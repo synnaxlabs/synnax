@@ -34,6 +34,10 @@
             padding: 0.25rem 3rem 0.25rem 1rem;
             min-height: unset;
 
+            .console-log__channel-lead {
+                flex: 0 0 var(--pluto-height-small);
+            }
+
             /* A share of the toolbar, so every selector has the same width. */
             .console-log__channel-select {
                 flex: 0 0 clamp(150px, 40cqi, 400px);

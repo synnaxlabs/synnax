@@ -18,6 +18,7 @@ import {
   bounds,
   type breaker,
   DataType,
+  deep,
   map,
   math,
   type Series,
@@ -29,7 +30,13 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import type { LogEntry, LogSource, LogSourceSpec } from "@/log/aether/telem/types";
+import {
+  type Filter,
+  type LogEntry,
+  type LogSource,
+  type LogSourceSpec,
+  ZERO_FILTER,
+} from "@/log/aether/telem/types";
 import type { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 
@@ -171,6 +178,8 @@ export class StreamMultiChannelLog
   private readonly startBreaker: breaker.Breaker;
   private pageFailure?: cstatus.Status;
   private _channels: channel.Key[] = [];
+  private filter: Filter = ZERO_FILTER;
+  private hidden = new Set<channel.Key>();
 
   constructor(
     client: telem.Client | null,
@@ -229,6 +238,23 @@ export class StreamMultiChannelLog
     this.observer.notify();
   }
 
+  /**
+   * The log holds only the entries the filter keeps, so a change reads them again from
+   * the newest samples.
+   */
+  setFilter(filter: Filter): void {
+    if (deep.equal(this.filter, filter)) return;
+    this.filter = filter;
+    this.hidden = new Set(filter.hiddenChannels);
+    this.cancelPage();
+    this.reload();
+  }
+
+  // The metas of the channels the filter keeps. No read asks for a hidden channel.
+  private shownMetas(): Array<[channel.Key, Meta]> {
+    return [...this.metas].filter(([key]) => !this.hidden.has(key));
+  }
+
   /** The times the channels store, or null until the oldest is known. */
   get timeRange(): TimeRange | null {
     const end = this.unread.at(-1)?.end ?? this.entries.at(-1)?.timestamp.valueOf();
@@ -238,9 +264,9 @@ export class StreamMultiChannelLog
     return new TimeRange(start, new TimeStamp(end));
   }
 
-  /** Whether the entries hold the oldest stored sample of each channel. */
+  /** Whether the entries hold the oldest stored sample of each shown channel. */
   get exhausted(): boolean {
-    const metas = [...this.metas.values()];
+    const metas = this.shownMetas().map(([, m]) => m);
     return (
       metas.length > 0 && metas.every((m) => m.exhausted && m.pending.length === 0)
     );
@@ -256,6 +282,11 @@ export class StreamMultiChannelLog
     // A late older page could evict the newest entries of a live log.
     this.cancelPage();
     if (this.live) return this.observer.notify();
+    this.reload();
+  }
+
+  // Clears the entries and pulls the newest samples again.
+  private reload(): void {
     this.unread = [];
     this.skipped = [];
     this.skippedLines = 0;
@@ -294,7 +325,7 @@ export class StreamMultiChannelLog
   loadOlder(): void {
     const { client } = this;
     if (this.paging || client == null) return;
-    const metas = [...this.metas].filter(
+    const metas = this.shownMetas().filter(
       ([, m]) => !m.exhausted && m.oldest != null && m.stored,
     );
     if (metas.length > 0) void this.readOlder(client, metas);
@@ -336,7 +367,7 @@ export class StreamMultiChannelLog
     // fills its count may hide samples, so the span splits, and one time reads more.
     const middle = (span.start + span.end) / 2n;
     const limit = middle > span.start ? PAGE_SIZE : Number.MAX_SAFE_INTEGER;
-    const counts = [...this.metas]
+    const counts = this.shownMetas()
       .filter(([, { stored }]) => stored)
       .map(([key]): [channel.Key, number] => [
         key,
@@ -637,7 +668,7 @@ export class StreamMultiChannelLog
       worst = cstatus.worst(worst, snapshot.status)!;
       // Asking opens the stream of the channel's index before its first live sample.
       subscription.timeAt(key, 0n);
-      if (snapshot.status.variant === "loading") return;
+      if (snapshot.status.variant === "loading" || this.hidden.has(key)) return;
       this.append(key, meta, snapshot, receivedAt);
       this.drain(key, meta, subscription, groups, receivedAt);
       if (meta.pending.length > 0) waiting = true;
