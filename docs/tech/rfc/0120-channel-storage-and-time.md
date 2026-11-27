@@ -116,13 +116,12 @@ writer opens. No channel record, task config, or client library keeps it.
 - **End of a clock**: A clock lives while a kept segment of a key names it. When a
   channel delete removes the last such key and no session holds the clock, the same log
   entry holds the clock's Intent (RFC 0121 §4.1). A range delete that leaves no live
-  pointer on a clock in its range adds the clock's Tombstone over that range. A leased
-  clock stores stamps only beside data that names it, so that Tombstone takes the last
-  of them. A retired index clock can hold stamps outside all its data; when a range
-  delete leaves it with no user, the next start ends it by its retired entry, never by a
-  key range, since channels and clocks share one counter from Phase 50 (RFC 0121 §4.1).
-  `Keys` marks each clock, and the Core counts a clock as accounted for. The Core never
-  deletes a key on the absence of its record (D-469); a clock never has one.
+  pointer on a clock in its range adds the clock's Tombstone over that range, and a
+  range delete that leaves a clock with no user ends it in the same entry, a retired
+  index clock included. No rule reads a key range, since channels and clocks share one
+  counter from Phase 50 (RFC 0121 §4.1). `Keys` marks each clock, and the Core counts a
+  clock as accounted for. The Core never deletes a key on the absence of its record
+  (D-469); a clock never has one.
 - **Key ranges**: A channel's local key stays below 2^20 until Phase 50
   (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
   hold a larger one. From Phase 24, clock keys come from their own counter below
