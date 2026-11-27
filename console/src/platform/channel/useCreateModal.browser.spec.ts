@@ -11,7 +11,7 @@ import { DataType, group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
@@ -199,7 +199,16 @@ describe("useCreateModal", () => {
       fireEvent.click(screen.getByText("Select channel"));
       const search = await screen.findByPlaceholderText("Search channels...");
       fireEvent.change(search, { target: { value: index.name } });
-      await screen.findByText(index.name);
+      const holder = search.closest<HTMLElement>('[role="dialog"]');
+      if (holder == null) throw new Error("no dialog holds the search");
+      // Until the search answers, the list shows its first page.
+      await waitFor(() => {
+        const options = within(within(holder).getByRole("listbox")).getAllByRole(
+          "option",
+        );
+        expect(options).toHaveLength(1);
+        expect(options[0].textContent).toContain(index.name);
+      });
       press(search, "ArrowDown");
       press(search, "Enter");
       await waitFor(() => expect(screen.queryByText("Select channel")).toBeNull());
