@@ -72,7 +72,7 @@ var _ = Describe("ResolveWriteConfig", func() {
 			unit := as[icdv1.StringJSONField](fields[1].Variant)
 			Expect(unit.Pointer).To(Equal("/unit"))
 			Expect(unit.Default).To(Equal(new("psi")))
-			id := as[icdv1.UuidJSONField](fields[2].Variant)
+			id := as[icdv1.UUIDJSONField](fields[2].Variant)
 			Expect(id.Pointer).To(Equal("/request_id"))
 			Expect(id.Default).To(Equal(&icdv1.UUIDDefault{
 				Variant: icdv1.RandomUUIDDefault{},
