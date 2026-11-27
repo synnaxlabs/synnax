@@ -441,7 +441,7 @@ TEST(AcquisitionPipeline, DoesNotStopStoppedPipeline) {
         x::breaker::Config()
     );
     ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_EQ(writes->size(), 0);
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
     ASSERT_TRUE(pipeline.stop());
     ASSERT_FALSE(pipeline.stop());
 }

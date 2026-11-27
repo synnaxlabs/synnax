@@ -314,8 +314,8 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     std::string cmd_key = "cmd";
     ASSERT_TRUE(write_task.start(cmd_key, cancel));
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
-    auto start_state = ctx->statuses[0];
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
+    auto start_state = ctx->snapshot()[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -345,8 +345,8 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     const std::string stop_cmd_key = "stop_cmd";
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
-    auto stop_state = ctx->statuses[1];
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    auto stop_state = ctx->snapshot()[1];
     EXPECT_EQ(stop_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -407,14 +407,14 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
         mock_streamer_factory
     );
     ASSERT_TRUE(write_task.start("cmd", cancel));
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
     ASSERT_EVENTUALLY_GE(
         mock_streamer_factory->streamer_opens.load(std::memory_order_acquire),
         1
     );
     ASSERT_FALSE(write_task.start("cmd_2", cancel));
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
-    auto ack_state = ctx->statuses[1];
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    auto ack_state = ctx->snapshot()[1];
     EXPECT_EQ(ack_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(ack_state.details.cmd, "cmd_2");
     EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -954,7 +954,7 @@ TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
     );
 
     ASSERT_TRUE(write_task.start("start_cmd", cancel));
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
     EXPECT_EQ(raw_sink->start_count, 1);
     EXPECT_EQ(raw_sink->stop_count, 0);
 
@@ -1000,16 +1000,16 @@ TEST(TestCommonWriteTask, testRunsWithoutCommandChannels) {
     );
 
     ASSERT_TRUE(write_task.start("start_cmd", cancel));
-    ASSERT_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].message, "Started task");
-    EXPECT_TRUE(ctx->statuses[0].details.running);
+    ASSERT_EQ(ctx->snapshot().size(), 1);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Started task");
+    EXPECT_TRUE(ctx->snapshot()[0].details.running);
     EXPECT_EQ(raw_sink->start_count, 1);
 
     ASSERT_FALSE(write_task.start("start_cmd_2", cancel));
     EXPECT_EQ(raw_sink->start_count, 1);
 
     ASSERT_TRUE(write_task.stop("stop_cmd", true));
-    EXPECT_EQ(ctx->statuses.back().message, "Stopped task");
+    EXPECT_EQ(ctx->snapshot().back().message, "Stopped task");
     EXPECT_EQ(raw_sink->stop_count, 1);
     ASSERT_FALSE(write_task.stop("stop_cmd_2", true));
     EXPECT_EQ(raw_sink->stop_count, 1);
