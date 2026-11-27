@@ -1883,7 +1883,7 @@ describe("Kafka read form", () => {
       const added = await addFieldAsICDReader();
       await waitFor(() =>
         expect(added.statuses).toContainEqual(
-          expect.objectContaining({ message: "Failed to save ICD" }),
+          expect.objectContaining({ message: "Failed to save change" }),
         ),
       );
       await expectFieldUndone(added);
@@ -1924,7 +1924,7 @@ describe("Kafka read form", () => {
       await waitFor(() =>
         expect(statuses).toContainEqual(
           expect.objectContaining({
-            message: "Failed to save task",
+            message: "Failed to save change",
             description: expect.stringContaining("does not exist in message"),
           }),
         ),
