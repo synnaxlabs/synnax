@@ -100,8 +100,9 @@ describe("Notifications.useForward", () => {
     expect(screen.queryByText(browserMessage)).toBeNull();
   });
 
-  // The footer of the task form shows the reply, so a toast would cover it.
-  it("should not notify a reply of a task that a focused window shows", async () => {
+  /** Renders the forwarder with the current window showing the tab of a task. */
+  const renderShown = async (focused: boolean) => {
+    vi.spyOn(document, "hasFocus").mockReturnValue(focused);
     const r = await client.racks.create({ name: uniqueName("rack") });
     const create = async (): Promise<task.Task> =>
       await r.createTask({ name: uniqueName("task"), type: "opc_read", config: {} });
@@ -121,9 +122,20 @@ describe("Notifications.useForward", () => {
         Session.Panel.internalSelectTab({ key, tabKey, otherTabKeys: [] }),
       );
     });
+    return { shown, other };
+  };
+
+  // The footer of the task form shows the reply, so a toast would cover it.
+  it("should not notify a reply of a task that a focused window shows", async () => {
+    const { shown, other } = await renderShown(true);
     const shownMessage = await reply(shown);
     await screen.findByText(await reply(other));
     expect(screen.queryByText(shownMessage)).toBeNull();
+  });
+
+  it("should notify a reply of a task that an unfocused window shows", async () => {
+    const { shown } = await renderShown(false);
+    expect(await screen.findByText(await reply(shown))).toBeTruthy();
   });
 
   it("should notify a device warning only after 5 s", async () => {

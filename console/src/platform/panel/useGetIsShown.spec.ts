@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Panel } from "@/platform/panel";
 import { createServerPanel } from "@/platform/panel/testutil";
@@ -50,8 +50,16 @@ const show = (store: TestStore, { panelKey, tabKey, windowKey }: Shown): void =>
   );
 };
 
-/** Renders the check with a second window, which has the given focus. */
-const renderIsShown = async (otherFocused = false) => {
+interface Focus {
+  /** Whether the current window has focus. */
+  current: boolean;
+  /** Whether the second window has focus. */
+  other: boolean;
+}
+
+/** Renders the check with a second window, and the windows have the given focus. */
+const renderIsShown = async ({ current, other }: Focus) => {
+  vi.spyOn(document, "hasFocus").mockReturnValue(current);
   const main = Drift.ZERO_SLICE_STATE.windows[MAIN_WINDOW];
   const { wrapper, store } = await createConsoleWrapper({
     client,
@@ -67,19 +75,32 @@ const renderIsShown = async (otherFocused = false) => {
       },
     },
   });
-  store.dispatch(Drift.setWindowProps({ key: OTHER_WINDOW, focus: otherFocused }));
+  store.dispatch(Drift.setWindowProps({ key: OTHER_WINDOW, focus: other }));
   const { result } = renderHook(() => Panel.useGetIsShown(), { wrapper });
   return { isShown: result.current, store };
 };
 
 describe("Panel.useGetIsShown", () => {
-  it("should be true when the current window shows a tab of the resource", async () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("should be true when the current window has focus and shows the tab", async () => {
     const id = createID();
     const tab = createTab(id);
     const { key } = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
-    const { isShown, store } = await renderIsShown();
+    const { isShown, store } = await renderIsShown({ current: true, other: false });
     show(store, { panelKey: key, tabKey: tab.key });
     expect(await isShown(id)).toBe(true);
+  });
+
+  it("should be false when the unfocused current window shows the tab", async () => {
+    const id = createID();
+    const tab = createTab(id);
+    const { key } = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
+    const { isShown, store } = await renderIsShown({ current: false, other: false });
+    show(store, { panelKey: key, tabKey: tab.key });
+    expect(await isShown(id)).toBe(false);
   });
 
   it("should be false when the window shows another tab of the same leaf", async () => {
@@ -90,7 +111,7 @@ describe("Panel.useGetIsShown", () => {
       variant: "leaf",
       tabs: [tab, other],
     });
-    const { isShown, store } = await renderIsShown();
+    const { isShown, store } = await renderIsShown({ current: true, other: false });
     show(store, { panelKey: key, tabKey: other.key });
     expect(await isShown(id)).toBe(false);
   });
@@ -98,7 +119,7 @@ describe("Panel.useGetIsShown", () => {
   it("should be false when no panel holds a tab of the resource", async () => {
     const tab = createTab(createID());
     const { key } = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
-    const { isShown, store } = await renderIsShown();
+    const { isShown, store } = await renderIsShown({ current: true, other: false });
     show(store, { panelKey: key, tabKey: tab.key });
     expect(await isShown(createID())).toBe(false);
   });
@@ -107,7 +128,7 @@ describe("Panel.useGetIsShown", () => {
     const id = createID();
     const tab = createTab(id);
     const { key } = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
-    const { isShown, store } = await renderIsShown(true);
+    const { isShown, store } = await renderIsShown({ current: false, other: true });
     show(store, { panelKey: key, tabKey: tab.key, windowKey: OTHER_WINDOW });
     expect(await isShown(id)).toBe(true);
   });
@@ -116,7 +137,7 @@ describe("Panel.useGetIsShown", () => {
     const id = createID();
     const tab = createTab(id);
     const { key } = await createServerPanel(client, { variant: "leaf", tabs: [tab] });
-    const { isShown, store } = await renderIsShown(false);
+    const { isShown, store } = await renderIsShown({ current: false, other: false });
     show(store, { panelKey: key, tabKey: tab.key, windowKey: OTHER_WINDOW });
     expect(await isShown(id)).toBe(false);
   });
@@ -131,7 +152,7 @@ describe("Panel.useGetIsShown", () => {
   });
 
   it("should reject when the Core does not have the selected panel", async () => {
-    const { isShown, store } = await renderIsShown();
+    const { isShown, store } = await renderIsShown({ current: true, other: false });
     show(store, { panelKey: uuid.create(), tabKey: uuid.create() });
     await expect(isShown(createID())).rejects.toThrow(NotFoundError);
   });
