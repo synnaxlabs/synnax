@@ -46,8 +46,8 @@ var _ = Describe("Attach", func() {
 			&confluence.LinearTransform[int, int]{},
 			buffer...,
 		)
-		Expect(cap(in.Inlet())).To(Equal(want))
-		Expect(cap(out.Outlet())).To(Equal(want))
+		Expect(in.Inlet()).To(HaveCap(want))
+		Expect(out.Outlet()).To(HaveCap(want))
 	},
 		Entry("of the default size", nil, cap(confluence.NewStream[int]().Inlet())),
 		Entry("of a given size", []int{7}, 7),
