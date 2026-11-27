@@ -346,7 +346,7 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
     {
         std::unique_lock lock(this->mu);
         if (this->tail.writer == nullptr || this->tail_calls >= this->cfg.segment_calls)
-            if (const auto err = this->next_tail(lock)) return err;
+            if (const auto err = this->next_tail()) return err;
         if (this->bytes + size > this->cfg.max_bytes ||
             this->calls.size() >= this->cfg.max_calls) {
             ++this->refused_count;
@@ -400,35 +400,19 @@ void Outbox::post(std::function<void()> fn) {
     this->cv.notify_one();
 }
 
-x::errors::Error Outbox::next_tail(std::unique_lock<std::mutex> &lock) {
+x::errors::Error Outbox::next_tail() {
     if (!this->spare.has_value()) {
         this->spare_wanted = true;
         this->sync_cv.notify_one();
-        if (this->tail.writer != nullptr && this->tail_overfull) return x::errors::NIL;
-        // The result of an open that started before this push can be stale.
-        const auto target = this->opens_done + (this->opening ? 2 : 1);
-        this->spare_cv.wait_for(lock, this->cfg.sync_interval.chrono(), [&] {
-            return this->spare.has_value() ||
-                   (this->tail.writer == nullptr && this->opens_done >= target) ||
-                   (this->tail.writer != nullptr &&
-                    this->tail_calls < this->cfg.segment_calls);
-        });
-        // A full tail takes more calls when the sync thread is slow to open a spare.
-        if (!this->spare.has_value()) {
-            if (this->tail.writer == nullptr && this->open_err) return this->open_err;
-            if (this->tail.writer == nullptr)
-                return x::errors::Error(
-                    BASE_ERROR,
-                    "no segment is open to take the call"
-                );
-            this->tail_overfull = this->tail_calls >= this->cfg.segment_calls;
-            return x::errors::NIL;
-        }
+        // A push runs on the Arc runtime thread, so it never waits for the sync thread
+        // to open a spare. A full tail takes more calls until a spare opens.
+        if (this->tail.writer != nullptr) return x::errors::NIL;
+        if (this->open_err) return this->open_err;
+        return x::errors::Error(BASE_ERROR, "no segment is open to take the call");
     }
     if (this->tail.writer != nullptr) this->closing.push_back(this->tail);
     this->tail = *this->spare;
     this->tail_calls = 0;
-    this->tail_overfull = false;
     this->spare.reset();
     this->spare_wanted = true;
     this->sync_cv.notify_one();
@@ -440,12 +424,6 @@ void Outbox::fail_open(const std::uint64_t key, const x::errors::Error &err) {
     this->segments.try_emplace(key, 0);
     this->failed_key = key;
     this->open_err = err;
-}
-
-void Outbox::finish_open() {
-    ++this->opens_done;
-    this->opening = false;
-    this->spare_cv.notify_all();
 }
 
 void Outbox::run() {
@@ -606,7 +584,6 @@ void Outbox::sync_once(
             else
                 spare_key = this->next_key++;
             this->failed_key.reset();
-            this->opening = true;
         }
         this->spare_wanted = false;
     }
@@ -629,7 +606,6 @@ void Outbox::sync_once(
             this->bytes += writer->pos();
             this->segments[*spare_key] = writer->pos();
         }
-        this->finish_open();
         if (!err && *spare_key <= this->tail.key) {
             lock.unlock();
             // The send thread or a compaction took a later segment first.
@@ -741,12 +717,10 @@ void Outbox::compact() {
         this->tail = {.key = tail_key, .writer = tail_writer};
         this->open_err = x::errors::NIL;
         this->tail_calls = 0;
-        this->tail_overfull = false;
         this->writers[tail_key] = tail_writer;
         this->segments[tail_key] = tail_writer->pos();
         this->bytes += tail_writer->pos();
     }
-    this->spare_cv.notify_all();
     // A saved offset lets open remove the segment of a compaction that a crash stops.
     if (start.has_value()) {
         if (const auto err = this->save(*start)) {

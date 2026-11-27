@@ -152,8 +152,6 @@ class Outbox {
     mutable std::mutex mu;
     std::condition_variable cv;
     std::condition_variable sync_cv;
-    /// @brief notified when the sync thread opens a spare.
-    std::condition_variable spare_cv;
     bool stopped = false;
     bool sync_stopped = false;
     std::deque<Call> calls;
@@ -183,9 +181,6 @@ class Outbox {
     /// @brief the segment that takes new calls. Its writer is null after a failure.
     Segment tail;
     std::size_t tail_calls = 0;
-    /// @brief a push waited for a spare and kept the full tail, so later pushes to the
-    /// tail do not wait.
-    bool tail_overfull = false;
     /// @brief a new segment that the sync thread opened for the next tail.
     std::optional<Segment> spare;
     /// @brief the tail took the spare, so the sync thread opens a new one.
@@ -199,11 +194,6 @@ class Outbox {
     std::optional<std::uint64_t> failed_key;
     /// @brief the error of the last failed segment open, until a spare opens.
     x::errors::Error open_err;
-    /// @brief the number of segment opens that finished, so a push can wait for an open
-    /// that started after it.
-    std::uint64_t opens_done = 0;
-    /// @brief the sync thread opens a segment now.
-    bool opening = false;
     /// @brief the time the sync thread last logged a failed open. Used only by the sync
     /// thread.
     x::telem::TimeStamp open_logged;
@@ -234,15 +224,11 @@ class Outbox {
     /// @brief queues a call that is on the disk. Requires mu.
     void enqueue(Call call);
     x::errors::Error push(pb::Call request, SetStatusDone done);
-    /// @brief moves the tail to the spare, and waits up to sync_interval for the sync
-    /// thread to open one. Keeps a full tail when the wait ends with no spare. Requires
-    /// a lock on mu.
-    x::errors::Error next_tail(std::unique_lock<std::mutex> &lock);
+    /// @brief moves the tail to the spare. Keeps a full tail, and never waits, when the
+    /// sync thread has not opened a spare. Requires mu.
+    x::errors::Error next_tail();
     /// @brief records a segment that failed to open with err. Requires mu.
     void fail_open(std::uint64_t key, const x::errors::Error &err);
-    /// @brief counts a finished segment open, and wakes the pushes that wait for it.
-    /// Requires mu.
-    void finish_open();
     /// @returns whether a compaction frees enough of the files to run. Requires mu.
     [[nodiscard]] bool reclaimable() const;
     /// @returns whether the outbox holds 3/4 of max_bytes or max_calls. Requires mu.

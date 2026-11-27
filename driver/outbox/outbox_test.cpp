@@ -992,9 +992,9 @@ TEST_F(OutboxTest, CallsOnCreateForEveryFile) {
     EXPECT_GE(files, 3);
 }
 
-/// @brief it should wait for a spare segment once per full tail, and then keep writing
-/// to the tail without a wait.
-TEST_F(OutboxTest, WaitsForSpareOncePerTail) {
+/// @brief it should never wait for a spare segment, and keep writing to the full tail
+/// until the sync thread opens one.
+TEST_F(OutboxTest, NeverWaitsForSpare) {
     std::mutex mu;
     std::condition_variable cv;
     bool blocked = false;
@@ -1027,14 +1027,10 @@ TEST_F(OutboxTest, WaitsForSpareOncePerTail) {
             std::unique_lock lock(mu);
             cv.wait(lock, [&] { return blocked; });
         }
-        ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
         const auto start = std::chrono::steady_clock::now();
-        ASSERT_NIL(outbox->set_status(set_of("second"), nullptr));
-        EXPECT_GE(std::chrono::steady_clock::now() - start, cfg.sync_interval.chrono());
-        const auto after = std::chrono::steady_clock::now();
-        for (const auto *msg: {"third", "fourth"})
+        for (const auto *msg: {"first", "second", "third", "fourth"})
             ASSERT_NIL(outbox->set_status(set_of(msg), nullptr));
-        EXPECT_LT(std::chrono::steady_clock::now() - after, cfg.sync_interval.chrono());
+        EXPECT_LT(std::chrono::steady_clock::now() - start, cfg.sync_interval.chrono());
         EXPECT_EQ(outbox->size(), 4);
         std::lock_guard lock(mu);
         released = true;
