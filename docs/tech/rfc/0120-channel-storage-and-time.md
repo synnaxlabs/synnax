@@ -224,9 +224,9 @@ override sits before the length, so a decoder knows the type before it reads dat
   not name (§4.5, §4.8). The codec takes no untimed set: the relay, the iterator, and
   the record filter drop a time series that only untimed keys name, and the encoder
   keeps each time series that a series in the frame names (D-524). The list that a frame
-  needs then holds each clock key that a kept timed series names and the request did not
-  name, plus each key already in the list that the agreed clock of a timed requested key
-  still names. A change to a request's keys swaps the encoder's state when the relay
+  needs then holds the key of each time series in the frame that the request did not
+  name, and a key stays in it only while the frames that hold a series on its clock hold
+  its time series. A change to a request's keys swaps the encoder's state when the relay
   applies it, not when the transport decodes it, and a change of its `untimed_keys`
   swaps no codec state. So a stream that carries no time series declares nothing, and
   its frames stay the frames of today. The encoder sends the whole list in field 5 when
@@ -476,13 +476,17 @@ names no clock key.
   (`core/pkg/distribution/framer/writer/free.go:113-127`). A spec streams a calculation
   and its primary, reads both in history, and finds one alignment space for the clock. A
   subscriber of both gets those stamps twice: 8 bytes per output sample.
-- **Filters**: A filter keeps a series whose key was asked for, and a time series that
-  the clock of a kept timed key names, at one compare per series. A time series whose
-  clock is not yet in the set is kept when a kept timed series of the same frame names
-  it, which the filter checks after the frame's data series, so the first stamps of a
-  new clock are never dropped. That check also finds a clock move and updates the set.
-  The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep
-  only demanded keys today (`relay/tap.go:287`), the calculation transform, and the
+- **Filters**: A filter keeps a data series whose key was asked for, and a time series
+  only beside a kept data series of the same frame that names its clock, at one compare
+  per series. Until Phase 50 a time series from a calculation session is a time series
+  only, not a series of the index channel, even when the request names that index, so a
+  streamer of `["time", "temperature"]` or of `temperature` alone gets no frame from a
+  live calculation on `temperature`, and a spec holds both. A time series whose clock is
+  not yet in the set is kept when a kept timed series of the same frame names it, which
+  the filter checks after the frame's data series, so the first stamps of a new clock
+  are never dropped. That check also finds a clock move and updates the set. The relay
+  (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep only
+  demanded keys today (`relay/tap.go:287`), the calculation transform, and the
   iterator's calculation step take the rule. Until RFC 0121 Phase 5, the storage tap
   also subscribes the index of each stored demanded key (`relay/tap.go:233-236` opens it
   on `keys.Storage()`). A spec streams only a data key and gets its time after a handoff
