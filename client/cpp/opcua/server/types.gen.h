@@ -24,12 +24,16 @@
 #include "client/cpp/resource/id.h"
 #include "client/cpp/secret/types.gen.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
+
+#include "core/pkg/api/opcua/server/pb/opcua_server.pb.h"
+#include "core/pkg/service/opcua/server/pb/opcua_server.pb.h"
 
 namespace synnax::opcua::server {
 
@@ -70,6 +74,12 @@ struct Read {
 
     static Read parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Read;
+    [[nodiscard]] std::pair<::service::opcua_server::pb::Read, x::errors::Error>
+    to_proto() const;
+    static std::pair<Read, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Read &pb);
 };
 
 /// @brief Write binds a node to the channel that commands it.
@@ -82,6 +92,12 @@ struct Write {
 
     static Write parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Write;
+    [[nodiscard]] std::pair<::service::opcua_server::pb::Write, x::errors::Error>
+    to_proto() const;
+    static std::pair<Write, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Write &pb);
 };
 
 /// @brief AnonymousAuth logs in with no credentials.
@@ -90,6 +106,13 @@ struct AnonymousAuth {
 
     static AnonymousAuth parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::AuthAnonymousPayload;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::AuthAnonymousPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<AnonymousAuth, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::AuthAnonymousPayload &pb);
 };
 
 /// @brief UsernameAuth logs in with a user name and password.
@@ -102,6 +125,13 @@ struct UsernameAuth {
 
     static UsernameAuth parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::AuthUsernamePayload;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::AuthUsernamePayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<UsernameAuth, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::AuthUsernamePayload &pb);
 };
 
 /// @brief CertificateAuth logs in with a user certificate.
@@ -113,6 +143,13 @@ struct CertificateAuth {
 
     static CertificateAuth parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::AuthCertificatePayload;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::AuthCertificatePayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<CertificateAuth, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::AuthCertificatePayload &pb);
 };
 
 /// @brief Auth is how the Driver logs in to the server.
@@ -120,6 +157,10 @@ using Auth = std::variant<AnonymousAuth, UsernameAuth, CertificateAuth>;
 
 Auth parse_auth(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Auth &value);
+[[nodiscard]] std::pair<::service::opcua_server::pb::Auth, x::errors::Error>
+to_proto(const Auth &value);
+std::pair<Auth, x::errors::Error>
+auth_from_proto(const ::service::opcua_server::pb::Auth &pb);
 
 /// @brief FirstUseServerTrust trusts the first certificate that the server presents,
 /// which the scanner then pins.
@@ -128,6 +169,13 @@ struct FirstUseServerTrust {
 
     static FirstUseServerTrust parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::ServerTrustFirstUsePayload;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::ServerTrustFirstUsePayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<FirstUseServerTrust, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::ServerTrustFirstUsePayload &pb);
 };
 
 /// @brief PinnedServerTrust trusts one stored server certificate.
@@ -138,6 +186,13 @@ struct PinnedServerTrust {
 
     static PinnedServerTrust parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::ServerTrustPinnedPayload;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::ServerTrustPinnedPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<PinnedServerTrust, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::ServerTrustPinnedPayload &pb);
 };
 
 /// @brief ValidationDisabledServerTrust accepts any server certificate.
@@ -146,6 +201,16 @@ struct ValidationDisabledServerTrust {
 
     static ValidationDisabledServerTrust parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::
+        ServerTrustValidationDisabledPayload;
+    [[nodiscard]] std::pair<
+        ::service::opcua_server::pb::ServerTrustValidationDisabledPayload,
+        x::errors::Error>
+    to_proto() const;
+    static std::pair<ValidationDisabledServerTrust, x::errors::Error> from_proto(
+        const ::service::opcua_server::pb::ServerTrustValidationDisabledPayload &pb
+    );
 };
 
 /// @brief ServerTrust is which server certificates the Driver trusts.
@@ -154,6 +219,10 @@ using ServerTrust = std::
 
 ServerTrust parse_server_trust(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const ServerTrust &value);
+[[nodiscard]] std::pair<::service::opcua_server::pb::ServerTrust, x::errors::Error>
+to_proto(const ServerTrust &value);
+std::pair<ServerTrust, x::errors::Error>
+server_trust_from_proto(const ::service::opcua_server::pb::ServerTrust &pb);
 
 /// @brief StatusDetails identifies the server and rack that a status pertains to.
 struct StatusDetails {
@@ -166,6 +235,13 @@ struct StatusDetails {
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::StatusDetails;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::StatusDetails, x::errors::Error>
+        to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::StatusDetails &pb);
 };
 
 /// @brief Where is a filter that selects OPC UA servers.
@@ -210,6 +286,12 @@ struct Where {
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Where;
+    [[nodiscard]] std::pair<::service::opcua_server::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Where &pb);
 };
 
 /// @brief Cursor is a position in an order of servers: the sort value and the key of a
@@ -220,6 +302,12 @@ struct Cursor {
 
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::opcua_server::pb::Cursor;
+    [[nodiscard]] std::pair<::api::opcua_server::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::opcua_server::pb::Cursor &pb);
 };
 
 /// @brief Configuration holds the server fields that the task forms own.
@@ -231,6 +319,13 @@ struct Configuration {
 
     static Configuration parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Configuration;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::Configuration, x::errors::Error>
+        to_proto() const;
+    static std::pair<Configuration, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Configuration &pb);
 };
 
 /// @brief SecuredChannel holds the settings of a signed or encrypted connection.
@@ -245,6 +340,13 @@ struct SecuredChannel {
 
     static SecuredChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::SecuredChannel;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::SecuredChannel, x::errors::Error>
+        to_proto() const;
+    static std::pair<SecuredChannel, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::SecuredChannel &pb);
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
@@ -288,6 +390,12 @@ struct RetrieveRequest {
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::opcua_server::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::opcua_server::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::opcua_server::pb::RetrieveRequest &pb);
 };
 
 /// @brief NoneSecurity signs and encrypts no messages.
@@ -296,6 +404,13 @@ struct NoneSecurity {
 
     static NoneSecurity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::SecurityNonePayload;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::SecurityNonePayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<NoneSecurity, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::SecurityNonePayload &pb);
 };
 
 /// @brief SignSecurity signs every message.
@@ -304,6 +419,13 @@ struct SignSecurity : public SecuredChannel {
 
     static SignSecurity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::SecuritySignPayload;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::SecuritySignPayload, x::errors::Error>
+        to_proto() const;
+    static std::pair<SignSecurity, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::SecuritySignPayload &pb);
 };
 
 /// @brief SignAndEncryptSecurity signs and encrypts every message.
@@ -312,6 +434,14 @@ struct SignAndEncryptSecurity : public SecuredChannel {
 
     static SignAndEncryptSecurity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::SecuritySignAndEncryptPayload;
+    [[nodiscard]] std::pair<
+        ::service::opcua_server::pb::SecuritySignAndEncryptPayload,
+        x::errors::Error>
+    to_proto() const;
+    static std::pair<SignAndEncryptSecurity, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::SecuritySignAndEncryptPayload &pb);
 };
 
 /// @brief Security is the message security of a connection.
@@ -319,6 +449,10 @@ using Security = std::variant<NoneSecurity, SignSecurity, SignAndEncryptSecurity
 
 Security parse_security(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Security &value);
+[[nodiscard]] std::pair<::service::opcua_server::pb::Security, x::errors::Error>
+to_proto(const Security &value);
+std::pair<Security, x::errors::Error>
+security_from_proto(const ::service::opcua_server::pb::Security &pb);
 
 /// @brief Connection holds the settings that the Driver connects to a server with.
 struct Connection {
@@ -337,6 +471,12 @@ struct Connection {
 
     static Connection parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Connection;
+    [[nodiscard]] std::pair<::service::opcua_server::pb::Connection, x::errors::Error>
+    to_proto() const;
+    static std::pair<Connection, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Connection &pb);
 };
 
 /// @brief Server is an OPC UA server that a rack's Driver connects to.
@@ -358,6 +498,12 @@ struct Server {
 
     static Server parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Server;
+    [[nodiscard]] std::pair<::service::opcua_server::pb::Server, x::errors::Error>
+    to_proto() const;
+    static std::pair<Server, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Server &pb);
 };
 
 /// @brief Identity holds the server fields that the connect form and the scanner's
@@ -372,6 +518,12 @@ struct Identity {
 
     static Identity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Identity;
+    [[nodiscard]] std::pair<::service::opcua_server::pb::Identity, x::errors::Error>
+    to_proto() const;
+    static std::pair<Identity, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Identity &pb);
 };
 
 /// @brief RetrieveResponse holds the servers a RetrieveRequest selects.
@@ -381,6 +533,12 @@ struct RetrieveResponse {
 
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::opcua_server::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::opcua_server::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::opcua_server::pb::RetrieveResponse &pb);
 };
 
 /// @brief IdentityUpdate writes the rack, name, and connection of the server.
@@ -389,6 +547,12 @@ struct IdentityUpdate : public Identity {
 
     static IdentityUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Identity;
+    [[nodiscard]] std::pair<::service::opcua_server::pb::Identity, x::errors::Error>
+    to_proto() const;
+    static std::pair<IdentityUpdate, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Identity &pb);
 };
 
 /// @brief ConfigurationUpdate replaces the bindings of the server. A client sends the
@@ -398,6 +562,13 @@ struct ConfigurationUpdate : public Configuration {
 
     static ConfigurationUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::opcua_server::pb::Configuration;
+    [[nodiscard]] std::
+        pair<::service::opcua_server::pb::Configuration, x::errors::Error>
+        to_proto() const;
+    static std::pair<ConfigurationUpdate, x::errors::Error>
+    from_proto(const ::service::opcua_server::pb::Configuration &pb);
 };
 
 /// @brief Update is a write to one field group of a server.
@@ -405,6 +576,10 @@ using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
 
 Update parse_update(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Update &value);
+[[nodiscard]] std::pair<::service::opcua_server::pb::Update, x::errors::Error>
+to_proto(const Update &value);
+std::pair<Update, x::errors::Error>
+update_from_proto(const ::service::opcua_server::pb::Update &pb);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("opcua_server", "");
 
