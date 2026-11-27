@@ -12,6 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax.labjack.device.actions_gen import Action
 from synnax.labjack.device.types_gen import (
     Cursor,
     Device,
@@ -19,7 +20,6 @@ from synnax.labjack.device.types_gen import (
     Model,
     RetrieveRequest,
     RetrieveResponse,
-    Update,
     Where,
     WhereInput,
 )
@@ -37,13 +37,10 @@ class _CreateResponse(BaseModel):
     devices: list[Device]
 
 
-class _UpdateRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    update: Update
-
-
-class _UpdateResponse(BaseModel):
-    device: Device
+    dispatch_key: str = ""
+    actions: list[Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -78,18 +75,18 @@ class Client:
         res = self._client.send("/labjack/device/create", req, _CreateResponse)
         return res.devices[0] if is_single else res.devices
 
-    def update(self, key: Key, update: Update) -> Device:
-        """Writes one field group to a device and keeps the other group as stored.
-        The update replaces the whole group, so a field it leaves out is cleared.
+    def dispatch(self, key: Key, actions: Action | list[Action]) -> None:
+        """Applies actions to a device, in order, in one transaction.
 
         :param key: The key of the device.
-        :param update: The field group to write.
-        :returns: The device as stored, without its status.
+        :param actions: The actions to apply, such as ``labjack.device.set``. Paths
+            take the snake_case form that the Core stores.
         :raises NotFoundError: If no device has the key.
-        :raises ValidationError: If the update is invalid or changes the model.
+        :raises ValidationError: If an action fails, or the result is invalid or
+            changes the model.
         """
-        req = _UpdateRequest(key=key, update=update)
-        return self._client.send("/labjack/device/update", req, _UpdateResponse).device
+        req = _DispatchRequest(key=key, actions=normalize(actions))
+        self._client.send("/labjack/device/dispatch", req, Empty)
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Deletes devices with their statuses. Deleting a missing device succeeds.

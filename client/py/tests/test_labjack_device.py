@@ -67,46 +67,40 @@ class TestDeviceClient:
         with pytest.raises(sy.NotFoundError):
             client.labjack.devices.retrieve(uuid4())
 
-    def test_update_identity(self, client: sy.Synnax, rack: sy.Rack) -> None:
-        """Should write the identity group and keep the configuration."""
+    def test_dispatch(self, client: sy.Synnax, rack: sy.Rack) -> None:
+        """Should apply the actions and keep the other fields."""
         created = client.labjack.devices.create(new_device(rack))
-        stored = client.labjack.devices.update(
+        client.labjack.devices.dispatch(
             created.key,
-            labjack.device.IdentityUpdate(
-                rack=rack.key,
-                serial=created.serial,
-                connection=labjack.device.CONNECTION_ETHERNET,
-                model=labjack.device.MODEL_T7,
-            ),
+            [
+                labjack.device.set(labjack.device.SetPayload(path=["name"], value="R")),
+                labjack.device.set(
+                    labjack.device.SetPayload(path=["identifier"], value="lj")
+                ),
+            ],
         )
-        assert stored.connection == labjack.device.CONNECTION_ETHERNET
-        assert stored.name == created.name
-        assert client.labjack.devices.retrieve(created.key) == stored
-
-    def test_update_configuration(self, client: sy.Synnax, rack: sy.Rack) -> None:
-        """Should write the configuration group and keep the identity."""
-        created = client.labjack.devices.create(new_device(rack))
-        stored = client.labjack.devices.update(
-            created.key,
-            labjack.device.ConfigurationUpdate(
-                name="Renamed",
-                identifier="lj",
-                ports=labjack.device.T7Ports(mux80_attached=True),
-            ),
-        )
-        assert stored.name == "Renamed"
+        stored = client.labjack.devices.retrieve(created.key)
+        assert stored.name == "R"
         assert stored.identifier == "lj"
         assert stored.serial == created.serial
 
-    def test_update_other_model(self, client: sy.Synnax, rack: sy.Rack) -> None:
-        """Should refuse ports for another model."""
+    def test_dispatch_other_model(self, client: sy.Synnax, rack: sy.Rack) -> None:
+        """Should refuse an action that changes the model."""
         created = client.labjack.devices.create(new_device(rack))
         with pytest.raises(sy.ValidationError):
-            client.labjack.devices.update(
+            client.labjack.devices.dispatch(
                 created.key,
-                labjack.device.ConfigurationUpdate(
-                    name="T4", ports=labjack.device.T4Ports()
+                labjack.device.set(
+                    labjack.device.SetPayload(path=["model"], value="t4")
                 ),
+            )
+
+    def test_dispatch_missing(self, client: sy.Synnax) -> None:
+        """Should raise a NotFoundError for a key no device has."""
+        with pytest.raises(sy.NotFoundError):
+            client.labjack.devices.dispatch(
+                uuid4(),
+                labjack.device.set(labjack.device.SetPayload(path=["name"], value="R")),
             )
 
     def test_delete(self, client: sy.Synnax, rack: sy.Rack) -> None:
