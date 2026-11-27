@@ -103,8 +103,7 @@ var _ = Describe("Discover", func() {
 	}
 
 	// deadSeedFirst returns the brokers of the suite cluster after a seed broker that
-	// does
-	// not answer. No network routes 192.0.2.1, a documentation address.
+	// does not answer. No network routes 192.0.2.1, a documentation address.
 	deadSeedFirst := func() []string {
 		return append([]string{"192.0.2.1:9092"}, cluster.ListenAddrs()...)
 	}
