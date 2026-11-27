@@ -84,12 +84,11 @@ func (w Writer) Create(ctx context.Context, c *Chassis) error {
 
 // Apply applies the actions to the chassis stored under key and attaches them to the
 // transaction of w, so its commit broadcasts them with the dispatch key of w. Each
-// action edits only its path of the chassis that the transaction reads, so edits to
-// other paths that committed before it survive. Two transactions that overlap still
-// overwrite each other, as Update says. The scanner writes only the identity paths
-// (rack, serial, resource_name, and model), and users write the name. Apply returns an
-// error wrapping validate.ErrValidation when an action is a create or the result is
-// invalid, and an error wrapping query.ErrNotFound when no chassis is stored under key.
+// action edits only its path, so concurrent edits to different fields both survive. The
+// scanner writes only the identity paths (rack, serial, resource_name, and model), and
+// users write the name. Apply returns an error wrapping validate.ErrValidation when an
+// action is a create or the result is invalid, and an error wrapping query.ErrNotFound
+// when no chassis is stored under key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.Update(ctx, key, func(c Chassis) (Chassis, error) {
 		return Reduce(c, acts...)
