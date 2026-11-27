@@ -19,14 +19,22 @@ export interface OpenInEditorProps {
   icdKey: icd.Key;
   /** The message the editor selects. */
   message: icd.MessageKey;
+  /** A field of the message for the editor to focus. */
+  field?: icd.FieldKey;
 }
 
-/** Opens the ICD editor at a message. */
-export const OpenInEditor = ({ icdKey, message }: OpenInEditorProps): ReactElement => {
+/** Opens the ICD editor at a message, and at a field of it when given one. */
+export const OpenInEditor = ({
+  icdKey,
+  message,
+  field,
+}: OpenInEditorProps): ReactElement => {
   const openTab = Panel.useOpenTab();
   const dispatch = Session.useDispatch();
   const handleClick = () => {
-    dispatch(Session.ICD.setSelected({ key: icdKey, selected: [message] }));
+    dispatch(
+      Session.ICD.setSelected({ key: icdKey, selected: [message], focused: field }),
+    );
     openTab({ variant: "resource", resource: icd.resourceID(icdKey) });
   };
   return (

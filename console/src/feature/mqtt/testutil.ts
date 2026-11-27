@@ -45,6 +45,7 @@ export const createBroker = async (
 export interface ScannerReply {
   variant?: "success" | "error";
   message?: string;
+  description?: string;
   data?: object;
 }
 
@@ -78,13 +79,14 @@ export const openScanner = async (
   const next = async () => await awaitCommand(streamer, scanTask.key);
   const reply = async (
     cmd: task.Command,
-    { variant = "success", message = "", data }: ScannerReply,
+    { variant = "success", message = "", description, data }: ScannerReply,
   ) => {
     await client.statuses.set({
       owner: task.resourceID(scanTask.key),
       name: scanTask.name,
       variant,
       message,
+      description,
       time: TimeStamp.now(),
       details: { running: true, cmd: cmd.key, data },
     });

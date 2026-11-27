@@ -17,6 +17,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Notifications } from "@/app/notifications";
 import { EtherCAT } from "@/feature/ethercat";
+import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
+import { MQTT } from "@/feature/mqtt";
 import { Sift } from "@/feature/sift";
 import { createTestDevice } from "@/platform/device/testutil";
 import { createFileRack } from "@/platform/file-browser/testutil";
@@ -136,6 +139,24 @@ describe("Notifications.useForward", () => {
   it("should notify a reply of a task that an unfocused window shows", async () => {
     const { shown } = await renderShown(false);
     expect(await screen.findByText(await reply(shown))).toBeTruthy();
+  });
+
+  // Each dialog that sends a command to these scanners shows the reply in place.
+  it.each([
+    ["HTTP", HTTP.Device.MAKE, HTTP.Device.SCAN_TYPE],
+    ["Kafka", Kafka.Device.MAKE, Kafka.Device.SCAN_TYPE],
+    ["MQTT", MQTT.Device.MAKE, MQTT.Device.SCAN_TYPE],
+  ])("should not notify a reply of the %s scanner", async (_, make, scanType) => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    await createTestDevice(client, { make, rack: r.key });
+    const create = async (type: string, internal: boolean): Promise<task.Task> =>
+      await r.createTask({ name: uniqueName("task"), type, config: {}, internal });
+    const scanner = await create(scanType, true);
+    const other = await create("opc_read", false);
+    await renderForward();
+    const scannerMessage = await reply(scanner);
+    await screen.findByText(await reply(other));
+    expect(screen.queryByText(scannerMessage)).toBeNull();
   });
 
   it("should notify a device warning only after 5 s", async () => {

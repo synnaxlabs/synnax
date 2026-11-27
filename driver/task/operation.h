@@ -117,9 +117,11 @@ public:
     /// Waits for a check in progress, so no status of check follows a status that the
     /// task sends after this call. A cancelled start with no final status gets one
     /// here, and so does each start that joined it.
+    /// @param deployed_hash the config hash of the instance that runs, or empty for
+    /// none. The final status of a cancelled start carries it.
     /// @returns the joined starts that got no final status, or none if the operation
     /// was cancelled. The caller runs them as their own commands.
-    std::vector<synnax::task::Command> close();
+    std::vector<synnax::task::Command> close(const std::string &deployed_hash);
 
     /// @returns true if close answered the start as stopped, because a stop cancelled
     /// it before the start sent a final status of its own. An operation with no

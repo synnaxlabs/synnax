@@ -355,6 +355,12 @@ var _ = Describe("Field", func() {
 				`18446744073709551616`, "is out of range for uint64"),
 			Entry("a float past a float32", xjson.Field{DataType: telem.Float32T},
 				`1e39`, "1e39 overflows float32"),
+			Entry("a quoted decimal past the smallest exponent",
+				xjson.Field{DataType: telem.Float64T}, `"1e-1048577"`,
+				`invalid number "1e-1048577"`),
+			Entry("a quoted hex past the smallest exponent",
+				xjson.Field{DataType: telem.Float64T}, `"0x1p-1048577"`,
+				`invalid number "0x1p-1048577"`),
 			Entry("an object into a UUID", xjson.Field{DataType: telem.UUIDT}, `{}`,
 				"expected a UUID string, got an object"),
 			Entry("text that is not a UUID", xjson.Field{DataType: telem.UUIDT},
@@ -403,6 +409,15 @@ var _ = Describe("Field", func() {
 				},
 				`1e12`,
 				"1e12 is out of range for a unix_sec timestamp",
+			),
+			Entry(
+				"Unix seconds past the smallest exponent",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`1e-1048577`,
+				`invalid number "1e-1048577"`,
 			),
 			Entry(
 				"infinity in Unix seconds",
@@ -790,6 +805,55 @@ var _ = Describe("Field", func() {
 			Entry("NaN as a boolean",
 				xjson.Field{DataType: telem.Float32T, Type: xjson.Boolean},
 				sample(float32(math.NaN())), "NaN is not a JSON boolean"),
+		)
+
+		DescribeTable("Should return the number of a sample",
+			func(dt telem.DataType, s []byte, expected float64) {
+				e := MustSucceed(xjson.NewEncoder(xjson.Field{DataType: dt}))
+				n, ok := MustSucceed2(e.Number(s))
+				Expect(ok).To(BeTrue())
+				Expect(math.Float64bits(n.Float64())).
+					To(Equal(math.Float64bits(expected)))
+			},
+			Entry("a float64", telem.Float64T, sample(0.1), 0.1),
+			Entry("a float32 at its own value", telem.Float32T, sample(float32(0.1)),
+				float64(float32(0.1))),
+			Entry("negative zero", telem.Float64T, sample(math.Copysign(0, -1)),
+				math.Copysign(0, -1)),
+			Entry("a negative int16", telem.Int16T, sample[int16](-300), -300.0),
+			Entry("a true boolean", telem.BooleanT, []byte{2}, 1.0),
+		)
+
+		It("Should return an integer sample exactly", func() {
+			e := MustSucceed(xjson.NewEncoder(xjson.Field{DataType: telem.Uint64T}))
+			n, ok := MustSucceed2(e.Number(sample[uint64](math.MaxUint64)))
+			Expect(ok).To(BeTrue())
+			Expect(MustBeOk(n.Uint64())).To(Equal(uint64(math.MaxUint64)))
+		})
+
+		It("Should return no number for a sample that matches an enum", func() {
+			e := MustSucceed(xjson.NewEncoder(
+				xjson.Field{DataType: telem.Float64T, Enums: onOff},
+			))
+			_, ok := MustSucceed2(e.Number(sample(1.0)))
+			Expect(ok).To(BeFalse())
+		})
+
+		DescribeTable("Should reject a sample with no JSON number",
+			func(f xjson.Field, s []byte, message string) {
+				e := MustSucceed(xjson.NewEncoder(f))
+				Expect(e.Number(s)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry("NaN", xjson.Field{DataType: telem.Float64T}, sample(math.NaN()),
+				"NaN is not a JSON number"),
+			Entry("negative infinity", xjson.Field{DataType: telem.Float32T},
+				sample(float32(math.Inf(-1))), "-Infinity is not a JSON number"),
+			Entry("NaN with no enum",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff},
+				sample(math.NaN()), "NaN is not a JSON number"),
 		)
 
 		DescribeTable("Should reject a JSON type that cannot hold the data type",

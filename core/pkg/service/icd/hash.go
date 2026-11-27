@@ -32,3 +32,18 @@ func HashMessage(h *content.Hash, ic ICD, key MessageKey) error {
 	h.Bytes(b)
 	return nil
 }
+
+// HashFraming writes to h the framing of ic, so an edit to how ic splits a byte stream
+// changes the hash.
+func HashFraming(h *content.Hash, ic ICD) error {
+	h.Bool(ic.Framing != nil)
+	if ic.Framing == nil {
+		return nil
+	}
+	b, err := json.Marshal(*ic.Framing, json.Deterministic(true))
+	if err != nil {
+		return err
+	}
+	h.Bytes(b)
+	return nil
+}

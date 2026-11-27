@@ -183,7 +183,9 @@ describe("wrapForm", () => {
     });
     expect(screen.queryByText(/updating task|updated task/iu)).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Start" }).getAttribute("aria-disabled"),
+      screen
+        .getByRole("button", { name: "Deploy and start" })
+        .getAttribute("aria-disabled"),
     ).toBeNull();
   });
 
@@ -842,7 +844,7 @@ describe("wrapForm", () => {
         taskKey: draft.key,
       });
       const start = await waitFor(() => {
-        const b = within(container).getByRole("button", { name: "Start" });
+        const b = within(container).getByRole("button", { name: "Deploy and start" });
         if (b.getAttribute("aria-disabled") === "true")
           throw new Error("start button is disabled");
         return b;
@@ -947,7 +949,7 @@ describe("wrapForm", () => {
         await screen.findByText("Configuring task");
         expect(
           within(container)
-            .getByRole("button", { name: "Start" })
+            .getByRole("button", { name: "Deploy and start" })
             .getAttribute("aria-disabled"),
         ).toBe("true");
         release();

@@ -59,6 +59,12 @@ var (
 	flat = icd.JSONField{Variant: icd.FloatJSONField{JSONBaseField: icd.JSONBaseField{
 		Key: uuid.New(), Name: "flat", Pointer: "/flat",
 	}}}
+	// ticks is a scaled integer field.
+	ticks = icd.JSONField{
+		Variant: icd.IntegerJSONField{JSONBaseField: icd.JSONBaseField{
+			Key: uuid.New(), Name: "ticks", Pointer: "/ticks", Scale: 2,
+		}},
+	}
 	stamp = telem.SecondTS
 	// defaulted is a timestamp field that takes a default.
 	defaulted = jsonField("ts", "/ts", icd.TimestampJSONField{
@@ -67,17 +73,53 @@ var (
 			Variant: icd.ConstantTimestampDefault{Value: stamp},
 		},
 	})
-	status  = jsonMessage("Status", ts, temp, state, raw, flat)
+	status  = jsonMessage("Status", ts, temp, state, raw, flat, ticks)
 	stamped = jsonMessage("Stamped", defaulted)
 	frame   = icd.Message{
-		Key:     uuid.New(),
-		Name:    "Frame",
-		Payload: icd.Payload{Variant: icd.BinaryPayload{}},
+		Key:  uuid.New(),
+		Name: "Frame",
+		Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: []icd.BinaryField{
+			count, level, wide,
+		}}},
+	}
+	count = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "count", Scale: 1},
+			BitLength: 8,
+		},
+	}}
+	// level is a scaled binary field, which decodes only into a float channel.
+	level = icd.BinaryField{Variant: icd.FloatBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "level", Scale: 2},
+			StartBit:  8,
+			BitLength: 32,
+		},
+	}}
+	wide = icd.BinaryField{Variant: icd.IntegerBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "wide", Scale: 1},
+			StartBit:  40,
+			BitLength: 16,
+		},
+	}}
+	volts = icd.TextField{Variant: icd.DelimitedTextField{
+		TextBaseField: icd.TextBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "volts", Scale: 1},
+		},
+	}}
+	line = icd.Message{
+		Key:  uuid.New(),
+		Name: "Line",
+		Payload: icd.Payload{Variant: icd.TextPayload{
+			Delimiter: ",",
+			Fields:    []icd.TextField{volts},
+		}},
 	}
 	plant = icd.ICD{
 		Key:      uuid.New(),
 		Name:     "Plant",
-		Messages: []icd.Message{status, stamped, frame},
+		Messages: []icd.Message{status, stamped, frame, line},
 	}
 )
 
@@ -88,6 +130,8 @@ const (
 	levelKey channel.Key = 4
 	// pressureKey is a data channel on an index channel other than timeKey.
 	pressureKey channel.Key = 5
+	totalKey    channel.Key = 7
+	smallKey    channel.Key = 8
 )
 
 // held holds the channels that the channel lookup of the specs finds.
@@ -102,10 +146,18 @@ var held = map[channel.Key]icdv0.Channel{
 	stampKey:    {Name: "stamp", DataType: telem.TimestampT},
 	levelKey:    {Name: "level", DataType: telem.Float64T, IndexKey: timeKey},
 	pressureKey: {Name: "pressure", DataType: telem.Float64T, IndexKey: 6},
+	totalKey:    {Name: "total", DataType: telem.Int64T, IndexKey: timeKey},
+	smallKey:    {Name: "small", DataType: telem.Int8T, IndexKey: timeKey},
 }
 
 func bind(f icd.JSONField, key channel.Key) icd.ReadBinding {
 	return icd.ReadBinding{Field: f.Base().Key, Channel: key}
+}
+
+// framed returns rd as a read that splits a byte stream with the framing of its ICD.
+func framed(rd read.Read) read.Read {
+	rd.Framed = true
+	return rd
 }
 
 func readOf(m icd.Message, bindings ...icd.ReadBinding) icd.ReadMessage {
@@ -163,6 +215,41 @@ var _ = Describe("Read", func() {
 		return err
 	}
 
+	Describe("Check", func() {
+		icds := map[icd.Key]icd.ICD{plant.Key: plant}
+		It("Should accept reads whose fields suit their channels", func(
+			ctx SpecContext,
+		) {
+			Expect(resolver.Check(ctx, db, []read.Read{
+				readAt(0, plant.Key, readOf(status, bind(temp, valueKey))),
+			}, icds)).To(Succeed())
+		})
+
+		It("Should return the error of the first read that it refuses", func(
+			ctx SpecContext,
+		) {
+			Expect(resolver.Check(ctx, db, []read.Read{
+				readAt(0, plant.Key, readOf(status, bind(temp, valueKey))),
+				readAt(1, plant.Key, readOf(status, bind(state, valueKey))),
+				readAt(2, plant.Key, icd.ReadMessage{Message: uuid.New()}),
+			}, icds)).To(MatchError(
+				"reads.1.messages.0.bindings.0.channel: field state of kind string " +
+					"cannot read into channel value of data type float64",
+			))
+		})
+
+		It("Should reject two reads that write one index channel", func(
+			ctx SpecContext,
+		) {
+			Expect(resolver.Check(ctx, db, []read.Read{
+				readAt(0, plant.Key, readOf(status, bind(temp, valueKey))),
+				readAt(1, plant.Key, readOf(status, bind(temp, levelKey))),
+			}, icds)).To(MatchError(
+				"reads.1.messages.0: channel 1 is also written by reads.0.messages.0",
+			))
+		})
+	})
+
 	Describe("Checker", func() {
 		Describe("Read", func() {
 			It("Should accept a read whose fields suit their channels", func(
@@ -173,6 +260,25 @@ var _ = Describe("Read", func() {
 					readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
 				)
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
+			It("Should accept a read of a message that gains an unbound field", func(
+				ctx SpecContext,
+			) {
+				rpm := jsonField("rpm", "/rpm", icd.FloatJSONField{})
+				grown := jsonMessage("Status", ts, temp, state, raw, flat, ticks, rpm)
+				grown.Key = status.Key
+				next := plant
+				next.Messages = []icd.Message{grown, stamped, frame, line}
+				rd := readAt(0, plant.Key, indexed(
+					ts,
+					readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
+				))
+				icds := map[icd.Key]icd.ICD{plant.Key: next}
+				c := MustSucceed(
+					resolver.NewChecker(ctx, db, []read.Read{rd}, nil, icds),
+				)
+				Expect(c.Read(rd)).To(Succeed())
 			})
 
 			It("Should accept a message with no index field on one index channel", func(
@@ -188,6 +294,91 @@ var _ = Describe("Read", func() {
 				rm := readOf(status, bind(temp, valueKey), bind(temp, pressureKey))
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
+
+			It("Should accept a scaled field on a float channel", func(
+				ctx SpecContext,
+			) {
+				rm := readOf(status, bind(ticks, valueKey))
+				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
+			It("Should accept a framed read of binary and text messages", func(
+				ctx SpecContext,
+			) {
+				Expect(check(ctx, framed(readAt(0, plant.Key,
+					readOf(
+						frame,
+						icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
+						icd.ReadBinding{
+							Field:    count.Base().Key,
+							DataType: telem.Uint8T,
+						},
+						icd.ReadBinding{Field: level.Base().Key, Channel: valueKey},
+						icd.ReadBinding{Field: wide.Base().Key, DataType: telem.Int16T},
+					),
+					readOf(line, icd.ReadBinding{
+						Field: volts.Base().Key, Channel: levelKey,
+					}),
+				)))).To(Succeed())
+			})
+
+			DescribeTable("Should reject a framed read with the path of the problem",
+				func(ctx SpecContext, rm icd.ReadMessage, path, msg string) {
+					Expect(check(ctx, framed(readAt(0, plant.Key, rm)))).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(path+": "+msg),
+					))
+				},
+				Entry("a scaled binary field into a channel that is not a float",
+					readOf(frame, icd.ReadBinding{
+						Field: level.Base().Key, Channel: totalKey,
+					}),
+					"reads.0.messages.0.bindings.0.channel",
+					"scaled field level of kind float cannot read into channel total "+
+						"of data type int64",
+				),
+				Entry("a binary field into a data type that its kind does not suit",
+					readOf(frame, icd.ReadBinding{
+						Field: count.Base().Key, DataType: telem.StringT,
+					}),
+					"reads.0.messages.0.bindings.0.data_type",
+					"field count of kind unsigned cannot read into data type string",
+				),
+				Entry(
+					"an unsigned binary field into a signed type with no bit for "+
+						"the sign",
+					readOf(frame, icd.ReadBinding{
+						Field: count.Base().Key, DataType: telem.Int8T,
+					}),
+					"reads.0.messages.0.bindings.0.data_type",
+					"field count of kind 8-bit unsigned cannot read into data type int8",
+				),
+				Entry("a binary field into a channel narrower than the field",
+					readOf(frame, icd.ReadBinding{
+						Field: wide.Base().Key, Channel: smallKey,
+					}),
+					"reads.0.messages.0.bindings.0.channel",
+					"field wide of kind 16-bit integer cannot read into channel small "+
+						"of data type int8",
+				),
+				Entry("a text field into a channel that is not a float",
+					readOf(line, icd.ReadBinding{
+						Field: volts.Base().Key, Channel: totalKey,
+					}),
+					"reads.0.messages.0.bindings.0.channel",
+					"field volts of kind float cannot read into channel total of "+
+						"data type int64",
+				),
+				Entry("a binary index field",
+					icd.ReadMessage{
+						Message:  frame.Key,
+						Index:    new(count.Base().Key),
+						Bindings: []icd.ReadBinding{{Field: count.Base().Key}},
+					},
+					"reads.0.messages.0.index",
+					"the index field count must be a timestamp field",
+				),
+			)
 
 			It("Should accept a binding to a channel that the lookup does not find",
 				func(ctx SpecContext) {
@@ -250,6 +441,21 @@ var _ = Describe("Read", func() {
 					"field state of kind string cannot read into channel value of "+
 						"data type float64",
 				),
+				Entry("a scaled field with an integer data type",
+					readOf(status, icd.ReadBinding{
+						Field: ticks.Base().Key, DataType: telem.Int64T,
+					}),
+					"reads.0.messages.0.bindings.0.data_type",
+					"scaled field ticks of kind integer cannot read into data type "+
+						"int64",
+				),
+				Entry(
+					"a scaled field on an integer channel",
+					readOf(status, bind(ticks, totalKey)),
+					"reads.0.messages.0.bindings.0.channel",
+					"scaled field ticks of kind integer cannot read into channel total "+
+						"of data type int64",
+				),
 				Entry("an index field that is not a timestamp",
 					indexed(temp, readOf(status, bind(temp, valueKey))),
 					"reads.0.messages.0.index",
@@ -295,19 +501,76 @@ var _ = Describe("Read", func() {
 			})
 		})
 
-		Describe("ClaimIndexes", func() {
-			// claimIndexes claims the index channels of reads with the Checker of them,
-			// which accepts each of them first.
-			claimIndexes := func(ctx context.Context, reads ...read.Read) error {
+		Describe("Bind", func() {
+			// bindAll binds reads with the Checker of them, which accepts each of them
+			// first, and returns the error of the first that it refuses.
+			bindAll := func(ctx context.Context, reads ...read.Read) error {
 				GinkgoHelper()
 				c := MustSucceed(checker(ctx, reads...))
 				for _, rd := range reads {
-					if err := c.ClaimIndexes(rd); err != nil {
+					if _, err := c.Bind(rd); err != nil {
 						return err
 					}
 				}
 				return nil
 			}
+
+			It("Should return the Source of the read", func(ctx SpecContext) {
+				rd := readAt(0, plant.Key, indexed(
+					ts,
+					readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
+				))
+				c := MustSucceed(checker(ctx, rd))
+				Expect(MustSucceed(c.Bind(rd)).Groups()).To(Equal([]read.Group{{
+					Message:   "Status",
+					Index:     timeKey,
+					Stamped:   true,
+					Channels:  channel.Keys{valueKey},
+					DataTypes: []telem.DataType{telem.Float64T},
+				}}))
+			})
+
+			missing := uuid.New()
+
+			DescribeTable("Should refuse a read with the path of the problem",
+				func(ctx SpecContext, rd read.Read, msg string) {
+					c := MustSucceed(checker(ctx, rd))
+					Expect(c.Bind(rd)).Error().To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(msg),
+					))
+				},
+				Entry("an ICD that does not exist",
+					readAt(0, missing, readOf(status, bind(temp, valueKey))),
+					"reads.0.icd: ICD "+missing.String()+" does not exist",
+				),
+				Entry("a read of no messages",
+					readAt(0, plant.Key),
+					"reads.0: reads no messages",
+				),
+				Entry("a message that binds no fields",
+					readAt(0, plant.Key, readOf(status)),
+					"reads.0.messages.0: message Status binds no fields",
+				),
+				Entry("a binding with no channel",
+					readAt(0, plant.Key, readOf(status, bind(temp, 0))),
+					"reads.0.messages.0.bindings.0.channel: field temp has no channel",
+				),
+				Entry("a channel that does not exist",
+					readAt(0, plant.Key, readOf(status, bind(temp, 99))),
+					"reads.0.messages.0.bindings.0.channel: channel 99 does not exist",
+				),
+				Entry("two messages that the decoder cannot tell apart",
+					readAt(
+						0,
+						plant.Key,
+						readOf(status, bind(temp, valueKey)),
+						readOf(status, bind(ts, stampKey)),
+					),
+					"reads.0: messages Status and Status both have no match rule: "+
+						"validation error",
+				),
+			)
 
 			It("Should take an index channel that the index field binds", func(
 				ctx SpecContext,
@@ -316,14 +579,14 @@ var _ = Describe("Read", func() {
 					ts,
 					readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
 				)
-				Expect(claimIndexes(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+				Expect(bindAll(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
 			It("Should take an index channel of two bound channels once", func(
 				ctx SpecContext,
 			) {
 				rm := readOf(status, bind(temp, valueKey), bind(temp, levelKey))
-				Expect(claimIndexes(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+				Expect(bindAll(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
 			It("Should reject a message that writes the index channel of another", func(
@@ -338,7 +601,7 @@ var _ = Describe("Read", func() {
 					),
 					readOf(status, bind(temp, levelKey)),
 				)
-				Expect(claimIndexes(ctx, rd)).To(SatisfyAll(
+				Expect(bindAll(ctx, rd)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError("reads.0.messages.1: channel 1 is also written by "+
 						"reads.0.messages.0.bindings.0.channel"),
@@ -347,7 +610,7 @@ var _ = Describe("Read", func() {
 
 			DescribeTable("Should reject two messages that write one index channel",
 				func(ctx SpecContext, first icd.ReadMessage, other string) {
-					Expect(claimIndexes(
+					Expect(bindAll(
 						ctx,
 						readAt(0, plant.Key, first),
 						readAt(1, plant.Key, readOf(status, bind(temp, levelKey))),
@@ -374,46 +637,92 @@ var _ = Describe("Read", func() {
 			)
 		})
 
-		Describe("Claim", func() {
-			It("Should take a channel that nothing writes", func(ctx SpecContext) {
+		Describe("Tag", func() {
+			// takes is the check of a tag that takes floats.
+			takes := func(dt telem.DataType) bool { return dt == telem.Float64T }
+
+			It("Should take a channel that can take the values of the tag", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{valueKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				Expect(c.Tag(valueKey, []string{"a", "channel"}, takes)).To(Succeed())
+				Expect(c.Tag(valueKey, []string{"b", "channel"}, takes)).To(MatchError(
+					"b.channel: channel 2 is also written by a.channel",
+				))
+			})
+
+			It("Should take a channel that the lookup does not find", func(
+				ctx SpecContext,
+			) {
 				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
-				Expect(c.Claim(valueKey, []string{"tag"})).To(Succeed())
+				Expect(c.Tag(99, []string{"a", "channel"}, takes)).To(Succeed())
+			})
+
+			It("Should reject an index channel", func(ctx SpecContext) {
+				tags := []channel.Key{timeKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				err := c.Tag(timeKey, []string{"a", "channel"}, takes)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(
+					"a.channel: channel time is an index channel",
+				))
+			})
+
+			It("Should reject a channel that cannot take the values of the tag", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{totalKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				err := c.Tag(totalKey, []string{"a", "channel"}, takes)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(
+					"a.channel: channel total of data type int64 cannot take the " +
+						"values of a tag",
+				))
 			})
 
 			It("Should reject a channel that another binding or tag writes", func(
 				ctx SpecContext,
 			) {
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
-				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
-				err := c.Claim(valueKey, []string{"b", "channel"})
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(
-					"b.channel: channel 2 is also written by a.channel",
+				rd := readAt(0, plant.Key, readOf(status, bind(temp, valueKey)))
+				c := MustSucceed(checker(ctx, rd))
+				Expect(c.Tag(valueKey, []string{"tag"}, takes)).To(MatchError(
+					"tag: channel 2 is also written by " +
+						"reads.0.messages.0.bindings.0.channel",
 				))
 			})
 		})
 
-		Describe("ClaimIndex", func() {
+		Describe("BindTag", func() {
+			takes := func(telem.DataType) bool { return true }
+
+			It("Should return the channel of the tag", func(ctx SpecContext) {
+				tags := []channel.Key{valueKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				Expect(c.Tag(valueKey, []string{"a", "channel"}, takes)).To(Succeed())
+				Expect(c.BindTag(valueKey, []string{"a", "channel"})).
+					To(Equal(held[valueKey]))
+			})
+
 			It("Should reject a tag whose index channel another tag writes", func(
 				ctx SpecContext,
 			) {
 				tags := []channel.Key{valueKey, levelKey}
 				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
-				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.Claim(levelKey, []string{"b", "channel"})).To(Succeed())
-				Expect(c.ClaimIndex(valueKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.ClaimIndex(levelKey, []string{"b", "channel"})).To(MatchError(
-					"b.channel: channel 1 is also written by a.channel",
-				))
+				Expect(c.Tag(valueKey, []string{"a", "channel"}, takes)).To(Succeed())
+				Expect(c.Tag(levelKey, []string{"b", "channel"}, takes)).To(Succeed())
+				MustSucceed(c.BindTag(valueKey, []string{"a", "channel"}))
+				Expect(c.BindTag(levelKey, []string{"b", "channel"})).Error().
+					To(MatchError("b.channel: channel 1 is also written by a.channel"))
 			})
 
-			It("Should take nothing for a tag on an index channel", func(
-				ctx SpecContext,
-			) {
-				tags := []channel.Key{timeKey}
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
-				Expect(c.Claim(timeKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.ClaimIndex(timeKey, []string{"a", "channel"})).To(Succeed())
+			It("Should reject a channel that does not exist", func(ctx SpecContext) {
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
+				Expect(c.BindTag(99, []string{"a", "channel"})).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("a.channel: channel 99 does not exist"),
+				))
 			})
 		})
 	})
@@ -532,6 +841,36 @@ var _ = Describe("Read", func() {
 			Expect(sum(ctx, rd)).To(Equal(before))
 		})
 
+		// reframed creates a copy of ic, under a new key, that frames with framing.
+		reframed := func(ctx context.Context, framing icd.Framing) icd.Key {
+			GinkgoHelper()
+			other := ic
+			other.Key = uuid.New()
+			other.Framing = &framing
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icdSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			return other.Key
+		}
+
+		It("Should cover the framing of the ICD of a framed read", func(
+			ctx SpecContext,
+		) {
+			rm := readOf(status, bind(temp, valueKey))
+			cobs := reframed(ctx, icd.Framing{Variant: icd.CobsFraming{}})
+			Expect(sum(ctx, framed(readAt(0, cobs, rm)))).
+				ToNot(Equal(sum(ctx, framed(readAt(0, ic.Key, rm)))))
+		})
+
+		It("Should not cover the framing of the ICD of a read", func(
+			ctx SpecContext,
+		) {
+			rm := readOf(status, bind(temp, valueKey))
+			cobs := reframed(ctx, icd.Framing{Variant: icd.CobsFraming{}})
+			Expect(sum(ctx, readAt(0, cobs, rm))).
+				To(Equal(sum(ctx, readAt(0, ic.Key, rm))))
+		})
+
 		It("Should mark a read of a message that the ICD lacks", func(
 			ctx SpecContext,
 		) {
@@ -544,5 +883,24 @@ var _ = Describe("Read", func() {
 			Expect(resolver.Hash(ctx, db, &h, []read.Read{readAt(0, uuid.New())})).
 				To(MatchError(query.ErrNotFound))
 		})
+	})
+})
+
+var _ = Describe("Entries", func() {
+	It("Should give the framed read of each entry at its path", func() {
+		first, second := uuid.New(), uuid.New()
+		rm := readOf(status, bind(temp, valueKey))
+		Expect(read.Entries([]icd.ReadEntry{
+			{ICD: first},
+			{ICD: second, Messages: []icd.ReadMessage{rm}},
+		})).To(Equal([]read.Read{
+			{Path: []string{"entries", "0"}, ICD: first, Framed: true},
+			{
+				Path:     []string{"entries", "1"},
+				ICD:      second,
+				Messages: []icd.ReadMessage{rm},
+				Framed:   true,
+			},
+		}))
 	})
 })

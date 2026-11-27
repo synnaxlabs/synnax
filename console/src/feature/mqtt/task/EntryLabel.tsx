@@ -70,8 +70,7 @@ const Label = ({ type, kind, identity }: LabelProps) => {
         color={identity === "" ? 8 : 10}
         variant="code"
       >
-        {/* Isolated so the right-to-left overflow still reads left to right. */}
-        {identity === "" ? placeholder : `⁦${identity}⁩`}
+        {identity === "" ? placeholder : identity}
       </Task.Views.ItemLabel>
     </Flex.Box>
   );
@@ -125,6 +124,37 @@ export const EntryLabel = ({ path }: EntryLabelProps) => {
   );
 };
 
+/** @returns why the ICD has no message at the read of a topic, and what to do now. */
+export const describeMissing = (read: number): string =>
+  read === 0
+    ? "The ICD has no message for this topic. Add data to make one."
+    : "The ICD no longer has this message. Remove it from the topic.";
+
+/** Marks a plain entry whose message has a problem. */
+const PlainMark = ({ path }: { path: deep.Path<PlainEntry> }) => {
+  const icdKey = PForm.useFieldValue(path.icd);
+  const read = PForm.useFieldValue(deep.present(path.messages), { optional: true });
+  const written = PForm.useFieldValue(deep.present(path.message).message, {
+    optional: true,
+  });
+  if (read != null && read.length > 0)
+    return (
+      <ICD.MessageMark
+        icdKey={icdKey}
+        messages={read.map(({ message }) => message)}
+        missingDescription={describeMissing}
+      />
+    );
+  if (written == null) return null;
+  return (
+    <ICD.MessageMark
+      icdKey={icdKey}
+      messages={[written]}
+      missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+    />
+  );
+};
+
 interface TreePlainEntry extends PlainEntry {
   disabled: boolean;
 }
@@ -156,6 +186,7 @@ export const EntryItem = ({ path, ...props }: EntryItemProps) => {
       }
       off={disabled}
     >
+      {type === "plain" && <PlainMark path={deep.variant(path, "type", "plain")} />}
       <Task.EnabledCheckbox path={wide.disabled} />
     </Task.Views.TreeGroupItem>
   );

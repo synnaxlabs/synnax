@@ -19,6 +19,7 @@
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 #if defined(__linux__)
@@ -80,6 +81,39 @@ TEST(LoopTest, Create) {
     const auto loop = create(config);
     ASSERT_NE(loop, nullptr);
 }
+
+#ifdef __linux__
+/// @brief it should apply its RT config on each thread that starts it, since each run
+/// of a runtime starts the loop on a new thread.
+TEST(LoopTest, StartAppliesRTConfigOnEachThread) {
+    cpu_set_t allowed;
+    ASSERT_EQ(sched_getaffinity(0, sizeof(allowed), &allowed), 0);
+    int core = 0;
+    while (!CPU_ISSET(core, &allowed))
+        core++;
+    x::thread::rt::Config rt_cfg;
+    rt_cfg.cpu_affinity = core;
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = x::telem::MILLISECOND;
+    const auto loop = create(
+        config,
+        std::make_shared<x::thread::rt::Handle>(core, rt_cfg, nullptr)
+    );
+    const auto pinned = [&] {
+        bool only_core = false;
+        std::thread([&] {
+            ASSERT_NIL(loop->start());
+            cpu_set_t got;
+            ASSERT_EQ(sched_getaffinity(0, sizeof(got), &got), 0);
+            only_core = CPU_COUNT(&got) == 1 && CPU_ISSET(core, &got);
+        }).join();
+        return only_core;
+    };
+    EXPECT_TRUE(pinned());
+    EXPECT_TRUE(pinned());
+}
+#endif
 
 /// @brief Test that Loop can be created and destroyed.
 TEST(LoopTest, CreateAndDestroy) {

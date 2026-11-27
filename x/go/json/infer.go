@@ -64,10 +64,6 @@ type InferredField struct {
 	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
 	// Enum holds the distinct values, sorted, of a string field that repeats a few.
 	Enum []string `json:"enum" msgpack:"enum"`
-	// Count is the number of documents that hold a value of the field.
-	Count int `json:"count" msgpack:"count"`
-	// Mismatched is the number of values that a payload field of Kind cannot hold.
-	Mismatched int `json:"mismatched" msgpack:"mismatched"`
 }
 
 // Shape is the layout of one cluster of documents, from one or more sources.
@@ -94,7 +90,8 @@ type SampledShape struct {
 	Samples []string
 }
 
-// Infer returns the shapes of docs, which are in the order that each source wrote them.
+// Infer returns the shapes of docs, which are in the order that each source wrote them,
+// and for each document, true when it is one JSON value.
 //   - The documents of a source that hold the same fields are one cluster. A cluster
 //     whose fields are all in one widest cluster joins it, so a field that some
 //     documents lack does not split a cluster. A source with more than 16 clusters or
@@ -109,7 +106,7 @@ type SampledShape struct {
 //     shape with none.
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Number kinds widen across documents: integer, then unsigned, then float. The JSON
-//     type of most values wins, and the rest are mismatched.
+//     type of most values wins.
 //   - A string field that repeats a few values of at most 64 bytes gives an enum.
 //   - A field whose name suggests a time and whose values all fit one format near the
 //     document time gives a timestamp. Unix units come from the magnitude.
@@ -117,17 +114,19 @@ type SampledShape struct {
 //
 // A document that is not JSON gives no fields, and a source with no JSON document gives
 // no shape.
-func Infer(docs []Document) []Shape {
+func Infer(docs []Document) ([]Shape, []bool) {
 	now := telem.Now()
 	var (
 		sources []*inferSource
 		byName  = make(map[string]*inferSource)
+		isJSON  = make([]bool, len(docs))
 	)
-	for _, doc := range docs {
+	for i, doc := range docs {
 		leaves, err := parseLeaves(doc.Data)
 		if err != nil {
 			continue
 		}
+		isJSON[i] = true
 		src, ok := byName[doc.Source]
 		if !ok {
 			src = newInferSource(doc.Source, math.MaxInt)
@@ -140,41 +139,27 @@ func Infer(docs []Document) []Shape {
 		}
 		src.add(parsedDocument{leaves: leaves, time: ref})
 	}
-	inf := infer(sources)
-	shapes := make([]Shape, len(inf.groups))
-	for i := range shapes {
-		shapes[i] = inf.shape(i)
+	groups := infer(sources)
+	shapes := make([]Shape, len(groups))
+	for i, g := range groups {
+		shapes[i] = g.shape()
 	}
-	return shapes
-}
-
-// inference is what infer finds in the documents of its sources.
-type inference struct {
-	groups []*inferGroup
-	// present holds the position of the present field of each group, or -1.
-	present []int
+	return shapes, isJSON
 }
 
 // infer returns the groups of the documents of sources.
-func infer(sources []*inferSource) inference {
+func infer(sources []*inferSource) []*inferGroup {
 	clusters := make([][]cluster, len(sources))
 	for i, src := range sources {
 		clusters[i] = src.split()
 	}
 	for {
 		groups, of := group(sources, clusters)
-		present := presentFields(groups, of)
-		if !mergeUnmarked(sources, clusters, of, present) {
-			return inference{groups: groups, present: present}
+		findPresent(groups, of)
+		if !mergeUnmarked(sources, clusters, groups, of) {
+			return groups
 		}
 	}
-}
-
-// shape returns the shape of the group at i.
-func (inf inference) shape(i int) Shape {
-	s := inf.groups[i].shape()
-	s.Present = inf.present[i]
-	return s
 }
 
 // group returns the groups of clusters, where the clusters that hold the same fields
@@ -202,22 +187,21 @@ func group(sources []*inferSource, clusters [][]cluster) ([]*inferGroup, [][]int
 	return groups, of
 }
 
-// presentFields returns the position of the present field of each group, or -1. A
-// present field is not at, above, or inside a field of another group of its sources, so
-// the present rules of a source never nest.
-func presentFields(groups []*inferGroup, of [][]int) []int {
+// findPresent sets the present field of each group. A present field is not at, above,
+// or inside a field of another group of its sources, so the present rules of a source
+// never nest.
+func findPresent(groups []*inferGroup, of [][]int) {
 	others := sharers(groups, of)
 	above := make([]set.Set[string], len(groups))
 	for i, g := range groups {
 		above[i] = g.above()
 	}
-	present := make([]int, len(groups))
 	for i, g := range groups {
-		present[i] = -1
+		g.present = -1
 		if len(others[i]) == 0 {
 			continue
 		}
-		present[i] = g.presentField(func(p Pointer) bool {
+		g.present = g.presentField(func(p Pointer) bool {
 			for o := range others[i] {
 				if groups[o].nests(p, above[o]) {
 					return false
@@ -226,7 +210,6 @@ func presentFields(groups []*inferGroup, of [][]int) []int {
 			return true
 		})
 	}
-	return present
 }
 
 // sharers returns, for each group, the other groups that share a source with it.
@@ -252,8 +235,8 @@ func sharers(groups []*inferGroup, of [][]int) []set.Set[int] {
 func mergeUnmarked(
 	sources []*inferSource,
 	clusters [][]cluster,
+	groups []*inferGroup,
 	of [][]int,
-	present []int,
 ) bool {
 	merged := false
 	for i, src := range sources {
@@ -263,7 +246,7 @@ func mergeUnmarked(
 			count    int
 		)
 		for k, c := range clusters[i] {
-			if present[of[i][k]] >= 0 {
+			if groups[of[i][k]].present >= 0 {
 				marked = append(marked, c)
 				continue
 			}
@@ -307,10 +290,10 @@ func (i *Inferrer) Add(data []byte, t telem.TimeStamp) bool {
 
 // Shapes returns the shapes of the documents added, with no sources.
 func (i *Inferrer) Shapes() []SampledShape {
-	inf := infer([]*inferSource{i.src})
-	shapes := make([]SampledShape, len(inf.groups))
-	for k, g := range inf.groups {
-		shapes[k] = SampledShape{Shape: inf.shape(k), Samples: g.samples()}
+	groups := infer([]*inferSource{i.src})
+	shapes := make([]SampledShape, len(groups))
+	for k, g := range groups {
+		shapes[k] = SampledShape{Shape: g.shape(), Samples: g.samples()}
 		shapes[k].Sources = nil
 	}
 	return shapes
@@ -596,6 +579,8 @@ type inferGroup struct {
 	fields  map[string]*fieldStats
 	order   []*fieldStats
 	count   int
+	// present is the position of the present field in order, or -1.
+	present int
 }
 
 // above returns the pointer of each field of g and of each value above it.
@@ -649,17 +634,9 @@ func (g *inferGroup) merge(src *inferSource, sets []int) {
 		from := src.sets[k].group
 		g.count += from.count
 		for _, o := range from.order {
-			key := o.pointer.String()
-			s, ok := g.fields[key]
-			if !ok {
-				if len(g.order) == maxInferredFields {
-					continue
-				}
-				s = newFieldStats(o.pointer)
-				g.fields[key] = s
-				g.order = append(g.order, s)
+			if s := g.stats(o.pointer.String(), o.pointer); s != nil {
+				s.merge(o)
 			}
-			s.merge(o)
 		}
 	}
 	members := set.New(sets...)
@@ -680,17 +657,25 @@ func (g *inferGroup) merge(src *inferSource, sets []int) {
 func (g *inferGroup) addDocument(source string, doc parsedDocument) {
 	g.count++
 	for _, l := range doc.leaves {
-		s, ok := g.fields[l.key]
-		if !ok {
-			if len(g.order) == maxInferredFields {
-				continue
-			}
-			s = newFieldStats(l.pointer)
-			g.fields[l.key] = s
-			g.order = append(g.order, s)
+		if s := g.stats(l.key, l.pointer); s != nil {
+			s.add(source, l, doc.time, doc.number)
 		}
-		s.add(source, l, doc.time, doc.number)
 	}
+}
+
+// stats returns the stats of the field at pointer, whose text is key. It adds them when
+// g holds fewer than maxInferredFields fields, and returns nil when it does not.
+func (g *inferGroup) stats(key string, pointer Pointer) *fieldStats {
+	if s, ok := g.fields[key]; ok {
+		return s
+	}
+	if len(g.order) == maxInferredFields {
+		return nil
+	}
+	s := newFieldStats(pointer)
+	g.fields[key] = s
+	g.order = append(g.order, s)
+	return s
 }
 
 // samples returns the sample of each field of g, in the order of its fields.
@@ -708,7 +693,7 @@ func (g *inferGroup) shape() Shape {
 		Fields:  make([]InferredField, len(g.order)),
 		Index:   -1,
 		Count:   g.count,
-		Present: -1,
+		Present: g.present,
 	}
 	nearest := math.Inf(1)
 	for i, s := range g.order {
@@ -729,8 +714,6 @@ type fieldStats struct {
 	pointer                    Pointer
 	count                      int
 	numbers, strings, booleans int
-	// unreadable is the number of numbers that do not fit a float64.
-	unreadable int
 	// floating is true when a number has a fraction or does not fit a 64-bit integer.
 	floating, unsigned, negative bool
 	labels                       set.Set[string]
@@ -794,15 +777,15 @@ func (s *fieldStats) add(source string, l leaf, ref telem.TimeStamp, number int)
 	switch l.kind {
 	case '0':
 		s.numbers++
-		switch n, err := parseNumber(l.raw); {
-		case err != nil:
-			s.unreadable++
-		case n.kind == floatNumber:
-			s.floating = true
-		case n.kind == uintNumber:
-			s.unsigned = true
-		case n.i < 0:
-			s.negative = true
+		if n, err := parseNumber(l.raw); err == nil {
+			switch {
+			case n.kind == floatNumber:
+				s.floating = true
+			case n.kind == uintNumber:
+				s.unsigned = true
+			case n.i < 0:
+				s.negative = true
+			}
 		}
 	case '"':
 		s.strings++
@@ -853,7 +836,6 @@ func (s *fieldStats) merge(o *fieldStats) {
 	s.numbers += o.numbers
 	s.strings += o.strings
 	s.booleans += o.booleans
-	s.unreadable += o.unreadable
 	s.floating = s.floating || o.floating
 	s.unsigned = s.unsigned || o.unsigned
 	s.negative = s.negative || o.negative
@@ -886,21 +868,18 @@ func sampleOf(raw []byte) []byte {
 func (s *fieldStats) timestamp() bool { return s.time.candidate && s.time.formatted }
 
 func (s *fieldStats) field() InferredField {
-	f := InferredField{Pointer: s.pointer, Count: s.count}
-	numeric := s.numbers + s.booleans
+	f := InferredField{Pointer: s.pointer}
 	switch {
-	case s.numbers > 0 && numeric >= s.strings:
-		f.Type, f.Mismatched = Number, s.strings+s.unreadable
-		f.Kind = s.numberKind()
+	case s.numbers > 0 && s.numbers+s.booleans >= s.strings:
+		f.Type, f.Kind = Number, s.numberKind()
 	case s.numbers == 0 && s.booleans > s.strings:
 		f.Type, f.Kind = Boolean, payload.KindBoolean
-		f.Mismatched = s.strings
 	default:
-		f.Type, f.Kind, f.Mismatched = String, payload.KindString, numeric
+		f.Type, f.Kind = String, payload.KindString
 	}
 	if s.timestamp() {
 		f.Kind = payload.KindTimestamp
-		f.TimeFormat, f.Mismatched = new(s.time.format), 0
+		f.TimeFormat = new(s.time.format)
 		return f
 	}
 	if f.Type == String && !s.longLabel && len(s.labels) <= maxEnumLabels &&

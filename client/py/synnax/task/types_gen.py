@@ -137,6 +137,7 @@ class Where(BaseModel):
         rack: Selects by rack.
         internal: Selects by internal.
         arcs: Matches the tasks that run any of the Arcs with the given keys.
+        icds: Matches the tasks that use any of the ICDs with the given keys.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -150,8 +151,9 @@ class Where(BaseModel):
     rack: filter.Set[rack_.Key] | None = None
     internal: filter.Bool | None = None
     arcs: list[UUID] | None = None
+    icds: list[UUID] | None = None
 
-    @field_validator("arcs", mode="before")
+    @field_validator("arcs", "icds", mode="before")
     @classmethod
     def _read_lists(cls, value: Any) -> Any:
         return shorthand.read_list(value)
@@ -171,6 +173,7 @@ WhereInput = TypedDict(
         "rack": filter.SetInput[rack_.Key],
         "internal": filter.BoolInput,
         "arcs": UUID | list[UUID],
+        "icds": UUID | list[UUID],
     },
     total=False,
 )
