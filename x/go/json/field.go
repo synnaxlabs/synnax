@@ -555,6 +555,24 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	panic(fmt.Sprintf("json: invalid type %d", e.field.Type))
 }
 
+// Number returns sample as a number. ok is false when sample matches an enum, whose
+// label Append writes instead. It returns an error wrapping validate.ErrValidation when
+// sample is NaN or infinite. It panics when the data type of the field does not hold
+// numbers.
+func (e *Encoder) Number(sample []byte) (n ParsedNumber, ok bool, err error) {
+	dt := e.field.DataType
+	for _, en := range e.enums {
+		if matches(dt, en.sample, sample) {
+			return ParsedNumber{}, false, nil
+		}
+	}
+	v := sampleNumber(dt, sample)
+	if err = checkFinite(v); err != nil {
+		return ParsedNumber{}, false, err
+	}
+	return ParsedNumber{n: v}, true, nil
+}
+
 // matches reports whether a and b, samples of dt, are equal. Floats are equal by value,
 // and any two NaNs are equal.
 func matches(dt telem.DataType, a, b []byte) bool {
