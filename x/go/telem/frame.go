@@ -543,21 +543,27 @@ func (f Frame[K]) KeepTimed(keys, untimed set.Set[K]) Frame[K] {
 	if len(clocks) == 0 {
 		return f.KeepKeys(keys)
 	}
-	return f.filter(
-		timedKeys[K]{keys: keys, clocks: clocks},
-		len(f.keys),
-		timedKeys[K].has,
+	// The loops below repeat filter, since passing clocks to it moves buf to the heap.
+	if len(f.keys) < f.mask.Cap() {
+		f.mask.enabled = true
+		for i, k := range f.keys {
+			if !keys.Contains(k) && !slices.Contains(clocks, uint32(k)) {
+				f.mask.Mask128 = f.mask.Set(i, true)
+			}
+		}
+		return f
+	}
+	var (
+		fKeys   = make([]K, 0, len(f.keys))
+		fSeries = make([]Series, 0, len(f.keys))
 	)
-}
-
-// timedKeys holds the keys of a frame and the clocks that its timed series name.
-type timedKeys[K types.SizedNumeric] struct {
-	keys   set.Set[K]
-	clocks []uint32
-}
-
-func (t timedKeys[K]) has(k K) bool {
-	return t.keys.Contains(k) || slices.Contains(t.clocks, uint32(k))
+	for k, s := range f.Entries() {
+		if keys.Contains(k) || slices.Contains(clocks, uint32(k)) {
+			fKeys = append(fKeys, k)
+			fSeries = append(fSeries, s)
+		}
+	}
+	return Frame[K]{keys: fKeys, series: fSeries}
 }
 
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
