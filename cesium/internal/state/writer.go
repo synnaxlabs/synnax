@@ -517,18 +517,6 @@ type sealRequest struct {
 
 func (r *sealRequest) fail(err error) { r.w.done <- err }
 
-type takeBackRequest struct {
-	w     *Writer
-	seals []log.Seal
-}
-
-func (r *takeBackRequest) fail(err error) { r.w.done <- err }
-
-func (r *takeBackRequest) run(s *State) {
-	r.seals = s.takeBack(r.w)
-	r.w.done <- nil
-}
-
 func (r *sealRequest) run(s *State) {
 	seg, ok := r.w.held[r.key]
 	if !ok {
@@ -564,6 +552,18 @@ func (w *Writer) Seal(key uint32) (log.Seal, error) {
 		return log.Seal{}, err
 	}
 	return r.seal, nil
+}
+
+type takeBackRequest struct {
+	w     *Writer
+	seals []log.Seal
+}
+
+func (r *takeBackRequest) fail(err error) { r.w.done <- err }
+
+func (r *takeBackRequest) run(s *State) {
+	r.seals = s.takeBack(r.w)
+	r.w.done <- nil
 }
 
 // TakeBack takes the samples that no durable record covers out of the visible view of
