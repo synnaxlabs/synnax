@@ -126,6 +126,26 @@ class TestReport:
         (rack / "rack.h").write_text(src.replace(" integrations", " names"))
         assert write(tmp_path) == before
 
+    def test_lists_the_integrations_a_config_runs_only_by_name(
+        self, tmp_path: Path
+    ) -> None:
+        rack = tmp_path / "driver" / "rack"
+        rack.mkdir(parents=True)
+        src = (
+            "inline std::vector<std::string> default_integrations() {\n"
+            "    auto integrations = built_integrations();\n"
+            "    std::erase(integrations, serial::INTEGRATION_NAME);\n"
+            "    return integrations;\n"
+            "}\n"
+        )
+        (rack / "rack.h").write_text(src)
+        before = write(tmp_path)
+        assert [line for line in before.splitlines() if "rack.h" in line] == [
+            "driver/rack/rack.h default_integrations erases serial::INTEGRATION_NAME",
+        ]
+        (rack / "rack.h").write_text(src.replace("    std::erase(", "    // ("))
+        assert write(tmp_path) != before
+
     def test_lists_the_integrations_of_each_platform(self, tmp_path: Path) -> None:
         rack = tmp_path / "driver" / "rack"
         rack.mkdir(parents=True)

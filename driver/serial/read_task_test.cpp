@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -188,6 +189,32 @@ TEST_F(SerialReadTask, DropsPartialFrameWhenAnotherTaskReopensPort) {
     ASSERT_NIL_P(conn->lock().transport());
     this->peer_write("2.5\nT,7\n");
     ASSERT_EVENTUALLY_GE(this->writes->writes->size(), 2);
+    ASSERT_EQ(this->writes->writes->at(1).at<double>(2, 0), 7);
+}
+
+/// @brief it should warn when the port fails while the task reads, and read again once
+/// the port comes back.
+TEST_F(SerialReadTask, WarnsWhenPortFailsAndReadsWhenItReturns) {
+    const Link link(this->path());
+    auto props = this->props();
+    props.port = link.path.string();
+    this->create(props);
+    ASSERT_TRUE(this->task->start("start", this->cancel));
+    this->peer_write("T,5\n");
+    ASSERT_EVENTUALLY_GE(this->writes->writes->size(), 1);
+    this->close_peer();
+    ASSERT_EVENTUALLY_EQ(this->last_status().message, "Failed to read data");
+    const auto status = this->last_status();
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    ASSERT_TRUE(status.details.running);
+    this->open_peer();
+    link.point(this->path());
+    const x::telem::Stopwatch sw;
+    while (this->writes->writes->size() < 2 && sw.elapsed() < 5 * x::telem::SECOND) {
+        this->peer_write("T,7\n");
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    ASSERT_GE(this->writes->writes->size(), 2);
     ASSERT_EQ(this->writes->writes->at(1).at<double>(2, 0), 7);
 }
 

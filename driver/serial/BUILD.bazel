@@ -161,6 +161,7 @@ cc_test(
         "//x/cpp/defer",
         "//x/cpp/telem",
         "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )
