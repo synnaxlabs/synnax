@@ -18,7 +18,7 @@ import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "re
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { aether } from "@/aether/aether";
-import { createHaulItem } from "@/channel/types";
+import { Channel } from "@/channel";
 import { Log } from "@/log";
 import { log } from "@/log/aether";
 import { createAsyncSynnaxWrapper } from "@/testutil";
@@ -45,7 +45,9 @@ const DragSource = ({ channelKey }: { channelKey: channel.Key }): ReactElement =
   const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source" });
   return (
     <button
-      onDragStart={() => startDrag([createHaulItem(channelKey)])}
+      onDragStart={(event) =>
+        startDrag({ event, items: [Channel.createHaulItem(channelKey)], preview: null })
+      }
       onDragEnd={onDragEnd}
     >
       {DRAG_HANDLE}
@@ -99,6 +101,7 @@ describe("Log", () => {
       }),
     );
   });
+
   describe("channel drop", () => {
     const dropChannel = async (editable: boolean) => {
       const project = await client.projects.create({ name: `log_${uuid.create()}` });

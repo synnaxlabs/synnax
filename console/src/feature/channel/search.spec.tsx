@@ -34,11 +34,7 @@ import { describe, expect, it } from "vitest";
 import { Channel } from "@/feature/channel";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import {
-  createConsoleWrapper,
-  resolveFocusedTab,
-  type TestStore,
-} from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, type TestStore } from "@/testutil";
 
 const client = createTestClient();
 
