@@ -50,3 +50,8 @@ const selectPosition = (params: KeyedSelectorParams): string =>
   selectState(params).position;
 
 export const useSelectPosition = createSelector(selectPosition);
+
+const selectRange = (params: KeyedSelectorParams): State["range"] =>
+  selectState(params).range;
+
+export const useSelectRange = createSelector(selectRange);
