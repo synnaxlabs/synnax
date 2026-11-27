@@ -168,8 +168,8 @@ func Paths(
 	return paths, nil
 }
 
-// Visible reports whether a subject that allowed accepts can see each folder of p.
-func (p Path) Visible(allowed func(resource.ID) bool) bool {
+// visible reports whether a subject that allowed accepts can see each folder of p.
+func (p Path) visible(allowed func(resource.ID) bool) bool {
 	return lo.EveryBy(p.Folders, func(g group.Group) bool {
 		return allowed(g.ResourceID())
 	})
@@ -243,7 +243,7 @@ func (s *Service) notFound(
 	texts := PathTexts(paths)
 	var seen []string
 	for i, p := range paths {
-		if p.Visible(allowed) {
+		if p.visible(allowed) {
 			seen = append(seen, texts[i])
 		}
 	}
