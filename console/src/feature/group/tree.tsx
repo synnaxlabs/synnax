@@ -111,6 +111,7 @@ export const createTreeItems = (
       (id) => getChildren(resource.idToString(id))?.length === 0,
     );
     const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
+    const creators = isSingle ? membersOf(rootID) : [];
     return (
       <ContextMenu.Menu>
         {isSingle && hasUpdatePermission && <ContextMenu.RenameItem onClick={rename} />}
@@ -120,6 +121,10 @@ export const createTreeItems = (
             <Icon.Group />
             New group
           </Menu.Item>
+        )}
+        {creators.map(
+          ({ type, CreateItem }) =>
+            CreateItem != null && <CreateItem key={type} group={firstID.key} />,
         )}
         {hasUpdatePermission && (
           <PlatformGroup.ContextMenuItem
