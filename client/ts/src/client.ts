@@ -86,7 +86,7 @@ export const synnaxParamsZ = z.object({
   sessionPersistent: z.boolean().default(false),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
-  secure: z.boolean().default(false),
+  secure: z.boolean().default(true),
   /**
    * The PEM text of a CA certificate that signs the Core's certificate, trusted along
    * with the runtime's default certificates. Turns on secure unless secure is false,
@@ -318,10 +318,10 @@ export default class Synnax extends framer.Client {
    * open, for a caller that saves the session token.
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
-   * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
-   * be configured to support TLS. Defaults to true with props.caCert, else to
+   * @param props.secure - Whether to connect to the cluster using TLS. Set it to false
+   * for a Core that runs with --insecure. Defaults to true with props.caCert, else to
    * SYNNAX_SECURE (true with SYNNAX_CA_CERT), then the value of Synnax Desktop when it
-   * gives the host, then false.
+   * gives the host, then true.
    * A Synnax client must be closed when it is no longer needed. This stops the
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
