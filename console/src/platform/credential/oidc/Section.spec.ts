@@ -82,7 +82,8 @@ const createLink = (subject: resource.ID): auth.oidc.Link => ({
   key: crypto.randomUUID(),
   user: subject.key,
   issuer: PROVIDER.issuer,
-  account: "ada@example.com",
+  account: "1234567890",
+  label: "ada@example.com",
 });
 
 const CORE = createCore("local");
@@ -160,6 +161,14 @@ describe("OIDC section", () => {
     await screen.findByText(PROVIDER.provider);
     await screen.findByText(`Link ${OTHER_PROVIDER.provider}`);
     expect(screen.queryByText(`Link ${PROVIDER.provider}`)).toBeNull();
+  });
+
+  it("should name an account without a label by its ID", async () => {
+    const { client } = await open({
+      links: [{ ...createLink(LOCAL_SUBJECT), label: "" }],
+    });
+    await renderLocal(client, LOCAL_SUBJECT);
+    expect(await screen.findByText("1234567890")).toBeTruthy();
   });
 
   it("should offer to unlink the caller's own account", async () => {
@@ -258,7 +267,7 @@ describe("OIDC section", () => {
     it("should link the account over the loopback redirect", async () => {
       const { client, server } = await open({ providers: [PROVIDER] });
       const { onMessage } = await clickLink(server, client);
-      await screen.findByText("new-account");
+      await screen.findByText("ada@example.com");
       expect(server.linked[0]).toMatchObject({
         provider: PROVIDER.provider,
         code: "abc",

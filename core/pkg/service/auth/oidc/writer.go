@@ -38,6 +38,7 @@ func (w Writer) Create(
 		User:    u,
 		Issuer:  account.Issuer,
 		Account: account.ID,
+		Label:   account.Label,
 	}
 	if err := l.Validate(); err != nil {
 		return Link{}, err

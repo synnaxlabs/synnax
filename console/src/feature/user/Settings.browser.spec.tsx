@@ -171,7 +171,8 @@ describe("User.ProfileSettings sign-in", () => {
       key: uuid.create(),
       user: u.key,
       issuer: LINKED.issuer,
-      account: "ada@example.com",
+      account: "1234567890",
+      label: "ada@example.com",
     };
     vi.spyOn(as.auth.oidc, "retrieve").mockResolvedValue([link]);
     const unlink = vi.spyOn(as.auth.oidc, "unlink").mockResolvedValue();

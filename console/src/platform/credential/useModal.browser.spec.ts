@@ -380,7 +380,8 @@ describe("useModal", () => {
         key: current ? session.credential : uuid.create(),
         user: subject.key,
         issuer: "https://sso.example.com",
-        account: "ada@example.com",
+        account: "1234567890",
+        label: "ada@example.com",
       };
       vi.spyOn(client.auth.oidc, "retrieve").mockResolvedValue([link]);
       const unlink = vi.spyOn(client.auth.oidc, "unlink").mockResolvedValue();

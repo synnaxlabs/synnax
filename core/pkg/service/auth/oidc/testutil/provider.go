@@ -30,8 +30,13 @@ const ClientID = "synnax"
 type Grant struct {
 	// Subject is the ID token's `sub` claim.
 	Subject string
-	// Name is the ID token's `name` claim.
+	// Name is the ID token's `name` claim. Empty leaves it out.
 	Name string
+	// Email is the ID token's `email` claim. Empty leaves it out.
+	Email string
+	// PreferredUsername is the ID token's `preferred_username` claim. Empty leaves it
+	// out.
+	PreferredUsername string
 	// Verifier is the PKCE code verifier the token request must present.
 	Verifier string
 	// RedirectURI is the redirect URI the token request must present.
@@ -127,15 +132,24 @@ func (p *Provider) sign(g Grant) string {
 		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "key"),
 	))
 	now := time.Now()
-	claims := lo.Must(json.Marshal(map[string]any{
-		"iss":  p.Issuer(),
-		"sub":  g.Subject,
-		"aud":  audience,
-		"iat":  now.Unix(),
-		"exp":  now.Add(time.Hour).Unix(),
-		"name": g.Name,
-	}))
-	return lo.Must(lo.Must(signer.Sign(claims)).CompactSerialize())
+	claims := map[string]any{
+		"iss": p.Issuer(),
+		"sub": g.Subject,
+		"aud": audience,
+		"iat": now.Unix(),
+		"exp": now.Add(time.Hour).Unix(),
+	}
+	for k, v := range map[string]string{
+		"name":               g.Name,
+		"email":              g.Email,
+		"preferred_username": g.PreferredUsername,
+	} {
+		if v != "" {
+			claims[k] = v
+		}
+	}
+	payload := lo.Must(json.Marshal(claims))
+	return lo.Must(lo.Must(signer.Sign(payload)).CompactSerialize())
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

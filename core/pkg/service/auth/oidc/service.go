@@ -322,6 +322,9 @@ type Account struct {
 	ID string
 	// Name is the person's display name, its `name` claim. It can be empty.
 	Name string
+	// Label names the account for people: its `email` claim, else its `name` claim,
+	// else its `preferred_username` claim. It can be empty.
+	Label string
 }
 
 // Verify exchanges the authorization code in creds with its provider and returns the
@@ -361,7 +364,9 @@ func (s *Service) Verify(
 		return Account{}, auth.ErrInvalidCredentials
 	}
 	var claims struct {
-		Name string `json:"name"`
+		Name              string `json:"name"`
+		Email             string `json:"email"`
+		PreferredUsername string `json:"preferred_username"`
 	}
 	if err = idToken.Claims(&claims); err != nil {
 		return Account{}, auth.ErrInvalidCredentials
@@ -371,6 +376,11 @@ func (s *Service) Verify(
 		Issuer:   p.Issuer,
 		ID:       idToken.Subject,
 		Name:     claims.Name,
+		Label: lo.CoalesceOrEmpty(
+			claims.Email,
+			claims.Name,
+			claims.PreferredUsername,
+		),
 	}, nil
 }
 

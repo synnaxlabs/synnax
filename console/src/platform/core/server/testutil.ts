@@ -101,6 +101,7 @@ export const serveOIDC = async ({
       user: LOCAL_SUBJECT.key,
       issuer: issuer ?? credentials.provider,
       account: "new-account",
+      label: "ada@example.com",
     };
     state.links.push(link);
     return { body: { link } };

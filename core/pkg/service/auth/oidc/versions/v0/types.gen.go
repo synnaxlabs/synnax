@@ -33,6 +33,9 @@ type Link struct {
 	Issuer string `json:"issuer" msgpack:"issuer"`
 	// Account is the provider's permanent ID for the account, its `sub` claim.
 	Account string `json:"account" msgpack:"account"`
+	// Label names the account for people: its `email`, `name`, or `preferred_username`
+	// claim when the account linked. It is empty when the provider sent none.
+	Label string `json:"label" msgpack:"label"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

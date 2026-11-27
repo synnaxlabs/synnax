@@ -172,10 +172,35 @@ var _ = Describe("Service", func() {
 				svc.Verify(ctx, credentials("idp", "verify", "v")),
 			).To(Equal(oidc.Account{
 				Provider: "idp", Issuer: provider.Issuer(),
-				ID:   "ada",
-				Name: "Ada Lovelace",
+				ID:    "ada",
+				Name:  "Ada Lovelace",
+				Label: "Ada Lovelace",
 			}))
 		})
+		DescribeTable(
+			"Should label the account by its first claim present",
+			func(ctx SpecContext, g testutil.Grant, label string) {
+				g.Subject, g.Verifier, g.RedirectURI = "ada", "v", redirect
+				code := uuid.New().String()
+				provider.Grant(code, g)
+				Expect(svc.Verify(ctx, credentials("idp", code, "v"))).
+					To(HaveField("Label", label))
+			},
+			Entry("email", testutil.Grant{
+				Email: "ada@example.com", Name: "Ada", PreferredUsername: "ada",
+			}, "ada@example.com"),
+			Entry(
+				"name without an email",
+				testutil.Grant{Name: "Ada", PreferredUsername: "ada"},
+				"Ada",
+			),
+			Entry(
+				"preferred username alone",
+				testutil.Grant{PreferredUsername: "ada"},
+				"ada",
+			),
+			Entry("no claim", testutil.Grant{}, ""),
+		)
 		It("Should reject an unknown provider", func(ctx SpecContext) {
 			Expect(svc.Verify(ctx, credentials("nope", "c", "v"))).Error().
 				To(MatchError(validate.ErrValidation))
@@ -403,6 +428,7 @@ var _ = Describe("Service", func() {
 					Exec(ctx, db)).To(Succeed())
 				Expect(link.Issuer).To(Equal(provider.Issuer()))
 				Expect(link.Account).To(Equal(sub))
+				Expect(link.Label).To(Equal("Ada Lovelace"))
 				Expect(user.ResourceID(link.User)).To(Equal(identity.Subject))
 			},
 		)

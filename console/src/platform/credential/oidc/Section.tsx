@@ -22,6 +22,10 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
+// A provider need not send a claim that names the account.
+const nameOf = ({ label, account }: auth.oidc.Link): string =>
+  label === "" ? account : label;
+
 interface RowProps {
   link: auth.oidc.Link;
   /** The name of the provider whose issuer the link holds. */
@@ -34,7 +38,7 @@ const Row = ({ link, label, onUnlink }: RowProps): ReactElement => (
     <Flex.Box y gap="tiny">
       <Text.Text weight={500}>{label}</Text.Text>
       <Text.Text level="small" color={9}>
-        {link.account}
+        {nameOf(link)}
       </Text.Text>
     </Flex.Box>
     {onUnlink != null && (
@@ -177,7 +181,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
     const current = client?.auth.session?.credential === link.key;
     handleError(async () => {
       const confirmed = await confirm({
-        message: `Are you sure you want to unlink ${link.account}?`,
+        message: `Are you sure you want to unlink ${nameOf(link)}?`,
         description: current
           ? `You logged in with this ${label} account, so unlinking it ends this session. You can no longer log in with it.`
           : `This user can no longer log in with this ${label} account.`,
