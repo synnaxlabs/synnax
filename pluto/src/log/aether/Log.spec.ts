@@ -805,6 +805,14 @@ describe("log/aether/Log", () => {
       expect(leaf.state.rowEntries.slice(1).every((entry) => entry === 150)).toBe(true);
     });
 
+    it("should show a match in a view of one row", () => {
+      const oneRow = box.construct({ x: 0, y: 0 }, { width: 500, height: 30 });
+      const { leaf, updateState } = setup(lines(1_000, [150]), oneRow, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toEqual([150]);
+    });
+
     it("should move from the last match in either direction", () => {
       const { leaf, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
       jumpTo(updateState, "previous", 1);

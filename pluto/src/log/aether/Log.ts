@@ -643,7 +643,7 @@ export class Log
     const capacity = this.calcRowCapacity(lineHeight);
     const { rows } = this.layoutEntry(i);
     const onFirstScreen = i + 1 < this.calcTop(lineHeight).offset;
-    const spare = capacity - 1 - rows;
+    const spare = Math.max(capacity - 1, 1) - rows;
     const down = spare >= 0 ? Math.min(Math.floor(capacity / 2), spare) : spare;
     this.moveView(onFirstScreen ? 0 : -down, lineHeight);
     // Only a scroll after the jump counts toward resuming.
