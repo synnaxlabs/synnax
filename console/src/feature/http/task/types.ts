@@ -15,20 +15,43 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "http";
 
-/** Refuses a header with an empty value, which the Driver refuses. */
-const validateHeaderValues = ({ value, issues }: z.core.ParsePayload<http.Header[]>) =>
-  value.forEach(({ value: headerValue }, i) => {
-    if (headerValue !== "") return;
-    issues.push({
-      continue: true,
-      code: "custom",
-      input: value,
-      message: "Value is required",
-      path: [i, "value"],
-    });
-  });
+type Request = Pick<http.ReadEndpoint, "disabled" | "headers" | "queryParams">;
 
-const deployHeadersZ = Device.headersZ.check(validateHeaderValues).default(() => []);
+const required = (input: Request[], path: PropertyKey[], message: string) => ({
+  continue: true,
+  code: "custom" as const,
+  input,
+  message,
+  path,
+});
+
+/**
+ * Refuses each header with an empty name or value and each query parameter with an
+ * empty name, as the Driver does. With skipDisabled, a disabled endpoint passes, as the
+ * Driver skips a disabled read endpoint.
+ */
+const validateRequests =
+  (skipDisabled: boolean) =>
+  ({ value, issues }: z.core.ParsePayload<Request[]>) =>
+    value.forEach(({ disabled, headers, queryParams }, i) => {
+      if (skipDisabled && disabled) return;
+      headers.forEach(({ name, value: headerValue }, j) => {
+        if (name === "")
+          issues.push(required(value, [i, "headers", j, "name"], "Name is required"));
+        if (headerValue === "")
+          issues.push(required(value, [i, "headers", j, "value"], "Value is required"));
+      });
+      queryParams.forEach(({ parameter }, j) => {
+        if (parameter === "")
+          issues.push(
+            required(
+              value,
+              [i, "queryParams", j, "parameter"],
+              "Parameter is required",
+            ),
+          );
+      });
+    });
 
 export const READ_TYPE = `${PREFIX}_read`;
 
@@ -40,14 +63,14 @@ const readConfigZ = http.readConfigZ;
 
 const deployReadEndpointZ = http.readEndpointZ.extend({
   method: readMethodZ,
-  headers: deployHeadersZ,
+  headers: Device.headersZ.default(() => []),
   queryParams: Device.queryParamsZ.default(() => []),
 });
 
 export const deployReadConfigZ = http.readConfigZ.extend({
   device: Task.deviceKeyZ,
   rate: z.number().positive("Rate must be positive"),
-  endpoints: deployReadEndpointZ.array(),
+  endpoints: deployReadEndpointZ.array().check(validateRequests(true)),
 });
 
 const readStatusDataZ = z
@@ -73,7 +96,7 @@ const writeConfigZ = http.writeConfigZ;
 
 const deployWriteEndpointZ = http.writeEndpointZ.extend({
   method: writeMethodZ,
-  headers: deployHeadersZ,
+  headers: Device.headersZ.default(() => []),
   queryParams: Device.queryParamsZ.default(() => []),
 });
 
@@ -95,7 +118,10 @@ const validateMessages = ({
 
 export const deployWriteConfigZ = writeConfigZ.extend({
   device: Task.deviceKeyZ,
-  endpoints: deployWriteEndpointZ.array().check(validateMessages),
+  endpoints: deployWriteEndpointZ
+    .array()
+    .check(validateMessages)
+    .check(validateRequests(false)),
 });
 
 export const WRITE_SCHEMAS = {

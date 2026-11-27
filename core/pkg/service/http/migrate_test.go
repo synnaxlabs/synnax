@@ -122,19 +122,26 @@ var _ = Describe("Task migration", func() {
 		},
 	)
 
-	It("Should drop each header of a Console-era task that has no value",
+	It("Should drop each header and query parameter of a Console-era task that the "+
+		"Driver refuses",
 		func(ctx SpecContext) {
+			ep := endpoint(
+				"/status",
+				map[string]any{"name": "Accept", "value": "application/json"},
+				map[string]any{"name": "X-Key"},
+				map[string]any{"value": "abc"},
+			)
+			ep["queryParams"] = []any{
+				map[string]any{"value": "10"},
+				map[string]any{"parameter": "limit", "value": ""},
+			}
 			t := v2.Task{
 				Key:  uuid.New(),
 				Name: "Status",
 				Type: "http_read",
 				Config: msgpack.EncodedJSON{
-					"rate": 1,
-					"endpoints": []any{endpoint(
-						"/status",
-						map[string]any{"name": "Accept", "value": "application/json"},
-						map[string]any{"name": "X-Key"},
-					)},
+					"rate":      1,
+					"endpoints": []any{ep},
 				},
 			}
 			svc, _, db := migrate(ctx, t)
@@ -143,6 +150,9 @@ var _ = Describe("Task migration", func() {
 				To(Succeed())
 			Expect(cfg.Endpoints[0].Headers).To(Equal([]http.Header{
 				{Name: "Accept", Value: "application/json"},
+			}))
+			Expect(cfg.Endpoints[0].QueryParams).To(Equal([]http.QueryParam{
+				{Parameter: "limit", Value: ""},
 			}))
 		},
 	)

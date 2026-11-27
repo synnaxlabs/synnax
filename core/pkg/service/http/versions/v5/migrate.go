@@ -39,7 +39,7 @@ func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, erro
 }
 
 // MigrateReadEndpoint lifts a v4 read endpoint to v5, with no ICD and no messages. It
-// drops each header with an empty value, which the Driver refuses.
+// drops each header and query parameter that the Driver refuses.
 func MigrateReadEndpoint(
 	ctx context.Context,
 	old v4.ReadEndpoint,
@@ -48,7 +48,8 @@ func MigrateReadEndpoint(
 	if err != nil {
 		return ep, err
 	}
-	ep.Headers = valuedHeaders(ep.Headers)
+	ep.Headers = acceptedHeaders(ep.Headers)
+	ep.QueryParams = acceptedQueryParams(ep.QueryParams)
 	return ep, nil
 }
 
@@ -72,7 +73,7 @@ func MigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfig, e
 }
 
 // MigrateWriteEndpoint lifts a v4 write endpoint to v5, with no ICD and no message. It
-// drops each header with an empty value, which the Driver refuses.
+// drops each header and query parameter that the Driver refuses.
 func MigrateWriteEndpoint(
 	ctx context.Context,
 	old v4.WriteEndpoint,
@@ -81,14 +82,22 @@ func MigrateWriteEndpoint(
 	if err != nil {
 		return ep, err
 	}
-	ep.Headers = valuedHeaders(ep.Headers)
+	ep.Headers = acceptedHeaders(ep.Headers)
+	ep.QueryParams = acceptedQueryParams(ep.QueryParams)
 	return ep, nil
 }
 
-// valuedHeaders returns the headers of hs that have a value, in a new slice.
-func valuedHeaders(hs []Header) []Header {
+// acceptedHeaders returns the headers of hs with a name and a value, in a new slice.
+func acceptedHeaders(hs []Header) []Header {
 	return slices.DeleteFunc(slices.Clone(hs), func(h Header) bool {
-		return h.Value == ""
+		return h.Name == "" || h.Value == ""
+	})
+}
+
+// acceptedQueryParams returns the query parameters of qs with a name, in a new slice.
+func acceptedQueryParams(qs []QueryParam) []QueryParam {
+	return slices.DeleteFunc(slices.Clone(qs), func(q QueryParam) bool {
+		return q.Parameter == ""
 	})
 }
 
