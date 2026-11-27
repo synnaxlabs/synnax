@@ -44,14 +44,16 @@ const (
 // engine is the pointer log layout of a DB: the state owner, the log owner, the
 // checkpointer, and the budget of the segment file handles.
 type engine struct {
-	ins    alamos.Instrumentation
-	fs     xfs.FS
-	db     uint64
-	exec   func(f func())
-	state  *state.State
-	log    *log.Log
-	ckpt   *checkpoint.Checkpointer
-	budget *segment.Budget
+	// logFailed reports the first storage fault of the log once.
+	logFailed sync.Once
+	ins       alamos.Instrumentation
+	fs        xfs.FS
+	db        uint64
+	exec      func(f func())
+	state     *state.State
+	log       *log.Log
+	ckpt      *checkpoint.Checkpointer
+	budget    *segment.Budget
 	// readers pools the segment readers of checked iterators, each of which holds a
 	// block. readsChecked is true when data reads check their blocks.
 	readers      sync.Pool
@@ -73,10 +75,6 @@ type engine struct {
 	// unstored gives out the alignment numbers of unstored writers, from
 	// telem.LeadingDomain.
 	unstored *telem.AlignmentCounter
-	// failed is closed with failure, the first fatal error of a caller, which ends Run.
-	failed  chan struct{}
-	failure error
-	failing sync.Once
 	// stored holds the keys that held a segment when recovery ended.
 	stored set.Set[ChannelKey]
 	// cover holds the dead segments whose files wait until the log covers the record
@@ -120,7 +118,6 @@ func openEngine(o *options) (*engine, error) {
 		fs:       o.fs,
 		exec:     o.executor,
 		ready:    make(chan struct{}),
-		failed:   make(chan struct{}),
 		reaps:    make(chan struct{}, 1),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
@@ -262,8 +259,18 @@ func (e *engine) durable(sequence uint64, records []log.Record) {
 }
 
 // refused hands an entry that the log refused to the state. The state fails the
-// requests that wait for it, and returns no error of its own.
+// requests that wait for it, and returns no error of its own. The first refusal for a
+// storage fault is logged once: no write is durable until a restart.
 func (e *engine) refused(records []log.Record, err error) {
+	if !errors.Is(err, context.Canceled) {
+		e.logFailed.Do(func() {
+			e.ins.L.Error(
+				"the log failed a write or a sync, and no write is durable until the "+
+					"Core restarts once its storage is fixed",
+				zap.Error(err),
+			)
+		})
+	}
 	if stateErr := e.state.Refused(records, err); stateErr != nil {
 		e.ins.L.Error("state failed a refused log entry", zap.Error(stateErr))
 	}
@@ -346,8 +353,8 @@ func (e *engine) uncover(covered uint64, dead []state.Dead) []state.Dead {
 	return free
 }
 
-// waitCovered returns once the log covers the entry of sequence, or with the error that
-// failed the engine, or with the error of ctx.
+// waitCovered returns once the log covers the entry of sequence, or with the error of
+// ctx.
 func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
 	for {
 		e.cover.Lock()
@@ -358,8 +365,6 @@ func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
 		}
 		select {
 		case <-advanced:
-		case <-e.failed:
-			return e.failure
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -480,26 +485,28 @@ func (e *engine) run(ctx context.Context) error {
 	if err == nil {
 		orphaned := make(chan error, 1)
 		e.exec(func() { orphaned <- e.orphans(snapshot) })
-		err = <-orphaned
+		if orphanErr := <-orphaned; orphanErr != nil {
+			e.ins.L.Error(
+				"the orphan pass failed, and the next start runs it again",
+				zap.Error(orphanErr),
+			)
+		}
 	}
 	close(e.ready)
 	if err == nil {
-		err = e.serve(ctx, owners)
+		e.serve(ctx, owners)
 	}
 	return errors.Join(err, e.close(), errors.Skip(owners.Wait(), context.Canceled))
 }
 
-// serve reaps each time covered asks, until ctx is done, an owner stops, or a caller
-// fails the engine.
-func (e *engine) serve(ctx context.Context, owners signal.Context) error {
+// serve reaps each time covered asks, until ctx is done or an owner stops.
+func (e *engine) serve(ctx context.Context, owners signal.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case <-owners.Done():
-			return nil
-		case <-e.failed:
-			return e.failure
+			return
 		case <-e.reaps:
 			if err := e.reap(); err != nil {
 				e.ins.L.Error(
@@ -509,14 +516,6 @@ func (e *engine) serve(ctx context.Context, owners signal.Context) error {
 			}
 		}
 	}
-}
-
-// fail ends Run with err, when no fatal error ended it first.
-func (e *engine) fail(err error) {
-	e.failing.Do(func() {
-		e.failure = err
-		close(e.failed)
-	})
 }
 
 // replay applies the records of one recovered entry to the state, and keeps stored

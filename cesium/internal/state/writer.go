@@ -588,14 +588,16 @@ type sealRequest struct {
 func (r *sealRequest) fail(err error) { r.w.done <- err }
 
 type takeBackRequest struct {
-	w     *Writer
-	seals []log.Seal
+	w *Writer
+	// unknown is true when the log may hold the entry that the take back covers.
+	unknown bool
+	seals   []log.Seal
 }
 
 func (r *takeBackRequest) fail(err error) { r.w.done <- err }
 
 func (r *takeBackRequest) run(s *State) {
-	r.seals = s.takeBack(r.w)
+	r.seals = s.takeBack(r.w, r.unknown)
 	r.w.done <- nil
 }
 
@@ -644,9 +646,30 @@ func (w *Writer) TakeBack() ([]log.Seal, error) {
 	return r.seals, nil
 }
 
-func (s *State) takeBack(w *Writer) []log.Seal {
+// TakeBackUnknown takes back as TakeBack does after a failed log sync, which leaves
+// unknown until the next start whether the log holds the entry. A segment with no
+// durable Create keeps its file, sealed with no samples, so the replay at the next
+// start names it or the orphan pass removes it. No Seal goes to the log.
+func (w *Writer) TakeBackUnknown() error {
+	return w.call(&takeBackRequest{w: w, unknown: true})
+}
+
+func (s *State) takeBack(w *Writer, unknown bool) []log.Seal {
 	seals := make([]log.Seal, 0, len(w.held))
 	for _, seg := range w.held {
+		if !seg.dur.created && unknown {
+			seg.vis = Segment{
+				ID:       seg.vis.ID,
+				Clock:    seg.vis.Clock,
+				Version:  seg.vis.Version,
+				DataType: seg.vis.DataType,
+				Sealed:   true,
+			}
+			seg.holder = nil
+			delete(w.held, seg.key)
+			s.core.channels[seg.key].publish()
+			continue
+		}
 		if !seg.dur.created {
 			delete(w.held, seg.key)
 			s.drop(seg)

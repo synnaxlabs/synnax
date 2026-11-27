@@ -27,6 +27,10 @@ var (
 	errFull = errors.New("log file is full")
 	// errClosed is the error of an entry appended after Close.
 	errClosed = errors.New("log is closed")
+	// ErrSyncFailed is the error of each entry after a failed sync of the log. Until
+	// the next start, it is unknown whether the log holds the entries of the failed
+	// frame.
+	ErrSyncFailed = errors.New("log sync failed")
 )
 
 // MinFileSize is the smallest log file, in which the switch at three quarters comes
@@ -340,11 +344,11 @@ func (l *Log) signal() {
 }
 
 // Run asks for the file of the next log, then runs one step of the owner on the
-// executor of the log each time entries are queued, until Close, until ctx is done, or
-// until a step fails the log. At Close, it writes the queued entries and a clean mark,
-// and returns nil. When ctx is done first, it fails the log and the queued entries, and
-// returns the error of ctx. After a failed write or sync, it returns the failure of the
-// log, whose queued and later entries fail with it.
+// executor of the log each time entries are queued, until Close or until ctx is done.
+// At Close, it writes the queued entries and a clean mark, and returns nil. When ctx is
+// done first, it fails the log and the queued entries, and returns the error of ctx. A
+// failed sync fails the log, whose queued and later entries fail with it, and Run goes
+// on.
 func (l *Log) Run(ctx context.Context) error {
 	defer close(l.exit)
 	l.cfg.Prepare(l.gen + 1)
@@ -356,11 +360,7 @@ func (l *Log) Run(ctx context.Context) error {
 		case <-l.wake:
 		}
 		l.cfg.Executor(l.step)
-		closing := <-l.stepped
-		if err := l.failure(); err != nil {
-			return err
-		}
-		if closing {
+		if closing := <-l.stepped; closing {
 			return nil
 		}
 	}
@@ -482,7 +482,9 @@ func (l *Log) nextStart() int64 {
 	return block + BlockSize
 }
 
-// writeFrame writes l.frame at start and syncs. A failure fails the log.
+// writeFrame writes l.frame at start and syncs. A failed write, such as one on a full
+// disk, refuses the frame, and the next frame writes at start again. A failed sync
+// fails the log until a restart.
 func (l *Log) writeFrame(start int64) error {
 	if err := l.failure(); err != nil {
 		return err
@@ -490,11 +492,10 @@ func (l *Log) writeFrame(start int64) error {
 	l.wbuf = l.frame.Append(l.wbuf[:0], l.cfg.DB, l.gen, uint64(start))
 	b := l.wbuf
 	if _, err := l.file.WriteAt(b, start); err != nil {
-		l.fail(err)
-		return l.failure()
+		return err
 	}
 	if err := l.file.Sync(); err != nil {
-		l.fail(err)
+		l.fail(errors.Join(ErrSyncFailed, err))
 		return l.failure()
 	}
 	covered := l.frame.Sequence
