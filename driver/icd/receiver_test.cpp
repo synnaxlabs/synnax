@@ -452,8 +452,8 @@ TEST(Receiver, WarnsAboutLineErrors) {
     ASSERT_EQ(res.warning.message, "Received serial line errors");
     ASSERT_EQ(
         res.warning.description,
-        "The port reported 3 parity errors, framing errors, or breaks, and 1 receive "
-        "overrun. Check that the baud rate, parity, and data bits match the device."
+        "The port reported parity errors, framing errors, or breaks, and receive "
+        "overruns. Check that the baud rate, parity, and data bits match the device."
     );
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
 }
@@ -467,15 +467,43 @@ TEST(Receiver, NamesEachKindOfLineError) {
     x::telem::Frame fr;
     ASSERT_EQ(
         r.read(t, fr).warning.description,
-        "The port reported 1 parity error, framing error, or break. Check that the "
+        "The port reported parity errors, framing errors, or breaks. Check that the "
         "baud rate, parity, and data bits match the device."
     );
     ASSERT_EQ(
         r.read(t, fr).warning.description,
-        "The port reported 2 receive overruns. Check that the baud rate, parity, and "
+        "The port reported receive overruns. Check that the baud rate, parity, and "
         "data bits match the device."
     );
     ASSERT_TRUE(r.read(t, fr).warning.empty());
+}
+
+/// @brief it should give equal warnings for reads with different counts of the same
+/// kinds of line error.
+TEST(Receiver, GivesSameWarningForDifferentLineErrorCounts) {
+    auto r = fixed();
+    Memory t;
+    t.chunks.push_back({.errors = 3, .overruns = 1});
+    t.chunks.push_back({.errors = 12, .overruns = 5});
+    x::telem::Frame fr;
+    const auto first = r.read(t, fr).warning;
+    ASSERT_FALSE(first.empty());
+    ASSERT_EQ(r.read(t, fr).warning, first);
+}
+
+/// @brief it should warn about the line errors of a read before a frame of the read
+/// that it cannot decode.
+TEST(Receiver, WarnsAboutLineErrorsBeforeDecodeErrors) {
+    auto r = create(lines());
+    Memory t;
+    const std::string text = "oven\n";
+    t.chunks.push_back(
+        {.bytes = std::vector<std::uint8_t>(text.begin(), text.end()), .errors = 2}
+    );
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Received serial line errors");
 }
 
 /// @brief it should warn about a frame that it cannot decode, and read the frames after

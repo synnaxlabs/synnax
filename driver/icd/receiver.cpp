@@ -42,28 +42,16 @@ common::Warning dropped(const x::errors::Error &err) {
     return {.message = "Dropped invalid data", .description = err.data};
 }
 
-/// @returns n and one when n is 1, or else n and many.
-std::string
-count(const std::size_t n, const std::string &one, const std::string &many) {
-    return std::to_string(n) + " " + (n == 1 ? one : many);
-}
-
-/// @returns the warning about the line errors and overruns of chunk.
+/// @returns the warning about the line errors and overruns of chunk. It names only the
+/// kinds that occurred, so its text stays the same from read to read.
 common::Warning line_errors(const transport::Chunk &chunk) {
-    std::string counts;
-    if (chunk.errors > 0)
-        counts = count(
-            chunk.errors,
-            "parity error, framing error, or break",
-            "parity errors, framing errors, or breaks"
-        );
-    if (chunk.overruns > 0) {
-        if (!counts.empty()) counts += ", and ";
-        counts += count(chunk.overruns, "receive overrun", "receive overruns");
-    }
+    std::string kinds;
+    if (chunk.errors > 0) kinds = "parity errors, framing errors, or breaks";
+    if (chunk.overruns > 0)
+        kinds += kinds.empty() ? "receive overruns" : ", and receive overruns";
     return {
         .message = "Received serial line errors",
-        .description = "The port reported " + counts +
+        .description = "The port reported " + kinds +
                        ". Check that the baud rate, parity, and data bits match the "
                        "device.",
     };
