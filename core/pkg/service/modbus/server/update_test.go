@@ -1,0 +1,139 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package server_test
+
+import (
+	"encoding/json/v2"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
+)
+
+var _ = Describe("Update", func() {
+	identity := server.Update{Variant: server.IdentityUpdate{
+		Identity: server.Identity{
+			Rack:          1,
+			Name:          "Boiler PLC",
+			Connection:    rtu(9600),
+			RequestPolicy: requestPolicy(),
+		},
+	}}
+	configuration := server.Update{Variant: server.ConfigurationUpdate{
+		Configuration: server.Configuration{
+			Reads:  []server.Read{read(5, 1, 2)},
+			Writes: []server.Write{write(1, 3)},
+		},
+	}}
+
+	DescribeTable("Should keep the group through msgpack",
+		func(update server.Update) {
+			var got server.Update
+			Expect(msgpack.Unmarshal(
+				MustSucceed(msgpack.Marshal(update)),
+				&got,
+			)).To(Succeed())
+			Expect(got).To(Equal(update))
+		},
+		Entry("identity", identity),
+		Entry("configuration", configuration),
+	)
+
+	DescribeTable("Should keep the group through JSON",
+		func(update server.Update) {
+			var got server.Update
+			Expect(json.Unmarshal(
+				MustSucceed(json.Marshal(update)),
+				&got,
+			)).To(Succeed())
+			Expect(got.Variant).To(BeAssignableToTypeOf(update.Variant))
+			Expect(MustSucceed(json.Marshal(got))).
+				To(MatchJSON(MustSucceed(json.Marshal(update))))
+		},
+		Entry("identity", identity),
+		Entry("configuration", configuration),
+	)
+
+	It("Should reject an unknown group in JSON", func() {
+		var got server.Update
+		Expect(json.Unmarshal([]byte(`{"group":"other"}`), &got)).
+			To(MatchError(ContainSubstring("unknown group")))
+	})
+
+	It("Should match the JSON shape in msgpack", func() {
+		var wire map[string]any
+		Expect(msgpack.Unmarshal(
+			MustSucceed(msgpack.Marshal(identity)),
+			&wire,
+		)).To(Succeed())
+		var fromJSON map[string]any
+		Expect(json.Unmarshal(
+			MustSucceed(json.Marshal(identity)),
+			&fromJSON,
+		)).To(Succeed())
+		Expect(wire["group"]).To(Equal(fromJSON["group"]))
+		Expect(wire["name"]).To(Equal(fromJSON["name"]))
+	})
+
+	It("Should encode an empty update as nil", func() {
+		var got server.Update
+		Expect(msgpack.Unmarshal(
+			MustSucceed(msgpack.Marshal(server.Update{})),
+			&got,
+		)).To(Succeed())
+		Expect(got.Variant).To(BeNil())
+	})
+
+	It("Should reject msgpack that is not an update", func() {
+		var got server.Update
+		Expect(msgpack.Unmarshal(
+			MustSucceed(msgpack.Marshal("not an update")),
+			&got,
+		)).To(MatchError(ContainSubstring("msgpack")))
+	})
+
+	It("Should apply the identity defaults that msgpack leaves out", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"group": "identity",
+			"rack":  1,
+			"name":  "Boiler PLC",
+			"connection": map[string]any{
+				"transport": "tcp",
+				"host":      "plc",
+				"port":      502,
+			},
+		}))
+		var got server.Update
+		Expect(msgpack.Unmarshal(raw, &got)).To(Succeed())
+		expected := server.Identity{
+			Rack: 1,
+			Name: "Boiler PLC",
+			Connection: server.Connection{Variant: server.TcpConnection{
+				Timeout: telem.Second,
+				Retries: 1,
+				Host:    "plc",
+				Port:    502,
+				UnitID:  255,
+			}},
+			RequestPolicy: requestPolicy(),
+		}
+		Expect(got.Variant).To(Equal(server.IdentityUpdate{Identity: expected}))
+	})
+
+	It("Should reject an unknown group", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{"group": "other"}))
+		var got server.Update
+		Expect(msgpack.Unmarshal(raw, &got)).To(MatchError(validate.ErrValidation))
+	})
+})

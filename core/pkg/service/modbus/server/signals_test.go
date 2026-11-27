@@ -82,6 +82,7 @@ var _ = Describe("Signals", Ordered, func() {
 		}))
 		MustOpen(server.OpenService(ctx, server.ServiceConfig{
 			DB:      node.DB,
+			Status:  stat,
 			Signals: sigs,
 		}))
 		MustOpen(sigs.Start(ctx))

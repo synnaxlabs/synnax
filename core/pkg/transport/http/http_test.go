@@ -200,6 +200,11 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/opcua/server/retrieve",
 			),
 			Entry(
+				"unary Modbus server create",
+				http.MethodPost,
+				"/api/v1/modbus/server/create",
+			),
+			Entry(
 				"unary Modbus server retrieve",
 				http.MethodPost,
 				"/api/v1/modbus/server/retrieve",
@@ -218,6 +223,16 @@ var _ = Describe("HTTP", func() {
 				"unary OPC UA server delete",
 				http.MethodPost,
 				"/api/v1/opcua/server/delete",
+			),
+			Entry(
+				"unary Modbus server update",
+				http.MethodPost,
+				"/api/v1/modbus/server/update",
+			),
+			Entry(
+				"unary Modbus server delete",
+				http.MethodPost,
+				"/api/v1/modbus/server/delete",
 			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),

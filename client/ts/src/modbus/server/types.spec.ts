@@ -214,3 +214,33 @@ describe("serverZ", () => {
     );
   });
 });
+
+describe("updateZ", () => {
+  it("should parse an identity update and apply its defaults", () => {
+    const update = modbus.server.updateZ.parse({
+      group: "identity",
+      rack: 1,
+      name: "PLC",
+      connection: { transport: "tcp", host: "plc", port: 502 },
+    });
+    expect(update.group).toEqual("identity");
+    if (update.group !== "identity") return;
+    expect(update.connection.timeout).toEqual(1000000000);
+    expect(update.requestPolicy.maxReadRegisters).toEqual(125);
+  });
+
+  it("should parse a configuration update and apply its defaults", () => {
+    const update = modbus.server.updateZ.parse({
+      group: "configuration",
+      reads: [{ location: { table: "coil", address: 1 }, index: 2, channel: 3 }],
+    });
+    expect(update.group).toEqual("configuration");
+    if (update.group !== "configuration") return;
+    expect(update.reads[0].channel).toEqual(3);
+    expect(update.writes).toEqual([]);
+  });
+
+  it("should reject an unknown group", () => {
+    expect(modbus.server.updateZ.safeParse({ group: "other" }).success).toBe(false);
+  });
+});

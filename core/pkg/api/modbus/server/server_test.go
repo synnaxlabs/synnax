@@ -30,7 +30,17 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var serverType = resource.ID{Type: resource.TypeModbusServer}
+var (
+	serverType = resource.ID{Type: resource.TypeModbusServer}
+	statusType = resource.ID{Type: resource.TypeStatus}
+	// channelType lets a user bind any channel, which a write needs to use it.
+	channelType = resource.ID{Type: resource.TypeChannel}
+	allWrites   = []access.Action{
+		access.ActionCreate,
+		access.ActionUpdate,
+		access.ActionDelete,
+	}
+)
 
 var _ = Describe("Service", func() {
 	var u user.User
@@ -38,16 +48,18 @@ var _ = Describe("Service", func() {
 
 	newServer := func(overrides ...func(*server.Server)) server.Server {
 		s := server.Server{
-			Key:  uuid.New(),
-			Rack: svc.Rack.EmbeddedKey,
-			Name: "PLC-" + uuid.New().String(),
-			Connection: server.Connection{Variant: server.TcpConnection{
-				Timeout: telem.Second,
-				Retries: 1,
-				Host:    "plc",
-				Port:    502,
-				UnitID:  255,
-			}},
+			Key:        uuid.New(),
+			Rack:       svc.Rack.EmbeddedKey,
+			Name:       "PLC-" + uuid.New().String(),
+			Connection: tcp("plc"),
+			RequestPolicy: server.RequestPolicy{
+				MaxReadRegisters:  125,
+				MaxWriteRegisters: 123,
+				MaxReadBits:       2000,
+				MaxWriteBits:      1968,
+				MaxGap:            125,
+				WriteFunction:     server.WriteFunctionMultiple,
+			},
 		}
 		for _, override := range overrides {
 			override(&s)
@@ -58,17 +70,30 @@ var _ = Describe("Service", func() {
 		GinkgoHelper()
 		grant(ctx, u, []access.Action{access.ActionRetrieve}, serverType)
 	}
+	// grantWrites lets u write any Modbus server, its status, and the rack it sits on.
+	grantWrites := func(ctx SpecContext, r rack.Key) {
+		GinkgoHelper()
+		grant(ctx, u, allWrites, serverType, statusType)
+		grant(ctx, u, []access.Action{access.ActionUpdate}, r.ResourceID())
+	}
+	retrieveServer := func(ctx SpecContext, key server.Key) server.Server {
+		GinkgoHelper()
+		var s server.Server
+		Expect(svc.Modbus.Servers.NewRetrieve().
+			Where(server.MatchKeys(key)).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		return s
+	}
 	createServer := func(ctx SpecContext, overrides ...func(*server.Server)) server.Server {
 		GinkgoHelper()
 		s := newServer(overrides...)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return gorp.NewCreate[server.Key, server.Server]().Entry(&s).Exec(ctx, tx)
+			return svc.Modbus.Servers.NewWriter(tx).Create(ctx, &s)
 		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewDelete[server.Key, server.Server]().
-					Where(gorp.MatchKeys[server.Key, server.Server](s.Key)).
-					Exec(ctx, tx)
+				return svc.Modbus.Servers.NewWriter(tx).Delete(ctx, s.Key)
 			})).To(Succeed())
 		})
 		return s
@@ -254,6 +279,210 @@ var _ = Describe("Service", func() {
 				},
 			))
 			Expect(res.Servers).To(BeEmpty())
+		})
+	})
+
+	Describe("Create", func() {
+		It("Should mint a key when writes are granted", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			s := newServer()
+			s.Key = uuid.Nil()
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{s}},
+			))
+			key := res.Servers[0].Key
+			Expect(key).ToNot(Equal(uuid.Nil()))
+			Expect(retrieveServer(ctx, key).Name).To(Equal(s.Name))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Modbus.Servers.NewWriter(tx).Delete(ctx, key)
+			})).To(Succeed())
+		})
+
+		It("Should not echo a status the client sent", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			s := newServer()
+			s.Status = &server.Status{Message: "Server connected"}
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{s}},
+			))
+			Expect(res.Servers[0].Status).To(BeNil())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Modbus.Servers.NewWriter(tx).Delete(ctx, s.Key)
+			})).To(Succeed())
+		})
+
+		It("Should reject the request without update access on the rack", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, u, allWrites, serverType, statusType)
+			s := newServer()
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{s}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should reject the request when create is not granted", func(
+			ctx SpecContext,
+		) {
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{newServer()}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should reject an invalid server", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{
+					newServer(
+						func(s *server.Server) { s.Connection = server.Connection{} },
+					),
+				}},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+	})
+
+	Describe("Update", func() {
+		rename := func(s server.Server) apiserver.UpdateRequest {
+			return apiserver.UpdateRequest{
+				Key: s.Key,
+				Update: server.Update{Variant: server.IdentityUpdate{
+					Identity: server.Identity{
+						Rack:          s.Rack,
+						Name:          "Renamed",
+						Connection:    s.Connection,
+						RequestPolicy: s.RequestPolicy,
+					},
+				}},
+			}
+		}
+
+		It("Should write only the identity group", func(ctx SpecContext) {
+			ch := createChannels(ctx, 2)
+			s := createServer(ctx, func(s *server.Server) {
+				s.Reads = []server.Read{
+					{
+						Location: server.Location{
+							Variant: server.CoilLocation{Address: 5},
+						},
+						Index:   ch[0],
+						Channel: ch[1],
+					},
+				}
+			})
+			grantWrites(ctx, s.Rack)
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(s)))
+			got := retrieveServer(ctx, s.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Reads).To(Equal(s.Reads))
+		})
+
+		It("Should write only the configuration group", func(ctx SpecContext) {
+			ch := createChannels(ctx, 1)
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
+			MustSucceed(update(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.UpdateRequest{
+					Key: s.Key,
+					Update: server.Update{Variant: server.ConfigurationUpdate{
+						Configuration: server.Configuration{
+							Writes: []server.Write{
+								{
+									Location: server.WriteLocation{
+										Variant: server.CoilWriteLocation{Address: 1},
+									},
+									Channel: ch[0],
+								},
+							},
+						},
+					}},
+				},
+			))
+			got := retrieveServer(ctx, s.Key)
+			Expect(got.Writes).To(HaveLen(1))
+			Expect(got.Writes[0].Channel).To(Equal(ch[0]))
+			Expect(got.Name).To(Equal(s.Name))
+		})
+
+		It("Should move a server only with update access on the new rack", func(
+			ctx SpecContext,
+		) {
+			other := rack.Rack{Name: "Other"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Rack.NewWriter(tx).Delete(ctx, nil, other.Key)
+				})).To(Succeed())
+			})
+			s := createServer(ctx)
+			move := apiserver.UpdateRequest{
+				Key: s.Key,
+				Update: server.Update{Variant: server.IdentityUpdate{
+					Identity: server.Identity{
+						Rack:          other.Key,
+						Name:          s.Name,
+						Connection:    s.Connection,
+						RequestPolicy: s.RequestPolicy,
+					},
+				}},
+			}
+			grantWrites(ctx, s.Rack)
+			Expect(update(testutil.AuthedCtx(ctx, u), move)).
+				Error().To(MatchError(access.ErrDenied))
+			grant(ctx, u, []access.Action{access.ActionUpdate}, other.ResourceID())
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), move))
+			Expect(retrieveServer(ctx, s.Key).Rack).To(Equal(other.Key))
+		})
+
+		It("Should reject a request with no group", func(ctx SpecContext) {
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.UpdateRequest{Key: s.Key},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			s := createServer(ctx)
+			Expect(update(testutil.AuthedCtx(ctx, u), rename(s))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key).Name).To(Equal(s.Name))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should remove the server when delete is granted", func(ctx SpecContext) {
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			MustSucceed(del(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.DeleteRequest{Keys: []server.Key{s.Key}},
+			))
+			Expect(svc.Modbus.Servers.NewRetrieve().
+				Where(server.MatchKeys(s.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It("Should reject the request when delete is not granted", func(
+			ctx SpecContext,
+		) {
+			s := createServer(ctx)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.DeleteRequest{Keys: []server.Key{s.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key).Key).To(Equal(s.Key))
 		})
 	})
 })

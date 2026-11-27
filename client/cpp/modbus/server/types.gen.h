@@ -42,9 +42,11 @@ struct Cursor;
 struct StatusDetails;
 struct RequestPolicy;
 struct RetrieveRequest;
+struct Identity;
 struct Read;
 struct Write;
 struct Server;
+struct Configuration;
 struct RetrieveResponse;
 
 constexpr const char *WRITE_FUNCTION_MULTIPLE = "multiple";
@@ -464,6 +466,21 @@ WriteLocation parse_write_location(x::json::Parser parser);
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
+/// @brief Identity holds the server fields that the connect form owns.
+struct Identity {
+    /// @brief rack is the key of the rack whose Driver connects to the server.
+    ::synnax::rack::Key rack = 0;
+    /// @brief name is a human-readable name for the server.
+    std::string name;
+    /// @brief connection holds the settings that the Driver connects with.
+    Connection connection;
+    /// @brief request_policy limits and paces the requests that the Driver sends.
+    RequestPolicy request_policy = {};
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Read binds a value that read tasks read to its channel.
 struct Read {
     /// @brief location is the value that the channel holds.
@@ -511,6 +528,17 @@ struct Server {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Configuration holds the server fields that the task forms own.
+struct Configuration {
+    /// @brief reads bind the values that read tasks read to their channels.
+    std::vector<Read> reads = {};
+    /// @brief writes bind the values that write tasks write to their command channels.
+    std::vector<Write> writes = {};
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the servers a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief servers are the servers the request selects.
@@ -519,6 +547,30 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the rack, name, connection, and request policy of the
+/// server.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the channel maps of the server. A client sends
+/// the whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a server.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("modbus_server", "");
 

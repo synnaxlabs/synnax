@@ -1002,6 +1002,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Modbus, err = modbus.OpenService(ctx, modbus.ServiceConfig{
 		Instrumentation: cfg.Child("modbus"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
 		Signals:         l.Signals,
 	}); !ok(err, l.Modbus) {
 		return nil, err

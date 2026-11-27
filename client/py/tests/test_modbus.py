@@ -11,7 +11,7 @@ from typing import Any, ClassVar
 from uuid import UUID
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
 from synnax.exceptions import PathError
@@ -1194,6 +1194,25 @@ class TestModbusServerResource:
             sy.modbus.server.Server.model_validate(
                 {**self.SERVER, "writes": [{"location": location, "channel": 1}]}
             )
+
+    def test_update_selects_its_group(self) -> None:
+        """Should parse an update into the variant of its group, with defaults."""
+        adapter = TypeAdapter(sy.modbus.server.Update)
+        identity = adapter.validate_python(
+            {
+                "group": "identity",
+                "rack": 1,
+                "name": "PLC",
+                "connection": {"transport": "tcp", "host": "plc", "port": 502},
+            }
+        )
+        assert isinstance(identity, sy.modbus.server.IdentityUpdate)
+        assert identity.request_policy.max_read_registers == 125
+        configuration = adapter.validate_python({"group": "configuration"})
+        assert isinstance(configuration, sy.modbus.server.ConfigurationUpdate)
+        assert configuration.reads == []
+        with pytest.raises(ValidationError):
+            adapter.validate_python({"group": "other"})
 
     def test_resource_id(self) -> None:
         """Should name the server by its key under the modbus_server type."""

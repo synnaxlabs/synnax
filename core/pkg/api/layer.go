@@ -282,10 +282,16 @@ type Transport struct {
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, server.UpdateResponse]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
 	// MODBUS SERVER
+	ModbusServerCreate freighter.UnaryServer[
+		modbusserver.CreateRequest,
+		modbusserver.CreateResponse,
+	]
 	ModbusServerRetrieve freighter.UnaryServer[
 		modbusserver.RetrieveRequest,
 		modbusserver.RetrieveResponse,
 	]
+	ModbusServerUpdate freighter.UnaryServer[modbusserver.UpdateRequest, struct{}]
+	ModbusServerDelete freighter.UnaryServer[modbusserver.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -623,7 +629,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerUpdate,
 		t.OPCUAServerDelete,
 		// MODBUS SERVER
+		t.ModbusServerCreate,
 		t.ModbusServerRetrieve,
+		t.ModbusServerUpdate,
+		t.ModbusServerDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -929,7 +938,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
 	// MODBUS SERVER
+	t.ModbusServerCreate.BindHandler(bind.Write(l.binder, l.ModbusServer.Create))
 	t.ModbusServerRetrieve.BindHandler(bind.Read(l.binder, l.ModbusServer.Retrieve))
+	t.ModbusServerUpdate.BindHandler(bind.Write(l.binder, l.ModbusServer.Update))
+	t.ModbusServerDelete.BindHandler(bind.Write(l.binder, l.ModbusServer.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
