@@ -9,4 +9,5 @@
 
 export * from "@/feature/opcua/ContextMenuItems";
 export * from "@/feature/opcua/device";
+export * from "@/feature/opcua/server";
 export * from "@/feature/opcua/task";
