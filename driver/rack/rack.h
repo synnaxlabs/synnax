@@ -38,6 +38,7 @@
 #include "driver/modbus/modbus.h"
 #endif
 
+#include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/file/file.h"
@@ -346,6 +347,34 @@ inline bool waits_out(const x::errors::Error &err, const bool reconnecting) {
            (reconnecting && kind == synnax::errors::Kind::INTERRUPTED);
 }
 
+/// @brief the warning that the rack status shows while its task manager waits for the
+/// Core. Not safe for concurrent use.
+class WaitWarning {
+    common::CoreWait wait;
+    task::RackWarning warning;
+
+public:
+    explicit WaitWarning(const x::telem::TimeSpan delay): wait(delay) {}
+
+    /// @returns the warning to show after a run of the task manager failed with err at
+    /// now.
+    task::RackWarning
+    failed(const x::errors::Error &err, const x::telem::TimeStamp now) {
+        const auto w = this->wait.failed(err, now);
+        this->warning = {.message = w.message, .description = w.description};
+        return this->warning;
+    }
+
+    /// @returns the warning to show after a run reached the Core at now. It clears once
+    /// the run lasts the delay, so a run that fails sooner keeps it without a flicker.
+    /// A license warning clears at once.
+    task::RackWarning reached(const x::telem::TimeStamp now) {
+        this->wait.opened(now);
+        this->warning.clears_at = this->wait.ends_at();
+        return this->warning;
+    }
+};
+
 /// @brief rack is the entry point for driver operation. It is responsible for
 /// communicating its identity to the Synnax cluster and managing the lifecycle
 /// of tasks that are assigned to it.
@@ -356,6 +385,16 @@ class Rack {
     std::unique_ptr<task::Manager> task_manager;
     x::breaker::Breaker breaker;
     x::errors::Error run_err = x::errors::NIL;
+    /// @brief the warning that the rack status shows while the task manager waits.
+    WaitWarning wait_warning{task::DEFAULT_CORE_WARNING_DELAY};
+
+    /// @brief shows the warning of err in the rack status once the wait for the Core
+    /// has lasted the warning delay, or at once for a license error.
+    void warn_while_waiting(const x::errors::Error &err);
+
+    /// @brief records that a task manager run reached the Core. The warning clears
+    /// once the run lasts the warning delay.
+    void reached_core();
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down. Calls on_shutdown unless a stop caused

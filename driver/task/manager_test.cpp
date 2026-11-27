@@ -5274,4 +5274,17 @@ TEST_F(ScriptedControlTest, StopIsPromptAfterAFailedSync) {
     ASSERT_LT(std::chrono::steady_clock::now() - began, std::chrono::seconds(5));
     pipe->resume();
 }
+
+/// @brief it should show the rack warning until its clear time.
+TEST(RackWarningTest, ShowsUntilItClears) {
+    SynnaxContext ctx(nullptr, nullptr);
+    ASSERT_TRUE(ctx.rack_warning().empty());
+    ctx.set_rack_warning({.message = "Failed to reach the Core"});
+    ASSERT_EQ(ctx.rack_warning().message, "Failed to reach the Core");
+    ctx.set_rack_warning({
+        .message = "Failed to reach the Core",
+        .clears_at = x::telem::TimeStamp::now() - x::telem::SECOND,
+    });
+    ASSERT_TRUE(ctx.rack_warning().empty());
+}
 }

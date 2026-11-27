@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "client/cpp/errors/errors.h"
 #include "client/cpp/framer/framer.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/telem/telem.h"
@@ -38,6 +39,87 @@ struct Warning {
     [[nodiscard]] bool empty() const { return this->message.empty(); }
 
     bool operator==(const Warning &) const = default;
+};
+
+/// @returns the text of err as a sentence: its data, or its type when it has no data,
+/// ending in one period.
+inline std::string error_sentence(const x::errors::Error &err) {
+    auto text = err.data.empty() ? err.type : err.data;
+    if (!text.empty() && text.back() != '.') text += '.';
+    return text;
+}
+
+/// @brief returns the warning to show while waiting for the Core after err,
+/// or an empty warning when it should show none yet. A license error shows at once,
+/// and any other error once waited reaches delay.
+inline Warning core_warning(
+    const x::errors::Error &err,
+    x::telem::TimeSpan waited,
+    x::telem::TimeSpan delay
+) {
+    if (err.matches(synnax::errors::LICENSE))
+        return {
+            .message = "Waiting for a license",
+            .description = "The Core refuses requests: " + error_sentence(err) +
+                           " Activate a license on the Core. Work resumes when the "
+                           "license is active.",
+        };
+    if (waited < delay) return {};
+    return {
+        .message = "Failed to reach the Core",
+        .description = error_sentence(err) +
+                       " The Driver keeps retrying. Check that the Core is running "
+                       "and that this computer can reach it.",
+    };
+}
+
+/// @brief tracks a wait for the Core and the warning that it shows. A wait ends only
+/// once a writer or streamer stays open for the delay, so a stream that opens and
+/// then fails again keeps waiting. A wait for a license ends as soon as one opens. Not
+/// safe for concurrent use.
+class CoreWait {
+    x::telem::TimeSpan delay;
+    bool license = false;
+    x::telem::TimeStamp since = x::telem::TimeStamp(0);
+    x::telem::TimeStamp last_failure = x::telem::TimeStamp(0);
+    x::telem::TimeStamp opened_at = x::telem::TimeStamp(0);
+
+public:
+    explicit CoreWait(const x::telem::TimeSpan delay): delay(delay) {}
+
+    /// @brief records a failed request to the Core at now.
+    /// @returns the warning to show, or an empty warning while none should show.
+    Warning failed(const x::errors::Error &err, const x::telem::TimeStamp now) {
+        if (this->since == x::telem::TimeStamp(0) || this->recovered(now))
+            this->since = now;
+        this->last_failure = now;
+        this->license = err.matches(synnax::errors::LICENSE);
+        return core_warning(err, now - this->since, this->delay);
+    }
+
+    /// @brief records that a writer or streamer opened at now.
+    void opened(const x::telem::TimeStamp now) { this->opened_at = now; }
+
+    /// @returns when the wait ends if no request fails again, or zero while no open
+    /// has followed the last failure.
+    [[nodiscard]] x::telem::TimeStamp ends_at() const {
+        if (this->opened_at <= this->last_failure) return x::telem::TimeStamp(0);
+        return this->license ? this->opened_at : this->opened_at + this->delay;
+    }
+
+    /// @returns whether the wait has ended at now.
+    [[nodiscard]] bool recovered(const x::telem::TimeStamp now) const {
+        const auto ends = this->ends_at();
+        return ends != x::telem::TimeStamp(0) && now >= ends;
+    }
+
+    /// @brief forgets the wait, as a task does when it starts again.
+    void reset() {
+        this->since = x::telem::TimeStamp(0);
+        this->last_failure = x::telem::TimeStamp(0);
+        this->opened_at = x::telem::TimeStamp(0);
+        this->license = false;
+    }
 };
 
 /// @brief returns a breaker configuration that retries without a limit, at most 5 s

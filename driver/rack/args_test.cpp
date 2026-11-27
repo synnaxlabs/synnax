@@ -101,4 +101,31 @@ TEST(ArgsTest, StartupRetriesEnv) {
     ASSERT_NIL(err);
     EXPECT_EQ(cfg.retry.startup_retries, 4);
 }
+
+/// @brief it should read the Core warning delay from --core-warning-delay.
+TEST(ArgsTest, CoreWarningDelayFlag) {
+    x::errors::Error err;
+    const auto cfg = load({"--core-warning-delay", "5"}, err);
+    ASSERT_NIL(err);
+    EXPECT_EQ(cfg.manager.core_warning_delay, x::telem::SECOND * 5);
+}
+
+/// @brief it should read the Core warning delay from SYNNAX_DRIVER_CORE_WARNING_DELAY.
+TEST(ArgsTest, CoreWarningDelayEnv) {
+    x::env::set("SYNNAX_DRIVER_CORE_WARNING_DELAY", "7");
+    Config cfg;
+    const auto err = cfg.load_env();
+    x::env::unset("SYNNAX_DRIVER_CORE_WARNING_DELAY");
+    ASSERT_NIL(err);
+    EXPECT_EQ(cfg.manager.core_warning_delay, x::telem::SECOND * 7);
+}
+
+/// @brief it should reject a Core warning delay of zero or over an hour.
+TEST(ArgsTest, RejectOutOfRangeCoreWarningDelay) {
+    for (const auto *delay: {"0", "-1", "3601"}) {
+        x::errors::Error err;
+        load({"--core-warning-delay", delay}, err);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    }
+}
 }

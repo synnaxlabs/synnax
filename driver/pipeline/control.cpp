@@ -61,6 +61,10 @@ void Control::stopped_with_err(const x::errors::Error &err) {
     this->sink->stopped_with_err(err);
 }
 
+void Control::waiting(const x::errors::Error &err) {
+    this->sink->waiting_for_core(err);
+}
+
 bool Control::run_once() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     {
@@ -73,7 +77,15 @@ bool Control::run_once() {
         return false;
     }
     this->breaker.reset_unlimited();
+    // A streamer that opened only its local half reports its Core error after this,
+    // so the sink never takes the open for a Core that it has not reached.
     this->sink->opened();
+    this->streamer->watch_core([sink = this->sink](const x::errors::Error &err) {
+        if (err)
+            sink->waiting_for_core(err);
+        else
+            sink->core_reopened();
+    });
 
     x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {

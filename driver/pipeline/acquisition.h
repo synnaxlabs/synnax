@@ -71,6 +71,9 @@ public:
     /// @brief called on the pipeline thread each time the writer opens.
     virtual void writer_opened() {}
 
+    /// @brief called on the pipeline thread before each wait for the Core after err.
+    virtual void waiting_for_core(const x::errors::Error &err) {}
+
     /// @brief unblocks a read when the pipeline stops. Called on the stopping thread
     /// after the breaker stops, and before the pipeline joins its thread. It can come
     /// before the read blocks, so a blocking call made after it must also return. The
@@ -207,6 +210,9 @@ class Acquisition final : public Base {
     /// @returns true when the Core was temporarily unavailable and the breaker allows
     /// another run.
     bool run_once(Run &run);
+
+protected:
+    void waiting(const x::errors::Error &err) override;
 
 public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax

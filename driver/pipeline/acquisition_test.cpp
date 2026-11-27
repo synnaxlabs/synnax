@@ -60,6 +60,14 @@ public:
     }
 
     void writer_opened() override { this->writer_opens.fetch_add(1); }
+
+    std::mutex waits_mu;
+    std::vector<x::errors::Error> waits;
+
+    void waiting_for_core(const x::errors::Error &err) override {
+        std::lock_guard lock(this->waits_mu);
+        this->waits.push_back(err);
+    }
 };
 
 /// @brief a source that fails or returns empty frames per a script, then returns a
@@ -1298,5 +1306,28 @@ TEST(AcquisitionPipeline, StopsOnInterruptedError) {
     pipeline.stop();
     ASSERT_EQ(factory->opens.load(), 1);
     ASSERT_MATCHES(source->stopped_err, synnax::errors::INTERRUPTED);
+}
+
+/// @brief it should tell the source about each wait for the Core.
+TEST(AcquisitionPipeline, ReportsEachWaitForTheCore) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        x::errors::UNKNOWN,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    pipeline.stop();
+    std::lock_guard lock(source->waits_mu);
+    ASSERT_EQ(source->waits.size(), 2);
+    for (const auto &err: source->waits)
+        ASSERT_MATCHES(err, freighter::UNREACHABLE);
 }
 }

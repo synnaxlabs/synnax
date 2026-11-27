@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <mutex>
 
@@ -42,6 +43,14 @@ public:
     /// before its Core half, as the bypass streamer does after a transient Core error.
     virtual void opened() {}
 
+    /// @brief called before each wait for the Core after err. A streamer that reopens
+    /// its Core half on its own calls it from another thread.
+    virtual void waiting_for_core(const x::errors::Error &err) {}
+
+    /// @brief called from another thread each time a streamer that reopens its Core
+    /// half on its own opens that half again.
+    virtual void core_reopened() {}
+
     /// @brief called when the Core dropped commands because the pipeline fell behind.
     /// The dropped commands never reach write(). It can run on a thread other than the
     /// pipeline thread, so it must be thread safe.
@@ -73,6 +82,12 @@ public:
     /// safe when concurrently used with read(). When close_send() is called, read()
     /// should return as soon as possible.
     virtual void close_send() = 0;
+
+    /// @brief sets the callback of a streamer that reopens its Core half on its own.
+    /// The streamer calls it from its own thread with each error it waits on, and
+    /// with nil each time the Core half opens again.
+    virtual void
+    watch_core(const std::function<void(const x::errors::Error &)> &on_change) {}
 
     virtual ~Streamer() = default;
 };
@@ -192,5 +207,8 @@ public:
     void run() override;
 
     void stopped_with_err(const x::errors::Error &err) override;
+
+protected:
+    void waiting(const x::errors::Error &err) override;
 };
 }

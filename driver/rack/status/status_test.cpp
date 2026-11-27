@@ -594,4 +594,28 @@ TEST(stateTests, HealthOverridesClockSkew) {
     EXPECT_EQ(health.message, error.message);
     EXPECT_EQ(health.description, error.description);
 }
+
+/// @brief it should show the rack warning over a healthy status.
+TEST(RackStatusHealth, ShowsRackWarning) {
+    const auto h = with_warning(Health{}, {"Failed to reach the Core", "why"});
+    ASSERT_EQ(h.variant, ::synnax::status::VARIANT_WARNING);
+    ASSERT_EQ(h.message, "Failed to reach the Core");
+    ASSERT_EQ(h.description, "why");
+}
+
+/// @brief it should keep an error health over the rack warning.
+TEST(RackStatusHealth, KeepsErrorOverRackWarning) {
+    const Health error{.variant = ::synnax::status::VARIANT_ERROR, .message = "bad"};
+    ASSERT_EQ(with_warning(error, {"Failed to reach the Core", "why"}).message, "bad");
+}
+
+/// @brief it should stop showing a rack warning once it clears.
+TEST(RackStatusHealth, RackWarningClearsAtItsTime) {
+    const task::RackWarning w{
+        .message = "Failed to reach the Core",
+        .clears_at = x::telem::TimeStamp(x::telem::SECOND),
+    };
+    ASSERT_FALSE(w.at(x::telem::TimeStamp(x::telem::MILLISECOND)).empty());
+    ASSERT_TRUE(w.at(x::telem::TimeStamp(x::telem::SECOND)).empty());
+}
 }

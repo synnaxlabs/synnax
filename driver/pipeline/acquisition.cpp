@@ -101,6 +101,10 @@ void Acquisition::stopped_with_err(const x::errors::Error &err) {
     this->source->stopped_with_err(err);
 }
 
+void Acquisition::waiting(const x::errors::Error &err) {
+    this->source->waiting_for_core(err);
+}
+
 bool Acquisition::run_once(Run &run) {
     auto &fr = run.fr;
     auto &authorities = run.authorities;

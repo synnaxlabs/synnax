@@ -1388,4 +1388,216 @@ TEST(BaseWriteTaskConfigTest, testEmptyDevice) {
     [[maybe_unused]] auto _ = BaseWriteTaskConfig(p);
     ASSERT_MATCHES(p.error(), x::errors::VALIDATION);
 }
+
+/// @brief it should show a license warning while its state writer waits for a license,
+/// and clear it once the writer has stayed open for the warning delay.
+TEST(TestCommonWriteTask, WarnsWhileStateWriterWaitsForALicense) {
+    x::breaker::Breaker cancel;
+    synnax::channel::Channel state_index;
+    state_index.key = 2;
+    state_index.data_type = x::telem::TIMESTAMP_T;
+    state_index.index = 2;
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+    auto sink = std::make_unique<MockSink>(
+        x::telem::HERTZ * 100,
+        std::vector<Sink::Output>{{1, state}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    writer_factory->open_errors = {
+        synnax::errors::LICENSE_MISSING,
+        synnax::errors::LICENSE_MISSING,
+    };
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->warning_delay = x::telem::MILLISECOND * 50;
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "license",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .scale = 1,
+        },
+        std::move(sink),
+        writer_factory,
+        streamer_factory
+    );
+    ASSERT_TRUE(write_task.start("cmd", cancel));
+    const auto showed = [&] {
+        return std::ranges::any_of(ctx->snapshot(), [](const auto &s) {
+            return s.message == "Waiting for a license";
+        });
+    };
+    const auto shows = [&] {
+        const auto statuses = ctx->snapshot();
+        return !statuses.empty() && statuses.back().message == "Waiting for a license";
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        showed(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    // A status that answers no command goes out at most once per second.
+    ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(
+        shows(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
+
+/// @brief it should show a license warning while its command streamer reopens into a
+/// Core with no license, and clear it when the streamer opens, since no state loop
+/// runs.
+TEST(TestCommonWriteTask, WarnsWhileCommandStreamerWaitsForALicense) {
+    x::breaker::Breaker cancel;
+    auto sink = std::make_unique<MockSink>(
+        x::telem::HERTZ * 100,
+        std::vector<Sink::Output>{{1, std::nullopt}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    // The first streamer loses the Core after the start, and the reopens then wait
+    // for a license. The start answer waits for the first open, so a wait before it
+    // shows nothing.
+    const auto lost = std::make_shared<std::vector<x::telem::Frame>>();
+    lost->emplace_back();
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
+        // Enough failed reopens that the wait outlasts the status flusher.
+        [] {
+            std::vector<x::errors::Error> errs(301, synnax::errors::LICENSE_MISSING);
+            errs[0] = x::errors::NIL;
+            return errs;
+        }(),
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+            std::vector<pipeline::testutil::StreamerConfig>{
+                {lost,
+                 std::make_shared<std::vector<x::errors::Error>>(
+                     std::vector{freighter::UNREACHABLE}
+                 ),
+                 freighter::UNREACHABLE},
+                {std::make_shared<std::vector<x::telem::Frame>>(),
+                 nullptr,
+                 x::errors::NIL},
+                {std::make_shared<std::vector<x::telem::Frame>>(),
+                 nullptr,
+                 x::errors::NIL},
+                {std::make_shared<std::vector<x::telem::Frame>>(),
+                 nullptr,
+                 x::errors::NIL},
+            }
+        )
+    );
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "license",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .scale = 1,
+        },
+        std::move(sink),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        streamer_factory
+    );
+    ASSERT_TRUE(write_task.start("cmd", cancel));
+    const auto showed = [&] {
+        return std::ranges::any_of(ctx->snapshot(), [](const auto &s) {
+            return s.message == "Waiting for a license";
+        });
+    };
+    const auto shows = [&] {
+        const auto statuses = ctx->snapshot();
+        return !statuses.empty() && statuses.back().message == "Waiting for a license";
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        showed(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(
+        shows(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
+
+/// @brief it should keep the Core warning of a task with no state channels while its
+/// command streamer opens and then fails again before the delay.
+TEST(TestCommonWriteTask, KeepsCoreWarningThroughShortOpens) {
+    x::breaker::Breaker cancel;
+    auto sink = std::make_unique<MockSink>(
+        x::telem::HERTZ * 100,
+        std::vector<Sink::Output>{{1, std::nullopt}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    // Each streamer opens, then loses the Core at its first read.
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+            std::vector<pipeline::testutil::StreamerConfig>{
+                {std::make_shared<std::vector<x::telem::Frame>>(),
+                 std::make_shared<std::vector<x::errors::Error>>(
+                     std::vector{freighter::UNREACHABLE}
+                 ),
+                 freighter::UNREACHABLE},
+            }
+        )
+    );
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    ctx->warning_delay = x::telem::MILLISECOND * 50;
+    WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "flap",
+            .base_interval = x::telem::MILLISECOND * 5,
+            .max_retries = x::breaker::RETRY_INFINITELY,
+            .scale = 1,
+        },
+        std::move(sink),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        streamer_factory
+    );
+    ASSERT_TRUE(write_task.start("cmd", cancel));
+    const auto first_warning = [&]() -> std::optional<size_t> {
+        const auto statuses = ctx->snapshot();
+        for (size_t i = 0; i < statuses.size(); i++)
+            if (statuses[i].message == "Failed to reach the Core") return i;
+        return std::nullopt;
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        first_warning().has_value(),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    // Longer than the status window, so a cleared warning would go out.
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    const auto statuses = ctx->snapshot();
+    for (auto i = first_warning().value_or(statuses.size()); i < statuses.size(); i++)
+        ASSERT_EQ(statuses[i].message, "Failed to reach the Core");
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
 }

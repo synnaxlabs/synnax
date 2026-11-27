@@ -66,8 +66,14 @@ protected:
         const auto kind = synnax::errors::classify(err);
         const bool retries = kind == synnax::errors::Kind::TRANSIENT ||
                              (resendable && kind == synnax::errors::Kind::INTERRUPTED);
-        return retries && this->breaker.wait_unlimited(err);
+        // A stopped pipeline exits, so it shows no wait.
+        if (!retries || !this->breaker.running()) return false;
+        this->waiting(err);
+        return this->breaker.wait_unlimited(err);
     }
+
+    /// @brief called by wait_for_core before each wait for the Core after err.
+    virtual void waiting(const x::errors::Error &err) {}
 
     /// @brief unblocks a pipeline thread that waits in a call the breaker cannot wake,
     /// such as a hardware read. Called by a stop() from another thread that stops the

@@ -122,6 +122,8 @@ class ReadTask final : public driver::task::Task {
     driver::transform::Tare tare;
     /// @brief handles communicating the task state back to the cluster.
     StatusHandler state;
+    /// @brief how long the task retries a Core error before it shows a warning.
+    x::telem::TimeSpan core_warning_delay;
 
     /// @brief a wrapped source that gracefully handles shutdown when a hardware
     /// read fails or the pipeline fails to write to Synnax.
@@ -132,13 +134,17 @@ class ReadTask final : public driver::task::Task {
         Warning logged_warning;
         /// @brief whether the writer opened since the task last started.
         bool writer_open = false;
+        /// @brief the wait for the Core and the warning it shows.
+        CoreWait wait;
+        /// @brief whether the status shows the warning of wait.
+        bool waiting_warned = false;
 
     public:
         /// @brief the wrapped, hardware-specific source.
         std::unique_ptr<common::Source> internal;
 
         InternalSource(ReadTask &p, std::unique_ptr<common::Source> internal):
-            p(p), internal(std::move(internal)) {}
+            p(p), wait(p.core_warning_delay), internal(std::move(internal)) {}
 
         /// @brief forgets the logged warning, so the next run logs it again.
         void forget_warning() { this->logged_warning = {}; }
@@ -147,9 +153,21 @@ class ReadTask final : public driver::task::Task {
         void begin_run() {
             this->forget_warning();
             this->writer_open = false;
+            this->wait.reset();
+            this->waiting_warned = false;
+            this->p.state.set_background_warning({});
         }
 
-        void writer_opened() override { this->writer_open = true; }
+        void writer_opened() override {
+            this->writer_open = true;
+            this->wait.opened(x::telem::TimeStamp::now());
+        }
+
+        void waiting_for_core(const x::errors::Error &err) override {
+            const auto warning = this->wait.failed(err, x::telem::TimeStamp::now());
+            this->waiting_warned = !warning.empty();
+            this->p.state.set_background_warning(warning);
+        }
 
         void interrupt() override { this->internal->interrupt(); }
 
@@ -166,6 +184,11 @@ class ReadTask final : public driver::task::Task {
             x::telem::Frame &fr,
             pipeline::Authorities &authorities
         ) override {
+            if (this->waiting_warned &&
+                this->wait.recovered(x::telem::TimeStamp::now())) {
+                this->waiting_warned = false;
+                this->p.state.set_background_warning({});
+            }
             auto [err, warning] = this->internal->read(breaker, fr);
             // Three cases.
             // 1. We have an error, but it's temporary, so we trigger the breaker
@@ -228,6 +251,7 @@ public:
     ):
         tare(driver::transform::Tare(source->channels())),
         state(ctx, task),
+        core_warning_delay(ctx->core_warning_delay()),
         source(std::make_shared<InternalSource>(*this, std::move(source))),
         pipe(
             factory,

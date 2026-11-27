@@ -12,8 +12,10 @@
 #include <atomic>
 #include <condition_variable>
 #include <deque>
+#include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <thread>
 
 #include "absl/log/log.h"
@@ -63,6 +65,19 @@ class Streamer final : public ::driver::pipeline::Streamer {
 
     std::mutex notify_mu;
     std::condition_variable notify_cv;
+
+    /// @brief guards on_core_change and last_core_change.
+    std::mutex watch_mu;
+    std::function<void(const x::errors::Error &)> on_core_change;
+    /// @brief the last change of the Core half, which watch_core replays, since the
+    /// core thread can report one before the watcher is set.
+    std::optional<x::errors::Error> last_core_change;
+
+    void core_changed(const x::errors::Error &err) {
+        std::lock_guard lock(this->watch_mu);
+        this->last_core_change = err;
+        if (this->on_core_change) this->on_core_change(err);
+    }
 
 public:
     /// @param core the Core streamer, or nullptr if its first open failed with a
@@ -130,6 +145,15 @@ public:
         return this->server_err.skip({freighter::ERR_EOF, freighter::STREAM_CLOSED});
     }
 
+    void watch_core(
+        const std::function<void(const x::errors::Error &)> &on_change
+    ) override {
+        std::lock_guard lock(this->watch_mu);
+        this->on_core_change = on_change;
+        if (this->last_core_change.has_value())
+            this->on_core_change(*this->last_core_change);
+    }
+
     void close_send() override {
         std::lock_guard lock(this->core_mu);
         this->breaker.stop();
@@ -139,9 +163,11 @@ public:
 private:
     void run_core(x::errors::Error err) {
         if (this->core != nullptr) err = this->read_core();
-        while (reopens(err) && this->breaker.running() &&
-               this->breaker.wait_unlimited(err))
+        while (reopens(err) && this->breaker.running()) {
+            this->core_changed(err);
+            if (!this->breaker.wait_unlimited(err)) break;
             err = this->stream_core();
+        }
         // A close_send() that ends the wait for the Core is not a Core failure.
         if (!this->breaker.running() && reopens(err)) err = freighter::STREAM_CLOSED;
         {
@@ -161,6 +187,7 @@ private:
             this->core = std::move(opened);
             if (!this->breaker.running()) this->core->close_send();
         }
+        this->core_changed(x::errors::NIL);
         return this->read_core();
     }
 

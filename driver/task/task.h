@@ -13,6 +13,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -34,6 +35,31 @@
 #include "driver/task/status_cache.h"
 
 namespace driver::task {
+/// @brief a warning that the rack status shows. Empty when there is none.
+struct RackWarning {
+    /// @brief what happened, in one short line.
+    std::string message;
+    /// @brief why it happened and what to do now.
+    std::string description;
+    /// @brief when the warning stops showing, or zero to show it until it is replaced.
+    x::telem::TimeStamp clears_at = x::telem::TimeStamp(0);
+
+    [[nodiscard]] bool empty() const { return this->message.empty(); }
+
+    /// @returns the warning as it shows at now: empty once it clears.
+    [[nodiscard]] RackWarning at(const x::telem::TimeStamp now) const {
+        if (this->clears_at != x::telem::TimeStamp(0) && now >= this->clears_at)
+            return {};
+        return *this;
+    }
+
+    bool operator==(const RackWarning &) const = default;
+};
+
+/// @brief how long a task or the rack retries a Core error before it shows a warning.
+const x::telem::TimeSpan DEFAULT_CORE_WARNING_DELAY = 30 * x::telem::SECOND;
+/// @brief the longest Core warning delay that the Driver accepts.
+const x::telem::TimeSpan MAX_CORE_WARNING_DELAY = x::telem::HOUR;
 /// @brief interface for a task that can be executed by the driver. Tasks should be
 /// constructed by an @see Factory.
 class Task {
@@ -78,6 +104,14 @@ public:
 
     /// @brief returns the local telemetry bus, or nullptr if not available.
     virtual std::shared_ptr<bypass::Bus> bus() { return nullptr; }
+
+    /// @brief returns how long a task retries a Core error before it shows a warning.
+    virtual x::telem::TimeSpan core_warning_delay() {
+        return DEFAULT_CORE_WARNING_DELAY;
+    }
+
+    /// @brief returns the warning that the rack status shows.
+    virtual RackWarning rack_warning() { return {}; }
 
     /// @brief returns the shared control authority states.
     virtual std::shared_ptr<control::States> control_states() { return nullptr; }
@@ -124,11 +158,19 @@ class MockContext final : public Context {
 
 public:
     std::vector<synnax::task::Status> statuses;
+    /// @brief what core_warning_delay returns.
+    x::telem::TimeSpan warning_delay = DEFAULT_CORE_WARNING_DELAY;
+    /// @brief runs at the start of each set_status, such as to block it like a slow
+    /// Core. Set it before any status is sent.
+    std::function<void()> on_set_status;
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
+    x::telem::TimeSpan core_warning_delay() override { return this->warning_delay; }
+
     void set_status(synnax::task::Status &status) override {
+        if (this->on_set_status) this->on_set_status();
         mu.lock();
         statuses.push_back(status);
         mu.unlock();
@@ -152,6 +194,10 @@ class SynnaxContext final : public Context {
     std::shared_ptr<control::States> states;
     synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
+    x::telem::TimeSpan warning_delay;
+    /// @brief guards warning.
+    std::mutex warning_mu;
+    RackWarning warning;
     /// @brief guards operations and cancelled.
     std::mutex operations_mu;
     /// @brief the open operations and the cancelled ones, by the key of their command.
@@ -181,15 +227,30 @@ public:
         std::shared_ptr<StatusCache> statuses,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
-        const synnax::rack::Key rack_key = 0
+        const synnax::rack::Key rack_key = 0,
+        const x::telem::TimeSpan core_warning_delay = DEFAULT_CORE_WARNING_DELAY
     ):
         Context(client),
         bypass_bus(bus),
         states(control_states),
         rack(rack_key),
-        statuses(std::move(statuses)) {}
+        statuses(std::move(statuses)),
+        warning_delay(core_warning_delay) {}
 
     std::shared_ptr<bypass::Bus> bus() override { return this->bypass_bus; }
+
+    x::telem::TimeSpan core_warning_delay() override { return this->warning_delay; }
+
+    RackWarning rack_warning() override {
+        std::lock_guard lock{this->warning_mu};
+        return this->warning.at(x::telem::TimeStamp::now());
+    }
+
+    /// @brief sets the warning that the rack status shows. An empty one clears it.
+    void set_rack_warning(RackWarning w) {
+        std::lock_guard lock{this->warning_mu};
+        this->warning = std::move(w);
+    }
 
     std::shared_ptr<control::States> control_states() override { return this->states; }
 
@@ -363,6 +424,9 @@ struct ManagerConfig {
     x::telem::TimeSpan shutdown_timeout = 30 * x::telem::SECOND;
     /// @brief number of worker threads for task operations.
     size_t worker_count = 4;
+    /// @brief how long a task or the rack retries a Core error before it shows a
+    /// warning.
+    x::telem::TimeSpan core_warning_delay = DEFAULT_CORE_WARNING_DELAY;
 
     template<typename Parser>
     void override(Parser &p) {
@@ -388,6 +452,19 @@ struct ManagerConfig {
         );
         this->worker_count = std::max<size_t>(this->worker_count, 1);
         this->worker_count = std::min<size_t>(this->worker_count, 64);
+        const auto core_warning_delay_s = p.field(
+            "core_warning_delay",
+            this->core_warning_delay.seconds()
+        );
+        this->core_warning_delay = x::telem::TimeSpan(
+            static_cast<int64_t>(core_warning_delay_s * 1e9)
+        );
+        if (this->core_warning_delay <= x::telem::TimeSpan::ZERO() ||
+            this->core_warning_delay > MAX_CORE_WARNING_DELAY)
+            p.field_err(
+                "core_warning_delay",
+                "must be more than 0 and at most 3600 seconds"
+            );
     }
 
     friend std::ostream &operator<<(std::ostream &os, const ManagerConfig &cfg) {
@@ -398,7 +475,9 @@ struct ManagerConfig {
            << "  " << x::log::SHALE() << "shutdown timeout" << x::log::RESET() << ": "
            << cfg.shutdown_timeout.seconds() << "s\n"
            << "  " << x::log::SHALE() << "worker count" << x::log::RESET() << ": "
-           << cfg.worker_count;
+           << cfg.worker_count << "\n"
+           << "  " << x::log::SHALE() << "core warning delay" << x::log::RESET() << ": "
+           << cfg.core_warning_delay.seconds() << "s";
         return os;
     }
 };
@@ -407,6 +486,11 @@ struct ManagerConfig {
 /// data acquisition and control tasks.
 class Manager {
 public:
+    /// @brief sets the warning that the rack status shows. An empty one clears it.
+    void set_rack_warning(RackWarning warning) {
+        this->ctx->set_rack_warning(std::move(warning));
+    }
+
     Manager(
         synnax::rack::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
@@ -421,7 +505,8 @@ public:
             this->statuses,
             std::make_shared<bypass::Bus>(),
             this->control_states,
-            this->rack.key
+            this->rack.key,
+            cfg.core_warning_delay
         )),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),

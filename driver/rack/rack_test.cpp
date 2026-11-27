@@ -178,4 +178,40 @@ TEST(RackTest, WaitsOutAnInterruptedErrorOnlyWhileReconnecting) {
     ASSERT_FALSE(waits_out(synnax::errors::INTERRUPTED, false));
     ASSERT_FALSE(waits_out(x::errors::VALIDATION, true));
 }
+
+/// @brief it should warn once the task manager has failed for the delay, keep the
+/// warning through a run that fails again soon, and clear it after a run that lasts.
+TEST(WaitWarningTest, WarnsAfterTheDelayAndClearsAfterALongRun) {
+    WaitWarning w(x::telem::SECOND);
+    const auto t0 = x::telem::TimeStamp(x::telem::SECOND);
+    ASSERT_TRUE(w.failed(freighter::TRANSPORT, t0).empty());
+    const auto shown = w.failed(freighter::TRANSPORT, t0 + x::telem::SECOND);
+    ASSERT_EQ(shown.message, "Failed to reach the Core");
+    const auto short_run = t0 + x::telem::SECOND + x::telem::MILLISECOND * 100;
+    ASSERT_FALSE(w.reached(short_run).at(short_run).empty());
+    ASSERT_FALSE(w.failed(freighter::TRANSPORT, short_run + x::telem::MILLISECOND)
+                     .at(short_run + x::telem::SECOND * 5)
+                     .empty());
+    const auto long_run = short_run + x::telem::SECOND * 2;
+    ASSERT_TRUE(w.reached(long_run).at(long_run + x::telem::SECOND).empty());
+}
+
+/// @brief it should warn at once for a license error.
+TEST(WaitWarningTest, WarnsAtOnceForALicense) {
+    WaitWarning w(x::telem::SECOND);
+    ASSERT_EQ(
+        w.failed(synnax::errors::LICENSE_MISSING, x::telem::TimeStamp(x::telem::SECOND))
+            .message,
+        "Waiting for a license"
+    );
+}
+
+/// @brief it should clear a license warning as soon as a run reaches the Core.
+TEST(WaitWarningTest, ClearsALicenseWarningOnReach) {
+    WaitWarning w(x::telem::SECOND * 30);
+    const auto t0 = x::telem::TimeStamp(x::telem::SECOND);
+    ASSERT_FALSE(w.failed(synnax::errors::LICENSE_MISSING, t0).empty());
+    const auto reached = t0 + x::telem::MILLISECOND;
+    ASSERT_TRUE(w.reached(reached).at(reached).empty());
+}
 }
