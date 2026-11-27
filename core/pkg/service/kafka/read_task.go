@@ -591,6 +591,8 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 	}
 	clear(t.skipped)
 	t.heads = t.heads[:0]
+	// The records hold their batch buffers, which an idle task must not keep.
+	defer clear(t.heads)
 	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
 		for _, rec := range p.Records {
 			t.convert(rec)
@@ -616,8 +618,6 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 		}
 	}
 	t.client.MarkCommitRecords(t.heads...)
-	// The records hold their batch buffers, which an idle task must not keep.
-	clear(t.heads)
 	return nil
 }
 
