@@ -40,39 +40,47 @@ Device device(const std::string &name) {
 }
 }
 
-/// @brief it should refuse a second read task on a port path and name the first, and
+/// @brief it should refuse a second read task on a device and name the first, and
 /// accept the second once the first is gone.
-TEST(Ports, RefusesSecondReadTaskOnPath) {
+TEST(Ports, RefusesSecondReadTaskOnDevice) {
     Ports ports;
-    const auto path = missing_port();
-    auto first = ASSERT_NIL_P(ports.claim_read(path, task("oven")));
-    const auto [refused, err] = ports.claim_read(path, task("press"));
+    auto first = ASSERT_NIL_P(ports.claim_read("boiler", task("oven")));
+    const auto [refused, err] = ports.claim_read("boiler", task("press"));
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
         err.data,
-        "A serial port runs one read task at a time, and the task 'oven' reads from " +
-            path + ". Add these entries to that task."
+        "A serial device runs one read task at a time, and the task 'oven' reads from "
+        "this device. Add these entries to that task."
     );
+    const auto other = ASSERT_NIL_P(ports.claim_read("mixer", task("press")));
     first.reset();
-    const auto second = ASSERT_NIL_P(ports.claim_read(path, task("press")));
+    const auto second = ASSERT_NIL_P(ports.claim_read("boiler", task("press")));
 }
 
-/// @brief it should refuse the port of a device to a second device and name the first,
-/// and give it to the second once no task on the first holds it.
-TEST(Ports, RefusesPortOfDeviceToSecondDevice) {
+/// @brief it should let a read task claim its device again, and hold the device until
+/// each of its claims is gone.
+TEST(Ports, ClaimsDeviceAgainForSameTask) {
     Ports ports;
-    auto first = ASSERT_NIL_P(ports.acquire(device("oven")));
-    auto again = ASSERT_NIL_P(ports.acquire(device("oven")));
-    const auto [refused, err] = ports.acquire(device("press"));
-    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    ASSERT_EQ(
-        err.data,
-        "The device 'oven' already uses serial port " + missing_port() +
-            ". Two devices cannot share one port. Change the port of one of them."
+    const auto oven = task("oven");
+    auto first = ASSERT_NIL_P(ports.claim_read("boiler", oven));
+    auto again = ASSERT_NIL_P(ports.claim_read("boiler", oven));
+    first.reset();
+    ASSERT_OCCURRED_AS_P(
+        ports.claim_read("boiler", task("press")),
+        driver::errors::CONFIGURATION_ERROR
     );
-    first = {};
-    ASSERT_OCCURRED_AS_P(ports.acquire(device("press")), transport::CONFIG_ERROR);
-    again = {};
-    const auto second = ASSERT_NIL_P(ports.acquire(device("press")));
+    again.reset();
+    const auto press = ASSERT_NIL_P(ports.claim_read("boiler", task("press")));
+}
+
+/// @brief it should refuse a second task on a device that asks for other properties.
+TEST(Ports, RefusesOtherPropertiesOnSameDevice) {
+    Ports ports;
+    const auto first = ASSERT_NIL_P(ports.acquire(device("oven")));
+    auto other = device("oven");
+    other.props.baud_rate = 115200;
+    const auto [refused, err] = ports.acquire(other);
+    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    ASSERT_EQ(err.data, "another task has device oven_key open with other settings");
 }
 }

@@ -10,7 +10,6 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -22,6 +21,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -132,11 +132,11 @@ void discard_output(const Handle handle) {
     ::tcflush(static_cast<int>(handle), TCOFLUSH);
 }
 
-std::string identity(const std::string &path) {
-    std::error_code ec;
-    const auto resolved = std::filesystem::weakly_canonical(path, ec);
-    // A path that does not resolve has no other name.
-    return ec ? path : resolved.string();
+std::pair<std::string, x::errors::Error> identity(const std::string &path) {
+    struct stat st{};
+    if (::stat(node(path).c_str(), &st) != 0)
+        return {"", translate_open(path, last_error())};
+    return {std::to_string(st.st_rdev), x::errors::NIL};
 }
 
 std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
