@@ -18,7 +18,7 @@
 #include "driver/labjack/names.h"
 #include "driver/ni/names.h"
 #include "driver/rack/rack.h"
-#include "driver/serial/read_task.h"
+#include "driver/serial/serial.h"
 #include "driver/version/version.h"
 
 namespace driver::rack {

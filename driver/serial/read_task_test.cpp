@@ -27,6 +27,8 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/bus/holders.h"
+#include "driver/bus/tasks.h"
 #include "driver/common/common.h"
 #include "driver/common/read_task.h"
 #include "driver/icd/receiver.h"
@@ -34,7 +36,7 @@
 #include "driver/serial/port.h"
 #include "driver/serial/ports.h"
 #include "driver/serial/pty.h"
-#include "driver/serial/read_task.h"
+#include "driver/serial/serial.h"
 #include "driver/task/task.h"
 #include "driver/transport/connection.h"
 #include "driver/transport/errors.h"
@@ -92,6 +94,7 @@ protected:
     std::shared_ptr<pipeline::testutil::WriterFactory>
         writes = std::make_shared<pipeline::testutil::WriterFactory>();
     std::shared_ptr<Ports> ports = std::make_shared<Ports>();
+    bus::Readers readers{INTEGRATION_NAME};
     Device device;
     std::unique_ptr<common::ReadTask> task;
 
@@ -116,14 +119,15 @@ protected:
         t.key = x::uuid::create();
         t.name = "serial read";
         this->device = Device{.key = "device", .name = "device", .props = props};
-        auto claim = ASSERT_NIL_P(this->ports->claim_read("device", t));
+        auto claim = ASSERT_NIL_P(this->readers.claim("device", t));
         this->task = std::make_unique<common::ReadTask>(
             t,
             this->ctx,
             common::unlimited_retry_config(t.name),
-            std::make_unique<Source>(
-                this->ports,
-                this->device,
+            std::make_unique<bus::Source>(
+                [ports = this->ports, dev = this->device] {
+                    return ports->acquire(dev);
+                },
                 std::move(claim),
                 std::move(receiver),
                 std::vector{lines.channels.at(2)},

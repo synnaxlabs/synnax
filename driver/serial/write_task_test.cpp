@@ -27,16 +27,17 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/bus/holders.h"
+#include "driver/bus/tasks.h"
 #include "driver/common/common.h"
 #include "driver/common/read_task.h"
 #include "driver/common/write_task.h"
 #include "driver/icd/receiver.h"
 #include "driver/icd/sender.h"
 #include "driver/pipeline/testutil/pipeline.h"
+#include "driver/serial/ports.h"
 #include "driver/serial/pty.h"
-#include "driver/serial/read_task.h"
 #include "driver/serial/serial.h"
-#include "driver/serial/write_task.h"
 #include "driver/task/task.h"
 
 namespace driver::serial {
@@ -105,9 +106,8 @@ protected:
             t,
             this->ctx,
             common::unlimited_retry_config(t.name),
-            std::make_unique<Sink>(
-                this->ports,
-                Device{.key = "device", .name = "device", .props = props},
+            std::make_unique<bus::Sink>(
+                this->acquire(props),
                 std::move(sender),
                 std::vector<synnax::channel::Key>{2}
             ),
@@ -122,6 +122,15 @@ protected:
     void TearDown() override {
         if (this->task != nullptr) this->task->stop("", false);
         PtyTest::TearDown();
+    }
+
+    /// @returns the bus::Acquire of the device on the port of props.
+    [[nodiscard]] bus::Acquire acquire(const synnax::serial::Properties &props) const {
+        return [ports = this->ports, props] {
+            return ports->acquire(
+                Device{.key = "device", .name = "device", .props = props}
+            );
+        };
     }
 
     /// @returns the last status of the task, or an empty status before the first.
@@ -232,14 +241,14 @@ TEST_F(SerialWriteTask, SharesPortWithReadTask) {
     t.key = x::uuid::create();
     t.name = "serial read";
     const auto writes = std::make_shared<pipeline::testutil::WriterFactory>();
+    bus::Readers readers(INTEGRATION_NAME);
     common::ReadTask reader(
         t,
         this->ctx,
         common::unlimited_retry_config(t.name),
-        std::make_unique<Source>(
-            this->ports,
-            Device{.key = "device", .name = "device", .props = this->props()},
-            ASSERT_NIL_P(this->ports->claim_read("device", t)),
+        std::make_unique<bus::Source>(
+            this->acquire(this->props()),
+            ASSERT_NIL_P(readers.claim("device", t)),
             std::move(receiver),
             std::vector{ch},
             true

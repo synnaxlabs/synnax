@@ -18,17 +18,14 @@
 #include <variant>
 #include <vector>
 
-#include "client/cpp/serial/json.gen.h"
-#include "x/cpp/json/json.h"
-
+#include "driver/bus/tasks.h"
 #include "driver/icd/retrieve.h"
-#include "driver/serial/write_task.h"
 #include "driver/transport/errors.h"
 
-namespace driver::serial {
+namespace driver::bus {
 namespace {
-/// @returns true when err came from the port, which closes on any error.
-bool from_port(const x::errors::Error &err) {
+/// @returns true when err came from the transport, which closes on any error.
+bool from_transport(const x::errors::Error &err) {
     return err.matches(
         std::vector{
             transport::UNREACHABLE_ERROR,
@@ -40,18 +37,16 @@ bool from_port(const x::errors::Error &err) {
 }
 
 Sink::Sink(
-    std::shared_ptr<Ports> ports,
-    Device device,
+    Acquire acquire,
     icd::Sender sender,
     std::vector<synnax::channel::Key> commands
 ):
     common::Sink(std::move(commands)),
-    ports(std::move(ports)),
-    device(std::move(device)),
+    acquire(std::move(acquire)),
     sender(std::move(sender)) {}
 
 x::errors::Error Sink::start(const std::string &, x::breaker::Breaker &) {
-    auto [conn, err] = this->ports->acquire(this->device);
+    auto [conn, err] = this->acquire();
     if (err) return err;
     this->conn = std::move(conn);
     {
@@ -81,7 +76,7 @@ x::errors::Error Sink::write(x::telem::Frame &frame) {
     const auto [t, err] = guard.transport();
     if (err) return err;
     auto [warning, write_err] = this->sender.write(*t, frame);
-    if (from_port(write_err)) guard.fail(write_err);
+    if (from_transport(write_err)) guard.fail(write_err);
     this->warn(std::move(warning));
     return write_err;
 }
@@ -104,13 +99,13 @@ x::telem::TimeSpan Sink::send() {
     auto [t, err] = guard.transport();
     x::telem::TimeSpan wait;
     if (err)
-        // A closed port sends nothing until the connection may open it again.
+        // A closed transport sends nothing until the connection may open it again.
         wait = x::telem::TimeSpan(
             this->conn->retry_at() - std::chrono::steady_clock::now()
         );
     else {
         std::tie(wait, err) = this->sender.send(*t);
-        if (from_port(err)) guard.fail(err);
+        if (from_transport(err)) guard.fail(err);
     }
     common::Warning warning;
     if (err) warning = {.message = "Failed to send message", .description = err.data()};
@@ -126,19 +121,13 @@ x::telem::TimeSpan Sink::send() {
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<Ports> &ports
+    const synnax::task::StartConfig &cfg,
+    const std::vector<synnax::icd::WriteTarget> &targets,
+    Acquire acquire
 ) {
-    x::json::Parser parser(task.config);
-    const auto cfg = synnax::serial::WriteConfig::parse(parser);
-    if (cfg.device.empty()) parser.field_err("device", "this field is required");
-    if (cfg.targets.empty())
-        parser.field_err("targets", "at least one target is required");
-    if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
-    auto [dev, dev_err] = retrieve_device(ctx->client->devices, cfg.device);
-    if (dev_err) return {common::ConfigureResult{}, dev_err};
     std::set<synnax::icd::Key> icds;
     std::set<synnax::channel::Key> commands;
-    for (const auto &target: cfg.targets) {
+    for (const auto &target: targets) {
         icds.insert(target.icd);
         for (const auto &b: target.message.bindings)
             if (const auto *cb = std::get_if<synnax::icd::ChannelWriteBinding>(&b);
@@ -148,7 +137,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     auto [resources, retrieve_err] = icd::retrieve(*ctx->client, icds, commands);
     if (retrieve_err) return {common::ConfigureResult{}, retrieve_err};
     auto [sender, sender_err] = icd::Sender::create(
-        cfg.targets,
+        targets,
         resources.icds,
         resources.channels,
         false
@@ -161,8 +150,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
                 ctx,
                 common::unlimited_retry_config(task.name),
                 std::make_unique<Sink>(
-                    ports,
-                    std::move(dev),
+                    std::move(acquire),
                     std::move(sender),
                     std::vector(commands.begin(), commands.end())
                 )

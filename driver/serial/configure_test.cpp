@@ -23,7 +23,6 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "driver/serial/read_task.h"
 #include "driver/serial/serial.h"
 #include "driver/task/task.h"
 

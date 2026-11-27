@@ -15,6 +15,7 @@
 
 #include "x/cpp/breaker/breaker.h"
 
+#include "driver/bus/holders.h"
 #include "driver/serial/ports.h"
 #include "driver/task/task.h"
 
@@ -22,10 +23,19 @@ namespace driver::serial {
 /// @brief INTEGRATION_NAME is the name of the serial integration.
 const std::string INTEGRATION_NAME = "serial";
 
+/// @brief READ_TASK_TYPE is the type of the task that reads ICD messages from a serial
+/// port.
+const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
+
+/// @brief WRITE_TASK_TYPE is the type of the task that sends ICD messages on a serial
+/// port.
+const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
+
 /// @brief Factory configures the tasks that read and send ICD messages on serial ports.
 /// The tasks on one device share its port.
 class Factory final : public task::Factory {
     std::shared_ptr<Ports> ports = std::make_shared<Ports>();
+    bus::Readers readers{INTEGRATION_NAME};
 
 public:
     std::string name() override { return INTEGRATION_NAME; }
