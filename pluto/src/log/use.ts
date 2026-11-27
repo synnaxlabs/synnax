@@ -45,6 +45,7 @@ export interface UseProps
         | "channelDataTypes"
         | "channelColors"
         | "position"
+        | "searchedTo"
       >,
       "visible"
     >,
@@ -81,6 +82,7 @@ export const use = ({
   timeZone = "local",
   channels: rawChannels,
   hiddenChannels,
+  search,
   color,
   telem,
   hold,
@@ -121,6 +123,7 @@ export const use = ({
     channelColors,
     channels,
     hiddenChannels,
+    search,
     ...(hold != null && { scrolling: hold }),
   });
 
