@@ -177,8 +177,14 @@ each such clock that has no record to the note and to the `Delete` call, so one 
 entry holds the Intents of the keys and of their clocks. Cesium logs the Drop of a clock
 after the Drops of the keys that it times. No writer can make a new user of such a clock
 while the claim is held: continuation picks only a clock that a key of the group already
-names. A `synnax purge` adds the clocks of its keys in the same way. Before RFC 0120
-Phase 50 an index channel has a record, so its stamps stay until its own delete.
+names. A `synnax purge` adds the clocks of its keys in the same way. A clock can also
+lose its last user to a range delete, or to a crash between the steps: so at start,
+after the notes, each key that `Keys` lists with data and as no other key's clock, and
+that is a key of the clock range (RFC 0120 §4.0) or holds an entry of the retired index
+table, is a clock with no user. Such a key never has a record, so this is no delete on
+absence: the channel service ends it with a note and a `Delete`, and deletes its entry.
+Before RFC 0120 Phase 50 an index channel has a record, so its stamps stay until its own
+delete.
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
