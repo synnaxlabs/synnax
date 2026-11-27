@@ -21,7 +21,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, payload, unique, uuid } from "@synnaxlabs/x";
+import { deep, payload, unique } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -36,9 +36,6 @@ import {
 import { Device } from "@/feature/kafka/device";
 import {
   type Addition,
-  type Appends,
-  createAdditions,
-  createExtensions,
   createRecords,
   type Extension,
   type KindMessage,
@@ -49,6 +46,7 @@ import {
 } from "@/feature/kafka/task/additions";
 import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
+import { planAdd, type TopicAdditions } from "@/feature/kafka/task/plan";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -152,13 +150,6 @@ const recordPrefix = (deviceName: string, topic: string, recordKey: string): str
     : `${prefix}_${channel.escapeInvalidName(recordKey)}`;
 };
 
-/** The additions of a topic, and the ICD that its new records read. */
-interface TopicAdditions {
-  /** Absent, they read the ICD that the most records read, or a new one. */
-  icd?: icd.Key;
-  added: Addition[];
-}
-
 /** @returns where the device stores the channels of the messages of a record. */
 const storedSource = (
   topic: string,
@@ -178,12 +169,6 @@ const writtenChannels = (topics: ReadTopic[]): Set<channel.Key> => {
   written.delete(0);
   return written;
 };
-
-const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
-  key: uuid.create(),
-  name,
-  payload: { format: "json", fields: [], ...(match == null ? {} : { match }) },
-});
 
 /** @returns the prefix of the channel names of a record, current with its key. */
 const usePrefix = (
@@ -647,63 +632,15 @@ const Records: FC<RecordsProps> = ({
       home,
     });
     if (result == null) return;
-    const additions = new Map<string, TopicAdditions>();
-    const appends: Appends = new Map();
-    // The messages that this add puts in each ICD, by ICD key.
-    const making = new Map<icd.Key | undefined, icd.Message[]>();
-    const takenIn = (icdKey?: icd.Key): icd.Message[] => [
-      ...(icdKey == null ? [] : messagesOf(icdKey)),
-      ...(making.get(icdKey) ?? []),
-    ];
-    const make = (icdKey: icd.Key | undefined, messages: icd.Message[]) =>
-      making.set(icdKey, [...(making.get(icdKey) ?? []), ...messages]);
-    const held = result.topics.map(({ topic }) =>
-      readsOf(topicRecords(topic), messagesOf),
-    );
-    const nameIn = (topic: string) => (recordKey: string) =>
-      topicMessageName(topic, recordKey);
-    // Every extension goes before every reuse, so that each reuse sees the fields that
-    // extensions add, whatever the order of the topics.
-    for (const { topic, shapes, picks } of result.topics) {
-      const { extensions, kinds } = createExtensions(
-        shapes,
-        picks,
-        topicRecords(topic),
-        messagesOf,
-        nameIn(topic),
-      );
-      extend(extensions, kinds);
-      for (const { icd: k, message } of kinds) make(k, [message]);
-    }
-    for (const [i, pick] of result.topics.entries()) {
-      const { topic, shapes, picks, reading } = pick;
-      const target = reading?.icd ?? home;
-      const added = createAdditions(
-        shapes,
-        picks,
-        held[i],
-        takenIn(target),
-        nameIn(topic),
-        reading,
-        appends,
-      );
-      if (added.length === 0) continue;
-      additions.set(topic, { icd: reading?.icd, added });
-      make(
-        target,
-        added.filter(({ reused }) => reused !== true).map(({ message }) => message),
-      );
-    }
-    if (result.record != null) {
-      const held = additions.get(result.record);
-      const name = topicMessageName(result.record, "");
-      const message = createMessage(uniqueName(name, takenIn(held?.icd ?? home)));
-      const empty: Addition = { message, recordKeys: [""], fields: [] };
-      additions.set(result.record, {
-        icd: held?.icd,
-        added: [...(held?.added ?? []), empty],
-      });
-    }
+    const { extensions, kinds, additions } = planAdd({
+      topics: result.topics,
+      record: result.record,
+      recordsOf: topicRecords,
+      messagesOf,
+      home,
+      nameOf: topicMessageName,
+    });
+    extend(extensions, kinds);
     if (additions.size === 0) return;
     await addRecords(additions);
   };

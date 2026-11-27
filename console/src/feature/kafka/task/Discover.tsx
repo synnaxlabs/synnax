@@ -42,6 +42,7 @@ import {
   splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
+import type { TopicPick } from "@/feature/kafka/task/plan";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
@@ -78,15 +79,6 @@ export interface Params {
   formats?: ICD.Formats;
   /** The ICD that the most records of the task read. */
   home?: icd.Key;
-}
-
-/** The fields picked from the shapes of a sample of one topic. */
-export interface TopicPick {
-  topic: string;
-  shapes: json.Shape[];
-  picks: Picks;
-  /** The ICD that the new records of the topic read. Absent for no fit or a tie. */
-  reading?: ICD.Reuse.Reading;
 }
 
 /** A topic picked whole. */
