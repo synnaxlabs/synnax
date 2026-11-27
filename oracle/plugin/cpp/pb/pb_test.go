@@ -10,6 +10,7 @@
 package pb_test
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -861,16 +862,23 @@ var _ = Describe("C++ PB Plugin", func() {
 						dio1 = "DIO1"
 					}
 
+					Alias = Port
+
 					Ports struct {
-						items map<Port, uint32>
+						items   map<Port, uint32>
+						aliased map<Alias, uint32>
 					}
 				`
 				resp := MustGenerate(source, "types", loader, pbPlugin)
+				check := `if (auto key_err = x::pb::member(k, {"DIO0", "DIO1"}); key_err) return {{}, key_err};`
 				ExpectContent(resp, "proto.gen.h").ToContain(
-					`if (auto key_err = x::pb::member(k, {"DIO0", "DIO1"}); key_err) return {{}, key_err};`,
+					check,
 					"cpp.items[k] = v;",
+					"cpp.aliased[k] = v;",
 					"(*pb.mutable_items())[k] =",
 				)
+				Expect(strings.Count(MustContentOf(resp, "proto.gen.h"), check)).
+					To(Equal(2))
 			})
 
 			It("Should iterate and insert for map fields", func() {
