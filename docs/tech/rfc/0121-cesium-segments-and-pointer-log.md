@@ -190,22 +190,20 @@ service adds each such clock that has no record to the note and to the `Delete` 
 one log entry holds the Intents of the keys and of their clocks. Cesium logs the Drop of
 a clock after the Drops of the keys that it times. No writer can make a new user of such
 a clock while the claim is held: continuation picks only a clock that a key of the group
-already names. A `synnax purge` adds the clocks of its keys in the same way. A channel
-delete and a `synnax purge` also Tombstone each clock with no record that stays, over
-the parts of the deleted keys' pointers that no live pointer of another key names, as a
-range delete does (§5.6), so a leased clock stores stamps only beside data that names it
-on every path. Specs: a channel delete, then a range delete of the clock's other key;
-and two deletes in a row of one clock's keys. A leased clock stores stamps only beside
-data that names it, so a range delete that removes its last such data also removes those
-stamps (§5.6). A retired index clock of RFC 0120 Phase 50 can hold stamps outside all
-its data, which a range delete can leave with no user. So at start, after the notes,
-each key that holds an entry of the retired index table and that `Keys` lists with data
-and as no other key's clock is a clock with no user. The retire deleted its record, and
-its key is never issued again, so this is no delete on absence: the channel service ends
-it with a note and a `Delete`, and deletes its entry. The rule reads no key range, since
-from RFC 0120 Phase 50 channels and clocks share one counter. A spec keeps a channel
-made after Phase 50 whole across a restart and an undo. Before RFC 0120 Phase 50 an
-index channel has a record, so its stamps stay until its own delete.
+already names. A `synnax purge` adds the clocks of its keys in the same way. A range
+delete also ends each clock that it leaves with no user: it passes the clocks that its
+Tombstones cut to `DB.Clocks`, and the Core adds each such clock that has no record and
+that no live pointer of a kept key names, so one entry holds the Tombstones and the
+clock's Intent. The stamps that only a deleted key used stay until the clock's last user
+goes, which a channel delete or a range delete reaches, so a clock with stamps and no
+user arises on no path, the open check's cut and repair's clock range included. The end
+of a clock reads no key range, since from RFC 0120 Phase 50 channels and clocks share
+one counter, and a spec keeps a channel made after Phase 50 whole across a restart and
+an undo. Specs: a channel delete of `a`, then a range delete of the clock's other key
+`b`, whose entry ends the clock; two deletes in a row of one clock's keys; and a 7-day
+script whose keys share a clock in alternate calls, whose channel delete is one entry.
+Before RFC 0120 Phase 50 an index channel has a record, so its stamps stay until its own
+delete.
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
