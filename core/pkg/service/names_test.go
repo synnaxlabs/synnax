@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
@@ -79,7 +80,7 @@ func storeV062(
 		ctx,
 		n.DB,
 		"Channel",
-		channelversions.NewMigrations(1),
+		channelversions.NewMigrations(1, parser.Config{}),
 		"v63_channel_name_rule",
 	)
 	markAppliedBefore(

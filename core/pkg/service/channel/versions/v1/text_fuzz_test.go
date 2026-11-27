@@ -35,8 +35,8 @@ type token struct {
 func (t token) String() string { return fmt.Sprintf("%d:%q", t.kind, t.text) }
 
 // FuzzRenameInText checks that a rename of every name writes the new name in place of
-// each identifier that the live lexer finds outside strings with dashed names on, and
-// that no other token changes.
+// each identifier that the live lexer finds outside strings, with dashed names on or
+// off, and that no other token changes.
 func FuzzRenameInText(f *testing.F) {
 	for _, seed := range []string{
 		"pt-01 -> out{}",
@@ -51,13 +51,15 @@ func FuzzRenameInText(f *testing.F) {
 		"éa-b\r\nc",
 		"!A0 $= b-c !=d-e $f-g",
 	} {
-		f.Add(seed)
+		f.Add(seed, true)
+		f.Add(seed, false)
 	}
-	f.Fuzz(func(t *testing.T, src string) {
+	f.Fuzz(func(t *testing.T, src string, dashed bool) {
 		if !utf8.ValidString(src) {
 			t.Skip()
 		}
-		want := lex(src)
+		cfg := parser.Config{AllowDashedNames: dashed}
+		want := lex(src, cfg)
 		for i, tok := range want {
 			if identifierText.MatchString(tok.text) {
 				want[i] = token{kind: parser.ArcLexerIDENTIFIER, text: renamed}
@@ -65,18 +67,19 @@ func FuzzRenameInText(f *testing.F) {
 		}
 		out := v1.RenameInText(
 			src,
+			cfg,
 			func(string) (string, bool) { return renamed, true },
 		)
-		if got := lex(out); !slices.Equal(got, want) {
+		if got := lex(out, cfg); !slices.Equal(got, want) {
 			t.Fatalf("source %q renamed to %q: lexed %v, want %v", src, out, got, want)
 		}
 	})
 }
 
-// lex returns the tokens of src with dashed names on. A string keeps only its kind,
-// since a rename also writes into the placeholders of a format string.
-func lex(src string) []token {
-	lexer := parser.NewLexer(src, parser.Config{AllowDashedNames: true})
+// lex returns the tokens of src that the live lexer finds with cfg. A string keeps only
+// its kind, since a rename also writes into the placeholders of a format string.
+func lex(src string, cfg parser.Config) []token {
+	lexer := parser.NewLexer(src, cfg)
 	lexer.RemoveErrorListeners()
 	all := lexer.GetAllTokens()
 	tokens := make([]token, len(all))

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
@@ -243,7 +244,7 @@ var _ = Describe("NewClashMigration", func() {
 		text := []gorp.Migration{
 			v1.NameRuleMigration,
 			v1.NewClashMigration(host),
-			v1.CalculationTextMigration,
+			v1.NewCalculationTextMigration(parser.Config{}),
 		}
 		expressionOf := func(ctx context.Context, local v1.LocalKey) string {
 			GinkgoHelper()
@@ -285,18 +286,29 @@ var _ = Describe("NewClashMigration", func() {
 })
 
 var _ = Describe("TextRename", func() {
+	var db *gorp.DB
+	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
 	id := func(key v1.Key) resource.ID {
 		return resource.ID{Type: resource.TypeChannel, Key: key.String()}
 	}
+	stage := func(ctx SpecContext, renames ...resource.Rename) {
+		GinkgoHelper()
+		for _, r := range renames {
+			Expect(resource.StageRename(ctx, db, r.ID, r.From, resource.ReasonRepeat)).
+				To(Succeed())
+		}
+	}
 
 	It("Should map a name to the renamed channel with the highest key that held it",
-		func() {
+		func(ctx SpecContext) {
+			stage(
+				ctx,
+				resource.Rename{ID: id(7), From: "Metrics"},
+				resource.Rename{ID: id(3), From: "Metrics"},
+			)
 			rename := MustSucceed(v1.TextRename(
+				db,
 				map[v1.Key]string{3: "Metrics_2", 7: "Metrics_3", 9: "pt"},
-				[]resource.Rename{
-					{ID: id(7), From: "Metrics"},
-					{ID: id(3), From: "Metrics"},
-				},
 			))
 			to, ok := rename("Metrics")
 			Expect(ok).To(BeTrue())
@@ -305,31 +317,53 @@ var _ = Describe("TextRename", func() {
 			Expect(ok).To(BeFalse())
 		})
 
-	It("Should map no name that a channel holds now in NFC", func() {
+	It("Should map no name when the channel that v0.62 bound keeps it", func(
+		ctx SpecContext,
+	) {
+		stage(ctx, resource.Rename{ID: id(3), From: "Metrics"})
 		rename := MustSucceed(v1.TextRename(
-			map[v1.Key]string{3: "cafe_2", 7: "café"},
-			[]resource.Rename{{ID: id(3), From: "café"}},
+			db,
+			map[v1.Key]string{3: "Metrics_2", 7: "Metrics"},
 		))
-		_, ok := rename("café")
+		_, ok := rename("Metrics")
 		Expect(ok).To(BeFalse())
 	})
 
-	It("Should map no name that only a folder held", func() {
-		rename := MustSucceed(v1.TextRename(
-			map[v1.Key]string{3: "pt"},
-			[]resource.Rename{{
-				ID:   resource.ID{Type: resource.TypeGroup, Key: uuid.New().String()},
-				From: "Rigs",
-			}},
-		))
+	It("Should map a name by the bytes that each channel held before the upgrade",
+		func(ctx SpecContext) {
+			// v0.62 bound the NFD form to the channel that held it, which the upgrade
+			// renamed. The NFC form reads the channel that keeps it.
+			stage(ctx, resource.Rename{ID: id(3), From: "cafe\u0301"})
+			rename := MustSucceed(v1.TextRename(
+				db,
+				map[v1.Key]string{3: "cafe_2", 7: "café"},
+			))
+			to, ok := rename("cafe\u0301")
+			Expect(ok).To(BeTrue())
+			Expect(to).To(Equal("cafe_2"))
+			_, ok = rename("café")
+			Expect(ok).To(BeFalse())
+		})
+
+	It("Should map no name that only a folder held", func(ctx SpecContext) {
+		stage(ctx, resource.Rename{
+			ID:   resource.ID{Type: resource.TypeGroup, Key: uuid.New().String()},
+			From: "Rigs",
+		})
+		rename := MustSucceed(v1.TextRename(db, map[v1.Key]string{3: "pt"}))
 		_, ok := rename("Rigs")
 		Expect(ok).To(BeFalse())
 	})
 
-	It("Should fail on a staged rename of a channel that has no record", func() {
-		Expect(v1.TextRename(
-			map[v1.Key]string{},
-			[]resource.Rename{{ID: id(3), From: "pt"}},
-		)).Error().To(MatchError(ContainSubstring("names no record")))
+	It("Should return no rename when the upgrade staged none", func() {
+		Expect(v1.TextRename(db, map[v1.Key]string{3: "pt"})).To(BeNil())
+	})
+
+	It("Should fail on a staged rename of a channel that has no record", func(
+		ctx SpecContext,
+	) {
+		stage(ctx, resource.Rename{ID: id(3), From: "pt"})
+		Expect(v1.TextRename(db, map[v1.Key]string{})).Error().
+			To(MatchError(ContainSubstring("names no record")))
 	})
 })
