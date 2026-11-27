@@ -81,7 +81,8 @@ std::pair<Reader, std::string> reader(const std::size_t n) {
     }
     m.payload = payload;
     synnax::icd::ICD ic{.key = x::uuid::create(), .name = "plant", .messages = {m}};
-    auto [r, err] = Reader::create({rm}, ic, channels);
+    const std::vector reads{rm};
+    auto [r, err] = Reader::create({{.ic = ic, .reads = reads}}, channels);
     if (err) throw std::runtime_error(err.message());
     return {std::move(r), doc + "}"};
 }
