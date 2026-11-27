@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/log.h"
 #include "wasmtime.hh"
 
 #include "x/cpp/errors/errors.h"
@@ -256,6 +257,8 @@ constexpr auto LOOP_BUDGET_EXPORT = "$loop_budget";
 /// @brief loop iterations and function calls that a program can run in one cycle by
 /// default.
 constexpr std::int64_t DEFAULT_LOOP_BUDGET = 100'000'000;
+/// @brief bytes of guest memory that each node's batch call can take by default.
+constexpr std::uint32_t DEFAULT_BATCH_CAPACITY = 1024 * 1024;
 
 struct ModuleConfig {
     program::Program program;
@@ -266,6 +269,9 @@ struct ModuleConfig {
     /// @brief loop iterations and function calls that the guest can run between calls
     /// to reset_loop_budget.
     std::int64_t loop_budget = DEFAULT_LOOP_BUDGET;
+    /// @brief bytes of guest memory that each node's batch call can take. A longer
+    /// series runs in slices that fit.
+    std::uint32_t batch_capacity = DEFAULT_BATCH_CAPACITY;
 };
 
 class Module {
@@ -424,8 +430,68 @@ public:
         std::vector<wasmtime::Val> args;
         uint32_t ptr = 0;
         uint32_t capacity = 0;
+        /// @brief true once a failed grow has been reported.
+        bool warned = false;
 
-        static constexpr uint32_t align8(const uint32_t v) { return (v + 7) & ~7U; }
+        static constexpr uint64_t align8(const uint64_t v) { return (v + 7) & ~7ULL; }
+
+        /// @brief returns the bytes of a region that holds count samples, where varies
+        /// marks the inputs that hold a sample per output sample.
+        [[nodiscard]] uint64_t
+        region_size(const uint64_t count, const std::vector<bool> &varies) const {
+            uint64_t size = align8(count * this->output.density());
+            for (size_t i = 0; i < this->inputs.size(); i++)
+                size += align8(
+                    (varies[i] ? count : 1) * this->inputs[i].type.density()
+                );
+            return size;
+        }
+
+        /// @brief runs samples [start, start + count) of the function into out.
+        x::errors::Error call_slice(
+            const std::vector<const x::telem::Series *> &series,
+            const std::vector<bool> &varies,
+            const size_t start,
+            const size_t count,
+            x::telem::Series &out
+        ) {
+            const auto out_density = this->output.density();
+            auto *buf = this->module.memory.data(this->module.store).data() + this->ptr;
+            uint64_t offset = align8(count * out_density);
+            for (size_t i = 0; i < this->inputs.size(); i++) {
+                const auto density = this->inputs[i].type.density();
+                auto *dst = buf + offset;
+                const auto *in = series[i];
+                if (in == nullptr)
+                    std::memcpy(dst, &this->literals[i], density);
+                else if (!varies[i])
+                    std::memcpy(dst, in->data(), density);
+                else if (in->size() >= start + count)
+                    std::memcpy(dst, in->data() + (start * density), count * density);
+                else
+                    for (size_t j = 0; j < count; j++)
+                        std::memcpy(
+                            dst + (j * density),
+                            in->data() + (((start + j) % in->size()) * density),
+                            density
+                        );
+                this->args[2 + (2 * i)] = wasmtime::Val(
+                    static_cast<int32_t>(this->ptr + offset)
+                );
+                this->args[3 + (2 * i)] = wasmtime::Val(
+                    static_cast<int32_t>(varies[i] ? density : 0)
+                );
+                offset += align8((varies[i] ? count : 1) * density);
+            }
+            this->args[0] = wasmtime::Val(static_cast<int32_t>(count));
+            this->args[1] = wasmtime::Val(static_cast<int32_t>(this->ptr));
+            if (auto result = this->fn.call(this->module.store, this->args); !result)
+                return this->module.call_error(result.err());
+            // The guest can grow memory, which can move it.
+            buf = this->module.memory.data(this->module.store).data() + this->ptr;
+            std::memcpy(out.data() + (start * out_density), buf, count * out_density);
+            return x::errors::NIL;
+        }
 
     public:
         Batch(
@@ -449,9 +515,11 @@ public:
         }
 
         /// @brief writes count samples of the function into out, which must hold count
-        /// samples. series holds each streamed input, and nullptr for a literal one.
-        /// @returns false when a series does not match the wrapper's layout, so the
-        /// caller must run the samples one at a time, and the error of the call.
+        /// samples. series holds each streamed input, and nullptr for a literal one. A
+        /// series longer than the batch region holds runs in slices that fit it.
+        /// @returns false when a series does not match the wrapper's layout or guest
+        /// memory cannot hold one sample, so the caller must run the samples one at a
+        /// time, and the error of the call.
         std::pair<bool, x::errors::Error> call(
             const std::vector<const x::telem::Series *> &series,
             const size_t count,
@@ -459,62 +527,51 @@ public:
         ) {
             if (!same_bits(out.data_type(), this->output))
                 return {false, x::errors::NIL};
-            const auto out_density = static_cast<uint32_t>(this->output.density());
-            const auto n = static_cast<uint32_t>(count);
-            std::vector<uint32_t> offsets(this->inputs.size());
-            std::vector<uint32_t> samples(this->inputs.size(), 1);
-            uint32_t size = align8(n * out_density);
+            std::vector<bool> varies(this->inputs.size(), false);
             for (size_t i = 0; i < this->inputs.size(); i++) {
                 const auto *in = series[i];
-                if (in != nullptr) {
-                    if (!same_bits(in->data_type(), this->inputs[i].type))
-                        return {false, x::errors::NIL};
-                    if (in->size() != 1) samples[i] = n;
-                }
-                offsets[i] = size;
-                const auto density = static_cast<uint32_t>(
-                    this->inputs[i].type.density()
-                );
-                size += align8(samples[i] * density);
+                if (in == nullptr) continue;
+                if (!same_bits(in->data_type(), this->inputs[i].type))
+                    return {false, x::errors::NIL};
+                varies[i] = in->size() != 1;
             }
+            const uint64_t cap = this->module.cfg.batch_capacity;
+            const uint64_t fixed = this->region_size(0, varies);
+            const uint64_t per_sample = this->region_size(1, varies) - fixed;
+            // Alignment adds at most 7 bytes for each block past the fixed size.
+            const uint64_t slack = 8 * (1 + this->inputs.size());
+            if (fixed + slack + per_sample > cap) return {false, x::errors::NIL};
+            const uint64_t slice = std::min<uint64_t>(
+                count,
+                (cap - fixed - slack) / per_sample
+            );
+            const uint64_t size = this->region_size(slice, varies);
             if (size > this->capacity) {
                 // Doubling bounds what a node abandons as its series grow.
-                const auto region = this->module.grow(
-                    std::max(size, 2 * this->capacity)
+                const auto want = std::min(
+                    std::max(size, uint64_t{2} * this->capacity),
+                    cap
                 );
-                if (!region.has_value()) return {false, x::errors::NIL};
+                const auto region = this->module.grow(want);
+                if (!region.has_value()) {
+                    if (!this->warned)
+                        LOG(WARNING)
+                            << "[arc.wasm] guest memory cannot grow by " << want
+                            << " bytes, so a node runs one sample at a time";
+                    this->warned = true;
+                    return {false, x::errors::NIL};
+                }
                 std::tie(this->ptr, this->capacity) = *region;
             }
-            auto *buf = this->module.memory.data(this->module.store).data() + this->ptr;
-            for (size_t i = 0; i < this->inputs.size(); i++) {
-                const auto density = this->inputs[i].type.density();
-                auto *dst = buf + offsets[i];
-                const auto *in = series[i];
-                if (in == nullptr)
-                    std::memcpy(dst, &this->literals[i], density);
-                else if (samples[i] == 1 || in->size() == count)
-                    std::memcpy(dst, in->data(), samples[i] * density);
-                else
-                    for (size_t j = 0; j < count; j++)
-                        std::memcpy(
-                            dst + (j * density),
-                            in->data() + ((j % in->size()) * density),
-                            density
-                        );
-                this->args[2 + (2 * i)] = wasmtime::Val(
-                    static_cast<int32_t>(this->ptr + offsets[i])
-                );
-                this->args[3 + (2 * i)] = wasmtime::Val(
-                    static_cast<int32_t>(samples[i] == 1 ? 0 : density)
-                );
-            }
-            this->args[0] = wasmtime::Val(static_cast<int32_t>(n));
-            this->args[1] = wasmtime::Val(static_cast<int32_t>(this->ptr));
-            if (auto result = this->fn.call(this->module.store, this->args); !result)
-                return {true, this->module.call_error(result.err())};
-            // The guest can grow memory, which can move it.
-            buf = this->module.memory.data(this->module.store).data() + this->ptr;
-            std::memcpy(out.data(), buf, count * out_density);
+            for (size_t start = 0; start < count; start += slice)
+                if (auto err = this->call_slice(
+                        series,
+                        varies,
+                        start,
+                        std::min<size_t>(slice, count - start),
+                        out
+                    ))
+                    return {true, err};
             if (this->output.kind == types::Kind::Bool) {
                 auto *bytes = reinterpret_cast<uint8_t *>(out.data());
                 for (size_t j = 0; j < count; j++)
@@ -680,16 +737,16 @@ public:
 
     /// @brief takes a region of at least size bytes past the end of guest memory.
     /// @returns the base and capacity of the region, or nullopt when memory cannot
-    /// grow.
-    std::optional<std::pair<uint32_t, uint32_t>> grow(const uint32_t size) {
-        constexpr uint32_t PAGE_SIZE = 65536;
-        const uint32_t pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+    /// grow or the region would end past the 32-bit address space.
+    std::optional<std::pair<uint32_t, uint32_t>> grow(const uint64_t size) {
+        constexpr uint64_t PAGE_SIZE = 65536;
+        const uint64_t pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
         const auto prev = this->memory.grow(this->store, pages);
         if (!prev) return std::nullopt;
-        return std::pair{
-            static_cast<uint32_t>(prev.ok() * PAGE_SIZE),
-            pages * PAGE_SIZE
-        };
+        const uint64_t base = prev.ok() * PAGE_SIZE;
+        const uint64_t capacity = pages * PAGE_SIZE;
+        if (base + capacity > UINT32_MAX) return std::nullopt;
+        return std::pair{static_cast<uint32_t>(base), static_cast<uint32_t>(capacity)};
     }
 
     /// @brief gives the guest its whole loop budget. Call it before each cycle. A call

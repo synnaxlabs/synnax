@@ -28,6 +28,7 @@ cc_library(
         "//vendor/wasmtime",
         "//x/cpp/errors",
         "//x/cpp/telem",
+        "@abseil-cpp//absl/log",
     ],
 )
 

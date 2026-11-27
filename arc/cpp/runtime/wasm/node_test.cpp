@@ -3648,10 +3648,17 @@ struct Opened {
 };
 
 /// @brief opens the function name of func_def, which takes two i32 triggers.
-Opened open_pair(const std::string &func_def, const std::string &name) {
+Opened open_pair(
+    const std::string &func_def,
+    const std::string &name,
+    const std::uint32_t batch_capacity = wasm::DEFAULT_BATCH_CAPACITY
+) {
     const auto client = new_test_client();
     auto mod = ASSERT_NIL_P(
-        wasm::Module::open({.program = testutil::compile_text(client, func_def)})
+        wasm::Module::open({
+            .program = testutil::compile_text(client, func_def),
+            .batch_capacity = batch_capacity,
+        })
     );
     auto func = ASSERT_NIL_P(mod->func(name));
     return {std::move(mod), std::move(func)};
@@ -3709,5 +3716,47 @@ TEST(BatchTest, RefusesASeriesOfAnotherKind) {
     auto out = x::telem::Series(x::telem::INT32_T, 2);
     out.resize(2);
     EXPECT_FALSE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 2, out)));
+}
+
+/// @brief it should run a series longer than the batch capacity in slices that give
+/// the samples of one call at a time.
+TEST(BatchTest, RunsALongSeriesInSlices) {
+    auto [mod, func] = open_pair(
+        "func diff() {a i32, b i32} i32 { return a * 10 - b }",
+        "diff",
+        256
+    );
+    std::vector<int32_t> values(100);
+    for (size_t i = 0; i < values.size(); i++)
+        values[i] = static_cast<int32_t>(i) - 50;
+    const auto a = x::telem::Series(values);
+    const auto b = x::telem::Series(std::vector<int32_t>{7, -3, 11});
+    auto out = x::telem::Series(x::telem::INT32_T, 100);
+    out.resize(100);
+    ASSERT_TRUE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 100, out)));
+    EXPECT_EQ(out.values<int32_t>(), call_each(func, a, b, 100));
+}
+
+/// @brief it should not run a batch when one sample does not fit the capacity.
+TEST(BatchTest, RefusesACapacityBelowOneSample) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum",
+        16
+    );
+    const auto a = x::telem::Series(std::vector<int32_t>{1, 2});
+    const auto b = x::telem::Series(std::vector<int32_t>{3, 4});
+    auto out = x::telem::Series(x::telem::INT32_T, 2);
+    out.resize(2);
+    EXPECT_FALSE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 2, out)));
+}
+
+/// @brief it should refuse a region that ends past the 32-bit address space.
+TEST(BatchTest, GrowRefusesARegionPastFourGiB) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum"
+    );
+    EXPECT_FALSE(mod->grow(uint64_t{1} << 33).has_value());
 }
 }
