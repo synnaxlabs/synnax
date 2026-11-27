@@ -309,7 +309,8 @@ Receiver::send(transport::Transport &t) {
     if (this->reply.has_value() && now >= this->reply->deadline) this->reply.reset();
     if (const auto p = std::ranges::min_element(this->polls, {}, &Poll::next);
         !this->reply.has_value() && now >= p->next) {
-        if (auto err = t.write(p->query, WRITE_TIMEOUT)) return {READ_TIMEOUT, err};
+        if (auto err = t.write(p->query, transport::WRITE_TIMEOUT))
+            return {READ_TIMEOUT, err};
         this->reply = Reply{
             .entry = p->entry,
             .deadline = now + REPLY_TIMEOUT.chrono()

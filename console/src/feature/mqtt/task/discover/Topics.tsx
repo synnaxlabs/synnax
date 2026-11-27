@@ -493,6 +493,7 @@ export const TopicPicker = ({
         .map((t) => ({ ...t, shapes: shapesOf(t) }));
       return { key: id.create(), topics, truncated: r.truncated };
     },
+    { message: "Failed to list topics", name: device.name },
     [device, scope],
   );
   const listing = result.data;

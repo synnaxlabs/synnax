@@ -40,9 +40,6 @@ constexpr std::size_t BATCH = 1024;
 /// after which the framer drops a partial frame.
 const x::telem::TimeSpan READ_TIMEOUT = 50 * x::telem::MILLISECOND;
 
-/// @brief WRITE_TIMEOUT is the longest that sending a poll query waits.
-const x::telem::TimeSpan WRITE_TIMEOUT = x::telem::SECOND;
-
 /// @brief REPLY_TIMEOUT is the longest that the next poll query waits for the reply to
 /// the last one.
 const x::telem::TimeSpan REPLY_TIMEOUT = 100 * x::telem::MILLISECOND;

@@ -366,11 +366,14 @@ var _ = Describe("Import CSV", func() {
 		},
 		Entry("an empty file", "", "missing header row"),
 		Entry("an unknown column", "message,field,start_bit,bit_length,Color\n",
-			`row 1: unknown column "Color"`),
+			`row 1: unknown column "Color": expected message, id, extended, length, `+
+				`field, start_bit, bit_length, byte_order, kind, scale, offset, units, `+
+				`min, or max`),
 		Entry("a duplicate column", "message,field,start_bit,bit_length,Field\n",
 			`row 1: duplicate column "field"`),
 		Entry("a missing required column", "message,field,start_bit\n",
-			`row 1: missing required column "bit_length"`),
+			`row 1: missing required column "bit_length": a table needs message, `+
+				`field, start_bit, and bit_length`),
 		Entry("a missing message", header+",,,,a,0,8\n",
 			"row 2, column message: is required"),
 		Entry("a missing field", header+"m,,,,,0,8\n",

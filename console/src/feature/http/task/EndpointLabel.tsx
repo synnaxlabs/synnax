@@ -11,6 +11,7 @@ import type { http } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import type { deep } from "@synnaxlabs/x";
+import type { ReactNode } from "react";
 
 import { Task } from "@/platform/task";
 
@@ -46,10 +47,12 @@ export const EndpointLabel = ({ path }: EndpointLabelProps) => {
 export interface EndpointItemProps extends Tree.ItemRenderProps<string> {
   /** The endpoint's form path. */
   path: deep.Path<{ method: http.Method; path: string; disabled: boolean }>;
+  /** Marks before the checkbox, such as a problem with the message. */
+  children?: ReactNode;
 }
 
 /** An endpoint in the tree of a task, with the checkbox that switches it on and off. */
-export const EndpointItem = ({ path, ...props }: EndpointItemProps) => {
+export const EndpointItem = ({ path, children, ...props }: EndpointItemProps) => {
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
   if (disabled == null) return null;
   return (
@@ -58,6 +61,7 @@ export const EndpointItem = ({ path, ...props }: EndpointItemProps) => {
       label={<EndpointLabel path={path} />}
       off={disabled}
     >
+      {children}
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
   );

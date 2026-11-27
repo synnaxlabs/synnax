@@ -680,8 +680,8 @@ var _ = Describe("Service", func() {
 				}))).Error().To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(
-						"targets.1.message.bindings.1.channel: channel 999999999 does "+
-							"not exist: validation error",
+						"config.targets.1.message.bindings.1.channel: channel 999999999 "+
+							"does not exist: validation error",
 					),
 				))
 			},

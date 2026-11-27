@@ -194,7 +194,7 @@ var _ = Describe("Service", func() {
 				"entries": []any{nil},
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("entries.0.type: required"),
+				MatchError("config.entries.0.type: required"),
 			))
 		})
 
@@ -937,7 +937,7 @@ var _ = Describe("Service", func() {
 				"targets": []any{target},
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("targets.0.message.bindings.1.type: required"),
+				MatchError("config.targets.0.message.bindings.1.type: required"),
 			))
 		})
 

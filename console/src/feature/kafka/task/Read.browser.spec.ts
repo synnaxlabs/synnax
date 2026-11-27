@@ -60,6 +60,10 @@ import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
+const REFUSED = "unable to dial: dial tcp 127.0.0.1:9092: connect: connection refused";
+const TLS_HINT =
+  "Check that the TLS and SASL settings match the listener of the broker.";
+
 preloadForms(Kafka.Task.FORMS);
 
 const TOPIC = "oven";
@@ -546,6 +550,38 @@ describe("Kafka read form", () => {
       expect(dialog.queryByRole("button", { name: "Add an empty record" })).toBeNull();
     });
 
+    it("should show the reply of a cluster that the Core cannot reach", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(client, dev);
+      const { answered } = await answerCommandsUntil(client, [scan], "browse", {
+        browse: {
+          variant: "error",
+          message: "Failed to read cluster metadata",
+          description: `${REFUSED}. ${TLS_HINT}`,
+        },
+      });
+      const dialog = await clickAddData();
+      await answered;
+      await dialog.findByText(
+        `Failed to read cluster metadata. ${REFUSED}. ${TLS_HINT}`,
+      );
+      expect(dialog.getAllByText("Failed to list topics")).toHaveLength(2);
+    });
+
+    it("should focus the search to read a topic by name", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const browse = browseOf(listTopic("plant"));
+      const dialog = await openAddData(dev, { data: sampleOf() }, "plant", browse);
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.click(dialog.getByRole("button", { name: "Read a topic by name" }));
+      expect(document.activeElement).toBe(search);
+      fireEvent.change(search, { target: { value: "kiln" } });
+      await dialog.findByRole("button", { name: "Read “kiln”" });
+      expect(dialog.queryByRole("button", { name: "Read a topic by name" })).toBeNull();
+    });
+
     it("should list and read the topics again on Listen again", async () => {
       const { dev } = await renderRead();
       const scan = await createScanTask(client, dev);
@@ -648,7 +684,7 @@ describe("Kafka read form", () => {
       const dialog = await clickAddData();
       await first.answered;
       await dialog.findByText(/Failed to reach the cluster/);
-      dialog.getByText("Failed to list topics");
+      expect(dialog.getAllByText("Failed to list topics")).toHaveLength(2);
       const second = await answerCommandsUntil(client, [scan], "sample", {
         sample: { data: sampleOf(OVEN_SHAPE) },
       });
@@ -979,7 +1015,7 @@ describe("Kafka read form", () => {
       { name: "gone", note: "Message not found", change: removeMessage },
       {
         name: "not JSON",
-        note: "The format of this message is not JSON. Open it in the editor to change its format.",
+        note: "Message is not JSON",
         change: async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
           await client.icds.dispatch(
             key,
@@ -998,11 +1034,38 @@ describe("Kafka read form", () => {
         await renderRead({ records: [rec], beforeRender: () => change(rec) });
         await screen.findByText(note);
         expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
-        fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /Any key/ }));
+        const item = await screen.findByRole("treeitem", { name: /Any key/ });
+        within(item).getByRole("img", { name: note });
+        fireEvent.contextMenu(item);
         await screen.findByRole("menuitem", { name: "Add message" });
         expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
       },
     );
+
+    it("should mark a later message that is not JSON and its record", async () => {
+      const rec = await createRecord({ fields: [createField("temperature", "float")] });
+      const status = await addMessage(
+        rec,
+        "status",
+        [createField("mode", "string")],
+        KIND_MATCH,
+      );
+      await renderRead({
+        records: [rec],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            rec.icd,
+            icd.set({
+              path: ["messages", status.key, "payload"],
+              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+            }),
+          ),
+      });
+      const message = await screen.findByRole("treeitem", { name: /^status/ });
+      await within(message).findByRole("img", { name: "Message is not JSON" });
+      const record = screen.getByRole("treeitem", { name: /JSON.*Any key/ });
+      within(record).getByRole("img", { name: "Message is not JSON" });
+    });
   });
 
   describe("adding data", () => {
@@ -1883,7 +1946,7 @@ describe("Kafka read form", () => {
       const added = await addFieldAsICDReader();
       await waitFor(() =>
         expect(added.statuses).toContainEqual(
-          expect.objectContaining({ message: "Failed to save ICD" }),
+          expect.objectContaining({ message: "Failed to save change" }),
         ),
       );
       await expectFieldUndone(added);
@@ -1924,7 +1987,7 @@ describe("Kafka read form", () => {
       await waitFor(() =>
         expect(statuses).toContainEqual(
           expect.objectContaining({
-            message: "Failed to save task",
+            message: "Failed to save change",
             description: expect.stringContaining("does not exist in message"),
           }),
         ),
@@ -2123,7 +2186,7 @@ describe("Kafka read form", () => {
         await screen.findByRole("treeitem", { name: /JSON.*Any key/ }),
       );
       fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-      await screen.findByRole("treeitem", { name: "Any key 2" });
+      await screen.findByRole("treeitem", { name: /^Any key 2/ });
       await waitFor(async () =>
         expect((await retrieveRecords(draft.key))[0].messages).toHaveLength(2),
       );
