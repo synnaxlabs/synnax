@@ -70,7 +70,7 @@ public:
     /// @param channel The channel to create.
     /// @modifies channel Assigns a unique key to the channel.
     /// @returns an error where ok() is false if the channel could not be created.
-    /// Use err.message() to get the error message or err.type to get the error
+    /// Use err.message() to get the error message or err.type() to get the error
     /// type.
     [[nodiscard]] x::errors::Error create(Channel &channel) const;
 
@@ -79,7 +79,7 @@ public:
     /// and also provides atomicity guarantees.
     /// @modifies channels Assigns a unique key to each channel.
     /// @returns an error where ok() is false if the channels could not be created.
-    /// Use err.message() to get the error message or err.type to get the error
+    /// Use err.message() to get the error message or err.type() to get the error
     /// type.
     [[nodiscard]] x::errors::Error create(std::vector<Channel> &channels) const;
 
@@ -91,7 +91,7 @@ public:
     /// @returns a pair containing the created channel and an error where ok() is
     /// false if the channel could not be created. In the case of an error, the
     /// returned channel will be invalid. Use err.message() to get the error message
-    /// or err.type to get the error type.
+    /// or err.type() to get the error type.
     [[nodiscard]] std::pair<Channel, x::errors::Error> create(
         const std::string &name,
         const x::telem::DataType &data_type,

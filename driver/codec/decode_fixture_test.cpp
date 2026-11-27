@@ -15,6 +15,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -26,9 +28,11 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/codec/binary.h"
 #include "driver/codec/errors.h"
 #include "driver/codec/json.h"
 #include "driver/codec/testutil/fixture.h"
+#include "driver/codec/text.h"
 
 namespace driver::codec {
 namespace {
@@ -37,19 +41,20 @@ using testutil::raw_at;
 using testutil::required_at;
 using testutil::string_at;
 
-/// @brief the Core's decode fixtures. Each holds the JSON messages of one source and
-/// either the error that creating a decoder for them returns, or the documents they
-/// decode.
+/// @brief the Core's decode fixtures. Each holds the JSON, text, or binary messages of
+/// one source and either the error that creating a decoder for them returns, or the
+/// documents, lines, or frames they decode.
 const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata/decode";
 
 /// @brief the start of the text of an error from Go's JSON syntax parser. The Driver
 /// does not copy that text, so a case checks only the error text before it.
 constexpr std::string_view SYNTAX_PREFIX = "jsontext: ";
 
-std::vector<JSONMessage> parse_messages(const std::string &doc) {
-    std::vector<JSONMessage> out;
+template<typename Message>
+std::vector<Message> parse_messages(const std::string &doc) {
+    std::vector<Message> out;
     for (const auto &m: nlohmann::json::parse(required_at(doc, "/messages")))
-        out.push_back(testutil::parse_message(m));
+        out.push_back(testutil::parse_message<Message>(m));
     return out;
 }
 
@@ -85,29 +90,56 @@ nlohmann::json sample_json(const x::telem::Series &s) {
     return nullptr;
 }
 
-/// @brief checks the decode of one case of a fixture.
+/// @brief decodes case c with dec: the frame of its hex, with its CAN identifier when
+/// it has an id, or else its text or document.
+template<typename Decoder>
+std::pair<std::optional<std::size_t>, x::errors::Error>
+decode_input(Decoder &dec, const std::string &doc, const std::string &c) {
+    if constexpr (std::is_same_v<Decoder, Binary>) {
+        const auto frame = testutil::bytes_at(doc, c + "/hex");
+        const auto id = raw_at(doc, c + "/id");
+        if (!id.has_value()) return dec.decode(frame);
+        return dec.decode(
+            testutil::integer_of<std::uint32_t>(*id),
+            raw_at(doc, c + "/extended") == "true",
+            frame
+        );
+    } else {
+        if (raw_at(doc, c + "/text").has_value())
+            return dec.decode(string_at(doc, c + "/text"));
+        return dec.decode(required_at(doc, c + "/document"));
+    }
+}
+
+/// @brief checks that err is a validation error with the text of expected, a Go error.
+void check_error(const x::errors::Error &err, const std::string &expected) {
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    if (const auto syntax = expected.find(SYNTAX_PREFIX); syntax != std::string::npos) {
+        EXPECT_TRUE(err.data().starts_with(expected.substr(0, syntax))) << err.data();
+        return;
+    }
+    EXPECT_EQ(err.data(), error_data(expected));
+}
+
+/// @brief checks the decode of one case of a fixture. A case with an error checks that
+/// the input fails as a whole, after it matches the message when it names one. A case
+/// with failures checks each field that does not decode. A null sample checks that its
+/// binding has no sample.
+template<typename Decoder, typename Message>
 void check_case(
-    JSON &dec,
-    const std::vector<JSONMessage> &messages,
+    Decoder &dec,
+    const std::vector<Message> &messages,
     const std::string &doc,
     const std::string &c
 ) {
-    const auto document = raw_at(doc, c + "/text").has_value()
-                            ? string_at(doc, c + "/text")
-                            : required_at(doc, c + "/document");
-    const auto [message, decode_err] = dec.decode(document);
-    // The Core fails a document on the first field that does not decode.
-    auto err = decode_err;
-    if (!err && message.has_value() && !dec.failures(*message).empty())
-        err = dec.failures(*message).front().error;
+    const auto [message, err] = decode_input(dec, doc, c);
+    const auto name = string_at(doc, c + "/message");
+    const auto want = static_cast<std::size_t>(
+        std::ranges::find(messages, name, &Message::name) - messages.begin()
+    );
     if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
-        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        if (const auto syntax = expected.find(SYNTAX_PREFIX);
-            syntax != std::string::npos) {
-            ASSERT_TRUE(err.data.starts_with(expected.substr(0, syntax))) << err.data;
-        } else {
-            ASSERT_EQ(err.data, error_data(expected));
-        }
+        check_error(err, expected);
+        if (!name.empty()) { ASSERT_EQ(message, want); }
         return;
     }
     ASSERT_NIL(err);
@@ -115,31 +147,46 @@ void check_case(
         ASSERT_FALSE(message.has_value());
         return;
     }
-    const auto name = string_at(doc, c + "/message");
-    const auto want = static_cast<std::size_t>(
-        std::ranges::find(messages, name, &JSONMessage::name) - messages.begin()
-    );
     ASSERT_LT(want, messages.size()) << "no message " << name;
     ASSERT_EQ(message, want);
     const auto expected = nlohmann::json::parse(required_at(doc, c + "/samples"));
+    const auto failures = nlohmann::json::parse(
+        raw_at(doc, c + "/failures").value_or("[]")
+    );
+    if constexpr (std::is_same_v<Decoder, JSON>) {
+        const auto &actual = dec.failures(want);
+        ASSERT_EQ(actual.size(), failures.size());
+        for (std::size_t j = 0; j < actual.size(); j++) {
+            SCOPED_TRACE("failure " + std::to_string(j));
+            EXPECT_EQ(actual[j].binding, failures[j].at("binding").get<std::size_t>());
+            EXPECT_EQ(actual[j].missing, failures[j].at("missing").get<bool>());
+            check_error(actual[j].error, failures[j].at("error").get<std::string>());
+            EXPECT_TRUE(expected.at(actual[j].binding).is_null());
+        }
+    } else {
+        ASSERT_TRUE(failures.empty()) << "only the JSON decoder reports failed fields";
+    }
     const auto &samples = dec.samples(want);
     ASSERT_EQ(samples.size(), expected.size());
     for (std::size_t k = 0; k < samples.size(); k++) {
+        if (expected[k].is_null()) {
+            ASSERT_TRUE(samples[k].empty()) << "binding " << k;
+            continue;
+        }
         ASSERT_EQ(samples[k].size(), 1) << "binding " << k;
         ASSERT_EQ(sample_json(samples[k]), expected[k]) << "binding " << k;
     }
 }
 
-/// @brief checks that a decoder for the messages of the fixture at path decodes its
-/// documents, or fails to create with its error.
-void check_fixture(const std::filesystem::path &path) {
-    const auto doc = testutil::read_fixture(path);
-    ASSERT_FALSE(string_at(doc, "/description").empty());
-    const auto messages = parse_messages(doc);
-    auto [dec, err] = JSON::create(messages);
+/// @brief checks that a Decoder for the messages of doc decodes its cases, or fails to
+/// create with its error.
+template<typename Decoder, typename Message>
+void check_codec(const std::string &doc) {
+    const auto messages = parse_messages<Message>(doc);
+    auto [dec, err] = Decoder::create(messages);
     if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-        ASSERT_EQ(err.data, error_data(expected));
+        ASSERT_EQ(err.data(), error_data(expected));
         return;
     }
     ASSERT_NIL(err);
@@ -149,10 +196,26 @@ void check_fixture(const std::filesystem::path &path) {
         check_case(dec, messages, doc, "/cases/" + std::to_string(i));
     }
 }
+
+/// @brief checks the fixture at path with the decoder of the payload format of its
+/// messages.
+void check_fixture(const std::filesystem::path &path) {
+    const auto doc = testutil::read_fixture(path);
+    ASSERT_FALSE(string_at(doc, "/description").empty());
+    const auto format = string_at(doc, "/messages/0/payload/format");
+    if (format == "json")
+        check_codec<JSON, JSONMessage>(doc);
+    else if (format == "text")
+        check_codec<Text, TextMessage>(doc);
+    else if (format == "binary")
+        check_codec<Binary, BinaryMessage>(doc);
+    else
+        FAIL() << "unknown payload format " << format;
+}
 }
 
-/// @brief it should decode the documents of every decode fixture of the Core, or reject
-/// its messages with the same error.
+/// @brief it should decode the documents, lines, or frames of every decode fixture of
+/// the Core, or reject its messages with the same error.
 TEST(DecodeFixtures, MatchTheCore) {
     const auto paths = testutil::fixture_paths(FIXTURES);
     ASSERT_FALSE(paths.empty());

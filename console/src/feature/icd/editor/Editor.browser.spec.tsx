@@ -768,6 +768,67 @@ describe("ICD editor", () => {
     );
   });
 
+  describe("adding a JSON field", () => {
+    const addField = async (ic: icd.ICD): Promise<void> => {
+      await renderEditor(ic);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields).toHaveLength(2),
+      );
+    };
+
+    const storedPointers = async (ic: icd.ICD): Promise<string[]> =>
+      (await retrieveMessage(ic.key)).payload.fields.map((f) =>
+        "pointer" in f ? f.pointer : "",
+      );
+
+    it("should select the name of the added field, so typing replaces it", async () => {
+      await addField(
+        await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]),
+      );
+      const name = cell("Name", 2);
+      await waitFor(() => expect(document.activeElement).toBe(name));
+      expect(name.value).toBe("Field 2");
+      expect([name.selectionStart, name.selectionEnd]).toEqual([0, "Field 2".length]);
+    });
+
+    it("should move the pointer of the added field when it is renamed", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Name", 2, "Inlet temp");
+      await waitFor(async () =>
+        expect(await storedPointers(ic)).toEqual(["/temp", "/inlet_temp"]),
+      );
+    });
+
+    it("should keep the pointer of a field the message already had when it is renamed", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Name", 1, "Outlet");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields[0].name).toBe("Outlet"),
+      );
+      expect(await storedPointers(ic)).toEqual(["/temp", "/field_2"]);
+    });
+
+    it("should keep the pointer of the added field once the user edits it", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Pointer", 2, "/flow/rate");
+      await commit("Name", 2, "Flow");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields[1].name).toBe("Flow"),
+      );
+      expect(await storedPointers(ic)).toEqual(["/temp", "/flow/rate"]);
+    });
+  });
+
   it("should store the type of a binary field", async () => {
     const ic = await createICD([createMessage([createBinaryField("Temp", 0)])]);
     await renderEditor(ic);

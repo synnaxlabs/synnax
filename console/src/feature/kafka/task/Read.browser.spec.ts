@@ -21,6 +21,7 @@ import {
   holdRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import {
   array,
   DataType,
@@ -33,6 +34,7 @@ import {
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { server, userEvent } from "vitest/browser";
 
 import { Kafka } from "@/feature/kafka";
 import {
@@ -45,7 +47,12 @@ import {
 } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
-import { pickMessageFormat, retype } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  pickNewMessage,
+  retype,
+  searchMessageFormats,
+} from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -399,6 +406,8 @@ describe("Kafka read form", () => {
       expect(screen.getAllByRole("treeitem", { name: /JSON.*Any key/ })).toHaveLength(
         2,
       );
+      expect(treatment(screen.getByText("plant"))).toBe("prose");
+      expect(treatment(screen.getAllByText("Any key")[0])).toBe("prose");
     });
 
     it("should show no topics for a new task", async () => {
@@ -446,7 +455,7 @@ describe("Kafka read form", () => {
       const icds = new Set(topics.flatMap(({ records }) => records.map((r) => r.icd)));
       expect(icds.size).toBe(1);
       const { messages } = await client.icds.retrieve([...icds][0]);
-      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "pump"]);
+      expect(messages.map(({ name }) => name)).toEqual(["kiln oven-1", "plant pump"]);
       await screen.findByRole("treeitem", { name: /Topic.*kiln/ });
       await screen.findByRole("treeitem", { name: /Topic.*plant/ });
     });
@@ -481,7 +490,7 @@ describe("Kafka read form", () => {
       const icds = new Set(topics.flatMap(({ records }) => records.map((r) => r.icd)));
       expect(icds.size).toBe(1);
       const { messages } = await client.icds.retrieve([...icds][0]);
-      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "Any key"]);
+      expect(messages.map(({ name }) => name)).toEqual(["kiln oven-1", "plant"]);
     });
 
     it("should describe the topic and group its fields by record", async () => {
@@ -675,6 +684,36 @@ describe("Kafka read form", () => {
       dialog.getByRole("checkbox", { name: "Record /temperature" });
     });
 
+    // WebKit tabs to a button only when the user turns on full keyboard access.
+    it.runIf(server.browser === "chromium")(
+      "should read a typed topic that no topic matches from the keyboard",
+      async () => {
+        const { dev } = await renderRead({ empty: true });
+        await screen.findByText("No topics");
+        const scan = await createScanTask(client, dev);
+        const first = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: { topics: [listTopic("alarms")], truncated: true } },
+          sample: { data: sampleOfTopic("alarms") },
+        });
+        const dialog = await clickAddData();
+        await first.answered;
+        await dialog.findByText("1 topic, list is full");
+        const second = await answerCommandsUntil(client, [scan], "sample", {
+          sample: { data: sampleOfTopic("plant", OVEN_SHAPE) },
+        });
+        const search = dialog.getByPlaceholderText("Search topics");
+        fireEvent.change(search, { target: { value: "plant" } });
+        const action = await dialog.findByRole("button", { name: "Read “plant”" });
+        search.focus();
+        // The topic tree takes focus before its empty content.
+        await userEvent.tab();
+        await userEvent.tab();
+        expect(document.activeElement).toBe(action);
+        await userEvent.keyboard("{Enter}");
+        expect((await second.answered)[0].args.topics).toEqual(["plant"]);
+      },
+    );
+
     it("should keep the topics of the task when the browse fails", async () => {
       const { dev } = await renderRead();
       const scan = await createScanTask(client, dev);
@@ -797,8 +836,29 @@ describe("Kafka read form", () => {
         expect(dialog.queryByRole("checkbox", { name: `Pick ${TOPIC}` })).toBeNull(),
       );
       dialog.getByRole("checkbox", { name: "Pick plant" });
+      dialog.getByRole("button", { name: "Read “pla”" });
       fireEvent.change(search, { target: { value: "boiler" } });
       await dialog.findByText("No topic matches “boiler”.");
+      const empty = dialog.getByText("No topic matches “boiler”.");
+      within(empty).getByRole("button", { name: "Read “boiler”" });
+      expect(dialog.getAllByRole("button", { name: "Read “boiler”" })).toHaveLength(1);
+    });
+
+    it("should clear the pane while the search hides the active topic", async () => {
+      const { dev } = await renderRead();
+      const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
+      const sample = { data: sampleOf(OVEN_SHAPE) };
+      const dialog = await openAddData(dev, sample, TOPIC, browse);
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.change(search, { target: { value: "boiler" } });
+      await dialog.findByText("Select a topic to see its records.");
+      expect(
+        dialog.queryByRole("checkbox", { name: "Record /temperature" }),
+      ).toBeNull();
+      expect(dialog.queryByText("Add an empty record")).toBeNull();
+      fireEvent.change(search, { target: { value: "" } });
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
     });
 
     it("should open Add data on the topic of the selected record", async () => {
@@ -863,7 +923,7 @@ describe("Kafka read form", () => {
   });
 
   describe("records", () => {
-    it("should create an ICD named after the task for the first record", async () => {
+    it("should create an ICD named after the device for the first record", async () => {
       const { draft, dev } = await renderRead();
       await screen.findByRole("treeitem", { name: /Topic.*oven/ });
       const dialog = await openAddData(dev, { data: sampleOf() });
@@ -876,11 +936,11 @@ describe("Kafka read form", () => {
       });
       expect(rec).toMatchObject({ recordKey: "", disabled: false });
       const format = await client.icds.retrieve(rec.icd);
-      expect(format.name).toBe("Kafka read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toMatchObject([
         {
           key: rec.messages[0].message,
-          name: "Any key",
+          name: "oven",
           payload: { format: "json", fields: [] },
         },
       ]);
@@ -901,7 +961,7 @@ describe("Kafka read form", () => {
       });
       expect(records[1].icd).toBe(records[0].icd);
       const { messages } = await client.icds.retrieve(records[0].icd);
-      expect(messages.map(({ name }) => name)).toEqual(["Any key", "Any key 2"]);
+      expect(messages.map(({ name }) => name)).toEqual(["Any key", "oven"]);
       expect(records[1].messages[0].message).toBe(messages[1].key);
     });
 
@@ -1083,11 +1143,11 @@ describe("Kafka read form", () => {
       });
       expect(records.map(({ recordKey }) => recordKey)).toEqual(["oven-1", "oven-2"]);
       const format = await client.icds.retrieve(records[0].icd);
-      expect(format.name).toBe("Kafka read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toHaveLength(1);
       const [message] = format.messages;
       expect(message).toMatchObject({
-        name: "oven-1",
+        name: "oven oven-1",
         payload: {
           format: "json",
           fields: [
@@ -1143,9 +1203,12 @@ describe("Kafka read form", () => {
       });
       const { messages } = await client.icds.retrieve(records[0].icd);
       expect(messages).toMatchObject([
-        { name: "pump rpm", payload: { match: { type: "present", pointer: "/rpm" } } },
         {
-          name: "pump fault",
+          name: "oven pump rpm",
+          payload: { match: { type: "present", pointer: "/rpm" } },
+        },
+        {
+          name: "oven pump fault",
           payload: { match: { type: "present", pointer: "/fault" } },
         },
       ]);
@@ -1176,7 +1239,7 @@ describe("Kafka read form", () => {
       });
       const { messages } = await client.icds.retrieve(record.icd);
       const pointers = (m: icd.Message) => ICD.jsonFields(m).map((f) => f.pointer);
-      expect(messages.map(({ name }) => name)).toEqual(["pump", "pump fault"]);
+      expect(messages.map(({ name }) => name)).toEqual(["pump", "oven pump fault"]);
       expect(messages.map(pointers)).toEqual([
         ["/time", "/rpm", "/temp"],
         ["/time", "/fault"],
@@ -1190,6 +1253,49 @@ describe("Kafka read form", () => {
         index: faultTime.key,
       });
       expect(record.messages.map(({ bindings }) => bindings.length)).toEqual([3, 2]);
+    });
+
+    it("should give a field that two kinds of one held message share the labels of both", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float")],
+        recordKey: "pump",
+        index: time.key,
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const withState = (kind: ReturnType<typeof createKind>, labels: string[]) => ({
+        ...kind,
+        fields: [
+          ...kind.fields,
+          { ...createInferredField("/state", "string", "string"), enum: labels },
+        ],
+      });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(
+          withState(createKind("/rpm"), ["OFF", "ON"]),
+          withState(createKind("/fault"), ["FAULT", "OFF"]),
+        ),
+      });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+      await waitFor(async () => {
+        const [record] = await retrieveRecords(draft.key);
+        const { messages } = await client.icds.retrieve(record.icd);
+        expect(ICD.jsonFields(messages[0])).toMatchObject([
+          { pointer: "/time" },
+          { pointer: "/rpm" },
+          {
+            pointer: "/state",
+            type: "integer",
+            enumValues: [
+              { label: "FAULT", value: "0" },
+              { label: "OFF", value: "1" },
+              { label: "ON", value: "2" },
+            ],
+          },
+          { pointer: "/fault" },
+        ]);
+      });
     });
 
     it("should offer a field of a kind that only the message of another kind reads", async () => {
@@ -1305,6 +1411,44 @@ describe("Kafka read form", () => {
       });
     });
 
+    it("should add a string field with enum labels as an integer with a value for each label", async () => {
+      const { draft, dev } = await renderRead();
+      const pump = {
+        sources: ["pump"],
+        fields: [
+          { ...createInferredField("/state", "string", "string"), enum: ["OFF", "ON"] },
+        ],
+        index: -1,
+        count: 3,
+        present: -1,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(pump) });
+      const state = await dialog.findByRole("checkbox", { name: "Record /state" });
+      const option = state.closest<HTMLElement>('[role="option"]');
+      assertDefined(option);
+      within(option).getByText("int64");
+      fireEvent.click(state);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages[0].payload).toMatchObject({
+        fields: [
+          {
+            pointer: "/state",
+            type: "integer",
+            enumValues: [
+              { label: "OFF", value: "0" },
+              { label: "ON", value: "1" },
+            ],
+          },
+        ],
+      });
+    });
+
     it("should name fields apart when their pointers give one name", async () => {
       const { draft, dev } = await renderRead();
       const pump = {
@@ -1378,7 +1522,7 @@ describe("Kafka read form", () => {
       expect(records[1]).toMatchObject({ icd: records[0].icd, recordKey: "pump" });
       expect(records[1].messages[0].index).toBeUndefined();
       const { messages } = await client.icds.retrieve(records[0].icd);
-      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "pump"]);
+      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "oven pump"]);
       expect(messages[1].payload).toMatchObject({
         fields: [{ name: "pressure", pointer: "/pressure", type: "integer" }],
       });
@@ -1882,7 +2026,7 @@ describe("Kafka read form", () => {
       });
       expect(records.map(({ recordKey }) => recordKey)).toEqual(["oven-1", "oven-2"]);
       const { messages } = await client.icds.retrieve(records[1].icd);
-      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "oven-2"]);
+      expect(messages.map(({ name }) => name)).toEqual(["oven-1", "oven oven-2"]);
     });
 
     it("should say that some records are unread when a sample has shapes and an error", async () => {
@@ -1901,7 +2045,7 @@ describe("Kafka read form", () => {
       dialog.getByRole("checkbox", { name: "Record /temperature" });
     });
 
-    it("should name the message of keyless records Any key and read the empty key", async () => {
+    it("should read keyless records into a message named after the topic", async () => {
       const { draft, dev } = await renderRead();
       const keyless = { ...OVEN_SHAPE, sources: [""] };
       const dialog = await openAddData(dev, { data: sampleOf(keyless) });
@@ -1915,7 +2059,7 @@ describe("Kafka read form", () => {
       });
       expect(rec.recordKey).toBe("");
       const { messages } = await client.icds.retrieve(rec.icd);
-      expect(messages.map(({ name }) => name)).toEqual(["Any key"]);
+      expect(messages.map(({ name }) => name)).toEqual(["oven"]);
     });
   });
 
@@ -2161,13 +2305,13 @@ describe("Kafka read form", () => {
       const { draft } = await renderRead({ records: [rec] });
       fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
       fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
-      await screen.findByDisplayValue("Any key 3");
+      await screen.findByDisplayValue("oven 3");
       expect(screen.getByDisplayValue("/kind")).toBeTruthy();
       await waitFor(async () => {
         const { messages } = await client.icds.retrieve({ key: rec.icd });
         expect(messages).toHaveLength(3);
         expect(messages[2]).toMatchObject({
-          name: "Any key 3",
+          name: "oven 3",
           payload: { format: "json", match: { ...KIND_MATCH, value: "" }, fields: [] },
         });
         const reads = (await retrieveRecords(draft.key))[0].messages;
@@ -2186,10 +2330,21 @@ describe("Kafka read form", () => {
         await screen.findByRole("treeitem", { name: /JSON.*Any key/ }),
       );
       fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-      await screen.findByRole("treeitem", { name: /^Any key 2/ });
+      await screen.findByRole("treeitem", { name: /^oven 2/ });
       await waitFor(async () =>
         expect((await retrieveRecords(draft.key))[0].messages).toHaveLength(2),
       );
+    });
+
+    it("should name a message of a topic with no name after its record", async () => {
+      await renderRead({
+        topics: [await createTopic("", [createField("pressure", "float")])],
+      });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /JSON.*Any key/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
+      await screen.findByRole("treeitem", { name: /^Any key 2/ });
     });
 
     it("should name the match of a message that takes every value Any value", async () => {
@@ -2219,6 +2374,37 @@ describe("Kafka read form", () => {
       );
       const { messages } = await client.icds.retrieve({ key: rec.icd });
       expect(messages.map(({ key }) => key)).toContain(status.key);
+    });
+
+    it("should read a new message in the ICD of the record", async () => {
+      const { draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      await pickNewMessage("Any key", "New JSON message");
+      await waitFor(async () => {
+        const [rec] = await retrieveRecords(draft.key);
+        const { messages } = await client.icds.retrieve({ key: rec.icd });
+        expect(messages).toHaveLength(2);
+        expect(messages[1].payload).toEqual({ format: "json", fields: [] });
+        expect(rec.messages).toMatchObject([
+          { message: messages[1].key, bindings: [] },
+        ]);
+      });
+    });
+
+    it("should offer no new message to a user who cannot update the ICD", async () => {
+      const reader = await createICDReaderClient();
+      const { draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+        as: reader,
+      });
+      const [rec] = await retrieveRecords(draft.key);
+      const { name } = await client.icds.retrieve({ key: rec.icd });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      const dialog = await searchMessageFormats("Any key", name);
+      await dialog.findByRole("option", { name: new RegExp(name) });
+      expect(dialog.queryByRole("option", { name: "New JSON message" })).toBeNull();
     });
 
     it("should read a message of another ICD with each of its fields", async () => {
@@ -2281,7 +2467,7 @@ describe("Kafka read form", () => {
         expect(next).toHaveLength(1);
         return next;
       });
-      await pickMessageFormat("Any key", message.name, shared.name);
+      await pickMessageFormat("plant", message.name, shared.name);
       await waitFor(async () =>
         expect((await client.icds.retrieve({ key: rec.icd })).messages).toEqual([]),
       );

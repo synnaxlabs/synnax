@@ -102,11 +102,11 @@ TEST(Client, FailWhenPeerCloses) {
     const auto port = std::to_string(s.port());
     const auto [chunk, err] = client->read(TIMEOUT);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
-    EXPECT_EQ(err.data, "failed to read from 127.0.0.1:" + port + ": End of file");
+    EXPECT_EQ(err.data(), "failed to read from 127.0.0.1:" + port + ": End of file");
     ASSERT_OCCURRED_AS_P(client->read(TIMEOUT), transport::UNREACHABLE_ERROR);
     const auto written = client->write(bytes("x"), TIMEOUT);
     ASSERT_OCCURRED_AS(written, transport::UNREACHABLE_ERROR);
-    EXPECT_EQ(written.data, err.data);
+    EXPECT_EQ(written.data(), err.data());
 }
 
 /// @brief it should fail a write that the peer does not take before the timeout, and
@@ -123,11 +123,11 @@ TEST(Client, FailWriteAtTimeout) {
     if (!err) err = client->write(big, 50 * x::telem::MILLISECOND);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to write to 127.0.0.1:" + std::to_string(s.port()) + ": " +
             std::make_error_code(std::errc::timed_out).message()
     );
-    EXPECT_EQ(client->write(bytes("x"), TIMEOUT).data, err.data);
+    EXPECT_EQ(client->write(bytes("x"), TIMEOUT).data(), err.data());
 }
 
 /// @brief it should fail to connect to a port with no listener.
@@ -140,7 +140,7 @@ TEST(Client, FailWhenRefused) {
     const auto err = Client::connect("127.0.0.1", port, CONNECT_TIMEOUT).second;
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     const auto prefix = "failed to connect to 127.0.0.1:" + std::to_string(port) + ": ";
-    EXPECT_TRUE(err.data.starts_with(prefix)) << err.data;
+    EXPECT_TRUE(err.data().starts_with(prefix)) << err.data();
 }
 
 /// @brief it should connect through a host name to the first of its addresses that
@@ -169,31 +169,32 @@ TEST(Client, FailWhenPeerResets) {
     reset();
     const auto read = reader->read(TIMEOUT).second;
     ASSERT_OCCURRED_AS(read, transport::UNREACHABLE_ERROR);
-    EXPECT_TRUE(read.data.starts_with(prefix("read from"))) << read.data;
+    EXPECT_TRUE(read.data().starts_with(prefix("read from"))) << read.data();
     auto writer = s.connect();
     reset();
     x::errors::Error written;
     for (int i = 0; i < 100 && !written; i++)
         written = writer->write(bytes("x"), TIMEOUT);
     ASSERT_OCCURRED_AS(written, transport::UNREACHABLE_ERROR);
-    EXPECT_TRUE(written.data.starts_with(prefix("write to"))) << written.data;
+    EXPECT_TRUE(written.data().starts_with(prefix("write to"))) << written.data();
 }
 
 /// @brief it should fail to connect to a host that does not resolve.
 TEST(Client, FailWhenHostDoesNotResolve) {
     const auto err = Client::connect("host.invalid", 80, TIMEOUT).second;
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
-    EXPECT_TRUE(err.data.starts_with("failed to resolve host.invalid: ")) << err.data;
+    EXPECT_TRUE(err.data().starts_with("failed to resolve host.invalid: "))
+        << err.data();
 }
 
 /// @brief it should refuse an empty host and port 0.
 TEST(Client, RefuseInvalidAddress) {
     const auto host = Client::connect("", 80, TIMEOUT).second;
     ASSERT_OCCURRED_AS(host, transport::CONFIG_ERROR);
-    EXPECT_EQ(host.data, "the host is empty");
+    EXPECT_EQ(host.data(), "the host is empty");
     const auto port = Client::connect("127.0.0.1", 0, TIMEOUT).second;
     ASSERT_OCCURRED_AS(port, transport::CONFIG_ERROR);
-    EXPECT_EQ(port.data, "the port is 0");
+    EXPECT_EQ(port.data(), "the port is 0");
 }
 
 /// @brief it should turn on keepalive probes on a socket.

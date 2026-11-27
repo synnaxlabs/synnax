@@ -312,7 +312,7 @@ TEST(CertificateTest, CheckKeyMismatched) {
     const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     const auto err = cert.check_key(KEY_B);
     ASSERT_MATCHES(err, KEY_INVALID);
-    ASSERT_EQ(err.data, "The private key does not match the certificate.");
+    ASSERT_EQ(err.data(), "The private key does not match the certificate.");
 }
 
 /// @brief it should reject a private key that needs a password.
@@ -320,7 +320,7 @@ TEST(CertificateTest, CheckKeyEncrypted) {
     const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     const auto err = cert.check_key(KEY_ENCRYPTED);
     ASSERT_MATCHES(err, KEY_INVALID);
-    ASSERT_EQ(err.data, "The private key needs a password, which is not supported.");
+    ASSERT_EQ(err.data(), "The private key needs a password, which is not supported.");
 }
 
 /// @brief it should reject data that holds no private key.
@@ -328,6 +328,7 @@ TEST(CertificateTest, CheckKeyGarbage) {
     const auto cert = ASSERT_NIL_P(Certificate::parse(testutil::CERTIFICATE));
     const auto err = cert.check_key("not a key");
     ASSERT_MATCHES(err, KEY_INVALID);
-    ASSERT_TRUE(err.data.starts_with("Failed to parse the private key: ")) << err.data;
+    ASSERT_TRUE(err.data().starts_with("Failed to parse the private key: "))
+        << err.data();
 }
 }

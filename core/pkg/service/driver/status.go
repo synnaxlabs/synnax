@@ -109,10 +109,10 @@ func (h *StatusHandler) Warn(ctx context.Context, w Warning) error {
 	return nil
 }
 
-// ClearWarning restores the status that the active warning replaced. It writes
+// clearWarning restores the status that the active warning replaced. It writes
 // nothing when no warning is active. A failed write leaves the warning active, so the
 // next call clears it again.
-func (h *StatusHandler) ClearWarning(ctx context.Context) error {
+func (h *StatusHandler) clearWarning(ctx context.Context) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.stat.Variant != status.VariantWarning {
@@ -200,7 +200,8 @@ type ConfigReporter struct {
 // Report reports err for t, which failed to configure, with an error status that
 // answers cmdKey, or NoCommand at boot. When the stored status shows the task running
 // on its rack, the driver keeps the instance of its last deploy, so the status keeps
-// the running state and the config hash of that deploy.
+// the running state and the config hash of that deploy. Otherwise no instance runs, so
+// the status carries no config hash.
 func (r ConfigReporter) Report(
 	ctx context.Context,
 	t task.Task,
@@ -214,7 +215,7 @@ func (r ConfigReporter) Report(
 			Variant:     status.VariantError,
 			Message:     "Failed to configure task",
 			Description: err.Error(),
-			Details:     task.NewStatusDetails(t, false),
+			Details:     task.StatusDetails{Rack: t.Rack},
 		}
 		var prev task.Status
 		rErr := r.Status.NewRetrieve[task.StatusDetails]().

@@ -38,6 +38,9 @@ type Binding struct {
 type Failure struct {
 	// Binding is the index of the field's binding in its message.
 	Binding int
+	// Missing is true when the payload has no value for the field, and the field has no
+	// default.
+	Missing bool
 	// Err names the field, and also the message when the decoder holds more than one.
 	Err error
 }
@@ -134,28 +137,35 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 	return j, nil
 }
 
-// boundFields returns the field that each binding of m names, in binding order. It
-// returns an error wrapping validate.ErrValidation when a binding names no field of m.
-func (m JSONMessage) boundFields() ([]icd.JSONField, error) {
-	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
-	for _, f := range m.Payload.Fields {
-		byKey[f.Base().Key] = f
+// boundFields returns the field of fields that each binding names, in binding order.
+// key returns the key of a field. It returns an error wrapping validate.ErrValidation
+// when a binding names no field.
+func boundFields[F any](
+	fields []F,
+	key func(F) icd.FieldKey,
+	bindings []Binding,
+) ([]F, error) {
+	byKey := make(map[icd.FieldKey]F, len(fields))
+	for _, f := range fields {
+		byKey[key(f)] = f
 	}
-	fields := make([]icd.JSONField, len(m.Bindings))
-	for i, b := range m.Bindings {
+	bound := make([]F, len(bindings))
+	for i, b := range bindings {
 		f, ok := byKey[b.Field]
 		if !ok {
 			return nil, errors.Wrapf(
 				validate.ErrValidation, "field %s does not exist", b.Field,
 			)
 		}
-		fields[i] = f
+		bound[i] = f
 	}
-	return fields, nil
+	return bound, nil
 }
 
+func jsonKey(f icd.JSONField) icd.FieldKey { return f.Base().Key }
+
 func newJSONMessage(m JSONMessage) (jsonMessage, error) {
-	fields, err := m.boundFields()
+	fields, err := boundFields(m.Payload.Fields, jsonKey, m.Bindings)
 	if err != nil {
 		return jsonMessage{}, err
 	}
@@ -468,7 +478,10 @@ func (j *JSON) Decode(
 func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 	for i := range m.fields {
 		f := &m.fields[i]
-		var err error
+		var (
+			err     error
+			missing bool
+		)
 		if payload.Absent(m.values[i], f.dataType) {
 			switch {
 			case f.generate != nil:
@@ -476,6 +489,7 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 			case f.fallback != nil:
 				samples[i] = append(samples[i], f.fallback...)
 			default:
+				missing = true
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
 				)
@@ -489,6 +503,7 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 		if err != nil {
 			failures = append(failures, Failure{
 				Binding: i,
+				Missing: missing,
 				Err:     errors.Wrapf(err, "field %s", f.name),
 			})
 		}

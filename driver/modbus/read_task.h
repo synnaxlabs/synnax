@@ -259,7 +259,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         auto [dev, dev_err] = client->devices.retrieve(this->device_key);
         if (dev_err) {
-            cfg.field_err("device", dev_err.data);
+            cfg.field_err("device", dev_err.data());
             return;
         }
 
@@ -366,7 +366,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             std::vector(keys.begin(), keys.end())
         );
         if (err) {
-            cfg.field_err("channels", err.data);
+            cfg.field_err("channels", err.data());
             return;
         }
         std::unordered_map<synnax::channel::Key, synnax::channel::Channel> by_key;

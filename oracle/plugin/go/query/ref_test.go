@@ -523,33 +523,34 @@ var _ = Describe("@ref", func() {
 			"a required key",
 			`rack rack.Key @ref on_delete restrict @ref kind use`,
 			[]string{
-				"Retarget: func(e *Device, from, to rack.Key) {",
-				"if e.Rack == from {",
-				"e.Rack = to",
+				"Retarget: func(e *Device, to map[rack.Key]rack.Key) {",
+				"if t, ok := to[e.Rack]; ok {",
+				"e.Rack = t",
 			},
 		),
 		Entry(
 			"a key with a zero default",
 			`spare rack.Key = 0 @ref on_delete detach @ref kind use`,
-			[]string{"if e.Spare == from {", "e.Spare = to"},
+			[]string{"if t, ok := to[e.Spare]; ok {", "e.Spare = t"},
 		),
 		Entry(
 			"an optional key",
 			`shelf rack.Key? @ref on_delete detach @ref kind use`,
-			[]string{"if e.Shelf != nil && *e.Shelf == from {", "*e.Shelf = to"},
+			[]string{
+				"if e.Shelf != nil {",
+				"if t, ok := to[*e.Shelf]; ok {",
+				"*e.Shelf = t",
+			},
 		),
 		Entry(
-			"an array of keys, dropping from when it holds to",
+			"an array of keys, through RetargetEach",
 			`labels label.Key[] @ref on_delete restrict @ref kind use`,
 			[]string{
-				`"slices"`,
-				"if slices.ContainsFunc(e.Labels, func(k1 label.Key) bool {",
-				"return k1 == to",
-				"e.Labels = slices.DeleteFunc(e.Labels, func(k1 label.Key) bool {",
-				"return k1 == from",
-				"for i2 := range e.Labels {",
-				"if e.Labels[i2] == from {",
-				"e.Labels[i2] = to",
+				"e.Labels = gorp.RetargetEach(",
+				"func(k1 label.Key) label.Key {",
+				"return k1",
+				"func(k1 *label.Key, t label.Key) {",
+				"*k1 = t",
 			},
 		),
 		Entry(
@@ -562,9 +563,9 @@ var _ = Describe("@ref", func() {
 				}
 			}`,
 			[]string{
-				"if (gorp.Target{Table: string(e.Holder.Type), Key: e.Holder.Key}) " +
-					"== from {",
-				"e.Holder.Key = to.Key",
+				"if t, ok := to[gorp.Target{Table: string(e.Holder.Type), " +
+					"Key: e.Holder.Key}]; ok {",
+				"e.Holder.Key = t.Key",
 			},
 		),
 		Entry(
@@ -577,13 +578,23 @@ var _ = Describe("@ref", func() {
 				}
 			}`,
 			[]string{
-				"Retarget: func(e *Device, from, to gorp.Target) {",
-				"if e.Holder != nil && (gorp.Target{Table: string((*e.Holder).Type), " +
-					"Key: (*e.Holder).Key}) == from {",
-				"e.Holder.Key = to.Key",
+				"Retarget: func(e *Device, to map[gorp.Target]gorp.Target) {",
+				"if e.Holder != nil {",
+				"if t, ok := to[gorp.Target{Table: string((*e.Holder).Type), " +
+					"Key: (*e.Holder).Key}]; ok {",
+				"e.Holder.Key = t.Key",
 			},
 		),
 	)
+
+	It("Should import no slices package for an array reference with no Detach", func() {
+		resp := MustGenerate(device(`
+			labels label.Key[] @ref on_delete restrict @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain("gorp.RetargetEach(").
+			ToNotContain(`"slices"`)
+	})
 
 	It("Should always hold the target of a required field", func() {
 		resp := MustGenerate(device(`
@@ -1259,10 +1270,10 @@ var _ = Describe("@ref", func() {
 				alerts Alert[]
 			`).
 				ToContain(
-					"Retarget: func(e *ReadConfig, from, to label.Key) {",
+					"Retarget: func(e *ReadConfig, to map[label.Key]label.Key) {",
 					"for i3 := range e.Alerts {",
-					"if e.Alerts[i3].Tag == from {",
-					"e.Alerts[i3].Tag = to",
+					"if t, ok := to[e.Alerts[i3].Tag]; ok {",
+					"e.Alerts[i3].Tag = t",
 				).
 				ToNotContain("slices.ContainsFunc")
 		})
@@ -1287,8 +1298,8 @@ var _ = Describe("@ref", func() {
 					"if v3 == t {",
 					"delete(e.Ports.Channels, k2)",
 					"for k4, v5 := range e.Ports.Channels {",
-					"if v5 == from {",
-					"v5 = to",
+					"if t, ok := to[v5]; ok {",
+					"v5 = t",
 					"e.Ports.Channels[k4] = v5",
 				)
 		})
@@ -1310,8 +1321,8 @@ var _ = Describe("@ref", func() {
 					"v2.Command = 0",
 					"e.Lines[k3] = v2",
 					"for k5, v4 := range e.Lines {",
-					"if v4.Command == from {",
-					"v4.Command = to",
+					"if t, ok := to[v4.Command]; ok {",
+					"v4.Command = t",
 					"e.Lines[k5] = v4",
 				)
 		})
@@ -1364,9 +1375,9 @@ var _ = Describe("@ref", func() {
 			`, `
 				axes Axes
 			`, []string{
-				"for i5, k6 := range e.Axes.Y1 {",
-				"if k6 == t {",
-				`return []string{"axes", "y1", strconv.Itoa(i5)}`,
+				"for i4, k5 := range e.Axes.Y1 {",
+				"if k5 == t {",
+				`return []string{"axes", "y1", strconv.Itoa(i4)}`,
 			}),
 			Entry("an optional key in an array of structs", `
 				Entry struct {
@@ -1473,10 +1484,10 @@ var _ = Describe("@ref", func() {
 				channels Channel[]
 			`).
 				ToContain(
-					"Retarget: func(e *ReadConfig, from, to channel.Key) {",
+					"Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {",
 					"switch v6 := e.Channels[i5].Variant.(type) {",
-					"if v6.Channel == from {",
-					"v6.Channel = to",
+					"if t, ok := to[v6.Channel]; ok {",
+					"v6.Channel = t",
 					"e.Channels[i5].Variant = v6",
 				)
 		})
@@ -1499,12 +1510,12 @@ var _ = Describe("@ref", func() {
 				rack    rack.Key = 0 @ref on_delete restrict @ref kind use
 			`).
 					ToContain(
-						"Retarget: func(e *ReadConfig, from, to gorp.Target) {",
-						"if slices.ContainsFunc(e.Entries[i5].Owners, "+
-							"func(k6 resource.ID) bool {",
-						"return (gorp.Target{Table: string(k6.Type), Key: k6.Key}) "+
-							"== to",
-						"e.Entries[i5].Owners[i7].Key = to.Key",
+						"Retarget: func(e *ReadConfig, to map[gorp.Target]gorp.Target) {",
+						"e.Entries[i5].Owners = gorp.RetargetEach(",
+						"func(k6 resource.ID) gorp.Target {",
+						"return gorp.Target{Table: string(k6.Type), Key: k6.Key}",
+						"func(k6 *resource.ID, t gorp.Target) {",
+						"k6.Key = t.Key",
 					)
 			},
 		)

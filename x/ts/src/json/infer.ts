@@ -12,19 +12,6 @@ import { z } from "zod";
 import { pointerZ, primitiveTypeZ } from "@/json/json";
 import { payload } from "@/payload";
 
-/** The encodings of a timestamp in a JSON value. */
-export const TIME_FORMATS = [
-  "iso8601",
-  "unix_sec",
-  "unix_ms",
-  "unix_us",
-  "unix_ns",
-] as const;
-
-export const timeFormatZ = z.enum(TIME_FORMATS);
-
-export type TimeFormat = z.infer<typeof timeFormatZ>;
-
 /** A field that the Core inferred from a set of JSON documents. */
 export const inferredFieldZ = z.object({
   /** pointer locates the field in each document. */
@@ -34,15 +21,9 @@ export const inferredFieldZ = z.object({
   /** type is the JSON type of most values of the field. */
   type: primitiveTypeZ.exclude(["null"]),
   /** timeFormat is the encoding of a timestamp field. Undefined for any other field. */
-  timeFormat: timeFormatZ.optional(),
+  timeFormat: payload.timeFormatZ.optional(),
   /** enum holds the labels of a string field with few distinct values. */
   enum: z.array(z.string()),
-  /** count is the number of documents that hold the field. */
-  count: z.number(),
-  /**
-   * mismatched is the number of values that a payload field of the kind cannot hold.
-   */
-  mismatched: z.number(),
 });
 
 export interface InferredField extends z.infer<typeof inferredFieldZ> {}

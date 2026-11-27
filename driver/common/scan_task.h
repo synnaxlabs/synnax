@@ -89,10 +89,13 @@ struct ScannerContext {
 /// @brief Configuration for a scanner, defining its make and signal monitoring
 /// behavior.
 struct ScannerConfig {
-    /// @brief The make/integration name for device filtering (e.g., "opc", "ni").
-    std::string make;
+    /// @brief the make of the devices that the scan task keeps in the device table,
+    /// such as "opc". Absent for a scanner that keeps its own resources.
+    std::optional<std::string> make;
     /// @brief Log prefix for this scanner (e.g., "[opc] ", "[ni] ").
     std::string log_prefix;
+    /// @brief the names of the channels whose frames go to Scanner::on_signal.
+    std::vector<std::string> signals;
 };
 
 struct Scanner {
@@ -131,6 +134,12 @@ struct Scanner {
 
     /// @brief Called when a device is set/updated via the signal channel.
     virtual void on_device_set(const synnax::device::Device &dev) {}
+
+    /// @brief called from the signal thread with each series that a channel in
+    /// config().signals carries. It runs concurrently with scan() and exec(), so the
+    /// scanner synchronizes its own state.
+    virtual void
+    on_signal(const synnax::channel::Channel &ch, const x::telem::Series &series) {}
 };
 
 struct ClusterAPI {
@@ -231,6 +240,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
 class ScanTask final : public task::Task, public pipeline::Base {
     const synnax::task::Task task;
     x::loop::Timer timer;
+    const bool is_disabled;
     std::unique_ptr<Scanner> scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::task::Status status;
@@ -261,6 +271,8 @@ class ScanTask final : public task::Task, public pipeline::Base {
     // Signal monitoring infrastructure
     synnax::channel::Channel device_set_channel;
     synnax::channel::Channel device_delete_channel;
+    /// @brief the channels of config().signals by key.
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> scanner_signals;
     std::unique_ptr<pipeline::Streamer> signal_streamer;
     std::thread signal_thread;
     std::mutex mu;
@@ -287,6 +299,19 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->send_status();
     }
 
+    /// @brief answers a start or a stop that changes nothing with the disabled status,
+    /// or with the current status when the scan task is enabled.
+    void send_unchanged() {
+        if (this->is_disabled)
+            this->send_status(
+                synnax::status::VARIANT_DISABLED,
+                "Scanner disabled",
+                "Enable the scanner to scan for devices."
+            );
+        else
+            this->send_status();
+    }
+
     /// @brief sends a warning when the scan error changes, and a success once scans
     /// recover. replaced is whether a command answer replaced the status before the
     /// scan started, since a scan that started earlier can report stale data.
@@ -294,14 +319,14 @@ class ScanTask final : public task::Task, public pipeline::Base {
         const auto &[err, data] = res;
         if (err) {
             if (!replaced && this->status.variant == synnax::status::VARIANT_WARNING &&
-                this->status.description == err.data &&
+                this->status.description == err.data() &&
                 this->status.details.data == data)
                 return;
             LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
             this->send_status(
                 synnax::status::VARIANT_WARNING,
                 "Failed to scan for devices",
-                err.data,
+                err.data(),
                 data
             );
         } else if (replaced || this->status.variant != synnax::status::VARIANT_SUCCESS)
@@ -434,29 +459,41 @@ class ScanTask final : public task::Task, public pipeline::Base {
 
     /// @brief Starts signal monitoring thread for device set/delete events.
     x::errors::Error start_signal_monitoring() {
-        auto [channels, err] = this->client->retrieve_channels(
-            {synnax::device::SET_CHANNEL, synnax::device::DELETE_CHANNEL}
-        );
+        const auto cfg = this->scanner->config();
+        auto names = cfg.signals;
+        if (cfg.make.has_value()) {
+            names.push_back(synnax::device::SET_CHANNEL);
+            names.push_back(synnax::device::DELETE_CHANNEL);
+        }
+        if (names.empty()) return x::errors::NIL;
+        auto [channels, err] = this->client->retrieve_channels(names);
         if (err) return err;
 
+        std::vector<synnax::channel::Key> keys;
+        for (const auto &name: names)
+            if (std::ranges::none_of(channels, [&](const auto &ch) {
+                    return ch.name == name;
+                }))
+                LOG(WARNING) << this->log_prefix << "signal channel " << name
+                             << " does not exist";
         for (const auto &ch: channels) {
-            if (ch.name == synnax::device::SET_CHANNEL)
+            keys.push_back(ch.key);
+            if (std::ranges::find(cfg.signals, ch.name) != cfg.signals.end())
+                this->scanner_signals[ch.key] = ch;
+            else if (ch.name == synnax::device::SET_CHANNEL)
                 this->device_set_channel = ch;
             else if (ch.name == synnax::device::DELETE_CHANNEL)
                 this->device_delete_channel = ch;
         }
+        if (keys.empty()) return x::errors::NIL;
 
         auto [s, open_err] = this->client->open_streamer(
-            synnax::framer::StreamerConfig{
-                .channels = {device_set_channel.key, device_delete_channel.key}
-            }
+            synnax::framer::StreamerConfig{.channels = keys}
         );
         if (open_err) return open_err;
         this->signal_streamer = std::move(s);
         this->signal_thread = std::thread([this]() { this->signal_thread_run(); });
-        VLOG(1) << this->log_prefix
-                << "started signal monitoring for devices with make: "
-                << this->scanner->config().make;
+        VLOG(1) << this->log_prefix << "started signal monitoring";
         return x::errors::NIL;
     }
 
@@ -473,7 +510,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     void signal_thread_run() {
         x::thread::set_name((this->task.name + ":sig").c_str());
         const auto rack_key = this->task.rack;
-        const auto make = this->scanner->config().make;
+        const auto make = this->scanner->config().make.value_or("");
 
         do {
             auto [frame, read_err] = this->signal_streamer->read();
@@ -483,7 +520,10 @@ class ScanTask final : public task::Task, public pipeline::Base {
                 const auto &ch_key = frame.channels->at(i);
                 const auto &series = frame.series->at(i);
 
-                if (ch_key == this->device_set_channel.key) {
+                if (const auto sig = this->scanner_signals.find(ch_key);
+                    sig != this->scanner_signals.end())
+                    this->scanner->on_signal(sig->second, series);
+                else if (ch_key == this->device_set_channel.key) {
                     for (const auto &dev_json: series.strings()) {
                         auto parser = x::json::Parser(dev_json);
                         auto parsed_dev = synnax::device::Device::parse(parser);
@@ -524,12 +564,13 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
         const x::breaker::Config &breaker_config,
-        const x::telem::Rate scan_rate,
+        const synnax::task::ScanConfig &cfg,
         std::unique_ptr<ClusterAPI> client
     ):
         Base(breaker_config, task.name),
         task(task),
-        timer(scan_rate),
+        timer(cfg.rate),
+        is_disabled(cfg.disabled),
         scanner(std::move(scanner)),
         ctx(ctx),
         client(std::move(client)),
@@ -548,23 +589,25 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
         const x::breaker::Config &breaker_config,
-        const x::telem::Rate scan_rate
+        const synnax::task::ScanConfig &cfg
     ):
         ScanTask(
             std::move(scanner),
             ctx,
             task,
             breaker_config,
-            scan_rate,
+            cfg,
             std::make_unique<SynnaxClusterAPI>(ctx->client)
         ) {}
 
     /// @brief Initializes the scan task by loading remote devices into dev_states.
     /// This is called automatically by run(), but can be called separately for testing.
     x::errors::Error init() {
+        const auto make = this->scanner->config().make;
+        if (!make.has_value()) return x::errors::NIL;
         auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(
             this->task.rack,
-            this->scanner->config().make
+            *make
         );
         if (ret_err) return ret_err;
         for (const auto &dev: remote_devs_vec)
@@ -578,7 +621,7 @@ public:
             this->send_status(
                 synnax::status::VARIANT_ERROR,
                 "Failed to start scan task",
-                err.data
+                err.data()
             );
             return;
         }
@@ -587,7 +630,7 @@ public:
             this->send_status(
                 synnax::status::VARIANT_ERROR,
                 "Failed to start scan task",
-                err.data
+                err.data()
             );
             return;
         }
@@ -610,7 +653,7 @@ public:
             this->send_status(
                 synnax::status::VARIANT_ERROR,
                 "Failed to stop scan task",
-                err.data
+                err.data()
             );
         else
             this->send_status(synnax::status::VARIANT_SUCCESS, "Stopped scan task");
@@ -621,20 +664,20 @@ public:
         this->send_status(
             synnax::status::VARIANT_ERROR,
             "Failed to scan for devices",
-            err.data
+            err.data()
         );
     }
 
     void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         this->status.details.cmd = cmd.key;
         // run() writes the status that answers a start or a stop. A command that
-        // changes nothing never reaches it, so the current status answers instead.
+        // changes nothing never reaches it, so exec answers it here.
         if (cmd.type == synnax::task::STOP_CMD_TYPE) {
-            if (!this->stop()) this->send_status();
+            if (!this->stop()) this->send_unchanged();
             return;
         }
         if (cmd.type == synnax::task::START_CMD_TYPE) {
-            if (!this->start()) this->send_status();
+            if (!this->start()) this->send_unchanged();
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
@@ -643,7 +686,7 @@ public:
                     err.matches(PARTIAL_SCAN_ERROR) ? synnax::status::VARIANT_WARNING
                                                     : synnax::status::VARIANT_ERROR,
                     "Failed to scan for devices",
-                    err.data,
+                    err.data(),
                     data
                 );
             else
@@ -780,6 +823,12 @@ public:
     }
 
     std::string name() const override { return this->task.name; }
+
+    [[nodiscard]] bool disabled() const override { return this->is_disabled; }
+
+    /// @brief starts the scan loop. A disabled scan task never starts.
+    /// @returns false if the scan task is disabled or already running.
+    bool start() override { return !this->is_disabled && Base::start(); }
 
     using driver::pipeline::Base::stop;
 

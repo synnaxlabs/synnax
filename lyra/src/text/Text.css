@@ -10,13 +10,26 @@
  */
 
 /* A button styles its own link. :where adds no specificity, so color classes win. */
-a.lyra-text:where(:not(.lyra-btn)) {
+a.lyra-text:where(:not(.lyra-btn)),
+button.lyra-text--link:where(:not(.lyra-btn)) {
     text-decoration: none;
     color: var(--pluto-primary-p1);
     cursor: pointer;
 
     &:hover {
         text-decoration: underline;
+    }
+}
+
+/* A link that runs an action is a button, with no box of its own. */
+button.lyra-text--link:where(:not(.lyra-btn)) {
+    padding: 0;
+    border: none;
+    background: none;
+
+    &:focus-visible {
+        outline: 1px solid var(--pluto-primary-z);
+        outline-offset: var(--pluto-focus-ring-offset);
     }
 }
 
@@ -32,6 +45,10 @@ span.lyra-text {
 
     &.lyra--direction-x {
         align-items: center;
+    }
+
+    &.lyra-text--numeric {
+        font-variant-numeric: tabular-nums;
     }
 
     &.lyra-text--code {

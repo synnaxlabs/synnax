@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -21,6 +22,7 @@
 #include "client/cpp/icd/types.gen.h"
 #include "client/cpp/serial/types.gen.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
@@ -30,9 +32,12 @@
 #include "driver/icd/receiver.h"
 #include "driver/pipeline/testutil/pipeline.h"
 #include "driver/serial/port.h"
+#include "driver/serial/ports.h"
 #include "driver/serial/pty.h"
 #include "driver/serial/read_task.h"
 #include "driver/task/task.h"
+#include "driver/transport/connection.h"
+#include "driver/transport/errors.h"
 
 namespace driver::serial {
 namespace {
@@ -86,6 +91,8 @@ protected:
     );
     std::shared_ptr<pipeline::testutil::WriterFactory>
         writes = std::make_shared<pipeline::testutil::WriterFactory>();
+    std::shared_ptr<Ports> ports = std::make_shared<Ports>();
+    Device device;
     std::unique_ptr<common::ReadTask> task;
 
     /// @brief creates the task of an entry that reads Lines on the port of props, and
@@ -108,15 +115,15 @@ protected:
         synnax::task::Task t;
         t.key = x::uuid::create();
         t.name = "serial read";
-        const auto ports = std::make_shared<Ports>();
-        auto claim = ASSERT_NIL_P(ports->claim_read("device", t));
+        this->device = Device{.key = "device", .name = "device", .props = props};
+        auto claim = ASSERT_NIL_P(this->ports->claim_read("device", t));
         this->task = std::make_unique<common::ReadTask>(
             t,
             this->ctx,
             common::unlimited_retry_config(t.name),
             std::make_unique<Source>(
-                ports,
-                Device{.key = "device", .name = "device", .props = props},
+                this->ports,
+                this->device,
                 std::move(claim),
                 std::move(receiver),
                 std::vector{lines.channels.at(2)},
@@ -166,6 +173,22 @@ TEST_F(SerialReadTask, SendsPollQueryOnItsRate) {
     this->peer_write("T,7\n");
     ASSERT_EVENTUALLY_GE(this->writes->writes->size(), 1);
     ASSERT_EQ(this->writes->writes->at(0).at<double>(2, 0), 7);
+}
+
+/// @brief it should drop the partial frame of the last open when another task on the
+/// device fails the port and the port reopens.
+TEST_F(SerialReadTask, DropsPartialFrameWhenAnotherTaskReopensPort) {
+    this->create(this->props());
+    ASSERT_TRUE(this->task->start("start", this->cancel));
+    this->peer_write("T,5\nT,1");
+    ASSERT_EVENTUALLY_GE(this->writes->writes->size(), 1);
+    const auto conn = ASSERT_NIL_P(this->ports->acquire(this->device));
+    conn->lock().fail(x::errors::Error(transport::UNREACHABLE_ERROR, "hung up"));
+    std::this_thread::sleep_until(conn->retry_at());
+    ASSERT_NIL_P(conn->lock().transport());
+    this->peer_write("2.5\nT,7\n");
+    ASSERT_EVENTUALLY_GE(this->writes->writes->size(), 2);
+    ASSERT_EQ(this->writes->writes->at(1).at<double>(2, 0), 7);
 }
 
 /// @brief it should release the port when the task stops.

@@ -1167,6 +1167,32 @@ describe("MQTT Write form", () => {
       expect(screen.queryByText("Message has no fields")).toBeNull();
     });
 
+    describe("the conversion of a number field", () => {
+      const CONVERSION = "The task sends (value − offset) ÷ scale.";
+
+      it("should say how a command channel's value converts", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        await renderWrite([target]);
+        await fieldGroup(setpoint.name);
+        expect(await screen.findByText(CONVERSION)).toBeTruthy();
+        await fieldGroup(mode.name);
+        await waitFor(() => expect(screen.queryByText(CONVERSION)).toBeNull());
+      });
+
+      it("should say nothing for a fixed value, which the task sends as typed", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        await renderWrite([target]);
+        const group = await fieldGroup(setpoint.name);
+        await screen.findByText(CONVERSION);
+        fireEvent.click(group.getByRole("button", { name: "Value" }));
+        await waitFor(() => expect(screen.queryByText(CONVERSION)).toBeNull());
+      });
+    });
+
     it("should rename a field in its ICD from its pane", async () => {
       const setpoint = createField("setpoint", "float");
       const { target, ic, message } = await createFormatTarget([setpoint]);
@@ -1227,8 +1253,20 @@ describe("MQTT Write form", () => {
       shapes: [
         {
           fields: [
-            { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
-            { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+            {
+              pointer: "/setpoint",
+              type: "number",
+              kind: "float",
+              sample: "1",
+              enum: [],
+            },
+            {
+              pointer: "/mode",
+              type: "string",
+              kind: "string",
+              sample: '"auto"',
+              enum: [] as string[],
+            },
           ],
           count: 1,
         },
@@ -1246,7 +1284,7 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
-      return { dialog, draft };
+      return { dialog, draft, dev };
     };
 
     const retrievePlainTarget = async (key: task.Key, topic: string) => {
@@ -1275,14 +1313,14 @@ describe("MQTT Write form", () => {
       expect(dialog.getByText("Command topics often do not show here.")).toBeTruthy();
     });
 
-    it("should add a whole picked topic with a format from its messages, in an ICD named after the task", async () => {
-      const { dialog, draft } = await openOnPickedTopic();
+    it("should add a whole picked topic with a format from its messages, in an ICD named after the device", async () => {
+      const { dialog, draft, dev } = await openOnPickedTopic();
       dialog.getByText("1 topic selected");
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, TOPIC.topic);
       const [ic] = await client.icds.retrieve([target.icd]);
       expect(ic).toMatchObject({
-        name: "MQTT write task",
+        name: dev.name,
         messages: [
           {
             key: target.message.message,
@@ -1306,6 +1344,29 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should keep a string field with enum labels a string, in the dialog and the target", async () => {
+      const [setpoint, mode] = TOPIC.shapes[0].fields;
+      const labeled = {
+        ...TOPIC,
+        shapes: [
+          {
+            ...TOPIC.shapes[0],
+            fields: [setpoint, { ...mode, enum: ["auto", "manual"] }],
+          },
+        ],
+      };
+      const { dialog, draft } = await openOnPickedTopic([], labeled);
+      dialog.getByText("string");
+      expect(dialog.queryByText("int64")).toBeNull();
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, TOPIC.topic);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ICD.jsonFields(ic.messages[0])).toMatchObject([
+        { pointer: "/setpoint", type: "float" },
+        { pointer: "/mode", type: "string", enumValues: [] },
+      ]);
+    });
+
     it("should infer the format of a topic from the shape that the most messages had, and mark it", async () => {
       const topic = {
         topic: "plant/pump/set",
@@ -1313,15 +1374,27 @@ describe("MQTT Write form", () => {
         shapes: [
           {
             fields: [
-              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+              {
+                pointer: "/setpoint",
+                type: "number",
+                kind: "float",
+                sample: "1",
+                enum: [],
+              },
             ],
             present: "/setpoint",
             count: 1,
           },
           {
             fields: [
-              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
-              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5", enum: [] },
+              {
+                pointer: "/mode",
+                type: "string",
+                kind: "string",
+                sample: '"auto"',
+                enum: [],
+              },
             ],
             present: "/rpm",
             count: 3,
@@ -1355,15 +1428,27 @@ describe("MQTT Write form", () => {
         shapes: [
           {
             fields: [
-              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+              {
+                pointer: "/setpoint",
+                type: "number",
+                kind: "float",
+                sample: "1",
+                enum: [],
+              },
             ],
             present: "/setpoint",
             count: setpoints,
           },
           {
             fields: [
-              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
-              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5", enum: [] },
+              {
+                pointer: "/mode",
+                type: "string",
+                kind: "string",
+                sample: '"auto"',
+                enum: [],
+              },
             ],
             present: "/rpm",
             count: rpms,
@@ -1412,6 +1497,7 @@ describe("MQTT Write form", () => {
         sample: "1700000000000",
         kind: "timestamp",
         timeFormat: "unix_ms",
+        enum: [],
       };
       const [shape] = TOPIC.shapes;
       const { dialog, draft } = await openOnPickedTopic([], {

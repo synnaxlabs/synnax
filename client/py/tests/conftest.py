@@ -26,7 +26,14 @@ PASSWORD = "seldon"
 
 # Fixtures that reach the Core. Every other Core fixture depends on one of these.
 CORE_FIXTURES = frozenset(
-    ("client", "login_info", "counted_client", "proxy", "early_proxy")
+    (
+        "client",
+        "login_info",
+        "counted_client",
+        "proxy",
+        "early_proxy",
+        "stalled_proxy",
+    )
 )
 
 
@@ -100,6 +107,19 @@ def early_proxy() -> Iterator[Proxy]:
 @pytest.fixture
 def early_proxied_client(early_proxy: Proxy) -> sy.Synnax:
     return _connect(early_proxy)
+
+
+@pytest.fixture
+def stalled_proxy() -> Iterator[Proxy]:
+    """A proxy that stalls each WebSocket right after the transport opens it."""
+    p = Proxy(HOST, PORT, stall_after_open=True)
+    yield p
+    p.close()
+
+
+@pytest.fixture
+def stalled_proxied_client(stalled_proxy: Proxy) -> sy.Synnax:
+    return _connect(stalled_proxy)
 
 
 @pytest.fixture

@@ -77,7 +77,7 @@ void assert_refuses(
     std::vector<std::uint8_t> out = {7};
     const auto err = f.encode(bytes(frame), out);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
     EXPECT_EQ(out, std::vector<std::uint8_t>{7});
 }
 
@@ -160,7 +160,7 @@ TEST(Delimited, DropFrameThatGrowsPastMaxSize) {
     f->write(bytes(std::string(MAX_SIZE + 1, 'x')));
     const auto [frame, err] = f->next();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "dropped a frame longer than 65536 bytes");
+    EXPECT_EQ(err.data(), "dropped a frame longer than 65536 bytes");
     EXPECT_FALSE(frame.has_value());
     EXPECT_EQ(frames(*f, std::string(MAX_SIZE * 2, 'y')), Frames{});
     EXPECT_EQ(frames(*f, "tail\nok\n"), (Frames{"ok"}));
@@ -172,7 +172,7 @@ TEST(Delimited, DropWholeFrameOverMaxSize) {
     f->write(bytes(std::string(MAX_SIZE + 1, 'x') + "\nok\n"));
     const auto [frame, err] = f->next();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "dropped a frame longer than 65536 bytes");
+    EXPECT_EQ(err.data(), "dropped a frame longer than 65536 bytes");
     EXPECT_EQ(frames(*f, ""), (Frames{"ok"}));
 }
 
@@ -218,7 +218,7 @@ TEST(Fixed, DropPartialFrameWhenIdle) {
     EXPECT_EQ(frames(*f, "ab"), Frames{});
     const auto err = f->idle();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "dropped 2 bytes of a partial frame");
+    EXPECT_EQ(err.data(), "dropped 2 bytes of a partial frame");
     ASSERT_NIL(f->idle());
     EXPECT_EQ(frames(*f, "xyz"), (Frames{"xyz"}));
 }
@@ -285,7 +285,7 @@ void assert_drops(Framer &f, const Bytes &wire, const std::string &text) {
     f.write(wire);
     const auto [frame, err] = f.next();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
     const auto ok = ASSERT_NIL_P(f.next());
     ASSERT_TRUE(ok.has_value());
     EXPECT_EQ(Bytes(ok.value().begin(), ok.value().end()), vec("ok"));
@@ -470,7 +470,7 @@ void assert_frames(Framer &f, const std::vector<Bytes> &frames) {
 void assert_next_drops(Framer &f, const std::string &text) {
     const auto [frame, err] = f.next();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
     EXPECT_FALSE(frame.has_value());
 }
 }
@@ -567,7 +567,7 @@ TEST(Sync, IdleDropsPartialFrame) {
     assert_frames(*f, {});
     const auto err = f->idle();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "dropped 5 bytes of a partial frame");
+    EXPECT_EQ(err.data(), "dropped 5 bytes of a partial frame");
     assert_frames(*f, {{0xAA, 0x55, 1, 9}});
     ASSERT_NIL(f->idle());
 }
@@ -641,7 +641,7 @@ namespace {
 void assert_refuses_config(const icd::SyncFraming &c, const std::string &text) {
     const auto [f, err] = create(c);
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
     EXPECT_EQ(f, nullptr);
 }
 }

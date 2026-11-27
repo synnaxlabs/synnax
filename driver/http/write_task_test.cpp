@@ -38,52 +38,63 @@ namespace driver::http {
 using ::synnax::http::WriteEndpoint;
 
 namespace {
-/// @brief the ICD of each endpoint that endpoint returns. Its one message, Command,
-/// holds the float field value at /value.
+/// @brief creates an ICD whose one message, Command, has payload.
+synnax::icd::ICD create_icd(synnax::icd::Payload payload) {
+    synnax::icd::Message m;
+    m.key = x::uuid::create();
+    m.name = "Command";
+    m.payload = std::move(payload);
+    synnax::icd::ICD ic;
+    ic.key = x::uuid::create();
+    ic.name = "Plant";
+    ic.messages = {m};
+    return ic;
+}
+
+/// @brief the ICD of each endpoint that endpoint returns by default. Its one message,
+/// Command, holds the float field value at /value.
 const synnax::icd::ICD &command_icd() {
     static const synnax::icd::ICD ic = [] {
         synnax::icd::FloatJSONField value;
         value.key = x::uuid::create();
         value.name = "value";
         value.pointer = "/value";
-        synnax::icd::Message m;
-        m.key = x::uuid::create();
-        m.name = "Command";
-        m.payload = synnax::icd::JSONPayload{.fields = {value}};
-        synnax::icd::ICD ic;
-        ic.key = x::uuid::create();
-        ic.name = "Plant";
-        ic.messages = {m};
-        return ic;
+        return create_icd(synnax::icd::JSONPayload{.fields = {value}});
     }();
     return ic;
 }
 
-/// @returns an endpoint that sends the commands of float64 channel ch as the message
-/// of command_icd.
+/// @returns an endpoint that sends the commands of float64 channel ch to the first
+/// field of the message of ic.
 WriteEndpoint endpoint(
     const std::string &method,
     const std::string &path,
-    const synnax::channel::Key ch
+    const synnax::channel::Key ch,
+    const synnax::icd::ICD &ic = command_icd()
 ) {
-    const auto &m = command_icd().messages[0];
+    const auto &m = ic.messages[0];
     synnax::icd::ChannelWriteBinding b;
-    b.field = synnax::icd::base(std::get<synnax::icd::JSONPayload>(m.payload).fields[0])
-                  .key;
+    b.field = std::visit(
+        [](const auto &p) { return synnax::icd::base(p.fields[0]).key; },
+        m.payload
+    );
     b.channel = ch;
     WriteEndpoint ep;
     ep.key = path;
     ep.method = method;
     ep.path = path;
-    ep.icd = command_icd().key;
+    ep.icd = ic.key;
     ep.message = synnax::icd::WriteMessage{.message = m.key, .bindings = {b}};
     return ep;
 }
 
 /// @brief builds a WriteTaskSink that sends the enabled endpoints of cfg, each made by
-/// endpoint, to the server at base_url.
-std::pair<std::unique_ptr<WriteTaskSink>, std::shared_ptr<Processor>>
-make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
+/// endpoint with ic, to the server at base_url.
+std::pair<std::unique_ptr<WriteTaskSink>, std::shared_ptr<Processor>> make_sink(
+    WriteTaskConfig &cfg,
+    const std::string &base_url,
+    const synnax::icd::ICD &ic = command_icd()
+) {
     auto conn_json = x::json::json{
         {"base_url", base_url},
         {"timeout_ms", 1000},
@@ -93,13 +104,9 @@ make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
     auto conn = device::ConnectionConfig(conn_parser);
 
     std::vector<synnax::channel::Key> cmd_keys;
-    std::vector<Request> requests;
     std::vector<driver::icd::Writer> writers;
     for (const auto &ep: cfg.endpoints) {
         if (ep.disabled) continue;
-        auto req_cfg = request_config(ep);
-        req_cfg.request_content_type = "application/json";
-        requests.push_back(device::build_request(conn, req_cfg));
         const auto &wm = ep.message.value();
         const auto ch = std::get<synnax::icd::ChannelWriteBinding>(wm.bindings[0])
                             .channel;
@@ -107,10 +114,9 @@ make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
         std::map<synnax::channel::Key, synnax::channel::Channel> channels{
             {ch, synnax::channel::Channel{.key = ch, .data_type = x::telem::FLOAT64_T}},
         };
-        writers.push_back(
-            ASSERT_NIL_P(driver::icd::Writer::create(wm, command_icd(), channels))
-        );
+        writers.push_back(ASSERT_NIL_P(driver::icd::Writer::create(wm, ic, channels)));
     }
+    auto requests = build_requests(conn, cfg.endpoints, writers);
 
     auto processor = std::make_shared<Processor>();
     return {
@@ -144,6 +150,35 @@ std::vector<std::string> bodies_for_path(
     for (const auto &r: reqs)
         if (r.path == path) out.push_back(r.body);
     return out;
+}
+
+/// @returns the Content-Type header of req, or an empty string when it has none.
+std::string content_type(const testutil::ReceivedRequest &req) {
+    const auto it = req.headers.find("Content-Type");
+    return it == req.headers.end() ? "" : it->second;
+}
+
+/// @brief sends 42.5 on channel 1 as the message of ic to a POST endpoint at
+/// /api/control.
+/// @returns the one request that the server got.
+testutil::ReceivedRequest send_once(const synnax::icd::ICD &ic) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{.method = Method::POST, .path = "/api/control"}},
+        }
+    );
+    EXPECT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.endpoints = {endpoint("POST", "/api/control", 1, ic)};
+    auto [sink, processor] = make_sink(cfg, server.base_url(), ic);
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{42.5}));
+    EXPECT_NIL(sink->write(frame));
+    const auto reqs = server.received_requests();
+    EXPECT_EQ(reqs.size(), 1);
+    return reqs.at(0);
 }
 
 /// @brief config for one POST endpoint at /api/control that sends channel 1.
@@ -194,7 +229,7 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingNameErrors) {
     };
     auto [_1, err1] = WriteTaskConfig::parse(task);
     ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
-    EXPECT_NE(err1.data.find("name"), std::string::npos);
+    EXPECT_NE(err1.data().find("name"), std::string::npos);
 }
 
 /// @brief it should fail when duplicate header names exist.
@@ -215,11 +250,12 @@ TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
     };
     auto [_2, err2] = WriteTaskConfig::parse(task);
     ASSERT_TRUE(err2.matches(x::errors::VALIDATION));
-    EXPECT_NE(err2.data.find("duplicate header"), std::string::npos);
+    EXPECT_NE(err2.data().find("duplicate header"), std::string::npos);
 }
 
-/// @brief a header entry may omit the value field; it defaults to an empty string.
-TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
+/// @brief it should fail when a header entry has no value, since a blank header is
+/// never what a user means.
+TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -230,10 +266,12 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
              {"headers", {{{"name", "X-Key"}}}},
          }}},
     };
-    auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(task));
-    ASSERT_EQ(cfg.endpoints[0].headers.size(), 1);
-    EXPECT_EQ(cfg.endpoints[0].headers.at(0).name, "X-Key");
-    EXPECT_EQ(cfg.endpoints[0].headers.at(0).value, "");
+    auto [_, err] = WriteTaskConfig::parse(task);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data(),
+        R"({"errors":[{"message":"this field is required","path":"endpoints.headers.value"}]})"
+    );
 }
 
 /// @brief it should fail when a query_params entry is missing the parameter field.
@@ -250,7 +288,7 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
     };
     auto [_4, err4] = WriteTaskConfig::parse(task);
     ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
-    EXPECT_NE(err4.data.find("parameter"), std::string::npos);
+    EXPECT_NE(err4.data().find("parameter"), std::string::npos);
 }
 
 /// @brief a query_params entry may omit the value field; it defaults to an empty
@@ -290,7 +328,7 @@ TEST(HTTPWriteTask, ParseConfigDuplicateQueryParamErrors) {
     };
     auto [_6, err6] = WriteTaskConfig::parse(task);
     ASSERT_TRUE(err6.matches(x::errors::VALIDATION));
-    EXPECT_NE(err6.data.find("duplicate query parameter"), std::string::npos);
+    EXPECT_NE(err6.data().find("duplicate query parameter"), std::string::npos);
 }
 
 /// @brief it should POST a numeric channel value to the server.
@@ -326,9 +364,37 @@ TEST(HTTPWriteTask, POSTNumericValue) {
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
     EXPECT_EQ(reqs[0].method, Method::POST);
+    EXPECT_EQ(content_type(reqs[0]), "application/json");
 
     auto body = x::json::json::parse(reqs[0].body);
     EXPECT_NEAR(body["value"].get<double>(), 42.5, 0.001);
+}
+
+/// @brief it should send a text message as a text/plain body.
+TEST(HTTPWriteTask, TextMessage) {
+    synnax::icd::DelimitedTextField value;
+    value.key = x::uuid::create();
+    value.name = "value";
+    value.position = 1;
+    const auto req = send_once(
+        create_icd(synnax::icd::TextPayload{.prefix = "SET", .fields = {value}})
+    );
+    EXPECT_EQ(content_type(req), "text/plain");
+    EXPECT_EQ(req.body, "SET,42.5");
+}
+
+/// @brief it should send a binary message, zero bytes included, as an
+/// application/octet-stream body.
+TEST(HTTPWriteTask, BinaryMessage) {
+    synnax::icd::FloatBinaryField value;
+    value.key = x::uuid::create();
+    value.name = "value";
+    value.bit_length = 64;
+    const auto req = send_once(
+        create_icd(synnax::icd::BinaryPayload{.fields = {value}})
+    );
+    EXPECT_EQ(content_type(req), "application/octet-stream");
+    EXPECT_EQ(req.body, std::string("\x00\x00\x00\x00\x00\x40\x45\x40", 8));
 }
 
 /// @brief it should fail on a 4xx response, quoting the start of the body on one line.
@@ -363,7 +429,7 @@ TEST(HTTPWriteTask, Error4xxResponse) {
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "POST " + server.base_url() + "/api/control returned 400: bad\\nrequest" +
             std::string(MAX_BODY_EXCERPT_SIZE - 11, 'x') + "..."
     );
@@ -569,8 +635,8 @@ TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
 
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
-    EXPECT_NE(err.data.find("/api/bad"), std::string::npos)
-        << "Expected failing endpoint path in error. Got: " << err.data;
+    EXPECT_NE(err.data().find("/api/bad"), std::string::npos)
+        << "Expected failing endpoint path in error. Got: " << err.data();
 
     auto reqs = server.received_requests();
     EXPECT_EQ(count_requests_for_path(reqs, "/api/good"), 1);
@@ -620,10 +686,10 @@ TEST(HTTPWriteTask, ParallelBatchAllFailures) {
     auto err = sink->write(frame);
     // The critical error (400) is the first error type encountered.
     ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
-    EXPECT_NE(err.data.find("/api/client-err"), std::string::npos)
-        << "Expected critical endpoint in error. Got: " << err.data;
-    EXPECT_NE(err.data.find("/api/server-err"), std::string::npos)
-        << "Expected temporary endpoint in error. Got: " << err.data;
+    EXPECT_NE(err.data().find("/api/client-err"), std::string::npos)
+        << "Expected critical endpoint in error. Got: " << err.data();
+    EXPECT_NE(err.data().find("/api/server-err"), std::string::npos)
+        << "Expected temporary endpoint in error. Got: " << err.data();
 
     auto reqs = server.received_requests();
     EXPECT_EQ(count_requests_for_path(reqs, "/api/client-err"), 1);
@@ -1066,7 +1132,7 @@ TEST(HTTPWriteTask, FailingEndpointDropsItsLaterCommands) {
     const auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "POST " + server.base_url() + R"(/api/bad returned 503: {"error":"busy"})"
     );
 
@@ -1361,7 +1427,7 @@ TEST(HTTPWriteTask, BuildWritersRejectsEndpointWithNoMessage) {
         const auto err = build_writers(client, {ep}).second;
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "endpoint POST /a sends no message. Open the task and pick a message for "
             "it."
         );
@@ -1381,7 +1447,7 @@ TEST(HTTPWriteTask, ConfigureRejectsEndpointWithNoMessage) {
     const auto err = configure_write(ctx, task, std::make_shared<Processor>()).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "endpoint PUT /api/setpoint sends no message. Open the task and pick a "
         "message for it."
     );
@@ -1397,7 +1463,7 @@ TEST(HTTPWriteTask, BuildWritersRejectsMissingICD) {
     const auto err = build_writers(client, {ep}).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "endpoint POST /a: ICD " + ep.icd->to_string() + " does not exist"
     );
 }
@@ -1411,6 +1477,9 @@ TEST(HTTPWriteTask, BuildWritersNamesEndpointOfMessageError) {
     const auto err = build_writers(client, {create_icd_endpoint(client, "/a", missing)})
                          .second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    EXPECT_EQ(err.data, "endpoint POST /a: message Setpoint: channel 1 does not exist");
+    EXPECT_EQ(
+        err.data(),
+        "endpoint POST /a: message Setpoint: channel 1 does not exist"
+    );
 }
 }

@@ -58,8 +58,8 @@ protected:
         ASSERT_NIL(this->client->devices.create(this->dev));
     }
 
-    /// @returns the task of a commanded configure of a read task named name with
-    /// entry, or nullptr when the configure fails.
+    /// @returns the task of a commanded configure of a read task named name with entry,
+    /// or nullptr when the configure fails.
     std::unique_ptr<task::Task> configure_task(
         const synnax::icd::ReadEntry &entry,
         const std::string &name = "serial read"
@@ -154,8 +154,7 @@ TEST_F(SerialConfigure, NamesChannelOfBadBinding) {
     EXPECT_EQ(status.message, "Failed to configure task");
     EXPECT_EQ(
         status.description,
-        "entry 0: message reading: channel " + std::to_string(missing) +
-            " does not exist"
+        "message reading: channel " + std::to_string(missing) + " does not exist"
     );
 }
 

@@ -1,0 +1,26 @@
+{
+  "description": "Only one message can have no prefix.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": []
+      },
+      "bindings": []
+    },
+    {
+      "name": "b",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": []
+      },
+      "bindings": []
+    }
+  ],
+  "error": "messages a and b both have no prefix: validation error"
+}

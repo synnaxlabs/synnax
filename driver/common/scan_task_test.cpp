@@ -27,6 +27,15 @@
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
+/// @brief returns a scan config that scans at rate.
+synnax::task::ScanConfig
+scan_config(const x::telem::Rate rate, const bool disabled = false) {
+    synnax::task::ScanConfig cfg;
+    cfg.rate = rate;
+    cfg.disabled = disabled;
+    return cfg;
+}
+
 TEST(MergeDeviceProperties, ScannedOverridesRemote) {
     const x::json::json remote = {{"key1", "remote_value"}, {"key2", "only_remote"}};
     const x::json::json scanned = {{"key1", "scanned_value"}, {"key3", "only_scanned"}};
@@ -236,6 +245,10 @@ public:
     std::vector<std::vector<synnax::device::Status>> propagated_statuses;
     std::shared_ptr<pipeline::testutil::StreamerFactory> streamer_factory;
     std::vector<synnax::channel::Channel> signal_channels;
+    /// @brief the channel names that each retrieve_channels call asked for.
+    std::vector<std::vector<std::string>> requested_channels;
+    /// @brief the channel keys of each streamer that open_streamer opened.
+    std::vector<std::vector<synnax::channel::Key>> streamed_channels;
     /// @brief the errors that successive create_devices calls return.
     std::vector<x::errors::Error> create_errors;
     size_t create_count = 0;
@@ -320,6 +333,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
+        this->streamed_channels.push_back(config.channels);
         if (this->signals)
             return {std::make_unique<QueueStreamer>(this->signals), x::errors::NIL};
         if (streamer_factory) return streamer_factory->open_streamer(config);
@@ -328,6 +342,7 @@ public:
 
     std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) override {
+        this->requested_channels.push_back(names);
         return {signal_channels, x::errors::NIL};
     }
 };
@@ -380,6 +395,20 @@ public:
         exec_commands.push_back(cmd);
         return exec_return_value;
     }
+
+    std::atomic<size_t> device_sets = 0;
+    std::atomic<size_t> signals = 0;
+
+    void on_device_set(const synnax::device::Device &) override { this->device_sets++; }
+
+    void
+    on_signal(const synnax::channel::Channel &, const x::telem::Series &) override {
+        this->signals++;
+    }
+
+    [[nodiscard]] size_t device_set_count() const { return this->device_sets.load(); }
+
+    [[nodiscard]] size_t signal_count() const { return this->signals.load(); }
 };
 
 /// @brief it should scan and create new devices in the cluster.
@@ -414,14 +443,14 @@ TEST(TestScanTask, testSingleScan) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -468,14 +497,14 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -538,14 +567,14 @@ TEST(TestScanTask, TestTakeOverWhenRackChanges) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -607,14 +636,14 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -680,7 +709,7 @@ TEST(TestScanTask, TestUpdateWhenModelChanges) {
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -743,7 +772,7 @@ TEST(TestScanTask, TestRetryFailedUpdate) {
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -789,7 +818,7 @@ TEST(TestScanTask, TestRetryFailedCreate) {
         std::make_shared<task::MockContext>(nullptr),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -833,7 +862,7 @@ TEST(TestScanTask, TestNoStatusForAFailedCreate) {
         std::make_shared<task::MockContext>(nullptr),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -881,7 +910,7 @@ TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
         std::make_shared<task::MockContext>(nullptr),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -937,7 +966,7 @@ TEST(TestScanTask, TestRetryFailedTakeOver) {
         std::make_shared<task::MockContext>(nullptr),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -988,7 +1017,7 @@ TEST(TestScanTask, TestRecreateDeviceMissingFromCore) {
         std::make_shared<task::MockContext>(nullptr),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -1065,7 +1094,7 @@ TEST(TestScanTask, TestUserEditDuringFailedUpdate) {
         std::make_shared<task::MockContext>(nullptr),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 50,
+        scan_config(x::telem::HERTZ * 50),
         std::move(cluster_api)
     );
 
@@ -1134,7 +1163,7 @@ TEST(TestScanTask, TestDeleteDuringFailedUpdate) {
         std::make_shared<task::MockContext>(nullptr),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 50,
+        scan_config(x::telem::HERTZ * 50),
         std::move(cluster_api)
     );
 
@@ -1188,14 +1217,14 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -1241,14 +1270,14 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -1294,14 +1323,14 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -1360,14 +1389,14 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -1430,14 +1459,14 @@ TEST(TestScanTask, TestStatePropagation) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -1503,7 +1532,7 @@ TEST(TestScanTask, DisconnectedDeviceWithoutStatus) {
         std::make_shared<task::MockContext>(nullptr),
         synnax::task::Task{},
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -1542,14 +1571,14 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -1608,7 +1637,7 @@ inline std::unique_ptr<ScanTask> new_test_task(
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 }
@@ -1638,6 +1667,102 @@ TEST(TestScanTask, testRunningTransitions) {
     ASSERT_EQ(ctx->statuses.size(), 2);
     EXPECT_FALSE(ctx->statuses[1].details.running);
     EXPECT_EQ(ctx->statuses[1].message, "Stopped scan task");
+}
+
+/// @brief it should refuse a start while disabled, and answer it with a status that
+/// names the state.
+TEST(TestScanTask, testDisabledRefusesStart) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    ScanTask scan_task(
+        std::make_unique<MockScanner>(
+            std::vector<std::vector<synnax::device::Device>>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{},
+            std::vector<x::errors::Error>{}
+        ),
+        ctx,
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 1, true),
+        std::make_unique<MockClusterAPI>(
+            std::make_shared<std::vector<synnax::device::Device>>(),
+            std::make_shared<std::vector<synnax::device::Device>>()
+        )
+    );
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start_1",
+    };
+    scan_task.exec(cmd, cancel);
+    EXPECT_FALSE(scan_task.running());
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &s = ctx->statuses[0];
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_DISABLED);
+    EXPECT_EQ(s.message, "Scanner disabled");
+    EXPECT_EQ(s.description, "Enable the scanner to scan for devices.");
+    EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(s.details.cmd, "start_1");
+}
+
+/// @brief it should answer a stop and a refused start with the disabled status after a
+/// manual scan sent a status of its own.
+TEST(TestScanTask, testDisabledAnswersWithItsStateAfterAScan) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    auto scanner = std::make_unique<MockScanner>(
+        std::vector<std::vector<synnax::device::Device>>{},
+        std::vector{x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open")},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+    scanner->data = {x::json::json::object_t{{"filtered", x::json::json::array()}}};
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 1, true),
+        std::make_unique<MockClusterAPI>(
+            std::make_shared<std::vector<synnax::device::Device>>(),
+            std::make_shared<std::vector<synnax::device::Device>>()
+        )
+    );
+    synnax::task::Command scan{
+        .task = task.key,
+        .type = SCAN_CMD_TYPE,
+        .key = "scan_1",
+    };
+    scan_task.exec(scan, cancel);
+    synnax::task::Command stop{
+        .task = task.key,
+        .type = synnax::task::STOP_CMD_TYPE,
+        .key = "stop_1",
+    };
+    scan_task.exec(stop, cancel);
+    synnax::task::Command start{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start_1",
+    };
+    scan_task.exec(start, cancel);
+    EXPECT_FALSE(scan_task.running());
+    ASSERT_EQ(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(ctx->statuses[0].details.data.has_value());
+    for (std::size_t i = 1; i < ctx->statuses.size(); i++) {
+        const auto &s = ctx->statuses[i];
+        EXPECT_EQ(s.variant, synnax::status::VARIANT_DISABLED);
+        EXPECT_EQ(s.message, "Scanner disabled");
+        EXPECT_EQ(s.description, "Enable the scanner to scan for devices.");
+        EXPECT_FALSE(s.details.data.has_value());
+        EXPECT_FALSE(s.details.running);
+    }
+    EXPECT_EQ(ctx->statuses[1].details.cmd, "stop_1");
+    EXPECT_EQ(ctx->statuses[2].details.cmd, "start_1");
 }
 
 /// @brief it should come up on a second start after the first one failed. run() exits
@@ -1825,14 +1950,14 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceChanges) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -1891,14 +2016,14 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     task.name = "Test Scan Task";
 
     x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
+    const auto scan_cfg = scan_config(x::telem::HERTZ * 1);
 
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
         breaker_config,
-        scan_rate,
+        scan_cfg,
         std::move(cluster_api)
     );
 
@@ -1949,7 +2074,7 @@ TEST(TestScanTask, TestNoUpdateWhenScannerOmitsParent) {
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -2001,7 +2126,7 @@ TEST(TestScanTask, TestUpdateKeepsStoredParent) {
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -2123,7 +2248,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -2181,7 +2306,7 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 50,
+        scan_config(x::telem::HERTZ * 50),
         std::move(cluster_api)
     );
 
@@ -2260,7 +2385,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
         ctx,
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::move(cluster_api)
     );
 
@@ -2292,7 +2417,7 @@ TEST(TestScanTask, PartialScanKeepsDevices) {
         std::make_shared<task::MockContext>(nullptr),
         new_test_task_record(),
         x::breaker::Config{},
-        x::telem::HERTZ * 1,
+        scan_config(x::telem::HERTZ * 1),
         std::make_unique<MockClusterAPI>(
             std::make_shared<std::vector<synnax::device::Device>>(),
             created
@@ -2300,7 +2425,7 @@ TEST(TestScanTask, PartialScanKeepsDevices) {
     );
     const auto err = scan_task.scan().err;
     ASSERT_OCCURRED_AS(err, PARTIAL_SCAN_ERROR);
-    EXPECT_EQ(err.data, "eth1: cannot open");
+    EXPECT_EQ(err.data(), "eth1: cannot open");
     ASSERT_EQ(created->size(), 1);
     EXPECT_EQ(created->at(0).key, "device1");
 }
@@ -2410,5 +2535,181 @@ TEST(TestScanTask, RunningStatusFollowsAnAnswerOfTheScanner) {
     EXPECT_EQ(ctx->statuses[1].message, "Answered");
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
+}
+
+/// @brief a scanner that keeps its own resources and records the signals it gets.
+class SignalRecordingScanner final : public Scanner {
+public:
+    std::mutex mu;
+    std::vector<std::pair<std::string, std::vector<std::string>>> received;
+
+    [[nodiscard]] ScannerConfig config() const override {
+        return ScannerConfig{.log_prefix = "[test] ", .signals = {"sy_thing_set"}};
+    }
+
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    scan(const ScannerContext &) override {
+        return {{}, x::errors::NIL};
+    }
+
+    void on_signal(
+        const synnax::channel::Channel &ch,
+        const x::telem::Series &series
+    ) override {
+        std::lock_guard lock(this->mu);
+        this->received.emplace_back(ch.name, series.strings());
+    }
+};
+
+/// @brief it should pass the frames of a channel that the scanner names to on_signal,
+/// and keep no devices for a scanner without a make.
+TEST(TestScanTask, PassesScannerSignalsToScanner) {
+    synnax::channel::Channel thing_set;
+    thing_set.key = 100;
+    thing_set.name = "sy_thing_set";
+    synnax::device::Device stored;
+    stored.key = "device1";
+    stored.rack = 1;
+    const auto remote = std::make_shared<std::vector<synnax::device::Device>>(
+        std::vector{stored}
+    );
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote,
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    auto *cluster_api_ptr = cluster_api.get();
+    cluster_api->signal_channels = {thing_set};
+    cluster_api->signals = std::make_shared<SignalQueue>();
+    auto scanner = std::make_unique<SignalRecordingScanner>();
+    auto *scanner_ptr = scanner.get();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 50),
+        std::move(cluster_api)
+    );
+    scan_task.start();
+    x::telem::Frame frame(1);
+    frame.emplace(thing_set.key, x::telem::Series(std::string(R"({"key":"a"})")));
+    cluster_api_ptr->signals->send(std::move(frame));
+    ASSERT_EVENTUALLY_GE(cluster_api_ptr->scans.load(), 2);
+    scan_task.stop();
+    std::lock_guard lock(scanner_ptr->mu);
+    ASSERT_EQ(scanner_ptr->received.size(), 1);
+    EXPECT_EQ(scanner_ptr->received[0].first, "sy_thing_set");
+    EXPECT_EQ(
+        scanner_ptr->received[0].second,
+        std::vector<std::string>{R"({"key":"a"})"}
+    );
+    for (const auto &statuses: cluster_api_ptr->propagated_statuses)
+        EXPECT_TRUE(statuses.empty());
+    ASSERT_EQ(cluster_api_ptr->requested_channels.size(), 1);
+    EXPECT_EQ(
+        cluster_api_ptr->requested_channels[0],
+        std::vector<std::string>{"sy_thing_set"}
+    );
+    ASSERT_EQ(cluster_api_ptr->streamed_channels.size(), 1);
+    EXPECT_EQ(
+        cluster_api_ptr->streamed_channels[0],
+        std::vector<synnax::channel::Key>{thing_set.key}
+    );
+}
+
+/// @brief a scanner that keeps its own resources and names no signals.
+class SilentScanner final : public Scanner {
+public:
+    [[nodiscard]] ScannerConfig config() const override {
+        return ScannerConfig{.log_prefix = "[test] "};
+    }
+
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    scan(const ScannerContext &) override {
+        return {{}, x::errors::NIL};
+    }
+};
+
+/// @brief it should open no signal stream for a scanner without a make or signals.
+TEST(TestScanTask, OpensNoStreamWithoutSignals) {
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        std::make_shared<std::vector<synnax::device::Device>>(),
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    auto *cluster_api_ptr = cluster_api.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<SilentScanner>(),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 50),
+        std::move(cluster_api)
+    );
+    scan_task.start();
+    ASSERT_EVENTUALLY_GE(cluster_api_ptr->scans.load(), 2);
+    scan_task.stop();
+    EXPECT_TRUE(cluster_api_ptr->requested_channels.empty());
+    EXPECT_TRUE(cluster_api_ptr->streamed_channels.empty());
+}
+
+/// @brief it should pass legacy device signals to the device table and scanner
+/// signals to on_signal for a scanner with a make and signals.
+TEST(TestScanTask, RoutesLegacyAndScannerSignals) {
+    synnax::channel::Channel set_ch;
+    set_ch.key = 100;
+    set_ch.name = synnax::device::SET_CHANNEL;
+    synnax::channel::Channel thing_set;
+    thing_set.key = 102;
+    thing_set.name = "sy_thing_set";
+    synnax::device::Device signaled;
+    signaled.key = "device1";
+    signaled.rack = 1;
+    signaled.make = "test_make";
+    signaled.name = "Device 1";
+    signaled.model = "test_model";
+    signaled.location = "dev1";
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        std::make_shared<std::vector<synnax::device::Device>>(std::vector{signaled}),
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    auto *cluster_api_ptr = cluster_api.get();
+    cluster_api->signal_channels = {set_ch, thing_set};
+    cluster_api->signals = std::make_shared<SignalQueue>();
+    ScannerConfig cfg{
+        .make = "test_make",
+        .log_prefix = "[test] ",
+        .signals = {"sy_thing_set"},
+    };
+    auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
+    auto *scanner_ptr = scanner.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::move(scanner),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 50),
+        std::move(cluster_api)
+    );
+    scan_task.start();
+    x::telem::Frame frame(2);
+    frame.emplace(set_ch.key, x::telem::Series(signaled.to_json().dump()));
+    frame.emplace(thing_set.key, x::telem::Series(std::string(R"({"key":"a"})")));
+    cluster_api_ptr->signals->send(std::move(frame));
+    scan_task.stop();
+    EXPECT_EQ(scanner_ptr->device_set_count(), 1);
+    EXPECT_EQ(scanner_ptr->signal_count(), 1);
 }
 }

@@ -72,7 +72,7 @@ TEST(TranslateOpen, ReportsADeniedPortAsInUseByAnotherProgram) {
         const auto err = translate_open("COM3", os(code));
         ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "failed to open serial port COM3: the port is in use by another program"
         );
     }
@@ -83,7 +83,7 @@ TEST(TranslateOpen, MapsEveryOtherErrorThroughTranslate) {
     const auto err = translate_open("COM3", os(ERROR_FILE_NOT_FOUND));
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to open serial port COM3: " + message(ERROR_FILE_NOT_FOUND)
     );
 }
@@ -96,7 +96,7 @@ TEST(Translate, ReportsADeniedPortOutsideAnOpenWithTheSystemMessage) {
     );
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read from serial port COM3: " + message(ERROR_ACCESS_DENIED)
     );
 }
@@ -136,7 +136,7 @@ TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
 /// @brief it should put the context before the system message.
 TEST(Translate, PutsTheContextBeforeTheSystemMessage) {
     EXPECT_EQ(
-        translate("failed to open serial port COM3", os(ERROR_FILE_NOT_FOUND)).data,
+        translate("failed to open serial port COM3", os(ERROR_FILE_NOT_FOUND)).data(),
         "failed to open serial port COM3: " + message(ERROR_FILE_NOT_FOUND)
     );
 }

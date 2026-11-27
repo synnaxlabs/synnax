@@ -22,7 +22,7 @@ describe("MQTT.Task create", () => {
     const tsk = await createWithHook(MQTT.Task.useCreateRead, MQTT.Task.READ_SCHEMAS, {
       deviceKey: dev.key,
     });
-    expect(tsk.name).toBe(MQTT.Task.DEFAULT_READ_NAME);
+    expect(tsk.name).toBe("MQTT read task");
     expect(tsk.config.device).toBe(dev.key);
   });
 

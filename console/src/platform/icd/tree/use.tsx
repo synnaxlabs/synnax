@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { deep, id, map, type record, unique, uuid } from "@synnaxlabs/x";
+import { deep, id, map, type payload, type record, unique, uuid } from "@synnaxlabs/x";
 import type { Dispatch, FC, ReactElement, RefObject, SetStateAction } from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
@@ -22,6 +22,7 @@ import { copyName } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
+import { createPayload } from "@/platform/icd/payload";
 import { usePlan } from "@/platform/icd/Plans";
 import {
   fieldsPath,
@@ -63,7 +64,7 @@ const setRead = (
   const bindings = path.messages[read].bindings;
   const value = ctx.get(bindings).value;
   const bound = value.some(({ field: key }) => key === field.key);
-  if (bound === on || (on && !isReadable(field))) return;
+  if (bound === on || (on && !field.readable)) return;
   ctx.set(
     bindings,
     on ? [...value, bindingOf()] : value.filter(({ field: k }) => k !== field.key),
@@ -305,6 +306,12 @@ export interface UseReturn {
    * after a reload or a reopened tab, an empty message stays.
    */
   setMessage: (source: string, icdKey: icd.Key, message: icd.Message) => void;
+  /**
+   * Adds a message of the format with no fields to the ICD of a source that reads one
+   * message, and makes the source read it, as setMessage does. It takes the name that
+   * addMessage gives.
+   */
+  setNewMessage: (source: string, format: payload.Format) => void;
 }
 
 /**
@@ -436,8 +443,7 @@ export const use = <
     );
     if (
       made.current.has(prior.message) &&
-      held?.payload.format === "json" &&
-      held.payload.fields.length === 0 &&
+      held?.payload.fields.length === 0 &&
       !readElsewhere
     )
       priorFormat.remove(PICD.formPath.messages[prior.message]);
@@ -451,6 +457,20 @@ export const use = <
           reindex(ctx.get(path.messages[0]).value, index.key, 0),
         );
     });
+  };
+
+  const setNewMessage = (sourceKey: string, format: payload.Format) => {
+    const { icd: icdKey } = ctx.get(pathOf(sourceKey)).value;
+    const form = formatOf(formats, icdKey);
+    const held = form.value().messages;
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: messageName(sourceKey, held),
+      payload: createPayload(format),
+    };
+    form.insert(PICD.formPath.messages, message, held.at(-1)?.key);
+    made.current.add(message.key);
+    setMessage(sourceKey, icdKey, message);
   };
 
   /** Whether the ICD holds the message of a read of a source, as JSON. */
@@ -475,7 +495,7 @@ export const use = <
       field,
       fields.at(-1)?.key,
     );
-    read(sourceKey, r, field, true, field);
+    read(sourceKey, r, treeFieldOf(field), true, field);
     const parent = source.messages.length > 1 ? [messageKey(sourceKey, message)] : [];
     onExpand((prev) => unique.unique([...prev, sourceKey, ...parent]));
     onSelect([fieldKey(sourceKey, message, field.key)]);
@@ -758,5 +778,6 @@ export const use = <
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   };
 };

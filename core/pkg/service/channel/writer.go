@@ -106,9 +106,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err != nil {
 		return nil, err
 	}
-	if err = next.Validate(); err != nil {
-		return nil, err
-	}
 	if err = group.CheckMember(
 		ctx,
 		w.tx,
@@ -132,6 +129,11 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			return nil, err
 		}
 		next.DataType = result.ChanDataType
+	}
+	// Validate after the analysis, so an expression edit can repair a stored channel
+	// with no data type.
+	if err = next.Validate(); err != nil {
+		return nil, err
 	}
 	if next.Name != prev.Name {
 		if err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
@@ -238,6 +240,9 @@ func (w Writer) ChangeDataType(
 				)
 			}
 			c.DataType = dataType
+			if err := c.Validate(); err != nil {
+				return Channel{}, err
+			}
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {

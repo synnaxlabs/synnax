@@ -34,6 +34,9 @@ const PAGE: &str = "<!doctype html><title>Synnax</title>\
     <p>Login complete. You can close this tab and return to the Console.</p>";
 const REFUSED_PAGE: &str = "<!doctype html><title>Synnax</title>\
     <p>The provider refused the login. Return to the Console to try again.</p>";
+const UNFINISHED_PAGE: &str = "<!doctype html><title>Synnax</title>\
+    <p>Login not finished. You cancelled the login, or the provider refused it. Return \
+    to the Console to try again.</p>";
 
 /// The login in progress, if any.
 #[derive(Default)]
@@ -146,9 +149,9 @@ fn accept(
 /// Reads one request, within [`REQUEST_TIMEOUT`], the deadline, and [`MAX_REQUEST`]
 /// bytes, so a local process cannot hold the listener or grow its memory. A request for
 /// `/callback` with the given state yields its query, and gets a page that says whether
-/// the provider refused the login. A callback with another state gets a 400, any other
-/// request a 404, and both yield nothing. A failed connection yields what its request
-/// asked for, so it cannot end the login.
+/// the login finished. A callback with another state gets a 400, any other request a
+/// 404, and both yield nothing. A failed connection yields what its request asked for,
+/// so it cannot end the login.
 fn respond(mut stream: TcpStream, state: &str, deadline: Instant) -> Option<String> {
     if stream.set_nonblocking(false).is_err() {
         return None;
@@ -162,8 +165,13 @@ fn respond(mut stream: TcpStream, state: &str, deadline: Instant) -> Option<Stri
         .split('&')
         .any(|p| p.strip_prefix("state=") == Some(state))
     {
-        let refused = query.split('&').any(|p| p.starts_with("error="));
-        ("200 OK", if refused { REFUSED_PAGE } else { PAGE }, true)
+        let error = query.split('&').find_map(|p| p.strip_prefix("error="));
+        let page = match error {
+            None => PAGE,
+            Some("access_denied") => UNFINISHED_PAGE,
+            Some(_) => REFUSED_PAGE,
+        };
+        ("200 OK", page, true)
     } else {
         ("400 Bad Request", "", false)
     };
@@ -242,21 +250,31 @@ mod tests {
         assert!(page.starts_with("HTTP/1.1 200") && page.contains("Login complete"));
     }
 
-    #[test]
-    fn says_the_provider_refused_the_login() {
+    fn callback_page(query: &'static str) -> String {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
-        let client =
-            std::thread::spawn(move || get(port, "/callback?error=access_denied&state=xyz"));
-        let query = accept(
+        let client = std::thread::spawn(move || get(port, &format!("/callback?{query}")));
+        let got = accept(
             &listener,
             "xyz",
             Duration::from_secs(5),
             &AtomicBool::new(false),
         )
         .unwrap();
-        let page = client.join().unwrap();
-        assert_eq!(query, "error=access_denied&state=xyz");
+        assert_eq!(got, query);
+        client.join().unwrap()
+    }
+
+    #[test]
+    fn says_the_login_did_not_finish_when_denied() {
+        let page = callback_page("error=access_denied&state=xyz");
+        assert!(page.contains("Login not finished"));
+        assert!(!page.contains("Login complete"));
+    }
+
+    #[test]
+    fn says_the_provider_refused_the_login() {
+        let page = callback_page("error=server_error&state=xyz");
         assert!(page.contains("The provider refused the login"));
         assert!(!page.contains("Login complete"));
     }

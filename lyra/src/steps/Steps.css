@@ -56,8 +56,7 @@
         box-sizing: border-box;
         width: var(--pluto-steps-marker);
         height: var(--pluto-steps-marker);
-        font: 500 var(--pluto-steps-digit) / 1 var(--pluto-code-font-family);
-        font-variant-numeric: tabular-nums;
+        font: 500 var(--pluto-steps-digit) / 1 var(--pluto-font-family);
         color: var(--pluto-gray-l9);
         background: var(--pluto-gray-l2);
         border: var(--pluto-border-width) solid var(--pluto-gray-l3);
