@@ -46,18 +46,14 @@ const create = (
   }
 };
 
-const MAX_STANDARD_ID = 0x7ff;
-const MAX_EXTENDED_ID = 0x1fffffff;
+const MAX_ID = 0x1fffffff;
 const MAX_MASK = 0xffffffff;
 
-const parseID = (text: string, extended: boolean): Parsed<number> => {
+// The Core checks an ID against the smaller bound of a standard frame.
+const parseID = (text: string): Parsed<number> => {
   const id = parseUnsigned(text);
   if (id == null) return { error: "ID must be a hex number, such as 0x1F0" };
-  const max = extended ? MAX_EXTENDED_ID : MAX_STANDARD_ID;
-  if (id > max)
-    return {
-      error: `${extended ? "A 29-bit" : "An 11-bit"} ID is at most ${formatHex(max)}`,
-    };
+  if (id > MAX_ID) return { error: `A CAN ID is at most ${formatHex(MAX_ID)}` };
   return { value: id };
 };
 
@@ -106,7 +102,6 @@ interface CANFieldsProps {
 
 const CANFields = ({ path }: CANFieldsProps): ReactElement => {
   const fd = Form.useFieldValue(path.fd);
-  const extended = Form.useFieldValue(path.extended);
   return (
     <>
       <Flex.Box x>
@@ -114,7 +109,7 @@ const CANFields = ({ path }: CANFieldsProps): ReactElement => {
           path={path.id}
           label="ID"
           format={formatHex}
-          parse={(text) => parseID(text, extended)}
+          parse={parseID}
         />
         <FormattedField<number>
           path={path.mask}

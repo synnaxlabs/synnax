@@ -73,6 +73,9 @@ export const FormattedField = <V,>({
       <Input.Text
         value={refused?.text ?? (value == null ? "" : format(value))}
         onChange={handleChange}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setRefused(null);
+        }}
         placeholder={placeholder}
         endContent={unit}
         onlyChangeOnBlur

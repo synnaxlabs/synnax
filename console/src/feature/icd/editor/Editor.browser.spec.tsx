@@ -383,21 +383,39 @@ describe("ICD editor", () => {
       });
     });
 
-    it.each([
-      [false, "0x800", "An 11-bit ID is at most 0x7FF"],
-      [true, "0x20000000", "A 29-bit ID is at most 0x1FFFFFFF"],
-      [true, "0x1FFFFFFFFF", "A 29-bit ID is at most 0x1FFFFFFF"],
-    ])(
-      "should refuse an ID above the bound of its frame type (extended %s, %s)",
-      async (extended, text, error) => {
-        await renderCAN(extended);
-        await expectIDRefused(text, error);
+    it.each(["0x20000000", "0x1FFFFFFFFF"])(
+      "should keep %s, above any CAN ID, in the ID with its error",
+      async (text) => {
+        await renderCAN(true);
+        await expectIDRefused(text, "A CAN ID is at most 0x1FFFFFFF");
       },
     );
 
-    it("should save an ID typed after a refused one and clear the error", async () => {
+    it("should store an ID above the bound of a standard frame and show it", async () => {
       const ic = await renderCAN();
       const id = await typeText(/^ID/, "0x800");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+          identifier: { id: 0x800 },
+        }),
+      );
+      await expectRefused(id, "0x800", "id 0x800 exceeds the maximum 0x7FF");
+    });
+
+    it("should clear the bound error when Extended ID turns on", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x800");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      fireEvent.click(screen.getByLabelText("Extended ID"));
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBeNull());
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        identifier: { id: 0x800, extended: true },
+      });
+    });
+
+    it("should save an ID typed after a refused one and clear the error", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x18FF5G");
       await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
       await typeText(/^ID/, "0x7FF");
       await waitFor(async () =>
@@ -407,6 +425,16 @@ describe("ICD editor", () => {
       );
       expect(id.getAttribute("aria-invalid")).toBeNull();
       expect(id.value).toBe("0x7FF");
+    });
+
+    it("should put back the stored ID when Esc follows refused text", async () => {
+      await renderCAN();
+      const id = await typeText(/^ID/, "0x18FF5G");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      await userEvent.click(id);
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(id.value).toBe("0x100"));
+      expect(id.getAttribute("aria-invalid")).toBeNull();
     });
 
     it("should refuse a mask that is not a hex number", async () => {
