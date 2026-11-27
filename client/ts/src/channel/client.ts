@@ -139,8 +139,10 @@ export class Channel {
   readonly group?: group.Key;
   /**
    * The names of the channel's folders from the top, then its name, joined by '.'. Set
-   * only on a channel that a retrieve with `includePath` returns, and only when the
-   * caller can retrieve every folder on the path.
+   * only on a channel that a retrieve with `includePath` returns, from the folders that
+   * the client caches. Absent when a folder on the path is not cached, as for a folder
+   * that the caller cannot retrieve. The payload does not carry it, and no request
+   * sends it.
    */
   readonly path?: string;
 
@@ -209,7 +211,6 @@ export class Channel {
         operations: this.operations,
         concurrency: this.concurrency,
         group: this.group,
-        path: this.path,
       },
       { label: "channel payload" },
     );
@@ -319,7 +320,7 @@ export class Client extends query.Retriever<
   /** Builds requests that move channels between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
-  private readonly paths: Paths<Channel>;
+  private readonly paths: Paths;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, cache } = cfg;
@@ -375,7 +376,7 @@ export class Client extends query.Retriever<
     const paths = new Paths({
       channels: store,
       groups: cfg.groups,
-      retrieve: async (request) => await this.execRetrieve(request),
+      onError: cache.onError,
     });
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
@@ -731,6 +732,8 @@ export class Client extends query.Retriever<
     const names = onlyNames(req);
     const resolved = names != null ? this.resolveNames(names) : null;
     if (resolved != null) return resolved;
-    return (await this.paths.fetch(req)).map((p) => this.sugar(stripComposed(p)));
+    const payloads = await this.execRetrieve(req);
+    if (req.includePath === true) await this.paths.fill(payloads);
+    return payloads.map((p) => this.sugar(stripComposed(p)));
   }
 }

@@ -286,6 +286,24 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   /**
+   * Returns the names of the group and of each group above it, from the top, or
+   * undefined when a group on the chain is not cached or the chain comes back to a
+   * group it passed. The chain stops at a group whose parent is not a group.
+   */
+  getCachedPath(key: Key): string[] | undefined {
+    const names: string[] = [];
+    const passed = new Set<Key>();
+    for (let at: Key | undefined = key; at != null;) {
+      const g: Group | undefined = this.store.get(at);
+      if (g == null || passed.has(at)) return undefined;
+      passed.add(at);
+      names.push(g.name);
+      at = g.parent?.type === "group" ? g.parent.key : undefined;
+    }
+    return names.reverse();
+  }
+
+  /**
    * Calls the handler with the cached ancestors of the groups after each change to a
    * cached group, since a rename or a move of any group can change them.
    */

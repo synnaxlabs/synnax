@@ -38,7 +38,8 @@ export class Writer {
     const { channels: created } = await this.client.send(
       "/channel/create",
       {
-        channels: channels.map((c) => ({
+        // A path is never written: the Core computes it from the folders.
+        channels: channels.map(({ path: _path, ...c }) => ({
           ...c,
           dataType: c.dataType as DataType,
         })),
