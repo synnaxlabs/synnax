@@ -15,8 +15,10 @@ import (
 	"slices"
 	"sync/atomic"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
 	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -166,19 +168,37 @@ func (u *UniqueIndex[K, E, V]) Holder(
 	return Target{}, false, nil
 }
 
-// Key returns the key of the entry of the table of u that holds v, as seen by snap, and
-// false when no entry of that table does. Holder returns a holder in any table of the
-// space.
-func (u *UniqueIndex[K, E, V]) Key(
-	ctx context.Context,
-	snap Snapshot,
-	v V,
-) (K, bool, error) {
-	var none K
-	if err := u.store.Wait(ctx); err != nil {
-		return none, false, err
+// FilterFunc returns a Filter that matches the entries of the table of u whose value is
+// one of the values that f returns when the query runs. A match is what storage holds:
+// the filter probes u for the keys of the values, with the changes staged against the
+// query's snapshot and the keys of each commit in flight, and checks the value of each
+// entry that the query decodes with the value function of u. When u failed to
+// populate, the filter checks every entry.
+func (u *UniqueIndex[K, E, V]) FilterFunc(
+	f func(ctx Context) ([]V, error),
+) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			values, err := f(newContext(ctx, snap))
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			values = lo.Uniq(values)
+			in := index.AnyOf(values)
+			eval := func(_ Context, e *E, _, _ []byte) (bool, error) {
+				v, ok := u.value(e)
+				return ok && in(v), nil
+			}
+			keys, err := probe(ctx, u.store, snap, values)
+			if errors.Is(err, ErrIndexInvalid) {
+				return resolved[K, E]{eval: eval}, nil
+			}
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			return resolved[K, E]{keys: keyset.Hashed(keys), eval: eval}, nil
+		},
 	}
-	return u.store.Holder(scopeOf(snap), v, nil)
 }
 
 // clash returns err, or else the UniqueError for holder and v.
