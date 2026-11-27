@@ -147,6 +147,12 @@ public:
         std::lock_guard lock(this->mu);
         return this->statuses;
     }
+
+    /// @brief drops every status, safe to call while tasks send more.
+    void clear() {
+        std::lock_guard lock(this->mu);
+        this->statuses.clear();
+    }
 };
 
 /// @brief the context of the task manager. A status that answers the command of an
