@@ -491,12 +491,17 @@ describe("Auth login", () => {
     sessionStorage.clear();
   });
 
-  it("should offer no invite code while the Core does not accept OIDC", async () => {
-    let served!: () => void;
-    const answered = new Promise<void>((resolve) => (served = resolve));
-    await renderLogin(await serveAuth(["password"], [], () => served()));
+  it("should offer no invite code on an OIDC Core with no provider", async () => {
+    await renderLogin(await serveAuth(["oidc"], []));
     fireEvent.click(await screen.findByText(ALPHA.name));
-    await answered;
+    await screen.findByText("No way to log in");
+    await expectAlways(() => expect(screen.queryByText(INVITE_CONTROL)).toBeNull());
+  });
+
+  it("should offer no invite code while the Core accepts no login", async () => {
+    await renderLogin(await serveAuth(["api_key"], []));
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    await screen.findByText("No way to log in");
     await expectAlways(() => expect(screen.queryByText(INVITE_CONTROL)).toBeNull());
   });
 
@@ -511,6 +516,14 @@ describe("Auth login", () => {
       });
       fireEvent.click(screen.getByText("Redeem invite"));
     };
+
+    it("should offer only the password on a Core that accepts only passwords", async () => {
+      const { core } = await serveInvites({ methods: ["password"], providers: [] });
+      await renderLogin(core);
+      await typeInviteCode();
+      expect(await screen.findByText("Choose a username and password")).toBeTruthy();
+      expect(screen.queryByText(/^Log in with /)).toBeNull();
+    });
 
     it("should offer it on a Core without providers", async () => {
       const { core } = await serveInvites({
@@ -834,9 +847,11 @@ describe("Auth login", () => {
     const note = getBySelector(container, ERROR);
     expect(note.textContent).toBe(message);
     expect(note.classList).not.toContain(GHOST);
-    expect(screen.getByRole("button", { name: /Log in/ }).nextElementSibling).toBe(
-      note,
-    );
+    // an invite code control may sit between them on a Core that accepts passwords
+    const button = screen.getByRole("button", { name: /Log in/ });
+    expect(
+      button.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("should explain a rejected provider login on a passwordless Core", async () => {

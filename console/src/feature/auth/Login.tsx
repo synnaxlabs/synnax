@@ -237,10 +237,11 @@ export const Login = (): ReactElement => {
   const noLogin = !passwordAccepted && (!oidcAccepted || loadedProviders?.length === 0);
   const handleError = Status.useErrorHandler();
   const providersShown = providers.length > 0 && window.isSecureContext;
-  // An invite needs OIDC on, though a password can redeem one. A linked invite keeps
-  // its field, so the person can cancel it on any Core.
-  const inviteOffered =
-    (passwordAccepted && oidcAccepted) || providersShown || linked != null;
+  // The field stays while the providers load, so a code typed meanwhile is kept. A
+  // linked invite keeps its field, so the person can cancel it on any Core.
+  const providersUsable =
+    oidcAccepted && window.isSecureContext && loadedProviders?.length !== 0;
+  const inviteOffered = passwordAccepted || providersUsable || linked != null;
   const reportUnfinished = Core.useReportUnfinished();
   // A newer provider login replaces an older one, which then ends unreported. Leaving
   // the login surface ends one too, before it can save a token over an open session.

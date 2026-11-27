@@ -76,18 +76,65 @@ var _ = Describe("Disabled OIDC method for invites", func() {
 			},
 		})))
 	})
-	It("Should refuse to create an invite", func(ctx SpecContext) {
-		Expect(disabled.CreateInvite(
-			requestCtx(ctx),
-			nil,
-			apioidc.CreateInviteRequest{},
-		)).Error().To(MatchError(validate.ErrValidation))
+	It("Should create an invite for a password to redeem", func(ctx SpecContext) {
+		u := MustSucceed(rbactestutil.CreateUser(
+			ctx,
+			db,
+			rbacSvc,
+			userSvc,
+			user.User{Name: "dora-" + uuid.New().String()},
+		))
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			res := MustSucceed(disabled.CreateInvite(
+				requestCtx(ctx),
+				tx,
+				apioidc.CreateInviteRequest{User: u.Key},
+			))
+			Expect(res.Token).To(HavePrefix("syi_"))
+			Expect(res.Invite.User).To(Equal(u.Key))
+			return nil
+		})).To(Succeed())
+		Expect(MustSucceed(inviteSvc.NewRetrieve().
+			Where(invite.MatchUsers(u.Key)).
+			Count(ctx, db))).To(Equal(1))
+	})
+	It("Should refuse an invite for a user that has a password", func(ctx SpecContext) {
+		u := createUser(ctx, "erin-"+uuid.New().String())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			Expect(disabled.CreateInvite(
+				requestCtx(ctx),
+				tx,
+				apioidc.CreateInviteRequest{User: u.Key},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("already has a password")),
+			))
+			return nil
+		})).To(Succeed())
 	})
 	It("Should refuse to redeem an invite", func(ctx SpecContext) {
 		Expect(disabled.RedeemInvite(
 			requestCtx(ctx),
 			apioidc.RedeemInviteRequest{},
 		)).Error().To(MatchError(validate.ErrValidation))
+	})
+})
+
+var _ = Describe("Disabled oidc and password methods for invites", func() {
+	It("Should refuse to create an invite", func(ctx SpecContext) {
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
+		disabled := newService(MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB: other,
+			Authenticators: map[auth.Method]auth.Authenticator{
+				auth.MethodAPIKey: apiKeySvc,
+			},
+		})))
+		Expect(disabled.CreateInvite(
+			requestCtx(ctx),
+			nil,
+			apioidc.CreateInviteRequest{},
+		)).Error().To(MatchError(ContainSubstring("needs the oidc or password method")))
 	})
 })
 

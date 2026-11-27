@@ -65,8 +65,8 @@ const expectPassword = async (username: string, password: string): Promise<void>
     .toBe(true);
 };
 
-// The test Core rejects invites, so the stub answers them and accepts OIDC. Each invite
-// create waits for the release.
+// The stub answers invites and accepts OIDC, and each invite create waits for the
+// release.
 const holdInviteCreate = (subject: user.Key) => {
   const real = globalThis.fetch;
   const held = Promise.withResolvers<void>();
@@ -312,6 +312,30 @@ describe("useModal", () => {
     // the password form shows once the methods answer arrives
     await screen.findByPlaceholderText("Password");
     expect(screen.queryByText("Provider accounts")).toBeNull();
+  });
+
+  it("should offer invites on a Core that accepts only passwords", async () => {
+    answerMethods(["password", "api_key"]);
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    expect(await screen.findByText("Create invite")).toBeTruthy();
+    expect(screen.queryByText("Provider accounts")).toBeNull();
+  });
+
+  it("should offer no invite on a Core that accepts only passwords to a user with one", async () => {
+    answerMethods(["password", "api_key"]);
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const { user: subject } = await createTestUser(client, { role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    // the password's form shows once the read that also gates the invite answers, and
+    // the permission reads that would show the invite answer after it
+    await screen.findByPlaceholderText("New password");
+    await expectAlways(() => expect(screen.queryByText("Create invite")).toBeNull());
   });
 
   it("should stay open while an invite is being created", async () => {

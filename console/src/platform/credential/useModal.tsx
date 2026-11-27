@@ -16,7 +16,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Credential, Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Core } from "@/platform/core";
@@ -31,6 +31,21 @@ export interface ModalParams {
   subject: resource.ID;
   title?: string | string[];
 }
+
+interface PasswordInviteProps {
+  subject: resource.ID;
+  onMessage: (message: string | null) => void;
+}
+
+// Without a provider, only a user with no password yet can redeem an invite.
+const PasswordInvite = ({
+  subject,
+  onMessage,
+}: PasswordInviteProps): ReactElement | null => {
+  const passwords = Credential.Password.useResult({ subject });
+  if (passwords.data == null || passwords.data.length > 0) return null;
+  return <OIDC.Invite subject={subject} onMessage={onMessage} />;
+};
 
 const Credentials = ({
   subject,
@@ -56,6 +71,12 @@ const Credentials = ({
           )}
           {subject.type === "user" && oidc && (
             <OIDC.Section subject={subject} onMessage={setMessage} />
+          )}
+          {subject.type === "user" && oidc && (
+            <OIDC.Invite subject={subject} onMessage={setMessage} />
+          )}
+          {subject.type === "user" && password && !oidc && (
+            <PasswordInvite subject={subject} onMessage={setMessage} />
           )}
         </Flex.Box>
       </Modal.Body>
