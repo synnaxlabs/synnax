@@ -711,7 +711,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       sanitizers: false
       targets: >-
-        //arc/cpp/runtime/loop:loop_test //client/cpp/framer:framer_test
+        //arc/cpp/runtime/loop:race_test //client/cpp/framer:framer_test
         //driver/ethercat/...
       test_flags: --config=tsan-no-aslr
       test_tags: -hardware
