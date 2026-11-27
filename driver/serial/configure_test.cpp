@@ -154,8 +154,7 @@ TEST_F(SerialConfigure, NamesChannelOfBadBinding) {
     EXPECT_EQ(status.message, "Failed to configure task");
     EXPECT_EQ(
         status.description,
-        "entry 0: message reading: channel " + std::to_string(missing) +
-            " does not exist"
+        "message reading: channel " + std::to_string(missing) + " does not exist"
     );
 }
 
