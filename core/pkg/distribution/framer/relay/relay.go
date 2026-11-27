@@ -17,7 +17,6 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -33,18 +32,11 @@ import (
 // Config is the configuration for opening the telemetry relay. See its fields for more
 // information.
 type Config struct {
-	// TS is the underlying time-series database engine. The relay streams stored
-	// channels from it.
+	// Writes carries every frame that the writers of this node write. The relay streams
+	// each frame to the readers that demand its channels.
 	//
 	// [REQUIRED]
-	TS *cesium.DB
-	// FreeWrites is the pipeline for moving data for free virtual channels. Free
-	// virtual channels are not leased to any node and their data is not stored; their
-	// writes are propagated straight through the relay. Most free channels carry
-	// metadata change notices.
-	//
-	// [REQUIRED]
-	FreeWrites confluence.Outlet[Response]
+	Writes confluence.Outlet[Response]
 	// Instrumentation is used for logging, tracing, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -90,8 +82,7 @@ var (
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.TS = override.Nil(c.TS, other.TS)
-	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
+	c.Writes = override.Nil(c.Writes, other.Writes)
 	c.StreamerBufferSize = override.Numeric(
 		c.StreamerBufferSize,
 		other.StreamerBufferSize,
@@ -108,8 +99,7 @@ func (c Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (c Config) Validate() error {
 	v := validate.New("relay")
-	v.NotNil("ts", c.TS)
-	v.NotNil("free_writes", c.FreeWrites)
+	v.NotNil("writes", c.Writes)
 	v.Positive("streamer_buffer_size", c.StreamerBufferSize)
 	v.Positive("response_buffer_size", c.ResponseBufferSize)
 	v.Positive("demand_buffer_size", c.DemandBufferSize)
@@ -158,8 +148,8 @@ func Open(configs ...Config) (*Relay, error) {
 	return r, nil
 }
 
-// Run moves frames to streamers until ctx ends. It then stops the taps into storage
-// and free writes, drops every streamer, and returns. A streamer that runs after Run
+// Run moves frames to streamers until ctx ends. It then stops the tap of writes, drops
+// every streamer, and returns. A streamer that runs after Run
 // returns fails. A second Run, or a Run after Close, returns an error.
 func (r *Relay) Run(ctx context.Context) error {
 	if err := r.guard.Begin(); err != nil {
@@ -186,6 +176,9 @@ func (r *Relay) Run(ctx context.Context) error {
 	)
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
+
+// Stopped returns a channel that closes when Run returns, or at a Close with no Run.
+func (r *Relay) Stopped() <-chan struct{} { return r.stopped }
 
 // Close fails streamers that wait for a Run that has not started, and makes a later
 // Run fail. Close while Run runs returns an error. Close after Run returns does

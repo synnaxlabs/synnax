@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -26,18 +25,16 @@ import (
 
 const benchWindow = 32
 
-// openFreeStreamer runs a relay and returns its free-write inlet and the outlet of a
+// openFreeStreamer runs a relay and returns its write inlet and the outlet of a
 // streamer on one free channel, past its open ack.
 func openFreeStreamer(
 	b *testing.B,
 ) (confluence.Inlet[relay.Response], confluence.Outlet[relay.Response]) {
 	b.Helper()
 	gomega.RegisterTestingT(b)
-	store := storagetestutil.OpenLayer(b.Context())
-	freeWrites := confluence.NewStream[relay.Response](benchWindow)
+	writes := confluence.NewStream[relay.Response](benchWindow)
 	r := xtestutil.MustSucceed(relay.Open(relay.Config{
-		TS:                 store.TS,
-		FreeWrites:         freeWrites,
+		Writes:             writes,
 		StreamerBufferSize: 2 * benchWindow,
 	}))
 	stopRelay := xtestutil.GoRun(b.Context(), r.Run)
@@ -56,11 +53,8 @@ func openFreeStreamer(
 		if err := stopRelay(); err != nil {
 			b.Error(err)
 		}
-		if err := store.Close(); err != nil {
-			b.Error(err)
-		}
 	})
-	return freeWrites, res
+	return writes, res
 }
 
 func BenchmarkFreeWrite(b *testing.B) {

@@ -188,9 +188,10 @@ var _ = Describe("Alignment", func() {
 							for i, k := range keys {
 								s[i] = series(k, chunk)
 							}
-							Expect(MustSucceed(
-								w.Write(telem.MultiFrame(keys, s)),
-							)).To(BeTrue())
+							MustSucceed(
+								w.Write(ctx, telem.MultiFrame(keys, s)),
+							)
+							MustSucceed(w.Commit(ctx))
 						}
 						Expect(w.Close()).To(Succeed())
 					}

@@ -45,6 +45,10 @@ const (
 	ModeStreamOnly = cesium.WriterModeStreamOnly
 )
 
+// AlwaysIndexPersistOnAutoCommit is the AutoIndexPersistInterval of a writer that syncs
+// every auto commit.
+const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
+
 // Request represents a streaming call to a Writer.
 type Request struct {
 	// Config sets the configuration to use when opening the writer. CommandSetAuthority

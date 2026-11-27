@@ -13,17 +13,14 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -56,21 +53,6 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorized *bool
-	// EnableAutoCommit determines whether the writer will automatically commit after
-	// each write. If EnableAutoCommit is true, then the writer will commit after each
-	// write, and will flush that commit to index on FS after the specified
-	// AutoIndexPersistInterval.
-	//
-	// [OPTIONAL] - Defaults to true.
-	EnableAutoCommit *bool
-	// Sync sets whether the writer should acknowledge all write requests with a
-	// corresponding writer response. Defaults to false, in which the writer will
-	// acknowledge Commit() and SetAuthority() commands, but not Write commands. Using
-	// sync mode is useful for acknowledging writes, but can clobber performance as the
-	// next write cannot be started before the previous write is completed.
-	//
-	// [OPTIONAL] - Defaults to false.
-	Sync *bool
 	// Name sets the human-readable name for the writer, which is useful for identifying
 	// it in control transfer scenarios.
 	//
@@ -97,32 +79,16 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL]
 	Start telem.TimeStamp
-	// AutoIndexPersistInterval is the interval at which commits to the index will be
-	// persisted. To persist every commit to guarantee minimal loss of data, set
-	// AutoIndexPersistInterval to AlwaysIndexPersistOnAutoCommit.
-	//
-	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan
 	// Mode sets the persistence and streaming mode of the writer. The default mode is
 	// WriterModePersistStream. See the WriterMode documentation for more.
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
-	// AutoIndex causes the writer to generate timestamps for any index channel
-	// referenced by the writer's data channels whose series is omitted from a Write
-	// frame. The first sample in each Write call is stamped with telem.Now() on this
-	// node; remaining samples in the same call are spaced 1ns apart. Auto-stamps are
-	// strictly monotonic across Write calls — the next call's first sample is greater
-	// than the last sample of the previous auto-stamp.
-	//
-	// When AutoIndex is true, any index channel referenced by a data channel in
-	// Channels but not present in Channels itself is implicitly opened for writing.
-	//
-	// [OPTIONAL] - Defaults to false.
-	AutoIndex *bool
 }
 
-const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
+// commitsNeverPersist is the persist interval of the internal writers. Their commits
+// never persist the index: Writer.Sync and Writer.Close do.
+const commitsNeverPersist = telem.TimeSpanMax
 
 var _ config.Config[WriterConfig] = WriterConfig{}
 
@@ -131,8 +97,6 @@ func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.writer_config")
 	v.NotEmptySlice("channels", c.Channels)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorized)
-	v.NotNil("sync", c.Sync)
-	v.NotNil("auto_index", c.AutoIndex)
 	v.Exec(c.ControlSubject.Validate)
 	v.Ternary(
 		"authorities",
@@ -150,13 +114,6 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.ControlSubject = c.ControlSubject.Override(other.ControlSubject)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
-	c.Sync = override.Nil(c.Sync, other.Sync)
-	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
-	c.AutoIndexPersistInterval = override.Zero(
-		c.AutoIndexPersistInterval,
-		other.AutoIndexPersistInterval,
-	)
-	c.AutoIndex = override.Nil(c.AutoIndex, other.AutoIndex)
 	return c
 }
 
@@ -164,8 +121,8 @@ func (c WriterConfig) unaryConfig(i int) unary.WriterConfig {
 	return unary.WriterConfig{
 		Subject:                  c.ControlSubject,
 		ErrOnUnauthorizedOpen:    c.ErrOnUnauthorized,
-		EnableAutoCommit:         c.EnableAutoCommit,
-		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
+		EnableAutoCommit:         new(true),
+		AutoIndexPersistInterval: commitsNeverPersist,
 		Start:                    c.Start,
 		Persist:                  new(c.Mode.persist()),
 		Bounded:                  new(!c.Mode.Stream()),
@@ -180,42 +137,20 @@ func (c WriterConfig) authority(i int) xcontrol.Authority {
 	return c.Authorities[i]
 }
 
-// NewStreamWriter opens a segment that writes to the DB, as OpenWriter does. A failed
-// write or commit sends a WriterResponse with the error in Err, and the segment then
-// fails every later request with the same error. A request refused for lack of control
-// is the exception: its response has Authorized false, and the next request runs.
-// Writes are committed only by a WriterCommandCommit request. Close the inlet to close
-// the segment: it serves the requests in progress without a commit, closes its outlet,
-// and returns any error through the context passed to Flow.
-func (db *DB) NewStreamWriter(
-	ctx context.Context,
-	cfgs ...WriterConfig,
-) (confluence.Segment[WriterRequest, WriterResponse], error) {
-	return db.newStreamWriter(ctx, cfgs...)
-}
-
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
-	iw, err := db.newStreamWriter(ctx, cfgs...)
-	if err != nil {
-		return nil, err
-	}
-	return wrapStreamWriter(iw.WriterConfig, iw), nil
+	return db.newWriter(ctx, cfgs...)
 }
 
-func (db *DB) newStreamWriter(
+func (db *DB) newWriter(
 	ctx context.Context,
 	cfgs ...WriterConfig,
-) (w *streamWriter, err error) {
+) (w *Writer, err error) {
 	cfg, err := config.New(WriterConfig{
-		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
-		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
-		ErrOnUnauthorized:        new(false),
-		Mode:                     WriterModePersistStream,
-		EnableAutoCommit:         new(true),
-		AutoIndexPersistInterval: 1 * telem.Second,
-		Sync:                     new(false),
-		AutoIndex:                new(false),
+		ControlSubject:    xcontrol.Subject{Key: uuid.New().String()},
+		Authorities:       []xcontrol.Authority{xcontrol.AuthorityAbsolute},
+		ErrOnUnauthorized: new(false),
+		Mode:              WriterModePersistStream,
 	}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -267,25 +202,19 @@ func (db *DB) newStreamWriter(
 		db.notifyControlUpdate(controlUpdate)
 	}
 
-	return db.assembleStreamWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
+	return db.assembleWriter(cfg, domainWriters, virtualWriters, keyToIdx), nil
 }
 
-// assembleStreamWriter returns a streamWriter over the opened writers.
-func (db *DB) assembleStreamWriter(
+// assembleWriter returns a Writer over the opened writers.
+func (db *DB) assembleWriter(
 	cfg WriterConfig,
 	domainWriters map[ChannelKey]*idxWriter,
 	virtualWriters map[ChannelKey]*virtual.Writer,
 	keyToIdx map[ChannelKey]*idxWriter,
-) *streamWriter {
-	w := &streamWriter{
-		WriterConfig: cfg,
-		internal:     make([]*idxWriter, 0, len(domainWriters)),
-		relay:        db.relay.inlet,
-		relayStopped: db.relay.delta.Stopped(),
-		validateCommand: validate.NewInclusiveBoundsChecker(
-			WriterCommandWrite,
-			writerCommandEndDomain,
-		),
+) *Writer {
+	w := &Writer{
+		WriterConfig:       cfg,
+		internal:           make([]*idxWriter, 0, len(domainWriters)),
 		virtual:            &virtualWriter{internal: virtualWriters},
 		keyToIdx:           keyToIdx,
 		authorizeEndDomain: db.authorizeEndDomain,
@@ -311,9 +240,6 @@ func (db *DB) channelDBsFor(cfg WriterConfig) (WriterConfig, channelDBs, error) 
 	defer db.mu.RUnlock()
 	if db.closed.Load() {
 		return WriterConfig{}, channelDBs{}, ErrDBClosed
-	}
-	if *cfg.AutoIndex {
-		cfg = db.expandKeysForAutoIndex(cfg)
 	}
 	dbs := channelDBs{
 		unary:   make(map[ChannelKey]unary.DB, len(cfg.Channels)),
@@ -490,63 +416,12 @@ func openDataOnlyIdxWriter(
 	return idxW, nil
 }
 
-// expandKeysForAutoIndex returns a config whose Channels include any index channels
-// referenced by non-index channels in cfg.Channels that are not already present. When
-// per-channel authorities are supplied, each appended index inherits the maximum
-// authority of the data channels that reference it, since writing to a data channel
-// requires successfully writing its index. When a single broadcast authority is
-// supplied, the appended index keys naturally inherit it.
-func (db *DB) expandKeysForAutoIndex(cfg WriterConfig) WriterConfig {
-	existing := set.New(cfg.Channels...)
-	perChannelAuth := len(cfg.Authorities) > 1
-	indexToAuth := make(map[ChannelKey]xcontrol.Authority)
-	var implicit []ChannelKey
-	for i, k := range cfg.Channels {
-		u, ok := db.mu.dbs.unary[k]
-		if !ok {
-			continue
-		}
-		ch := u.Channel()
-		if ch.IsIndex {
-			continue
-		}
-		idxKey := ch.Index
-		if idxKey == 0 {
-			continue
-		}
-		if existing.Contains(idxKey) {
-			continue
-		}
-		if _, seen := indexToAuth[idxKey]; !seen {
-			implicit = append(implicit, idxKey)
-			indexToAuth[idxKey] = 0
-		}
-		if perChannelAuth {
-			if a := cfg.Authorities[i]; a > indexToAuth[idxKey] {
-				indexToAuth[idxKey] = a
-			}
-		}
-	}
-	if len(implicit) == 0 {
-		return cfg
-	}
-	cfg.Channels = append(cfg.Channels, implicit...)
-	if perChannelAuth {
-		indexAuths := lo.Map(implicit, func(k ChannelKey, _ int) xcontrol.Authority {
-			return indexToAuth[k]
-		})
-		cfg.Authorities = append(cfg.Authorities, indexAuths...)
-	}
-	return cfg
-}
-
 func openDomainIdxWriter(u unary.DB, cfg WriterConfig) *idxWriter {
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.ch = u.Channel()
 	w.idx.Domain = u.Index()
 	w.idx.db = &u
 	w.idx.highWaterMark = cfg.Start
-	w.idx.autoStampClock = cfg.Start
 	w.writingToIdx = false
 	w.start = cfg.Start
 	w.lastCommitEnd = cfg.Start

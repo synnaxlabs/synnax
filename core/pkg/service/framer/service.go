@@ -55,26 +55,27 @@ type (
 )
 
 const (
-	IteratorResponseVariantAck  = iterator.ResponseVariantAck
-	IteratorResponseVariantData = iterator.ResponseVariantData
-	IteratorCommandNext         = iterator.CommandNext
-	IteratorCommandPrev         = iterator.CommandPrev
-	IteratorCommandSeekFirst    = iterator.CommandSeekFirst
-	IteratorCommandSeekLast     = iterator.CommandSeekLast
-	IteratorCommandSeekLE       = iterator.CommandSeekLE
-	IteratorCommandSeekGE       = iterator.CommandSeekGE
-	IteratorCommandValid        = iterator.CommandValid
-	IteratorCommandError        = iterator.CommandError
-	IteratorCommandSetBounds    = iterator.CommandSetBounds
-	IteratorAutoSpan            = iterator.AutoSpan
-	WriterCommandOpen           = writer.CommandOpen
-	WriterCommandWrite          = writer.CommandWrite
-	WriterCommandCommit         = writer.CommandCommit
-	WriterCommandSetAuthority   = writer.CommandSetAuthority
-	WriterCommandEndDomain      = writer.CommandEndDomain
-	WriterModePersistStream     = writer.ModePersistStream
-	WriterModePersistOnly       = writer.ModePersistOnly
-	WriterModeStreamOnly        = writer.ModeStreamOnly
+	IteratorResponseVariantAck     = iterator.ResponseVariantAck
+	IteratorResponseVariantData    = iterator.ResponseVariantData
+	IteratorCommandNext            = iterator.CommandNext
+	IteratorCommandPrev            = iterator.CommandPrev
+	IteratorCommandSeekFirst       = iterator.CommandSeekFirst
+	IteratorCommandSeekLast        = iterator.CommandSeekLast
+	IteratorCommandSeekLE          = iterator.CommandSeekLE
+	IteratorCommandSeekGE          = iterator.CommandSeekGE
+	IteratorCommandValid           = iterator.CommandValid
+	IteratorCommandError           = iterator.CommandError
+	IteratorCommandSetBounds       = iterator.CommandSetBounds
+	IteratorAutoSpan               = iterator.AutoSpan
+	WriterCommandOpen              = writer.CommandOpen
+	WriterCommandWrite             = writer.CommandWrite
+	WriterCommandCommit            = writer.CommandCommit
+	WriterCommandSetAuthority      = writer.CommandSetAuthority
+	WriterCommandEndDomain         = writer.CommandEndDomain
+	WriterModePersistStream        = writer.ModePersistStream
+	WriterModePersistOnly          = writer.ModePersistOnly
+	WriterModeStreamOnly           = writer.ModeStreamOnly
+	AlwaysIndexPersistOnAutoCommit = writer.AlwaysIndexPersistOnAutoCommit
 )
 
 // ServiceConfig is the configuration for opening a framer Service. All fields are

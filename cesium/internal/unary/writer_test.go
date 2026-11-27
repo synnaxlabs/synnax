@@ -1842,6 +1842,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						)
 						Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
 							Error().To(MatchError(unary.ErrWriterClosed))
+						Expect(w.Persist()).To(MatchError(unary.ErrWriterClosed))
 						MustSucceed(w.Close())
 					},
 				)
@@ -1869,4 +1870,52 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 		})
 	}
+})
+
+var _ = Describe("Writer Persist", func() {
+	It("Should write the index, so that a DB opened on the files sees each commit "+
+		"before it", func(ctx SpecContext) {
+		mem := MustSucceed(fs.NewMem().Sub("persist"))
+		ch := channel.Channel{
+			Key:      GenerateChannelKey(),
+			Name:     "Mawson",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		open := func() *unary.DB {
+			GinkgoHelper()
+			return MustSucceed(unary.Open(ctx, unary.Config{
+				FS:              mem,
+				MetaCodec:       json.Codec,
+				Channel:         ch,
+				Instrumentation: PanicLogger(),
+			}))
+		}
+		stored := func() telem.Series {
+			GinkgoHelper()
+			db := open()
+			defer func() { Expect(db.Close()).To(Succeed()) }()
+			return MustSucceed(ReadUnary(ctx, db, telem.TimeRangeMax)).
+				Get(ch.Key).Series[0]
+		}
+		db := open()
+		w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+			Start:                    10 * telem.SecondTS,
+			Subject:                  control.Subject{Key: "persist"},
+			EnableAutoCommit:         new(true),
+			AutoIndexPersistInterval: telem.Hour,
+		}))
+		MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
+		MustSucceed(w.Commit(ctx))
+		Expect(w.Persist()).To(Succeed())
+		Expect(stored().Unmarshal[telem.TimeStamp]()).To(Equal(
+			[]telem.TimeStamp{
+				10 * telem.SecondTS,
+				11 * telem.SecondTS,
+				12 * telem.SecondTS,
+			},
+		))
+		MustSucceed(w.Close())
+		Expect(db.Close()).To(Succeed())
+	})
 })

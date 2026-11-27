@@ -56,11 +56,9 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 	if open {
 		start, fr := frame(count)
 		count++
-		// A synchronous writer has committed the write when Write returns.
 		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
 			Start:    start,
-			Sync:     new(true),
 		})
 		if err != nil {
 			b.Fatal(err)
@@ -70,7 +68,10 @@ func benchmarkReadDomains(b *testing.B, count int, open bool) {
 				b.Error(err)
 			}
 		}()
-		if _, err := w.Write(fr); err != nil {
+		if _, err := w.Write(ctx, fr); err != nil {
+			b.Fatal(err)
+		}
+		if _, err := w.Commit(ctx); err != nil {
 			b.Fatal(err)
 		}
 	}

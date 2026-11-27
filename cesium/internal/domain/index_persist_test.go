@@ -719,3 +719,36 @@ var _ = Describe("Index Persist", Ordered, func() {
 		})
 	}
 })
+
+var _ = Describe("Writer Persist", func() {
+	It("Should write the index, so that a DB opened on the files sees each commit "+
+		"before it", func(ctx SpecContext) {
+		fs := xfs.NewMem()
+		open := func() *domain.DB {
+			GinkgoHelper()
+			return MustOpen(domain.Open(domain.Config{
+				FS:              fs,
+				Instrumentation: PanicLogger(),
+			}))
+		}
+		stored := func() []byte {
+			GinkgoHelper()
+			db := open()
+			defer func() { Expect(db.Close()).To(Succeed()) }()
+			return MustSucceed(testutil.ReadDomain(ctx, db, telem.TimeRangeMax))
+		}
+		db := open()
+		w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+			End:                      20 * telem.SecondTS,
+			EnableAutoCommit:         new(true),
+			AutoIndexPersistInterval: telem.Hour,
+		}))
+		Expect(w.SetStart(10 * telem.SecondTS)).To(Succeed())
+		MustSucceed(w.Write([]byte{1, 2}))
+		Expect(w.Commit(ctx, 12*telem.SecondTS, nil)).To(Succeed())
+		Expect(w.Persist()).To(Succeed())
+		Expect(stored()).To(Equal([]byte{1, 2}))
+		Expect(w.Close()).To(Succeed())
+		Expect(db.Close()).To(Succeed())
+	})
+})

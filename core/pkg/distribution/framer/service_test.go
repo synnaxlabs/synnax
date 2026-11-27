@@ -10,21 +10,29 @@
 package framer_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *framer.Service
+	var (
+		svc   *framer.Service
+		store storagetestutil.Layer
+	)
 	BeforeEach(func() {
-		store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
+		store = DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 		svc = MustSucceed(framer.OpenService(framer.ServiceConfig{TS: store.TS}))
 	})
 	stream := func(
@@ -75,4 +83,52 @@ var _ = Describe("Service", func() {
 				To(MatchError(ContainSubstring("run called after close")))
 		})
 	})
+
+	Describe("Writer after Run stops", func() {
+		DescribeTable("Should not block a write once the relay stops",
+			func(ctx SpecContext, stored bool) {
+				key := channel.NewKey(node.KeyFree, 1)
+				if stored {
+					key = channel.NewKey(1, 1)
+					Expect(store.TS.CreateChannel(ctx, cesium.Channel{
+						Key:      cesium.ChannelKey(key),
+						Name:     "time",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					})).To(Succeed())
+				}
+				svc.SetFreeIndexResolver(noFreeIndexes{})
+				StartRun(svc.Run)()
+				w := MustSucceed(svc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  channel.Keys{key},
+					Start: telem.SecondTS,
+				}))
+				written := make(chan struct{})
+				go func() {
+					defer GinkgoRecover()
+					defer close(written)
+					// More frames than the write pipeline holds.
+					for i := range 4_100 {
+						stamp := telem.SecondTS + telem.TimeStamp(i)
+						fr := frame.NewUnary(key, telem.NewSeriesV(stamp))
+						MustSucceed(w.Write(fr))
+					}
+					Expect(w.Close()).To(Succeed())
+				}()
+				Eventually(written).Should(BeClosed())
+			},
+			Entry("a stored channel", true),
+			Entry("a free channel", false),
+		)
+	})
 })
+
+// noFreeIndexes resolves no free channel to an index.
+type noFreeIndexes struct{}
+
+func (noFreeIndexes) ResolveFreeIndexes(
+	context.Context,
+	channel.Keys,
+) (map[channel.Key]channel.Key, error) {
+	return nil, nil
+}

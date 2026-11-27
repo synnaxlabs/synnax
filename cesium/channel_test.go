@@ -317,12 +317,14 @@ var _ = Describe("Channel", Ordered, func() {
 						series1 := telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)
 						MustSucceed(
 							w.Write(
+								ctx,
 								telem.MultiFrame(
 									[]cesium.ChannelKey{key},
 									[]telem.Series{series1},
 								),
 							),
 						)
+						MustSucceed(w.Commit(ctx))
 
 						Expect(
 							db.RenameChannels(
@@ -333,12 +335,14 @@ var _ = Describe("Channel", Ordered, func() {
 						series2 := telem.NewSeriesSecondsTSV(20, 21, 22)
 						MustSucceed(
 							w.Write(
+								ctx,
 								telem.MultiFrame(
 									[]cesium.ChannelKey{key},
 									[]telem.Series{series2},
 								),
 							),
 						)
+						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 
 						ch := MustSucceed(db.RetrieveChannel(ctx, key))

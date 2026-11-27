@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/set"
@@ -155,8 +154,6 @@ var _ = Describe("Relay", func() {
 		freeKey := channel.NewKey(node.KeyFree, 1)
 		openRelay := func(cfg relay.Config) *relay.Relay {
 			GinkgoHelper()
-			store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
-			cfg.TS = store.TS
 			return MustSucceed(relay.Open(cfg))
 		}
 		relayFlow := func(
@@ -178,7 +175,7 @@ var _ = Describe("Relay", func() {
 
 		It("Should fail a second Run", func(ctx SpecContext) {
 			r := openRelay(relay.Config{
-				FreeWrites: confluence.NewStream[relay.Response](1),
+				Writes: confluence.NewStream[relay.Response](1),
 			})
 			StartRun(r.Run)
 			Expect(r.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
@@ -186,7 +183,7 @@ var _ = Describe("Relay", func() {
 
 		It("Should fail a Run after Close", func(ctx SpecContext) {
 			r := openRelay(relay.Config{
-				FreeWrites: confluence.NewStream[relay.Response](1),
+				Writes: confluence.NewStream[relay.Response](1),
 			})
 			Expect(r.Close()).To(Succeed())
 			Expect(
@@ -196,7 +193,7 @@ var _ = Describe("Relay", func() {
 
 		It("Should close after Run returns", func() {
 			r := openRelay(relay.Config{
-				FreeWrites: confluence.NewStream[relay.Response](1),
+				Writes: confluence.NewStream[relay.Response](1),
 			})
 			StartRun(r.Run)()
 			Expect(r.Close()).To(Succeed())
@@ -204,7 +201,7 @@ var _ = Describe("Relay", func() {
 
 		It("Should fail a Close while Run runs", func() {
 			r := openRelay(relay.Config{
-				FreeWrites: confluence.NewStream[relay.Response](1),
+				Writes: confluence.NewStream[relay.Response](1),
 			})
 			StartRun(r.Run)
 			Expect(r.Close()).
@@ -215,7 +212,7 @@ var _ = Describe("Relay", func() {
 			ctx SpecContext,
 		) {
 			r := openRelay(relay.Config{
-				FreeWrites: confluence.NewStream[relay.Response](1),
+				Writes: confluence.NewStream[relay.Response](1),
 			})
 			sCtx, _ := relayFlow(ctx, r)
 			Expect(r.Close()).To(Succeed())
@@ -226,7 +223,7 @@ var _ = Describe("Relay", func() {
 			ctx SpecContext,
 		) {
 			r := openRelay(relay.Config{
-				FreeWrites: confluence.NewStream[relay.Response](1),
+				Writes: confluence.NewStream[relay.Response](1),
 			})
 			StartRun(r.Run)()
 			sCtx, _ := relayFlow(ctx, r)
@@ -237,7 +234,7 @@ var _ = Describe("Relay", func() {
 			ctx SpecContext,
 		) {
 			r := openRelay(relay.Config{
-				FreeWrites: confluence.NewStream[relay.Response](1),
+				Writes: confluence.NewStream[relay.Response](1),
 			})
 			streamerCtx, cancel := context.WithCancel(ctx)
 			sCtx, _ := relayFlow(streamerCtx, r)
@@ -251,7 +248,7 @@ var _ = Describe("Relay", func() {
 				ctx SpecContext,
 			) {
 				r := openRelay(relay.Config{
-					FreeWrites:       confluence.NewStream[relay.Response](1),
+					Writes:           confluence.NewStream[relay.Response](1),
 					DemandBufferSize: 2,
 				})
 				streamerCtx, cancel := context.WithCancel(ctx)
@@ -270,7 +267,7 @@ var _ = Describe("Relay", func() {
 			ctx SpecContext,
 		) {
 			freeWrites := confluence.NewStream[relay.Response](1)
-			r := openRelay(relay.Config{FreeWrites: freeWrites})
+			r := openRelay(relay.Config{Writes: freeWrites})
 			_, res := relayFlow(ctx, r)
 			Consistently(res.Outlet(), 50*time.Millisecond).ShouldNot(Receive())
 			StartRun(r.Run)
@@ -285,14 +282,12 @@ var _ = Describe("Relay", func() {
 		It("Should return when its context ends while the taps hold full buffers", func(
 			ctx SpecContext,
 		) {
-			store := DeferClose(storagetestutil.OpenLayer(GinkgoT().Context()))
 			// The delta stops reading before the free-write tap stops, so each run
 			// has a chance to leave the tap sending into a full buffer.
 			for range 20 {
 				freeWrites := confluence.NewStream[relay.Response](100)
 				r := MustSucceed(relay.Open(relay.Config{
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             freeWrites,
 					ResponseBufferSize: 1,
 				}))
 				stop := StartRun(r.Run)
@@ -498,13 +493,10 @@ var _ = Describe("Relay", func() {
 			"Should warn once per drop episode, ending it when the buffer empties",
 			func(ctx SpecContext) {
 				ins, logs := alamostestutil.ObservedInstrumentation(zapcore.WarnLevel)
-				store := storagetestutil.OpenLayer(ctx)
-				DeferCleanup(store.Close)
-				freeWrites := confluence.NewStream[relay.Response](10)
+				writes := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
 					Instrumentation:    ins,
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             writes,
 					StreamerBufferSize: 4,
 				}))
 				StartRun(r.Run)
@@ -533,7 +525,7 @@ var _ = Describe("Relay", func() {
 				send := func(n int) {
 					GinkgoHelper()
 					for v := range int64(n) {
-						freeWrites.Inlet() <- relay.Response{
+						writes.Inlet() <- relay.Response{
 							Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
 						}
 						Eventually(live.Outlet()).Should(Receive())
@@ -563,12 +555,9 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should send one missed marker per drop episode after the buffered frames",
 			func(ctx SpecContext) {
-				store := storagetestutil.OpenLayer(ctx)
-				DeferCleanup(store.Close)
 				freeWrites := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             freeWrites,
 					StreamerBufferSize: 4,
 				}))
 				StartRun(r.Run)
@@ -677,12 +666,9 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should send the time range of each channel's dropped samples",
 			func(ctx SpecContext) {
-				store := storagetestutil.OpenLayer(ctx)
-				DeferCleanup(store.Close)
 				freeWrites := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             freeWrites,
 					StreamerBufferSize: 4,
 				}))
 				StartRun(r.Run)
@@ -769,12 +755,9 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should never send a missed marker before a frame buffered before its drop",
 			func(ctx SpecContext) {
-				store := storagetestutil.OpenLayer(ctx)
-				DeferCleanup(store.Close)
 				freeWrites := confluence.NewStream[relay.Response](1000)
 				r := MustSucceed(relay.Open(relay.Config{
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             freeWrites,
 					StreamerBufferSize: 1,
 				}))
 				StartRun(r.Run)
@@ -841,8 +824,6 @@ var _ = Describe("Relay", func() {
 		It("Should send a pending missed marker before it fails when Run returns", func(
 			ctx SpecContext,
 		) {
-			store := storagetestutil.OpenLayer(ctx)
-			DeferCleanup(store.Close)
 			key := channel.NewKey(node.KeyFree, 1)
 			open := func(
 				r *relay.Relay,
@@ -884,8 +865,7 @@ var _ = Describe("Relay", func() {
 			for range 30 {
 				freeWrites := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             freeWrites,
 					StreamerBufferSize: 1,
 				}))
 				stop := StartRun(r.Run)
@@ -909,12 +889,9 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should fail a stalled streamer that asked for missed markers when Run returns",
 			func(ctx SpecContext) {
-				store := storagetestutil.OpenLayer(ctx)
-				DeferCleanup(store.Close)
 				freeWrites := confluence.NewStream[relay.Response](10)
 				r := MustSucceed(relay.Open(relay.Config{
-					TS:                 store.TS,
-					FreeWrites:         freeWrites,
+					Writes:             freeWrites,
 					StreamerBufferSize: 4,
 				}))
 				stop := StartRun(r.Run)
@@ -1583,6 +1560,46 @@ var _ = Describe("Relay", func() {
 				validReq.Close()
 				confluence.Drain(mixedRes)
 				confluence.Drain(validRes)
+			},
+		)
+
+		It(
+			"Should deliver frames for valid keys after a key update adds an unknown key",
+			func(ctx SpecContext) {
+				keys := channel.KeysFromChannels(newUniqueChannels(ctx, 1))
+				unknown := channel.NewKey(node.KeyBootstrapper, 0xFFFFD)
+
+				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				req, res := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				var ack relay.Response
+				Eventually(res.Outlet()).Should(Receive(&ack))
+				Expect(ack.Frame.Empty()).To(BeTrue())
+
+				req.Inlet() <- relay.Request{
+					Keys:         append(channel.Keys{unknown}, keys...),
+					AckRequested: true,
+				}
+				Eventually(res.Outlet()).Should(Receive(&ack))
+				Expect(ack.Ack).To(BeTrue())
+
+				w := MustOpen(svc.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+				}))
+				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesV[int64](1, 2, 3),
+				}))).To(BeTrue())
+
+				var got relay.Response
+				Eventually(res.Outlet()).Should(Receive(&got))
+				Expect(got.Frame.KeysSlice()).To(ConsistOf(keys))
+				req.Close()
+				confluence.Drain(res)
 			},
 		)
 	})
