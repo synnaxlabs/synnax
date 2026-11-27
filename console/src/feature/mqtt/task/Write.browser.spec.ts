@@ -1246,7 +1246,7 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
-      return { dialog, draft };
+      return { dialog, draft, dev };
     };
 
     const retrievePlainTarget = async (key: task.Key, topic: string) => {
@@ -1275,14 +1275,14 @@ describe("MQTT Write form", () => {
       expect(dialog.getByText("Command topics often do not show here.")).toBeTruthy();
     });
 
-    it("should add a whole picked topic with a format from its messages, in an ICD named after the task", async () => {
-      const { dialog, draft } = await openOnPickedTopic();
+    it("should add a whole picked topic with a format from its messages, in an ICD named after the device", async () => {
+      const { dialog, draft, dev } = await openOnPickedTopic();
       dialog.getByText("1 topic selected");
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, TOPIC.topic);
       const [ic] = await client.icds.retrieve([target.icd]);
       expect(ic).toMatchObject({
-        name: "MQTT write task",
+        name: dev.name,
         messages: [
           {
             key: target.message.message,

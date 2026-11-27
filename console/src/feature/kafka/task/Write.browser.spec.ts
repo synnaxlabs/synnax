@@ -216,7 +216,7 @@ describe("Kafka Write form", () => {
     ]);
     expect(target).toMatchObject({ topic: TOPIC, recordKey: "pump-2" });
     const [ic] = await client.icds.retrieve([target.icd]);
-    expect(ic.name).toBe(Kafka.Task.DEFAULT_WRITE_NAME);
+    expect(ic.name).toBe(dev.name);
     expect(ic.messages).toMatchObject([
       {
         key: target.message.message,
