@@ -353,34 +353,44 @@ func strictLookups(where *channel.Where) ([]string, error) {
 	}
 	var lookups []string
 	for _, b := range branches {
-		if !lookupsOnly(b) || len(b.Or) > 0 || !looksUp(b) {
+		var ok bool
+		if lookups, ok = appendBranchLookups(lookups, b); !ok {
 			return nil, refuse
-		}
-		if k := b.Key; k != nil {
-			for _, key := range append(slices.Clone(k.In), lo.FromPtr(k.Eq)) {
-				if key != 0 {
-					lookups = append(lookups, key.String())
-				}
-			}
-		}
-		if n := b.Name; n != nil {
-			if n.Contains != nil || n.StartsWith != nil || n.Regex != nil ||
-				n.CaseInsensitive {
-				return nil, refuse
-			}
-			lookups = append(lookups, n.In...)
-			if n.Eq != nil {
-				lookups = append(lookups, *n.Eq)
-			}
-		}
-		if p := b.Path; p != nil {
-			lookups = append(lookups, p.In...)
-			if p.Eq != nil {
-				lookups = append(lookups, *p.Eq)
-			}
 		}
 	}
 	return lookups, nil
+}
+
+// appendBranchLookups appends to lookups each key, name, and path that one branch of a
+// strict where looks up, and returns false when the branch holds any other match.
+func appendBranchLookups(lookups []string, b channel.Where) ([]string, bool) {
+	if !lookupsOnly(b) || len(b.Or) > 0 || !looksUp(b) {
+		return nil, false
+	}
+	if k := b.Key; k != nil {
+		for _, key := range append(slices.Clone(k.In), lo.FromPtr(k.Eq)) {
+			if key != 0 {
+				lookups = append(lookups, key.String())
+			}
+		}
+	}
+	if n := b.Name; n != nil {
+		if n.Contains != nil || n.StartsWith != nil || n.Regex != nil ||
+			n.CaseInsensitive {
+			return nil, false
+		}
+		lookups = append(lookups, n.In...)
+		if n.Eq != nil {
+			lookups = append(lookups, *n.Eq)
+		}
+	}
+	if p := b.Path; p != nil {
+		lookups = append(lookups, p.In...)
+		if p.Eq != nil {
+			lookups = append(lookups, *p.Eq)
+		}
+	}
+	return lookups, true
 }
 
 // looksUp reports whether w holds a key, name, or path to look up.
