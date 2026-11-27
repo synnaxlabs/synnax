@@ -35,9 +35,7 @@ struct CommandStatePair;
 struct StatusDetails;
 struct Cursor;
 struct Where;
-struct Identity;
 struct RetrieveRequest;
-struct Configuration;
 struct Device;
 struct RetrieveResponse;
 
@@ -313,21 +311,6 @@ struct Where {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Identity holds the device fields that the scanner owns.
-struct Identity {
-    /// @brief rack is the key of the rack the device is connected to.
-    ::synnax::rack::Key rack = 0;
-    /// @brief serial is the serial number of the device.
-    std::uint32_t serial = 0;
-    /// @brief connection is the connection the scanner last found the device on.
-    std::string connection;
-    /// @brief model is the model of the device. An update cannot change it.
-    std::string model;
-
-    static Identity parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief T4Ports are the ports of a T4.
 struct T4Ports {
     std::string model = MODEL_T_4;
@@ -435,27 +418,6 @@ struct RetrieveRequest {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Configuration holds the device fields that the user owns.
-struct Configuration {
-    /// @brief name is a human-readable name for the device.
-    std::string name;
-    /// @brief identifier is the prefix of the device's channel names. The device is
-    /// unconfigured while it is empty.
-    std::string identifier = "";
-    /// @brief read_index is the index channel of the channels that the device reads
-    /// into.
-    std::optional<::synnax::channel::Key> read_index;
-    /// @brief write_state_index is the index channel of the state channels of the
-    /// device's outputs.
-    std::optional<::synnax::channel::Key> write_state_index;
-    /// @brief ports holds the configuration that depends on the model. Its model must
-    /// be the model of the stored device.
-    Ports ports;
-
-    static Configuration parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief Device is a LabJack T-series device.
 struct Device {
     /// @brief key uniquely identifies the device.
@@ -487,29 +449,6 @@ struct Device {
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
-/// @brief IdentityUpdate writes the fields that the scanner owns.
-struct IdentityUpdate : public Identity {
-    std::string group = "identity";
-
-    static IdentityUpdate parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief ConfigurationUpdate replaces the fields that the user owns. A client sends
-/// the whole group, because a field it leaves out is cleared.
-struct ConfigurationUpdate : public Configuration {
-    std::string group = "configuration";
-
-    static ConfigurationUpdate parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Update is a write to one field group of a device.
-using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
-
-Update parse_update(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Update &value);
 
 /// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
 struct RetrieveResponse {

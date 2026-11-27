@@ -11,6 +11,7 @@ package device_test
 
 import (
 	"encoding/json/v2"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,18 +21,17 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Update", func() {
-	identity := device.Identity{
-		Rack:       1,
-		Serial:     470010001,
-		Connection: device.ConnectionWifi,
-		Model:      device.ModelT7,
-	}
-	configuration := device.Configuration{
+var _ = Describe("Device", func() {
+	valid := device.Device{
+		Key:             uuid.New(),
+		Rack:            1,
 		Name:            "T7",
+		Serial:          470010001,
+		Connection:      device.ConnectionWifi,
 		Identifier:      "lj",
 		ReadIndex:       new(channel.Key(1)),
 		WriteStateIndex: new(channel.Key(2)),
+		Model:           device.ModelT7,
 		Ports: device.Ports{Variant: device.T7Ports{
 			Mux80Attached: true,
 			AnalogInput: map[device.T7AnalogInputPort]channel.Key{
@@ -48,97 +48,62 @@ var _ = Describe("Update", func() {
 			},
 		}},
 	}
+	with := func(change func(*device.Device)) device.Device {
+		d := valid
+		change(&d)
+		return d
+	}
 
-	DescribeTable("Should keep the group through JSON",
-		func(update device.Update) {
-			var got device.Update
-			Expect(json.Unmarshal(
-				MustSucceed(json.Marshal(update)),
-				&got,
-			)).To(Succeed())
-			Expect(got).To(Equal(update))
-		},
-		Entry("identity", device.Update{
-			Variant: device.IdentityUpdate{Identity: identity},
-		}),
-		Entry("configuration", device.Update{
-			Variant: device.ConfigurationUpdate{Configuration: configuration},
-		}),
-	)
+	It("Should keep the ports through JSON", func() {
+		var got device.Device
+		Expect(json.Unmarshal(MustSucceed(json.Marshal(valid)), &got)).To(Succeed())
+		Expect(got).To(Equal(valid))
+	})
 
-	DescribeTable("Should reject an unknown discriminator in JSON",
-		func(raw string) {
-			var got device.Update
-			Expect(json.Unmarshal([]byte(raw), &got)).
-				To(MatchError(validate.ErrValidation))
-		},
-		Entry("group", `{"group":"other"}`),
-		Entry("model", `{"group":"configuration","name":"T7","ports":{"model":"t9"}}`),
-	)
+	It("Should reject an unknown ports model in JSON", func() {
+		var got device.Ports
+		Expect(json.Unmarshal([]byte(`{"model":"t9"}`), &got)).
+			To(MatchError(validate.ErrValidation))
+	})
 
-	DescribeTable("Should reject an invalid update",
-		func(update device.Update, field string) {
-			Expect(update.Validate()).To(SatisfyAll(
+	It("Should accept a valid device", func() {
+		Expect(valid.Validate()).To(Succeed())
+	})
+
+	DescribeTable("Should reject an invalid device",
+		func(d device.Device, field string) {
+			Expect(d.Validate()).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(field)),
 			))
 		},
-		Entry("with no group", device.Update{}, "group"),
-		Entry("with no rack", device.Update{Variant: device.IdentityUpdate{
-			Identity: device.Identity{
-				Serial:     1,
-				Connection: device.ConnectionUSB,
-				Model:      device.ModelT7,
-			},
-		}}, "rack"),
-		Entry("with no serial", device.Update{Variant: device.IdentityUpdate{
-			Identity: device.Identity{
-				Rack:       1,
-				Connection: device.ConnectionUSB,
-				Model:      device.ModelT7,
-			},
-		}}, "serial"),
-		Entry("with an unknown connection", device.Update{
-			Variant: device.IdentityUpdate{Identity: device.Identity{
-				Rack:       1,
-				Serial:     1,
-				Connection: "LJM_ctTCP",
-				Model:      device.ModelT7,
-			}},
-		}, "connection"),
-		Entry("with an unknown model", device.Update{
-			Variant: device.IdentityUpdate{Identity: device.Identity{
-				Rack:       1,
-				Serial:     1,
-				Connection: device.ConnectionUSB,
-				Model:      "t9",
-			}},
-		}, "model"),
-		Entry("with no name", device.Update{Variant: device.ConfigurationUpdate{
-			Configuration: device.Configuration{
-				Ports: device.Ports{Variant: device.T7Ports{}},
-			},
-		}}, "name"),
-		Entry("with no ports", device.Update{Variant: device.ConfigurationUpdate{
-			Configuration: device.Configuration{Name: "T7"},
-		}}, "ports"),
-		Entry("with a port the model does not have", device.Update{
-			Variant: device.ConfigurationUpdate{Configuration: device.Configuration{
-				Name: "T4",
-				Ports: device.Ports{Variant: device.T4Ports{
-					DigitalInput: map[device.T4DigitalPort]channel.Key{"DIO0": 5},
-				}},
-			}},
-		}, "invalid digital_input key: DIO0"),
+		Entry("with no serial", with(func(d *device.Device) {
+			d.Serial = 0
+		}), "serial"),
+		Entry("with an unknown connection", with(func(d *device.Device) {
+			d.Connection = "LJM_ctTCP"
+		}), "connection"),
+		Entry("with an unknown model", with(func(d *device.Device) {
+			d.Model = "t9"
+		}), "model"),
+		Entry("with no name", with(func(d *device.Device) { d.Name = "" }), "name"),
+		Entry("with no ports", with(func(d *device.Device) {
+			d.Ports = device.Ports{}
+		}), "ports"),
+		Entry("with a command channel of zero", with(func(d *device.Device) {
+			d.Ports = device.Ports{Variant: device.T7Ports{
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio1: {},
+				},
+			}}
+		}), "command"),
 	)
 
 	DescribeTable("Should check the identifier",
 		func(identifier string, valid bool) {
-			c := configuration
-			c.Identifier = identifier
-			err := device.Update{
-				Variant: device.ConfigurationUpdate{Configuration: c},
-			}.Validate()
+			err := with(func(d *device.Device) {
+				d.Identifier = identifier
+			}).Validate()
 			if valid {
 				Expect(err).ToNot(HaveOccurred())
 				return
@@ -157,10 +122,4 @@ var _ = Describe("Update", func() {
 		Entry("a leading underscore", "_lj", false),
 		Entry("a hyphen", "lab-jack", false),
 	)
-
-	It("Should accept a valid update", func() {
-		Expect(device.Update{
-			Variant: device.ConfigurationUpdate{Configuration: configuration},
-		}.Validate()).To(Succeed())
-	})
 })

@@ -89,47 +89,6 @@ inline x::json::json Device::to_json() const {
     return j;
 }
 
-inline Identity Identity::parse(x::json::Parser parser) {
-    return Identity{
-        .rack = parser.required_field<::synnax::rack::Key>("rack"),
-        .serial = parser.required_field<std::uint32_t>("serial"),
-        .connection = parser.field<std::string>("connection"),
-        .model = parser.field<std::string>("model"),
-    };
-}
-
-inline x::json::json Identity::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["rack"] = this->rack;
-    j["serial"] = this->serial;
-    j["connection"] = this->connection;
-    j["model"] = this->model;
-    return j;
-}
-
-inline Configuration Configuration::parse(x::json::Parser parser) {
-    return Configuration{
-        .name = parser.required_field<std::string>("name"),
-        .identifier = parser.field<std::string>("identifier", ""),
-        .read_index = parser.field<std::optional<::synnax::channel::Key>>("read_index"),
-        .write_state_index = parser.field<std::optional<::synnax::channel::Key>>(
-            "write_state_index"
-        ),
-        .ports = parse_ports(parser.child("ports")),
-    };
-}
-
-inline x::json::json Configuration::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["name"] = this->name;
-    j["identifier"] = this->identifier;
-    if (this->read_index.has_value()) j["read_index"] = *this->read_index;
-    if (this->write_state_index.has_value())
-        j["write_state_index"] = *this->write_state_index;
-    j["ports"] = ::synnax::labjack::device::to_json(this->ports);
-    return j;
-}
-
 inline Where Where::parse(x::json::Parser parser) {
     return Where{
         .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
@@ -350,35 +309,6 @@ inline x::json::json T8Ports::to_json() const {
     return j;
 }
 
-inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
-    IdentityUpdate result;
-    static_cast<Identity &>(result) = Identity::parse(parser);
-    result.group = parser.field<std::string>("group");
-    return result;
-}
-
-inline x::json::json IdentityUpdate::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
-    j["group"] = this->group;
-    return j;
-}
-
-inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
-    ConfigurationUpdate result;
-    static_cast<Configuration &>(result) = Configuration::parse(parser);
-    result.group = parser.field<std::string>("group");
-    return result;
-}
-
-inline x::json::json ConfigurationUpdate::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (const auto parent = Configuration::to_json(); parent.is_object())
-        j.update(parent);
-    j["group"] = this->group;
-    return j;
-}
-
 inline Ports parse_ports(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("model");
     if (discriminator == "t4") return T4Ports::parse(parser);
@@ -389,18 +319,6 @@ inline Ports parse_ports(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Ports &value) {
-    return std::visit([](const auto &v) { return v.to_json(); }, value);
-}
-
-inline Update parse_update(x::json::Parser parser) {
-    const auto discriminator = parser.field<std::string>("group");
-    if (discriminator == "identity") return IdentityUpdate::parse(parser);
-    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
-    parser.field_err("group", "unknown Update group: " + discriminator);
-    return {};
-}
-
-inline x::json::json to_json(const Update &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

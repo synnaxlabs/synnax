@@ -733,22 +733,13 @@ class TestLabJackDeviceResource:
         with pytest.raises(ValidationError):
             TypeAdapter(sy.labjack.device.Device).validate_python(data)
 
-    def test_parses_a_configuration_update(self) -> None:
-        """Should parse a configuration update with the ports of its model."""
-        update = TypeAdapter(sy.labjack.device.Update).validate_python(
-            {"group": "configuration", "name": "T7-0001", "ports": {"model": "t7"}}
+    def test_parses_a_set_action(self) -> None:
+        """Should parse a set action on the ports of a device."""
+        action = TypeAdapter(sy.labjack.device.Action).validate_python(
+            {"type": "set", "set": {"path": ["ports", "mux80_attached"], "value": True}}
         )
-        assert isinstance(update, sy.labjack.device.ConfigurationUpdate)
-        assert isinstance(update.ports, sy.labjack.device.T7Ports)
-        assert not update.ports.mux80_attached
-
-    def test_parses_an_identity_update(self) -> None:
-        """Should parse an identity update."""
-        update = TypeAdapter(sy.labjack.device.Update).validate_python(
-            {**self.DEVICE, "group": "identity", "connection": "LJM_ctWIFI"}
-        )
-        assert isinstance(update, sy.labjack.device.IdentityUpdate)
-        assert update.connection == "LJM_ctWIFI"
+        assert isinstance(action, sy.labjack.device.SetAction)
+        assert action.set.path == ["ports", "mux80_attached"]
 
     def test_round_trips_a_where(self) -> None:
         """Should keep a nested where through JSON with its operator aliases."""

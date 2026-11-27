@@ -11,6 +11,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/labjack/device"
 @go output  "core/pkg/service/labjack/device"
@@ -381,12 +382,14 @@ Device struct {
     }
     rack              rack.Key     {
         @doc value     "is the key of the rack the device is connected to."
+        @patch
         @ref kind      place
         @ref on_delete restrict
     }
     name              string       {
         @doc value         "is a human-readable name for the device."
         @filter
+        @patch
         @search
         @validate required
     }
@@ -394,10 +397,12 @@ Device struct {
         @doc value         "is the serial number of the device."
         @filter
         @index lookup
+        @patch
         @validate required
     }
     connection        Connection   {
         @doc value "is the connection the scanner last found the device on."
+        @patch
     }
     identifier        string = "" {
         @doc value   """
@@ -405,11 +410,13 @@ Device struct {
             while it is empty.
         """
         @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
+        @patch
     }
     read_index        channel.Key? {
         @doc value     """
             is the index channel of the channels that the device reads into.
         """
+        @patch
         @ref kind      use
         @ref on_delete restrict
     }
@@ -417,6 +424,7 @@ Device struct {
         @doc value     """
             is the index channel of the state channels of the device's outputs.
         """
+        @patch
         @ref kind      use
         @ref on_delete restrict
     }
@@ -430,11 +438,30 @@ Device struct {
             is the model of the device. It selects the ports the device has.
         """
         @filter
+        @patch
         @validate required
     }
     ports             Ports        {
         @doc value "holds the channel maps and the accessories of the device's model."
+        @patch
     }
+
+    action Create {
+        device Device
+
+        @doc value """
+            replaces the device with the given created state. Emitted by the Core when a
+            device is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
 
     @create
     @doc value     "is a LabJack T-series device."
@@ -442,68 +469,6 @@ Device struct {
     @go migrate
     @resource type "labjack_device"
     @retrieve
-}
-
-Identity struct {
-    rack       rack.Key   {
-        @doc value         "is the key of the rack the device is connected to."
-        @validate required
-    }
-    serial     uint32     {
-        @doc value         "is the serial number of the device."
-        @validate required
-    }
-    connection Connection {
-        @doc value "is the connection the scanner last found the device on."
-    }
-    model      Model      {
-        @doc value         "is the model of the device. An update cannot change it."
-        @validate required
-    }
-
-    @doc value "holds the device fields that the scanner owns."
-}
-
-Configuration struct {
-    name              string       {
-        @doc value         "is a human-readable name for the device."
-        @validate required
-    }
-    identifier        string = "" {
-        @doc value   """
-            is the prefix of the device's channel names. The device is unconfigured
-            while it is empty.
-        """
-        @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
-    }
-    read_index        channel.Key? {
-        @doc value "is the index channel of the channels that the device reads into."
-    }
-    write_state_index channel.Key? {
-        @doc value "is the index channel of the state channels of the device's outputs."
-    }
-    ports             Ports        {
-        @doc value """
-            holds the configuration that depends on the model. Its model must be the
-            model of the stored device.
-        """
-    }
-
-    @doc value "holds the device fields that the user owns."
-}
-
-Update union on group {
-    identity      Identity {
-        @doc value "writes the fields that the scanner owns."
-    }
-    configuration Configuration {
-        @doc value """
-            replaces the fields that the user owns. A client sends the whole group,
-            because a field it leaves out is cleared.
-        """
-    }
-
-    @doc value "is a write to one field group of a device."
 }
 
 Where filter Device {

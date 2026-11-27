@@ -18,6 +18,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -28,10 +29,18 @@ import (
 // Writer creates, updates, and deletes LabJack devices in the transaction given to
 // Service.NewWriter.
 type Writer struct {
-	tx       gorp.Tx
-	status   status.Writer
-	statuses *status.Service
-	table    *gorp.Table[Key, Device]
+	tx         gorp.Tx
+	status     status.Writer
+	statuses   *status.Service
+	table      *gorp.Table[Key, Device]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// actions it broadcasts, so the client that sent them recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 func (w Writer) setStatus(ctx context.Context, d Device) error {
@@ -166,7 +175,8 @@ func validateDevice(d Device) error {
 // takes the name and rack of d. A device with a nil key gets a new one. It returns a
 // validation error when d is invalid, its ports are for another model, it gives a pin
 // two roles, it maps a Mux80 port or address line against the Mux80 state, it replaces
-// a device of another model, or its rack does not exist.
+// a device of another model, or its rack does not exist. After the transaction commits,
+// Create broadcasts a create action that carries the stored device.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if err := validateDevice(*d); err != nil {
 		return err
@@ -179,7 +189,11 @@ func (w Writer) Create(ctx context.Context, d *Device) error {
 	if err := w.table.NewCreate().Entry(d).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.setStatus(ctx, *d)
+	if err := w.setStatus(ctx, *d); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, d.Key, NewCreateAction(CreatePayload{Device: *d}))
+	return nil
 }
 
 // update applies change to the device stored under key and stores the result. A rename

@@ -596,22 +596,6 @@ class CommandStatePair(BaseModel):
     state: channel.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
-class Identity(BaseModel):
-    """Holds the device fields that the scanner owns.
-
-    Attributes:
-        rack: Is the key of the rack the device is connected to.
-        serial: Is the serial number of the device.
-        connection: Is the connection the scanner last found the device on.
-        model: Is the model of the device. An update cannot change it.
-    """
-
-    rack: rack_.Key = Field(gt=0, le=4294967295)
-    serial: int = Field(gt=0, le=4294967295)
-    connection: Connection
-    model: Model
-
-
 class StatusDetails(BaseModel):
     """Identifies the device and rack that a status pertains to.
 
@@ -757,27 +741,6 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
-class Configuration(BaseModel):
-    """Holds the device fields that the user owns.
-
-    Attributes:
-        name: Is a human-readable name for the device.
-        identifier: Is the prefix of the device's channel names. The device is
-            unconfigured while it is empty.
-        read_index: Is the index channel of the channels that the device reads into.
-        write_state_index: Is the index channel of the state channels of the device's
-            outputs.
-        ports: Holds the configuration that depends on the model. Its model must be the
-            model of the stored device.
-    """
-
-    name: str = Field(min_length=1)
-    identifier: str = ""
-    read_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
-    write_state_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
-    ports: Ports
-
-
 class Device(BaseModel):
     """Is a LabJack T-series device.
 
@@ -812,27 +775,6 @@ class Device(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class IdentityUpdate(Identity):
-    """Writes the fields that the scanner owns."""
-
-    group: Literal["identity"] = "identity"
-
-
-class ConfigurationUpdate(Configuration):
-    """Replaces the fields that the user owns. A client sends the whole group, because a
-    field it leaves out is cleared.
-    """
-
-    group: Literal["configuration"] = "configuration"
-
-
-# Is a write to one field group of a device.
-Update = Annotated[
-    IdentityUpdate | ConfigurationUpdate,
-    Field(discriminator="group"),
-]
 
 
 class RetrieveResponse(BaseModel):

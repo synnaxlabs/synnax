@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -144,22 +145,21 @@ func withoutStatus(d device.Device) device.Device {
 	return d
 }
 
-// UpdateRequest names a device and the one field group to write to it.
-type UpdateRequest struct {
-	// Update is the field group to write.
-	Update device.Update `json:"update" msgpack:"update"`
-	// Key selects the device to update.
-	Key device.Key `json:"key" msgpack:"key"`
-}
+// DispatchRequest carries an action sequence to apply to one device. DispatchKey is a
+// client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[device.Key, device.Action]
 
-// Update writes one field group to a device and keeps the other as stored. It returns
-// a validation error when the request carries no group or names a different model.
-func (s *Service) Update(
+// Dispatch applies the action sequence to the device atomically. Subscribers to the
+// device action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
-	req UpdateRequest,
+	req DispatchRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.cfg.Device.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+	return struct{}{}, s.cfg.Device.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 // DeleteRequest carries the keys of the devices to delete.
