@@ -44,6 +44,8 @@ import {
   clickDeploy,
   countFailedSaves,
   deployAndAwaitTask,
+  findDetailsButton,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -193,7 +195,7 @@ const createFormatTarget = async (fields: icd.JSONField[]) => {
 
 // The add button renders once the form leaves its loading preview.
 const openAddTargets = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
+  fireEvent.click(await findListButton("Add targets"));
   return within(await screen.findByRole("dialog"));
 };
 
@@ -240,10 +242,16 @@ describe("MQTT Write form", () => {
   // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
     await renderWrite();
-    await screen.findByText("Add targets to write to a topic or a tag");
+    await screen.findByText("No target selected");
     await addTag();
     expect(screen.getByText("Sparkplug B type")).toBeTruthy();
   }, 30_000);
+
+  it("should open Add targets from the empty details pane", async () => {
+    await renderWrite();
+    fireEvent.click(await findDetailsButton("Add targets"));
+    await screen.findByRole("dialog");
+  });
 
   it("should show the topic settings of a plain target", async () => {
     await renderWrite([

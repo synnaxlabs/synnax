@@ -672,6 +672,25 @@ export const getAddChannelButton = (): HTMLElement => {
   return within(list).getByRole("button", { name: "Add channel" });
 };
 
+/**
+ * Finds the button with name under the list of a task form's panes. The empty details
+ * pane shows an action of the same name.
+ */
+export const findListButton = async (name: string): Promise<HTMLElement> => {
+  const list = await waitFor(() =>
+    getBySelector<HTMLElement>(document, ".console-panes__list"),
+  );
+  return await within(list).findByRole("button", { name });
+};
+
+/** Finds the button with name in the details pane of a task form's panes. */
+export const findDetailsButton = async (name: string): Promise<HTMLElement> => {
+  const details = await waitFor(() =>
+    getBySelector<HTMLElement>(document, ".console-panes__details"),
+  );
+  return await within(details).findByRole("button", { name });
+};
+
 /** Finds the note under the channel list that shows the message, and its variant. */
 export const findChannelListNote = async (
   message: string,

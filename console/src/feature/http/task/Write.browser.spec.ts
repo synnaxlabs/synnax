@@ -26,6 +26,8 @@ import { createHTTPDevice } from "@/feature/http/testutil";
 import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
   deployAndAwaitTask,
+  findDetailsButton,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -131,7 +133,7 @@ const deployEndpoint = async (
 };
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
+  fireEvent.click(await findListButton("Add endpoint"));
   await screen.findByText("Request");
 };
 
@@ -148,7 +150,7 @@ describe("Write", () => {
   // a loaded CI runner.
   it("should add an endpoint that sends a new message, in an ICD named after the task", async () => {
     const { draft } = await renderWrite();
-    await screen.findByText("Add an endpoint to send requests to");
+    await screen.findByText("No endpoint selected");
     await addEndpoint();
     let endpoints: HTTP.Task.WriteEndpoint[] = [];
     await waitFor(async () => {
@@ -175,6 +177,12 @@ describe("Write", () => {
       const ic = await client.icds.retrieve(endpoints[0].icd as icd.Key);
       expect(ic.messages.map(({ name }) => name)).toEqual(["POST", "POST 2"]);
     });
+  });
+
+  it("should add an endpoint from the empty details pane", async () => {
+    await renderWrite();
+    fireEvent.click(await findDetailsButton("Add endpoint"));
+    await screen.findByText("Request");
   });
 
   it("should rename the message of an endpoint after its new method and path", async () => {

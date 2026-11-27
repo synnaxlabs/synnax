@@ -42,6 +42,8 @@ import {
   clickFailedDeploy,
   countFailedSaves,
   deployAndAwaitTask,
+  findDetailsButton,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   START_FAILURE,
@@ -503,7 +505,7 @@ describe("MQTT read form", () => {
       },
     ];
     const { dev, draft } = await renderRead();
-    await screen.findByText("Add data to read a topic or a tag");
+    await screen.findByText("No entry selected");
     const scanner = await openScanner(client, dev.rack);
     let dialog = await openAddData();
     await scanner.answer({ data: { topics: TOPICS, truncated: false } });
@@ -1218,11 +1220,17 @@ describe("MQTT read form", () => {
 
   it("should open one Add data dialog for a double click", async () => {
     await renderRead();
-    const button = await screen.findByRole("button", { name: "Add data" });
+    const button = await findListButton("Add data");
     fireEvent.click(button);
     fireEvent.click(button);
     await screen.findByRole("dialog");
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("should open Add data from the empty details pane", async () => {
+    await renderRead();
+    fireEvent.click(await findDetailsButton("Add data"));
+    await screen.findByRole("dialog");
   });
 
   it("should name a new ICD after the device while the task has no name", async () => {
@@ -2790,7 +2798,7 @@ describe("MQTT read form", () => {
         as: viewer,
       });
       await openTopic();
-      const add = await screen.findByRole("button", { name: "Add data" });
+      const add = await findListButton("Add data");
       const addField = await screen.findByRole("button", { name: "Add field" });
       const format = await findDialogTriggerByText(TOPIC);
       const read = await screen.findByRole<HTMLInputElement>("checkbox", {

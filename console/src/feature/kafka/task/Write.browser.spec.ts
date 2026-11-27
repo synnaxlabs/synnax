@@ -41,6 +41,8 @@ import {
   type CommandAnswer,
   countFailedSaves,
   deployAndAwaitTask,
+  findDetailsButton,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -164,7 +166,7 @@ const answerScan = async (
  * @returns queries scoped to the dialog.
  */
 const clickAddTargets = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
+  fireEvent.click(await findListButton("Add targets"));
   return within(await screen.findByRole("dialog"));
 };
 
@@ -199,11 +201,17 @@ describe("Kafka Write form", () => {
   // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
     const { dev, draft } = await renderWrite();
-    await screen.findByText("Add a target to send records to a topic");
+    await screen.findByText("No target selected");
     await addSampledTarget(dev, draft.key, [createShape(["pump-1"], 2, "/speed")]);
     await screen.findByText("Produce");
     expect(screen.getByDisplayValue(TOPIC)).toBeTruthy();
   }, 30_000);
+
+  it("should open Add targets from the empty details pane", async () => {
+    await renderWrite();
+    fireEvent.click(await findDetailsButton("Add targets"));
+    await screen.findByRole("dialog");
+  });
 
   it("should send the shape of the most records, in a message named after the topic", async () => {
     let statuses: Status.NotificationSpec[] = [];

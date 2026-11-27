@@ -29,6 +29,8 @@ import {
   awaitTare,
   clickDeploy,
   deployAndAwaitTask,
+  findDetailsButton,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -48,7 +50,7 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
 };
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
+  fireEvent.click(await findListButton("Add endpoint"));
   await screen.findByText("Request");
 };
 
@@ -193,7 +195,7 @@ describe("Read", () => {
 
   it("should show the empty state and add + select an endpoint", async () => {
     await renderWithDevice();
-    await screen.findByText("Select an endpoint or field to configure");
+    await screen.findByText("No endpoint selected");
     await screen.findByText("No endpoints");
     await addEndpoint();
     expect(screen.getAllByText("New endpoint").map(treatment)).not.toContain("code");
@@ -202,7 +204,13 @@ describe("Read", () => {
     expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
     expect(screen.getByText("Headers")).toBeTruthy();
     expect(screen.getByText("Query parameters")).toBeTruthy();
-    expect(screen.queryByText("Select an endpoint or field to configure")).toBeNull();
+    expect(screen.queryByText("No endpoint selected")).toBeNull();
+  });
+
+  it("should add an endpoint from the empty details pane", async () => {
+    await renderWithDevice();
+    fireEvent.click(await findDetailsButton("Add endpoint"));
+    await screen.findByText("Request");
   });
 
   it("should make an ICD named after the task for the message of a new endpoint", async () => {

@@ -44,6 +44,7 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
@@ -560,6 +561,7 @@ const Endpoints: FC<EndpointsProps> = ({
       onSelect([ep.key]);
       tree.expand(ep.key);
     }, "Failed to add endpoint");
+  const isPreview = Task.useIsPreview();
 
   const handleAddMessage = (key: string) => {
     const path = root.config.endpoints[key];
@@ -648,11 +650,12 @@ const Endpoints: FC<EndpointsProps> = ({
       title={title ?? undefined}
     >
       {details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            Select an endpoint or field to configure
-          </Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No endpoint selected"
+          action={isPreview ? undefined : "Add endpoint"}
+          onClick={handleAdd}
+        />
       )}
     </Task.Views.Panes>
   );
