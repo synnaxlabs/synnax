@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import operator
 import warnings
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -82,49 +81,21 @@ def _warn_secure() -> None:
     warn_deprecated(_SECURE_DEPRECATED_MSG)
 
 
-def replace_alias(
-    source: Mapping[str, Any],
-    name: str,
-    alias: str,
-    *,
-    deprecated_msg: str,
-    disagree_msg: str | None,
-    convert: Callable[[Any], Any] = lambda v: v,
-) -> Mapping[str, Any]:
-    """Returns source with its deprecated alias key replaced by name, and the value of
-    alias passed through convert. Warns with deprecated_msg as a DeprecationWarning when
-    source sets alias without name. When source sets both, name wins with no warning if
-    disagree_msg is None. Otherwise they must agree, so that clients older and newer
-    than Synnax 0.63 read the same choice.
-
-    :raises ValidationError: With disagree_msg, if it is not None, source sets both, and
-        the converted value of alias is not the value of name.
-    """
-    if alias not in source:
-        return source
-    rest = {k: v for k, v in source.items() if k != alias}
-    if name in rest and disagree_msg is None:
-        return rest
-    value = convert(source[alias])
-    if name not in source:
-        warn_deprecated(deprecated_msg)
-    elif source[name] != value:
-        raise ValidationError(disagree_msg)
-    return {**rest, name: value}
-
-
 def without_secure(source: Mapping[str, Any]) -> Mapping[str, Any]:
     """Returns the options that one source sets, with the deprecated secure replaced by
-    insecure. See replace_alias.
+    insecure. Warns with a DeprecationWarning when source sets secure without insecure.
+    When source sets both, they must agree, so that clients older and newer than Synnax
+    0.63 read the same choice.
 
     :raises ValidationError: If the source sets both, and secure is not the inverse of
         insecure.
     """
-    return replace_alias(
-        source,
-        "insecure",
-        "secure",
-        deprecated_msg=_SECURE_DEPRECATED_MSG,
-        disagree_msg=_TLS_FLAGS_DISAGREE_MSG,
-        convert=operator.not_,
-    )
+    if "secure" not in source:
+        return source
+    rest = {k: v for k, v in source.items() if k != "secure"}
+    insecure = not source["secure"]
+    if "insecure" not in source:
+        warn_deprecated(_SECURE_DEPRECATED_MSG)
+    elif source["insecure"] != insecure:
+        raise ValidationError(_TLS_FLAGS_DISAGREE_MSG)
+    return {**rest, "insecure": insecure}
