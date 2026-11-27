@@ -523,6 +523,69 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u WriteField) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case StaticWriteField:
+		return enc.Encode(struct {
+			Type WriteFieldType `msgpack:"type"`
+			StaticWriteField
+		}{Type: StaticWriteFieldType, StaticWriteField: v})
+	case GeneratedWriteField:
+		return enc.Encode(struct {
+			Type WriteFieldType `msgpack:"type"`
+			GeneratedWriteField
+		}{Type: GeneratedWriteFieldType, GeneratedWriteField: v})
+	default:
+		return errors.Newf("WriteField: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *WriteField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type WriteFieldType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case StaticWriteFieldType:
+		var v StaticWriteField
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GeneratedWriteFieldType:
+		var v GeneratedWriteField
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteField: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u WriteField) Type() WriteFieldType {
 	switch u.Variant.(type) {

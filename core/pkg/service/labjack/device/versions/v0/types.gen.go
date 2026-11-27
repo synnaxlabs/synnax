@@ -22,6 +22,7 @@ import (
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
@@ -190,6 +191,78 @@ func (u *Ports) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.T8Ports
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ports: unknown model %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "model" tag injected,
+// as MarshalJSONTo does.
+func (u Ports) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case T4Ports:
+		return enc.Encode(struct {
+			Type Model `msgpack:"model"`
+			T4Ports
+		}{Type: ModelT4, T4Ports: v})
+	case T7Ports:
+		return enc.Encode(struct {
+			Type Model `msgpack:"model"`
+			T7Ports
+		}{Type: ModelT7, T7Ports: v})
+	case T8Ports:
+		return enc.Encode(struct {
+			Type Model `msgpack:"model"`
+			T8Ports
+		}{Type: ModelT8, T8Ports: v})
+	default:
+		return errors.Newf("Ports: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "model" field, as
+// UnmarshalJSONFrom does.
+func (u *Ports) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type Model `msgpack:"model"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case ModelT4:
+		var v T4Ports
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ModelT7:
+		var v T7Ports
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ModelT8:
+		var v T8Ports
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

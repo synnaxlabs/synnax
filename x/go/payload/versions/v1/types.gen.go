@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	v0 "github.com/synnaxlabs/x/payload/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Kind is the kind of value a payload field holds.
@@ -266,6 +267,89 @@ func (u *Scalar) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.NullScalar
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scalar: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u Scalar) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case NumberScalar:
+		return enc.Encode(struct {
+			Type ScalarType `msgpack:"type"`
+			NumberScalar
+		}{Type: ScalarTypeNumber, NumberScalar: v})
+	case StringScalar:
+		return enc.Encode(struct {
+			Type ScalarType `msgpack:"type"`
+			StringScalar
+		}{Type: ScalarTypeString, StringScalar: v})
+	case BooleanScalar:
+		return enc.Encode(struct {
+			Type ScalarType `msgpack:"type"`
+			BooleanScalar
+		}{Type: ScalarTypeBoolean, BooleanScalar: v})
+	case NullScalar:
+		return enc.Encode(struct {
+			Type ScalarType `msgpack:"type"`
+			NullScalar
+		}{Type: ScalarTypeNull, NullScalar: v})
+	default:
+		return errors.Newf("Scalar: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *Scalar) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ScalarType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case ScalarTypeNumber:
+		var v NumberScalar
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScalarTypeString:
+		var v StringScalar
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScalarTypeBoolean:
+		var v BooleanScalar
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScalarTypeNull:
+		var v NullScalar
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

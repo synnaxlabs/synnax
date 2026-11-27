@@ -237,6 +237,89 @@ func (u *SASL) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "mechanism" tag injected,
+// as MarshalJSONTo does.
+func (u SASL) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case NoneSASL:
+		return enc.Encode(struct {
+			Type SASLType `msgpack:"mechanism"`
+			NoneSASL
+		}{Type: NoneSASLType, NoneSASL: v})
+	case PlainSASL:
+		return enc.Encode(struct {
+			Type SASLType `msgpack:"mechanism"`
+			PlainSASL
+		}{Type: PlainSASLType, PlainSASL: v})
+	case ScramSha256SASL:
+		return enc.Encode(struct {
+			Type SASLType `msgpack:"mechanism"`
+			ScramSha256SASL
+		}{Type: ScramSha256SASLType, ScramSha256SASL: v})
+	case ScramSha512SASL:
+		return enc.Encode(struct {
+			Type SASLType `msgpack:"mechanism"`
+			ScramSha512SASL
+		}{Type: ScramSha512SASLType, ScramSha512SASL: v})
+	default:
+		return errors.Newf("SASL: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "mechanism" field, as
+// UnmarshalJSONFrom does.
+func (u *SASL) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type SASLType `msgpack:"mechanism"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case NoneSASLType:
+		var v NoneSASL
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PlainSASLType:
+		var v PlainSASL
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScramSha256SASLType:
+		var v ScramSha256SASL
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScramSha512SASLType:
+		var v ScramSha512SASL
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"SASL: unknown mechanism %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Mechanism returns the mechanism of the active variant, or an empty mechanism when
 // there is none.
 func (u SASL) Mechanism() SASLType {

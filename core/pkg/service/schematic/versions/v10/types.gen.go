@@ -25,6 +25,7 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -4521,6 +4522,1292 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.GroupBoxNodeConfig
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"NodeConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "variant" tag injected,
+// as MarshalJSONTo does.
+func (u NodeConfig) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CapNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CapNodeConfig
+		}{Type: CapNodeConfigType, CapNodeConfig: v})
+	case FilterNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FilterNodeConfig
+		}{Type: FilterNodeConfigType, FilterNodeConfig: v})
+	case FlowStraightenerNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowStraightenerNodeConfig
+		}{Type: FlowStraightenerNodeConfigType, FlowStraightenerNodeConfig: v})
+	case HeaterElementNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			HeaterElementNodeConfig
+		}{Type: HeaterElementNodeConfigType, HeaterElementNodeConfig: v})
+	case IsoCapNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			IsoCapNodeConfig
+		}{Type: IsoCapNodeConfigType, IsoCapNodeConfig: v})
+	case IsoFilterNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			IsoFilterNodeConfig
+		}{Type: IsoFilterNodeConfigType, IsoFilterNodeConfig: v})
+	case NozzleNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			NozzleNodeConfig
+		}{Type: NozzleNodeConfigType, NozzleNodeConfig: v})
+	case OrificeNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			OrificeNodeConfig
+		}{Type: OrificeNodeConfigType, OrificeNodeConfig: v})
+	case OrificePlateNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			OrificePlateNodeConfig
+		}{Type: OrificePlateNodeConfigType, OrificePlateNodeConfig: v})
+	case StrainerNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			StrainerNodeConfig
+		}{Type: StrainerNodeConfigType, StrainerNodeConfig: v})
+	case StrainerConeNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			StrainerConeNodeConfig
+		}{Type: StrainerConeNodeConfigType, StrainerConeNodeConfig: v})
+	case ThrusterNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ThrusterNodeConfig
+		}{Type: ThrusterNodeConfigType, ThrusterNodeConfig: v})
+	case VentNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			VentNodeConfig
+		}{Type: VentNodeConfigType, VentNodeConfig: v})
+	case FlowmeterGeneralNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterGeneralNodeConfig
+		}{Type: FlowmeterGeneralNodeConfigType, FlowmeterGeneralNodeConfig: v})
+	case FlowmeterElectromagneticNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterElectromagneticNodeConfig
+		}{Type: FlowmeterElectromagneticNodeConfigType, FlowmeterElectromagneticNodeConfig: v})
+	case FlowmeterVariableAreaNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterVariableAreaNodeConfig
+		}{Type: FlowmeterVariableAreaNodeConfigType, FlowmeterVariableAreaNodeConfig: v})
+	case FlowmeterCoriolisNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterCoriolisNodeConfig
+		}{Type: FlowmeterCoriolisNodeConfigType, FlowmeterCoriolisNodeConfig: v})
+	case FlowmeterNozzleNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterNozzleNodeConfig
+		}{Type: FlowmeterNozzleNodeConfigType, FlowmeterNozzleNodeConfig: v})
+	case FlowmeterVenturiNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterVenturiNodeConfig
+		}{Type: FlowmeterVenturiNodeConfigType, FlowmeterVenturiNodeConfig: v})
+	case FlowmeterRingPistonNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterRingPistonNodeConfig
+		}{Type: FlowmeterRingPistonNodeConfigType, FlowmeterRingPistonNodeConfig: v})
+	case FlowmeterPositiveDisplacementNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterPositiveDisplacementNodeConfig
+		}{Type: FlowmeterPositiveDisplacementNodeConfigType, FlowmeterPositiveDisplacementNodeConfig: v})
+	case FlowmeterTurbineNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterTurbineNodeConfig
+		}{Type: FlowmeterTurbineNodeConfigType, FlowmeterTurbineNodeConfig: v})
+	case FlowmeterPulseNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterPulseNodeConfig
+		}{Type: FlowmeterPulseNodeConfigType, FlowmeterPulseNodeConfig: v})
+	case FlowmeterFloatSensorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterFloatSensorNodeConfig
+		}{Type: FlowmeterFloatSensorNodeConfigType, FlowmeterFloatSensorNodeConfig: v})
+	case FlowmeterOrificeNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlowmeterOrificeNodeConfig
+		}{Type: FlowmeterOrificeNodeConfigType, FlowmeterOrificeNodeConfig: v})
+	case BoxNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			BoxNodeConfig
+		}{Type: BoxNodeConfigType, BoxNodeConfig: v})
+	case ButtonNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ButtonNodeConfig
+		}{Type: ButtonNodeConfigType, ButtonNodeConfig: v})
+	case CircleNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CircleNodeConfig
+		}{Type: CircleNodeConfigType, CircleNodeConfig: v})
+	case GaugeNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			GaugeNodeConfig
+		}{Type: GaugeNodeConfigType, GaugeNodeConfig: v})
+	case InputNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			InputNodeConfig
+		}{Type: InputNodeConfigType, InputNodeConfig: v})
+	case LightNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			LightNodeConfig
+		}{Type: LightNodeConfigType, LightNodeConfig: v})
+	case LineNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			LineNodeConfig
+		}{Type: LineNodeConfigType, LineNodeConfig: v})
+	case OffPageReferenceNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			OffPageReferenceNodeConfig
+		}{Type: OffPageReferenceNodeConfigType, OffPageReferenceNodeConfig: v})
+	case PolygonNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			PolygonNodeConfig
+		}{Type: PolygonNodeConfigType, PolygonNodeConfig: v})
+	case SelectNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			SelectNodeConfig
+		}{Type: SelectNodeConfigType, SelectNodeConfig: v})
+	case ScaleNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ScaleNodeConfig
+		}{Type: ScaleNodeConfigType, ScaleNodeConfig: v})
+	case SetpointNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			SetpointNodeConfig
+		}{Type: SetpointNodeConfigType, SetpointNodeConfig: v})
+	case StateIndicatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			StateIndicatorNodeConfig
+		}{Type: StateIndicatorNodeConfigType, StateIndicatorNodeConfig: v})
+	case StringDisplayNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			StringDisplayNodeConfig
+		}{Type: StringDisplayNodeConfigType, StringDisplayNodeConfig: v})
+	case SwitchNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			SwitchNodeConfig
+		}{Type: SwitchNodeConfigType, SwitchNodeConfig: v})
+	case TextBoxNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			TextBoxNodeConfig
+		}{Type: TextBoxNodeConfigType, TextBoxNodeConfig: v})
+	case ValueNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ValueNodeConfig
+		}{Type: ValueNodeConfigType, ValueNodeConfig: v})
+	case AgitatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			AgitatorNodeConfig
+		}{Type: AgitatorNodeConfigType, AgitatorNodeConfig: v})
+	case CrossBeamAgitatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CrossBeamAgitatorNodeConfig
+		}{Type: CrossBeamAgitatorNodeConfigType, CrossBeamAgitatorNodeConfig: v})
+	case FlatBladeAgitatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlatBladeAgitatorNodeConfig
+		}{Type: FlatBladeAgitatorNodeConfigType, FlatBladeAgitatorNodeConfig: v})
+	case HeatExchangerGeneralNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			HeatExchangerGeneralNodeConfig
+		}{Type: HeatExchangerGeneralNodeConfigType, HeatExchangerGeneralNodeConfig: v})
+	case HeatExchangerMNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			HeatExchangerMNodeConfig
+		}{Type: HeatExchangerMNodeConfigType, HeatExchangerMNodeConfig: v})
+	case HeatExchangerStraightTubeNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			HeatExchangerStraightTubeNodeConfig
+		}{Type: HeatExchangerStraightTubeNodeConfigType, HeatExchangerStraightTubeNodeConfig: v})
+	case HelicalAgitatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			HelicalAgitatorNodeConfig
+		}{Type: HelicalAgitatorNodeConfigType, HelicalAgitatorNodeConfig: v})
+	case PaddleAgitatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			PaddleAgitatorNodeConfig
+		}{Type: PaddleAgitatorNodeConfigType, PaddleAgitatorNodeConfig: v})
+	case PropellerAgitatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			PropellerAgitatorNodeConfig
+		}{Type: PropellerAgitatorNodeConfigType, PropellerAgitatorNodeConfig: v})
+	case RotaryMixerNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			RotaryMixerNodeConfig
+		}{Type: RotaryMixerNodeConfigType, RotaryMixerNodeConfig: v})
+	case StaticMixerNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			StaticMixerNodeConfig
+		}{Type: StaticMixerNodeConfigType, StaticMixerNodeConfig: v})
+	case CavityPumpNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CavityPumpNodeConfig
+		}{Type: CavityPumpNodeConfigType, CavityPumpNodeConfig: v})
+	case CentrifugalCompressorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CentrifugalCompressorNodeConfig
+		}{Type: CentrifugalCompressorNodeConfigType, CentrifugalCompressorNodeConfig: v})
+	case CompressorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CompressorNodeConfig
+		}{Type: CompressorNodeConfigType, CompressorNodeConfig: v})
+	case DiaphragmPumpNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			DiaphragmPumpNodeConfig
+		}{Type: DiaphragmPumpNodeConfigType, DiaphragmPumpNodeConfig: v})
+	case EjectionPumpNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			EjectionPumpNodeConfig
+		}{Type: EjectionPumpNodeConfigType, EjectionPumpNodeConfig: v})
+	case EjectorCompressorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			EjectorCompressorNodeConfig
+		}{Type: EjectorCompressorNodeConfigType, EjectorCompressorNodeConfig: v})
+	case LiquidRingCompressorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			LiquidRingCompressorNodeConfig
+		}{Type: LiquidRingCompressorNodeConfigType, LiquidRingCompressorNodeConfig: v})
+	case PistonPumpNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			PistonPumpNodeConfig
+		}{Type: PistonPumpNodeConfigType, PistonPumpNodeConfig: v})
+	case PumpNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			PumpNodeConfig
+		}{Type: PumpNodeConfigType, PumpNodeConfig: v})
+	case RollerVaneCompressorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			RollerVaneCompressorNodeConfig
+		}{Type: RollerVaneCompressorNodeConfigType, RollerVaneCompressorNodeConfig: v})
+	case ScrewPumpNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ScrewPumpNodeConfig
+		}{Type: ScrewPumpNodeConfigType, ScrewPumpNodeConfig: v})
+	case TurboCompressorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			TurboCompressorNodeConfig
+		}{Type: TurboCompressorNodeConfigType, TurboCompressorNodeConfig: v})
+	case VacuumPumpNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			VacuumPumpNodeConfig
+		}{Type: VacuumPumpNodeConfigType, VacuumPumpNodeConfig: v})
+	case BurstDiscNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			BurstDiscNodeConfig
+		}{Type: BurstDiscNodeConfigType, BurstDiscNodeConfig: v})
+	case FlameArrestorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlameArrestorNodeConfig
+		}{Type: FlameArrestorNodeConfigType, FlameArrestorNodeConfig: v})
+	case FlameArrestorDetonationNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlameArrestorDetonationNodeConfig
+		}{Type: FlameArrestorDetonationNodeConfigType, FlameArrestorDetonationNodeConfig: v})
+	case FlameArrestorExplosionNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlameArrestorExplosionNodeConfig
+		}{Type: FlameArrestorExplosionNodeConfigType, FlameArrestorExplosionNodeConfig: v})
+	case FlameArrestorFireResNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlameArrestorFireResNodeConfig
+		}{Type: FlameArrestorFireResNodeConfigType, FlameArrestorFireResNodeConfig: v})
+	case FlameArrestorFireResDetonationNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FlameArrestorFireResDetonationNodeConfig
+		}{Type: FlameArrestorFireResDetonationNodeConfigType, FlameArrestorFireResDetonationNodeConfig: v})
+	case IsoBurstDiscNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			IsoBurstDiscNodeConfig
+		}{Type: IsoBurstDiscNodeConfigType, IsoBurstDiscNodeConfig: v})
+	case AngledValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			AngledValveNodeConfig
+		}{Type: AngledValveNodeConfigType, AngledValveNodeConfig: v})
+	case AngledReliefValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			AngledReliefValveNodeConfig
+		}{Type: AngledReliefValveNodeConfigType, AngledReliefValveNodeConfig: v})
+	case AngledSpringLoadedReliefValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			AngledSpringLoadedReliefValveNodeConfig
+		}{Type: AngledSpringLoadedReliefValveNodeConfigType, AngledSpringLoadedReliefValveNodeConfig: v})
+	case BallValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			BallValveNodeConfig
+		}{Type: BallValveNodeConfigType, BallValveNodeConfig: v})
+	case BreatherValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			BreatherValveNodeConfig
+		}{Type: BreatherValveNodeConfigType, BreatherValveNodeConfig: v})
+	case ButterflyValveOneNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ButterflyValveOneNodeConfig
+		}{Type: ButterflyValveOneNodeConfigType, ButterflyValveOneNodeConfig: v})
+	case ButterflyValveTwoNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ButterflyValveTwoNodeConfig
+		}{Type: ButterflyValveTwoNodeConfigType, ButterflyValveTwoNodeConfig: v})
+	case CheckValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CheckValveNodeConfig
+		}{Type: CheckValveNodeConfigType, CheckValveNodeConfig: v})
+	case CheckValveWithArrowNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CheckValveWithArrowNodeConfig
+		}{Type: CheckValveWithArrowNodeConfigType, CheckValveWithArrowNodeConfig: v})
+	case ElectricRegulatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ElectricRegulatorNodeConfig
+		}{Type: ElectricRegulatorNodeConfigType, ElectricRegulatorNodeConfig: v})
+	case ElectricRegulatorMotorizedNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ElectricRegulatorMotorizedNodeConfig
+		}{Type: ElectricRegulatorMotorizedNodeConfigType, ElectricRegulatorMotorizedNodeConfig: v})
+	case FourWayValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			FourWayValveNodeConfig
+		}{Type: FourWayValveNodeConfigType, FourWayValveNodeConfig: v})
+	case GateValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			GateValveNodeConfig
+		}{Type: GateValveNodeConfigType, GateValveNodeConfig: v})
+	case IsoCheckValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			IsoCheckValveNodeConfig
+		}{Type: IsoCheckValveNodeConfigType, IsoCheckValveNodeConfig: v})
+	case ManualValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ManualValveNodeConfig
+		}{Type: ManualValveNodeConfigType, ManualValveNodeConfig: v})
+	case NeedleValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			NeedleValveNodeConfig
+		}{Type: NeedleValveNodeConfigType, NeedleValveNodeConfig: v})
+	case RegulatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			RegulatorNodeConfig
+		}{Type: RegulatorNodeConfigType, RegulatorNodeConfig: v})
+	case RegulatorManualNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			RegulatorManualNodeConfig
+		}{Type: RegulatorManualNodeConfigType, RegulatorManualNodeConfig: v})
+	case ReliefValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ReliefValveNodeConfig
+		}{Type: ReliefValveNodeConfigType, ReliefValveNodeConfig: v})
+	case SolenoidValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			SolenoidValveNodeConfig
+		}{Type: SolenoidValveNodeConfigType, SolenoidValveNodeConfig: v})
+	case SpringLoadedReliefValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			SpringLoadedReliefValveNodeConfig
+		}{Type: SpringLoadedReliefValveNodeConfigType, SpringLoadedReliefValveNodeConfig: v})
+	case ThreeWayValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ThreeWayValveNodeConfig
+		}{Type: ThreeWayValveNodeConfigType, ThreeWayValveNodeConfig: v})
+	case ThreeWayBallValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ThreeWayBallValveNodeConfig
+		}{Type: ThreeWayBallValveNodeConfigType, ThreeWayBallValveNodeConfig: v})
+	case ValveNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ValveNodeConfig
+		}{Type: ValveNodeConfigType, ValveNodeConfig: v})
+	case CrossJunctionNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CrossJunctionNodeConfig
+		}{Type: CrossJunctionNodeConfigType, CrossJunctionNodeConfig: v})
+	case CylinderNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CylinderNodeConfig
+		}{Type: CylinderNodeConfigType, CylinderNodeConfig: v})
+	case TankNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			TankNodeConfig
+		}{Type: TankNodeConfigType, TankNodeConfig: v})
+	case TJunctionNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			TJunctionNodeConfig
+		}{Type: TJunctionNodeConfigType, TJunctionNodeConfig: v})
+	case CustomActuatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CustomActuatorNodeConfig
+		}{Type: CustomActuatorNodeConfigType, CustomActuatorNodeConfig: v})
+	case CustomStaticNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CustomStaticNodeConfig
+		}{Type: CustomStaticNodeConfigType, CustomStaticNodeConfig: v})
+	case GroupBoxNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			GroupBoxNodeConfig
+		}{Type: GroupBoxNodeConfigType, GroupBoxNodeConfig: v})
+	default:
+		return errors.Newf("NodeConfig: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *NodeConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type NodeConfigType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case CapNodeConfigType:
+		var v CapNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FilterNodeConfigType:
+		var v FilterNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowStraightenerNodeConfigType:
+		var v FlowStraightenerNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HeaterElementNodeConfigType:
+		var v HeaterElementNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case IsoCapNodeConfigType:
+		var v IsoCapNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case IsoFilterNodeConfigType:
+		var v IsoFilterNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case NozzleNodeConfigType:
+		var v NozzleNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case OrificeNodeConfigType:
+		var v OrificeNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case OrificePlateNodeConfigType:
+		var v OrificePlateNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StrainerNodeConfigType:
+		var v StrainerNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StrainerConeNodeConfigType:
+		var v StrainerConeNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ThrusterNodeConfigType:
+		var v ThrusterNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case VentNodeConfigType:
+		var v VentNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterGeneralNodeConfigType:
+		var v FlowmeterGeneralNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterElectromagneticNodeConfigType:
+		var v FlowmeterElectromagneticNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterVariableAreaNodeConfigType:
+		var v FlowmeterVariableAreaNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterCoriolisNodeConfigType:
+		var v FlowmeterCoriolisNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterNozzleNodeConfigType:
+		var v FlowmeterNozzleNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterVenturiNodeConfigType:
+		var v FlowmeterVenturiNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterRingPistonNodeConfigType:
+		var v FlowmeterRingPistonNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterPositiveDisplacementNodeConfigType:
+		var v FlowmeterPositiveDisplacementNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterTurbineNodeConfigType:
+		var v FlowmeterTurbineNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterPulseNodeConfigType:
+		var v FlowmeterPulseNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterFloatSensorNodeConfigType:
+		var v FlowmeterFloatSensorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterOrificeNodeConfigType:
+		var v FlowmeterOrificeNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case BoxNodeConfigType:
+		var v BoxNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ButtonNodeConfigType:
+		var v ButtonNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CircleNodeConfigType:
+		var v CircleNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GaugeNodeConfigType:
+		var v GaugeNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case InputNodeConfigType:
+		var v InputNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LightNodeConfigType:
+		var v LightNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LineNodeConfigType:
+		var v LineNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case OffPageReferenceNodeConfigType:
+		var v OffPageReferenceNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PolygonNodeConfigType:
+		var v PolygonNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SelectNodeConfigType:
+		var v SelectNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScaleNodeConfigType:
+		var v ScaleNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SetpointNodeConfigType:
+		var v SetpointNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StateIndicatorNodeConfigType:
+		var v StateIndicatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StringDisplayNodeConfigType:
+		var v StringDisplayNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SwitchNodeConfigType:
+		var v SwitchNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TextBoxNodeConfigType:
+		var v TextBoxNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ValueNodeConfigType:
+		var v ValueNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AgitatorNodeConfigType:
+		var v AgitatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CrossBeamAgitatorNodeConfigType:
+		var v CrossBeamAgitatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlatBladeAgitatorNodeConfigType:
+		var v FlatBladeAgitatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HeatExchangerGeneralNodeConfigType:
+		var v HeatExchangerGeneralNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HeatExchangerMNodeConfigType:
+		var v HeatExchangerMNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HeatExchangerStraightTubeNodeConfigType:
+		var v HeatExchangerStraightTubeNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HelicalAgitatorNodeConfigType:
+		var v HelicalAgitatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PaddleAgitatorNodeConfigType:
+		var v PaddleAgitatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PropellerAgitatorNodeConfigType:
+		var v PropellerAgitatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case RotaryMixerNodeConfigType:
+		var v RotaryMixerNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StaticMixerNodeConfigType:
+		var v StaticMixerNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CavityPumpNodeConfigType:
+		var v CavityPumpNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CentrifugalCompressorNodeConfigType:
+		var v CentrifugalCompressorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CompressorNodeConfigType:
+		var v CompressorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case DiaphragmPumpNodeConfigType:
+		var v DiaphragmPumpNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EjectionPumpNodeConfigType:
+		var v EjectionPumpNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EjectorCompressorNodeConfigType:
+		var v EjectorCompressorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LiquidRingCompressorNodeConfigType:
+		var v LiquidRingCompressorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PistonPumpNodeConfigType:
+		var v PistonPumpNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PumpNodeConfigType:
+		var v PumpNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case RollerVaneCompressorNodeConfigType:
+		var v RollerVaneCompressorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScrewPumpNodeConfigType:
+		var v ScrewPumpNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TurboCompressorNodeConfigType:
+		var v TurboCompressorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case VacuumPumpNodeConfigType:
+		var v VacuumPumpNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case BurstDiscNodeConfigType:
+		var v BurstDiscNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorNodeConfigType:
+		var v FlameArrestorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorDetonationNodeConfigType:
+		var v FlameArrestorDetonationNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorExplosionNodeConfigType:
+		var v FlameArrestorExplosionNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorFireResNodeConfigType:
+		var v FlameArrestorFireResNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorFireResDetonationNodeConfigType:
+		var v FlameArrestorFireResDetonationNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case IsoBurstDiscNodeConfigType:
+		var v IsoBurstDiscNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AngledValveNodeConfigType:
+		var v AngledValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AngledReliefValveNodeConfigType:
+		var v AngledReliefValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AngledSpringLoadedReliefValveNodeConfigType:
+		var v AngledSpringLoadedReliefValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case BallValveNodeConfigType:
+		var v BallValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case BreatherValveNodeConfigType:
+		var v BreatherValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ButterflyValveOneNodeConfigType:
+		var v ButterflyValveOneNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ButterflyValveTwoNodeConfigType:
+		var v ButterflyValveTwoNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CheckValveNodeConfigType:
+		var v CheckValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CheckValveWithArrowNodeConfigType:
+		var v CheckValveWithArrowNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ElectricRegulatorNodeConfigType:
+		var v ElectricRegulatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ElectricRegulatorMotorizedNodeConfigType:
+		var v ElectricRegulatorMotorizedNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FourWayValveNodeConfigType:
+		var v FourWayValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GateValveNodeConfigType:
+		var v GateValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case IsoCheckValveNodeConfigType:
+		var v IsoCheckValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ManualValveNodeConfigType:
+		var v ManualValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case NeedleValveNodeConfigType:
+		var v NeedleValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case RegulatorNodeConfigType:
+		var v RegulatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case RegulatorManualNodeConfigType:
+		var v RegulatorManualNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ReliefValveNodeConfigType:
+		var v ReliefValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SolenoidValveNodeConfigType:
+		var v SolenoidValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SpringLoadedReliefValveNodeConfigType:
+		var v SpringLoadedReliefValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ThreeWayValveNodeConfigType:
+		var v ThreeWayValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ThreeWayBallValveNodeConfigType:
+		var v ThreeWayBallValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ValveNodeConfigType:
+		var v ValveNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CrossJunctionNodeConfigType:
+		var v CrossJunctionNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CylinderNodeConfigType:
+		var v CylinderNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TankNodeConfigType:
+		var v TankNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TJunctionNodeConfigType:
+		var v TJunctionNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CustomActuatorNodeConfigType:
+		var v CustomActuatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CustomStaticNodeConfigType:
+		var v CustomStaticNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GroupBoxNodeConfigType:
+		var v GroupBoxNodeConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -9296,6 +10583,1369 @@ func (u *ElementConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.DataElementConfig
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ElementConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "variant" tag injected,
+// as MarshalJSONTo does.
+func (u ElementConfig) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CapElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CapElementConfig
+		}{Type: CapElementConfigType, CapElementConfig: v})
+	case FilterElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FilterElementConfig
+		}{Type: FilterElementConfigType, FilterElementConfig: v})
+	case FlowStraightenerElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowStraightenerElementConfig
+		}{Type: FlowStraightenerElementConfigType, FlowStraightenerElementConfig: v})
+	case HeaterElementElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			HeaterElementElementConfig
+		}{Type: HeaterElementElementConfigType, HeaterElementElementConfig: v})
+	case IsoCapElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			IsoCapElementConfig
+		}{Type: IsoCapElementConfigType, IsoCapElementConfig: v})
+	case IsoFilterElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			IsoFilterElementConfig
+		}{Type: IsoFilterElementConfigType, IsoFilterElementConfig: v})
+	case NozzleElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			NozzleElementConfig
+		}{Type: NozzleElementConfigType, NozzleElementConfig: v})
+	case OrificeElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			OrificeElementConfig
+		}{Type: OrificeElementConfigType, OrificeElementConfig: v})
+	case OrificePlateElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			OrificePlateElementConfig
+		}{Type: OrificePlateElementConfigType, OrificePlateElementConfig: v})
+	case StrainerElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			StrainerElementConfig
+		}{Type: StrainerElementConfigType, StrainerElementConfig: v})
+	case StrainerConeElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			StrainerConeElementConfig
+		}{Type: StrainerConeElementConfigType, StrainerConeElementConfig: v})
+	case ThrusterElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ThrusterElementConfig
+		}{Type: ThrusterElementConfigType, ThrusterElementConfig: v})
+	case VentElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			VentElementConfig
+		}{Type: VentElementConfigType, VentElementConfig: v})
+	case FlowmeterGeneralElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterGeneralElementConfig
+		}{Type: FlowmeterGeneralElementConfigType, FlowmeterGeneralElementConfig: v})
+	case FlowmeterElectromagneticElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterElectromagneticElementConfig
+		}{Type: FlowmeterElectromagneticElementConfigType, FlowmeterElectromagneticElementConfig: v})
+	case FlowmeterVariableAreaElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterVariableAreaElementConfig
+		}{Type: FlowmeterVariableAreaElementConfigType, FlowmeterVariableAreaElementConfig: v})
+	case FlowmeterCoriolisElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterCoriolisElementConfig
+		}{Type: FlowmeterCoriolisElementConfigType, FlowmeterCoriolisElementConfig: v})
+	case FlowmeterNozzleElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterNozzleElementConfig
+		}{Type: FlowmeterNozzleElementConfigType, FlowmeterNozzleElementConfig: v})
+	case FlowmeterVenturiElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterVenturiElementConfig
+		}{Type: FlowmeterVenturiElementConfigType, FlowmeterVenturiElementConfig: v})
+	case FlowmeterRingPistonElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterRingPistonElementConfig
+		}{Type: FlowmeterRingPistonElementConfigType, FlowmeterRingPistonElementConfig: v})
+	case FlowmeterPositiveDisplacementElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterPositiveDisplacementElementConfig
+		}{Type: FlowmeterPositiveDisplacementElementConfigType, FlowmeterPositiveDisplacementElementConfig: v})
+	case FlowmeterTurbineElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterTurbineElementConfig
+		}{Type: FlowmeterTurbineElementConfigType, FlowmeterTurbineElementConfig: v})
+	case FlowmeterPulseElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterPulseElementConfig
+		}{Type: FlowmeterPulseElementConfigType, FlowmeterPulseElementConfig: v})
+	case FlowmeterFloatSensorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterFloatSensorElementConfig
+		}{Type: FlowmeterFloatSensorElementConfigType, FlowmeterFloatSensorElementConfig: v})
+	case FlowmeterOrificeElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlowmeterOrificeElementConfig
+		}{Type: FlowmeterOrificeElementConfigType, FlowmeterOrificeElementConfig: v})
+	case BoxElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			BoxElementConfig
+		}{Type: BoxElementConfigType, BoxElementConfig: v})
+	case ButtonElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ButtonElementConfig
+		}{Type: ButtonElementConfigType, ButtonElementConfig: v})
+	case CircleElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CircleElementConfig
+		}{Type: CircleElementConfigType, CircleElementConfig: v})
+	case GaugeElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			GaugeElementConfig
+		}{Type: GaugeElementConfigType, GaugeElementConfig: v})
+	case InputElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			InputElementConfig
+		}{Type: InputElementConfigType, InputElementConfig: v})
+	case LightElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			LightElementConfig
+		}{Type: LightElementConfigType, LightElementConfig: v})
+	case LineElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			LineElementConfig
+		}{Type: LineElementConfigType, LineElementConfig: v})
+	case OffPageReferenceElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			OffPageReferenceElementConfig
+		}{Type: OffPageReferenceElementConfigType, OffPageReferenceElementConfig: v})
+	case PolygonElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			PolygonElementConfig
+		}{Type: PolygonElementConfigType, PolygonElementConfig: v})
+	case SelectElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			SelectElementConfig
+		}{Type: SelectElementConfigType, SelectElementConfig: v})
+	case ScaleElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ScaleElementConfig
+		}{Type: ScaleElementConfigType, ScaleElementConfig: v})
+	case SetpointElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			SetpointElementConfig
+		}{Type: SetpointElementConfigType, SetpointElementConfig: v})
+	case StateIndicatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			StateIndicatorElementConfig
+		}{Type: StateIndicatorElementConfigType, StateIndicatorElementConfig: v})
+	case StringDisplayElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			StringDisplayElementConfig
+		}{Type: StringDisplayElementConfigType, StringDisplayElementConfig: v})
+	case SwitchElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			SwitchElementConfig
+		}{Type: SwitchElementConfigType, SwitchElementConfig: v})
+	case TextBoxElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			TextBoxElementConfig
+		}{Type: TextBoxElementConfigType, TextBoxElementConfig: v})
+	case ValueElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ValueElementConfig
+		}{Type: ValueElementConfigType, ValueElementConfig: v})
+	case AgitatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			AgitatorElementConfig
+		}{Type: AgitatorElementConfigType, AgitatorElementConfig: v})
+	case CrossBeamAgitatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CrossBeamAgitatorElementConfig
+		}{Type: CrossBeamAgitatorElementConfigType, CrossBeamAgitatorElementConfig: v})
+	case FlatBladeAgitatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlatBladeAgitatorElementConfig
+		}{Type: FlatBladeAgitatorElementConfigType, FlatBladeAgitatorElementConfig: v})
+	case HeatExchangerGeneralElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			HeatExchangerGeneralElementConfig
+		}{Type: HeatExchangerGeneralElementConfigType, HeatExchangerGeneralElementConfig: v})
+	case HeatExchangerMElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			HeatExchangerMElementConfig
+		}{Type: HeatExchangerMElementConfigType, HeatExchangerMElementConfig: v})
+	case HeatExchangerStraightTubeElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			HeatExchangerStraightTubeElementConfig
+		}{Type: HeatExchangerStraightTubeElementConfigType, HeatExchangerStraightTubeElementConfig: v})
+	case HelicalAgitatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			HelicalAgitatorElementConfig
+		}{Type: HelicalAgitatorElementConfigType, HelicalAgitatorElementConfig: v})
+	case PaddleAgitatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			PaddleAgitatorElementConfig
+		}{Type: PaddleAgitatorElementConfigType, PaddleAgitatorElementConfig: v})
+	case PropellerAgitatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			PropellerAgitatorElementConfig
+		}{Type: PropellerAgitatorElementConfigType, PropellerAgitatorElementConfig: v})
+	case RotaryMixerElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			RotaryMixerElementConfig
+		}{Type: RotaryMixerElementConfigType, RotaryMixerElementConfig: v})
+	case StaticMixerElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			StaticMixerElementConfig
+		}{Type: StaticMixerElementConfigType, StaticMixerElementConfig: v})
+	case CavityPumpElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CavityPumpElementConfig
+		}{Type: CavityPumpElementConfigType, CavityPumpElementConfig: v})
+	case CentrifugalCompressorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CentrifugalCompressorElementConfig
+		}{Type: CentrifugalCompressorElementConfigType, CentrifugalCompressorElementConfig: v})
+	case CompressorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CompressorElementConfig
+		}{Type: CompressorElementConfigType, CompressorElementConfig: v})
+	case DiaphragmPumpElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			DiaphragmPumpElementConfig
+		}{Type: DiaphragmPumpElementConfigType, DiaphragmPumpElementConfig: v})
+	case EjectionPumpElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			EjectionPumpElementConfig
+		}{Type: EjectionPumpElementConfigType, EjectionPumpElementConfig: v})
+	case EjectorCompressorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			EjectorCompressorElementConfig
+		}{Type: EjectorCompressorElementConfigType, EjectorCompressorElementConfig: v})
+	case LiquidRingCompressorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			LiquidRingCompressorElementConfig
+		}{Type: LiquidRingCompressorElementConfigType, LiquidRingCompressorElementConfig: v})
+	case PistonPumpElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			PistonPumpElementConfig
+		}{Type: PistonPumpElementConfigType, PistonPumpElementConfig: v})
+	case PumpElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			PumpElementConfig
+		}{Type: PumpElementConfigType, PumpElementConfig: v})
+	case RollerVaneCompressorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			RollerVaneCompressorElementConfig
+		}{Type: RollerVaneCompressorElementConfigType, RollerVaneCompressorElementConfig: v})
+	case ScrewPumpElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ScrewPumpElementConfig
+		}{Type: ScrewPumpElementConfigType, ScrewPumpElementConfig: v})
+	case TurboCompressorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			TurboCompressorElementConfig
+		}{Type: TurboCompressorElementConfigType, TurboCompressorElementConfig: v})
+	case VacuumPumpElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			VacuumPumpElementConfig
+		}{Type: VacuumPumpElementConfigType, VacuumPumpElementConfig: v})
+	case BurstDiscElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			BurstDiscElementConfig
+		}{Type: BurstDiscElementConfigType, BurstDiscElementConfig: v})
+	case FlameArrestorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlameArrestorElementConfig
+		}{Type: FlameArrestorElementConfigType, FlameArrestorElementConfig: v})
+	case FlameArrestorDetonationElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlameArrestorDetonationElementConfig
+		}{Type: FlameArrestorDetonationElementConfigType, FlameArrestorDetonationElementConfig: v})
+	case FlameArrestorExplosionElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlameArrestorExplosionElementConfig
+		}{Type: FlameArrestorExplosionElementConfigType, FlameArrestorExplosionElementConfig: v})
+	case FlameArrestorFireResElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlameArrestorFireResElementConfig
+		}{Type: FlameArrestorFireResElementConfigType, FlameArrestorFireResElementConfig: v})
+	case FlameArrestorFireResDetonationElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FlameArrestorFireResDetonationElementConfig
+		}{Type: FlameArrestorFireResDetonationElementConfigType, FlameArrestorFireResDetonationElementConfig: v})
+	case IsoBurstDiscElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			IsoBurstDiscElementConfig
+		}{Type: IsoBurstDiscElementConfigType, IsoBurstDiscElementConfig: v})
+	case AngledValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			AngledValveElementConfig
+		}{Type: AngledValveElementConfigType, AngledValveElementConfig: v})
+	case AngledReliefValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			AngledReliefValveElementConfig
+		}{Type: AngledReliefValveElementConfigType, AngledReliefValveElementConfig: v})
+	case AngledSpringLoadedReliefValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			AngledSpringLoadedReliefValveElementConfig
+		}{Type: AngledSpringLoadedReliefValveElementConfigType, AngledSpringLoadedReliefValveElementConfig: v})
+	case BallValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			BallValveElementConfig
+		}{Type: BallValveElementConfigType, BallValveElementConfig: v})
+	case BreatherValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			BreatherValveElementConfig
+		}{Type: BreatherValveElementConfigType, BreatherValveElementConfig: v})
+	case ButterflyValveOneElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ButterflyValveOneElementConfig
+		}{Type: ButterflyValveOneElementConfigType, ButterflyValveOneElementConfig: v})
+	case ButterflyValveTwoElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ButterflyValveTwoElementConfig
+		}{Type: ButterflyValveTwoElementConfigType, ButterflyValveTwoElementConfig: v})
+	case CheckValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CheckValveElementConfig
+		}{Type: CheckValveElementConfigType, CheckValveElementConfig: v})
+	case CheckValveWithArrowElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CheckValveWithArrowElementConfig
+		}{Type: CheckValveWithArrowElementConfigType, CheckValveWithArrowElementConfig: v})
+	case ElectricRegulatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ElectricRegulatorElementConfig
+		}{Type: ElectricRegulatorElementConfigType, ElectricRegulatorElementConfig: v})
+	case ElectricRegulatorMotorizedElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ElectricRegulatorMotorizedElementConfig
+		}{Type: ElectricRegulatorMotorizedElementConfigType, ElectricRegulatorMotorizedElementConfig: v})
+	case FourWayValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			FourWayValveElementConfig
+		}{Type: FourWayValveElementConfigType, FourWayValveElementConfig: v})
+	case GateValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			GateValveElementConfig
+		}{Type: GateValveElementConfigType, GateValveElementConfig: v})
+	case IsoCheckValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			IsoCheckValveElementConfig
+		}{Type: IsoCheckValveElementConfigType, IsoCheckValveElementConfig: v})
+	case ManualValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ManualValveElementConfig
+		}{Type: ManualValveElementConfigType, ManualValveElementConfig: v})
+	case NeedleValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			NeedleValveElementConfig
+		}{Type: NeedleValveElementConfigType, NeedleValveElementConfig: v})
+	case RegulatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			RegulatorElementConfig
+		}{Type: RegulatorElementConfigType, RegulatorElementConfig: v})
+	case RegulatorManualElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			RegulatorManualElementConfig
+		}{Type: RegulatorManualElementConfigType, RegulatorManualElementConfig: v})
+	case ReliefValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ReliefValveElementConfig
+		}{Type: ReliefValveElementConfigType, ReliefValveElementConfig: v})
+	case SolenoidValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			SolenoidValveElementConfig
+		}{Type: SolenoidValveElementConfigType, SolenoidValveElementConfig: v})
+	case SpringLoadedReliefValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			SpringLoadedReliefValveElementConfig
+		}{Type: SpringLoadedReliefValveElementConfigType, SpringLoadedReliefValveElementConfig: v})
+	case ThreeWayValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ThreeWayValveElementConfig
+		}{Type: ThreeWayValveElementConfigType, ThreeWayValveElementConfig: v})
+	case ThreeWayBallValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ThreeWayBallValveElementConfig
+		}{Type: ThreeWayBallValveElementConfigType, ThreeWayBallValveElementConfig: v})
+	case ValveElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ValveElementConfig
+		}{Type: ValveElementConfigType, ValveElementConfig: v})
+	case CrossJunctionElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CrossJunctionElementConfig
+		}{Type: CrossJunctionElementConfigType, CrossJunctionElementConfig: v})
+	case CylinderElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CylinderElementConfig
+		}{Type: CylinderElementConfigType, CylinderElementConfig: v})
+	case TankElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			TankElementConfig
+		}{Type: TankElementConfigType, TankElementConfig: v})
+	case TJunctionElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			TJunctionElementConfig
+		}{Type: TJunctionElementConfigType, TJunctionElementConfig: v})
+	case CustomActuatorElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CustomActuatorElementConfig
+		}{Type: CustomActuatorElementConfigType, CustomActuatorElementConfig: v})
+	case CustomStaticElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			CustomStaticElementConfig
+		}{Type: CustomStaticElementConfigType, CustomStaticElementConfig: v})
+	case GroupBoxElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			GroupBoxElementConfig
+		}{Type: GroupBoxElementConfigType, GroupBoxElementConfig: v})
+	case PipeElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			PipeElementConfig
+		}{Type: PipeElementConfigType, PipeElementConfig: v})
+	case ElectricElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			ElectricElementConfig
+		}{Type: ElectricElementConfigType, ElectricElementConfig: v})
+	case SecondaryElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			SecondaryElementConfig
+		}{Type: SecondaryElementConfigType, SecondaryElementConfig: v})
+	case JacketedElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			JacketedElementConfig
+		}{Type: JacketedElementConfigType, JacketedElementConfig: v})
+	case HydraulicElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			HydraulicElementConfig
+		}{Type: HydraulicElementConfigType, HydraulicElementConfig: v})
+	case PneumaticElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			PneumaticElementConfig
+		}{Type: PneumaticElementConfigType, PneumaticElementConfig: v})
+	case DataElementConfig:
+		return enc.Encode(struct {
+			Type ElementConfigType `msgpack:"variant"`
+			DataElementConfig
+		}{Type: DataElementConfigType, DataElementConfig: v})
+	default:
+		return errors.Newf("ElementConfig: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *ElementConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ElementConfigType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case CapElementConfigType:
+		var v CapElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FilterElementConfigType:
+		var v FilterElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowStraightenerElementConfigType:
+		var v FlowStraightenerElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HeaterElementElementConfigType:
+		var v HeaterElementElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case IsoCapElementConfigType:
+		var v IsoCapElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case IsoFilterElementConfigType:
+		var v IsoFilterElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case NozzleElementConfigType:
+		var v NozzleElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case OrificeElementConfigType:
+		var v OrificeElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case OrificePlateElementConfigType:
+		var v OrificePlateElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StrainerElementConfigType:
+		var v StrainerElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StrainerConeElementConfigType:
+		var v StrainerConeElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ThrusterElementConfigType:
+		var v ThrusterElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case VentElementConfigType:
+		var v VentElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterGeneralElementConfigType:
+		var v FlowmeterGeneralElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterElectromagneticElementConfigType:
+		var v FlowmeterElectromagneticElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterVariableAreaElementConfigType:
+		var v FlowmeterVariableAreaElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterCoriolisElementConfigType:
+		var v FlowmeterCoriolisElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterNozzleElementConfigType:
+		var v FlowmeterNozzleElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterVenturiElementConfigType:
+		var v FlowmeterVenturiElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterRingPistonElementConfigType:
+		var v FlowmeterRingPistonElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterPositiveDisplacementElementConfigType:
+		var v FlowmeterPositiveDisplacementElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterTurbineElementConfigType:
+		var v FlowmeterTurbineElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterPulseElementConfigType:
+		var v FlowmeterPulseElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterFloatSensorElementConfigType:
+		var v FlowmeterFloatSensorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlowmeterOrificeElementConfigType:
+		var v FlowmeterOrificeElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case BoxElementConfigType:
+		var v BoxElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ButtonElementConfigType:
+		var v ButtonElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CircleElementConfigType:
+		var v CircleElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GaugeElementConfigType:
+		var v GaugeElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case InputElementConfigType:
+		var v InputElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LightElementConfigType:
+		var v LightElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LineElementConfigType:
+		var v LineElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case OffPageReferenceElementConfigType:
+		var v OffPageReferenceElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PolygonElementConfigType:
+		var v PolygonElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SelectElementConfigType:
+		var v SelectElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScaleElementConfigType:
+		var v ScaleElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SetpointElementConfigType:
+		var v SetpointElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StateIndicatorElementConfigType:
+		var v StateIndicatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StringDisplayElementConfigType:
+		var v StringDisplayElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SwitchElementConfigType:
+		var v SwitchElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TextBoxElementConfigType:
+		var v TextBoxElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ValueElementConfigType:
+		var v ValueElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AgitatorElementConfigType:
+		var v AgitatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CrossBeamAgitatorElementConfigType:
+		var v CrossBeamAgitatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlatBladeAgitatorElementConfigType:
+		var v FlatBladeAgitatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HeatExchangerGeneralElementConfigType:
+		var v HeatExchangerGeneralElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HeatExchangerMElementConfigType:
+		var v HeatExchangerMElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HeatExchangerStraightTubeElementConfigType:
+		var v HeatExchangerStraightTubeElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HelicalAgitatorElementConfigType:
+		var v HelicalAgitatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PaddleAgitatorElementConfigType:
+		var v PaddleAgitatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PropellerAgitatorElementConfigType:
+		var v PropellerAgitatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case RotaryMixerElementConfigType:
+		var v RotaryMixerElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StaticMixerElementConfigType:
+		var v StaticMixerElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CavityPumpElementConfigType:
+		var v CavityPumpElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CentrifugalCompressorElementConfigType:
+		var v CentrifugalCompressorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CompressorElementConfigType:
+		var v CompressorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case DiaphragmPumpElementConfigType:
+		var v DiaphragmPumpElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EjectionPumpElementConfigType:
+		var v EjectionPumpElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EjectorCompressorElementConfigType:
+		var v EjectorCompressorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LiquidRingCompressorElementConfigType:
+		var v LiquidRingCompressorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PistonPumpElementConfigType:
+		var v PistonPumpElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PumpElementConfigType:
+		var v PumpElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case RollerVaneCompressorElementConfigType:
+		var v RollerVaneCompressorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScrewPumpElementConfigType:
+		var v ScrewPumpElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TurboCompressorElementConfigType:
+		var v TurboCompressorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case VacuumPumpElementConfigType:
+		var v VacuumPumpElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case BurstDiscElementConfigType:
+		var v BurstDiscElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorElementConfigType:
+		var v FlameArrestorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorDetonationElementConfigType:
+		var v FlameArrestorDetonationElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorExplosionElementConfigType:
+		var v FlameArrestorExplosionElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorFireResElementConfigType:
+		var v FlameArrestorFireResElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FlameArrestorFireResDetonationElementConfigType:
+		var v FlameArrestorFireResDetonationElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case IsoBurstDiscElementConfigType:
+		var v IsoBurstDiscElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AngledValveElementConfigType:
+		var v AngledValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AngledReliefValveElementConfigType:
+		var v AngledReliefValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AngledSpringLoadedReliefValveElementConfigType:
+		var v AngledSpringLoadedReliefValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case BallValveElementConfigType:
+		var v BallValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case BreatherValveElementConfigType:
+		var v BreatherValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ButterflyValveOneElementConfigType:
+		var v ButterflyValveOneElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ButterflyValveTwoElementConfigType:
+		var v ButterflyValveTwoElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CheckValveElementConfigType:
+		var v CheckValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CheckValveWithArrowElementConfigType:
+		var v CheckValveWithArrowElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ElectricRegulatorElementConfigType:
+		var v ElectricRegulatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ElectricRegulatorMotorizedElementConfigType:
+		var v ElectricRegulatorMotorizedElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case FourWayValveElementConfigType:
+		var v FourWayValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GateValveElementConfigType:
+		var v GateValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case IsoCheckValveElementConfigType:
+		var v IsoCheckValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ManualValveElementConfigType:
+		var v ManualValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case NeedleValveElementConfigType:
+		var v NeedleValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case RegulatorElementConfigType:
+		var v RegulatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case RegulatorManualElementConfigType:
+		var v RegulatorManualElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ReliefValveElementConfigType:
+		var v ReliefValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SolenoidValveElementConfigType:
+		var v SolenoidValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SpringLoadedReliefValveElementConfigType:
+		var v SpringLoadedReliefValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ThreeWayValveElementConfigType:
+		var v ThreeWayValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ThreeWayBallValveElementConfigType:
+		var v ThreeWayBallValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ValveElementConfigType:
+		var v ValveElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CrossJunctionElementConfigType:
+		var v CrossJunctionElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CylinderElementConfigType:
+		var v CylinderElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TankElementConfigType:
+		var v TankElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TJunctionElementConfigType:
+		var v TJunctionElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CustomActuatorElementConfigType:
+		var v CustomActuatorElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CustomStaticElementConfigType:
+		var v CustomStaticElementConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GroupBoxElementConfigType:
+		var v GroupBoxElementConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PipeElementConfigType:
+		var v PipeElementConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ElectricElementConfigType:
+		var v ElectricElementConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SecondaryElementConfigType:
+		var v SecondaryElementConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case JacketedElementConfigType:
+		var v JacketedElementConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HydraulicElementConfigType:
+		var v HydraulicElementConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PneumaticElementConfigType:
+		var v PneumaticElementConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case DataElementConfigType:
+		var v DataElementConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

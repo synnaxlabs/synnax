@@ -650,6 +650,78 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "source" tag injected,
+// as MarshalJSONTo does.
+func (u CJC) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case BuiltInCJC:
+		return enc.Encode(struct {
+			Type CJCType `msgpack:"source"`
+			BuiltInCJC
+		}{Type: BuiltInCJCType, BuiltInCJC: v})
+	case ConstValCJC:
+		return enc.Encode(struct {
+			Type CJCType `msgpack:"source"`
+			ConstValCJC
+		}{Type: ConstValCJCType, ConstValCJC: v})
+	case ChanCJC:
+		return enc.Encode(struct {
+			Type CJCType `msgpack:"source"`
+			ChanCJC
+		}{Type: ChanCJCType, ChanCJC: v})
+	default:
+		return errors.Newf("CJC: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "source" field, as
+// UnmarshalJSONFrom does.
+func (u *CJC) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type CJCType `msgpack:"source"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case BuiltInCJCType:
+		var v BuiltInCJC
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ConstValCJCType:
+		var v ConstValCJC
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ChanCJCType:
+		var v ChanCJC
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CJC: unknown source %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Source returns the source of the active variant, or an empty source when there is
 // none.
 func (u CJC) Source() CJCType {
@@ -1011,6 +1083,105 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.NoneScale
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scale: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u Scale) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case LinearScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			LinearScale
+		}{Type: LinearScaleType, LinearScale: v})
+	case MapScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			MapScale
+		}{Type: MapScaleType, MapScale: v})
+	case TableScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			TableScale
+		}{Type: TableScaleType, TableScale: v})
+	case PolynomialScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			PolynomialScale
+		}{Type: PolynomialScaleType, PolynomialScale: v})
+	case NoneScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			NoneScale
+		}{Type: NoneScaleType, NoneScale: v})
+	default:
+		return errors.Newf("Scale: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *Scale) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ScaleType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case LinearScaleType:
+		var v LinearScale
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case MapScaleType:
+		var v MapScale
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case TableScaleType:
+		var v TableScale
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PolynomialScaleType:
+		var v PolynomialScale
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case NoneScaleType:
+		var v NoneScale
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -3458,6 +3629,433 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u AIChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case AIVoltageChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIVoltageChannel
+		}{Type: AIVoltageChannelType, AIVoltageChannel: v})
+	case AIAccelChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIAccelChannel
+		}{Type: AIAccelChannelType, AIAccelChannel: v})
+	case AIBridgeChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIBridgeChannel
+		}{Type: AIBridgeChannelType, AIBridgeChannel: v})
+	case AICurrentChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AICurrentChannel
+		}{Type: AICurrentChannelType, AICurrentChannel: v})
+	case AIForceBridgeTableChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIForceBridgeTableChannel
+		}{Type: AIForceBridgeTableChannelType, AIForceBridgeTableChannel: v})
+	case AIForceBridgeTwoPointLinChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIForceBridgeTwoPointLinChannel
+		}{Type: AIForceBridgeTwoPointLinChannelType, AIForceBridgeTwoPointLinChannel: v})
+	case AIForceIEPEChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIForceIEPEChannel
+		}{Type: AIForceIEPEChannelType, AIForceIEPEChannel: v})
+	case AIMicrophoneChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIMicrophoneChannel
+		}{Type: AIMicrophoneChannelType, AIMicrophoneChannel: v})
+	case AIPressureBridgeTableChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIPressureBridgeTableChannel
+		}{Type: AIPressureBridgeTableChannelType, AIPressureBridgeTableChannel: v})
+	case AIPressureBridgeTwoPointLinChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIPressureBridgeTwoPointLinChannel
+		}{Type: AIPressureBridgeTwoPointLinChannelType, AIPressureBridgeTwoPointLinChannel: v})
+	case AIResistanceChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIResistanceChannel
+		}{Type: AIResistanceChannelType, AIResistanceChannel: v})
+	case AIRTDChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIRTDChannel
+		}{Type: AIRTDChannelType, AIRTDChannel: v})
+	case AIStrainGaugeChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIStrainGaugeChannel
+		}{Type: AIStrainGaugeChannelType, AIStrainGaugeChannel: v})
+	case AITempBuiltinChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AITempBuiltinChannel
+		}{Type: AITempBuiltinChannelType, AITempBuiltinChannel: v})
+	case AIThermocoupleChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIThermocoupleChannel
+		}{Type: AIThermocoupleChannelType, AIThermocoupleChannel: v})
+	case AITorqueBridgeTableChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AITorqueBridgeTableChannel
+		}{Type: AITorqueBridgeTableChannelType, AITorqueBridgeTableChannel: v})
+	case AITorqueBridgeTwoPointLinChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AITorqueBridgeTwoPointLinChannel
+		}{Type: AITorqueBridgeTwoPointLinChannelType, AITorqueBridgeTwoPointLinChannel: v})
+	case AIVelocityIEPEChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIVelocityIEPEChannel
+		}{Type: AIVelocityIEPEChannelType, AIVelocityIEPEChannel: v})
+	case AIAccel4WireDCVoltageChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIAccel4WireDCVoltageChannel
+		}{Type: AIAccel4WireDCVoltageChannelType, AIAccel4WireDCVoltageChannel: v})
+	case AIAccelChargeChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIAccelChargeChannel
+		}{Type: AIAccelChargeChannelType, AIAccelChargeChannel: v})
+	case AIChargeChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIChargeChannel
+		}{Type: AIChargeChannelType, AIChargeChannel: v})
+	case AICurrentRMSChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AICurrentRMSChannel
+		}{Type: AICurrentRMSChannelType, AICurrentRMSChannel: v})
+	case AIForceBridgePolynomialChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIForceBridgePolynomialChannel
+		}{Type: AIForceBridgePolynomialChannelType, AIForceBridgePolynomialChannel: v})
+	case AIFreqVoltageChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIFreqVoltageChannel
+		}{Type: AIFreqVoltageChannelType, AIFreqVoltageChannel: v})
+	case AIPressureBridgePolynomialChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIPressureBridgePolynomialChannel
+		}{Type: AIPressureBridgePolynomialChannelType, AIPressureBridgePolynomialChannel: v})
+	case AIThermistorIexChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIThermistorIexChannel
+		}{Type: AIThermistorIexChannelType, AIThermistorIexChannel: v})
+	case AIThermistorVexChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIThermistorVexChannel
+		}{Type: AIThermistorVexChannelType, AIThermistorVexChannel: v})
+	case AITorqueBridgePolynomialChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AITorqueBridgePolynomialChannel
+		}{Type: AITorqueBridgePolynomialChannelType, AITorqueBridgePolynomialChannel: v})
+	case AIVoltageRMSChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIVoltageRMSChannel
+		}{Type: AIVoltageRMSChannelType, AIVoltageRMSChannel: v})
+	case AIVoltageWithExcitChannel:
+		return enc.Encode(struct {
+			Type AIChannelType `msgpack:"type"`
+			AIVoltageWithExcitChannel
+		}{Type: AIVoltageWithExcitChannelType, AIVoltageWithExcitChannel: v})
+	default:
+		return errors.Newf("AIChannel: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *AIChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type AIChannelType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case AIVoltageChannelType:
+		var v AIVoltageChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIAccelChannelType:
+		var v AIAccelChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIBridgeChannelType:
+		var v AIBridgeChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AICurrentChannelType:
+		var v AICurrentChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIForceBridgeTableChannelType:
+		var v AIForceBridgeTableChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIForceBridgeTwoPointLinChannelType:
+		var v AIForceBridgeTwoPointLinChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIForceIEPEChannelType:
+		var v AIForceIEPEChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIMicrophoneChannelType:
+		var v AIMicrophoneChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AIPressureBridgeTableChannelType:
+		var v AIPressureBridgeTableChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIPressureBridgeTwoPointLinChannelType:
+		var v AIPressureBridgeTwoPointLinChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIResistanceChannelType:
+		var v AIResistanceChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIRTDChannelType:
+		var v AIRTDChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIStrainGaugeChannelType:
+		var v AIStrainGaugeChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AITempBuiltinChannelType:
+		var v AITempBuiltinChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AIThermocoupleChannelType:
+		var v AIThermocoupleChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AITorqueBridgeTableChannelType:
+		var v AITorqueBridgeTableChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AITorqueBridgeTwoPointLinChannelType:
+		var v AITorqueBridgeTwoPointLinChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIVelocityIEPEChannelType:
+		var v AIVelocityIEPEChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIAccel4WireDCVoltageChannelType:
+		var v AIAccel4WireDCVoltageChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIAccelChargeChannelType:
+		var v AIAccelChargeChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIChargeChannelType:
+		var v AIChargeChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AICurrentRMSChannelType:
+		var v AICurrentRMSChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIForceBridgePolynomialChannelType:
+		var v AIForceBridgePolynomialChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIFreqVoltageChannelType:
+		var v AIFreqVoltageChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIPressureBridgePolynomialChannelType:
+		var v AIPressureBridgePolynomialChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIThermistorIexChannelType:
+		var v AIThermistorIexChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIThermistorVexChannelType:
+		var v AIThermistorVexChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AITorqueBridgePolynomialChannelType:
+		var v AITorqueBridgePolynomialChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIVoltageRMSChannelType:
+		var v AIVoltageRMSChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AIVoltageWithExcitChannelType:
+		var v AIVoltageWithExcitChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AIChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u AIChannel) Type() AIChannelType {
 	switch u.Variant.(type) {
@@ -4703,6 +5301,185 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u CIChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CIFrequencyChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIFrequencyChannel
+		}{Type: CIFrequencyChannelType, CIFrequencyChannel: v})
+	case CIEdgeCountChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIEdgeCountChannel
+		}{Type: CIEdgeCountChannelType, CIEdgeCountChannel: v})
+	case CIPeriodChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIPeriodChannel
+		}{Type: CIPeriodChannelType, CIPeriodChannel: v})
+	case CIPulseWidthChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIPulseWidthChannel
+		}{Type: CIPulseWidthChannelType, CIPulseWidthChannel: v})
+	case CISemiPeriodChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CISemiPeriodChannel
+		}{Type: CISemiPeriodChannelType, CISemiPeriodChannel: v})
+	case CITwoEdgeSepChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CITwoEdgeSepChannel
+		}{Type: CITwoEdgeSepChannelType, CITwoEdgeSepChannel: v})
+	case CIVelocityLinearChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIVelocityLinearChannel
+		}{Type: CIVelocityLinearChannelType, CIVelocityLinearChannel: v})
+	case CIVelocityAngularChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIVelocityAngularChannel
+		}{Type: CIVelocityAngularChannelType, CIVelocityAngularChannel: v})
+	case CIPositionLinearChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIPositionLinearChannel
+		}{Type: CIPositionLinearChannelType, CIPositionLinearChannel: v})
+	case CIPositionAngularChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIPositionAngularChannel
+		}{Type: CIPositionAngularChannelType, CIPositionAngularChannel: v})
+	case CIDutyCycleChannel:
+		return enc.Encode(struct {
+			Type CIChannelType `msgpack:"type"`
+			CIDutyCycleChannel
+		}{Type: CIDutyCycleChannelType, CIDutyCycleChannel: v})
+	default:
+		return errors.Newf("CIChannel: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *CIChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type CIChannelType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case CIFrequencyChannelType:
+		var v CIFrequencyChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case CIEdgeCountChannelType:
+		var v CIEdgeCountChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CIPeriodChannelType:
+		var v CIPeriodChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case CIPulseWidthChannelType:
+		var v CIPulseWidthChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case CISemiPeriodChannelType:
+		var v CISemiPeriodChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case CITwoEdgeSepChannelType:
+		var v CITwoEdgeSepChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case CIVelocityLinearChannelType:
+		var v CIVelocityLinearChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case CIVelocityAngularChannelType:
+		var v CIVelocityAngularChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case CIPositionLinearChannelType:
+		var v CIPositionLinearChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CIPositionAngularChannelType:
+		var v CIPositionAngularChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CIDutyCycleChannelType:
+		var v CIDutyCycleChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CIChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u CIChannel) Type() CIChannelType {
 	switch u.Variant.(type) {
@@ -5083,6 +5860,83 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AOVoltageChannel.DefaultGroups()
 		u.Variant = v.AOVoltageChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"AOChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u AOChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case AOCurrentChannel:
+		return enc.Encode(struct {
+			Type AOChannelType `msgpack:"type"`
+			AOCurrentChannel
+		}{Type: AOCurrentChannelType, AOCurrentChannel: v})
+	case AOFuncGenChannel:
+		return enc.Encode(struct {
+			Type AOChannelType `msgpack:"type"`
+			AOFuncGenChannel
+		}{Type: AOFuncGenChannelType, AOFuncGenChannel: v})
+	case AOVoltageChannel:
+		return enc.Encode(struct {
+			Type AOChannelType `msgpack:"type"`
+			AOVoltageChannel
+		}{Type: AOVoltageChannelType, AOVoltageChannel: v})
+	default:
+		return errors.Newf("AOChannel: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *AOChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type AOChannelType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case AOCurrentChannelType:
+		var v AOCurrentChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case AOFuncGenChannelType:
+		var v AOFuncGenChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case AOVoltageChannelType:
+		var v AOVoltageChannel
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

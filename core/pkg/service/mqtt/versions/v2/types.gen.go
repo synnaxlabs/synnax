@@ -297,6 +297,69 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u ReadEntry) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case PlainReadEntry:
+		return enc.Encode(struct {
+			Type ReadEntryType `msgpack:"type"`
+			PlainReadEntry
+		}{Type: PlainReadEntryType, PlainReadEntry: v})
+	case SparkplugReadEntry:
+		return enc.Encode(struct {
+			Type ReadEntryType `msgpack:"type"`
+			SparkplugReadEntry
+		}{Type: SparkplugReadEntryType, SparkplugReadEntry: v})
+	default:
+		return errors.Newf("ReadEntry: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *ReadEntry) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ReadEntryType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case PlainReadEntryType:
+		var v PlainReadEntry
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SparkplugReadEntryType:
+		var v SparkplugReadEntry
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadEntry: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u ReadEntry) Type() ReadEntryType {
 	switch u.Variant.(type) {

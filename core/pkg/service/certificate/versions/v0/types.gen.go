@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a certificate.
@@ -169,6 +170,67 @@ func (u *Certificate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.FileCertificate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Certificate: unknown source %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "source" tag injected,
+// as MarshalJSONTo does.
+func (u Certificate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case StoredCertificate:
+		return enc.Encode(struct {
+			Type secret.Source `msgpack:"source"`
+			StoredCertificate
+		}{Type: secret.SourceStored, StoredCertificate: v})
+	case FileCertificate:
+		return enc.Encode(struct {
+			Type secret.Source `msgpack:"source"`
+			FileCertificate
+		}{Type: secret.SourceFile, FileCertificate: v})
+	default:
+		return errors.Newf("Certificate: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "source" field, as
+// UnmarshalJSONFrom does.
+func (u *Certificate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type secret.Source `msgpack:"source"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case secret.SourceStored:
+		var v StoredCertificate
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case secret.SourceFile:
+		var v FileCertificate
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

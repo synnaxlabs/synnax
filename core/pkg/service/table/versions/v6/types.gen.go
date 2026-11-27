@@ -226,6 +226,69 @@ func (u *CellConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "variant" tag injected,
+// as MarshalJSONTo does.
+func (u CellConfig) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case TextCellConfig:
+		return enc.Encode(struct {
+			Type CellConfigType `msgpack:"variant"`
+			TextCellConfig
+		}{Type: TextCellConfigType, TextCellConfig: v})
+	case ValueCellConfig:
+		return enc.Encode(struct {
+			Type CellConfigType `msgpack:"variant"`
+			ValueCellConfig
+		}{Type: ValueCellConfigType, ValueCellConfig: v})
+	default:
+		return errors.Newf("CellConfig: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *CellConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type CellConfigType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case TextCellConfigType:
+		var v TextCellConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ValueCellConfigType:
+		var v ValueCellConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CellConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u CellConfig) Validate() error {

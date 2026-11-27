@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // SessionKey is a unique identifier for a session.
@@ -229,6 +230,78 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.OIDCProof
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Proof: unknown method %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "method" tag injected,
+// as MarshalJSONTo does.
+func (u Proof) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case PasswordProof:
+		return enc.Encode(struct {
+			Type Method `msgpack:"method"`
+			PasswordProof
+		}{Type: MethodPassword, PasswordProof: v})
+	case APIKeyProof:
+		return enc.Encode(struct {
+			Type Method `msgpack:"method"`
+			APIKeyProof
+		}{Type: MethodAPIKey, APIKeyProof: v})
+	case OIDCProof:
+		return enc.Encode(struct {
+			Type Method `msgpack:"method"`
+			OIDCProof
+		}{Type: MethodOIDC, OIDCProof: v})
+	default:
+		return errors.Newf("Proof: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "method" field, as
+// UnmarshalJSONFrom does.
+func (u *Proof) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type Method `msgpack:"method"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case MethodPassword:
+		var v PasswordProof
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case MethodAPIKey:
+		var v APIKeyProof
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case MethodOIDC:
+		var v OIDCProof
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

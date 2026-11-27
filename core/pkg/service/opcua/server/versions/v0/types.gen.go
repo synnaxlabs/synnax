@@ -199,6 +199,78 @@ func (u *Auth) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u Auth) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case AnonymousAuth:
+		return enc.Encode(struct {
+			Type AuthType `msgpack:"type"`
+			AnonymousAuth
+		}{Type: AnonymousAuthType, AnonymousAuth: v})
+	case UsernameAuth:
+		return enc.Encode(struct {
+			Type AuthType `msgpack:"type"`
+			UsernameAuth
+		}{Type: UsernameAuthType, UsernameAuth: v})
+	case CertificateAuth:
+		return enc.Encode(struct {
+			Type AuthType `msgpack:"type"`
+			CertificateAuth
+		}{Type: CertificateAuthType, CertificateAuth: v})
+	default:
+		return errors.Newf("Auth: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *Auth) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type AuthType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case AnonymousAuthType:
+		var v AnonymousAuth
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case UsernameAuthType:
+		var v UsernameAuth
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CertificateAuthType:
+		var v CertificateAuth
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Auth: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u Auth) Type() AuthType {
 	switch u.Variant.(type) {
@@ -340,6 +412,78 @@ func (u *ServerTrust) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.ValidationDisabledServerTrust
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ServerTrust: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u ServerTrust) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case FirstUseServerTrust:
+		return enc.Encode(struct {
+			Type ServerTrustType `msgpack:"type"`
+			FirstUseServerTrust
+		}{Type: FirstUseServerTrustType, FirstUseServerTrust: v})
+	case PinnedServerTrust:
+		return enc.Encode(struct {
+			Type ServerTrustType `msgpack:"type"`
+			PinnedServerTrust
+		}{Type: PinnedServerTrustType, PinnedServerTrust: v})
+	case ValidationDisabledServerTrust:
+		return enc.Encode(struct {
+			Type ServerTrustType `msgpack:"type"`
+			ValidationDisabledServerTrust
+		}{Type: ValidationDisabledServerTrustType, ValidationDisabledServerTrust: v})
+	default:
+		return errors.Newf("ServerTrust: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *ServerTrust) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ServerTrustType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case FirstUseServerTrustType:
+		var v FirstUseServerTrust
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PinnedServerTrustType:
+		var v PinnedServerTrust
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ValidationDisabledServerTrustType:
+		var v ValidationDisabledServerTrust
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -538,6 +682,80 @@ func (u *Security) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.SignAndEncryptSecurity
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Security: unknown mode %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "mode" tag injected,
+// as MarshalJSONTo does.
+func (u Security) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case NoneSecurity:
+		return enc.Encode(struct {
+			Type SecurityType `msgpack:"mode"`
+			NoneSecurity
+		}{Type: NoneSecurityType, NoneSecurity: v})
+	case SignSecurity:
+		return enc.Encode(struct {
+			Type SecurityType `msgpack:"mode"`
+			SignSecurity
+		}{Type: SignSecurityType, SignSecurity: v})
+	case SignAndEncryptSecurity:
+		return enc.Encode(struct {
+			Type SecurityType `msgpack:"mode"`
+			SignAndEncryptSecurity
+		}{Type: SignAndEncryptSecurityType, SignAndEncryptSecurity: v})
+	default:
+		return errors.Newf("Security: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "mode" field, as
+// UnmarshalJSONFrom does.
+func (u *Security) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type SecurityType `msgpack:"mode"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case NoneSecurityType:
+		var v NoneSecurity
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SignSecurityType:
+		var v SignSecurity
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SignAndEncryptSecurityType:
+		var v SignAndEncryptSecurity
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

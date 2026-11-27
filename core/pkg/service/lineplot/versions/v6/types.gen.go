@@ -203,6 +203,67 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "variant" tag injected,
+// as MarshalJSONTo does.
+func (u CustomRange) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case DynamicCustomRange:
+		return enc.Encode(struct {
+			Type CustomRangeType `msgpack:"variant"`
+			DynamicCustomRange
+		}{Type: DynamicCustomRangeType, DynamicCustomRange: v})
+	case StaticCustomRange:
+		return enc.Encode(struct {
+			Type CustomRangeType `msgpack:"variant"`
+			StaticCustomRange
+		}{Type: StaticCustomRangeType, StaticCustomRange: v})
+	default:
+		return errors.Newf("CustomRange: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *CustomRange) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type CustomRangeType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case DynamicCustomRangeType:
+		var v DynamicCustomRange
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StaticCustomRangeType:
+		var v StaticCustomRange
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CustomRange: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u CustomRange) Validate() error {

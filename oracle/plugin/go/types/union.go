@@ -156,6 +156,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 	}
 	data.AddExternal("encoding/json/v2")
 	data.AddExternal("encoding/json/jsontext")
+	data.AddInternal("vmsgpack", msgpackImportPath)
 	data.AddExternal("github.com/synnaxlabs/x/errors")
 	data.AddExternal(validateImportPath)
 
@@ -257,6 +258,8 @@ func checkTagMethod(
 	methods := set.New(
 		"MarshalJSONTo",
 		"UnmarshalJSONFrom",
+		"EncodeMsgpack",
+		"DecodeMsgpack",
 		"SetDefaults",
 		"Validate",
 	)

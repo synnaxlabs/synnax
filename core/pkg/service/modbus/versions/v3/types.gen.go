@@ -373,6 +373,135 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u ReadChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CoilReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			CoilReadChannel
+		}{Type: CoilReadChannelType, CoilReadChannel: v})
+	case DiscreteInputReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			DiscreteInputReadChannel
+		}{Type: DiscreteInputReadChannelType, DiscreteInputReadChannel: v})
+	case HoldingRegisterReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			HoldingRegisterReadChannel
+		}{Type: HoldingRegisterReadChannelType, HoldingRegisterReadChannel: v})
+	case InputRegisterReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			InputRegisterReadChannel
+		}{Type: InputRegisterReadChannelType, InputRegisterReadChannel: v})
+	case HoldingRegisterStringReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			HoldingRegisterStringReadChannel
+		}{Type: HoldingRegisterStringReadChannelType, HoldingRegisterStringReadChannel: v})
+	case InputRegisterStringReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			InputRegisterStringReadChannel
+		}{Type: InputRegisterStringReadChannelType, InputRegisterStringReadChannel: v})
+	case HoldingRegisterBitReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			HoldingRegisterBitReadChannel
+		}{Type: HoldingRegisterBitReadChannelType, HoldingRegisterBitReadChannel: v})
+	case InputRegisterBitReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			InputRegisterBitReadChannel
+		}{Type: InputRegisterBitReadChannelType, InputRegisterBitReadChannel: v})
+	default:
+		return errors.Newf("ReadChannel: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *ReadChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ReadChannelType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case CoilReadChannelType:
+		var v CoilReadChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case DiscreteInputReadChannelType:
+		var v DiscreteInputReadChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HoldingRegisterReadChannelType:
+		var v HoldingRegisterReadChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case InputRegisterReadChannelType:
+		var v InputRegisterReadChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HoldingRegisterStringReadChannelType:
+		var v HoldingRegisterStringReadChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case InputRegisterStringReadChannelType:
+		var v InputRegisterStringReadChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HoldingRegisterBitReadChannelType:
+		var v HoldingRegisterBitReadChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case InputRegisterBitReadChannelType:
+		var v InputRegisterBitReadChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u ReadChannel) Type() ReadChannelType {
 	switch u.Variant.(type) {
@@ -605,6 +734,79 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.HoldingRegisterBitWriteChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
+func (u WriteChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CoilWriteChannel:
+		return enc.Encode(struct {
+			Type WriteChannelType `msgpack:"type"`
+			CoilWriteChannel
+		}{Type: CoilWriteChannelType, CoilWriteChannel: v})
+	case HoldingRegisterWriteChannel:
+		return enc.Encode(struct {
+			Type WriteChannelType `msgpack:"type"`
+			HoldingRegisterWriteChannel
+		}{Type: HoldingRegisterWriteChannelType, HoldingRegisterWriteChannel: v})
+	case HoldingRegisterBitWriteChannel:
+		return enc.Encode(struct {
+			Type WriteChannelType `msgpack:"type"`
+			HoldingRegisterBitWriteChannel
+		}{Type: HoldingRegisterBitWriteChannelType, HoldingRegisterBitWriteChannel: v})
+	default:
+		return errors.Newf("WriteChannel: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *WriteChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type WriteChannelType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case CoilWriteChannelType:
+		var v CoilWriteChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HoldingRegisterWriteChannelType:
+		var v HoldingRegisterWriteChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HoldingRegisterBitWriteChannelType:
+		var v HoldingRegisterBitWriteChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

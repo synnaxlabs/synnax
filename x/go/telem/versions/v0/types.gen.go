@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
@@ -133,6 +134,67 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.StaticWindow
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Window: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "variant" tag injected,
+// as MarshalJSONTo does.
+func (u Window) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case DynamicWindow:
+		return enc.Encode(struct {
+			Type WindowType `msgpack:"variant"`
+			DynamicWindow
+		}{Type: DynamicWindowType, DynamicWindow: v})
+	case StaticWindow:
+		return enc.Encode(struct {
+			Type WindowType `msgpack:"variant"`
+			StaticWindow
+		}{Type: StaticWindowType, StaticWindow: v})
+	default:
+		return errors.Newf("Window: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *Window) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type WindowType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case DynamicWindowType:
+		var v DynamicWindow
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StaticWindowType:
+		var v StaticWindow
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
