@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { labjack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { suggestIdentifiers } from "@/feature/labjack/device/identifier";
+import {
+  useChangeIdentifier,
+  useSave,
+  useSuspended,
+} from "@/feature/labjack/device/queries";
 import {
   INTEGRATION_KEY,
   MAKE,
@@ -27,6 +33,27 @@ export const ADAPTER = Device.createLegacyAdapter({
   suggestIdentifiers,
 });
 
+const useConfigurable = (key: labjack.device.Key): Device.Configurable => {
+  const { name, identifier, serial, model } = useSuspended({ key });
+  return {
+    key,
+    name,
+    identifier,
+    location: "",
+    configured: identifier !== "",
+    suggestIdentifiers: () => suggestIdentifiers({ key: String(serial), model }),
+  };
+};
+
+/** Binds the configure form and menu items to the typed LabJack device table. */
+export const TYPED_ADAPTER: Device.Adapter = {
+  make: MAKE,
+  resourceID: labjack.device.resourceID,
+  use: useConfigurable,
+  useSave,
+  useChangeIdentifier,
+};
+
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
   name: "LabJack",
@@ -41,4 +68,11 @@ export const HARDWARE: Device.Hardware = {
     "LJM is installed on that computer. LabJack hardware needs Windows or macOS.",
     "Kipling and other LabJack programs are closed, because they hold the device.",
   ],
+};
+
+/** The hardware integration whose configure form writes the typed LabJack device
+ * table. */
+export const TYPED_HARDWARE: Device.Hardware = {
+  ...HARDWARE,
+  Configure: Device.createConfigure({ icon: ICON, adapter: TYPED_ADAPTER }),
 };

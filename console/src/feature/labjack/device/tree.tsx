@@ -16,8 +16,10 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Device } from "@synnaxlabs/pluto";
 
+import { TYPED_ADAPTER, TYPED_HARDWARE } from "@/feature/labjack/device/hardware";
 import { useDelete, useRename, useRetrieve } from "@/feature/labjack/device/queries";
 import { ContextMenu } from "@/platform/context-menu";
+import { Device as PlatformDevice } from "@/platform/device";
 import { Tree } from "@/platform/tree";
 
 const useDeleteDevice = Tree.createUseDelete({
@@ -32,6 +34,13 @@ const useRenameDevice = Tree.createUseRename({
   convertKey: String,
 });
 
+const ConfigureMenuItem = PlatformDevice.createConfigureMenuItem(TYPED_ADAPTER);
+
+const ChangeIdentifierMenuItem = PlatformDevice.createChangeIdentifierMenuItem({
+  adapter: TYPED_ADAPTER,
+  icon: "Logo.LabJack",
+});
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids },
@@ -41,9 +50,22 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const handleDelete = useDeleteDevice(props);
   const rename = useRenameDevice(props);
+  const configure = PlatformDevice.useConfigureModal();
   if (ids.length === 0) return null;
   return (
     <ContextMenu.Menu>
+      {ids.length === 1 && (
+        <>
+          <ConfigureMenuItem
+            {...props}
+            onConfigure={(deviceKey) =>
+              configure({ deviceKey, hardware: TYPED_HARDWARE })
+            }
+          />
+          <ChangeIdentifierMenuItem {...props} />
+          <Menu.Divider />
+        </>
+      )}
       {hasUpdatePermission && ids.length === 1 && (
         <ContextMenu.RenameItem onClick={rename} />
       )}

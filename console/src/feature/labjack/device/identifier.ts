@@ -16,7 +16,10 @@ import { Device } from "@/platform/device";
  * @returns the model of the device as an identifier, such as "t7", then the model with
  * the last four digits of its serial number, such as "t7_0002".
  */
-export const suggestIdentifiers = ({ key, model }: device.Device): string[] => {
+export const suggestIdentifiers = ({
+  key,
+  model,
+}: Pick<device.Device, "key" | "model">): string[] => {
   const short = strings.trimPrefix(model, "LJM_dt").toLowerCase();
   return [short, `${short}_${key.slice(-4)}`].filter(
     (id) => Device.identifierZ.safeParse(id).success,
