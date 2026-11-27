@@ -82,9 +82,9 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 // Apply replaces the field group that update carries on the device stored under key and
 // keeps the other group as stored. It returns an error wrapping query.ErrNotFound when
 // no device is stored under key and a validation error when update is invalid, changes
-// the model, carries ports for another model, or maps a Mux80 port while no Mux80 is
-// attached. A transaction that commits between the read and the write of this one is
-// overwritten.
+// the model, carries ports for another model, gives a pin two roles, or maps a Mux80
+// port while no Mux80 is attached. A transaction that commits between the read and the
+// write of this one is overwritten.
 func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 	switch v := update.Variant.(type) {
 	case IdentityUpdate:

@@ -166,6 +166,55 @@ var _ = Describe("Service", func() {
 			Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
 				To(MatchError(validate.ErrValidation))
 		})
+
+		DescribeTable(
+			"Should keep a channel that a port map holds from being deleted",
+			func(ctx SpecContext, ports func(channel.Key) device.T7Ports) {
+				ch := createChannels(ctx, 1)[0]
+				d := device.Device{
+					Key:        uuid.New(),
+					Rack:       rackKey,
+					Name:       "T7-0003",
+					Serial:     nextSerial(),
+					Connection: device.ConnectionUSB,
+					Model:      device.ModelT7,
+					Ports:      device.Ports{Variant: ports(ch)},
+				}
+				Expect(gorp.NewCreate[device.Key, device.Device]().
+					Entry(&d).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("an analog input", func(ch channel.Key) device.T7Ports {
+				return device.T7Ports{
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin0: ch,
+					},
+				}
+			}),
+			Entry("a digital input", func(ch channel.Key) device.T7Ports {
+				return device.T7Ports{
+					DigitalInput: map[device.T7DigitalPort]channel.Key{
+						device.T7DigitalPortDio0: ch,
+					},
+				}
+			}),
+			Entry("an output command", func(ch channel.Key) device.T7Ports {
+				return device.T7Ports{
+					AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
+						device.AnalogOutputPortDac0: {Command: ch},
+					},
+				}
+			}),
+			Entry("an output state", func(ch channel.Key) device.T7Ports {
+				return device.T7Ports{
+					DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+						device.T7DigitalPortDio0: {Command: ch, State: new(ch)},
+					},
+				}
+			}),
+		)
 	})
 
 	Describe("OpenService", func() {
@@ -517,6 +566,14 @@ var _ = Describe("Service", func() {
 					device.T7DigitalPortDio0: {Command: 2},
 				},
 			}, device.ModelT7, "ports.digital_output: DIO0 is also a digital input"),
+			Entry("a T8 digital port that is an input and an output", device.T8Ports{
+				DigitalInput: map[device.T8DigitalPort]channel.Key{
+					device.T8DigitalPortDio0: 1,
+				},
+				DigitalOutput: map[device.T8DigitalPort]device.CommandStatePair{
+					device.T8DigitalPortDio0: {Command: 2},
+				},
+			}, device.ModelT8, "ports.digital_output: DIO0 is also a digital input"),
 		)
 
 		It("Should accept a T4 analog input on a pin with no digital role", func(

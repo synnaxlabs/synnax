@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <optional>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/labjack/device/json.gen.h"
@@ -76,7 +78,10 @@ TEST(Device, RoundTrips) {
     const auto &got = std::get<T4Ports>(parsed.ports);
     ASSERT_EQ(got.analog_input.at("AIN11"), 3);
     ASSERT_EQ(got.digital_output.at("DIO4").command, 4);
-    ASSERT_EQ(got.digital_output.at("DIO4").state, 5);
+    ASSERT_EQ(
+        got.digital_output.at("DIO4").state,
+        std::optional<synnax::channel::Key>{5}
+    );
     ASSERT_EQ(parsed.connection, CONNECTION_ETHERNET);
     ASSERT_EQ(parsed.identifier, "lj");
 }
@@ -106,14 +111,14 @@ TEST(Where, RoundTrips) {
     const auto parsed = Where::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.to_json(), where.to_json());
-    ASSERT_EQ(parsed.and_->size(), 2);
+    ASSERT_EQ(parsed.and_.value().size(), 2);
 }
 
 /// @brief it should join two wheres with or.
 TEST(Where, JoinsWithOr) {
     const Where where = Where{.model = MODEL_T_4} || Where{.model = MODEL_T_8};
     ASSERT_TRUE(where.or_.has_value());
-    ASSERT_EQ(where.or_->size(), 2);
+    ASSERT_EQ(where.or_.value().size(), 2);
     ASSERT_FALSE(where.and_.has_value());
 }
 }

@@ -721,7 +721,6 @@ describe("Read ports", () => {
       "FIO4 to FIO7",
       "EIO0 to EIO7",
       "CIO0 to CIO3",
-      "MIO0 to MIO2",
     ]);
   });
 
