@@ -21,7 +21,14 @@ import { Panel as PlutoPanel, Schematic as PSchematic } from "@synnaxlabs/pluto"
 import type { aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
-import { act, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -282,7 +289,6 @@ export const createSymbolPayload = (name: string): schematic.symbol.New => ({
   name,
   data: {
     drawing: { type: "svg", markup: SYMBOL_SVG },
-    variant: "static",
     handles: [],
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
   },
@@ -306,3 +312,64 @@ export const createLegacySymbolFile = (name: string): string =>
 /** Returns the names of the symbols in the group on the test Core. */
 export const symbolNames = async (key: group.Key): Promise<string[]> =>
   (await client.schematics.symbols.retrieve({ groups: [key] })).map((s) => s.name);
+
+/**
+ * Renders the toolbar of a new schematic that holds the nodes, keyed by node key, with
+ * every node selected and the properties tab open.
+ */
+export const renderSelected = async (configs: Record<string, schematic.NodeConfig>) => {
+  const keys = Object.keys(configs);
+  return await renderSchematic(TabToolbar, {
+    schematic: {
+      nodes: keys.map((key) => ({
+        key,
+        position: { x: 0, y: 0 },
+        config: configs[key],
+      })),
+    },
+    sessionState: {
+      editable: true,
+      selected: keys,
+      toolbar: {
+        selectedTab: "properties",
+        selectedSymbolGroup: "general",
+        changing: false,
+      },
+    },
+  });
+};
+
+/** Starts a symbol change, searches the symbols tab for the name, and picks it. */
+export const pickSymbol = async (name: string): Promise<void> => {
+  fireEvent.click(await screen.findByLabelText("Change symbol"));
+  const symbols = await waitFor(() => {
+    const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
+    assertDefined(el);
+    return el;
+  });
+  fireEvent.change(within(symbols).getByPlaceholderText("Search symbols..."), {
+    target: { value: name },
+  });
+  fireEvent.click(await within(symbols).findByText(name, { selector: "small" }));
+};
+
+/** A bound active state, which every clickable built-in has. */
+export const ACTIVE_BINDING: schematic.StateBinding = {
+  key: "active",
+  source: { type: "channel", key: 12, command: 13 },
+};
+
+/** Creates the config of a node that draws the built-in valve, labeled "Valve". */
+export const createValveNode = (
+  input: Partial<PSchematic.Node.Input<"symbol">> = {},
+): schematic.NodeConfig =>
+  PSchematic.Node.createConfig({
+    variant: "symbol",
+    spec: { type: "builtin", name: "valve" },
+    label: { label: "Valve" },
+    ...input,
+  });
+
+/** Returns the node configs of the schematic on the test Core, by node key. */
+export const retrieveConfigs = async (key: string) =>
+  client.schematics.configsOf(await client.schematics.retrieve(key));

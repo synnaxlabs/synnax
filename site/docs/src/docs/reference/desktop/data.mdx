@@ -26,11 +26,13 @@ connect, Synnax Desktop writes the address of Synnax to `desktop.json` in the co
 folder of your operating system: `$XDG_CONFIG_HOME/synnax` (by default
 `~/.config/synnax`) on Linux, `~/Library/Application Support/Synnax` on macOS, and
 `%LOCALAPPDATA%\Synnax` on Windows. It also writes `~/.synnax/desktop.json`
-(`%USERPROFILE%\.synnax\desktop.json` on Windows), where Synnax Desktop 1.1 wrote it. It
-keeps the API key for those scripts in the keychain of your operating system, under the
-service `com.synnaxlabs.desktop`. The key is never written to a file. Synnax Desktop 1.1
-kept the key in `desktop.json`. A newer version revokes that key, removes it from the
-file, and saves a new key in the keychain.
+(`%USERPROFILE%\.synnax\desktop.json` on Windows), where Synnax Desktop 1.1 wrote it.
+Scripts read the copy that was written last. See
+[Config folder](/reference/client/connect#config-folder). Synnax Desktop keeps the API
+key for those scripts in the keychain of your operating system, under the service
+`com.synnaxlabs.desktop`. The key is never written to a file. Synnax Desktop 1.1 kept
+the key in `desktop.json`. A newer version revokes that key, removes it from the file,
+and saves a new key in the keychain.
 
 <Divider.Divider x />
 

@@ -387,7 +387,8 @@ var _ = Describe("TruncateToIndex", func() {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3))
 					Expect(deleteRange(ctx, indexDB, tr)).To(Succeed())
 					Expect(dataDB.TruncateToIndex(ctx)).To(Succeed())
-					Expect(dataDB.HasDataFor(ctx, telem.TimeRangeMax)).To(BeFalse())
+					Expect(hasDataFor(ctx,
+						dataDB, telem.TimeRangeMax)).To(BeFalse())
 				},
 			)
 

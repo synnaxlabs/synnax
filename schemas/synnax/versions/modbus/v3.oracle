@@ -123,6 +123,7 @@ ReadConfig struct extends task.ReadConfig {
     }
 
     @doc value  "configures a Modbus read task."
+    @go entry   "modbus_read_config"
     @go imex    body
     @go marshal
     @go migrate
@@ -134,6 +135,7 @@ WriteConfig struct extends task.WriteConfig {
     }
 
     @doc value  "configures a Modbus write task."
+    @go entry   "modbus_write_config"
     @go imex    body
     @go marshal
     @go migrate

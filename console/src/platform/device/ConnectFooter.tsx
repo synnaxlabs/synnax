@@ -13,17 +13,20 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import type { ReactElement } from "react";
 
 import { Modals } from "@/platform/modals";
+import type { Rack } from "@/platform/rack";
 import { Triggers } from "@/platform/triggers";
 
 export interface ConnectFooterProps {
-  /** The result of {@link useBlockedReason}. A reason blocks Connect. */
-  reason: string | null;
+  /** The result of `Rack.useBlockedReason`. A reason blocks Connect. */
+  reason: Rack.BlockedReason | null;
   variant: status.Variant;
   message?: string;
   onConnect: () => void;
+  onCancel: () => void;
   onBack?: () => void;
 }
 
@@ -32,12 +35,13 @@ export const ConnectFooter = ({
   variant,
   message,
   onConnect,
+  onCancel,
   onBack,
 }: ConnectFooterProps): ReactElement => {
   const busy = variant === "loading";
   Modals.useBusy(busy);
   let summary: ReactElement | null = null;
-  if (reason != null) summary = <Status.Summary variant="warning" message={reason} />;
+  if (reason != null) summary = <Status.Summary variant="warning" {...reason} />;
   else if (variant !== "success")
     summary = <Status.Summary variant={variant} message={message} />;
   return (
@@ -51,7 +55,15 @@ export const ConnectFooter = ({
         )}
         {summary}
       </Nav.Bar.Start>
-      <Nav.Bar.End>
+      <Nav.Bar.End x align="center">
+        <Button.Button
+          variant="outlined"
+          onClick={onCancel}
+          disabled={busy}
+          triggerIndicator={PTriggers.ESCAPE}
+        >
+          Cancel
+        </Button.Button>
         <Button.Button
           status={status.keepVariants(variant, "loading")}
           onClick={onConnect}

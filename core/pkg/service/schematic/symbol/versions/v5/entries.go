@@ -147,3 +147,25 @@ func defaultEntries(
 	}
 	return entries
 }
+
+// ActuatorEntries returns entries with the entry On on value 1, so an actuator reads
+// its value On as an entry. It returns entries and false when entries is empty or has
+// an entry on value 1.
+func ActuatorEntries(entries []enumeration.Entry) ([]enumeration.Entry, bool) {
+	if len(entries) == 0 ||
+		slices.ContainsFunc(entries, func(e enumeration.Entry) bool {
+			return e.Value == 1
+		}) {
+		return entries, false
+	}
+	keys := set.Set[string]{}
+	for _, e := range entries {
+		keys.Add(e.Key)
+	}
+	key := "on"
+	for n := len(entries); keys.Contains(key); n++ {
+		key = strconv.Itoa(n)
+	}
+	on := enumeration.Entry{Key: key, Value: 1, Name: "On"}
+	return append(slices.Clone(entries), on), true
+}

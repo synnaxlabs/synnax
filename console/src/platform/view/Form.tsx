@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { view } from "@synnaxlabs/client";
+import { UnexpectedError, type view } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type Flux, View as PView } from "@synnaxlabs/pluto";
@@ -24,21 +24,38 @@ import { FormContext, useContext, useSearchContext } from "@/platform/view/conte
 
 const path = PView.formPath;
 
-export interface FormProps<K extends record.Key, E extends record.Keyed<K>>
+/** The filter of the views of resource type T. */
+type WhereOf<T extends view.Type> = Extract<view.View, { type: T }>["where"];
+
+export interface FormProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  T extends view.Type,
+>
   extends
     PropsWithChildren,
     Pick<
       Flux.UseListReturn<K, E>,
       "data" | "getItem" | "subscribe" | "answered" | "more" | "search"
     > {
+  /** The resource type of the enclosing frame. */
+  type: T;
   /** Called with the filter of the view each time the selected view changes it. */
-  onWhereChange: (where: view.View["where"]) => void;
+  onWhereChange: (where: WhereOf<T> | undefined) => void;
   /** The height of each item in pixels. The list renders only the items in view. */
   itemHeight: number;
 }
 
-export const Form = <K extends record.Key, E extends record.Keyed<K>>({
+/**
+ * @throws {UnexpectedError} if type is not the resource type of the enclosing frame.
+ */
+export const Form = <
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  T extends view.Type,
+>({
   children,
+  type,
   data,
   getItem,
   subscribe,
@@ -47,8 +64,14 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>>({
   search,
   onWhereChange,
   itemHeight,
-}: FormProps<K, E>): ReactElement | null => {
-  const { staticViews, getInitialView } = useContext("View.Form");
+}: FormProps<K, E, T>): ReactElement | null => {
+  const { staticViews, getInitialView, resourceType } = useContext("View.Form");
+  if (resourceType !== type)
+    throw new UnexpectedError(
+      `A ${type} form cannot show the views of a ${resourceType} frame`,
+    );
+  // A frame shows only the views of its resource type, which is type.
+  const changeWhere = (where: view.View["where"]) => onWhereChange(where);
   const { term } = useSearchContext("View.Form");
   // The list of a new view starts with no term.
   const searchedRef = useRef("");
@@ -68,14 +91,14 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>>({
       // if this is a static view we need to handle it here. Otherwise, the
       // useSetSynchronizer will handle it as it also needs to handle remote updates.
       if (key == null || !staticViews.includes(key)) return true;
-      onWhereChange(where);
+      changeWhere(where);
       return false;
     },
   });
   const { get: getField } = form;
   const handleSet = (view: view.View) => {
     if (view.key !== getField(path.key).value) return;
-    onWhereChange(view.where);
+    changeWhere(view.where);
   };
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);

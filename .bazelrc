@@ -9,6 +9,10 @@ build --test_env=SYNNAX_TEST_PORT
 # Enable platform-specific configs
 common --enable_platform_specific_config
 
+# --test_output=errors prints all the output of a failed test. The default cap of 1 MiB
+# hides the output of a test that logs a lot, such as the OPC UA connection test.
+common --experimental_ui_max_stdouterr_bytes=-1
+
 # Python targets get no generated __init__.py files, including those of external
 # repositories. Each package must ship its own.
 build --incompatible_default_to_explicit_init_py

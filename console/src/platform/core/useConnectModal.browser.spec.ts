@@ -108,8 +108,12 @@ describe("useConnectModal", () => {
       );
     });
 
-    it("should rename the edited Core in place and preserve its credentials", async () => {
-      const alpha = createCore("Alpha", { username: "user_u", password: "pass_p" });
+    it("should rename the edited Core in place and preserve its login", async () => {
+      const alpha = createCore("Alpha", {
+        username: "user_u",
+        password: "pass_p",
+        lastLogin: 1234,
+      });
       const { store } = await openConnect(
         [{ coreKey: alpha.key }],
         createCoreState([alpha], alpha.key),
@@ -123,6 +127,8 @@ describe("useConnectModal", () => {
         expect(edited?.key).toEqual(alpha.key);
         expect(edited?.username).toEqual("user_u");
         expect(edited?.password).toEqual("pass_p");
+        // a new lastLogin would give the Core a new client
+        expect(edited?.lastLogin).toEqual(1234);
       });
       await waitFor(() =>
         expect(screen.queryByPlaceholderText("Synnax Core")).toBeNull(),

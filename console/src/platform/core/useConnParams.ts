@@ -9,6 +9,7 @@
 
 import type { SynnaxParams } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
+import { deep } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
 import { accountOf, readToken } from "@/platform/core/token";
@@ -16,7 +17,35 @@ import { Session } from "@/session";
 
 interface StoredToken {
   account: string;
+  lastLogin?: number;
   token?: string;
+}
+
+/** What a client connects to and logs in as. A change to it needs a new client. */
+type Identity = Pick<
+  Session.Core.Core,
+  "key" | "host" | "port" | "secure" | "oidc" | "lastLogin"
+>;
+
+const identityOf = ({
+  key,
+  host,
+  port,
+  secure,
+  oidc,
+  lastLogin,
+}: Session.Core.Core): Identity => ({
+  key,
+  host,
+  port,
+  secure,
+  oidc,
+  lastLogin,
+});
+
+interface Held {
+  identity: Identity;
+  params: SynnaxParams;
 }
 
 /**
@@ -32,6 +61,30 @@ const servesPage = ({ host, port, secure }: Session.Core.Core): boolean => {
     port === originPort &&
     secure === (origin.protocol === "https:")
   );
+};
+
+const paramsOf = (
+  core: Session.Core.Core,
+  stored: StoredToken | undefined,
+): SynnaxParams | undefined => {
+  const { host, port, secure, username, password, oidc } = core;
+  const params: SynnaxParams =
+    oidc == null
+      ? {
+          host,
+          port,
+          secure,
+          username: username === "" ? undefined : username,
+          password: password === "" ? undefined : password,
+        }
+      : { host, port, secure, oidc };
+  if (Session.Runtime.ENGINE !== "tauri") {
+    const cookie = servesPage(core);
+    return { ...params, sessionCookie: cookie, sessionPersistent: cookie };
+  }
+  if (stored?.account !== accountOf(core) || stored.lastLogin !== core.lastLogin)
+    return undefined;
+  return { ...params, token: stored.token, sessionPersistent: true };
 };
 
 /**
@@ -52,24 +105,30 @@ export const hasLogin = (core: Session.Core.Core): boolean =>
  * Undefined while no Core is selected or the selected Core has no login, and, on
  * desktop, until the keychain has answered. A saved session outlives the client. Fields
  * that only describe the Core stay out, so renaming it keeps the connection.
+ *
+ * The parameters change only for another Core, address, or login. A live client
+ * follows a change to its own username or password, so the record's copy of one does
+ * not replace the client.
  */
 export const useConnParams = (): SynnaxParams | undefined => {
   const core = Session.Core.useSelectSelected();
   const handleError = Status.useErrorHandler();
   const [stored, setStored] = useState<StoredToken>();
+  const [held, setHeld] = useState<Held>();
   const account = core == null ? undefined : accountOf(core);
   // a login in any window that saves a session is the cue to read the keychain again
   const lastLogin = core?.lastLogin;
   useEffect(() => {
     if (core == null || Session.Runtime.ENGINE !== "tauri") return;
     let stale = false;
+    const read = { account: accountOf(core), lastLogin: core.lastLogin };
     readToken(core).then(
       (token) => {
-        if (!stale) setStored({ account: accountOf(core), token });
+        if (!stale) setStored({ ...read, token });
       },
       (err: unknown) => {
         if (stale) return;
-        setStored({ account: accountOf(core) });
+        setStored(read);
         handleError(err, "Failed to read the saved session");
       },
     );
@@ -77,22 +136,16 @@ export const useConnParams = (): SynnaxParams | undefined => {
       stale = true;
     };
   }, [account, lastLogin]);
-  if (core == null || !hasLogin(core)) return undefined;
-  const { host, port, secure, username, password, oidc } = core;
-  const params: SynnaxParams =
-    oidc == null
-      ? {
-          host,
-          port,
-          secure,
-          username: username === "" ? undefined : username,
-          password: password === "" ? undefined : password,
-        }
-      : { host, port, secure, oidc };
-  if (Session.Runtime.ENGINE !== "tauri") {
-    const cookie = servesPage(core);
-    return { ...params, sessionCookie: cookie, sessionPersistent: cookie };
+  // A set during render, behind a guard, makes React retry before it commits, so the
+  // provider never sees parameters for an identity they do not belong to.
+  if (core == null || !hasLogin(core)) {
+    if (held != null) setHeld(undefined);
+    return undefined;
   }
-  if (stored == null || stored.account !== account) return undefined;
-  return { ...params, token: stored.token, sessionPersistent: true };
+  const identity = identityOf(core);
+  if (held != null && deep.equal(held.identity, identity)) return held.params;
+  const params = paramsOf(core, stored);
+  if (params == null) return undefined;
+  setHeld({ identity, params });
+  return params;
 };

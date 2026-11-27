@@ -123,43 +123,6 @@ describe("Kafka Task Types", () => {
   });
 
   describe("deployWriteConfigZ", () => {
-    const valid = { device: "dev", topic: "t", channels: [{ key: "c1", channel: 1 }] };
-
-    it("should accept a complete config and fill the record shape", () => {
-      const result = Kafka.Task.deployWriteConfigZ.parse(valid);
-      expect(result.record.valuePointer).toBe("/value");
-      expect(result.record.timeFormat).toBe("unix_ns");
-      expect(result.recordKey).toBe("channel_name");
-    });
-
-    it("should reject a channel that is not selected", () => {
-      const result = Kafka.Task.deployWriteConfigZ.safeParse({
-        ...valid,
-        channels: [{ key: "c1", channel: 0 }],
-      });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe("Channel is required");
-    });
-
-    it("should accept a disabled channel that is not selected", () => {
-      const result = Kafka.Task.deployWriteConfigZ.safeParse({
-        ...valid,
-        channels: [...valid.channels, { key: "c2", channel: 0, disabled: true }],
-      });
-      expect(result.success).toBe(true);
-    });
-
-    it("should reject an empty value pointer", () => {
-      const result = Kafka.Task.deployWriteConfigZ.safeParse({
-        ...valid,
-        record: { valuePointer: "" },
-      });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe("Value pointer is required");
-    });
-  });
-
-  describe("deployICDWriteConfigZ", () => {
     const createTarget = (topic: string, disabled = false) => ({
       key: topic === "" ? "empty" : topic,
       topic,
@@ -169,7 +132,7 @@ describe("Kafka Task Types", () => {
     });
     const issuesOf = (targets: ReturnType<typeof createTarget>[]) =>
       (
-        Kafka.Task.deployICDWriteConfigZ.safeParse({ device: "dev", targets }).error
+        Kafka.Task.deployWriteConfigZ.safeParse({ device: "dev", targets }).error
           ?.issues ?? []
       ).map(({ message, path }) => ({ message, path: path.join(".") }));
 
@@ -194,18 +157,5 @@ describe("Kafka Task Types", () => {
         [],
       );
     });
-  });
-
-  describe("isString", () => {
-    it.each(["string", "json", "uuid"])("should send %s as a string", (dt) => {
-      expect(Kafka.Task.isString(dt)).toBe(true);
-    });
-
-    it.each(["float64", "uint8", "timestamp"])(
-      "should not send %s as a string",
-      (dt) => {
-        expect(Kafka.Task.isString(dt)).toBe(false);
-      },
-    );
   });
 });

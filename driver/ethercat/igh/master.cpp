@@ -142,7 +142,7 @@ void read_serial(
     // Only a slave that refuses the read for good has no CoE serial number.
     if (failure->permanent()) return;
     const auto err = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, *failure);
-    slave.status.serial_error = err.data;
+    slave.status.serial_error = err.data();
 }
 
 /// @brief names each entry of slave with the name and data type that the CoE
@@ -538,7 +538,7 @@ x::errors::Error Master::initialize() {
                 result.properties.input_pdos.clear();
                 result.properties.output_pdos.clear();
                 result.status.pdo_discovery_error = "failed to read the PDO layout: " +
-                                                    err.data;
+                                                    err.data();
                 break;
             }
         esi::fill(result);
@@ -663,7 +663,7 @@ void Master::read_coe(const std::vector<slave::DiscoveryResult *> &slaves) {
             props.op_modes,
             sdo_reader(*this->api, this->ec_master, pos)
         );
-        slave->status.settings_error = err.data;
+        slave->status.settings_error = err.data();
         props.settings = std::move(settings);
     }
 }
@@ -1428,7 +1428,7 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
         return x::errors::Error(
             errors::PDO_DISCOVERY_ERROR,
             "failed to read the PDO layout of " + slave_name +
-                " after its startup parameters: " + err.data
+                " after its startup parameters: " + err.data()
         );
     const auto assignable = [&](const bool is_input) {
         return std::ranges::any_of(syncs, [is_input](const pdo::Sync &s) {
@@ -1451,7 +1451,7 @@ Master::configure_assigned_pdos(const uint16_t position, ec_slave_config_t *sc) 
                 return x::errors::Error(
                     errors::PDO_DISCOVERY_ERROR,
                     "failed to read the PDO layout of " + slave_name + ": " +
-                        scan_err.data
+                        scan_err.data()
                 );
             continue;
         }

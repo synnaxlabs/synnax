@@ -20,7 +20,6 @@ import (
 	xjson "github.com/synnaxlabs/x/json"
 	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -40,30 +39,59 @@ const (
 func Check(ic ICD) []validate.PathError {
 	c := checker{problems: []validate.PathError{}}
 	c.addSchema(ic.Validate())
-	keys := make(set.Set[MessageKey], len(ic.Messages))
-	names := make(set.Set[string], len(ic.Messages))
+	messages := newUniques("message", len(ic.Messages))
 	for i, m := range ic.Messages {
 		path := []string{"messages", strconv.Itoa(i)}
-		if m.Key != uuid.Nil() && keys.Contains(m.Key) {
-			c.addf(pathOf(path, "key"), "duplicate message key %s", m.Key)
-		}
-		keys.Add(m.Key)
-		if m.Name != "" && names.Contains(m.Name) {
-			c.addf(pathOf(path, "name"), "duplicate message name %q", m.Name)
-		}
-		names.Add(m.Name)
+		c.checkUnique(path, messages, m.Key, m.Name)
 		c.checkMessage(path, m, ic.Framing)
+	}
+	if ic.Framing != nil {
+		c.checkSync(*ic.Framing)
 	}
 	return c.problems
 }
 
 type checker struct{ problems []validate.PathError }
 
+func (c *checker) add(path []string, err error) {
+	c.problems = append(
+		c.problems,
+		validate.PathError{Path: slices.Clone(path), Err: err},
+	)
+}
+
 func (c *checker) addf(path []string, format string, args ...any) {
-	c.problems = append(c.problems, validate.PathError{
-		Path: slices.Clone(path),
-		Err:  validate.Errorf(format, args...),
-	})
+	c.add(path, validate.Errorf(format, args...))
+}
+
+// uniques holds the keys and names of the messages, or of the fields of one message,
+// checked so far.
+type uniques struct {
+	noun  string
+	keys  set.Set[uuid.UUID]
+	names set.Set[string]
+}
+
+func newUniques(noun string, size int) uniques {
+	return uniques{
+		noun:  noun,
+		keys:  make(set.Set[uuid.UUID], size),
+		names: make(set.Set[string], size),
+	}
+}
+
+// checkUnique adds a problem for a key or name that an earlier entry of u holds, then
+// adds key and name to u. A nil key and an empty name never count, as a save assigns
+// keys.
+func (c *checker) checkUnique(path []string, u uniques, key uuid.UUID, name string) {
+	if key != uuid.Nil() && u.keys.Contains(key) {
+		c.addf(pathOf(path, "key"), "duplicate %s key %s", u.noun, key)
+	}
+	u.keys.Add(key)
+	if name != "" && u.names.Contains(name) {
+		c.addf(pathOf(path, "name"), "duplicate %s name %q", u.noun, name)
+	}
+	u.names.Add(name)
 }
 
 // addSchema adds each problem that err holds as a sentence that names its field, such
@@ -109,43 +137,43 @@ func (c *checker) checkMessage(path []string, m Message, framing *Framing) {
 		c.addf(pathOf(path, "cycle_time"), "cycle time must be positive")
 	}
 	path = pathOf(path, "payload")
-	var (
-		bases = m.Payload.FieldBases()
-		// untyped holds the indices of fields with no encoding or type, whose bases are
-		// zero values, and unscaled the indices of fields that hold no number.
-		untyped  = make(set.Set[int])
-		unscaled = make(set.Set[int])
-	)
 	switch p := m.Payload.Variant.(type) {
 	case BinaryPayload:
-		c.checkBinaryPayload(path, p, untyped)
+		c.checkBinaryPayload(path, p)
 		if framing != nil && p.Length != nil {
 			c.checkFrameLength(pathOf(path, "length"), *p.Length, *framing)
 		}
 	case TextPayload:
-		c.checkTextFields(path, p, untyped)
+		c.checkTextFields(path, p)
 	case JSONPayload:
 		if p.Match != nil {
 			c.checkMatch(pathOf(path, "match"), *p.Match)
 		}
-		c.checkJSONFields(pathOf(path, "fields"), p, untyped, unscaled)
-	case nil:
-		return
+		c.checkJSONFields(pathOf(path, "fields"), p)
 	}
-	c.checkFieldBases(path, bases, untyped, unscaled)
 }
 
-// checkBinaryPayload adds the indices of fields with no encoding to untyped.
-func (c *checker) checkBinaryPayload(
-	path []string, p BinaryPayload, untyped set.Set[int],
-) {
+// checkBase checks the key, name, and scaling of a field with a variant. Only a number
+// field can scale.
+func (c *checker) checkBase(path []string, b BaseField, number bool, fields uniques) {
+	c.checkUnique(path, fields, b.Key, b.Name)
+	if number {
+		c.checkScaling(path, b)
+	} else {
+		c.checkUnscaled(path, b)
+	}
+}
+
+func (c *checker) checkBinaryPayload(path []string, p BinaryPayload) {
 	binary := make(map[FieldKey]BinaryField, len(p.Fields))
+	fields := newUniques("field", len(p.Fields))
 	for i, f := range p.Fields {
 		if f.Variant == nil {
-			untyped.Add(i)
 			continue
 		}
-		c.checkBinaryField(pathOf(path, "fields", strconv.Itoa(i)), p, f)
+		fieldPath := pathOf(path, "fields", strconv.Itoa(i))
+		c.checkBinaryField(fieldPath, p, f)
+		c.checkBase(fieldPath, f.Base().BaseField, true, fields)
 		binary[f.Base().Key] = f
 	}
 	for i, f := range p.Fields {
@@ -173,28 +201,58 @@ func (c *checker) checkFrameLength(path []string, length uint16, framing Framing
 	}
 }
 
-// checkTextFields adds the indices of fields with no type to untyped.
-func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[int]) {
+// checkSync finds the problems in a sync frame header that span two fields, which the
+// schema cannot state.
+func (c *checker) checkSync(framing Framing) {
+	f, ok := framing.Variant.(SyncFraming)
+	if !ok {
+		return
+	}
+	if int(f.LengthOffset) < len(f.Sync) {
+		c.addf(
+			[]string{"framing", "length_offset"},
+			"the length field overlaps the sync sequence",
+		)
+	}
+	size, ok := lengthBytes[f.LengthSize]
+	if header := uint64(f.LengthOffset) + size; ok && uint64(f.MaxLength) < header {
+		c.addf(
+			[]string{"framing", "max_length"},
+			"the maximum length of %d is less than the %d bytes of the header",
+			f.MaxLength,
+			header,
+		)
+	}
+}
+
+// lengthBytes is the number of bytes in a length field of each size.
+var lengthBytes = map[LengthSize]uint64{
+	LengthSizeOne:  1,
+	LengthSizeTwo:  2,
+	LengthSizeFour: 4,
+}
+
+func (c *checker) checkTextFields(path []string, p TextPayload) {
+	fields := newUniques("field", len(p.Fields))
 	for i, f := range p.Fields {
+		if f.Variant == nil {
+			continue
+		}
 		fieldPath := pathOf(path, "fields", strconv.Itoa(i))
-		switch v := f.Variant.(type) {
-		case nil:
-			untyped.Add(i)
-		case TaggedTextField:
+		if v, ok := f.Variant.(TaggedTextField); ok {
 			c.checkTag(pathOf(fieldPath, "tag"), v.Tag, p.Delimiter)
 		}
-		b := f.Base()
-		if d := b.Default; d != nil && math.IsInf(float64(*d), 0) {
-			c.addf(pathOf(fieldPath, "default"), "default cannot be infinite")
+		if message, found := textDefaultProblem(f); found {
+			c.addf(pathOf(fieldPath, "default"), "default %s", message)
 		}
-		checkDefaultRange(c, fieldPath, b.BaseField, b.Default)
+		c.checkBase(fieldPath, f.Base().BaseField, true, fields)
 	}
 	c.checkTagOverlaps(pathOf(path, "fields"), p.Fields)
 }
 
-// checkTagOverlaps refuses a tag that equals the tag of another field, or that is the
-// other tag and then text that can start a value. The Driver gives such a value to the
-// longer tag. A field gets at most one such problem.
+// checkTagOverlaps refuses a tag that equals the tag of an earlier field, or that is
+// the tag of another field and then text that can start a value. The Driver gives such
+// a value to the longer tag. A field gets at most one such problem.
 func (c *checker) checkTagOverlaps(path []string, fields []TextField) {
 	for j, f := range fields {
 		long, ok := f.Variant.(TaggedTextField)
@@ -202,32 +260,34 @@ func (c *checker) checkTagOverlaps(path []string, fields []TextField) {
 			continue
 		}
 		for i, g := range fields {
-			short, ok := g.Variant.(TaggedTextField)
-			if i == j || !ok || short.Tag == "" ||
-				!strings.HasPrefix(long.Tag, short.Tag) {
-				continue
+			if err := tagConflict(long, g, i < j); err != nil {
+				c.add(pathOf(path, strconv.Itoa(j), "tag"), err)
+				break
 			}
-			tagPath := pathOf(path, strconv.Itoa(j), "tag")
-			switch rest := long.Tag[len(short.Tag):]; {
-			case rest == "" && i < j:
-				c.addf(
-					tagPath,
-					"the tag %q is also the tag of field %s",
-					long.Tag,
-					short.Name,
-				)
-			case rest != "" && startsValue(rest):
-				c.addf(
-					tagPath,
-					"a value of field %s after its tag %q reads as this tag",
-					short.Name, short.Tag,
-				)
-			default:
-				continue
-			}
-			break
 		}
 	}
+}
+
+// tagConflict returns an error when long has the tag of g and g is earlier, or when the
+// tag of g and then a value of g read as the tag of long.
+func tagConflict(long TaggedTextField, g TextField, earlier bool) error {
+	short, ok := g.Variant.(TaggedTextField)
+	if !ok || short.Tag == "" || !strings.HasPrefix(long.Tag, short.Tag) {
+		return nil
+	}
+	switch rest := long.Tag[len(short.Tag):]; {
+	case rest == "" && earlier:
+		return validate.Errorf(
+			"the tag %q is also the tag of field %s", long.Tag, short.Name,
+		)
+	case rest != "" && startsValue(rest):
+		return validate.Errorf(
+			"a value of field %s after its tag %q reads as this tag",
+			short.Name,
+			short.Tag,
+		)
+	}
+	return nil
 }
 
 // startsValue reports whether rest, once the Driver trims textSpace from it, is empty
@@ -263,16 +323,6 @@ func startsValue(rest string) bool {
 	return i == len(s)
 }
 
-// checkDefaultRange adds a problem when the finite default d of a number field with
-// base b decodes outside its min and max.
-func checkDefaultRange[N types.Numeric](
-	c *checker, path []string, b BaseField, d *N,
-) {
-	if message, out := defaultRangeProblem(b, d); out {
-		c.addf(pathOf(path, "default"), "default %s", message)
-	}
-}
-
 // textSpace is the text that the Driver trims from around each item of a line.
 const textSpace = " \t\r"
 
@@ -289,72 +339,40 @@ func (c *checker) checkTag(path []string, tag, delimiter string) {
 	}
 }
 
-// checkFieldBases checks the keys, names, and scaling of every typed field in bases.
-func (c *checker) checkFieldBases(
-	path []string, bases []BaseField, untyped, unscaled set.Set[int],
-) {
-	keys := make(set.Set[FieldKey], len(bases))
-	names := make(set.Set[string], len(bases))
-	for i, b := range bases {
-		if untyped.Contains(i) {
-			continue
-		}
-		p := pathOf(path, "fields", strconv.Itoa(i))
-		if b.Key != uuid.Nil() && keys.Contains(b.Key) {
-			c.addf(pathOf(p, "key"), "duplicate field key %s", b.Key)
-		}
-		keys.Add(b.Key)
-		if b.Name != "" && names.Contains(b.Name) {
-			c.addf(pathOf(p, "name"), "duplicate field name %q", b.Name)
-		}
-		names.Add(b.Name)
-		if unscaled.Contains(i) {
-			c.checkUnscaled(p, b)
-		} else {
-			c.checkScaling(p, b)
-		}
-	}
-}
-
-// checkJSONFields adds the indices of fields with no type to untyped, and of fields
-// that hold no number to unscaled.
-func (c *checker) checkJSONFields(
-	path []string,
-	p JSONPayload,
-	untyped, unscaled set.Set[int],
-) {
+func (c *checker) checkJSONFields(path []string, p JSONPayload) {
 	type read struct {
 		name    string
 		pointer xjson.Pointer
 	}
 	reads := make([]read, 0, len(p.Fields))
+	fields := newUniques("field", len(p.Fields))
 	for i, f := range p.Fields {
-		fieldPath := pathOf(path, strconv.Itoa(i))
-		switch f.Variant.(type) {
-		case nil:
-			untyped.Add(i)
+		if f.Variant == nil {
 			continue
-		case FloatJSONField, IntegerJSONField, UnsignedJSONField:
-		default:
-			unscaled.Add(i)
 		}
+		fieldPath := pathOf(path, strconv.Itoa(i))
 		c.checkEnums(fieldPath, f)
 		if message, bad := defaultProblem(f); bad {
 			c.addf(pathOf(fieldPath, "default"), "default %s", message)
 		}
 		b := f.Base()
-		pointer, err := xjson.ParsePointer(b.Pointer)
-		if err != nil {
+		if pointer, err := xjson.ParsePointer(b.Pointer); err != nil {
 			c.addf(pathOf(fieldPath, "pointer"), "invalid JSON Pointer %q", b.Pointer)
-			continue
-		}
-		for _, r := range reads {
-			if msg, ok := nested(pointer, r.pointer); ok {
-				c.addf(pathOf(fieldPath, "pointer"), msg, b.Pointer, r.name)
-				break
+		} else {
+			for _, r := range reads {
+				if msg, ok := nested(pointer, r.pointer); ok {
+					c.addf(pathOf(fieldPath, "pointer"), msg, b.Pointer, r.name)
+					break
+				}
 			}
+			reads = append(reads, read{name: b.Name, pointer: pointer})
 		}
-		reads = append(reads, read{name: b.Name, pointer: pointer})
+		var number bool
+		switch f.Variant.(type) {
+		case FloatJSONField, IntegerJSONField, UnsignedJSONField:
+			number = true
+		}
+		c.checkBase(fieldPath, b.BaseField, number, fields)
 	}
 }
 
@@ -459,22 +477,25 @@ func (c *checker) checkUnscaled(path []string, b BaseField) {
 	}
 }
 
+// CheckScale returns an error wrapping validate.ErrValidation when scale is zero. A
+// field with a zero scale reads and writes every value as its offset.
+func CheckScale(scale float64) error {
+	if scale == 0 {
+		return validate.Errorf("scale must be non-zero")
+	}
+	return nil
+}
+
+// checkScaling finds the problems in the scale and limits of a number field. The schema
+// reports a value that is not finite.
 func (c *checker) checkScaling(path []string, b BaseField) {
-	if !xmath.Finite(b.Scale) || b.Scale == 0 {
-		c.addf(pathOf(path, "scale"), "scale must be finite and non-zero")
+	if err := CheckScale(b.Scale); err != nil {
+		c.add(pathOf(path, "scale"), err)
 	}
-	if !xmath.Finite(b.Offset) {
-		c.addf(pathOf(path, "offset"), "offset must be finite")
+	if b.Min == nil || b.Max == nil || !xmath.Finite(*b.Min) || !xmath.Finite(*b.Max) {
+		return
 	}
-	finite := func(name string, v *float64) bool {
-		if v != nil && !xmath.Finite(*v) {
-			c.addf(pathOf(path, name), "%s must be finite", name)
-			return false
-		}
-		return v != nil
-	}
-	if minOK, maxOK := finite("min", b.Min), finite("max", b.Max); minOK && maxOK &&
-		*b.Min > *b.Max {
+	if *b.Min > *b.Max {
 		c.addf(pathOf(path, "max"), "max must be greater than or equal to min")
 	}
 }
@@ -620,37 +641,16 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 	}
 }
 
-// checkBinaryDefault adds a problem when f is a float of the wrong width, or when the
-// bits of f cannot hold its default.
+// checkBinaryDefault adds a problem when f is a float of the wrong width, or when f
+// cannot hold its default.
 func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
-	n := f.Base().BitLength
-	defaultPath := pathOf(path, "default")
-	switch v := f.Variant.(type) {
-	case FloatBinaryField:
-		if n != 32 && n != 64 {
+	if _, ok := f.Variant.(FloatBinaryField); ok {
+		if n := f.Base().BitLength; n != 32 && n != 64 {
 			c.addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
 		}
-		if v.Default == nil {
-			return
-		}
-		d := float64(*v.Default)
-		switch {
-		case math.IsInf(d, 0):
-			c.addf(defaultPath, "default cannot be infinite")
-		case n == 32 && math.Abs(d) > math.MaxFloat32:
-			c.addf(defaultPath, "default %g does not fit a 32-bit float", d)
-		}
-		checkDefaultRange(c, path, v.BaseField, v.Default)
-	case IntegerBinaryField:
-		if v.Default != nil && !fits(int64(*v.Default), f) {
-			c.addf(defaultPath, "default %d does not fit the field", *v.Default)
-		}
-		checkDefaultRange(c, path, v.BaseField, v.Default)
-	case UnsignedBinaryField:
-		if v.Default != nil && n < 64 && uint64(*v.Default) >= 1<<n {
-			c.addf(defaultPath, "default %d does not fit the field", *v.Default)
-		}
-		checkDefaultRange(c, path, v.BaseField, v.Default)
+	}
+	if message, found := binaryDefaultProblem(f); found {
+		c.addf(pathOf(path, "default"), "default %s", message)
 	}
 }
 
@@ -806,14 +806,6 @@ func fits(v int64, f BinaryField) bool {
 	return n == 64 || (v >= -(int64(1)<<(n-1)) && v < int64(1)<<(n-1))
 }
 
-// lastByte returns the index of the last payload byte a binary field touches. A
-// little-endian start bit is the field's least significant bit; a big-endian start bit
-// is its most significant bit, and the field continues toward higher byte indices.
-func lastByte(f BinaryBaseField) int {
-	start, length := int(f.StartBit), int(f.BitLength)
-	if f.ByteOrder == ByteOrderBigEndian {
-		msb := 8*(start/8) + 7 - start%8
-		return (msb + length - 1) / 8
-	}
-	return (start + length - 1) / 8
-}
+// lastByte returns the index of the last payload byte that f, of a valid bit length,
+// reads.
+func lastByte(f BinaryBaseField) int { return slices.Max(coveredBits(f)) / 8 }

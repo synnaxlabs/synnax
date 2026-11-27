@@ -15,20 +15,6 @@ import { control } from "@/telem/control/aether";
 
 export const DEFAULT_THRESHOLD: bounds.Bounds = { lower: 0.9, upper: 1.1 };
 
-/** booleanSource builds the boolean read pipeline for a state channel. */
-export const booleanSource = (
-  channel: channel.Key,
-  threshold: bounds.Bounds = DEFAULT_THRESHOLD,
-): telem.BooleanSourceSpec =>
-  telem.sourcePipeline("boolean", {
-    connections: [{ from: "valueStream", to: "threshold" }],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel }),
-      threshold: telem.withinBounds({ trueBound: threshold }),
-    },
-    outlet: "threshold",
-  });
-
 /** booleanSink builds the boolean command pipeline for a command channel. */
 export const booleanSink = (channel: channel.Key): telem.BooleanSinkSpec =>
   telem.sinkPipeline("boolean", {

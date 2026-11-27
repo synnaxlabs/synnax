@@ -29,9 +29,6 @@ type GenerateContext struct {
 	Enums      []resolution.Type
 	TypeDefs   []resolution.Type
 	Unions     []resolution.Type
-	// FilePath is the schema file that the output renders. Two schemas with one file
-	// name share a namespace, so locality checks compare this path.
-	FilePath string
 }
 
 type FileGenerator interface {
@@ -151,7 +148,7 @@ func (g *Generator) skipFunc() SkipFunc {
 
 func (gen *generation) emitStructs(outputPath string, structs []resolution.Type) error {
 	referenced := enum.CollectReferenced(structs, gen.req.Resolutions)
-	enums := gen.ownEnums(referenced, outputPath, structs[0].Namespace)
+	enums := gen.ownEnums(referenced, outputPath)
 	if gen.g.ExtraEnumsFunc != nil {
 		extra := gen.g.ExtraEnumsFunc(structs, gen.req.Resolutions, outputPath)
 		enums = MergeTypes(enums, extra)
@@ -163,7 +160,6 @@ func (gen *generation) emitStructs(outputPath string, structs []resolution.Type)
 	unions := take(gen.unions, outputPath)
 	return gen.emit(&GenerateContext{
 		Namespace:  structs[0].Namespace,
-		FilePath:   structs[0].FilePath,
 		OutputPath: outputPath,
 		Structs:    structs,
 		Enums:      enums,
@@ -174,11 +170,10 @@ func (gen *generation) emitStructs(outputPath string, structs []resolution.Type)
 
 func (gen *generation) emitUnions(outputPath string, unions []resolution.Type) error {
 	referenced := enum.CollectReferenced(unions, gen.req.Resolutions)
-	enums := gen.ownEnums(referenced, outputPath, unions[0].Namespace)
+	enums := gen.ownEnums(referenced, outputPath)
 	typeDefs := take(gen.typeDefs, outputPath)
 	return gen.emit(&GenerateContext{
 		Namespace:  unions[0].Namespace,
-		FilePath:   unions[0].FilePath,
 		OutputPath: outputPath,
 		Enums:      enums,
 		TypeDefs:   typeDefs,
@@ -190,7 +185,6 @@ func (gen *generation) emitEnums(outputPath string, enums []resolution.Type) err
 	typeDefs := take(gen.typeDefs, outputPath)
 	return gen.emit(&GenerateContext{
 		Namespace:  enums[0].Namespace,
-		FilePath:   enums[0].FilePath,
 		OutputPath: outputPath,
 		Enums:      enums,
 		TypeDefs:   typeDefs,
@@ -203,18 +197,17 @@ func (gen *generation) emitTypeDefs(
 ) error {
 	return gen.emit(&GenerateContext{
 		Namespace:  typeDefs[0].Namespace,
-		FilePath:   typeDefs[0].FilePath,
 		OutputPath: outputPath,
 		TypeDefs:   typeDefs,
 	})
 }
 
 // ownEnums merges into enums the enums that generate into outputPath on their own, and,
-// when the generator collects enums, the enums of namespace. It removes the merged
+// when the generator collects enums, every enum of outputPath. It removes the merged
 // enums from the enum collector so that they get no file of their own.
 func (gen *generation) ownEnums(
 	enums []resolution.Type,
-	outputPath, namespace string,
+	outputPath string,
 ) []resolution.Type {
 	if gen.enums != nil && gen.enums.Has(outputPath) {
 		enums = gen.merge(enums, gen.enums.Remove(outputPath))
@@ -222,14 +215,10 @@ func (gen *generation) ownEnums(
 	if !gen.g.CollectEnums {
 		return enums
 	}
-	namespaceEnums := enum.CollectNamespaceEnums(
-		namespace,
-		outputPath,
-		gen.req.Resolutions,
-		gen.g.Domain,
-		nil,
+	return gen.merge(
+		enums,
+		enum.CollectOutputEnums(outputPath, gen.req.Resolutions, gen.g.Domain, nil),
 	)
-	return gen.merge(enums, namespaceEnums)
 }
 
 func (gen *generation) merge(a, b []resolution.Type) []resolution.Type {

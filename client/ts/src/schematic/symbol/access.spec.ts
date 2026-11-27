@@ -33,7 +33,6 @@ describe("schematic_symbol", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });
@@ -57,7 +56,6 @@ describe("schematic_symbol", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });
@@ -81,7 +79,6 @@ describe("schematic_symbol", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });
@@ -103,7 +100,6 @@ describe("schematic_symbol", () => {
           data: {
             drawing: { type: "svg", markup: "<svg></svg>" },
             handles: [],
-            variant: "sensor",
           },
           group: symbolGroup.key,
         }),
@@ -128,7 +124,6 @@ describe("schematic_symbol", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });
@@ -153,7 +148,6 @@ describe("schematic_symbol", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });
@@ -177,7 +171,6 @@ describe("schematic_symbol", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });

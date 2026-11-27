@@ -177,7 +177,7 @@ void Scanner::process_health_response(
             true,
             synnax::status::VARIANT_ERROR,
             "Health check failed",
-            err.data
+            err.data()
         );
         return;
     }
@@ -187,7 +187,7 @@ void Scanner::process_health_response(
             false,
             synnax::status::VARIANT_WARNING,
             "Failed to reach server",
-            err.data
+            err.data()
         );
         return;
     }
@@ -245,7 +245,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     auto [resp, err] = this->processor->execute(request);
     if (err) {
         status.message = "Failed to connect to server";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return;
     }

@@ -11,6 +11,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import type { ReactElement } from "react";
 
 import { OPTIONS } from "@/feature/theme/options";
+import { Page } from "@/platform/page";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { Session } from "@/session";
 import { Theme } from "@/session/theme";
@@ -20,7 +21,7 @@ export const Settings = (): ReactElement => {
   const mode = Theme.useSelectMode();
   const dispatch = Session.useDispatch();
   return (
-    <PlatformSettings.Card title="Theme">
+    <Page.Card title="Theme">
       <PlatformSettings.Entry
         label="Color theme"
         description="System follows the light or dark mode of your computer."
@@ -37,6 +38,6 @@ export const Settings = (): ReactElement => {
           ))}
         </Select.Buttons>
       </PlatformSettings.Entry>
-    </PlatformSettings.Card>
+    </Page.Card>
   );
 };

@@ -34,7 +34,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           OLDER: |-
             map(select(.key | test(
-              "^(go-(build|lint|ginkgo|test)|codeql-overlay-base-database)-"
+              "^(go-(build|cross|lint|ginkgo|test)|codeql-overlay-base-database)-"
             )))
             | group_by(.key | sub("-[0-9a-f]{40,64}-[0-9]+(-[0-9]+)?$"; ""))[]
             | sort_by(.createdAt)[:-1][]

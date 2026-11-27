@@ -12,7 +12,7 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"io"
+	"runtime/pprof"
 	"time"
 
 	"github.com/samber/lo"
@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -108,10 +109,12 @@ func (c ServiceConfig) Validate() error {
 // Service is used to collect metrics from the host machine (cpu, memory, disk) and
 // write them to channels.
 type Service struct {
-	shutdown      io.Closer
-	stopCollector chan struct{}
-	cfg           ServiceConfig
-	group         group.Group
+	cfg      ServiceConfig
+	group    group.Group
+	metrics  []metric
+	channels []channel.Channel
+	// guard orders Run against Close.
+	guard lifetime.Guard
 }
 
 const (
@@ -130,20 +133,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
+	s := &Service{cfg: cfg}
 	if s.group, err = cfg.Group.CreateOrRetrieve(
 		ctx, "Metrics", resource.TypeChannel,
 	); err != nil {
 		return nil, err
 	}
 	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostKey)
-	c := &collector{
-		ins:      cfg.Child("collector"),
-		interval: cfg.CollectionInterval,
-		stop:     s.stopCollector,
-	}
-	var metricsChannels []channel.Channel
-	if c.metrics, metricsChannels, err = s.createChannels(ctx, namePrefix); err != nil {
+	if s.metrics, s.channels, err = s.createChannels(ctx, namePrefix); err != nil {
 		return nil, err
 	}
 	// Do this in a separate transaction otherwise the Arc analyzer won't parse the
@@ -151,21 +148,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err = s.createCalculatedChannels(ctx, namePrefix); err != nil {
 		return nil, err
 	}
-	w, err := cfg.Framer.NewStreamWriter(
-		ctx,
-		framer.WriterConfig{
-			ControlSubject: control.Subject{
-				Name: fmt.Sprintf("Node %v Metrics Writer", cfg.HostKey),
-			},
-			Keys:                     channel.KeysFromChannels(metricsChannels),
-			AutoIndex:                new(true),
-			AutoIndexPersistInterval: telem.Second * 30,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	s.run(w, c)
 	return s, nil
 }
 
@@ -233,9 +215,47 @@ func (s *Service) createCalculatedChannels(
 	})
 }
 
-// run starts the pipeline that writes the metrics that c collects through w.
-func (s *Service) run(w framer.StreamWriter, c *collector) {
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.cfg.Instrumentation))
+// Run writes the host metrics on each CollectionInterval until ctx ends. It then
+// flushes the metrics it collected and returns nil. A second Run, or a Run after Close,
+// returns an error.
+func (s *Service) Run(ctx context.Context) (err error) {
+	if err = s.guard.Begin(); err != nil {
+		return err
+	}
+	defer s.guard.End()
+	pprof.Do(ctx, pprof.Labels("routine", "metrics"), func(ctx context.Context) {
+		err = s.run(ctx)
+	})
+	return err
+}
+
+func (s *Service) run(ctx context.Context) error {
+	// The writer outlives ctx, so that it writes the last metrics before it closes.
+	sCtx, cancel := signal.WithCancel(
+		context.WithoutCancel(ctx),
+		signal.WithInstrumentation(s.cfg.Instrumentation),
+	)
+	defer cancel()
+	w, err := s.cfg.Framer.NewStreamWriter(
+		sCtx,
+		framer.WriterConfig{
+			ControlSubject: control.Subject{
+				Name: fmt.Sprintf("Node %v Metrics Writer", s.cfg.HostKey),
+			},
+			Keys:                     channel.KeysFromChannels(s.channels),
+			AutoIndex:                new(true),
+			AutoIndexPersistInterval: telem.Second * 30,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	c := &collector{
+		ins:      s.cfg.Child("collector"),
+		interval: s.cfg.CollectionInterval,
+		metrics:  s.metrics,
+		stop:     ctx.Done(),
+	}
 	p := plumber.New()
 	p.SetSegment[framer.WriterRequest, framer.WriterResponse](writerAddr, w)
 	p.SetSource[framer.WriterRequest](collectorAddr, c)
@@ -248,9 +268,13 @@ func (s *Service) run(w framer.StreamWriter, c *collector) {
 	p.SetSink[framer.WriterResponse](loggerAddr, o)
 	p.MustConnect[framer.WriterRequest](collectorAddr, writerAddr, channelBufferSize)
 	p.MustConnect[framer.WriterResponse](writerAddr, loggerAddr, channelBufferSize)
-	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	return sCtx.Wait()
 }
 
-// Close gracefully stops the service, waiting for all internal goroutines to exit.
-func (s *Service) Close() error { close(s.stopCollector); return s.shutdown.Close() }
+// Close releases the resources of the Service. Call it after Run returns: while Run
+// runs, Close returns an error.
+func (s *Service) Close() error {
+	_, err := s.guard.Close()
+	return err
+}

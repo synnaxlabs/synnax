@@ -83,6 +83,14 @@ func (db *DB) OpenWriter(
 	_ context.Context,
 	cfgs ...WriterConfig,
 ) (w *Writer, transfer control.Transfer, err error) {
+	// MarkClosed sets closed before it reads openWriters, so one of the two sees the
+	// other.
+	db.openWriters.Add(1)
+	defer func() {
+		if err != nil {
+			db.openWriters.Add(-1)
+		}
+	}()
 	if db.closed.Load() {
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
@@ -117,7 +125,6 @@ func (db *DB) OpenWriter(
 	); err != nil {
 		return nil, transfer, db.wrapError(err)
 	}
-	db.openWriters.Add(1)
 	w.onClose = func() {
 		db.openWriters.Add(-1)
 	}

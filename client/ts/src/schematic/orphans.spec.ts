@@ -65,3 +65,38 @@ describe("orphans", () => {
     ).toEqual(orphans);
   });
 });
+
+const OVERRIDES = ["bounds", "enumeration", "match", "default"] as const;
+
+// removed returns what dropOrphans took from the bindings to leave config.
+const removed = (config: schematic.SymbolNodeConfig): schematic.Orphans => ({
+  states: bindings.states
+    .filter((b) => !config.states.some((k) => k.key === b.key))
+    .map((b) => b.key),
+  overrides: bindings.states.flatMap((b) => {
+    const kept = config.states.find((k) => k.key === b.key);
+    if (kept == null) return [];
+    const fields = OVERRIDES.filter((f) => b[f] != null && kept[f] == null);
+    return fields.length === 0 ? [] : [{ key: b.key, fields }];
+  }),
+  commands: bindings.commands
+    .filter((b) => !config.commands.some((k) => k.key === b.key))
+    .map((b) => b.key),
+});
+
+describe("dropOrphans", () => {
+  it.each(cases)("should drop $name", ({ after, orphans }) => {
+    const config = schematic.symbolNodeConfigZ.parse({
+      variant: "symbol",
+      spec: { type: "builtin", name: "valve" },
+      ...bindings,
+    });
+    const dropped = schematic.dropOrphans(
+      config,
+      after.states ?? before.states,
+      after.commands ?? before.commands,
+    );
+    expect(removed(dropped)).toEqual(orphans);
+    expect(dropped.spec).toEqual(config.spec);
+  });
+});

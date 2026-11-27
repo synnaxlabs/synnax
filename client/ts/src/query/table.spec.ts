@@ -2543,6 +2543,18 @@ describe("trim", () => {
     expect(table.get("a")).toEqual({ key: "a", name: "old" });
   });
 
+  it("should forget a dropped entry's stamp with no trim after its fetch", async () => {
+    const table = newTable();
+    let stale = 0;
+    await table.track(async (since) => {
+      stale = since;
+      table.set({ key: "a", name: "new" });
+      table.drop(["a"]);
+    });
+    table.ingest([{ key: "a", name: "old" }], { since: stale });
+    expect(table.get("a")).toEqual({ key: "a", name: "old" });
+  });
+
   it("should forget a dropped entry's stamp once a failed fetch settles", async () => {
     const table = newTable();
     let stale = 0;

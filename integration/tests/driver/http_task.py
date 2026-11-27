@@ -23,6 +23,52 @@ from tests.driver.task import (
 )
 
 
+def create_read_endpoint(
+    client: sy.Synnax,
+    *,
+    path: str,
+    bindings: list[tuple[sy.icd.JSONField, int]],
+    method: sy.http.Method = "GET",
+    index: sy.icd.JSONField | None = None,
+) -> sy.http.ReadEndpoint:
+    """Create an ICD with one JSON message, named after path, that holds the fields of
+    bindings. Return an endpoint at path that reads its response as that message.
+
+    :param bindings: Each field of the message, with the channel it writes to.
+    :param index: The field of bindings whose channel indexes the others. None stamps
+        each sample with the time of the request.
+    """
+    message = sy.icd.Message(
+        name=path, payload=sy.icd.JSONPayload(fields=[f for f, _ in bindings])
+    )
+    ic = client.icds.create(name=path, messages=[message])
+    return sy.http.ReadEndpoint(
+        path=path,
+        method=method,
+        icd=ic.key,
+        messages=[
+            sy.icd.ReadMessage(
+                message=message.key,
+                index=None if index is None else index.key,
+                bindings=[
+                    sy.icd.ReadBinding(field=f.key, channel=ch) for f, ch in bindings
+                ],
+            )
+        ],
+    )
+
+
+def read_channel_keys(task: sy.http.ReadTask) -> list[int]:
+    """Return the channel of each binding of each endpoint of task."""
+    return [
+        b.channel
+        for ep in task.config.endpoints
+        for rm in ep.messages
+        for b in rm.bindings
+        if b.channel != 0
+    ]
+
+
 class HTTPReadTaskCase(SimulatorCase, ReadTaskCase[sy.http.ReadTask]):
     """Base class for HTTP read task tests."""
 
@@ -56,13 +102,7 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase[sy.http.ReadTask]):
         )
 
     def _channel_keys(self, task: sy.http.ReadTask) -> list[int]:
-        """Extract channel keys from HTTP read task config."""
-        return [
-            field.channel
-            for ep in task.config.endpoints
-            for field in ep.fields
-            if field.channel != 0
-        ]
+        return read_channel_keys(task)
 
     def assert_sample_count(
         self,
@@ -135,4 +175,10 @@ class HTTPWriteTaskCase(SimulatorCase, WriteTaskCase[sy.http.WriteTask]):
 
     def _channel_keys(self, task: sy.http.WriteTask) -> list[int]:
         """Extract command channel keys from HTTP write task config."""
-        return [ep.channel.channel for ep in task.config.endpoints]
+        return [
+            b.channel
+            for ep in task.config.endpoints
+            if ep.message is not None
+            for b in ep.message.bindings
+            if isinstance(b, sy.icd.ChannelWriteBinding)
+        ]

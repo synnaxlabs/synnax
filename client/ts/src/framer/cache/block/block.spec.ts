@@ -43,17 +43,17 @@ const blockAlignment = (index: number, offset: number): bigint =>
   (BigInt(index) << 32n) | BigInt(offset);
 
 describe("block", () => {
-  describe("rawIndex", () => {
+  describe("rawTile", () => {
     it("should return the index of the raw block that holds a timestamp", () => {
       const span = grid.tileSpan(cacheBlock.RAW_LEVEL);
-      expect(cacheBlock.rawIndex(TimeStamp.ZERO)).toBe(0);
-      expect(cacheBlock.rawIndex(new TimeStamp(span.valueOf() - 1n))).toBe(0);
-      expect(cacheBlock.rawIndex(new TimeStamp(span.valueOf()))).toBe(1);
-      expect(cacheBlock.rawIndex(new TimeStamp(span.valueOf() * 7n + 5n))).toBe(7);
+      expect(cacheBlock.rawTile(TimeStamp.ZERO)).toBe(0);
+      expect(cacheBlock.rawTile(new TimeStamp(span.valueOf() - 1n))).toBe(0);
+      expect(cacheBlock.rawTile(new TimeStamp(span.valueOf()))).toBe(1);
+      expect(cacheBlock.rawTile(new TimeStamp(span.valueOf() * 7n + 5n))).toBe(7);
     });
 
     it("should round the index of a timestamp before the epoch down", () => {
-      expect(cacheBlock.rawIndex(new TimeStamp(-1n))).toBe(-1);
+      expect(cacheBlock.rawTile(new TimeStamp(-1n))).toBe(-1);
     });
   });
 

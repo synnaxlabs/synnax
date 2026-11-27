@@ -121,7 +121,7 @@ TEST(CodecTests, RejectsFrameOlderThanLastDecoded) {
     ASSERT_NIL_P(decoder.decode(encoded));
     const auto [_, err] = decoder.decode(stale);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "remote sent invalid sequence number 1");
+    ASSERT_EQ(err.data(), "remote sent invalid sequence number 1");
 }
 
 /// @brief it should decode frames while another thread updates the codec, as a streamer

@@ -10,8 +10,17 @@
 import { Drift } from "@synnaxlabs/drift";
 import { useRef } from "react";
 
-import { selectIsClusterOrphaned, selectSelected } from "@/session/core/selectors";
-import { type Action, setClusterKey, type StoreState } from "@/session/core/slice";
+import {
+  selectIsClusterOrphaned,
+  selectSelected,
+  selectState,
+} from "@/session/core/selectors";
+import {
+  type Action,
+  setClusterKey,
+  setUser,
+  type StoreState,
+} from "@/session/core/slice";
 import { Modals } from "@/session/modals";
 import { Persist } from "@/session/persist";
 import type { Synchronizer } from "@/session/synchronizer";
@@ -66,10 +75,28 @@ const useCacheClusterKey = (): Synchronizer.Callbacks<
   },
 });
 
+/**
+ * Labels the selected Core with the user of its session, whatever the login method, so
+ * the Core list shows whose record each one is.
+ */
+const useCacheUser = (): Synchronizer.Callbacks<
+  RequiredStoreState,
+  RequiredAction
+> => ({
+  reconcile: async ({ client, store, ended }) => {
+    const key = selectSelected(store.getState())?.key;
+    if (key == null) return;
+    const { name } = await client.users.current.retrieve();
+    if (ended() || selectState(store.getState(), key)?.user === name) return;
+    store.dispatch(setUser({ key, user: name }));
+  },
+});
+
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<
   RequiredStoreState,
   RequiredAction
 > = [
   { name: "cache the connected cluster's key", use: useCacheClusterKey },
+  { name: "cache the session's user", use: useCacheUser },
   { name: "close windows on Core change", use: useCloseOnChange },
 ];

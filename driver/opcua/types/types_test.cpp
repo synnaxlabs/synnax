@@ -416,7 +416,7 @@ TEST(TypesTest, ParseInvalidByteStringNodeId) {
           "AAB="}) {
         auto [node_id, err] = NodeId::parse("NS=1;B=" + identifier);
         ASSERT_MATCHES(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "Invalid base64 in ByteString identifier: " + identifier);
+        EXPECT_EQ(err.data(), "Invalid base64 in ByteString identifier: " + identifier);
         EXPECT_TRUE(node_id.is_null());
     }
 }
@@ -468,7 +468,7 @@ TEST(TypesTest, ParseMalformedNodeId) {
          }) {
         auto [node_id, err] = NodeId::parse(input);
         ASSERT_MATCHES(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "Invalid NodeId format") << input;
+        EXPECT_EQ(err.data(), "Invalid NodeId format") << input;
         EXPECT_TRUE(node_id.is_null()) << input;
     }
 }

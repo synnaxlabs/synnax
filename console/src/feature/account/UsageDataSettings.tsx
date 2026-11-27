@@ -14,6 +14,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement } from "react";
 
+import { Page } from "@/platform/page";
 import { Settings } from "@/platform/settings";
 import { Session } from "@/session";
 
@@ -24,7 +25,7 @@ export const UsageDataSettings = (): ReactElement => {
   const allowed = Session.Account.useSelectAnalyticsAllowed();
   const dispatch = Session.useDispatch();
   return (
-    <Settings.Card title="Usage data">
+    <Page.Card title="Usage data">
       <Settings.Entry
         label="Share usage data"
         description={
@@ -51,6 +52,6 @@ export const UsageDataSettings = (): ReactElement => {
           onChange={(next) => dispatch(Session.Account.setAnalyticsAllowed(next))}
         />
       </Settings.Entry>
-    </Settings.Card>
+    </Page.Card>
   );
 };

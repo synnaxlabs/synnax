@@ -7,19 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { icd } from "@synnaxlabs/client";
+import type { channel, icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { ICD as PICD } from "@synnaxlabs/pluto";
-import { bounds, DataType, deep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import {
+  bounds,
+  DataType,
+  deep,
+  primitive,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+} from "@synnaxlabs/x";
 import type { FC } from "react";
 
 import { CSS } from "@/platform/css";
 import { defaultDataType, encodes } from "@/platform/icd/dataType";
-import { JSONField } from "@/platform/icd/Fields";
-import { formatOf, useFormats } from "@/platform/icd/Formats";
+import { JSONField, renamedPointer } from "@/platform/icd/Fields";
+import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { formatDefault } from "@/platform/icd/Options";
 import { rawBounds } from "@/platform/icd/range";
@@ -66,7 +74,7 @@ const INITIAL_VALUES: {
 const hiddenDataTypes = (field: icd.JSONField): DataType[] =>
   DataType.ALL.filter((dt) => !encodes(field, dt.toString()));
 
-const ONLY_CHANNEL_TOOLTIP = "A message needs at least one field on a channel.";
+const ONLY_CHANNEL_HELP = "A message needs at least one field on a channel.";
 
 export interface FieldDetailsProps {
   /** The bindings of the message that the target sends. */
@@ -77,10 +85,17 @@ export interface FieldDetailsProps {
   field: icd.FieldKey;
   /** The name of the command channel that deploying creates for the field. */
   channelName: string;
+  /** The stored channel that deploying keeps when the field has none, or 0. */
+  stored?: channel.Key;
   /** Deploying creates no channel, because the target is disabled. */
   skipped?: boolean;
   /** The name of the field takes the focus on mount. */
   autoFocus?: boolean;
+  /**
+   * The task form created the field, so a rename moves its pointer while the pointer
+   * is the pointer of its name.
+   */
+  created?: boolean;
 }
 
 /**
@@ -93,18 +108,25 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   message,
   field: key,
   channelName,
+  stored = 0,
   skipped = false,
   autoFocus = false,
+  created = false,
 }) => {
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
-  const format = formatOf(useFormats(), icdKey);
+  const formats = useFormats();
+  const format = formatOf(formats, icdKey);
   const fieldPath = fieldsPath(message)[key];
   const field = PForm.useFieldValue(fieldPath, { ctx: format });
   const bindings = PForm.useFieldValue(path);
   const i = bindings.findIndex((b) => b.field === key);
   const binding = i >= 0 ? bindings[i] : undefined;
   const bound = binding != null;
+  const shown =
+    binding?.type === "channel" && primitive.isNonZero(binding.channel)
+      ? binding.channel
+      : stored;
   // The Core refuses a message that binds no channels.
   const only =
     binding?.type === "channel" &&
@@ -121,6 +143,10 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         : { type: "value", field: key, value: INITIAL_VALUES[field.type](field) };
     set(path, bound ? bindings.with(i, next) : [...bindings, next]);
   };
+  const handleRename = (name: string) => {
+    const pointer = renamedPointer(field, name, fieldsOf(formats, icdKey, message));
+    if (pointer != null) format.set(fieldPath.pointer, pointer);
+  };
   const modes = (
     <Select.Buttons<Mode>
       value={bound ? binding.type : "default"}
@@ -129,19 +155,11 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
       size="small"
     >
       <Select.Item<Mode> itemKey="channel">Channel</Select.Item>
-      <Select.Item<Mode>
-        itemKey="value"
-        disabled={only}
-        tooltip={only ? ONLY_CHANNEL_TOOLTIP : undefined}
-      >
+      <Select.Item<Mode> itemKey="value" disabled={only}>
         Value
       </Select.Item>
       {field.default != null && (
-        <Select.Item<Mode>
-          itemKey="default"
-          disabled={only}
-          tooltip={only ? ONLY_CHANNEL_TOOLTIP : undefined}
-        >
+        <Select.Item<Mode> itemKey="default" disabled={only}>
           Default
         </Select.Item>
       )}
@@ -153,21 +171,30 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldPath}
+            commanded={binding?.type === "channel"}
             autoFocus={autoFocus}
-            actions={<OpenInEditor icdKey={icdKey} message={message} />}
+            onNameChange={created ? handleRename : undefined}
+            actions={
+              <OpenInEditor icdKey={icdKey} message={message} field={field.key} />
+            }
           />
         </PForm.Form>
         <PForm.Section title="Source" actions={modes} role="group" aria-label="Source">
+          {only && (
+            <Text.Text level="small" color={9}>
+              {ONLY_CHANNEL_HELP}
+            </Text.Text>
+          )}
           {bound && binding.type === "channel" && (
             <>
               <Task.ChannelNameField
-                channel={binding.channel}
+                channel={shown}
                 defaultName={channelName}
                 skipped={skipped}
               />
               <Task.Payload.DataTypeField
                 path={deep.variant(path[i], "type", "channel").dataType}
-                channel={binding.channel}
+                channel={shown}
                 defaultDataType={defaultDataType(field)}
                 hideDataTypes={hiddenDataTypes(field)}
               />
