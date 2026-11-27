@@ -130,7 +130,9 @@ writer opens. No channel record, task config, or client library keeps it.
   (RFC 0121 §4.1), since a Core from a cluster before 0.61 can have another host key and
   hold keys on other leases. Cesium takes keys in leases of 256 through an open option
   (NEW), so no counter write sits on the commit path, and a restart loses at most 256
-  keys. The free keys of today sit at `0xFFF00000` and up, and their counter still
+  keys. The Core takes the next lease at half of the current one, so an open never waits
+  on the metadata store, and one that finds no leased key starts unstored (RFC 0121
+  §5.4). The free keys of today sit at `0xFFF00000` and up, and their counter still
   serves virtual channels, such as signals and calculation outputs. The v3 record of
   Phase 50 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
   from then one counter serves both, above the largest key issued below `0xFFF00000`,
@@ -1026,8 +1028,10 @@ new fields and no break):
    `time_groups`. The drainer retries each storage error of the unstored state (RFC 0121
    §5.4), such as `ErrDiskFull`, EIO, or a read-only file system, with backoff and a
    status, and sets aside, with a status that names it, only a segment that fails its
-   own checks, so a full Core disk never loses a spooled segment and a bad one never
-   blocks the spool.
+   own checks. An open refused for stored data, after a retry, skips each frame at or
+   before the stored end of its keys and counts them in its status, as for an overlap,
+   so a full Core disk never loses a spooled segment and a bad one never blocks the
+   spool.
 2. **Authority in the spool**: The forwarder spools the frame after the local authority
    filter, as RFC 0113 §3.3 does, and records with it the keys that the filter dropped.
    When the dropped set of a frame changes, the drainer closes its writer and opens one
