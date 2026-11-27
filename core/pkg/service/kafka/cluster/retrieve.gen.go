@@ -13,8 +13,11 @@ package cluster
 
 import (
 	"context"
+	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/set"
 )
@@ -35,8 +38,10 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	rack   *gorp.KeyReference[Key, Cluster, rack.Key]
-	search *gorp.SearchIndex[Key, Cluster]
+	rack         *gorp.KeyReference[Key, Cluster, rack.Key]
+	readsIndex   *gorp.KeyReference[Key, Cluster, channel.Key]
+	readsChannel *gorp.KeyReference[Key, Cluster, channel.Key]
+	search       *gorp.SearchIndex[Key, Cluster]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -55,6 +60,78 @@ func newIndexes() indexes {
 			Retarget: func(e *Cluster, from, to rack.Key) {
 				if e.Rack == from {
 					e.Rack = to
+				}
+			},
+		}),
+		readsIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Cluster, channel.Key]{
+			Name:     "reads.index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Cluster) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Reads {
+					targets = append(targets, v1.Index)
+				}
+				return targets
+			},
+			Locate: func(e *Cluster, t channel.Key) []string {
+				for i4, v5 := range e.Reads {
+					if v5.Index == t {
+						return []string{"reads", strconv.Itoa(i4), "index"}
+					}
+				}
+				return nil
+			},
+			Detach: func(e *Cluster, t channel.Key) {
+				e.Reads = slices.DeleteFunc(e.Reads, func(v2 Read) bool {
+					if v2.Index == t {
+						return true
+					}
+					return false
+				})
+			},
+			Retarget: func(e *Cluster, from, to channel.Key) {
+				for i3 := range e.Reads {
+					if e.Reads[i3].Index == from {
+						e.Reads[i3].Index = to
+					}
+				}
+			},
+		}),
+		readsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Cluster, channel.Key]{
+			Name:     "reads.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Cluster) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Reads {
+					targets = append(targets, v1.Channel)
+				}
+				return targets
+			},
+			Locate: func(e *Cluster, t channel.Key) []string {
+				for i4, v5 := range e.Reads {
+					if v5.Channel == t {
+						return []string{"reads", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
+			},
+			Detach: func(e *Cluster, t channel.Key) {
+				e.Reads = slices.DeleteFunc(e.Reads, func(v2 Read) bool {
+					if v2.Channel == t {
+						return true
+					}
+					return false
+				})
+			},
+			Retarget: func(e *Cluster, from, to channel.Key) {
+				for i3 := range e.Reads {
+					if e.Reads[i3].Channel == from {
+						e.Reads[i3].Channel = to
+					}
 				}
 			},
 		}),
@@ -80,6 +157,8 @@ func (i indexes) all() []gorp.Index[Key, Cluster] {
 func (i indexes) references() []gorp.Reference[Key, Cluster] {
 	return []gorp.Reference[Key, Cluster]{
 		i.rack,
+		i.readsIndex,
+		i.readsChannel,
 	}
 }
 

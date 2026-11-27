@@ -119,10 +119,14 @@ Read struct {
     }
     index      channel.Key    {
         @doc value         "is the index channel of the channel."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
     channel    channel.Key    {
         @doc value         "is the channel that holds the samples of the value."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
 
