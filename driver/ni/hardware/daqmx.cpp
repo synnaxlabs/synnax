@@ -17,7 +17,7 @@ Base::Base(TaskHandle task_handle, std::shared_ptr<ni::daqmx::SugaredAPI> dmx):
 
 Base::~Base() {
     if (const auto err = this->dmx->ClearTask(this->task_handle))
-        LOG(ERROR) << "[ni] unexpected failure to clear DAQmx task: " << err;
+        LOG(ERROR) << "[ni] unexpected failure to clear NI-DAQmx task: " << err;
 }
 
 x::errors::Error Base::start() {

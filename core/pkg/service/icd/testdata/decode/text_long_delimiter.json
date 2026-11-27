@@ -49,7 +49,19 @@
     {
       "text": "4:5",
       "message": "line",
-      "error": "field a: invalid number \"4:5\": validation error"
+      "samples": [null, null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field a: invalid number \"4:5\": validation error"
+        },
+        {
+          "binding": 1,
+          "missing": true,
+          "error": "field b: no value at position 1: validation error"
+        }
+      ]
     }
   ]
 }

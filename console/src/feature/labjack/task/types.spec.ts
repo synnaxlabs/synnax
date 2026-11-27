@@ -325,7 +325,7 @@ describe("writeConfigZ", () => {
   });
 
   it("should not migrate legacy v0 cmdKey shapes", () => {
-    // The Core migrates stored configs; the console only speaks generated shapes, so
+    // The Core migrates stored configs; the Console only speaks generated shapes, so
     // legacy cmdKey/stateKey fields are stripped rather than translated.
     const v0Config = {
       device: "labjack",

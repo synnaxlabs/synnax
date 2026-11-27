@@ -73,7 +73,7 @@ export interface Component {
   _invokeMethod: (params: InvokeMethodParams) => void;
 }
 
-/** Required constructor arguments for every aether {@link Component}. */
+/** Required constructor arguments for every Aether {@link Component}. */
 export interface ComponentConstructorProps {
   /** Path from the root; its last element becomes the component's `key`. */
   path: readonly string[];
@@ -421,7 +421,7 @@ export abstract class Node implements Component {
 }
 
 /**
- * Base class for childless aether components. The corresponding React component must
+ * Base class for childless Aether components. The corresponding React component must
  * not have descendants that use Aether — use {@link Composite} for those. Subclasses
  * define a Zod {@link schema} for their state and override {@link afterUpdate} / {@link
  * afterDelete} for lifecycle behavior. To expose invocable methods, set {@link methods}
@@ -614,7 +614,7 @@ export abstract class Leaf<
 }
 
 /**
- * Base class for aether components that own children. Extends {@link Leaf} with a typed
+ * Base class for Aether components that own children. Extends {@link Leaf} with a typed
  * children registry, descendant context propagation, and routing for
  * updates/deletes/invokes addressed at descendants. */
 export abstract class Composite<
@@ -788,7 +788,7 @@ export class Root extends Composite<typeof aetherRootState> {
     this.registry = registry;
   }
 
-  /** Constructs a new aether tree and starts handling messages on `comms`. Any
+  /** Constructs a new Aether tree and starts handling messages on `comms`. Any
    * synchronous error thrown while processing a message is caught and surfaced on the
    * main thread as a {@link WorkerNotifyErrorRequest}. */
   static render(props: RootProps): Root {
@@ -886,6 +886,6 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 }
 
-/** Convenience binding of {@link Root.render}: constructs an aether tree and binds it
+/** Convenience binding of {@link Root.render}: constructs an Aether tree and binds it
  * to the provided `comms`. */
 export const render = Root.render.bind(Root);

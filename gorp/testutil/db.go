@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package testutil provides helpers for constructing gorp databases in tests.
+// Package testutil provides helpers for constructing Gorp databases in tests.
 package testutil
 
 import (

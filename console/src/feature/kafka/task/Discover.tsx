@@ -35,6 +35,7 @@ import {
   defaultPicks,
   freeShapes,
   isExtendable,
+  isReusable,
   type Picks,
   type Reads,
   sourceKey,
@@ -73,8 +74,8 @@ export interface Params {
   reads?: (topic: string) => Reads;
   /** Names the Kafka key of a record, such as "Any key" for the empty key. */
   label: (recordKey: string) => string;
-  /** The ICDs whose messages new records can read. */
-  icds?: Pick<icd.ICD, "key" | "name" | "messages">[];
+  /** The forms of the ICDs whose messages new records can read. */
+  formats?: ICD.Formats;
   /** The ICD that the most records of the task read. */
   home?: icd.Key;
 }
@@ -121,7 +122,7 @@ const NO_READS: Reads = { messages: new Map(), jsonless: new Set() };
 
 const readNothing = (): Reads => NO_READS;
 
-const NO_ICDS: NonNullable<Params["icds"]> = [];
+const NO_FORMATS: ICD.Formats = new Map();
 
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
 
@@ -184,12 +185,18 @@ const parse = (payload: string): unknown => {
   }
 };
 
-/** @returns the parsed JSON records of a shape's keys, newest first. */
-const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] =>
-  sample.records
+/**
+ * @returns the parsed JSON records of a shape, newest first: the records of its keys
+ * that hold its present field, if it has one.
+ */
+const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] => {
+  const present = shape.present == null ? undefined : shape.fields[shape.present];
+  return sample.records
     .filter(({ key, format }) => format === "json" && shape.sources.includes(key))
     .sort((a, b) => Number(b.time.valueOf() - a.time.valueOf()))
-    .map(({ payload }) => parse(payload));
+    .map(({ payload }) => parse(payload))
+    .filter((doc) => present == null || valueAt(doc, present.pointer) !== undefined);
+};
 
 /** @returns the value of a field in the newest record that holds it. */
 const newestValue = (records: unknown[], pointer: string): unknown => {
@@ -211,7 +218,7 @@ const findReading = (
   sample: kafka.SampledTopic,
   reads: Reads,
   device: Device.Device,
-  icds: NonNullable<Params["icds"]>,
+  icds: Pick<icd.ICD, "key" | "name" | "messages">[],
   home?: icd.Key,
 ): ICD.Reuse.Result => {
   const shapes = freeShapes(sample.shapes, reads);
@@ -233,20 +240,54 @@ const findReading = (
 };
 
 /**
+ * @returns the fit whose message the new records of a shape read, by the position of
+ * the shape in the free shapes of its sample.
+ */
+const reusedFit = (
+  { reading }: ICD.Reuse.Result,
+  shape: json.Shape,
+  i: number,
+): ICD.Reuse.Fit | undefined => {
+  const fit = reading?.fits[i];
+  return fit != null && isReusable(shape, fit) ? fit : undefined;
+};
+
+/**
+ * @returns the reading of found when it reuses a message for a shape of free that
+ * picks holds fields of.
+ */
+const reusedReading = (
+  found: ICD.Reuse.Result,
+  free: json.Shape[],
+  picks: Picks,
+): ICD.Reuse.Reading | undefined =>
+  free.some(
+    (shape, i) =>
+      (picks.get(json.shapeKey(shape))?.size ?? 0) > 0 &&
+      reusedFit(found, shape, i) != null,
+  )
+    ? found.reading
+    : undefined;
+
+/**
  * @returns what the new records of a shape read, by the position of the shape in the
  * free shapes of its sample.
  */
 const readingNote = (
-  { reading, candidates }: ICD.Reuse.Result,
+  found: ICD.Reuse.Result,
+  shape: json.Shape,
   i: number,
 ): string | undefined => {
   if (i < 0) return undefined;
-  if (reading != null) {
-    const fit = reading.fits[i];
-    return fit == null ? undefined : `Reads ${fit.message.name} of ${reading.name}`;
-  }
-  const fits = candidates.reduce((n, { fits }) => n + (fits[i]?.length ?? 0), 0);
-  return fits === 0 ? undefined : `Fits ${pluralize("message", fits, true)}`;
+  const { reading, candidates } = found;
+  const fit = reusedFit(found, shape, i);
+  if (reading != null && fit != null)
+    return `Reads ${fit.message.name} of ${reading.name}`;
+  const tied = candidates
+    .filter(({ icd: k }) => reading == null || k === reading.icd)
+    .flatMap(({ fits }) => fits[i] ?? [])
+    .filter((f) => isReusable(shape, f)).length;
+  return tied < 2 ? undefined : `Fits ${tied} messages`;
 };
 
 /** A partition that the browse could not measure can hide records. */
@@ -414,12 +455,13 @@ const TopicValues = ({
     const split = splitOf(shape, reads);
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
-    const fit = split == null ? found.reading?.fits[free.indexOf(shape)] : undefined;
+    const fit =
+      split == null ? reusedFit(found, shape, free.indexOf(shape)) : undefined;
     return {
       title: titleOf(shape, label),
       note:
         split == null
-          ? readingNote(found, free.indexOf(shape))
+          ? readingNote(found, shape, free.indexOf(shape))
           : ICD.Picker.splitNote(split),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
@@ -527,12 +569,13 @@ const Content = ({
   topics: held,
   reads: readsOf = readNothing,
   label,
-  icds = NO_ICDS,
+  formats = NO_FORMATS,
   home,
   close,
   kind,
 }: ContentProps) => {
   const { whole = false } = kind;
+  const icds = ICD.useValues(formats);
   const [term, setTerm] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [entered, setEntered] = useState<string[]>([]);
@@ -827,15 +870,11 @@ const Content = ({
         .map((pick): TopicPick => {
           const sample = reads.get(pick.topic);
           if (sample?.variant !== "success") return pick;
-          const r = findReading(
-            pick.topic,
-            sample.data,
-            readsOf(pick.topic),
-            device,
-            icds,
-            home,
-          );
-          return r.reading == null ? pick : { ...pick, reading: r.reading };
+          const held = readsOf(pick.topic);
+          const found = findReading(pick.topic, sample.data, held, device, icds, home);
+          const free = freeShapes(sample.data.shapes, held);
+          const reading = reusedReading(found, free, pick.picks);
+          return reading == null ? pick : { ...pick, reading };
         })
         .sort(compare.by(({ topic }) => topic)),
       record,

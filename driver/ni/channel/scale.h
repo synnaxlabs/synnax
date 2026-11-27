@@ -33,7 +33,7 @@ struct Scale {
     /// @brief returns true if the scale should not be applied.
     virtual bool is_none() { return true; }
 
-    /// @brief applies the scale to the DAQmx task, returning a key for the scale
+    /// @brief applies the scale to the NI-DAQmx task, returning a key for the scale
     /// and any error that occurred during application.
     virtual std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) {
@@ -45,7 +45,7 @@ struct Scale {
 struct BaseScale : Scale {
     const std::string scaled_units;
     const int pre_scaled_units;
-    /// @brief key of the scale created on the first apply. DAQmx scales are
+    /// @brief key of the scale created on the first apply. NI-DAQmx scales are
     /// process-global, so later applies reuse the definition instead of minting a
     /// new one per run.
     std::string key;

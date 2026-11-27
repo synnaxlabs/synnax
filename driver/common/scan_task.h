@@ -63,7 +63,7 @@ inline x::json::json merge_device_properties(
 
 /// @brief common scan task configuration shared across device discovery tasks.
 /// Wraps the schema-generated scan config (rate, disabled) so the field set has a
-/// single definition in the oracle schema.
+/// single definition in the Oracle schema.
 struct ScanTaskConfig : ::synnax::task::ScanConfig {
     ScanTaskConfig() = default;
 

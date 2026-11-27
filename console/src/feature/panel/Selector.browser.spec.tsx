@@ -144,7 +144,7 @@ const deletePanel = async (pan: panel.Panel): Promise<void> => {
   });
 };
 
-// Stands in for the tab a mosaic drags: the same pluto drag source and payload the
+// Stands in for the tab a mosaic drags: the same Pluto drag source and payload the
 // mosaic's own tab uses, without mounting a mosaic and its renderer registry.
 const DRAG_HANDLE = "drag the tab";
 

@@ -1,0 +1,98 @@
+{
+  "description": "One entry on a stream reads a text message and a JSON message.",
+  "error": "messages line and doc have different formats",
+  "path": "entries.0.messages.1.message",
+  "icds": [
+    {
+      "key": "00000000-0000-4000-8000-000000000f03",
+      "name": "device",
+      "framing": {
+        "type": "delimited",
+        "delimiter": "\n"
+      },
+      "messages": [
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "line",
+          "payload": {
+            "format": "text",
+            "delimiter": ",",
+            "prefix": "L",
+            "fields": [
+              {
+                "key": "00000000-0000-4000-8000-00000000000c",
+                "name": "v",
+                "scale": 1,
+                "offset": 0,
+                "units": "",
+                "encoding": "delimited",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000004",
+          "name": "doc",
+          "payload": {
+            "format": "json",
+            "fields": [
+              {
+                "key": "00000000-0000-4000-8000-00000000000d",
+                "name": "v",
+                "scale": 1,
+                "offset": 0,
+                "units": "",
+                "pointer": "/v",
+                "type": "float"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "key": 11,
+      "name": "c11",
+      "data_type": "float64",
+      "is_index": false,
+      "index": 111
+    },
+    {
+      "key": 12,
+      "name": "c12",
+      "data_type": "float64",
+      "is_index": false,
+      "index": 112
+    }
+  ],
+  "entries": [
+    {
+      "icd": "00000000-0000-4000-8000-000000000f03",
+      "messages": [
+        {
+          "message": "00000000-0000-4000-8000-000000000003",
+          "bindings": [
+            {
+              "field": "00000000-0000-4000-8000-00000000000c",
+              "channel": 11,
+              "data_type": ""
+            }
+          ]
+        },
+        {
+          "message": "00000000-0000-4000-8000-000000000004",
+          "bindings": [
+            {
+              "field": "00000000-0000-4000-8000-00000000000d",
+              "channel": 12,
+              "data_type": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

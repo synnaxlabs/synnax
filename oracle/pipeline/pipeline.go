@@ -9,7 +9,7 @@
 
 // Package pipeline is the single in-memory execution path that takes a set of .oracle
 // schema files and produces (a) the canonical formatted schema source for each input
-// and (b) the canonical generated output for each registered plugin. Every other oracle
+// and (b) the canonical generated output for each registered plugin. Every other Oracle
 // entrypoint - sync, generate, check - is a consumer of this pipeline. There is no
 // other code path that turns schemas into outputs; sync and generate cannot disagree
 // with check about what is "valid", because they all run the same Run.

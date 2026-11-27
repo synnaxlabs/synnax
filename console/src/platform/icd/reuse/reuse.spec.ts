@@ -256,7 +256,6 @@ describe("Reuse", () => {
         reading: { icd: b.key, name: "ICD", fits: [{ message: both, missing: [] }] },
         candidates: [
           { icd: b.key, name: "ICD", fits: [[{ message: both, missing: [] }]] },
-          { icd: a.key, name: "ICD", fits: [[{ message: one, missing: ["/rpm"] }]] },
         ],
       });
     });
@@ -281,25 +280,32 @@ describe("Reuse", () => {
     it("should read nothing when two ICDs fit equally and neither is home", () => {
       const a = create(both);
       const b = create(message([field("/temp", "float"), field("/rpm", "float")]));
-      const { reading, candidates } = ICD.Reuse.find(source([plant]), [a, b]);
+      const c = create(one);
+      const { reading, candidates } = ICD.Reuse.find(source([plant]), [a, c, b]);
       expect(reading).toBeUndefined();
       expect(candidates.map(({ icd }) => icd)).toEqual([a.key, b.key]);
     });
 
-    it("should read nothing when two messages of one ICD fit a shape equally", () => {
+    it("should give no fit to a shape that two messages fit equally", () => {
       const twin = message(
         [field("/temp", "float"), field("/rpm", "float")],
         undefined,
         "twin",
       );
-      const a = create(both, twin);
-      const result = ICD.Reuse.find(source([plant]), [a, create(one)], a.key);
-      expect(result.reading).toBeUndefined();
-      expect(result.candidates[0].fits).toEqual([
-        [
-          { message: both, missing: [] },
-          { message: twin, missing: [] },
-        ],
+      const fault = message([field("/fault", "string")], {
+        type: "present",
+        pointer: "/fault",
+      });
+      const a = create(both, twin, fault);
+      const faults = shape([sampled("/fault", "string")], "/fault");
+      const result = ICD.Reuse.find(source([plant, faults]), [a, create(one)], a.key);
+      expect(result.reading?.fits).toEqual([
+        undefined,
+        { message: fault, missing: [] },
+      ]);
+      expect(result.candidates[0].fits[0]).toEqual([
+        { message: both, missing: [] },
+        { message: twin, missing: [] },
       ]);
     });
 

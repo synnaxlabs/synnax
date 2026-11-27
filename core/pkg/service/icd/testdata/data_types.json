@@ -1,5 +1,5 @@
 {
-  "description": "The data types that a field reads into and that write to it, for the Core and the Console. Each case adds its field to the base field of its format, in the payload of that format. Writes are of JSON fields. A default is the data type of the channel that a client creates for a binding that names none, so the Core must accept it.",
+  "description": "The data types that a field reads into and that write to it, for the Core and the Console. Each case adds its field to the base field of its format, in the payload of that format. Writes are of JSON fields. A default is the data type of the channel that a client creates for a binding that names none, so the Core must accept it. An index case tells whether the field can be the index of a read message.",
   "payloads": {
     "json": {
       "format": "json"
@@ -236,6 +236,36 @@
       { "field": { "kind": "float", "bit_length": 32 }, "data_type": "float64" },
       { "field": { "kind": "integer", "bit_length": 12 }, "data_type": "int64" },
       { "field": { "kind": "unsigned", "bit_length": 16 }, "data_type": "uint64" }
+    ]
+  },
+  "indexes": {
+    "json": [
+      { "field": { "type": "timestamp", "time_format": "unix_ms" }, "accepted": true },
+      { "field": { "type": "timestamp", "time_format": "iso8601" }, "accepted": true },
+      {
+        "field": {
+          "type": "timestamp",
+          "time_format": "unix_ms",
+          "default": { "type": "now" }
+        },
+        "accepted": false
+      },
+      {
+        "field": {
+          "type": "timestamp",
+          "time_format": "unix_ms",
+          "default": { "type": "constant", "value": "1700000000000000000" }
+        },
+        "accepted": false
+      },
+      { "field": { "type": "float" }, "accepted": false },
+      { "field": { "type": "integer" }, "accepted": false },
+      { "field": { "type": "string" }, "accepted": false }
+    ],
+    "text": [{ "field": {}, "accepted": false }],
+    "binary": [
+      { "field": { "kind": "unsigned", "bit_length": 64 }, "accepted": false },
+      { "field": { "kind": "integer", "bit_length": 64 }, "accepted": false }
     ]
   }
 }

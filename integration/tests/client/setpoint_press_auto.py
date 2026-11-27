@@ -73,7 +73,7 @@ class SetpointPressAuto(TestCase):
                     break
 
         # ------------- Test 2: Basic Control --------------
-        # setpoint_press_user will control setpoint via the console schematic.
+        # setpoint_press_user will control setpoint via the Console schematic.
         # Only open the writer after Test 1 completes to avoid timestamp conflicts.
         with client.control.acquire(
             name="Pressurization Automation",

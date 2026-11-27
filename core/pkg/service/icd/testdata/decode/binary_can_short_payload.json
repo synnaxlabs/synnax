@@ -1,5 +1,5 @@
 {
-  "description": "A CAN frame too short for a field of its message fails after it matches the message.",
+  "description": "A field that a CAN frame is too short for fails, and the frame still matches its message.",
   "messages": [
     {
       "name": "a",
@@ -40,7 +40,14 @@
       "extended": false,
       "hex": "01",
       "message": "a",
-      "error": "field v: the payload has 1 bytes and the field needs 2: validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "field v: the payload has 1 bytes and the field needs 2: validation error"
+        }
+      ]
     }
   ]
 }
