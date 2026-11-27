@@ -148,13 +148,9 @@ var _ = Describe("Data types", func() {
 		MustSucceed(os.ReadFile("testdata/data_types.json")),
 		&t,
 	)).To(Succeed())
-	reads, defaults, indexes := entries(
-		t.Reads,
-	), entries(
-		t.Defaults,
-	), entries(
-		t.Indexes,
-	)
+	reads := entries(t.Reads)
+	defaults := entries(t.Defaults)
+	indexes := entries(t.Indexes)
 	writes := make([]TableEntry, len(t.Writes))
 	for i, c := range t.Writes {
 		writes[i] = Entry(caseName("json", c), c)
