@@ -101,14 +101,24 @@ var _ = Describe("Service", func() {
 		valve = createChannel(ctx, telem.Uint8T, idx)
 	})
 
+	// apply applies act to the ICD and returns the error of the write.
+	apply := func(ctx context.Context, act icd.Action) error {
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return icdSvc.NewWriter(tx).Apply(ctx, ic.Key, act)
+		})
+	}
+
 	// set applies value at path of the ICD.
 	set := func(ctx context.Context, path []string, value any) {
 		GinkgoHelper()
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return icdSvc.NewWriter(tx).Apply(ctx, ic.Key, icd.NewSetAction(
-				icd.SetPayload{Path: path, Value: value},
-			))
-		})).To(Succeed())
+		Expect(apply(ctx, icd.NewSetAction(
+			icd.SetPayload{Path: path, Value: value},
+		))).To(Succeed())
+	}
+
+	// remove returns the action that removes the entry with key from the list at path.
+	remove := func(key string, path ...string) icd.Action {
+		return icd.NewRemoveAction(icd.RemovePayload{Path: path, Key: key})
 	}
 
 	Describe("Read", func() {
@@ -160,6 +170,41 @@ var _ = Describe("Service", func() {
 			}, 8)
 			Expect(svc.Read.Hash(ctx, db, key)).ToNot(Equal(before))
 		})
+
+		DescribeTable("Should refuse an ICD edit that breaks an entry",
+			func(ctx SpecContext, act func() icd.Action, expected func() string) {
+				key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+					"entries": []any{entry(nil)},
+				}))
+				before := MustSucceed(svc.Read.Hash(ctx, db, key))
+				Expect(apply(ctx, act())).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("breaks task udp_read: "+expected()),
+					),
+				))
+				Expect(svc.Read.Hash(ctx, db, key)).To(Equal(before))
+			},
+			Entry("removing the field that it binds",
+				func() icd.Action {
+					return remove(
+						levelField.Base().Key.String(),
+						"messages", reading.Key.String(), "payload", "fields",
+					)
+				},
+				func() string {
+					return "entries.0.messages.0.bindings.0.field: field " +
+						levelField.Base().Key.String() + " does not exist in message Reading"
+				},
+			),
+			Entry("removing the message that it reads",
+				func() icd.Action { return remove(reading.Key.String(), "messages") },
+				func() string {
+					return "entries.0.messages.0.message: message " +
+						reading.Key.String() + " does not exist in ICD Pump"
+				},
+			),
+		)
 
 		It("Should decode an entry that a save refuses", func(ctx SpecContext) {
 			e := entry(nil)
@@ -267,6 +312,44 @@ var _ = Describe("Service", func() {
 			}, 16)
 			Expect(svc.Write.Hash(ctx, db, key)).ToNot(Equal(before))
 		})
+
+		DescribeTable("Should refuse an ICD edit that breaks a target",
+			func(ctx SpecContext, act func() icd.Action, expected func() string) {
+				key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+					"targets": []any{target(nil)},
+				}))
+				before := MustSucceed(svc.Write.Hash(ctx, db, key))
+				Expect(apply(ctx, act())).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("breaks task udp_write: "+expected()),
+					),
+				))
+				Expect(svc.Write.Hash(ctx, db, key)).To(Equal(before))
+			},
+			Entry("adding a field with no default that it does not bind",
+				func() icd.Action {
+					return icd.NewSetAction(icd.SetPayload{
+						Path: []string{
+							"messages", command.Key.String(), "payload", "fields",
+						},
+						Value: []icd.BinaryField{
+							valveField, unitField, binaryField("mode", 2, nil),
+						},
+					})
+				},
+				func() string {
+					return "targets.0.message: field mode has no binding and no default"
+				},
+			),
+			Entry("removing the message that it sends",
+				func() icd.Action { return remove(command.Key.String(), "messages") },
+				func() string {
+					return "targets.0.message: message " + command.Key.String() +
+						" does not exist in ICD Pump"
+				},
+			),
+		)
 
 		DescribeTable("Should refuse a target at the path of the problem",
 			func(ctx SpecContext, t func() map[string]any, expected string) {

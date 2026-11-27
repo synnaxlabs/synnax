@@ -88,6 +88,17 @@ func (r readResolver) hash(
 	return r.reads.Hash(ctx, snap, h, readsOf(cfg))
 }
 
+// checkReferences checks each enabled entry of cfg against its ICD and its channels,
+// read through snap, as resolve does for a config that lifts nothing.
+func (r readResolver) checkReferences(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *ReadConfig,
+) error {
+	_, err := check(ctx, snap, r.reads, cfg, nil)
+	return err
+}
+
 // check checks each enabled entry of cfg, in order, against its ICD, from icds or else
 // read through snap, and its channels. It returns the Checker that holds the claims of
 // cfg. A task save and a task configure both run it.

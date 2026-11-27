@@ -68,6 +68,16 @@ func (r readResolver) hash(
 	return r.reads.Hash(ctx, snap, h, readsOf(cfg))
 }
 
+// checkReferences checks each enabled endpoint of cfg against its ICD and its channels,
+// read through snap, as resolve does for a config that lifts nothing.
+func (r readResolver) checkReferences(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *ReadConfig,
+) error {
+	return r.reads.Check(ctx, snap, readsOf(cfg), nil)
+}
+
 // readsOf returns the read of each enabled endpoint of cfg that names an ICD.
 func readsOf(cfg *ReadConfig) []read.Read {
 	var reads []read.Read

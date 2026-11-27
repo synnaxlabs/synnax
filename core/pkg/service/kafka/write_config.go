@@ -69,6 +69,16 @@ func (r writeResolver) hash(
 	return r.writes.Hash(ctx, snap, h, writesOf(cfg))
 }
 
+// checkReferences checks each enabled target of cfg against its ICD and its channels,
+// read through snap, as resolve does for a config that lifts nothing.
+func (r writeResolver) checkReferences(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *WriteConfig,
+) error {
+	return r.writes.Check(ctx, snap, writesOf(cfg), nil)
+}
+
 // writesOf returns the write of each enabled target of cfg.
 func writesOf(cfg *WriteConfig) []write.Write {
 	var writes []write.Write

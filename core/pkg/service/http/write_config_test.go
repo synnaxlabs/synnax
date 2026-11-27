@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -277,6 +278,47 @@ var _ = Describe("Write config", func() {
 				set(ctx, pointerPath(m), "/setpoint")
 				Expect(svc.Write.Hash(ctx, db, key)).ToNot(Equal(before))
 			},
+		)
+
+		DescribeTable("Should refuse an ICD edit that breaks an endpoint",
+			func(ctx SpecContext, act func() (icd.Action, string)) {
+				key := MustSucceed(tasks.Create(
+					ctx, svc.Write, writeConfigOf(writeEndpoint(ic, m, cmd)),
+				))
+				before := MustSucceed(svc.Write.Hash(ctx, db, key))
+				a, msg := act()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icdSvc.NewWriter(tx).Apply(ctx, ic.Key, a)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("breaks task http_write: "+msg)),
+				))
+				Expect(svc.Write.Hash(ctx, db, key)).To(Equal(before))
+			},
+			Entry("adding a field with no default that it does not bind",
+				func() (icd.Action, string) {
+					p, _ := m.Payload.Variant.(icd.JSONPayload)
+					return icd.NewSetAction(icd.SetPayload{
+							Path: []string{
+								"messages",
+								m.Key.String(),
+								"payload",
+								"fields",
+							},
+							Value: append(
+								slices.Clone(p.Fields),
+								jsonField("unit", "/unit", icd.StringJSONField{}),
+							),
+						}), "endpoints.0.message: message Setpoint: field unit: needs a " +
+							"channel or a default"
+				},
+			),
+			Entry("removing the message that it sends", func() (icd.Action, string) {
+				return icd.NewRemoveAction(icd.RemovePayload{
+						Path: []string{"messages"}, Key: m.Key.String(),
+					}), "endpoints.0.message: message " + m.Key.String() +
+						" does not exist in ICD Plant"
+			}),
 		)
 
 		It("Should not change for a message that only a disabled endpoint sends",

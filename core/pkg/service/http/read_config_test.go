@@ -309,6 +309,39 @@ var _ = Describe("Read config", func() {
 			},
 		)
 
+		DescribeTable("Should refuse an ICD edit that breaks an endpoint",
+			func(ctx SpecContext, act func() (icd.Action, string)) {
+				before := hash(ctx)
+				a, msg := act()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icdSvc.NewWriter(tx).Apply(ctx, f.ic.Key, a)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("breaks task http_read: "+msg)),
+				))
+				Expect(hash(ctx)).To(Equal(before))
+			},
+			Entry("removing the field that it binds", func() (icd.Action, string) {
+				k := fieldKey(f.m, 1).String()
+				return icd.NewRemoveAction(icd.RemovePayload{
+						Path: []string{
+							"messages",
+							f.m.Key.String(),
+							"payload",
+							"fields",
+						},
+						Key: k,
+					}), "endpoints.0.messages.0.bindings.0.field: field " + k +
+						" does not exist in message Status"
+			}),
+			Entry("removing the message that it reads", func() (icd.Action, string) {
+				return icd.NewRemoveAction(icd.RemovePayload{
+						Path: []string{"messages"}, Key: f.m.Key.String(),
+					}), "endpoints.0.messages.0.message: message " + f.m.Key.String() +
+						" does not exist in ICD Plant"
+			}),
+		)
+
 		It("Should not change when the name of the ICD changes", func(ctx SpecContext) {
 			before := hash(ctx)
 			set(ctx, []string{"name"}, "Line")

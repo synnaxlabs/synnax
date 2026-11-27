@@ -12,6 +12,7 @@ package kafka_test
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -482,6 +483,43 @@ var _ = Describe("Service", func() {
 				},
 			)
 
+			DescribeTable(
+				"Should refuse an ICD edit that breaks a record",
+				func(ctx SpecContext, act func() (icd.Action, string)) {
+					before := hash(ctx)
+					a, msg := act()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return icds.NewWriter(tx).Apply(ctx, f.ic.Key, a)
+					})).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("breaks task kafka_read: "+msg)),
+					))
+					Expect(hash(ctx)).To(Equal(before))
+				},
+				Entry("removing the field that it binds", func() (icd.Action, string) {
+					k := fieldKey(f.m, 1).String()
+					return icd.NewRemoveAction(icd.RemovePayload{
+							Path: []string{
+								"messages",
+								f.m.Key.String(),
+								"payload",
+								"fields",
+							},
+							Key: k,
+						}), "topics.0.records.0.messages.0.bindings.0.field: field " + k +
+							" does not exist in message " + f.m.Name
+				}),
+				Entry(
+					"removing the message that it reads",
+					func() (icd.Action, string) {
+						return icd.NewRemoveAction(icd.RemovePayload{
+								Path: []string{"messages"}, Key: f.m.Key.String(),
+							}), "topics.0.records.0.messages.0.message: message " + f.m.Key.String() +
+								" does not exist in ICD " + f.ic.Name
+					},
+				),
+			)
+
 			It("Should not change when the name of the ICD changes", func(
 				ctx SpecContext,
 			) {
@@ -811,6 +849,48 @@ var _ = Describe("Service", func() {
 					})).To(Succeed())
 					Expect(hash(ctx)).ToNot(Equal(before))
 				},
+			)
+
+			DescribeTable(
+				"Should refuse an ICD edit that breaks a target",
+				func(ctx SpecContext, act func() (icd.Action, string)) {
+					before := hash(ctx)
+					a, msg := act()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return icds.NewWriter(tx).Apply(ctx, ic.Key, a)
+					})).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("breaks task kafka_write: "+msg)),
+					))
+					Expect(hash(ctx)).To(Equal(before))
+				},
+				Entry("adding a field with no default that it does not bind",
+					func() (icd.Action, string) {
+						p, _ := setpoint.Payload.Variant.(icd.JSONPayload)
+						return icd.NewSetAction(icd.SetPayload{
+								Path: []string{
+									"messages",
+									setpoint.Key.String(),
+									"payload",
+									"fields",
+								},
+								Value: append(
+									slices.Clone(p.Fields),
+									jsonField("unit", "/unit", icd.StringJSONField{}),
+								),
+							}), "targets.0.message: message Setpoint: field unit: needs a " +
+								"channel or a default"
+					},
+				),
+				Entry(
+					"removing the message that it sends",
+					func() (icd.Action, string) {
+						return icd.NewRemoveAction(icd.RemovePayload{
+								Path: []string{"messages"}, Key: setpoint.Key.String(),
+							}), "targets.0.message: message " + setpoint.Key.String() +
+								" does not exist in ICD Plant"
+					},
+				),
 			)
 		})
 	})
