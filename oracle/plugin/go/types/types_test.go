@@ -3584,6 +3584,36 @@ func (u View) Type() ViewType {
 	)
 
 	It(
+		"Should fill the defaults of a variant before a msgpack decode",
+		func() {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 = 1 }
+			BoundParams struct {
+				lower float64 = 0 { @default group "ends" }
+				upper float64 = 1 { @default group "ends" }
+			}
+
+			Scale union on type {
+				linear LinearParams
+				bound BoundParams
+			}
+		`
+			resp := MustGenerate(source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"var v LinearScale\n\t\tv.SetDefaults()\n"+
+						"\t\tif err := vmsgpack.Unmarshal(raw, &v); err != nil {",
+					"var v BoundScale\n\t\tv.SetUngroupedDefaults()\n"+
+						"\t\tif err := vmsgpack.Unmarshal(raw, &v); err != nil {",
+					"\t\tv.DefaultGroups()\n\t\tu.Variant = v",
+				)
+		},
+	)
+
+	It(
 		"Should flatten a base a variant omits a field from",
 		func() {
 			source := `
