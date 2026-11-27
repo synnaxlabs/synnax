@@ -638,6 +638,42 @@ describe("local server", () => {
       },
     );
 
+    test("should keep a long stream open on a server clock that runs slow", async () => {
+      // 500 ppm slow, within the allowed drift. Over 1000 s, the server clock falls
+      // 500 ms behind, which is more than the timeout.
+      const rate = 1 - 5e-4;
+      const step = TimeSpan.seconds(10);
+      const realNow = performance.now.bind(performance);
+      let skipped = 0;
+      // The local clock skips ahead so that a long stream takes little real time.
+      vi.spyOn(performance, "now").mockImplementation(() => realNow() + skipped);
+      const sendSlow = (ws: WebSocket): void =>
+        sendKeepAlive(ws, performance.now() * rate);
+      try {
+        sendOpenAck = (ws) => {
+          sendSlow(ws);
+          ws.send(OPEN_ACK);
+        };
+        const stream = await dial({}, undefined, keepAlive);
+        const { ws } = await connected;
+        for (let i = 0; i < 100; i++) {
+          skipped += step.milliseconds;
+          sendSlow(ws);
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        const ticker = setInterval(() => sendSlow(ws), 50);
+        try {
+          await sleep.sleep(TIMEOUT.mult(3));
+          sendData(ws, { id: 1 });
+          expect(await stream.receive()).toEqual({ id: 1 });
+        } finally {
+          clearInterval(ticker);
+        }
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
     test("should not fail a stream when the server sends no keep-alives", async () => {
       const stream = await dial({}, undefined, keepAlive);
       const { ws } = await connected;
