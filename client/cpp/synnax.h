@@ -297,12 +297,14 @@ public:
                 std::move(this->t.ni_device_create),
                 std::move(this->t.ni_device_retrieve),
                 std::move(this->t.ni_device_update),
+                std::move(this->t.ni_device_dispatch),
                 std::move(this->t.ni_device_delete)
             ),
             .chassis = ::synnax::ni::chassis::Client(
                 std::move(this->t.ni_chassis_create),
                 std::move(this->t.ni_chassis_retrieve),
                 std::move(this->t.ni_chassis_update),
+                std::move(this->t.ni_chassis_dispatch),
                 std::move(this->t.ni_chassis_delete)
             ),
         },

@@ -15,12 +15,23 @@ Client::Client(
     std::unique_ptr<CreateClient> create_client,
     std::unique_ptr<RetrieveClient> retrieve_client,
     std::unique_ptr<UpdateClient> update_client,
+    std::unique_ptr<DispatchClient> dispatch_client,
     std::unique_ptr<DeleteClient> delete_client
 ):
     create_client(std::move(create_client)),
     retrieve_client(std::move(retrieve_client)),
     update_client(std::move(update_client)),
+    dispatch_client(std::move(dispatch_client)),
     delete_client(std::move(delete_client)) {}
+
+x::errors::Error
+Client::dispatch(const Key &key, const std::vector<Action> &actions) const {
+    grpc::ni_chassis::DispatchRequest req;
+    req.set_key(key.to_string());
+    for (const auto &action: actions)
+        req.add_actions(to_json(action).dump());
+    return this->dispatch_client->send("/ni/chassis/dispatch", req).second;
+}
 
 x::errors::Error Client::create(std::vector<Chassis> &chassis) const {
     grpc::ni_chassis::CreateRequest req;
