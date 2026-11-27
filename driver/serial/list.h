@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <filesystem>
 #include <optional>
 #include <string>
 #include <utility>
@@ -30,13 +29,9 @@ struct Entry {
     bool operator==(const Entry &) const = default;
 };
 
-/// @brief lists the serial ports of this computer, sorted by path. It leaves out the
-/// UART ports in which the kernel found no UART.
+/// @brief lists the serial ports of this computer, sorted by path. It leaves out a port
+/// with no node in /dev, such as a port of the host in a container, and the UART ports
+/// in which the kernel found no UART.
 /// @returns the error of the operating system when it cannot list the ports.
 std::pair<std::vector<Entry>, x::errors::Error> list();
-
-/// @brief lists the serial ports in the sysfs tree at sys, as list does.
-/// @param dev the device tree whose serial/by-id links name the ports.
-std::pair<std::vector<Entry>, x::errors::Error>
-list(const std::filesystem::path &sys, const std::filesystem::path &dev);
 }

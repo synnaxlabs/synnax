@@ -183,7 +183,10 @@ cc_test(
 cc_library(
     name = "list",
     srcs = ["list_linux.cpp"],
-    hdrs = ["list.h"],
+    hdrs = [
+        "list.h",
+        "list_linux.h",
+    ],
     target_compatible_with = ["@platforms//os:linux"],
     visibility = ["//visibility:public"],
     deps = [

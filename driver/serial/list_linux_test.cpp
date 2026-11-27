@@ -18,7 +18,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "driver/serial/list.h"
+#include "driver/serial/list_linux.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
@@ -97,6 +97,14 @@ TEST_F(ListLinux, ListsPortsByLinkWithProduct) {
 /// @brief it should leave out a UART port in which the kernel found no UART.
 TEST_F(ListLinux, LeavesOutEmptyUARTPorts) {
     this->tty("ttyS1", "platform/serial8250/serial8250:0/serial8250:0.1", "0");
+    EXPECT_TRUE(ASSERT_NIL_P(list(this->sys, this->dev)).empty());
+}
+
+/// @brief it should leave out a port with no node in the device tree, such as a port of
+/// the host in a container.
+TEST_F(ListLinux, LeavesOutPortsWithNoNode) {
+    this->tty("ttyUSB1", "usb1/1-3/1-3:1.0/ttyUSB1");
+    fs::remove(this->dev / "ttyUSB1");
     EXPECT_TRUE(ASSERT_NIL_P(list(this->sys, this->dev)).empty());
 }
 
