@@ -282,7 +282,10 @@ var _ = Describe("Handle", func() {
 					fs.FailSync("1.seg", errInjected)
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "2.seg"))
+					}()
 					Eventually(
 						fs.held,
 					).WithTimeout(syncTimeout).
@@ -371,7 +374,10 @@ var _ = Describe("Handle", func() {
 					).WithTimeout(syncTimeout).
 						Should(Receive(Equal("1.seg")))
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "2.seg"))
+					}()
 					Consistently(created).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)

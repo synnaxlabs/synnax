@@ -182,7 +182,10 @@ var _ = Describe("Budget", func() {
 					Eventually(fs.held).WithTimeout(syncTimeout).
 						Should(Receive(Equal("0.seg")))
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "2.seg"))
+					}()
 					Consistently(fs.held).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
@@ -217,7 +220,10 @@ var _ = Describe("Budget", func() {
 					first := dirty(b, 1, "a")[0]
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "b0.seg")) }()
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "b0.seg"))
+					}()
 					Eventually(
 						fs.held,
 					).WithTimeout(syncTimeout).
@@ -251,7 +257,10 @@ var _ = Describe("Budget", func() {
 					hs := dirty(b, 1, "")
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "1.seg")) }()
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "1.seg"))
+					}()
 					Eventually(fs.held).WithTimeout(syncTimeout).
 						Should(Receive(Equal("0.seg")))
 					synced := make(chan error, 1)
