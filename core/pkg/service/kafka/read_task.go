@@ -110,8 +110,8 @@ type readTask struct {
 	reassigned atomic.Bool
 	// disconnected is true from a connection failure until records arrive again.
 	disconnected bool
-	// marks is the offsets the current poll consumed by topic and partition.
-	marks map[string]map[int32]kgo.EpochOffset
+	// heads is the last record of each partition the current poll read.
+	heads []*kgo.Record
 }
 
 var _ driver.Task = (*readTask)(nil)
@@ -136,7 +136,6 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
-		marks:      make(map[string]map[int32]kgo.EpochOffset),
 	}
 	var err error
 	if rt.records, rt.groups, err = f.buildReadRecords(ctx, cfg); err != nil {
@@ -154,7 +153,6 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	for _, topic := range cfg.Topics {
 		if _, ok := rt.records[topic.Name]; ok {
 			rt.topics = append(rt.topics, topic.Name)
-			rt.marks[topic.Name] = make(map[int32]kgo.EpochOffset)
 		}
 	}
 	return rt, nil
@@ -592,24 +590,14 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 		g.reset()
 	}
 	clear(t.skipped)
-	for _, marks := range t.marks {
-		clear(marks)
-	}
-	marked := false
+	t.heads = t.heads[:0]
 	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
 		for _, rec := range p.Records {
 			t.convert(rec)
 		}
-		marks, ok := t.marks[p.Topic]
-		if !ok || len(p.Records) == 0 {
-			return
+		if len(p.Records) > 0 {
+			t.heads = append(t.heads, p.Records[len(p.Records)-1])
 		}
-		last := p.Records[len(p.Records)-1]
-		head := kgo.EpochOffset{Epoch: last.LeaderEpoch, Offset: last.Offset + 1}
-		if cur, ok := marks[p.Partition]; !ok || cur.Less(head) {
-			marks[p.Partition] = head
-		}
-		marked = true
 	})
 	var keys, size int
 	for _, g := range t.groups {
@@ -627,9 +615,9 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			return errors.Wrap(err, "writing records")
 		}
 	}
-	if marked {
-		t.client.MarkCommitOffsets(t.marks)
-	}
+	t.client.MarkCommitRecords(t.heads...)
+	// The records hold their batch buffers, which an idle task must not keep.
+	clear(t.heads)
 	return nil
 }
 
