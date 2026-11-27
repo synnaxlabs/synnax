@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -128,6 +129,25 @@ func (s *Service) Update(
 		Entry(&res.Server).
 		Exec(ctx, tx)
 	return res, err
+}
+
+// PinRequest carries the server certificate to pin on a stored server.
+type PinRequest struct {
+	// Key selects the server.
+	Key server.Key `json:"key" msgpack:"key"`
+	// Certificate is the server certificate that the server's connection trusts from
+	// now on.
+	Certificate certificate.Key `json:"certificate" msgpack:"certificate"`
+}
+
+// Pin moves the server trust of the server stored under req.Key from the first
+// certificate to req.Certificate, as server.Writer.Pin does.
+func (s *Service) Pin(
+	ctx context.Context,
+	tx gorp.Tx,
+	req PinRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Server.NewWriter(tx).Pin(ctx, req.Key, req.Certificate)
 }
 
 // DeleteRequest carries the keys of the servers to delete.

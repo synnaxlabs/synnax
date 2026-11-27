@@ -420,6 +420,56 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Pin", func() {
+		It("Should pin the certificate and keep every other field", func(
+			ctx SpecContext,
+		) {
+			s := newServer()
+			s.Connection.Security = signed(server.ServerTrust{
+				Variant: server.FirstUseServerTrust{},
+			})
+			s.Reads = []server.Read{{Node: "nsu=urn:plc;s=Temp", Index: 1, Channel: 5}}
+			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			cert := createCertificate(ctx, false)
+			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, cert)).To(Succeed())
+			want := s
+			want.Connection.Security = signed(pinned(cert))
+			Expect(retrieve(ctx, s.Key)).To(Equal(want))
+		})
+
+		It("Should refuse a connection that already pins a certificate", func(
+			ctx SpecContext,
+		) {
+			s := newServer()
+			s.Connection.Security = signed(pinned(createCertificate(ctx, false)))
+			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, createCertificate(ctx, false))).
+				To(MatchError(ContainSubstring("not first use")))
+			Expect(retrieve(ctx, s.Key)).To(Equal(s))
+		})
+
+		It("Should refuse a connection without security", func(ctx SpecContext) {
+			s := create(ctx)
+			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, createCertificate(ctx, false))).
+				To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should refuse a certificate that does not exist", func(ctx SpecContext) {
+			s := newServer()
+			s.Connection.Security = signed(server.ServerTrust{
+				Variant: server.FirstUseServerTrust{},
+			})
+			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, uuid.New())).
+				ToNot(Succeed())
+		})
+
+		It("Should return not found for a missing server", func(ctx SpecContext) {
+			Expect(e.svc.NewWriter(tx).Pin(ctx, uuid.New(), uuid.New())).
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should remove the server and its status", func(ctx SpecContext) {
 			s := create(ctx)

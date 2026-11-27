@@ -12,6 +12,7 @@ package server
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -40,4 +41,45 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 			"server update has no field group",
 		)
 	}
+}
+
+// Pin trusts only the server certificate cert on the server stored under key, whose
+// connection trusts the first certificate it receives. It changes no other field. It
+// returns an error wrapping query.ErrNotFound when no server is stored under key, and
+// a validation error when the connection is not secured, does not trust the first
+// certificate, or cert does not exist.
+func (w Writer) Pin(ctx context.Context, key Key, cert certificate.Key) error {
+	return w.update(ctx, key, func(s Server) (Server, error) {
+		pinned := ServerTrust{Variant: PinnedServerTrust{Certificate: cert}}
+		switch v := s.Connection.Security.Variant.(type) {
+		case SignSecurity:
+			if err := checkFirstUse(v.ServerTrust); err != nil {
+				return Server{}, err
+			}
+			v.ServerTrust = pinned
+			s.Connection.Security.Variant = v
+		case SignAndEncryptSecurity:
+			if err := checkFirstUse(v.ServerTrust); err != nil {
+				return Server{}, err
+			}
+			v.ServerTrust = pinned
+			s.Connection.Security.Variant = v
+		default:
+			return Server{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, "connection is not secured"),
+				"connection.security",
+			)
+		}
+		return s, nil
+	})
+}
+
+func checkFirstUse(trust ServerTrust) error {
+	if _, ok := trust.Variant.(FirstUseServerTrust); ok {
+		return nil
+	}
+	return validate.PathedError(
+		errors.Wrap(validate.ErrValidation, "server trust is not first use"),
+		"connection.security.server_trust",
+	)
 }

@@ -214,6 +214,11 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/opcua/server/delete",
 			),
+			Entry(
+				"unary OPC UA server pin",
+				http.MethodPost,
+				"/api/v1/opcua/server/pin",
+			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
 			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
