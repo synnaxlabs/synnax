@@ -74,7 +74,7 @@ struct Entry {
     /// @brief true for input (TxPDO), false for output (RxPDO).
     bool is_input = true;
     /// @brief actual hardware data type from the PDO.
-    x::telem::DataType data_type = x::telem::UNKNOWN_T;
+    x::telem::DataType data_type;
 };
 
 /// @brief information about a single PDO entry discovered during slave enumeration. An

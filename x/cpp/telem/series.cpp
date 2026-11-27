@@ -23,8 +23,7 @@ pb::Series Series::to_proto() const {
 
 std::pair<Series, x::errors::Error> Series::from_proto(const pb::Series &pb) {
     auto [tr, err] = TimeRange::from_proto(pb.time_range());
-    if (err) return {Series(UNKNOWN_T, 0), err};
-    return {Series(pb, tr), x::errors::NIL};
+    return {Series(pb, tr), err};
 }
 
 }

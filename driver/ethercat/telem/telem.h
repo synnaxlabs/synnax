@@ -285,8 +285,7 @@ inline void write_pdo_from_value(
     const x::telem::DataType &data_type,
     const x::telem::SampleValue &value
 ) {
-    const auto casted = data_type == x::telem::UNKNOWN_T ? value
-                                                         : data_type.cast(value);
+    const auto casted = data_type.cast(value);
 
     if (bit_length < 8) {
         const auto src_val = x::telem::cast<uint8_t>(casted);

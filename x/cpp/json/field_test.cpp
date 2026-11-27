@@ -1028,9 +1028,9 @@ TEST(Decoder, RejectsWholeDecimalPastRange) {
 
 /// @brief it should reject a data type that no JSON value converts to.
 TEST(Decoder, RejectsUnknownDataType) {
-    const auto err = create_error({.data_type = telem::UNKNOWN_T});
+    const auto err = create_error({.data_type = telem::DataType("custom")});
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data(), "cannot convert a JSON value to " + telem::UNKNOWN_T.name());
+    ASSERT_EQ(err.data(), "cannot convert a JSON value to custom");
 }
 
 /// @brief it should reject a range that is not an integer data type.
@@ -1421,13 +1421,10 @@ TEST(Encoder, RejectsTypeThatCannotHoldDataType) {
 /// @brief it should reject a data type that no JSON value converts from.
 TEST(Encoder, RejectsUnknownDataType) {
     const auto err = create_encoder_error(
-        {.data_type = telem::UNKNOWN_T, .type = Type::String}
+        {.data_type = telem::DataType("custom"), .type = Type::String}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(
-        err.data(),
-        "cannot convert " + telem::UNKNOWN_T.name() + " to a JSON value"
-    );
+    ASSERT_EQ(err.data(), "cannot convert custom to a JSON value");
 }
 
 /// @brief it should reject an enum value that does not convert to the data type.

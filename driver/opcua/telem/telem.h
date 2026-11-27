@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include "open62541/types.h"
@@ -21,13 +22,13 @@ namespace driver::opcua::telem {
 /// @brief converts an OPC UA data type to the Synnax data type that holds its values. A
 /// subtype, such as Duration, converts as its builtin type, and an enumeration as
 /// int32.
-/// @returns x::telem::UNKNOWN_T for a type that no Synnax data type holds.
-x::telem::DataType to_data_type(const UA_DataType *dt);
+/// @returns no data type for a type that no Synnax data type holds.
+std::optional<x::telem::DataType> to_data_type(const UA_DataType *dt);
 
 /// @brief converts the DataType attribute of a node to a Synnax data type.
-/// @returns x::telem::UNKNOWN_T for an abstract type, a structure, or a type that the
-/// client does not know.
-x::telem::DataType to_data_type(const UA_NodeId &data_type);
+/// @returns no data type for an abstract type, a structure, or a type that the client
+/// does not know.
+std::optional<x::telem::DataType> to_data_type(const UA_NodeId &data_type);
 
 /// @brief converts a Synnax telemetry data type to an OPC UA data type.
 UA_DataType *data_type_to_ua(const x::telem::DataType &data_type);

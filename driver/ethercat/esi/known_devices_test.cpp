@@ -116,8 +116,7 @@ TEST_F(BeckhoffDevicesTest, FillKnownEntriesUsesRegistryEntryAtSameAddress) {
             {.index = known.index,
              .sub_index = known.sub_index,
              .bit_length = known.bit_length,
-             .name = "Input (unknown) 0x6000:01",
-             .data_type = x::telem::UNKNOWN_T},
+             .name = "Input (unknown) 0x6000:01"},
             {.index = 0x7FFF,
              .sub_index = 1,
              .bit_length = 8,
@@ -146,13 +145,12 @@ TEST_F(BeckhoffDevicesTest, FillKnownEntriesSkipsEntryOfOtherBitLength) {
             {.index = known.index,
              .sub_index = known.sub_index,
              .bit_length = static_cast<uint8_t>(known.bit_length + 8),
-             .name = "Input (unknown) 0x6000:01",
-             .data_type = x::telem::UNKNOWN_T},
+             .name = "Input (unknown) 0x6000:01"},
         },
     };
     fill_known_entries(live);
     EXPECT_EQ(live.input_pdos[0].name, "Input (unknown) 0x6000:01");
-    EXPECT_EQ(live.input_pdos[0].data_type, x::telem::UNKNOWN_T);
+    EXPECT_TRUE(live.input_pdos[0].data_type.name().empty());
 }
 
 }

@@ -43,8 +43,13 @@ simple_read(const std::shared_ptr<UA_Client> &client, const std::string &node_id
     }
 
     const auto data_type = telem::to_data_type(value.get().type);
-    auto [sample, sample_err] = telem::to_sample(value.get(), data_type);
+    if (!data_type.has_value())
+        return {
+            ::x::telem::Series(0),
+            x::errors::Error(x::errors::VALIDATION, "the node value has no data type")
+        };
+    auto [sample, sample_err] = telem::to_sample(value.get(), *data_type);
     if (sample_err) return {::x::telem::Series(0), sample_err};
-    return {telem::to_series(data_type, {sample}), x::errors::NIL};
+    return {telem::to_series(*data_type, {sample}), x::errors::NIL};
 }
 }

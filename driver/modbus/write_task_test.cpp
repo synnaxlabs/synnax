@@ -40,13 +40,13 @@ protected:
         this->ctx = std::make_shared<task::MockContext>(client);
         if (this->coil_ch.name.empty())
             this->coil_ch.name = make_unique_channel_name("coil");
-        if (this->coil_ch.data_type == x::telem::UNKNOWN_T)
+        if (this->coil_ch.data_type.name().empty())
             this->coil_ch.data_type = x::telem::UINT8_T;
         this->coil_ch.is_virtual = true;
         ASSERT_NIL(client->channels.create(this->coil_ch));
         if (this->reg_ch.name.empty())
             this->reg_ch.name = make_unique_channel_name("register");
-        if (this->reg_ch.data_type == x::telem::UNKNOWN_T)
+        if (this->reg_ch.data_type.name().empty())
             this->reg_ch.data_type = x::telem::UINT16_T;
         this->reg_ch.is_virtual = true;
         ASSERT_NIL(client->channels.create(this->reg_ch));

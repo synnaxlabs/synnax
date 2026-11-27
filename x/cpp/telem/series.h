@@ -15,7 +15,9 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -621,13 +623,21 @@ public:
     }
 
     /// @brief constructs a series from the given array of numeric data and a
+    /// length, inferring the data type from the numeric type.
+    /// @param d the array of numeric data to be used.
+    /// @param size the number of samples to be used.
+    template<typename NumericType>
+    Series(const NumericType *d, const size_t size):
+        Series(d, size, DataType::infer<NumericType>()) {}
+
+    /// @brief constructs a series from the given array of numeric data and a
     /// length.
     /// @param d the array of numeric data to be used.
     /// @param size the number of samples to be used.
     /// @param dt the data type of the series.
     template<typename NumericType>
-    Series(const NumericType *d, const size_t size, const DataType &dt = UNKNOWN_T):
-        type(DataType::infer<NumericType>(dt)),
+    Series(const NumericType *d, const size_t size, DataType dt):
+        type(std::move(dt)),
         capacity(size),
         sample_count(size),
         buffer(alloc(this->size() * this->data_type().density())) {
@@ -638,15 +648,17 @@ public:
         memcpy(this->buffer.get(), d, this->size() * this->data_type().density());
     }
 
-    /// @brief constructs a series from the given vector of numeric data and an
-    /// optional data type.
+    /// @brief constructs a series from the given vector of numeric data, inferring
+    /// the data type from the numeric type.
+    template<typename NumericType>
+    explicit Series(const std::vector<NumericType> &d): Series(d.data(), d.size()) {}
+
+    /// @brief constructs a series from the given vector of numeric data.
     /// @param d the vector of numeric data to be used.
-    /// @param dt the type of data being used. In most cases, this should not
-    /// be specified and the data type will be inferred from the numeric type. If
-    /// you do choose to override the data type, it's up to you to ensure that the
+    /// @param dt the data type of the series. It's up to you to ensure that the
     /// contents of the series are compatible with the data type.
     template<typename NumericType>
-    explicit Series(const std::vector<NumericType> &d, const DataType &dt = UNKNOWN_T):
+    explicit Series(const std::vector<NumericType> &d, const DataType &dt):
         Series(d.data(), d.size(), dt) {}
 
     /// @brief constructs a series with a data type of TIMESTAMP containing the given
@@ -678,15 +690,18 @@ public:
         memcpy(this->buffer.get(), &ov, this->byte_size());
     }
 
+    /// @brief constructs a series of size 1 from the given number, inferring the data
+    /// type from the numeric type.
+    template<typename NumericType>
+    explicit Series(NumericType v): Series(v, DataType::infer<NumericType>()) {}
+
     /// @brief constructs a series of size 1 from the given number.
     /// @param v the number to be used.
-    /// @param override_dt an optional data type to use. If not specified, the data
-    /// type will be inferred from the numeric type. If you do choose to override
-    /// the data type, it's up to you to ensure that the contents of the series are
-    /// compatible with the data type.
+    /// @param dt the data type of the series. It's up to you to ensure that the
+    /// contents of the series are compatible with the data type.
     template<typename NumericType>
-    explicit Series(NumericType v, const DataType &override_dt = UNKNOWN_T):
-        type(DataType::infer<NumericType>(override_dt)),
+    explicit Series(NumericType v, DataType dt):
+        type(std::move(dt)),
         capacity(1),
         sample_count(1),
         buffer(alloc(this->byte_size())) {

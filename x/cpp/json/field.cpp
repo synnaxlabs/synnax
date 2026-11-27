@@ -168,10 +168,10 @@ std::pair<Decoder, errors::Error> Decoder::create(Field field) {
     const auto &dt = field.data_type;
     if (!convertible(dt))
         return {Decoder(), invalid("cannot convert a JSON value to " + dt.name())};
-    if (field.range != telem::UNKNOWN_T && !integer(field.range))
+    if (field.range.has_value() && !integer(*field.range))
         return {
             Decoder(),
-            invalid("range " + field.range.name() + " is not an integer data type"),
+            invalid("range " + field.range->name() + " is not an integer data type"),
         };
     Decoder d;
     for (const auto &e: field.enums) {
@@ -303,8 +303,8 @@ Decoder::append_timestamp(const std::string_view raw, telem::Series &dst) {
 }
 
 errors::Error Decoder::append_number(const Number &n, telem::Series &dst) const {
-    if (this->field.range != telem::UNKNOWN_T)
-        if (const auto err = n.check_fits(this->field.range)) return err;
+    if (this->field.range.has_value())
+        if (const auto err = n.check_fits(*this->field.range)) return err;
     if (const auto err = n.check_fits(this->field.data_type)) return err;
     this->write_number(n, dst);
     return errors::NIL;
