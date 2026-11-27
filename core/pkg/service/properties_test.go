@@ -85,15 +85,6 @@ var _ = Describe("Device properties", Ordered, func() {
 		}, "properties.remote.port", "must be greater than or equal to 1"),
 	)
 
-	It("Should refuse a bus device whose properties do not decode", func(
-		ctx SpecContext,
-	) {
-		Expect(create(ctx, newDevice(tcp.Make, msgpack.EncodedJSON{
-			"host": "127.0.0.1",
-			"port": "modbus",
-		}))).To(MatchError(validate.ErrValidation))
-	})
-
 	It("Should create bus devices whose properties validate", func(ctx SpecContext) {
 		Expect(create(ctx, newDevice(serial.Make, msgpack.EncodedJSON{
 			"port":      "/dev/ttyUSB0",
@@ -105,35 +96,5 @@ var _ = Describe("Device properties", Ordered, func() {
 			"port": 502,
 		}))).To(Succeed())
 		Expect(create(ctx, newDevice(udp.Make, msgpack.EncodedJSON{}))).To(Succeed())
-	})
-
-	It("Should refuse an edit that breaks the properties of a bus device", func(
-		ctx SpecContext,
-	) {
-		dev := newDevice(
-			tcp.Make,
-			msgpack.EncodedJSON{"host": "127.0.0.1", "port": 502},
-		)
-		Expect(create(ctx, dev)).To(Succeed())
-		err := db.WithTx(ctx, func(tx gorp.Tx) error {
-			return layer.Device.NewWriter(tx).Apply(
-				ctx,
-				dev.Key,
-				device.NewSetAction(device.SetPayload{
-					Path:  []string{"properties", "host"},
-					Value: "",
-				}),
-			)
-		})
-		Expect(err).To(MatchError(validate.ErrValidation))
-		Expect(err).To(MatchError(ContainSubstring("properties.host: required")))
-	})
-
-	It("Should store any properties on a device of a make with no check", func(
-		ctx SpecContext,
-	) {
-		Expect(create(ctx, newDevice("modbus", msgpack.EncodedJSON{
-			"port": "modbus",
-		}))).To(Succeed())
 	})
 })

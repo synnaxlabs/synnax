@@ -144,7 +144,8 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 }
 
 // CreateMany creates the given devices. It returns an error wrapping
-// validate.ErrValidation when a device with one of their keys exists.
+// validate.ErrValidation when a device or its properties fail to validate, or when a
+// device with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 	for i := range *devices {
 		if err := w.Create(ctx, &(*devices)[i]); err != nil {
