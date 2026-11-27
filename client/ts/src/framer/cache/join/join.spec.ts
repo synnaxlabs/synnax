@@ -19,7 +19,7 @@ import { store as cacheStore } from "@/framer/cache/store";
 const INDEX = 1;
 const DATA = 2;
 const BLOCK = 100;
-const RANGE = grid.tileRange({ level: block.RAW_LEVEL, index: BLOCK });
+const RANGE = grid.tileRange({ level: block.RAW_LEVEL, tile: BLOCK });
 
 const at = (seconds: number): TimeStamp => RANGE.start.add(TimeSpan.seconds(seconds));
 
@@ -516,7 +516,7 @@ describe("Joins", () => {
 
     it("should keep a member joined when the change misses its open block", () => {
       const { joins } = createJoined();
-      const earlier = grid.tileRange({ level: block.RAW_LEVEL, index: BLOCK - 1 });
+      const earlier = grid.tileRange({ level: block.RAW_LEVEL, tile: BLOCK - 1 });
       expect(joins.invalidate(DATA, earlier).size).toBe(0);
       expect(joins.joined(DATA)).toBe(true);
     });
@@ -632,7 +632,7 @@ describe("Joins", () => {
       expect(joins.flush(DATA)).toEqual(new Set([INDEX]));
       expect(keysOf(joins)).toEqual([DATA]);
       expect(store.open(DATA)).toBeNull();
-      expect(joins.catchUpFrom(DATA, at(1000))).toBe(block.rawIndex(at(1000)));
+      expect(joins.catchUpFrom(DATA, at(1000))).toBe(block.rawTile(at(1000)));
     });
   });
 

@@ -22,6 +22,7 @@
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -44,8 +45,36 @@ std::optional<std::string> set_value(icd::TextField &f, const icd::WriteValue &v
     if (value == nullptr) return " of kind float needs a value of its kind";
     std::visit([&](auto &t) { t.default_ = value->value; }, f);
     if (const auto err = codec::check_raw_limits(icd::base(f), value->value.value))
-        return ": " + err.data;
+        return ": " + err.data();
     return std::nullopt;
+}
+
+/// @brief sets the default of binary field f to v. It returns the problem with v, to
+/// follow the name of f, or nothing.
+std::optional<std::string> set_value(icd::BinaryField &f, const icd::WriteValue &v) {
+    return std::visit(
+        [](auto &field, const auto &value) -> std::optional<std::string> {
+            using F = std::decay_t<decltype(field)>;
+            using V = std::decay_t<decltype(value)>;
+            if constexpr (
+                (std::is_same_v<F, icd::FloatBinaryField> &&
+                 std::is_same_v<V, icd::FloatWriteValue>) ||
+                (std::is_same_v<F, icd::IntegerBinaryField> &&
+                 std::is_same_v<V, icd::IntegerWriteValue>) ||
+                (std::is_same_v<F, icd::UnsignedBinaryField> &&
+                 std::is_same_v<V, icd::UnsignedWriteValue>)
+            ) {
+                field.default_ = value.value;
+                const auto raw = static_cast<double>(value.value.value);
+                if (const auto err = codec::check_raw_limits(field, raw))
+                    return ": " + err.data();
+                return std::nullopt;
+            } else
+                return " of kind " + field.kind + " needs a value of its kind";
+        },
+        f,
+        v
+    );
 }
 
 /// @brief sets the default of field to value, and returns false when value is not of
@@ -86,7 +115,7 @@ std::optional<std::string> set_value(icd::JSONField &f, const icd::WriteValue &v
             ) {
                 const auto raw = static_cast<double>(field.default_.value().value);
                 if (const auto err = codec::check_raw_limits(field, raw))
-                    return ": " + err.data;
+                    return ": " + err.data();
             }
             return std::nullopt;
         },
@@ -121,7 +150,7 @@ set_values(std::vector<Field> &fields, const icd::WriteMessage &wm) {
 
 /// @brief replaces the sample of last with sample i of s, a series of the data type of
 /// last.
-void keep(x::telem::Series &last, const x::telem::Series &s, const std::size_t i) {
+void set_last(x::telem::Series &last, const x::telem::Series &s, const std::size_t i) {
     last.clear();
     if (s.data_type().is_variable()) {
         last.write(s.at<std::string>(static_cast<int>(i)));
@@ -156,10 +185,6 @@ std::pair<Writer, x::errors::Error> Writer::create(
             ),
         };
     };
-    const auto *text = std::get_if<icd::TextPayload>(&msg->payload);
-    const auto *json = std::get_if<icd::JSONPayload>(&msg->payload);
-    if (text == nullptr && json == nullptr)
-        return refuse("the Driver writes only text and JSON messages");
     if (std::ranges::none_of(wm.bindings, [](const icd::WriteBinding &b) {
             return std::holds_alternative<icd::ChannelWriteBinding>(b);
         }))
@@ -176,37 +201,50 @@ std::pair<Writer, x::errors::Error> Writer::create(
         w.last.emplace_back(ch->second.data_type, 1);
         bindings.push_back({.field = cb->field, .data_type = ch->second.data_type});
     }
+    std::optional<std::string> problem;
     x::errors::Error err;
-    if (text != nullptr) {
-        codec::TextMessage m{
-            .name = msg->name,
-            .payload = *text,
-            .bindings = std::move(bindings),
-        };
-        if (const auto problem = set_values(m.payload.fields, wm))
-            return refuse(*problem);
-        std::tie(w.encoder, err) = codec::TextEncoder::create(m);
-    } else {
-        codec::JSONMessage m{
-            .name = msg->name,
-            .payload = *json,
-            .bindings = std::move(bindings),
-        };
-        if (const auto problem = set_values(m.payload.fields, wm))
-            return refuse(*problem);
-        std::tie(w.encoder, err) = codec::JSONEncoder::create(m);
-    }
+    const auto build = [&](auto m, const auto create) {
+        problem = set_values(m.payload.fields, wm);
+        if (!problem) std::tie(w.encoder, err) = create(m);
+    };
+    std::visit(
+        [&]<typename Payload>(const Payload &payload) {
+            if constexpr (std::is_same_v<Payload, icd::BinaryPayload>)
+                build(
+                    codec::BinaryMessage{
+                        .name = msg->name,
+                        .payload = payload,
+                        .bindings = std::move(bindings),
+                    },
+                    codec::BinaryEncoder::create
+                );
+            else if constexpr (std::is_same_v<Payload, icd::TextPayload>)
+                build(
+                    codec::TextMessage{
+                        .name = msg->name,
+                        .payload = payload,
+                        .bindings = std::move(bindings),
+                    },
+                    codec::TextEncoder::create
+                );
+            else {
+                static_assert(std::is_same_v<Payload, icd::JSONPayload>);
+                build(
+                    codec::JSONMessage{
+                        .name = msg->name,
+                        .payload = payload,
+                        .bindings = std::move(bindings),
+                    },
+                    codec::JSONEncoder::create
+                );
+            }
+        },
+        msg->payload
+    );
+    if (problem) return refuse(*problem);
     if (err) return {Writer{}, err};
     w.commands.resize(w.channels.size());
     return {std::move(w), x::errors::NIL};
-}
-
-bool Writer::ready() const {
-    for (std::size_t b = 0; b < this->last.size(); b++)
-        if (this->last[b].empty() &&
-            !std::visit([b](const auto &e) { return e.has_default(b); }, this->encoder))
-            return false;
-    return true;
 }
 
 std::optional<Writer::Command>
@@ -218,7 +256,7 @@ Writer::command(const std::size_t binding, std::size_t i) const {
     return std::nullopt;
 }
 
-Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
+std::size_t Writer::gather(const x::telem::Frame &fr) {
     for (auto &series: this->commands)
         series.clear();
     for (const auto &[key, s]: fr)
@@ -231,31 +269,68 @@ Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
             size += s->size();
         n = std::max(n, size);
     }
-    Result result;
-    for (std::size_t row = 0; row < n; row++) {
-        bool good = false;
-        for (std::size_t b = 0; b < this->channels.size(); b++) {
-            const auto cmd = this->command(b, row);
-            if (!cmd.has_value()) continue;
-            if (auto err = std::visit(
-                    [&](auto &e) { return e.check(b, *cmd->series, cmd->index); },
-                    this->encoder
-                )) {
-                if (!result.refused) result.refused = err;
-                continue;
-            }
-            keep(this->last[b], *cmd->series, cmd->index);
-            good = true;
-        }
-        if (result.error || !good || !this->ready()) continue;
+    return n;
+}
+
+bool Writer::apply(const std::size_t row, x::errors::Error &refused) {
+    bool good = false;
+    for (std::size_t b = 0; b < this->channels.size(); b++) {
+        const auto cmd = this->command(b, row);
+        if (!cmd.has_value()) continue;
         if (auto err = std::visit(
-                [&](auto &e) { return e.encode(this->last, this->payload); },
+                [&](auto &e) { return e.check(b, *cmd->series, cmd->index); },
                 this->encoder
-            ))
-            result.error = err;
-        else if (auto send_err = send(this->payload))
-            result.error = send_err;
+            )) {
+            if (!refused) refused = err;
+            continue;
+        }
+        set_last(this->last[b], *cmd->series, cmd->index);
+        good = true;
     }
+    return good;
+}
+
+Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
+    const auto rows = this->gather(fr);
+    Result result;
+    for (std::size_t row = 0; row < rows; row++)
+        if (this->apply(row, result.refused) && !result.error)
+            result.error = this->encode(send);
     return result;
+}
+
+x::errors::Error Writer::keep(const x::telem::Frame &fr) {
+    const auto rows = this->gather(fr);
+    x::errors::Error refused;
+    for (std::size_t row = 0; row < rows; row++)
+        this->apply(row, refused);
+    return refused;
+}
+
+x::errors::Error Writer::encode(const Send &send) {
+    if (!std::visit([this](auto &e) { return e.ready(this->last); }, this->encoder))
+        return x::errors::NIL;
+    if (auto err = std::visit(
+            [&](auto &e) { return e.encode(this->last, this->payload); },
+            this->encoder
+        ))
+        return err;
+    return send(this->payload);
+}
+
+std::string Writer::format() const {
+    return std::visit(
+        []<typename E>(const E &) -> std::string {
+            if constexpr (std::is_same_v<E, codec::BinaryEncoder>)
+                return x::payload::FORMAT_BINARY;
+            else if constexpr (std::is_same_v<E, codec::TextEncoder>)
+                return x::payload::FORMAT_TEXT;
+            else {
+                static_assert(std::is_same_v<E, codec::JSONEncoder>);
+                return x::payload::FORMAT_JSON;
+            }
+        },
+        this->encoder
+    );
 }
 }

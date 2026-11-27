@@ -23,22 +23,22 @@ func (CreatePayload) Handle(ICD) (ICD, error) {
 	)
 }
 
-// Handle applies the set to the ICD's name or messages.
+// Handle applies the set to the ICD's name, messages, or framing.
 func (p SetPayload) Handle(ic ICD) (ICD, error) {
 	return edit(ic, patch.Set(p).Apply)
 }
 
-// Handle applies the remove to the ICD's name or messages.
+// Handle applies the remove to the ICD's name, messages, or framing.
 func (p RemovePayload) Handle(ic ICD) (ICD, error) {
 	return edit(ic, patch.Remove(p).Apply)
 }
 
-// Handle applies the insert to the ICD's name or messages.
+// Handle applies the insert to the ICD's name, messages, or framing.
 func (p InsertPayload) Handle(ic ICD) (ICD, error) {
 	return edit(ic, patch.Insert(p).Apply)
 }
 
-// Handle applies the move to the ICD's name or messages.
+// Handle applies the move to the ICD's name, messages, or framing.
 func (p MovePayload) Handle(ic ICD) (ICD, error) {
 	return edit(ic, patch.Move(p).Apply)
 }
@@ -47,15 +47,19 @@ func (p MovePayload) Handle(ic ICD) (ICD, error) {
 type document struct {
 	Name     string    `json:"name"`
 	Messages []Message `json:"messages"`
+	Framing  *Framing  `json:"framing,omitzero"`
 }
 
 // edit applies a path action to a copy of the ICD's document. A document that gains a
 // member it does not declare, such as a path to the ICD's key, is rejected.
 func edit(ic ICD, apply func(map[string]any) error) (ICD, error) {
-	d, err := patch.Edit(document{Name: ic.Name, Messages: ic.Messages}, apply)
+	d, err := patch.Edit(
+		document{Name: ic.Name, Messages: ic.Messages, Framing: ic.Framing},
+		apply,
+	)
 	if err != nil {
 		return ICD{}, err
 	}
-	ic.Name, ic.Messages = d.Name, d.Messages
+	ic.Name, ic.Messages, ic.Framing = d.Name, d.Messages, d.Framing
 	return ic, nil
 }

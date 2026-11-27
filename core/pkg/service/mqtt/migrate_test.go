@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v3"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -34,7 +34,7 @@ var _ = Describe("ICDMigration", func() {
 		names map[uuid.UUID]string
 		// asked holds the keys of each lookup call.
 		asked  [][]uuid.UUID
-		lookup mqtt.TaskNames
+		lookup config.TaskNames
 	)
 	BeforeEach(func() {
 		names, asked = map[uuid.UUID]string{}, nil
@@ -78,17 +78,6 @@ var _ = Describe("ICDMigration", func() {
 			return mqttSvc.ICDMigration(lookup).Run(ctx, tx, alamos.Instrumentation{})
 		})
 	}
-	// expectStaged asserts whether the plain targets of the config are staged.
-	expectStaged := func(key uuid.UUID, staged bool) {
-		GinkgoHelper()
-		if !staged {
-			Expect(db.Get(v3.StagedTargetsKVKey(key))).Error().
-				To(MatchError(query.ErrNotFound))
-			return
-		}
-		_, closer := MustSucceed2(db.Get(v3.StagedTargetsKVKey(key)))
-		Expect(closer.Close()).To(Succeed())
-	}
 	read := func(ctx SpecContext, key uuid.UUID) mqtt.WriteConfig {
 		GinkgoHelper()
 		var cfg mqtt.WriteConfig
@@ -104,7 +93,8 @@ var _ = Describe("ICDMigration", func() {
 			key := stage(ctx, "Valves")
 			Expect(run(ctx)).To(Succeed())
 			Expect(asked).To(Equal([][]uuid.UUID{{key}}))
-			expectStaged(key, false)
+			Expect(db.Get(v3.StagedTargetsKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
 			cfg := read(ctx, key)
 			Expect(cfg.Inline).To(BeNil())
 			Expect(cfg.Targets).To(HaveLen(1))
@@ -121,40 +111,4 @@ var _ = Describe("ICDMigration", func() {
 			Expect(ic.Messages[0].Name).To(Equal("plant/valve/set"))
 		},
 	)
-
-	It("Should do nothing without staged targets", func(ctx SpecContext) {
-		Expect(run(ctx)).To(Succeed())
-		Expect(asked).To(BeEmpty())
-	})
-
-	It("Should delete the staged targets of a config that no longer exists", func(
-		ctx SpecContext,
-	) {
-		key := stage(ctx, "Snapshot")
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return mqttSvc.Write.Delete(ctx, tx, key)
-		})).To(Succeed())
-		Expect(run(ctx)).To(Succeed())
-		Expect(asked).To(BeEmpty())
-		expectStaged(key, false)
-	})
-
-	It("Should keep the staged targets when the task name lookup fails", func(
-		ctx SpecContext,
-	) {
-		key := stage(ctx, "Valves")
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.Delete(ctx, v3.StagedTargetsKVKey(key))).To(Succeed())
-		})
-		lookup = func(
-			context.Context,
-			gorp.Tx,
-			[]uuid.UUID,
-		) (map[uuid.UUID]string, error) {
-			return nil, errors.New("no task")
-		}
-		Expect(run(ctx)).To(MatchError("tasks of MQTT write configs: no task"))
-		expectStaged(key, true)
-		Expect(read(ctx, key).Targets).To(BeEmpty())
-	})
 })

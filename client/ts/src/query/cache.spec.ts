@@ -870,6 +870,33 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("should compose a record that its source keeps through a trim", async () => {
+      const cache = capped(async () => new MockStreamer());
+      const source = cache.createTable<string, Doc>({ name: "docs" });
+      const derived = cache.derive<string, Doc, Doc>({
+        name: "docs.derived",
+        source,
+        compose: (doc) => doc,
+      });
+      const single = cache.queries<string, Doc, string, Doc>({
+        name: "doc",
+        table: derived,
+        fetch: async (key) => [(await source.retrieve([key]))[0].key],
+        compose: (records) => records[0],
+        keyOf: (key) => key,
+        single: true,
+      });
+      await cache.ensureStreaming();
+      source.set(docs(11));
+      await sleep.sleep(TimeSpan.milliseconds(1));
+      // An unchanged ingest touches each source record, not its derived entry.
+      source.ingest(docs(11));
+      source.set(docs(12)[11]);
+      await sleep.sleep(TimeSpan.milliseconds(1));
+      expect(await single.retrieve("0")).toEqual(docs(1)[0]);
+      await cache.close();
+    });
+
     it("should keep records that a maintained answer holds", async () => {
       const cache = capped(async () => new MockStreamer());
       const table = cache.createTable<string, Doc>({ name: "docs" });

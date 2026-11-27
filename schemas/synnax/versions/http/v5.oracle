@@ -21,6 +21,8 @@ QueryParam = v2.QueryParam
 ReadField = v4.ReadField
 
 ReadEndpoint struct extends v4.ReadEndpoint {
+    -fields
+    -index
     key
     disabled bool = false {
         @doc value "is true when the endpoint is excluded from the task."
@@ -79,6 +81,8 @@ BaseWriteField = v2.BaseWriteField
 WriteField = v4.WriteField
 
 WriteEndpoint struct extends v4.WriteEndpoint {
+    -channel
+    -fields
     query_params
     icd          icd.Key?          {
         @doc value """

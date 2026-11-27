@@ -24,7 +24,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
-import { deep, id, uuid } from "@synnaxlabs/x";
+import { deep, id, TimeSpan, uuid } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -154,14 +154,17 @@ export interface CaptureStatusesProps {
   onStatuses: (statuses: Status.NotificationSpec[]) => void;
 }
 
+// Longer than any spec runs, so a status never drops off while a spec reads it.
+const CAPTURE_EXPIRATION = TimeSpan.hours(1);
+
 /**
- * Reports the current status notifications to onStatuses on every change. Mount
- * alongside the UI under test to observe statuses raised during a component render.
- * The report lands in the commit that changed them, so it is current once a `findBy*`
- * query sees that commit.
+ * Reports the status notifications to onStatuses on every change. Mount alongside the
+ * UI under test to observe statuses raised during a component render. Unlike a toast,
+ * a captured status stays until it is silenced. The report lands in the commit that
+ * changed them, so it is current once a `findBy*` query sees that commit.
  */
 export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
-  const { statuses } = Status.useNotifications();
+  const { statuses } = Status.useNotifications({ expiration: CAPTURE_EXPIRATION });
   useLayoutEffect(() => {
     onStatuses(statuses);
   }, [onStatuses, statuses]);
@@ -489,10 +492,11 @@ export const renderWithStatus = async (
 
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
   const core = Session.Core.useSelectSelected();
-  // The provider compares params by value, so a cached cluster key must not count.
+  // The provider compares params by value, so the cached cluster key and user must not
+  // count.
   let connParams: SynnaxParams | undefined;
   if (core != null) {
-    const { clusterKey: _, ...params } = core;
+    const { clusterKey: _, user: __, ...params } = core;
     connParams = params;
   }
   return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;

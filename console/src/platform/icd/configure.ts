@@ -11,6 +11,7 @@ import { channel, type icd, type Synnax, ValidationError } from "@synnaxlabs/cli
 import { DataType, primitive } from "@synnaxlabs/x";
 
 import { bindingDataType, converts, defaultDataType } from "@/platform/icd/dataType";
+import { kindOf } from "@/platform/icd/inferred";
 import {
   isIndexable,
   type Messages,
@@ -66,6 +67,16 @@ export const boundMessage = <S extends ReadSource>(
   return { source, read, message, fields };
 };
 
+/**
+ * @returns the name of the channel of each field that a message reads, after its
+ * prefix, and the name of a new index of arrival times when it has no index field.
+ */
+const channelNames = ({ source, read, fields }: BoundMessage<ReadSource>): string[] => {
+  const names = fields.map(({ name }) => channel.escapeInvalidName(name));
+  const indexed = fields.some(({ key }) => key === source.messages[read].index);
+  return indexed ? names : [...names, Task.ARRIVAL_NAME];
+};
+
 /** A field that a message reads, with the binding that deploying writes for it. */
 export interface MessageField extends Task.ReadChannelField {
   binding: icd.ReadBinding;
@@ -82,27 +93,40 @@ export interface MessagePlan {
 /**
  * Plans the channel of each field that a message reads: the one it has, the one stored
  * for its pointer, or a new one of the binding's data type. A channel that is gone or
- * no longer suits its field is replaced, and leaves the stored channels. Reads from the
- * Core, and changes neither bound nor props.
+ * no longer suits its field is replaced, and leaves the stored channels. Changes
+ * neither bound nor props.
  *
- * @param namer - Names the new channels of every source that the task plans.
+ * @param planner - Reads for every source that the task plans, and names their new
+ * channels.
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
  * @param written - The channels that bindings write. When another message writes one,
  * its index and every channel on it are replaced. A channel that props store on an
  * index that the message's own bindings write is lent: the message keeps the index,
  * and its field takes the channel back.
+ * @param reads - The messages that the task reads. When another message of the source
+ * names a channel the same, a new channel takes the kind of its message, such as
+ * `plant_pump_code_ts`.
  */
-export const planMessage = async (
-  client: Synnax,
-  namer: Task.Namer,
-  { source, read: r, fields }: BoundMessage<ReadSource>,
+export const planMessage = (
+  planner: Task.Planner,
+  { source, read: r, message, fields }: BoundMessage<ReadSource>,
   prefix: string,
   props?: Task.ReadChannelProps,
   written: ReadonlySet<channel.Key> = new Set(),
-): Promise<MessagePlan> => {
+  reads: readonly BoundMessage<ReadSource>[] = [],
+): MessagePlan => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
+  const clashes = new Set(
+    reads.filter((b) => b.source === source && b.read !== r).flatMap(channelNames),
+  );
+  const match = message.payload.format === "json" ? message.payload.match : undefined;
+  const kindPrefix =
+    match?.type === "present"
+      ? `${prefix}_${channel.escapeInvalidName(kindOf(match.pointer))}`
+      : prefix;
+  const prefixOf = (name: string): string => (clashes.has(name) ? kindPrefix : prefix);
   const held = { ...props?.channels };
   const bindingOf = (f: icd.JSONField): icd.ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ?? {
@@ -112,12 +136,12 @@ export const planMessage = async (
     };
   const own = new Set(read.bindings.map(({ channel }) => channel));
   const elsewhere = [...written].filter((key) => !own.has(key));
-  const bound =
-    elsewhere.length === 0
-      ? []
-      : await client.channels.retrieve(
-          [...elsewhere, ...own].filter(primitive.isNonZero),
-        );
+  const retrieve = (keys: channel.Key[]): channel.Channel[] =>
+    keys.map((key) => planner.retrieve(key)).filter((ch) => ch != null);
+  const bound = elsewhere.length === 0 ? [] : retrieve([...elsewhere, ...own]);
+  const live = new Map(
+    retrieve([...own, ...Object.values(held)]).map((ch) => [ch.key, ch]),
+  );
   const indexOf = (ch: channel.Channel): channel.Key =>
     ch.isIndex ? ch.key : ch.index;
   const ownIndexes = new Set(
@@ -147,12 +171,6 @@ export const planMessage = async (
   }
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
   const storedKeys = fields.map(({ pointer }) => held[pointer] ?? 0);
-  const live = new Map(
-    (await client.channels.retrieve([...reused, ...Object.values(held)])).map((ch) => [
-      ch.key,
-      ch,
-    ]),
-  );
   const onTaken = (ch: channel.Channel): boolean =>
     taken.has(ch.key) || taken.has(ch.index);
   for (const [pointer, key] of Object.entries(held)) {
@@ -187,10 +205,11 @@ export const planMessage = async (
     // channel too.
     const replaced = ch == null ? reused[i] !== 0 : stale(f, ch) || onTaken(ch);
     if (stale(f, live.get(storedKeys[i]))) delete held[f.pointer];
+    const name = channel.escapeInvalidName(f.name);
     return {
       key: f.key,
       pointer: f.pointer,
-      name: `${prefix}_${channel.escapeInvalidName(f.name)}`,
+      name: `${prefixOf(name)}_${name}`,
       dataType: isIndex
         ? DataType.TIMESTAMP.toString()
         : bindingDataType({ dataType }, f),
@@ -199,12 +218,11 @@ export const planMessage = async (
       binding: { ...binding, dataType },
     };
   });
-  const channels = await Task.planReadChannels({
-    client,
-    namer,
+  const channels = Task.planReadChannels({
+    planner,
     props: props == null ? undefined : { index: storedIndex, channels: held },
     fields: planned,
-    namePrefix: prefix,
+    namePrefix: prefixOf(Task.ARRIVAL_NAME),
     indexKey: index ?? "",
     indexed: () => indexed,
   });

@@ -833,7 +833,8 @@ func (w Writer) allocateAndWrite(
 		return err
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-		if err := w.svc.cfg.Channel.Create(ctx, allocated); err != nil {
+		stored := channel.ToStorage(allocated)
+		if err := w.svc.cfg.TS.CreateChannel(ctx, stored...); err != nil {
 			return err
 		}
 		w.svc.mu.Lock()
@@ -989,7 +990,7 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		return err
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
-		if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
+		if err := w.svc.deleteStorage(keys); err != nil {
 			return err
 		}
 		w.svc.mu.Lock()
@@ -1071,7 +1072,7 @@ func (w Writer) renameStored(ctx context.Context, count int) error {
 	for _, r := range renames {
 		names[r.key] = r.name
 	}
-	return w.svc.cfg.Channel.Rename(ctx, names)
+	return w.svc.renameStorage(ctx, names)
 }
 
 // positions maps each value in vals to the positions that hold it, in ascending order.

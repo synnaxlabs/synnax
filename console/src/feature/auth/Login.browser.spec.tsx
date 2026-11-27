@@ -67,6 +67,7 @@ describe("auth/Login", () => {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
           cores: { [CORE.key]: CORE },
+          order: [CORE.key],
           selected: undefined,
         },
       },

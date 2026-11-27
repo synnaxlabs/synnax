@@ -90,7 +90,7 @@ var _ = Describe("Channel references", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &l)
 		})).To(MatchError(
-			ContainSubstring("channels.channel: channel 404 does not exist"),
+			ContainSubstring("channels.1.channel: channel 404 does not exist"),
 		))
 	})
 
@@ -161,6 +161,7 @@ var _ = Describe("Channel references", func() {
 		}))
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,

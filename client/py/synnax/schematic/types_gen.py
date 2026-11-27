@@ -483,231 +483,6 @@ EdgeConfig = Annotated[
 ]
 
 
-class ToggleConfig(LabeledConfig, ScaledConfig, StalenessConfig):
-    """Is the base configuration for symbols actuated through a boolean telemetry pair.
-
-    Attributes:
-        state_channel: Is the channel whose value drives the symbol's active state, or 0
-            when none does.
-        command_channel: Is the channel actuation commands are written to, or 0 when the
-            symbol writes to none.
-        control: Is the control state display configuration.
-        on_click_delay: Is the debounce delay applied to clicks.
-    """
-
-    state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    command_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    control: ControlStateConfig = Field(default_factory=lambda: ControlStateConfig())
-    on_click_delay: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=0, le=2147483647000000
-    )
-
-
-class StaticSymbolConfig(LabeledConfig, ScaledConfig):
-    """Is the configuration for non-interactive labeled symbols.
-
-    Attributes:
-        stroke_color: Is the stroke color of the symbol.
-    """
-
-    stroke_color: color__.Color | None = None
-
-
-class DummyToggleSymbolConfig(LabeledConfig, ScaledConfig):
-    """Is the configuration for symbols that toggle their appearance from local state
-    without binding to telemetry.
-
-    Attributes:
-        enabled: Indicates whether the symbol renders in its active state.
-        clickable: Indicates whether clicking the symbol toggles its state.
-        stroke_color: Is the stroke color of the symbol, which also fills it while it is
-            active.
-    """
-
-    enabled: bool = False
-    clickable: bool = False
-    stroke_color: color__.Color | None = None
-
-
-class Edge(BaseModel):
-    """Is a connection between two nodes in the schematic.
-
-    Attributes:
-        key: Is the unique edge identifier within the schematic.
-        source: Is the source endpoint of the edge.
-        target: Is the target endpoint of the edge.
-        config: Is the style of the connection and the path it traces.
-    """
-
-    key: str
-    source: Handle
-    target: Handle
-    config: EdgeConfig
-
-
-class ToggleSymbolConfig(ToggleConfig):
-    """Is the configuration for telemetry-actuated toggle symbols.
-
-    Attributes:
-        stroke_color: Is the stroke color of the symbol, which also fills it while it is
-            active.
-    """
-
-    stroke_color: color__.Color | None = None
-
-
-class CapNodeConfig(StaticSymbolConfig):
-    """Is the configuration for cap symbols."""
-
-    variant: Literal["cap"] = "cap"
-
-
-class FilterNodeConfig(StaticSymbolConfig):
-    """Is the configuration for filter symbols."""
-
-    variant: Literal["filter"] = "filter"
-
-
-class FlowStraightenerNodeConfig(StaticSymbolConfig):
-    """Is the configuration for flow straightener symbols."""
-
-    variant: Literal["flow_straightener"] = "flow_straightener"
-
-
-class HeaterElementNodeConfig(StaticSymbolConfig):
-    """Is the configuration for heater element symbols."""
-
-    variant: Literal["heater_element"] = "heater_element"
-
-
-class IsoCapNodeConfig(StaticSymbolConfig):
-    """Is the configuration for ISO cap symbols."""
-
-    variant: Literal["iso_cap"] = "iso_cap"
-
-
-class IsoFilterNodeConfig(StaticSymbolConfig):
-    """Is the configuration for ISO filter symbols."""
-
-    variant: Literal["iso_filter"] = "iso_filter"
-
-
-class NozzleNodeConfig(StaticSymbolConfig):
-    """Is the configuration for nozzle symbols."""
-
-    variant: Literal["nozzle"] = "nozzle"
-
-
-class OrificeNodeConfig(StaticSymbolConfig):
-    """Is the configuration for orifice symbols."""
-
-    variant: Literal["orifice"] = "orifice"
-
-
-class OrificePlateNodeConfig(StaticSymbolConfig):
-    """Is the configuration for orifice plate symbols."""
-
-    variant: Literal["orifice_plate"] = "orifice_plate"
-
-
-class StrainerNodeConfig(StaticSymbolConfig):
-    """Is the configuration for strainer symbols."""
-
-    variant: Literal["strainer"] = "strainer"
-
-
-class StrainerConeNodeConfig(StaticSymbolConfig):
-    """Is the configuration for strainer cone symbols."""
-
-    variant: Literal["strainer_cone"] = "strainer_cone"
-
-
-class ThrusterNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for thruster symbols."""
-
-    variant: Literal["thruster"] = "thruster"
-
-
-class VentNodeConfig(StaticSymbolConfig):
-    """Is the configuration for vent symbols."""
-
-    variant: Literal["vent"] = "vent"
-
-
-class FlowmeterGeneralNodeConfig(StaticSymbolConfig):
-    """Is the configuration for general flowmeter symbols."""
-
-    variant: Literal["flowmeter_general"] = "flowmeter_general"
-
-
-class FlowmeterElectromagneticNodeConfig(StaticSymbolConfig):
-    """Is the configuration for electromagnetic flowmeter symbols."""
-
-    variant: Literal["flowmeter_electromagnetic"] = "flowmeter_electromagnetic"
-
-
-class FlowmeterVariableAreaNodeConfig(StaticSymbolConfig):
-    """Is the configuration for variable area flowmeter symbols."""
-
-    variant: Literal["flowmeter_variable_area"] = "flowmeter_variable_area"
-
-
-class FlowmeterCoriolisNodeConfig(StaticSymbolConfig):
-    """Is the configuration for Coriolis flowmeter symbols."""
-
-    variant: Literal["flowmeter_coriolis"] = "flowmeter_coriolis"
-
-
-class FlowmeterNozzleNodeConfig(StaticSymbolConfig):
-    """Is the configuration for nozzle flowmeter symbols."""
-
-    variant: Literal["flowmeter_nozzle"] = "flowmeter_nozzle"
-
-
-class FlowmeterVenturiNodeConfig(StaticSymbolConfig):
-    """Is the configuration for venturi flowmeter symbols."""
-
-    variant: Literal["flowmeter_venturi"] = "flowmeter_venturi"
-
-
-class FlowmeterRingPistonNodeConfig(StaticSymbolConfig):
-    """Is the configuration for ring piston flowmeter symbols."""
-
-    variant: Literal["flowmeter_ring_piston"] = "flowmeter_ring_piston"
-
-
-class FlowmeterPositiveDisplacementNodeConfig(StaticSymbolConfig):
-    """Is the configuration for positive displacement flowmeter symbols."""
-
-    variant: Literal["flowmeter_positive_displacement"] = (
-        "flowmeter_positive_displacement"
-    )
-
-
-class FlowmeterTurbineNodeConfig(StaticSymbolConfig):
-    """Is the configuration for turbine flowmeter symbols."""
-
-    variant: Literal["flowmeter_turbine"] = "flowmeter_turbine"
-
-
-class FlowmeterPulseNodeConfig(StaticSymbolConfig):
-    """Is the configuration for pulse flowmeter symbols."""
-
-    variant: Literal["flowmeter_pulse"] = "flowmeter_pulse"
-
-
-class FlowmeterFloatSensorNodeConfig(StaticSymbolConfig):
-    """Is the configuration for float sensor flowmeter symbols."""
-
-    variant: Literal["flowmeter_float_sensor"] = "flowmeter_float_sensor"
-
-
-class FlowmeterOrificeNodeConfig(StaticSymbolConfig):
-    """Is the configuration for orifice flowmeter symbols."""
-
-    variant: Literal["flowmeter_orifice"] = "flowmeter_orifice"
-
-
 class BoxNodeConfig(LabeledConfig):
     """Is the configuration for box annotation symbols."""
 
@@ -779,16 +554,6 @@ class InputNodeConfig(LabeledConfig, StalenessConfig):
         default=telem.TimeSpan(0), ge=0, le=2147483647000000
     )
     control: ControlStateConfig = Field(default_factory=lambda: ControlStateConfig())
-
-
-class LightNodeConfig(LabeledConfig, ScaledConfig, StalenessConfig):
-    """Is the configuration for indicator light symbols."""
-
-    variant: Literal["light"] = "light"
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    threshold: spatial.Bounds | None = None
-    stroke_color: color__.Color | None = None
-    on_color: color__.Color | None = None
 
 
 class LineNodeConfig(BaseModel):
@@ -895,12 +660,6 @@ class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):
     level: text.Level = "h4"
 
 
-class SwitchNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for switch symbols."""
-
-    variant: Literal["switch"] = "switch"
-
-
 class TextBoxNodeConfig(LabeledConfig):
     """Is the configuration for text box annotation symbols."""
 
@@ -929,349 +688,6 @@ class ValueNodeConfig(LabeledConfig, NumericTelemConfig, StalenessConfig):
     location: spatial.LocationXY = Field(
         default_factory=lambda: spatial.LocationXY(x="left", y="center")
     )
-
-
-class AgitatorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for agitator symbols."""
-
-    variant: Literal["agitator"] = "agitator"
-
-
-class CrossBeamAgitatorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for cross beam agitator symbols."""
-
-    variant: Literal["cross_beam_agitator"] = "cross_beam_agitator"
-
-
-class FlatBladeAgitatorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for flat blade agitator symbols."""
-
-    variant: Literal["flat_blade_agitator"] = "flat_blade_agitator"
-
-
-class HeatExchangerGeneralNodeConfig(StaticSymbolConfig):
-    """Is the configuration for general heat exchanger symbols."""
-
-    variant: Literal["heat_exchanger_general"] = "heat_exchanger_general"
-
-
-class HeatExchangerMNodeConfig(StaticSymbolConfig):
-    """Is the configuration for M-type heat exchanger symbols."""
-
-    variant: Literal["heat_exchanger_m"] = "heat_exchanger_m"
-
-
-class HeatExchangerStraightTubeNodeConfig(StaticSymbolConfig):
-    """Is the configuration for straight tube heat exchanger symbols."""
-
-    variant: Literal["heat_exchanger_straight_tube"] = "heat_exchanger_straight_tube"
-
-
-class HelicalAgitatorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for helical agitator symbols."""
-
-    variant: Literal["helical_agitator"] = "helical_agitator"
-
-
-class PaddleAgitatorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for paddle agitator symbols."""
-
-    variant: Literal["paddle_agitator"] = "paddle_agitator"
-
-
-class PropellerAgitatorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for propeller agitator symbols."""
-
-    variant: Literal["propeller_agitator"] = "propeller_agitator"
-
-
-class RotaryMixerNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for rotary mixer symbols."""
-
-    variant: Literal["rotary_mixer"] = "rotary_mixer"
-
-
-class StaticMixerNodeConfig(StaticSymbolConfig):
-    """Is the configuration for static mixer symbols."""
-
-    variant: Literal["static_mixer"] = "static_mixer"
-
-
-class CavityPumpNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for cavity pump symbols."""
-
-    variant: Literal["cavity_pump"] = "cavity_pump"
-
-
-class CentrifugalCompressorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for centrifugal compressor symbols."""
-
-    variant: Literal["centrifugal_compressor"] = "centrifugal_compressor"
-
-
-class CompressorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for compressor symbols."""
-
-    variant: Literal["compressor"] = "compressor"
-
-
-class DiaphragmPumpNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for diaphragm pump symbols."""
-
-    variant: Literal["diaphragm_pump"] = "diaphragm_pump"
-
-
-class EjectionPumpNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for ejection pump symbols."""
-
-    variant: Literal["ejection_pump"] = "ejection_pump"
-
-
-class EjectorCompressorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for ejector compressor symbols."""
-
-    variant: Literal["ejector_compressor"] = "ejector_compressor"
-
-
-class LiquidRingCompressorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for liquid ring compressor symbols."""
-
-    variant: Literal["liquid_ring_compressor"] = "liquid_ring_compressor"
-
-
-class PistonPumpNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for piston pump symbols."""
-
-    variant: Literal["piston_pump"] = "piston_pump"
-
-
-class PumpNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for pump symbols."""
-
-    variant: Literal["pump"] = "pump"
-
-
-class RollerVaneCompressorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for roller vane compressor symbols."""
-
-    variant: Literal["roller_vane_compressor"] = "roller_vane_compressor"
-
-
-class ScrewPumpNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for screw pump symbols."""
-
-    variant: Literal["screw_pump"] = "screw_pump"
-
-
-class TurboCompressorNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for turbo compressor symbols."""
-
-    variant: Literal["turbo_compressor"] = "turbo_compressor"
-
-
-class VacuumPumpNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for vacuum pump symbols."""
-
-    variant: Literal["vacuum_pump"] = "vacuum_pump"
-
-
-class BurstDiscNodeConfig(StaticSymbolConfig):
-    """Is the configuration for burst disc symbols."""
-
-    variant: Literal["burst_disc"] = "burst_disc"
-
-
-class FlameArrestorNodeConfig(StaticSymbolConfig):
-    """Is the configuration for flame arrestor symbols."""
-
-    variant: Literal["flame_arrestor"] = "flame_arrestor"
-
-
-class FlameArrestorDetonationNodeConfig(StaticSymbolConfig):
-    """Is the configuration for detonation-proof flame arrestor symbols."""
-
-    variant: Literal["flame_arrestor_detonation"] = "flame_arrestor_detonation"
-
-
-class FlameArrestorExplosionNodeConfig(StaticSymbolConfig):
-    """Is the configuration for explosion-proof flame arrestor symbols."""
-
-    variant: Literal["flame_arrestor_explosion"] = "flame_arrestor_explosion"
-
-
-class FlameArrestorFireResNodeConfig(StaticSymbolConfig):
-    """Is the configuration for fire resistant flame arrestor symbols."""
-
-    variant: Literal["flame_arrestor_fire_res"] = "flame_arrestor_fire_res"
-
-
-class FlameArrestorFireResDetonationNodeConfig(StaticSymbolConfig):
-    """Is the configuration for fire resistant and detonation-proof flame arrestor
-    symbols.
-    """
-
-    variant: Literal["flame_arrestor_fire_res_detonation"] = (
-        "flame_arrestor_fire_res_detonation"
-    )
-
-
-class IsoBurstDiscNodeConfig(StaticSymbolConfig):
-    """Is the configuration for ISO burst disc symbols."""
-
-    variant: Literal["iso_burst_disc"] = "iso_burst_disc"
-
-
-class AngledValveNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for angled valve symbols."""
-
-    variant: Literal["angled_valve"] = "angled_valve"
-
-
-class AngledReliefValveNodeConfig(DummyToggleSymbolConfig):
-    """Is the configuration for angled relief valve symbols."""
-
-    variant: Literal["angled_relief_valve"] = "angled_relief_valve"
-
-
-class AngledSpringLoadedReliefValveNodeConfig(DummyToggleSymbolConfig):
-    """Is the configuration for angled spring loaded relief valve symbols."""
-
-    variant: Literal["angled_spring_loaded_relief_valve"] = (
-        "angled_spring_loaded_relief_valve"
-    )
-
-
-class BallValveNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for ball valve symbols."""
-
-    variant: Literal["ball_valve"] = "ball_valve"
-
-
-class BreatherValveNodeConfig(DummyToggleSymbolConfig):
-    """Is the configuration for breather valve symbols."""
-
-    variant: Literal["breather_valve"] = "breather_valve"
-
-
-class ButterflyValveOneNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for remote butterfly valve symbols."""
-
-    variant: Literal["butterfly_valve_one"] = "butterfly_valve_one"
-
-
-class ButterflyValveTwoNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for manual butterfly valve symbols."""
-
-    variant: Literal["butterfly_valve_two"] = "butterfly_valve_two"
-
-
-class CheckValveNodeConfig(StaticSymbolConfig):
-    """Is the configuration for check valve symbols."""
-
-    variant: Literal["check_valve"] = "check_valve"
-
-
-class CheckValveWithArrowNodeConfig(StaticSymbolConfig):
-    """Is the configuration for check valve symbols drawn with an arrow."""
-
-    variant: Literal["check_valve_with_arrow"] = "check_valve_with_arrow"
-
-
-class ElectricRegulatorNodeConfig(StaticSymbolConfig):
-    """Is the configuration for electric regulator symbols."""
-
-    variant: Literal["electric_regulator"] = "electric_regulator"
-
-
-class ElectricRegulatorMotorizedNodeConfig(StaticSymbolConfig):
-    """Is the configuration for motorized electric regulator symbols."""
-
-    variant: Literal["electric_regulator_motorized"] = "electric_regulator_motorized"
-
-
-class FourWayValveNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for four way valve symbols."""
-
-    variant: Literal["four_way_valve"] = "four_way_valve"
-
-
-class GateValveNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for gate valve symbols."""
-
-    variant: Literal["gate_valve"] = "gate_valve"
-
-
-class IsoCheckValveNodeConfig(StaticSymbolConfig):
-    """Is the configuration for ISO check valve symbols."""
-
-    variant: Literal["iso_check_valve"] = "iso_check_valve"
-
-
-class ManualValveNodeConfig(DummyToggleSymbolConfig):
-    """Is the configuration for manual valve symbols."""
-
-    variant: Literal["manual_valve"] = "manual_valve"
-
-
-class NeedleValveNodeConfig(DummyToggleSymbolConfig):
-    """Is the configuration for needle valve symbols."""
-
-    variant: Literal["needle_valve"] = "needle_valve"
-
-
-class RegulatorNodeConfig(StaticSymbolConfig):
-    """Is the configuration for regulator symbols."""
-
-    variant: Literal["regulator"] = "regulator"
-
-
-class RegulatorManualNodeConfig(StaticSymbolConfig):
-    """Is the configuration for manual regulator symbols."""
-
-    variant: Literal["regulator_manual"] = "regulator_manual"
-
-
-class ReliefValveNodeConfig(DummyToggleSymbolConfig):
-    """Is the configuration for relief valve symbols."""
-
-    variant: Literal["relief_valve"] = "relief_valve"
-
-
-class SolenoidValveNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for solenoid valve symbols."""
-
-    variant: Literal["solenoid_valve"] = "solenoid_valve"
-    normally_open: bool = False
-
-
-class SpringLoadedReliefValveNodeConfig(DummyToggleSymbolConfig):
-    """Is the configuration for spring loaded relief valve symbols."""
-
-    variant: Literal["spring_loaded_relief_valve"] = "spring_loaded_relief_valve"
-
-
-class ThreeWayValveNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for three way valve symbols."""
-
-    variant: Literal["three_way_valve"] = "three_way_valve"
-
-
-class ThreeWayBallValveNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for three-way ball valve symbols."""
-
-    variant: Literal["three_way_ball_valve"] = "three_way_ball_valve"
-
-
-class ValveNodeConfig(ToggleSymbolConfig):
-    """Is the configuration for generic valve symbols."""
-
-    variant: Literal["valve"] = "valve"
-
-
-class CrossJunctionNodeConfig(StaticSymbolConfig):
-    """Is the configuration for cross junction symbols."""
-
-    variant: Literal["cross_junction"] = "cross_junction"
 
 
 class CylinderNodeConfig(LabeledConfig, ScaledConfig):
@@ -1319,28 +735,6 @@ class TankNodeConfig(LabeledConfig):
     side: spatial.OuterLocation = "left"
 
 
-class TJunctionNodeConfig(StaticSymbolConfig):
-    """Is the configuration for T junction symbols."""
-
-    variant: Literal["t_junction"] = "t_junction"
-
-
-class CustomActuatorNodeConfig(ToggleConfig):
-    """Is the configuration for user-defined actuator symbols."""
-
-    variant: Literal["custom_actuator"] = "custom_actuator"
-    spec_key: str
-    state_overrides: list[symbol.StateOverride] = Field(default_factory=list)
-
-
-class CustomStaticNodeConfig(LabeledConfig, ScaledConfig):
-    """Is the configuration for user-defined static symbols."""
-
-    variant: Literal["custom_static"] = "custom_static"
-    spec_key: str
-    state_overrides: list[symbol.StateOverride] = Field(default_factory=list)
-
-
 class GroupBoxNodeConfig(BaseModel):
     """Is the configuration for a group box, the symbol that bounds a set of grouped
     symbols. Groups nest: a member may itself be a group.
@@ -1369,37 +763,11 @@ class SymbolNodeConfig(LabeledConfig, ScaledConfig, StalenessConfig):
 # Is the configuration of one node. The variant selects the symbol rendered for
 # the node and the fields that accompany it.
 NodeConfig = Annotated[
-    CapNodeConfig
-    | FilterNodeConfig
-    | FlowStraightenerNodeConfig
-    | HeaterElementNodeConfig
-    | IsoCapNodeConfig
-    | IsoFilterNodeConfig
-    | NozzleNodeConfig
-    | OrificeNodeConfig
-    | OrificePlateNodeConfig
-    | StrainerNodeConfig
-    | StrainerConeNodeConfig
-    | ThrusterNodeConfig
-    | VentNodeConfig
-    | FlowmeterGeneralNodeConfig
-    | FlowmeterElectromagneticNodeConfig
-    | FlowmeterVariableAreaNodeConfig
-    | FlowmeterCoriolisNodeConfig
-    | FlowmeterNozzleNodeConfig
-    | FlowmeterVenturiNodeConfig
-    | FlowmeterRingPistonNodeConfig
-    | FlowmeterPositiveDisplacementNodeConfig
-    | FlowmeterTurbineNodeConfig
-    | FlowmeterPulseNodeConfig
-    | FlowmeterFloatSensorNodeConfig
-    | FlowmeterOrificeNodeConfig
-    | BoxNodeConfig
+    BoxNodeConfig
     | ButtonNodeConfig
     | CircleNodeConfig
     | GaugeNodeConfig
     | InputNodeConfig
-    | LightNodeConfig
     | LineNodeConfig
     | OffPageReferenceNodeConfig
     | PolygonNodeConfig
@@ -1408,74 +776,30 @@ NodeConfig = Annotated[
     | SetpointNodeConfig
     | StateIndicatorNodeConfig
     | StringDisplayNodeConfig
-    | SwitchNodeConfig
     | TextBoxNodeConfig
     | ValueNodeConfig
-    | AgitatorNodeConfig
-    | CrossBeamAgitatorNodeConfig
-    | FlatBladeAgitatorNodeConfig
-    | HeatExchangerGeneralNodeConfig
-    | HeatExchangerMNodeConfig
-    | HeatExchangerStraightTubeNodeConfig
-    | HelicalAgitatorNodeConfig
-    | PaddleAgitatorNodeConfig
-    | PropellerAgitatorNodeConfig
-    | RotaryMixerNodeConfig
-    | StaticMixerNodeConfig
-    | CavityPumpNodeConfig
-    | CentrifugalCompressorNodeConfig
-    | CompressorNodeConfig
-    | DiaphragmPumpNodeConfig
-    | EjectionPumpNodeConfig
-    | EjectorCompressorNodeConfig
-    | LiquidRingCompressorNodeConfig
-    | PistonPumpNodeConfig
-    | PumpNodeConfig
-    | RollerVaneCompressorNodeConfig
-    | ScrewPumpNodeConfig
-    | TurboCompressorNodeConfig
-    | VacuumPumpNodeConfig
-    | BurstDiscNodeConfig
-    | FlameArrestorNodeConfig
-    | FlameArrestorDetonationNodeConfig
-    | FlameArrestorExplosionNodeConfig
-    | FlameArrestorFireResNodeConfig
-    | FlameArrestorFireResDetonationNodeConfig
-    | IsoBurstDiscNodeConfig
-    | AngledValveNodeConfig
-    | AngledReliefValveNodeConfig
-    | AngledSpringLoadedReliefValveNodeConfig
-    | BallValveNodeConfig
-    | BreatherValveNodeConfig
-    | ButterflyValveOneNodeConfig
-    | ButterflyValveTwoNodeConfig
-    | CheckValveNodeConfig
-    | CheckValveWithArrowNodeConfig
-    | ElectricRegulatorNodeConfig
-    | ElectricRegulatorMotorizedNodeConfig
-    | FourWayValveNodeConfig
-    | GateValveNodeConfig
-    | IsoCheckValveNodeConfig
-    | ManualValveNodeConfig
-    | NeedleValveNodeConfig
-    | RegulatorNodeConfig
-    | RegulatorManualNodeConfig
-    | ReliefValveNodeConfig
-    | SolenoidValveNodeConfig
-    | SpringLoadedReliefValveNodeConfig
-    | ThreeWayValveNodeConfig
-    | ThreeWayBallValveNodeConfig
-    | ValveNodeConfig
-    | CrossJunctionNodeConfig
     | CylinderNodeConfig
     | TankNodeConfig
-    | TJunctionNodeConfig
-    | CustomActuatorNodeConfig
-    | CustomStaticNodeConfig
     | GroupBoxNodeConfig
     | SymbolNodeConfig,
     Field(discriminator="variant"),
 ]
+
+
+class Edge(BaseModel):
+    """Is a connection between two nodes in the schematic.
+
+    Attributes:
+        key: Is the unique edge identifier within the schematic.
+        source: Is the source endpoint of the edge.
+        target: Is the target endpoint of the edge.
+        config: Is the style of the connection and the path it traces.
+    """
+
+    key: str
+    source: Handle
+    target: Handle
+    config: EdgeConfig
 
 
 class Node(BaseModel):

@@ -145,7 +145,7 @@ TEST(ErrorTest, testParseErrorAccessDenied) {
 /// @brief it should describe a status code by its condition when flag bits are set.
 TEST(ErrorTest, ParseErrorDescribesCodeWithFlags) {
     EXPECT_EQ(
-        parse(UA_STATUSCODE_BADTIMEOUT | 0x0400).data,
+        parse(UA_STATUSCODE_BADTIMEOUT | 0x0400).data(),
         "The operation timed out."
     );
 }
@@ -153,7 +153,7 @@ TEST(ErrorTest, ParseErrorDescribesCodeWithFlags) {
 /// @brief it should describe an unknown status code by its name and hex value.
 TEST(ErrorTest, ParseErrorDescribesUnknownCode) {
     EXPECT_EQ(
-        parse(0x80FF0000).data,
+        parse(0x80FF0000).data(),
         "The server returned Unknown StatusCode (0x80FF0000)."
     );
 }

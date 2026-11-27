@@ -10,6 +10,15 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { describe, expect, it } from "vitest";
 
+import { EtherCAT } from "@/feature/ethercat";
+import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
+import { LabJack } from "@/feature/labjack";
+import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
+import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
+import { Sift } from "@/feature/sift";
 import { Task } from "@/feature/task";
 
 describe("parseType", () => {
@@ -32,6 +41,27 @@ describe("parseType", () => {
 
   it("should sentence-case an unprefixed multi-word type", () => {
     expect(Task.parseType("my_custom_type")).toBe("My custom type task");
+  });
+});
+
+// A rack runs a task only when it lists the integration that the task form checks.
+describe("getIntegration", () => {
+  it.each([
+    ["ethercat_read", EtherCAT.Device.INTEGRATION_KEY],
+    ["http_read", HTTP.Device.INTEGRATION_KEY],
+    ["kafka_read", Kafka.Device.INTEGRATION_KEY],
+    ["labjack_read", LabJack.Device.INTEGRATION_KEY],
+    ["modbus_read", Modbus.Device.INTEGRATION_KEY],
+    ["mqtt_read", MQTT.Device.INTEGRATION_KEY],
+    ["ni_analog_read", NI.Device.INTEGRATION_KEY],
+    ["opc_read", OPCUA.Device.INTEGRATION_KEY],
+    ["sift_stream", Sift.Device.INTEGRATION],
+  ])("should give %s the integration %s that its Driver lists", (type, key) => {
+    expect(Task.getIntegration(type)?.prefix).toBe(key);
+  });
+
+  it("should give an Arc task no integration", () => {
+    expect(Task.getIntegration("arc")).toBeUndefined();
   });
 });
 

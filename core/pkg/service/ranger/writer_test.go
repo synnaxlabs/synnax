@@ -206,7 +206,7 @@ var _ = Describe("Writer", func() {
 				err := w.Create(ctx, r)
 				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
 				Expect(err).To(MatchError(
-					"labels: label " + missing.String() + " does not exist: validation error",
+					"labels.0: label " + missing.String() + " does not exist: validation error",
 				))
 			})
 			It("Should add and replace labels", func(ctx SpecContext) {

@@ -23,7 +23,7 @@ import (
 
 type collector struct {
 	confluence.AbstractUnarySource[framer.WriterRequest]
-	stop     chan struct{}
+	stop     <-chan struct{}
 	ins      alamos.Instrumentation
 	metrics  []metric
 	interval time.Duration

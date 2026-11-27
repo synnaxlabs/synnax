@@ -106,7 +106,7 @@ const tick = (core: SyntheticCore): (() => void) => {
 
 // Pins the channel's raw block of the Core's clock, as a subscription to it does.
 const pinOpen = (store: cacheStore.Store, core: SyntheticCore, ch: channel.Key): void =>
-  store.repin(new Set(), new Set([store.raw(ch, block.rawIndex(core.now()))]));
+  store.repin(new Set(), new Set([store.raw(ch, block.rawTile(core.now()))]));
 
 // Returns true when the stream writes both channels into open blocks that hold the same
 // number of samples.
@@ -178,7 +178,7 @@ describe("Joiner", () => {
     try {
       await expect.poll(() => joins.joined(data), POLL).toBe(true);
       // Another channel's block enters the store before the next sample streams.
-      store.raw(other, block.rawIndex(core.now()));
+      store.raw(other, block.rawTile(core.now()));
       core.advance(TimeSpan.milliseconds(100));
       await expect.poll(() => paired(store, data, index), POLL).toBe(true);
       expect(store.open(index)?.coveredCount).toBeGreaterThan(10);

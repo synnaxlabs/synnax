@@ -33,7 +33,7 @@ class OffPageReference(Symbol):
     def set_label(self, label: str) -> None:
         """Set the label via the Properties panel.
 
-        The off-page reference form has a flat layout with the Label field
+        The off-page reference form has a flat layout with the Text field
         directly in Properties (no "Style" tab like other symbols).
         """
         self.click()
@@ -41,7 +41,7 @@ class OffPageReference(Symbol):
         selected_node.wait_for(state="visible", timeout=5000)
         self.layout.show_visualization_toolbar()
         self.open_properties_tab()
-        self.layout.fill_input_field("Label", label)
+        self.layout.fill_input_field("Text", label)
         self.label = label
 
     def _apply_properties(self) -> None:

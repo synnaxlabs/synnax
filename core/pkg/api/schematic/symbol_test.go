@@ -36,7 +36,6 @@ var _ = Describe("Symbol save", func() {
 			Name: "Valve",
 			Data: symbol.Spec{
 				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
-				Variant: "static",
 				Commands: []symbol.Command{{
 					Key:  "vent",
 					Name: "Vent",

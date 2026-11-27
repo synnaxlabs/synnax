@@ -62,7 +62,7 @@ const isTile = (tr: TimeRange): boolean => {
   const level = Math.log2(Number(tr.span.valueOf() / TimeSpan.MILLISECOND.valueOf()));
   return (
     Number.isInteger(level) &&
-    grid.tileRange({ level, index: grid.index(tr.start, level) }).equals(tr)
+    grid.tileRange({ level, tile: grid.tileAt(tr.start, level) }).equals(tr)
   );
 };
 
@@ -201,7 +201,7 @@ describe("Points", () => {
       const level = grid.level(new TimeRange(START, START.add(span)));
       const tile = grid.tileRange({
         level,
-        index: grid.index(START.add(span.mult(2)), level),
+        tile: grid.tileAt(START.add(span.mult(2)), level),
       });
       const limitAt = (end: TimeStamp): framer.PointsLimit => ({
         ...TILED,
@@ -327,9 +327,9 @@ describe("Points", () => {
         await expect.poll(() => joins.joined(key), POLL).toBe(true);
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(servesBuffer, POLL).toBe(true);
-        const block = cacheBlock.rawIndex(core.now());
+        const block = cacheBlock.rawTile(core.now());
         core.advance(TimeSpan.seconds(4));
-        await expect.poll(() => store.open(key)?.index, POLL).toBe(block + 1);
+        await expect.poll(() => store.open(key)?.tile, POLL).toBe(block + 1);
         expect(servesBuffer()).toBe(true);
       } finally {
         await close();
@@ -500,7 +500,7 @@ describe("Points", () => {
         const view = new TimeRange(START, core.now());
         const level = grid.level(view);
         const coarsest = grid.pointLimit({
-          tile: { level, index: grid.index(START, level) },
+          tile: { level, tile: grid.tileAt(START, level) },
           view,
           points: TILED.count,
           drawn: "min_max",
@@ -780,7 +780,7 @@ describe("Points", () => {
       now: TimeStamp,
     ): number => {
       let sum = 0;
-      for (let i = cacheBlock.rawIndex(now) - 2; i <= cacheBlock.rawIndex(now); i++)
+      for (let i = cacheBlock.rawTile(now) - 2; i <= cacheBlock.rawTile(now); i++)
         store
           .findRaw(key, i)
           ?.seriesIn(TimeRange.MAX)
@@ -1203,7 +1203,7 @@ describe("Points", () => {
       try {
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
         const level = grid.level(view);
-        const last = grid.tileRange({ level, index: grid.index(bound.end, level) });
+        const last = grid.tileRange({ level, tile: grid.tileAt(bound.end, level) });
         const { upper } = points.value().series.bounds;
         expect(upper).toBeGreaterThan(Number(bound.end.valueOf()));
         expect(upper).toBeLessThan(Number(last.end.valueOf()));
@@ -1243,11 +1243,11 @@ describe("Points", () => {
     const key = core.data[0].key;
     const span = TimeSpan.minutes(4);
     const level = grid.level(new TimeRange(START, START.add(span)));
-    const index = grid.index(START, level) + 1;
-    const { start } = grid.tileRange({ level, index });
+    const at = grid.tileAt(START, level) + 1;
+    const { start } = grid.tileRange({ level, tile: at });
     const home = new TimeRange(start, start.add(span));
     const pointLimit = grid.pointLimit({
-      tile: { level, index },
+      tile: { level, tile: at },
       view: home,
       points: TILED.count,
       drawn: TILED.aggregation,
@@ -1256,7 +1256,7 @@ describe("Points", () => {
     const tile = cacheTile.storeKey({
       key,
       level,
-      index,
+      tile: at,
       pointLimit,
       aggregation: TILED.aggregation,
     });
@@ -1278,7 +1278,7 @@ describe("Points", () => {
     });
     const key = core.index.key;
     const span = TimeSpan.seconds(10);
-    const first = cacheBlock.rawIndex(core.now().sub(span));
+    const first = cacheBlock.rawTile(core.now().sub(span));
     const points = subscribe(key, dynamicWindow(span), RAW);
     try {
       await expect.poll(() => points.value().status.variant, POLL).toBe("success");
@@ -1330,11 +1330,11 @@ describe("Points", () => {
     const key = core.data[0].key;
     const span = TimeSpan.minutes(4);
     const level = grid.level(new TimeRange(START, START.add(span)));
-    const index = grid.index(START, level) + 1;
-    const { start } = grid.tileRange({ level, index });
+    const at = grid.tileAt(START, level) + 1;
+    const { start } = grid.tileRange({ level, tile: at });
     const home = new TimeRange(start, start.add(span));
     const pointLimit = grid.pointLimit({
-      tile: { level, index },
+      tile: { level, tile: at },
       view: home,
       points: TILED.count,
       drawn: TILED.aggregation,
@@ -1343,7 +1343,7 @@ describe("Points", () => {
     const uncut = cacheTile.storeKey({
       key,
       level,
-      index,
+      tile: at,
       pointLimit,
       aggregation: TILED.aggregation,
     });
@@ -1356,7 +1356,7 @@ describe("Points", () => {
       const shifted = new TimeRange(home.start.add(shift), home.end.add(shift));
       // The cut keeps the whole tile's key, so only the cut check stops the pin.
       const cutLimit = grid.pointLimit({
-        tile: { level, index, start: shifted.start },
+        tile: { level, tile: at, start: shifted.start },
         view: shifted,
         points: TILED.count,
         drawn: TILED.aggregation,
