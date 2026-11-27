@@ -285,8 +285,8 @@ func identifierBits(id icd.FieldIdentifier, p icd.BinaryPayload) (bitRange, erro
 }
 
 // Decode finds the message that data, one payload, belongs to by its identifier fields
-// and appends one sample for each of its bindings to samples[message]. samples is as
-// in JSON.Decode. ok is false, and Decode appends nothing, when data belongs to no
+// and appends one sample for each of its bindings to samples[message]. samples is as in
+// JSON.Decode. ok is false, and Decode appends nothing, when data belongs to no
 // message. Decode returns an error wrapping validate.ErrValidation, appending nothing,
 // with the first of the messages, when data meets the identifiers of two messages.
 //
