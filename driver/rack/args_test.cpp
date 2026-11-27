@@ -120,9 +120,9 @@ TEST(ArgsTest, CoreWarningDelayEnv) {
     EXPECT_EQ(cfg.manager.core_warning_delay, x::telem::SECOND * 7);
 }
 
-/// @brief it should reject a Core warning delay of zero or over an hour.
+/// @brief it should reject a Core warning delay of zero, over an hour, or not finite.
 TEST(ArgsTest, RejectOutOfRangeCoreWarningDelay) {
-    for (const auto *delay: {"0", "-1", "3601"}) {
+    for (const auto *delay: {"0", "-1", "3601", "1e300", "nan", "inf", "1e-12"}) {
         x::errors::Error err;
         load({"--core-warning-delay", delay}, err);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);

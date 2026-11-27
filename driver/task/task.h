@@ -456,14 +456,18 @@ struct ManagerConfig {
             "core_warning_delay",
             this->core_warning_delay.seconds()
         );
-        this->core_warning_delay = x::telem::TimeSpan(
-            static_cast<int64_t>(core_warning_delay_s * 1e9)
-        );
-        if (this->core_warning_delay <= x::telem::TimeSpan::ZERO() ||
-            this->core_warning_delay > MAX_CORE_WARNING_DELAY)
+        // The cast is undefined for NaN or a value out of range, so check first.
+        const auto core_warning_delay_ns = core_warning_delay_s * 1e9;
+        if (!(core_warning_delay_ns >= 1 &&
+              core_warning_delay_ns <=
+                  static_cast<double>(MAX_CORE_WARNING_DELAY.nanoseconds())))
             p.field_err(
                 "core_warning_delay",
                 "must be more than 0 and at most 3600 seconds"
+            );
+        else
+            this->core_warning_delay = x::telem::TimeSpan(
+                static_cast<int64_t>(core_warning_delay_ns)
             );
     }
 
