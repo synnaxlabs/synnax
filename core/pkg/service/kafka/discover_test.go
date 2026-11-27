@@ -102,6 +102,13 @@ var _ = Describe("Discover", func() {
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
 	}
 
+	// deadSeedFirst returns the brokers of the suite cluster after a seed broker that
+	// does
+	// not answer. No network routes 192.0.2.1, a documentation address.
+	deadSeedFirst := func() []string {
+		return append([]string{"192.0.2.1:9092"}, cluster.ListenAddrs()...)
+	}
+
 	// expectUnreachable checks that stat answers a command to a cluster whose only seed
 	// broker, at addr, does not answer.
 	expectUnreachable := func(stat task.Status, addr string) {
@@ -205,10 +212,11 @@ var _ = Describe("Discover", func() {
 			func(ctx SpecContext) {
 				topic := uniqueTopic()
 				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
-				// No network routes 192.0.2.1, a documentation address.
-				brokers := append([]string{"192.0.2.1:9092"}, cluster.ListenAddrs()...)
-				topics := browse(ctx, kafka.Properties{Brokers: brokers})
-				Expect(named(topics, topic).Name).To(Equal(topic))
+				produceJSON(ctx, newKafkaClient(), topic, "", map[string]int{"v": 1})
+				topics := browse(ctx, kafka.Properties{Brokers: deadSeedFirst()})
+				browsed := named(topics, topic)
+				Expect(browsed.Error).To(BeEmpty())
+				Expect(browsed.Newest).ToNot(BeZero())
 			},
 		)
 
@@ -401,6 +409,24 @@ var _ = Describe("Discover", func() {
 			expectAnswered(stat)
 			return res.Topics, res.Truncated
 		}
+
+		It("Should sample a cluster with a seed broker that does not answer",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				produceJSON(ctx, newKafkaClient(), topic, "", map[string]int{"v": 1})
+				var res struct {
+					Topics []sampledTopic `json:"topics"`
+				}
+				dev := createDevice(ctx, kafka.Properties{Brokers: deadSeedFirst()})
+				expectAnswered(command(ctx, "sample", map[string]any{
+					"device": dev.Key,
+					"topics": []string{topic},
+				}, &res))
+				Expect(res.Topics[0].Error).To(BeEmpty())
+				Expect(res.Topics[0].Records).To(HaveLen(1))
+			},
+		)
 
 		It("Should infer one shape for each set of keys", func(ctx SpecContext) {
 			topic := uniqueTopic()

@@ -76,9 +76,11 @@ func dialSeed(ctx context.Context, brokers []string) (net.Conn, string, error) {
 	return nil, "", unreachable(brokers, errs)
 }
 
-// reachSeed dials every seed broker of brokers at once and returns the address of the
-// first that takes a TCP connection. It fails as dialSeed does when none does.
-func reachSeed(ctx context.Context, brokers []string) (string, error) {
+// reachCluster dials every seed broker of props at once and returns props with only the
+// first that takes a TCP connection, so that each client of the result starts from a
+// broker that answers. It fails as dialSeed does when no seed broker answers.
+func reachCluster(ctx context.Context, props Properties) (Properties, error) {
+	brokers := props.Brokers
 	ctx, cancel := context.WithTimeout(ctx, stageTimeout)
 	defer cancel()
 	var dialer net.Dialer
@@ -96,10 +98,11 @@ func reachSeed(ctx context.Context, brokers []string) (string, error) {
 	}
 	for range brokers {
 		if i := <-done; errs[i] == nil {
-			return withPort(brokers[i]), nil
+			props.Brokers = []string{withPort(brokers[i])}
+			return props, nil
 		}
 	}
-	return "", unreachable(brokers, errs)
+	return Properties{}, unreachable(brokers, errs)
 }
 
 // unreachable returns the failure for seed brokers that each failed to connect with the
