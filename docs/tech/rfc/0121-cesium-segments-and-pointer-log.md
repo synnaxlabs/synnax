@@ -808,7 +808,9 @@ its first write of the key, the key moves into that session's writer through
   check takes the failure path of the open check (§5.5 step 10, D-482): a Tombstone per
   pointer from the first sample in the bad range, over the same stamp range on every key
   that the clock times, then a Seal, and an error to the error handler (§7). The key
-  then starts a new segment. Two writers on one key at once have two open segments. No
+  then starts a new segment. At a handoff the gainer takes the loser's running CRC and
+  sample cursor from memory instead and checks nothing, so a handoff does no file I/O on
+  the frame path (D-475 (2)). Two writers on one key at once have two open segments. No
   segment file is made on the frame path. A writer makes at open the files of its new
   clocks and of each key new to a clock, a key that another writer holds included. A
   handoff makes a spare file for the key on the clock of the writer that loses it, so a
