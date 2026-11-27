@@ -218,6 +218,7 @@ var _ = Describe("Task", Ordered, func() {
 				racktestutil.CreateDriverRole(ctx, db, roleSvc),
 			),
 		}))
+		StartRun(rackService.Run)
 		secrets := secrettestutil.OpenService(ctx, db)
 		createRoutingKeys(ctx, db, secrets, routingKey1, routingKey2)
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{

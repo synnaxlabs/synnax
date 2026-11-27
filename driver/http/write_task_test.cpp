@@ -253,8 +253,9 @@ TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
     EXPECT_NE(err2.data().find("duplicate header"), std::string::npos);
 }
 
-/// @brief a header entry may omit the value field; it defaults to an empty string.
-TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
+/// @brief it should fail when a header entry has no value, since a blank header is
+/// never what a user means.
+TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
     synnax::task::Task task;
     task.config = {
         {"device", "dev-001"},
@@ -265,10 +266,12 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueDefaultsEmpty) {
              {"headers", {{{"name", "X-Key"}}}},
          }}},
     };
-    auto cfg = ASSERT_NIL_P(WriteTaskConfig::parse(task));
-    ASSERT_EQ(cfg.endpoints[0].headers.size(), 1);
-    EXPECT_EQ(cfg.endpoints[0].headers.at(0).name, "X-Key");
-    EXPECT_EQ(cfg.endpoints[0].headers.at(0).value, "");
+    auto [_, err] = WriteTaskConfig::parse(task);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data(),
+        R"({"errors":[{"message":"this field is required","path":"endpoints.headers.value"}]})"
+    );
 }
 
 /// @brief it should fail when a query_params entry is missing the parameter field.

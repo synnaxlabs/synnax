@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/testutil/testutil.h"
@@ -15,10 +17,13 @@
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
+/// @returns a port path that names no device on this platform.
+std::string missing_port();
+
 /// @brief it should fail to open a port that does not exist.
 TEST(Port, FailsToOpenAMissingPort) {
     synnax::serial::Properties p;
-    p.port = "/dev/synnax-missing-port";
+    p.port = missing_port();
     const auto [port, err] = Port::open(p);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_TRUE(err.data().starts_with("failed to open serial port " + p.port + ": "))
@@ -28,7 +33,7 @@ TEST(Port, FailsToOpenAMissingPort) {
 /// @brief it should refuse invalid settings before it opens the port.
 TEST(Port, RefusesInvalidSettingsBeforeItOpensThePort) {
     synnax::serial::Properties p;
-    p.port = "/dev/synnax-missing-port";
+    p.port = missing_port();
     p.data_bits = 9;
     const auto [port, err] = Port::open(p);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);

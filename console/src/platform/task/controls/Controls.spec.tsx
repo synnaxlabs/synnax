@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, task } from "@synnaxlabs/client";
+import { type rack, type status, task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, id } from "@synnaxlabs/x";
@@ -276,6 +276,48 @@ describe("Controls.Controls", () => {
     expect(await screen.findByText("Copy diagnostics")).toBeTruthy();
     fireEvent.click(screen.getByText("Running smoothly"));
     await waitFor(() => expect(screen.queryByText("Copy diagnostics")).toBeNull());
+  });
+
+  describe("start name", () => {
+    /** @returns a stopped task whose status reports hash deployed. */
+    const stoppedValues = (deployed?: string, variant: status.Variant = "success") => ({
+      key: "1",
+      rack: 2,
+      config: CONFIG,
+      configHash: CONFIG_HASH,
+      ...(deployed != null && {
+        status: createTaskStatus({
+          variant,
+          details: { running: false, configHash: deployed, rack: 2 },
+        }),
+      }),
+    });
+
+    it.each<[string, string, string | undefined, status.Variant?]>([
+      ["Deploy and start", "a task that never ran", undefined],
+      ["Deploy and start", "a config that changed since the task last ran", "stale"],
+      ["Deploy and start", "a start that built no instance", "", "error"],
+      ["Start", "the config that the task last ran", CONFIG_HASH],
+      ["Start", "the config whose run ended in an error", CONFIG_HASH, "error"],
+    ])("should name the start button %s for %s", async (name, _, deployed, variant) => {
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client, values: stoppedValues(deployed, variant) },
+      );
+      const start = await findIconButton(container, "play");
+      await waitFor(() => expect(start.getAttribute("aria-label")).toBe(name));
+    });
+
+    it("should name the start button Deploy and start for a user who cannot edit", async () => {
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client, values: stoppedValues("stale"), mode: "preview" },
+      );
+      const start = await findIconButton(container, "play");
+      await waitFor(() =>
+        expect(start.getAttribute("aria-label")).toBe("Deploy and start"),
+      );
+    });
   });
 
   describe("settings", () => {

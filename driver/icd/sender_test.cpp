@@ -194,8 +194,24 @@ TEST(Sender, SendsOneMessageForCommandsOnSeveralChannels) {
 TEST(Sender, WaitsForeverWithNoPeriod) {
     auto s = ASSERT_NIL_P(setpoints().create());
     Wire t;
+    ASSERT_FALSE(s.periodic());
     ASSERT_EQ(ASSERT_NIL_P(s.send(t)), x::telem::TimeSpan::max());
     ASSERT_TRUE(t.writes.empty());
+}
+
+/// @brief it should be periodic when any target has a period.
+TEST(Sender, IsPeriodicWhenATargetHasAPeriod) {
+    const auto once = setpoints();
+    const auto every = periodic();
+    auto s = ASSERT_NIL_P(
+        Sender::create(
+            {once.target, every.target},
+            {once.ic, every.ic},
+            {{2, once.channels.at(2)}, {3, once.channels.at(3)}},
+            false
+        )
+    );
+    ASSERT_TRUE(s.periodic());
 }
 
 /// @brief it should send the last command of each field once per period, and the

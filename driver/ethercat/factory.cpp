@@ -222,7 +222,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
     x::json::Parser parser(task.config);
     ScanTaskConfig cfg(parser);
     if (parser.error()) return {std::move(result), parser.error()};
-    result.auto_start = !cfg.disabled;
+    result.auto_start = true;
     if (auto err = this->pool->check_available()) return {std::move(result), err};
     auto scanner = std::make_unique<Scanner>(
         ctx,
@@ -236,7 +236,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.rate
+        cfg
     );
     return {std::move(result), x::errors::NIL};
 }

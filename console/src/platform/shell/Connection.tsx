@@ -59,7 +59,7 @@ export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
     core != null &&
     client.params.host === core.host &&
     Number(client.params.port) === Number(core.port) &&
-    (core.secure ?? false) === client.params.secure;
+    (core.secure ?? true) === client.params.secure;
   const checked = Synnax.useCheckConnection(
     isActive || core == null
       ? null

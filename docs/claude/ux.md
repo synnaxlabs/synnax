@@ -280,6 +280,9 @@ in a color picker has no "+".
 - A field in a row, or beside another field, has no help text. Its control shows the
   error, and the message shows on hover. A control with a border gets a red border. A
   control with no border, such as a text select or a button group, gets red text.
+- A line under a pair of fields can explain the pair as a whole, such as "The task sends
+  (value − offset) ÷ scale." under the Scale and Offset of a commanded write field. It
+  starts at the first control.
 - An error about the whole form, such as a refused login, shows in an error note under
   the submit button. The note keeps its space while empty, so nothing moves when it
   shows. It is one plain sentence ("Incorrect username or password."), and it is empty

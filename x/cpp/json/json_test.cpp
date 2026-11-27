@@ -1911,6 +1911,17 @@ TEST(testConfig, testStaticParseRejectsScalar) {
     }
 }
 
+/// @brief it should bind a child's own error to the child's path, with no separator.
+TEST(testConfig, testStaticParseErrorPath) {
+    Parser parser(json{{"outer", {{"scalar", "bad"}, {"object", 1}}}});
+    auto outer = parser.child("outer");
+    outer.field<ScalarWrapper>("scalar");
+    outer.field<DefaultedFields>("object");
+    ASSERT_EQ(parser.errors->size(), 2);
+    EXPECT_EQ(parser.errors->at(0)["path"], "outer.scalar");
+    EXPECT_EQ(parser.errors->at(1)["path"], "outer.object");
+}
+
 /// @brief it should bind one error when a keyed parse receives an array.
 TEST(testConfig, testStaticParseRejectsArray) {
     Parser parser(json{{"child", json::array()}});

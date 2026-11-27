@@ -125,4 +125,10 @@ std::pair<x::telem::TimeSpan, x::errors::Error> Sender::send(transport::Transpor
     }
     return {wait, transport_err ? transport_err : error};
 }
+
+bool Sender::periodic() const {
+    return std::ranges::any_of(this->deliveries, [](const Delivery &d) {
+        return d.period.has_value();
+    });
+}
 }

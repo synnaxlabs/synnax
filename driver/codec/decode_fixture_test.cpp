@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -27,6 +28,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/codec/binary.h"
 #include "driver/codec/errors.h"
 #include "driver/codec/json.h"
 #include "driver/codec/testutil/fixture.h"
@@ -39,9 +41,9 @@ using testutil::raw_at;
 using testutil::required_at;
 using testutil::string_at;
 
-/// @brief the Core's decode fixtures. Each holds the JSON or text messages of one
-/// source and either the error that creating a decoder for them returns, or the
-/// documents or lines they decode.
+/// @brief the Core's decode fixtures. Each holds the JSON, text, or binary messages of
+/// one source and either the error that creating a decoder for them returns, or the
+/// documents, lines, or frames they decode.
 const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata/decode";
 
 /// @brief the start of the text of an error from Go's JSON syntax parser. The Driver
@@ -88,8 +90,30 @@ nlohmann::json sample_json(const x::telem::Series &s) {
     return nullptr;
 }
 
+/// @brief decodes case c with dec: the frame of its hex, with its CAN identifier when
+/// it has an id, or else its text or document.
+template<typename Decoder>
+std::pair<std::optional<std::size_t>, x::errors::Error>
+decode_input(Decoder &dec, const std::string &doc, const std::string &c) {
+    if constexpr (std::is_same_v<Decoder, Binary>) {
+        const auto frame = testutil::bytes_at(doc, c + "/hex");
+        const auto id = raw_at(doc, c + "/id");
+        if (!id.has_value()) return dec.decode(frame);
+        return dec.decode(
+            testutil::integer_of<std::uint32_t>(*id),
+            raw_at(doc, c + "/extended") == "true",
+            frame
+        );
+    } else {
+        if (raw_at(doc, c + "/text").has_value())
+            return dec.decode(string_at(doc, c + "/text"));
+        return dec.decode(required_at(doc, c + "/document"));
+    }
+}
+
 /// @brief checks the decode of one case of a fixture. A case with an error and a
-/// message checks that the document fails after it matches that message.
+/// message checks that the document fails after it matches that message. A null sample
+/// checks that its binding has no sample.
 template<typename Decoder, typename Message>
 void check_case(
     Decoder &dec,
@@ -97,10 +121,7 @@ void check_case(
     const std::string &doc,
     const std::string &c
 ) {
-    const auto document = raw_at(doc, c + "/text").has_value()
-                            ? string_at(doc, c + "/text")
-                            : required_at(doc, c + "/document");
-    const auto [message, decode_err] = dec.decode(document);
+    const auto [message, decode_err] = decode_input(dec, doc, c);
     // The Core fails a document on the first field that does not decode.
     auto err = decode_err;
     if constexpr (std::is_same_v<Decoder, JSON>)
@@ -133,6 +154,10 @@ void check_case(
     const auto &samples = dec.samples(want);
     ASSERT_EQ(samples.size(), expected.size());
     for (std::size_t k = 0; k < samples.size(); k++) {
+        if (expected[k].is_null()) {
+            ASSERT_TRUE(samples[k].empty()) << "binding " << k;
+            continue;
+        }
         ASSERT_EQ(samples[k].size(), 1) << "binding " << k;
         ASSERT_EQ(sample_json(samples[k]), expected[k]) << "binding " << k;
     }
@@ -167,13 +192,15 @@ void check_fixture(const std::filesystem::path &path) {
         check_codec<JSON, JSONMessage>(doc);
     else if (format == "text")
         check_codec<Text, TextMessage>(doc);
+    else if (format == "binary")
+        check_codec<Binary, BinaryMessage>(doc);
     else
         FAIL() << "unknown payload format " << format;
 }
 }
 
-/// @brief it should decode the documents or lines of every decode fixture of the Core,
-/// or reject its messages with the same error.
+/// @brief it should decode the documents, lines, or frames of every decode fixture of
+/// the Core, or reject its messages with the same error.
 TEST(DecodeFixtures, MatchTheCore) {
     const auto paths = testutil::fixture_paths(FIXTURES);
     ASSERT_FALSE(paths.empty());

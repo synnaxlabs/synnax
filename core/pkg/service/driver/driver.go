@@ -387,6 +387,8 @@ func (d *Driver) ackFailure(
 	cmd task.Command,
 	message, description string,
 ) {
+	// No instance runs, so the status carries no config hash.
+	t.ConfigHash = ""
 	if sErr := NewStatusHandler(d.cfg.DB, d.cfg.Status, t).Send(
 		ctx,
 		cmd.Key,

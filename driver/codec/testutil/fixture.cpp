@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -30,6 +32,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/codec/binary.h"
 #include "driver/codec/json.h"
 #include "driver/codec/testutil/fixture.h"
 #include "driver/codec/text.h"
@@ -38,6 +41,8 @@ namespace driver::codec::testutil {
 namespace {
 /// @brief the suffix of a Go validation error, which a C++ error keeps in its type.
 constexpr std::string_view VALIDATION_SUFFIX = ": validation error";
+
+constexpr std::string_view HEX_DIGITS = "0123456789abcdef";
 }
 
 std::optional<std::string> raw_at(const std::string &doc, const std::string &pointer) {
@@ -63,6 +68,21 @@ std::string string_at(const std::string &doc, const std::string &pointer) {
     return out;
 }
 
+std::vector<std::uint8_t> bytes_at(const std::string &doc, const std::string &pointer) {
+    std::string hex;
+    EXPECT_NIL(x::json::unquote(required_at(doc, pointer), hex));
+    EXPECT_EQ(hex.find_first_not_of(HEX_DIGITS), std::string::npos) << hex;
+    EXPECT_EQ(hex.size() % 2, 0) << hex;
+    std::vector<std::uint8_t> bytes;
+    for (std::size_t i = 0; i + 1 < hex.size(); i += 2)
+        bytes.push_back(
+            static_cast<std::uint8_t>(
+                (HEX_DIGITS.find(hex[i]) << 4) | HEX_DIGITS.find(hex[i + 1])
+            )
+        );
+    return bytes;
+}
+
 std::string error_data(const std::string &go) {
     EXPECT_TRUE(go.ends_with(VALIDATION_SUFFIX)) << go;
     return go.substr(0, go.size() - VALIDATION_SUFFIX.size());
@@ -86,6 +106,7 @@ Message parse_message(const nlohmann::json &m) {
 
 template JSONMessage parse_message<JSONMessage>(const nlohmann::json &m);
 template TextMessage parse_message<TextMessage>(const nlohmann::json &m);
+template BinaryMessage parse_message<BinaryMessage>(const nlohmann::json &m);
 
 std::string read_fixture(const std::filesystem::path &path) {
     std::ifstream file(path);

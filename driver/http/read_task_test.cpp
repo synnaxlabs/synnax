@@ -320,6 +320,20 @@ TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
     EXPECT_NE(err.data().find("duplicate header"), std::string::npos);
 }
 
+/// @brief it should fail when a header entry has an empty value.
+TEST(HTTPReadTask, ParseConfigHeaderEmptyValueErrors) {
+    auto [_, err] = ReadTaskConfig::parse(create_task({{
+        {"method", "GET"},
+        {"path", "/api/data"},
+        {"headers", {{{"name", "Content-Type"}, {"value", ""}}}},
+    }}));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(
+        err.data(),
+        R"({"errors":[{"message":"this field is required","path":"endpoints.headers.value"}]})"
+    );
+}
+
 /// @brief it should fail when duplicate query parameter names exist.
 TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
     auto [_, err] = ReadTaskConfig::parse(create_task({{
