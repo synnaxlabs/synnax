@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Source", func() {
@@ -286,6 +287,110 @@ var _ = Describe("Source", func() {
 			twoReads(ctx, typeMatch("alarm")).Groups(),
 			func(g read.Group, _ int) string { return g.Message },
 		)).To(Equal([]string{"Reading", "Alarm"}))
+	})
+
+	Describe("Text and binary messages", func() {
+		var (
+			level = icd.TextField{Variant: icd.DelimitedTextField{
+				TextBaseField: icd.TextBaseField{
+					BaseField: icd.BaseField{Key: uuid.New(), Name: "level", Scale: 1},
+				},
+				Position: 1,
+			}}
+			line = icd.Message{
+				Key:  uuid.New(),
+				Name: "Line",
+				Payload: icd.Payload{Variant: icd.TextPayload{
+					Delimiter: ",", Prefix: "L", Fields: []icd.TextField{level},
+				}},
+			}
+			flow = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+				BinaryBaseField: icd.BinaryBaseField{
+					BaseField: icd.BaseField{Key: uuid.New(), Name: "flow", Scale: 1},
+					BitLength: 16,
+					ByteOrder: icd.ByteOrderLittleEndian,
+				},
+			}}
+			frame = icd.Message{
+				Key:  uuid.New(),
+				Name: "Frame",
+				Payload: icd.Payload{Variant: icd.BinaryPayload{
+					Fields: []icd.BinaryField{flow},
+				}},
+			}
+			plant = icd.ICD{
+				Key: uuid.New(), Name: "Plant", Messages: []icd.Message{line, frame},
+			}
+			lineRead = readOf(line, icd.ReadBinding{
+				Field: level.Base().Key, Channel: levelCh,
+			})
+			frameRead = readOf(frame, icd.ReadBinding{
+				Field: flow.Base().Key, Channel: flowCh,
+			})
+		)
+
+		It("Should decode a line of a text message", func(ctx SpecContext) {
+			src := bindRead(ctx, plant, lineRead)
+			Expect(src.Format()).To(Equal(payload.FormatText))
+			samples, ok := MustSucceed2(src.Decode([]byte("L,2.5")))
+			Expect(ok).To(BeTrue())
+			Expect(samples).To(Equal([]read.Sample{
+				{Group: 0, Data: [][]byte{f64(2.5)}},
+			}))
+		})
+
+		It("Should drop the group of a text field that does not decode", func(
+			ctx SpecContext,
+		) {
+			samples, ok, err := bindRead(ctx, plant, lineRead).Decode([]byte("L,high"))
+			Expect(ok).To(BeTrue())
+			Expect(err).To(MatchError(
+				`field level: invalid number "high": validation error`,
+			))
+			Expect(samples).To(BeEmpty())
+		})
+
+		It("Should decode a payload of a binary message", func(ctx SpecContext) {
+			src := bindRead(ctx, plant, frameRead)
+			Expect(src.Format()).To(Equal(payload.FormatBinary))
+			samples, ok := MustSucceed2(src.Decode([]byte{0x10, 0x01}))
+			Expect(ok).To(BeTrue())
+			Expect(samples).To(Equal([]read.Sample{
+				{Group: 0, Data: [][]byte{f64(272)}},
+			}))
+		})
+
+		It("Should drop the group of a binary field that the payload is too short for",
+			func(ctx SpecContext) {
+				samples, ok, err := bindRead(ctx, plant, frameRead).Decode([]byte{0x10})
+				Expect(ok).To(BeTrue())
+				Expect(err).To(MatchError(
+					"field flow: the payload has 1 bytes and the field needs 2: " +
+						"validation error",
+				))
+				Expect(samples).To(BeEmpty())
+			},
+		)
+
+		It("Should give the format of a read of JSON messages", func(ctx SpecContext) {
+			Expect(newSource(ctx, mixedRead).Format()).To(Equal(payload.FormatJSON))
+		})
+
+		It("Should reject a read of messages of different formats", func(
+			ctx SpecContext,
+		) {
+			rd := readAt(0, plant.Key, lineRead, frameRead)
+			c := MustSucceed(resolver.NewChecker(
+				ctx, db, []read.Read{rd}, nil, map[icd.Key]icd.ICD{plant.Key: plant},
+			))
+			Expect(c.Read(rd)).To(Succeed())
+			Expect(c.Bind(rd)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					"reads.0.messages.1: messages Line and Frame have different formats",
+				),
+			))
+		})
 	})
 
 	DescribeTable("Should give the keys of a group with its index channel first",

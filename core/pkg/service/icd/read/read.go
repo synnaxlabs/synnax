@@ -40,8 +40,7 @@ type Read struct {
 	// Messages are the messages to read and the channel of each field.
 	Messages []icd.ReadMessage
 	// Framed is true when the task splits a byte stream into messages with the framing
-	// of the ICD. The Driver then decodes binary and text messages as well as JSON, and
-	// an edit to the framing changes the hash.
+	// of the ICD, so an edit to the framing changes the hash.
 	Framed bool
 }
 
@@ -199,7 +198,7 @@ func (c Checker) Read(rd Read) error {
 	}
 	for j, rm := range rd.Messages {
 		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
-		if err := c.message(rm, ic, rd.Framed, path); err != nil {
+		if err := c.message(rm, ic, path); err != nil {
 			return err
 		}
 	}
@@ -250,8 +249,8 @@ func (c Checker) Tag(
 // config, so that a claim error is at the path of the message that does not bind the
 // index channel. Bind returns a validation error at the path of the problem when the
 // ICD of rd or the channel of a binding does not exist, a binding has no channel, rd
-// reads no messages, a message binds no fields, or the decoder cannot tell two messages
-// apart.
+// reads no messages, a message binds no fields, two messages have different formats, or
+// the decoder cannot tell two messages apart.
 func (c Checker) Bind(rd Read) (*Source, error) {
 	ic, ok := c.icds[rd.ICD]
 	if !ok {
@@ -325,14 +324,8 @@ func (c Checker) BindTag(key channel.Key, path []string) (icdv0.Channel, error) 
 }
 
 // message checks rm, at path, against its message in ic and the channels of its
-// bindings, and claims each channel of a binding. A message that is not JSON passes
-// only when framed is true.
-func (c Checker) message(
-	rm icd.ReadMessage,
-	ic icd.ICD,
-	framed bool,
-	path []string,
-) error {
+// bindings, and claims each channel of a binding.
+func (c Checker) message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
 	at := func(err error, segment string) error {
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
@@ -345,12 +338,6 @@ func (c Checker) message(
 		), "message")
 	}
 	msg := ic.Messages[i]
-	if _, isJSON := msg.Payload.Variant.(icd.JSONPayload); !isJSON && !framed {
-		return at(
-			validate.Errorf("message %s is not a JSON message", msg.Name),
-			"message",
-		)
-	}
 	fields := fieldsOf(msg.Payload)
 	if rm.Index != nil {
 		if err := checkIndex(rm, fields, msg.Name); err != nil {

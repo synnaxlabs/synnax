@@ -302,10 +302,10 @@ var _ = Describe("Read", func() {
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
-			It("Should accept a framed read of binary and text messages", func(
+			It("Should accept a read of binary and text messages", func(
 				ctx SpecContext,
 			) {
-				Expect(check(ctx, framed(readAt(0, plant.Key,
+				Expect(check(ctx, readAt(0, plant.Key,
 					readOf(
 						frame,
 						icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
@@ -319,7 +319,7 @@ var _ = Describe("Read", func() {
 					readOf(line, icd.ReadBinding{
 						Field: volts.Base().Key, Channel: levelKey,
 					}),
-				)))).To(Succeed())
+				))).To(Succeed())
 			})
 
 			DescribeTable("Should reject a framed read with the path of the problem",
@@ -406,11 +406,6 @@ var _ = Describe("Read", func() {
 				Entry("a message that the ICD lacks",
 					icd.ReadMessage{Message: uuid.New()},
 					"reads.0.messages.0.message", "does not exist in ICD Plant",
-				),
-				Entry("a message that is not JSON",
-					readOf(frame),
-					"reads.0.messages.0.message",
-					"message Frame is not a JSON message",
 				),
 				Entry("a field that the message lacks",
 					readOf(status, icd.ReadBinding{Field: uuid.New()}),
