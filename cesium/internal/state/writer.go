@@ -458,6 +458,11 @@ func (*refusedRequest) fail(error) {}
 
 func (r *refusedRequest) run(s *State) {
 	for _, rec := range r.records {
+		if seal, ok := rec.(*log.Seal); ok {
+			s.sealing.Remove(seal.Segment)
+		}
+	}
+	for _, rec := range r.records {
 		if _, ok := rec.(*log.Reserve); ok {
 			s.core.reserved = s.core.limits
 			s.idBlocks, s.alignBlocks = s.refusedBlocks[0], s.refusedBlocks[1]
@@ -722,6 +727,7 @@ func (r *switchRequest) run(s *State) {
 		var e log.Entry
 		for i := range seals {
 			e.Add(&seals[i])
+			s.sealing.Add(seals[i].Segment)
 		}
 		s.cfg.Append(&e)
 	}

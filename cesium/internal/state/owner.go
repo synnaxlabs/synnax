@@ -91,6 +91,9 @@ type State struct {
 	entry         log.Entry
 	// parked holds the requests that wait for a durable Reserve.
 	parked []request
+	// sealing holds the segments of the Seals that the owner logged and that the log
+	// has yet to make durable or refuse, so the owner logs one Seal of each.
+	sealing set.Set[uint64]
 }
 
 // Open returns the state of the durable state head, in replay mode. It returns an error
@@ -106,6 +109,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 		wake:    make(chan struct{}, 1),
 		exit:    make(chan struct{}),
 		stepped: make(chan bool, 1),
+		sealing: set.Set[uint64]{},
 	}
 	if err := s.core.load(head); err != nil {
 		return nil, err
@@ -317,11 +321,49 @@ func (r *durableRequest) run(s *State) {
 		s.fail(err)
 		return
 	}
+	s.sealDeleted(r.records)
 	if invariants.Enabled {
 		s.checkCommits(r.records)
 	}
 	if len(s.parked) > 0 {
 		s.unpark()
+	}
+}
+
+// sealDeleted logs the Seal of each open segment that no writer holds and that a
+// Tombstone of records left with no live pointer, so its file goes once the Seal is
+// durable. The entry may use the delete reserve, since on a full disk no switch comes
+// to
+// seal the segment. It first forgets the owner's Seals among records.
+func (s *State) sealDeleted(records []log.Record) {
+	var e log.Entry
+	for _, rec := range records {
+		switch r := rec.(type) {
+		case *log.Seal:
+			s.sealing.Remove(r.Segment)
+		case *log.Tombstone:
+			ch := s.core.channels[r.Key]
+			if ch == nil {
+				continue
+			}
+			for _, seg := range ch.segs {
+				if seg.holder != nil || seg.dur.sealed || !seg.dur.created ||
+					len(seg.dur.pointers) > 0 || s.sealing.Contains(seg.vis.ID) {
+					continue
+				}
+				seg.vis.Sealed = true
+				s.sealing.Add(seg.vis.ID)
+				e.AddDeleteSeal(&log.Seal{
+					Segment: seg.vis.ID,
+					Length:  seg.dur.length,
+					TailCRC: seg.dur.tailCRC,
+				})
+			}
+			ch.publish()
+		}
+	}
+	if e.Len() > 0 {
+		s.cfg.Append(&e)
 	}
 }
 
