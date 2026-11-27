@@ -10,14 +10,13 @@
 package telem
 
 import (
+	"fmt"
 	"uuid"
 
 	"github.com/synnaxlabs/x/telem/versions"
 )
 
 const (
-	// UnknownT is an unknown data type.
-	UnknownT DataType = versions.UnknownT
 	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
 	Uint8T DataType = versions.Uint8T
 	// Uint16T is a data type for a 16-bit unsigned integer.
@@ -89,7 +88,6 @@ func InferDataType[T Sample]() DataType {
 	case []byte:
 		return BytesT
 	default:
-		// degenerate case, should never hit this path.
-		return UnknownT
+		panic(fmt.Sprintf("telem: no data type for sample type %T", t))
 	}
 }

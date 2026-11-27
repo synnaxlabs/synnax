@@ -1089,7 +1089,7 @@ var _ = Describe("TDMS", func() {
 			ctx SpecContext,
 		) {
 			index, channels := createIndexed(ctx, telem.Float32T)
-			channels[0].DataType = telem.UnknownT
+			channels[0].DataType = "custom"
 			Expect(framer.NewTDMSEncoder(ctx).Encode(read(ctx, index, channels...))).
 				Error().To(MatchError(ContainSubstring("has no TDMS form")))
 		})

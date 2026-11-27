@@ -157,8 +157,6 @@ func (c *column) value(a telem.Alignment) *ingestv1.IngestWithConfigDataChannelV
 		return stringValue(string(c.variable[i]))
 	case telem.BytesT:
 		return bytesValue(c.variable[i])
-	case telem.UnknownT:
-		return empty
 	default:
 		panic("unknown data type " + string(s.DataType))
 	}

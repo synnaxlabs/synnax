@@ -163,7 +163,7 @@ var _ = Describe("Alignment", func() {
 								)
 							}
 							return stamps
-						case telem.UnknownT, telem.Uint8T, telem.Uint16T,
+						case telem.Uint8T, telem.Uint16T,
 							telem.Uint32T, telem.Uint64T, telem.Int8T, telem.Int16T,
 							telem.Float32T, telem.Float64T, telem.UUIDT, telem.BytesT,
 							telem.JSONT, telem.BooleanT:

@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
@@ -31,7 +30,7 @@ func (s *Service) UntypedDeleteMigration() gorp.Migration {
 			var untyped []Channel
 			if err := s.table.NewRetrieve().
 				Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-					return c.DataType == telem.UnknownT && !c.IsCalculated(), nil
+					return c.DataType == "" && !c.IsCalculated(), nil
 				})).
 				Entries(&untyped).
 				Exec(ctx, tx); err != nil {

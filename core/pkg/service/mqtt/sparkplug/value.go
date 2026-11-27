@@ -158,8 +158,8 @@ func Compatible(ch telem.DataType, t DataType) bool {
 			telem.Uint8T, telem.Uint16T, telem.Uint32T, telem.Uint64T,
 			telem.Float32T, telem.Float64T:
 			return true
-		case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
-			telem.JSONT, telem.BooleanT:
+		case telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT,
+			telem.BooleanT:
 		}
 	case String, Text, UUID:
 		return ch == telem.StringT
@@ -197,7 +197,7 @@ func ValueAt(series telem.Series, i int) Value {
 		return StringValue(series.At(i))
 	case telem.TimestampT:
 		return DateTimeValue(series.ValueAt[telem.TimeStamp](i))
-	case telem.UnknownT, telem.UUIDT, telem.BytesT, telem.JSONT, telem.BooleanT:
+	case telem.UUIDT, telem.BytesT, telem.JSONT, telem.BooleanT:
 	}
 	panic("sparkplug: no tag takes samples of " + series.DataType)
 }
@@ -234,7 +234,7 @@ func AppendSample(dst []byte, dt telem.DataType, v Value) ([]byte, error) {
 		if ts, ok := v.(DateTimeValue); ok {
 			return telem.ByteOrder.AppendUint64(dst, uint64(ts)), nil
 		}
-	case telem.UnknownT, telem.UUIDT, telem.BytesT, telem.JSONT, telem.BooleanT:
+	case telem.UUIDT, telem.BytesT, telem.JSONT, telem.BooleanT:
 	}
 	return dst, misfit(v, dt)
 }

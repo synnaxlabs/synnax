@@ -2367,7 +2367,7 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).
-						ChangeDataType(ctx, base.Key(), telem.UnknownT)
+						ChangeDataType(ctx, base.Key(), "")
 				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("data_type")),

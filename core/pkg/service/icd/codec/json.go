@@ -279,9 +279,9 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 		out.floatDefault = v.Default
 		return out, nil
 	case icd.IntegerJSONField:
-		out.sample.Range = telem.Int64T
+		out.sample.Range = new(telem.Int64T)
 	case icd.UnsignedJSONField:
-		out.sample.Range = telem.Uint64T
+		out.sample.Range = new(telem.Uint64T)
 	case icd.TimestampJSONField:
 		format := string(v.TimeFormat)
 		if out.sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
@@ -378,7 +378,7 @@ func (f *jsonField) compile(v jsonVariant) error {
 			return err
 		}
 		// A scaled value need not be an integer.
-		v.sample.Range = ""
+		v.sample.Range = nil
 	}
 	if f.sample, err = xjson.NewDecoder(v.sample); err != nil {
 		return err

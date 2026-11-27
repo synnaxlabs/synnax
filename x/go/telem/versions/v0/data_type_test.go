@@ -19,7 +19,6 @@ var _ = Describe("DataType", func() {
 	DescribeTable("Density", func(dataType v0.DataType, expected v0.Density) {
 		Expect(dataType.Density()).To(Equal(expected))
 	},
-		Entry("unknown", v0.UnknownT, v0.UnknownDensity),
 		Entry("uint8", v0.Uint8T, v0.Bit8),
 		Entry("uint16", v0.Uint16T, v0.Bit16),
 		Entry("uint32", v0.Uint32T, v0.Bit32),
@@ -41,7 +40,6 @@ var _ = Describe("DataType", func() {
 	DescribeTable("IsVariable", func(dataType v0.DataType, expected bool) {
 		Expect(dataType.IsVariable()).To(Equal(expected))
 	},
-		Entry("unknown", v0.UnknownT, false),
 		Entry("uint8", v0.Uint8T, false),
 		Entry("uint16", v0.Uint16T, false),
 		Entry("uint32", v0.Uint32T, false),

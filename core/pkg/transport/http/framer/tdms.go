@@ -270,7 +270,6 @@ func newTDMSDataType(dt telem.DataType) (tdmsDataType, error) {
 		return tdmsTimeStamp, nil
 	case telem.StringT, telem.JSONT, telem.UUIDT, telem.BytesT:
 		return tdmsString, nil
-	case telem.UnknownT:
 	}
 	return 0, errors.Newf("data type %s has no TDMS form", dt)
 }

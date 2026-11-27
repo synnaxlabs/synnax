@@ -12,8 +12,6 @@ package versions
 import v0 "github.com/synnaxlabs/x/telem/versions/v0"
 
 const (
-	// UnknownT is an unknown data type.
-	UnknownT DataType = v0.UnknownT
 	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
 	Uint8T DataType = v0.Uint8T
 	// Uint16T is a data type for a 16-bit unsigned integer.

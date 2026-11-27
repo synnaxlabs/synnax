@@ -509,7 +509,7 @@ func integerBounds(dt telem.DataType) (lo int64, hi uint64, ok bool) {
 		return 0, math.MaxUint32, true
 	case telem.Uint64T:
 		return 0, math.MaxUint64, true
-	case telem.UnknownT, telem.Float32T, telem.Float64T, telem.TimestampT,
+	case telem.Float32T, telem.Float64T, telem.TimestampT,
 		telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT, telem.BooleanT:
 		fallthrough
 	default:
@@ -601,7 +601,7 @@ func appendNumber(dst []byte, dt telem.DataType, n number) []byte {
 		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
 		end := len(dst) + int(dt.Density())
 		return order.AppendUint64(dst, n.bits())[:end]
-	case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
+	case telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
 		telem.JSONT:
 	}
 	panic(fmt.Sprintf("json: %q does not hold numbers", dt))
@@ -638,7 +638,7 @@ func sampleNumber(dt telem.DataType, sample []byte) number {
 			n.i = 1
 		}
 		return n
-	case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
+	case telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
 		telem.JSONT:
 	}
 	panic(fmt.Sprintf("json: %q does not hold numbers", dt))
@@ -678,7 +678,7 @@ func numeric(dt telem.DataType) bool {
 		telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
 		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
 		return true
-	case telem.UnknownT, telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
+	case telem.TimestampT, telem.UUIDT, telem.StringT, telem.BytesT,
 		telem.JSONT:
 		fallthrough
 	default:
