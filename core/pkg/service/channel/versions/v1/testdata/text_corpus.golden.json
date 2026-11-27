@@ -58,7 +58,7 @@
     "dashed": true,
     "form": "calculation",
     "text": "authority (valve-cmd 200)",
-    "parsed": true,
+    "parsed": false,
     "references": null,
     "rewritten": "authority (valve-cmd 200)"
   },
@@ -428,6 +428,66 @@
       }
     ],
     "rewritten": "Metrics_2 f64 := 2.0\nreturn Metrics * Metrics_2"
+  },
+  {
+    "name": "a read before a local of the old name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "Metrics := Metrics * 2\nreturn Metrics",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 0,
+        "binding": "KindVariable",
+        "captured": false,
+        "kept": false
+      },
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 11,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      },
+      {
+        "name": "Metrics",
+        "line": 2,
+        "column": 7,
+        "binding": "KindVariable",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "Metrics := Metrics_2 * 2\nreturn Metrics"
+  },
+  {
+    "name": "a function before a global of the old name",
+    "dashed": true,
+    "form": "program",
+    "text": "func f() f64 {\n\treturn Metrics\n}\nMetrics := 1.0",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 2,
+        "column": 8,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      },
+      {
+        "name": "Metrics",
+        "line": 4,
+        "column": 0,
+        "binding": "KindVariable",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "func f() f64 {\n\treturn Metrics_2\n}\nMetrics := 1.0"
   },
   {
     "name": "a qualified head",

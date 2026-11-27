@@ -98,6 +98,16 @@ var corpus = []corpusCase{
 	},
 	calc("a local of the old name", "Metrics f64 := 1.0\nreturn Metrics * 2"),
 	calc("a local of the new name", "Metrics_2 f64 := 2.0\nreturn Metrics * Metrics_2"),
+	calc(
+		"a read before a local of the old name",
+		"Metrics := Metrics * 2\nreturn Metrics",
+	),
+	{
+		Name:   "a function before a global of the old name",
+		Dashed: true,
+		Form:   "program",
+		Text:   "func f() f64 {\n\treturn Metrics\n}\nMetrics := 1.0",
+	},
 	calc("a qualified head", "return Metrics.x"),
 	calc("a qualified member", "return x.Metrics"),
 	calc("text that does not parse", "return Metrics *"),
