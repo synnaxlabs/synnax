@@ -574,11 +574,21 @@ alignment and inputs of two clocks by sample time:
   that a reset bounds the look back. In the background the calculator reads from the
   last reset until each input's stored data reaches the alignment of its first stream
   sample, drops the overlap, and takes the caught-up state at one primary stamp, which
-  clears the status. Every look back, of history or live, runs in one bounded pool under
-  a read rate limit, as the version 0 check pass does (RFC 0121 §5.1), so no live `Sync`
-  and no other read waits (R6). The look back is a rare-path exception to R2 (§4.13):
-  its cost grows with the samples since the reset, at about 25 ns a sample, so a year of
-  a 25 kHz input takes about 5.5 hours of one core.
+  clears the status. The service keeps in memory, and never stores, the state of the
+  newest look back of each calculation at a primary stamp T, taken only once each
+  input's newest stored stamp is at or past T, so a later commit at or before T is a
+  backfill, and dropped at a history change of an input (`DB.OnHistoryChange`) or a
+  change of the compiled module. A live open, a group rebuild, and a history read that
+  starts after T resume from it, so a look back runs once per Core start and per history
+  change. At most one look back of a calculation runs at a time, a read that starts
+  before T runs its own pass, and a closed request cancels its pass. A group rebuild
+  keeps the calculator of each running operation whose module did not change, so its
+  neighbors in the group never wait on it. Every look back runs in one bounded pool
+  under a read rate limit, as the version 0 check pass does (RFC 0121 §5.1), so no live
+  `Sync` and no other read waits (R6), and the box benchmarks a common read beside one.
+  The look back is a rare-path exception to R2 (§4.13): its cost grows with the samples
+  since the reset, at about 25 ns a sample, so a year of a 25 kHz input takes about 5.5
+  hours of one core.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
