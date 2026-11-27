@@ -383,8 +383,10 @@ type RetrieveRequest struct {
 	IncludeStatus bool `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	// include_path includes the path of each record.
 	IncludePath bool `protobuf:"varint,7,opt,name=include_path,json=includePath,proto3" json:"include_path,omitempty"`
-	// strict refuses each name that several channels hold. A strict where holds only key,
-	// name, and path matches, at the top level or as the branches of one or.
+	// strict looks up each key, name, and path of the where as the Core does: a name is
+	// the channel of that name at the top level, and a missing one fails as not found. A
+	// strict where holds only key, name, and path matches, at the top level or as the
+	// branches of one or.
 	Strict        bool `protobuf:"varint,8,opt,name=strict,proto3" json:"strict,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

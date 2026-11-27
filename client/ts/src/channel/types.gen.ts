@@ -236,8 +236,10 @@ export const retrieveRequestZ = z.strictObject({
   /** includePath includes the path of each record. */
   includePath: z.boolean().optional(),
   /**
-   * strict refuses each name that several channels hold. A strict where holds only key,
-   * name, and path matches, at the top level or as the branches of one or.
+   * strict looks up each key, name, and path of the where as the Core does: a name is
+   * the channel of that name at the top level, and a missing one fails as not found. A
+   * strict where holds only key, name, and path matches, at the top level or as the
+   * branches of one or.
    */
   strict: z.boolean().optional(),
 });
