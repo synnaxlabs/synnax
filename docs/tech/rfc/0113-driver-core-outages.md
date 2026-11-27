@@ -92,7 +92,8 @@ a transient or interrupted Core error never ends `read`.
 ### 3.3 The spool
 
 RFC 0120 §4.9 amends this section: the spool records the keys that the authority filter
-dropped, and the drainer opens on the present keys of each frame.
+dropped, the drainer opens on the present keys of each frame, and it moves its read
+offset only after a `Sync` of a commit returns.
 
 `spool::Spool` (NEW) is one per Driver, in the state directory
 (`driver/rack/state.h:17-28`), capped at 10 GB by default in the Driver config. A full

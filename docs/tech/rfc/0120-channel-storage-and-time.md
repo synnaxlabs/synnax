@@ -499,12 +499,16 @@ names no clock key.
   per series. Until Phase 50 a time series from a calculation session is a time series
   only, not a series of the index channel, even when the request names that index, so a
   streamer of `["time", "temperature"]` or of `temperature` alone gets no frame from a
-  live calculation on `temperature`, and a spec holds both. A time series whose clock is
-  not yet in the set is kept when a kept timed series of the same frame names it, which
-  the filter checks after the frame's data series, so the first stamps of a new clock
-  are never dropped. That check also finds a clock move and updates the set. The relay
-  (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep only
-  demanded keys today (`relay/tap.go:287`), the calculation transform, and the
+  live calculation on `temperature`, and a spec holds both. Until Phase 50, when a
+  request names the index that a calculation's output names as its clock, the
+  calculation's frame drops that time series for that request, and its outputs come
+  untimed in it, as on `main`; a spec streams `["time", "temperature", "temp_f"]` beside
+  a live calculation and gets equal time and temperature lengths. A time series whose
+  clock is not yet in the set is kept when a kept timed series of the same frame names
+  it, which the filter checks after the frame's data series, so the first stamps of a
+  new clock are never dropped. That check also finds a clock move and updates the set.
+  The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep
+  only demanded keys today (`relay/tap.go:287`), the calculation transform, and the
   iterator's calculation step take the rule. Until RFC 0121 Phase 5, the storage tap
   also subscribes the index of each stored demanded key (`relay/tap.go:233-236` opens it
   on `keys.Storage()`). A spec streams only a data key and gets its time after a handoff
@@ -1000,8 +1004,11 @@ new fields and no break):
    new writer continues its clock only when no live writer holds it, else it leases a
    new clock for the rest of the segment. Until then its group names its index, so it
    writes on the index clock beside the live writer, with segments of its own, as the
-   Sparkplug history fill does (RFC 0121 §5.8). A change of the dropped set is rare. So
-   each dropped key pauses, the rest of its group writes, and the authority of the
+   Sparkplug history fill does (RFC 0121 §5.8). A change of the dropped set is rare. The
+   drainer moves its read offset only after a `Sync` of a commit returns, and the framer
+   gives a `PersistOnly` session a durable commit, so a full disk never drops a spooled
+   frame (RFC 0121 §5.4, the unstored state), and a spec fills the disk during a drain.
+   So each dropped key pauses, the rest of its group writes, and the authority of the
    outage holds. Until Phase 50 an index key is the time of its group: when the dropped
    set of a frame holds one, the drainer drops every channel of that index from the
    frame and counts their samples in its status, so it never opens a data channel
@@ -1101,8 +1108,10 @@ The migration changes metadata only and runs at the first start, before any writ
   (`core/pkg/service/channel/writer.go:548`). A name whose clock has ended has no entry,
   and the compile error names `time.of`. A v0.62 name that the upgrade renamed (RFC 0119
   §4.0) matches no last segment; the import report names its token, and so do the
-  release notes. A spec imports `ai_0 - time` where a retired `daq.time` and a live
-  `lab.time` share the name, and binds the retired one.
+  release notes. A match in a folder that also holds a `<name>_<n>` of RFC 0119's
+  renames goes to the import report, since v0.62's pick may be the renamed one. A spec
+  imports `ai_0 - time` where a retired `daq.time` and a live `lab.time` share the name,
+  and binds the retired one.
 - **Specs**: Each step copies the Kafka three-layer specs
   (`core/pkg/service/kafka/versions/v1/migrate_test.go`,
   `core/pkg/service/kafka/migrate_test.go`), one per holder.
