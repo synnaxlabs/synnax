@@ -27,13 +27,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const logSize = 4 << 20
+const logSize = 8 << 20
 
 // fileTimeout bounds a wait for synced file work, which can pass 1 s on a busy box.
 const fileTimeout = 10 * time.Second
 
 // fillers is how many entries of 10,000 intents pass three quarters of a log.
-const fillers = 24
+const fillers = 48
 
 func goExec(f func()) { go f() }
 
