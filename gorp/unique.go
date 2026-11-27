@@ -162,6 +162,12 @@ func (u *UniqueIndex[K, E, V]) Holder(
 	return Target{}, false, nil
 }
 
+// Filter returns a Filter that matches the entries of the table of u whose value is one
+// of values. A match is what storage holds, as with FilterFunc.
+func (u *UniqueIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
+	return indexFilter[K, E](u.store, u.holds, values)
+}
+
 // FilterFunc returns a Filter that matches the entries of the table of u whose value is
 // one of the values that f returns when the query runs. A match is what storage holds:
 // the filter probes u for the keys of the values, with the changes staged against the
@@ -180,8 +186,7 @@ func (u *UniqueIndex[K, E, V]) FilterFunc(
 			values = lo.Uniq(values)
 			in := index.AnyOf(values)
 			eval := func(_ Context, e *E, _, _ []byte) (bool, error) {
-				v, ok := u.value(e)
-				return ok && in(v), nil
+				return u.holds(e, in), nil
 			}
 			keys, err := probe(ctx, u.store, snap, values)
 			if errors.Is(err, ErrIndexInvalid) {
@@ -193,6 +198,12 @@ func (u *UniqueIndex[K, E, V]) FilterFunc(
 			return resolved[K, E]{keys: keyset.Hashed(keys), eval: eval}, nil
 		},
 	}
+}
+
+// holds reports whether e holds a value that in accepts.
+func (u *UniqueIndex[K, E, V]) holds(e *E, in func(V) bool) bool {
+	v, ok := u.value(e)
+	return ok && in(v)
 }
 
 // clash returns err, or else the UniqueError for holder and v.
