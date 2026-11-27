@@ -464,6 +464,18 @@ describe("useForm", () => {
       expect(await joined).toBe(false);
       expect(focused).toHaveBeenCalledWith("name");
     });
+
+    it("should keep a queued save explicit when an autosave joins it", async () => {
+      const { result, focused, entered, release } = renderInvalid(true);
+      const running = result.current.saveAsync();
+      await entered;
+      const queued = result.current.saveAsync();
+      act(() => result.current.form.set(path.name, ""));
+      await act(async () => release());
+      expect(await running).toBe(true);
+      expect(await queued).toBe(false);
+      expect(focused).toHaveBeenCalledWith("name");
+    });
   });
 
   describe("afterSave", () => {
