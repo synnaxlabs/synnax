@@ -352,22 +352,6 @@ func (f *Factory) retrieveChannels(
 	return byKey, nil
 }
 
-func (f *Factory) retrieveICD(ctx context.Context, key icd.Key) (icd.ICD, error) {
-	var ic icd.ICD
-	err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return f.cfg.ICD.NewRetrieve().
-			Where(icd.MatchKeys(key)).
-			Entry(&ic).
-			Exec(ctx, snap)
-	})
-	if errors.Is(err, query.ErrNotFound) {
-		return icd.ICD{}, errors.Wrapf(
-			validate.ErrValidation, "icd: ICD %s does not exist", key,
-		)
-	}
-	return ic, err
-}
-
 func (f *Factory) configureRead(
 	ctx context.Context,
 	t task.Task,
@@ -434,21 +418,29 @@ func (f *Factory) openRead(
 	return rt, nil
 }
 
-// retrieveICDs returns the ICDs of keys, by key.
+// retrieveICDs returns the ICDs of keys, by key. It returns a validation error for the
+// first key that has no ICD.
 func (f *Factory) retrieveICDs(
 	ctx context.Context,
 	keys []icd.Key,
 ) (map[icd.Key]icd.ICD, error) {
-	icds := make(map[icd.Key]icd.ICD)
+	var icds map[icd.Key]icd.ICD
+	if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		var err error
+		icds, err = f.cfg.ICD.NewRetrieve().
+			Where(icd.MatchKeys(keys...)).
+			SkipMissingKeys().
+			ByKey(ctx, snap)
+		return err
+	}); err != nil {
+		return nil, err
+	}
 	for _, key := range keys {
-		if _, ok := icds[key]; ok {
-			continue
+		if _, ok := icds[key]; !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "icd: ICD %s does not exist", key,
+			)
 		}
-		ic, err := f.retrieveICD(ctx, key)
-		if err != nil {
-			return nil, err
-		}
-		icds[key] = ic
 	}
 	return icds, nil
 }
