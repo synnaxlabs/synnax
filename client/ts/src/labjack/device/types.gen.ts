@@ -235,7 +235,7 @@ export type T8DigitalPort = z.infer<typeof t8DigitalPortZ>;
 /** CommandStatePair is the pair of channels that writes to one port. */
 export const commandStatePairZ = z.object({
   /** command is the channel that commands the port. */
-  command: channel.keyZ,
+  command: channel.keyZ.refine((v) => v !== 0, "Command is required"),
   /** state is the channel that holds the state of the port. */
   state: channel.keyZ.optional(),
 });

@@ -28,7 +28,7 @@ namespace synnax::labjack::device {
 
 inline CommandStatePair CommandStatePair::parse(x::json::Parser parser) {
     return CommandStatePair{
-        .command = parser.field<::synnax::channel::Key>("command"),
+        .command = parser.required_field<::synnax::channel::Key>("command"),
         .state = parser.field<std::optional<::synnax::channel::Key>>("state"),
     };
 }

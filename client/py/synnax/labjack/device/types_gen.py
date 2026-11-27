@@ -592,7 +592,7 @@ class CommandStatePair(BaseModel):
         state: Is the channel that holds the state of the port.
     """
 
-    command: channel.Key = Field(ge=0, le=4294967295)
+    command: channel.Key = Field(gt=0, le=4294967295)
     state: channel.Key | None = Field(default=None, ge=0, le=4294967295)
 
 

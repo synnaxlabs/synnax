@@ -377,6 +377,14 @@ type CommandStatePair struct {
 	State *channel.Key `json:"state,omitzero" msgpack:"state,omitempty"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CommandStatePair) Validate() error {
+	v := validate.New("CommandStatePair")
+	v.NonZero("command", c.Command)
+	return v.Error()
+}
+
 // StatusDetails identifies the device and rack that a status pertains to.
 type StatusDetails struct {
 	// Rack is the key of the rack the device belongs to.
@@ -423,6 +431,12 @@ func (t T4Ports) Validate() error {
 	for key := range t.DigitalOutput {
 		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
 	}
+	for key, value := range t.AnalogOutput {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "analog_output", string(key)) })
+	}
+	for key, value := range t.DigitalOutput {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "digital_output", string(key)) })
+	}
 	return v.Error()
 }
 
@@ -459,6 +473,12 @@ func (t T7Ports) Validate() error {
 	for key := range t.DigitalOutput {
 		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
 	}
+	for key, value := range t.AnalogOutput {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "analog_output", string(key)) })
+	}
+	for key, value := range t.DigitalOutput {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "digital_output", string(key)) })
+	}
 	return v.Error()
 }
 
@@ -491,6 +511,12 @@ func (t T8Ports) Validate() error {
 	}
 	for key := range t.DigitalOutput {
 		v.Ternaryf("digital_output", !key.IsValid(), "invalid digital_output key: %v", key)
+	}
+	for key, value := range t.AnalogOutput {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "analog_output", string(key)) })
+	}
+	for key, value := range t.DigitalOutput {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "digital_output", string(key)) })
 	}
 	return v.Error()
 }

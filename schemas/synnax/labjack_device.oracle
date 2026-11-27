@@ -263,9 +263,10 @@ T8DigitalPort enum {
 
 CommandStatePair struct {
     command channel.Key  {
-        @doc value     "is the channel that commands the port."
-        @ref kind      use
-        @ref on_delete restrict
+        @doc value         "is the channel that commands the port."
+        @ref kind          use
+        @ref on_delete     restrict
+        @validate required
     }
     state   channel.Key? {
         @doc value     "is the channel that holds the state of the port."
