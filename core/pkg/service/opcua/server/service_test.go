@@ -474,10 +474,10 @@ var _ = Describe("Service", func() {
 				s := createSecured(ctx, encrypted(trust(createCertificate(ctx, false))))
 				p := pinOf(s, createCertificate(ctx, false))
 				change(&p)
-				Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, p)).To(MatchError(And(
+				Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, p)).To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(msg)),
-				)))
+				))
 				Expect(retrieve(ctx, s.Key)).To(Equal(s))
 			},
 			Entry("another pinned certificate", pinned, func(*server.Pin) {},

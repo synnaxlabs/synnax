@@ -599,7 +599,9 @@ var _ = Describe("Service", func() {
 			grant(ctx, u, []access.Action{access.ActionRetrieve}, certificateType)
 			MustSucceed(pin(testutil.AuthedCtx(ctx, u), request(s, cert)))
 			security := retrieveServer(ctx, s.Key).Connection.Security.Variant
-			Expect(security.(server.SignSecurity).ServerTrust.Variant).
+			sign, ok := security.(server.SignSecurity)
+			Expect(ok).To(BeTrue())
+			Expect(sign.ServerTrust.Variant).
 				To(Equal(server.PinnedServerTrust{Certificate: cert}))
 		})
 
