@@ -98,7 +98,7 @@ var _ = Describe("Signals", Ordered, func() {
 			),
 			Signals: sigs,
 		}))
-		MustOpen(sigs.Start(ctx))
+		StartRun(sigs.Run)
 	})
 
 	openStreamer := func(

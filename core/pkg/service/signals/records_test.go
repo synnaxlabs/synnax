@@ -41,7 +41,7 @@ var _ = Describe("Records", func() {
 			SetName:    setName,
 			DeleteName: deleteName,
 		})).To(Succeed())
-		MustOpen(sigs.Start(ctx))
+		StartRun(sigs.Run)
 		set, del := retrieveChannel(ctx, setName), retrieveChannel(ctx, deleteName)
 		sets, deletes := openStreamer(ctx, set.Key()), openStreamer(ctx, del.Key())
 		e := testUUIDEntry{Key: uuid.New(), Name: "record"}

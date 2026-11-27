@@ -125,7 +125,7 @@ var _ = Describe("Table", func() {
 				SetName:    setName,
 				DeleteName: deleteName,
 			})).To(Succeed())
-			MustOpen(sigs.Start(ctx))
+			StartRun(sigs.Run)
 			set, del := retrieveChannel(ctx, setName), retrieveChannel(ctx, deleteName)
 			Expect(set.DataType).To(Equal(telem.JSONT))
 			Expect(del.DataType).To(Equal(telem.UUIDT))
@@ -153,7 +153,7 @@ var _ = Describe("Table", func() {
 					SetDisabled: new(true),
 				},
 			)).To(Succeed())
-			MustOpen(sigs.Start(ctx))
+			StartRun(sigs.Run)
 			del := retrieveChannel(ctx, deleteName)
 			Expect(del.DataType).To(Equal(telem.Uint32T))
 			deletes := openStreamer(ctx, del.Key())
@@ -177,7 +177,7 @@ var _ = Describe("Table", func() {
 					SetDisabled: new(true),
 				},
 			)).To(Succeed())
-			MustOpen(sigs.Start(ctx))
+			StartRun(sigs.Run)
 			del := retrieveChannel(ctx, deleteName)
 			Expect(del.DataType).To(Equal(telem.StringT))
 			deletes := openStreamer(ctx, del.Key())
@@ -200,7 +200,7 @@ var _ = Describe("Table", func() {
 					return telem.MarshalVariableSample([]byte(`"` + e.Name + `"`)), nil
 				},
 			})).To(Succeed())
-			MustOpen(sigs.Start(ctx))
+			StartRun(sigs.Run)
 			sets := openStreamer(ctx, retrieveChannel(ctx, setName).Key())
 			e := testUUIDEntry{Key: uuid.New(), Name: "custom"}
 			Expect(uuidTable.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())

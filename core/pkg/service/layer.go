@@ -363,6 +363,7 @@ func (l *Layer) Run(ctx context.Context) error {
 	}
 	defer l.guard.End()
 	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return l.Signals.Run(ctx) })
 	g.Go(func() error { return l.Auth.Run(ctx) })
 	g.Go(func() error { return l.License.Run(ctx) })
 	g.Go(func() error { return l.Certificate.Run(ctx) })
@@ -518,7 +519,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		Framer:          cfg.Distribution.Framer,
 		Instrumentation: cfg.Child("signals"),
-	}); !ok(err, nil) {
+	}); !ok(err, l.Signals) {
 		return nil, err
 	}
 	if l.Framer, err = framer.OpenService(
@@ -1258,12 +1259,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		cfg.Distribution.DB,
 		l.Channel,
 	); !ok(err, nil) {
-		return nil, err
-	}
-	// The change channels send no commit before Start, so the migrations above send
-	// nothing.
-	signalsCloser, err := l.Signals.Start(ctx)
-	if !ok(err, signalsCloser) {
 		return nil, err
 	}
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{

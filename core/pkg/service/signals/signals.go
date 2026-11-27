@@ -10,32 +10,37 @@
 // Package signals writes changes to the data of the Core to free channels, which
 // clients stream through the standard channel streaming pipeline. Each service
 // publishes the set, delete, and action channels of its tables with PublishTable and
-// PublishActions, and the service layer calls Start once every service is open. From
-// then on, the Provider writes each commit of the DB as one frame across every channel
+// PublishActions, and the service layer calls Run once every service is open. While Run
+// runs, the Provider writes each commit of the DB as one frame across every channel
 // that the commit changed.
 package signals
 
 import (
+	"sync/atomic"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Provider publishes changes to the data of the Core on free channels. Pass it to each
-// service that publishes a change channel. PublishTable, PublishActions, and Start must
-// run on one goroutine.
+// service that publishes a change channel. Call PublishTable and PublishActions on one
+// goroutine, before Run.
 type Provider struct {
 	cfg Config
 	// feeds write the samples of the channels in keys.
 	feeds   []feed
 	keys    channel.Keys
 	records map[channel.Key]Record
-	// started is true once Start runs.
-	started bool
+	// started is true once Run starts.
+	started atomic.Bool
+	// guard orders Run against Close.
+	guard lifetime.Guard
 }
 
 // Config is the configuration for opening the core Signals Provider.
@@ -81,7 +86,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // New creates a new Signals Provider using the given configuration. The Provider writes
-// nothing until Start.
+// nothing until Run.
 func New(cfgs ...Config) (*Provider, error) {
 	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {

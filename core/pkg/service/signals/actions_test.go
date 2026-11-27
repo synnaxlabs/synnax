@@ -116,7 +116,7 @@ var _ = Describe("Actions", func() {
 				Resource: testResource[uuid.UUID],
 				Table:    uuidTableName,
 			})).To(Succeed())
-			MustOpen(sigs.Start(ctx))
+			StartRun(sigs.Run)
 			ch = retrieveChannel(ctx, name)
 			responses = openStreamer(ctx, ch.Key())
 		})
