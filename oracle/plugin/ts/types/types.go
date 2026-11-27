@@ -635,6 +635,7 @@ func (p *Plugin) processOverriddenTypeDef(
 			data.Request.Resolutions,
 			data,
 			typeOverride,
+			false,
 		)
 		zodType = result.ZodType
 	}
@@ -686,6 +687,7 @@ func (p *Plugin) typeDefZod(
 		data.Request.Resolutions,
 		data,
 		"",
+		false,
 	).ZodType
 }
 
@@ -1811,6 +1813,7 @@ func (p *Plugin) overrideSchema(
 			table,
 			data,
 			typeOverride,
+			refusesZero(field),
 		)
 		fd.ZodType = result.ZodType
 		if result.HasDefault {
@@ -1863,6 +1866,7 @@ func (p *Plugin) fieldSchema(
 		table,
 		data,
 		"",
+		refusesZero(field),
 	)
 	fd.ZodType = paramPart + result.ZodType
 	if result.HasDefault {
@@ -2799,6 +2803,7 @@ func (p *Plugin) applyValidation(
 	table *resolution.Table,
 	data *templateData,
 	tsTypeOverride string,
+	refusesZero bool,
 ) validationResult {
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return validationResult{ZodType: zodType, HasDefault: false}
@@ -2811,7 +2816,7 @@ func (p *Plugin) applyValidation(
 	if isString {
 		zodType = applyStringRules(zodType, rules, fieldName, data)
 	}
-	if effectiveType == "uuid" {
+	if effectiveType == "uuid" && refusesZero {
 		zodType = refuseNilUUID(zodType, rules, fieldName)
 	}
 	if effectiveType == "bytes" {
@@ -2896,6 +2901,14 @@ func applyBytesRules(
 		zodType = fmt.Sprintf("%s.check(zod.maxBytes(%d))", zodType, *rules.MaxLength)
 	}
 	return zodType
+}
+
+// refusesZero reports whether a client must send a value other than the zero value of
+// field. The Core mints a key, so a client sends a zero key on create, and an optional
+// field is never required.
+func refusesZero(field resolution.Field) bool {
+	_, isKey := field.Domains["key"]
+	return !isKey && !field.Optional
 }
 
 // nilUUID is the UUID with every bit zero, which a required UUID refuses.

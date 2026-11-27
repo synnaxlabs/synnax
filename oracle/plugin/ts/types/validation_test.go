@@ -470,6 +470,19 @@ var _ = Describe("Validation Rules", func() {
 		)
 	})
 
+	It("Should not refuse the nil UUID for a key or an optional UUID", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				key uuid @key @validate { required }
+				parent uuid? @validate { required }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToNotContain("00000000-0000")
+	})
+
 	It("Should keep a length check chainable with a default", func() {
 		source := `
 			@ts output "out"
