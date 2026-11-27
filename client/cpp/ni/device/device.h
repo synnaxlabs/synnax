@@ -15,6 +15,7 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/ni/device/actions.gen.h"
 #include "client/cpp/ni/device/proto.gen.h"
 #include "client/cpp/ni/device/types.gen.h"
 #include "freighter/cpp/freighter.h"
@@ -38,6 +39,10 @@ using RetrieveClient = freighter::UnaryClient<
 using UpdateClient = freighter::
     UnaryClient<grpc::ni_device::UpdateRequest, grpc::ni_device::UpdateResponse>;
 
+/// @brief the transport that applies actions to an NI device.
+using DispatchClient = freighter::
+    UnaryClient<grpc::ni_device::DispatchRequest, google::protobuf::Empty>;
+
 /// @brief the transport that deletes NI devices.
 using DeleteClient = freighter::
     UnaryClient<grpc::ni_device::DeleteRequest, google::protobuf::Empty>;
@@ -49,6 +54,7 @@ public:
         std::unique_ptr<CreateClient> create_client,
         std::unique_ptr<RetrieveClient> retrieve_client,
         std::unique_ptr<UpdateClient> update_client,
+        std::unique_ptr<DispatchClient> dispatch_client,
         std::unique_ptr<DeleteClient> delete_client
     );
 
@@ -98,6 +104,16 @@ public:
     [[nodiscard]] std::pair<Device, x::errors::Error>
     update(const Key &key, const Update &update) const;
 
+    /// @brief applies the actions to the device with the given key in one transaction.
+    /// Each action edits only its path, so concurrent edits to different fields both
+    /// survive.
+    /// @param key the key of the device.
+    /// @param actions the actions to apply, in order.
+    /// @returns an error that matches NOT_FOUND when no device has the key, or
+    /// VALIDATION when the device cannot hold an action.
+    [[nodiscard]] x::errors::Error
+    dispatch(const Key &key, const std::vector<Action> &actions) const;
+
     /// @brief deletes the devices with the given keys.
     /// @param keys the keys of the devices.
     /// @returns an error if the delete failed.
@@ -107,6 +123,7 @@ private:
     std::unique_ptr<CreateClient> create_client;
     std::unique_ptr<RetrieveClient> retrieve_client;
     std::unique_ptr<UpdateClient> update_client;
+    std::unique_ptr<DispatchClient> dispatch_client;
     std::unique_ptr<DeleteClient> delete_client;
 };
 }

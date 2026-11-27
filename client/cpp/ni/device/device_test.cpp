@@ -135,4 +135,34 @@ TEST(Client, RejectsLimitOnRetrieveOne) {
         x::errors::VALIDATION
     );
 }
+
+/// @brief it should keep edits to different fields from separate dispatches.
+TEST(Client, DispatchesActions) {
+    const auto client = new_test_client();
+    const auto [dev, r] = create_device(client, x::uuid::create().to_string());
+    ASSERT_NIL(client.ni.devices.dispatch(
+        dev.key,
+        {set(SetPayload{.path = {"name"}, .value = "Thermocouples"})}
+    ));
+    ASSERT_NIL(client.ni.devices.dispatch(
+        dev.key,
+        {set(SetPayload{.path = {"model"}, .value = "9205 (rev B)"})}
+    ));
+    const auto got = ASSERT_NIL_P(client.ni.devices.retrieve(dev.key));
+    ASSERT_EQ(got.name, "Thermocouples");
+    ASSERT_EQ(got.model, "9205 (rev B)");
+    ASSERT_EQ(got.resource_name, dev.resource_name);
+}
+
+/// @brief it should refuse a dispatch to a device that does not exist.
+TEST(Client, RejectsDispatchToMissingDevice) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.ni.devices.dispatch(
+            x::uuid::create(),
+            {set(SetPayload{.path = {"name"}, .value = "Missing"})}
+        ),
+        x::errors::NOT_FOUND
+    );
+}
 }

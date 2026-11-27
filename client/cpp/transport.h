@@ -69,10 +69,12 @@ struct Transport {
     std::unique_ptr<ni::device::CreateClient> ni_device_create;
     std::unique_ptr<ni::device::RetrieveClient> ni_device_retrieve;
     std::unique_ptr<ni::device::UpdateClient> ni_device_update;
+    std::unique_ptr<ni::device::DispatchClient> ni_device_dispatch;
     std::unique_ptr<ni::device::DeleteClient> ni_device_delete;
     std::unique_ptr<ni::chassis::CreateClient> ni_chassis_create;
     std::unique_ptr<ni::chassis::RetrieveClient> ni_chassis_retrieve;
     std::unique_ptr<ni::chassis::UpdateClient> ni_chassis_update;
+    std::unique_ptr<ni::chassis::DispatchClient> ni_chassis_dispatch;
     std::unique_ptr<ni::chassis::DeleteClient> ni_chassis_delete;
     std::shared_ptr<status::RetrieveClient> status_retrieve;
     std::shared_ptr<status::SetClient> status_set;

@@ -72,4 +72,25 @@ TEST(Client, RejectsLimitOnRetrieveOne) {
         x::errors::VALIDATION
     );
 }
+
+/// @brief it should apply the actions of a dispatch to a chassis.
+TEST(Client, DispatchesActions) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "ni_chassis_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto chassis = Chassis{
+        .rack = r.key,
+        .name = "cDAQ-9189",
+        .resource_name = x::uuid::create().to_string(),
+        .model = "cDAQ-9189",
+    };
+    ASSERT_NIL(client.ni.chassis.create(chassis));
+    ASSERT_NIL(client.ni.chassis.dispatch(
+        chassis.key,
+        {set(SetPayload{.path = {"name"}, .value = "Bench chassis"})}
+    ));
+    const auto got = ASSERT_NIL_P(client.ni.chassis.retrieve(chassis.key));
+    ASSERT_EQ(got.name, "Bench chassis");
+    ASSERT_EQ(got.model, "cDAQ-9189");
+}
 }
