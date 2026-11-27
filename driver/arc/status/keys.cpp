@@ -57,7 +57,7 @@ Keys::Keys(
     std::filesystem::path path,
     std::string cluster,
     const std::size_t max,
-    journal::OnCreate on_create
+    x::fs::OnCreate on_create
 ):
     path(std::move(path)),
     cluster(std::move(cluster)),
@@ -78,7 +78,7 @@ std::pair<std::shared_ptr<Keys>, x::errors::Error> Keys::open(
     const std::filesystem::path &path,
     const std::string &cluster,
     const std::size_t max,
-    journal::OnCreate on_create
+    x::fs::OnCreate on_create
 ) {
     auto keys = std::shared_ptr<Keys>(
         new Keys(path, cluster, max, std::move(on_create))
@@ -88,7 +88,7 @@ std::pair<std::shared_ptr<Keys>, x::errors::Error> Keys::open(
     if (ec)
         return {nullptr, fs_error("failed to remove " + temp_path(path).string(), ec)};
     // A writer creates the temp through a temp of its own.
-    if (auto err = journal::remove_temps(temp_path(path))) return {nullptr, err};
+    if (auto err = x::fs::remove_temps(temp_path(path))) return {nullptr, err};
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return {nullptr, fs_error("failed to read " + path.string(), ec)};
         return {keys, x::errors::NIL};
@@ -151,9 +151,9 @@ Keys::save(const std::vector<std::pair<std::string, std::string>> &entries) cons
         if (err = writer->write({.type = KEY_TYPE, .payload = encode(name, key)}); err)
             return err;
     if (err = writer->close(); err) return err;
-    if (err = journal::replace(tmp, this->path); err) return err;
+    if (err = x::fs::replace(tmp, this->path); err) return err;
     const auto dir = this->path.parent_path();
-    return journal::sync_dir(dir.empty() ? "." : dir);
+    return x::fs::sync_dir(dir.empty() ? "." : dir);
 }
 
 std::string Keys::get(const std::string &name) {

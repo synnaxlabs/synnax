@@ -27,6 +27,7 @@ cc_library(
         "//driver/journal",
         "//driver/outbox",
         "//x/cpp/errors",
+        "//x/cpp/fs:file",
         "//x/cpp/telem",
     ],
 )
