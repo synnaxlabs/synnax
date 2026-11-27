@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { device } from "@synnaxlabs/client";
+import type { device, rack, Synnax as Client } from "@synnaxlabs/client";
 import type { Form } from "@synnaxlabs/lyra/form";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
@@ -15,19 +15,33 @@ import { deep, primitive } from "@synnaxlabs/x";
 
 const path = deep.path<{ rack: number }>();
 
+/** The fields of a selected device that a task form reads. */
+export interface Selected {
+  rack: rack.Key;
+  configured: boolean;
+}
+
+/** Reads the fields of the device with the key that a task form reads. */
+export type RetrieveSelected = (client: Client, key: device.Key) => Promise<Selected>;
+
+/** Reads a device from the generic device table. */
+export const retrieveGeneric: RetrieveSelected = async (client, key) =>
+  await client.devices.retrieve({ key });
+
 /**
  * Returns what a task form runs after its device changes: it sets the task's rack to
  * the device's rack, and calls onConfigure when the device is not configured.
  */
 export const useHandleChange = (
   onConfigure: (key: device.Key) => void,
+  retrieve: RetrieveSelected = retrieveGeneric,
 ): ((key: device.Key, ctx: Form.ContextValue) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   return (key, { set }) => {
     if (client == null || primitive.isZero(key)) return;
     handleError(async () => {
-      const { configured, rack } = await client.devices.retrieve({ key });
+      const { configured, rack } = await retrieve(client, key);
       set(path.rack, rack);
       if (!configured) onConfigure(key);
     }, "Failed to retrieve device");

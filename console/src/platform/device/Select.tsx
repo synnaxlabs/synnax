@@ -16,10 +16,13 @@ import { Form } from "@synnaxlabs/lyra/form";
 import type { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Device } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ComponentType, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { useHandleChange } from "@/platform/device/useHandleChange";
+import {
+  type RetrieveSelected,
+  useHandleChange,
+} from "@/platform/device/useHandleChange";
 
 const root = deep.path<{ config: { device: device.Key } }>();
 
@@ -48,6 +51,29 @@ const ConnectButton = ({ title, open, onChange }: ConnectButtonProps): ReactElem
   );
 };
 
+/** The props that a select gives the list of devices it selects from. */
+export interface SelectListProps extends Pick<
+  Device.SelectSingleProps,
+  | "value"
+  | "onChange"
+  | "preview"
+  | "visible"
+  | "onVisibleChange"
+  | "footer"
+  | "grow"
+  | "emptyContent"
+  | "resourceName"
+  | "icon"
+> {}
+
+/** Where a select lists and reads devices that live outside the generic table. */
+export interface SelectSource {
+  /** Lists the devices to select from. */
+  List: ComponentType<SelectListProps>;
+  /** Reads the rack and configured state of the selected device. */
+  retrieve: RetrieveSelected;
+}
+
 export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   onConfigure: (deviceKey: device.Key) => void;
   emptyContent?: string;
@@ -64,6 +90,8 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   connect?: SelectConnect;
   /** Runs after the task form handles a change of device. */
   onChange?: (key: device.Key, ctx: Form.ContextValue) => void;
+  /** Lists and reads the devices from another table. Absent for the generic table. */
+  source?: SelectSource;
 }
 
 export const Select = ({
@@ -79,9 +107,10 @@ export const Select = ({
   locationFormat,
   connect,
   onChange,
+  source,
 }: SelectProps) => {
   const canConnect = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
-  const handleChange = useHandleChange(onConfigure);
+  const handleChange = useHandleChange(onConfigure, source?.retrieve);
   const [visible, setVisible] = useState(false);
   Form.useFocusHandler(path, () => setVisible(true));
   return (
@@ -95,31 +124,37 @@ export const Select = ({
       }}
       path={path}
     >
-      {({ value, onChange, preview }) => (
-        <Device.SelectSingle
-          value={value}
-          onChange={onChange}
-          query={{
-            where: {
-              make: { eq: make },
-              ...(model != null && { model: { eq: model } }),
-            },
-          }}
-          filter={filterProp}
-          emptyContent={emptyContent}
-          resourceName={resourceName}
-          grow
-          icon={icon}
-          locationFormat={locationFormat}
-          preview={preview}
-          visible={visible}
-          onVisibleChange={setVisible}
-          footer={
-            connect != null &&
-            canConnect && <ConnectButton {...connect} onChange={onChange} />
-          }
-        />
-      )}
+      {({ value, onChange, preview }) => {
+        const footer = connect != null && canConnect && (
+          <ConnectButton {...connect} onChange={onChange} />
+        );
+        const shared = {
+          value,
+          onChange,
+          preview,
+          visible,
+          onVisibleChange: setVisible,
+          footer,
+          grow: true,
+          emptyContent,
+          resourceName,
+          icon,
+        };
+        if (source != null) return <source.List {...shared} />;
+        return (
+          <Device.SelectSingle
+            {...shared}
+            query={{
+              where: {
+                make: { eq: make },
+                ...(model != null && { model: { eq: model } }),
+              },
+            }}
+            filter={filterProp}
+            locationFormat={locationFormat}
+          />
+        );
+      }}
     </Form.Field>
   );
 };
