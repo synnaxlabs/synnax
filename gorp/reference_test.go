@@ -1618,7 +1618,7 @@ var _ = Describe("Reference", func() {
 		)
 
 		DescribeTable("Should move the holders of a unique reference in one retarget",
-			func(ctx SpecContext, moves map[string]string, owners map[string]string) {
+			func(ctx SpecContext, moves, owners map[string]string) {
 				for _, k := range []string{"a", "b", "c"} {
 					Expect(createDevice(ctx, refDevice{Key: k, Rack: 1})).To(Succeed())
 				}

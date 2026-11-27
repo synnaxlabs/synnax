@@ -107,8 +107,18 @@ type Reference[K Key, E Entry[K]] interface {
 	inlineTarget(ctx context.Context, tx Tx, e *E, target Target) error
 	// check validates the targets that e holds against tx, for a write of e to t. It
 	// reports whether the index already holds those targets for e, with the changes of
-	// tx applied.
-	check(ctx context.Context, tx Tx, t *Table[K, E], e *E) (bool, error)
+	// tx applied. With relations false, it leaves the unique and acyclic checks to
+	// checkRelations.
+	check(
+		ctx context.Context,
+		tx Tx,
+		t *Table[K, E],
+		e *E,
+		relations bool,
+	) (bool, error)
+	// checkRelations checks that e holds no target that another entry holds through a
+	// unique reference, and no cycle through an acyclic one.
+	checkRelations(ctx context.Context, tx Tx, t *Table[K, E], e *E) error
 	// links appends the links that e holds to out.
 	links(out []Link, e *E) []Link
 	// indexedLinks appends to out the links that the index holds for the entry with key
@@ -675,6 +685,7 @@ func (r *reference[K, E, T]) check(
 	tx Tx,
 	t *Table[K, E],
 	e *E,
+	relations bool,
 ) (bool, error) {
 	k, held := (*e).GorpKey(), r.targetsOf(e)
 	stored, known := r.store.Held(scopeOf(tx), k)
@@ -728,17 +739,29 @@ func (r *reference[K, E, T]) check(
 			}
 		}
 	}
-	if r.unique {
-		if err := r.checkUnique(ctx, tx, t.name, e, held); err != nil {
-			return false, err
-		}
-	}
-	if r.acyclic {
-		if err := r.checkAcyclic(ctx, tx, t, e); err != nil {
+	if relations {
+		if err := r.checkRelations(ctx, tx, t, e); err != nil {
 			return false, err
 		}
 	}
 	return current, nil
+}
+
+func (r *reference[K, E, T]) checkRelations(
+	ctx context.Context,
+	tx Tx,
+	t *Table[K, E],
+	e *E,
+) error {
+	if r.unique {
+		if err := r.checkUnique(ctx, tx, t.name, e, r.targetsOf(e)); err != nil {
+			return err
+		}
+	}
+	if r.acyclic {
+		return r.checkAcyclic(ctx, tx, t, e)
+	}
+	return nil
 }
 
 // targetErr returns a validation error from format and args at the place in e that

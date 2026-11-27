@@ -110,10 +110,37 @@ func (t *Table[K, E]) retarget(
 	}
 	w := t.writer(tx, true)
 	w.derived = true
+	w.relationsDeferred = true
 	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
 		return err
 	}
 	return t.onRewrite(ctx, tx, e)
+}
+
+// checkRelations implements registeredTable.
+func (t *Table[K, E]) checkRelations(
+	ctx context.Context,
+	tx Tx,
+	k string,
+	refs []int,
+) error {
+	pk, err := key.Parse[K](k)
+	if err != nil {
+		return err
+	}
+	var e E
+	if err = t.NewRetrieve().
+		Where(MatchKeys[K, E](pk)).
+		Entry(&e).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	for _, ref := range refs {
+		if err = t.references[ref].checkRelations(ctx, tx, t, &e); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // retargetHolder is an entry that holds a moved target, with the first target that it
@@ -126,8 +153,9 @@ type retargetHolder struct {
 
 // retarget moves every holder of each of froms to the target that moves maps it to. It
 // finds every holder before it rewrites one, so a reference with no Retarget fails the
-// call before it changes anything, and it rewrites each holder once. It fails when it
-// would rewrite more than limit entries.
+// call before it changes anything, and it rewrites each holder once. It checks unique
+// and acyclic references once every holder is rewritten, so a swap or a chain passes.
+// It fails when it would rewrite more than limit entries.
 func (r *registry) retarget(
 	ctx context.Context,
 	tx Tx,
@@ -152,6 +180,15 @@ func (r *registry) retarget(
 			h.from,
 			moves,
 		); err != nil {
+			return err
+		}
+	}
+	for _, h := range holders {
+		table, err := r.table(h.entry.Table)
+		if err != nil {
+			return err
+		}
+		if err = table.checkRelations(ctx, tx, h.entry.Key, h.refs); err != nil {
 			return err
 		}
 	}

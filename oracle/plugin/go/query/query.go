@@ -309,7 +309,8 @@ func (r retrieveInfo) needsSlices() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
 		return f.Ref == nil && f.IsSlice
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
-		return ref.IsSlice
+		// Only the Detach of an array reference calls the slices package.
+		return ref.IsSlice && ref.OnDelete == "Detach"
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 

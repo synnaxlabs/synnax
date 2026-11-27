@@ -43,6 +43,9 @@ type registeredTable interface {
 		from Target,
 		moves map[Target]Target,
 	) error
+	// checkRelations runs the unique and acyclic checks of the references at refs
+	// on the entry with the text key k.
+	checkRelations(ctx context.Context, tx Tx, k string, refs []int) error
 	// watches reports whether the table runs a hook when an entry of the table named
 	// table that its entries hold is set.
 	watches(table string) bool
