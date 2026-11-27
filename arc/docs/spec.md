@@ -688,8 +688,8 @@ sequence abort {
 
 ### Definition order and `next`
 
-The `next` keyword resolves to the next step in definition order. In the last step of
-a sequence, it completes the sequence (see [Step completion](#step-completion)):
+The `next` keyword resolves to the next step in definition order. In the last step of a
+sequence, it completes the sequence (see [Step completion](#step-completion)):
 
 ```arc
 stage step1 {
