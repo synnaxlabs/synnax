@@ -123,7 +123,7 @@ class SwapChannelPayload(BaseModel):
 
 
 class SetTimestampPrecisionPayload(BaseModel):
-    """Sets the precision of displayed timestamps (0-3)."""
+    """Sets the precision of displayed timestamps (0-9)."""
 
     timestamp_precision: int = Field(ge=0, le=255)
 

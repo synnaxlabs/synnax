@@ -38,6 +38,9 @@ type Binding struct {
 type Failure struct {
 	// Binding is the index of the field's binding in its message.
 	Binding int
+	// Missing is true when the payload has no value for the field, and the field has no
+	// default.
+	Missing bool
 	// Err names the field, and also the message when the decoder holds more than one.
 	Err error
 }
@@ -475,7 +478,10 @@ func (j *JSON) Decode(
 func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 	for i := range m.fields {
 		f := &m.fields[i]
-		var err error
+		var (
+			err     error
+			missing bool
+		)
 		if payload.Absent(m.values[i], f.dataType) {
 			switch {
 			case f.generate != nil:
@@ -483,6 +489,7 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 			case f.fallback != nil:
 				samples[i] = append(samples[i], f.fallback...)
 			default:
+				missing = true
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
 				)
@@ -496,6 +503,7 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 		if err != nil {
 			failures = append(failures, Failure{
 				Binding: i,
+				Missing: missing,
 				Err:     errors.Wrapf(err, "field %s", f.name),
 			})
 		}

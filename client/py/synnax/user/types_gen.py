@@ -11,14 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
 
 from synnax.access import role as role_
 from synnax.resource import ID
-from x import filter
+from x import filter, validate
 from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
@@ -56,7 +56,7 @@ class User(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     root_user: bool = False
-    role: role_.Key
+    role: Annotated[role_.Key, AfterValidator(validate.non_nil_uuid)]
 
     @_override
     def __hash__(self) -> int:

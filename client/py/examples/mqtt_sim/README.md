@@ -4,7 +4,7 @@ This directory holds example scripts for the Synnax MQTT integration.
 
 ## Prerequisites
 
-- A running Synnax Core. MQTT tasks run on the driver inside the Core, so no separate
+- A running Synnax Core. MQTT tasks run on the Driver inside the Core, so no separate
   Driver is necessary.
 - A broker. `server.py` is a mock plant with its own small broker. For production, use a
   broker such as Mosquitto, EMQX, or HiveMQ.

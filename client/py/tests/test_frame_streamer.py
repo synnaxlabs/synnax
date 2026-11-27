@@ -46,10 +46,20 @@ from x.fs import FilePath
 READ_TIMEOUT = 5
 # The Core's minimum accepted keep-alive interval.
 KEEP_ALIVE = 2 * sy.TimeSpan.SECOND
-# Three keep-alive intervals: how long a read may stay silent once armed.
+# Three keep-alive intervals: how long a read may stay silent.
 DEADLINE = 3 * KEEP_ALIVE
-# Seconds for one keep-alive interval plus slack, so the streamer has armed.
-ARMED = 2.5
+# Seconds for one keep-alive interval plus slack, so a stall starts after a keep-alive.
+AFTER_KEEP_ALIVE = 2.5
+
+
+def await_client_close(proxy: Proxy) -> None:
+    """Waits for the client to close its blackholed socket. The proxy sees the close
+    on its own thread, after the client returns.
+    """
+    deadline = time.monotonic() + READ_TIMEOUT
+    while proxy.blackholed_closed_by_client != 1:
+        assert time.monotonic() < deadline, "the client kept its socket open"
+        time.sleep(0.01)
 
 
 def write(client: sy.Synnax, ch: sy.Channel, data: list[float]) -> None:
@@ -492,7 +502,7 @@ class TestStreamerKeepAlive:
     ) -> None:
         """Should raise Unreachable when a read stays silent past the deadline"""
         s = proxied_client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE)
-        time.sleep(ARMED)
+        time.sleep(AFTER_KEEP_ALIVE)
         assert proxy.blackhole() > 0
         start = sy.TimeStamp.now()
         with pytest.raises(
@@ -506,7 +516,7 @@ class TestStreamerKeepAlive:
     ) -> None:
         """Should return None when the read timeout elapses before the deadline"""
         s = proxied_client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE)
-        time.sleep(ARMED)
+        time.sleep(AFTER_KEEP_ALIVE)
         assert proxy.blackhole() > 0
         assert s.read(timeout=1) is None
 
@@ -515,20 +525,20 @@ class TestStreamerKeepAlive:
     ) -> None:
         """Should raise Unreachable to a caller polling with a short timeout"""
         s = proxied_client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE)
-        time.sleep(ARMED)
+        time.sleep(AFTER_KEEP_ALIVE)
         assert proxy.blackhole() > 0
         start = sy.TimeStamp.now()
         with pytest.raises(Unreachable):
             while sy.TimeSpan.since(start) < DEADLINE + KEEP_ALIVE:
                 assert s.read(timeout=1) is None
 
-    def test_early_keep_alive_arms(
+    def test_keep_alive_before_open_ack(
         self,
         virtual_channel: sy.Channel,
         early_proxy: Proxy,
         early_proxied_client: sy.Synnax,
     ) -> None:
-        """Should arm the deadline on a keep-alive that precedes the open ack"""
+        """Should open when a keep-alive precedes the open ack"""
         s = early_proxied_client.open_streamer(
             virtual_channel.key, keep_alive=KEEP_ALIVE
         )
@@ -536,10 +546,37 @@ class TestStreamerKeepAlive:
         with pytest.raises(Unreachable):
             s.read(timeout=DEADLINE + KEEP_ALIVE)
 
+    def test_stall_before_first_keep_alive(
+        self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
+    ) -> None:
+        """Should raise Unreachable when the link stalls before the first keep-alive"""
+        s = proxied_client.open_streamer(virtual_channel.key, keep_alive=KEEP_ALIVE)
+        assert proxy.blackhole() > 0
+        with pytest.raises(
+            Unreachable, match=f"streamer received no response for {DEADLINE}"
+        ):
+            s.read()
+
+    def test_stall_before_open_ack(
+        self,
+        virtual_channel: sy.Channel,
+        stalled_proxy: Proxy,
+        stalled_proxied_client: sy.Synnax,
+    ) -> None:
+        """Should raise Unreachable and close the connection when the link stalls
+        before the open ack"""
+        with pytest.raises(
+            Unreachable, match=f"streamer received no response for {DEADLINE}"
+        ):
+            stalled_proxied_client.open_streamer(
+                virtual_channel.key, keep_alive=KEEP_ALIVE
+            )
+        await_client_close(stalled_proxy)
+
     def test_disabled(
         self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
     ) -> None:
-        """Should never arm the deadline when keep-alive is disabled"""
+        """Should leave a silent read pending when keep-alive is disabled"""
         s = proxied_client.open_streamer(virtual_channel.key, keep_alive=0)
         time.sleep(0.25)
         assert proxy.blackhole() > 0
@@ -570,7 +607,7 @@ class TestAsyncStreamerKeepAlive:
         async with await client.open_async_streamer(
             virtual_channel.key, keep_alive=KEEP_ALIVE
         ) as s:
-            await asyncio.sleep(ARMED)
+            await asyncio.sleep(AFTER_KEEP_ALIVE)
             write(client, virtual_channel, [1, 2, 3])
             async with asyncio.timeout(READ_TIMEOUT):
                 await s.read()
@@ -588,7 +625,7 @@ class TestAsyncStreamerKeepAlive:
         s = await proxied_client.open_async_streamer(
             virtual_channel.key, keep_alive=KEEP_ALIVE
         )
-        await asyncio.sleep(ARMED)
+        await asyncio.sleep(AFTER_KEEP_ALIVE)
         assert proxy.blackhole() > 0
         start = sy.TimeStamp.now()
         with pytest.raises(
@@ -605,7 +642,7 @@ class TestAsyncStreamerKeepAlive:
         s = await proxied_client.open_async_streamer(
             virtual_channel.key, keep_alive=KEEP_ALIVE
         )
-        await asyncio.sleep(ARMED)
+        await asyncio.sleep(AFTER_KEEP_ALIVE)
         assert proxy.blackhole() > 0
         start = sy.TimeStamp.now()
         with pytest.raises(Unreachable):
@@ -615,13 +652,13 @@ class TestAsyncStreamerKeepAlive:
                         await s.read()
 
     @pytest.mark.asyncio
-    async def test_early_keep_alive_arms(
+    async def test_keep_alive_before_open_ack(
         self,
         virtual_channel: sy.Channel,
         early_proxy: Proxy,
         early_proxied_client: sy.Synnax,
     ) -> None:
-        """Should arm the deadline on a keep-alive that precedes the open ack"""
+        """Should open when a keep-alive precedes the open ack"""
         s = await early_proxied_client.open_async_streamer(
             virtual_channel.key, keep_alive=KEEP_ALIVE
         )
@@ -629,6 +666,37 @@ class TestAsyncStreamerKeepAlive:
         with pytest.raises(Unreachable):
             async with asyncio.timeout((DEADLINE + KEEP_ALIVE).seconds):
                 await s.read()
+
+    @pytest.mark.asyncio
+    async def test_stall_before_first_keep_alive(
+        self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
+    ) -> None:
+        """Should raise Unreachable when the link stalls before the first keep-alive"""
+        s = await proxied_client.open_async_streamer(
+            virtual_channel.key, keep_alive=KEEP_ALIVE
+        )
+        assert proxy.blackhole() > 0
+        with pytest.raises(
+            Unreachable, match=f"streamer received no response for {DEADLINE}"
+        ):
+            await s.read()
+
+    @pytest.mark.asyncio
+    async def test_stall_before_open_ack(
+        self,
+        virtual_channel: sy.Channel,
+        stalled_proxy: Proxy,
+        stalled_proxied_client: sy.Synnax,
+    ) -> None:
+        """Should raise Unreachable and close the connection when the link stalls
+        before the open ack"""
+        with pytest.raises(
+            Unreachable, match=f"streamer received no response for {DEADLINE}"
+        ):
+            await stalled_proxied_client.open_async_streamer(
+                virtual_channel.key, keep_alive=KEEP_ALIVE
+            )
+        await_client_close(stalled_proxy)
 
 
 @pytest.mark.framer
@@ -675,6 +743,9 @@ class _FakeStream[S: BaseModel]:
     def close_send(self) -> None:
         pass
 
+    def close(self) -> None:
+        pass
+
 
 class _FakeAsyncStream[S: BaseModel]:
     """Replays responses as the Core sends them."""
@@ -693,6 +764,9 @@ class _FakeAsyncStream[S: BaseModel]:
         return False
 
     async def close_send(self) -> None:
+        pass
+
+    async def close(self) -> None:
         pass
 
 

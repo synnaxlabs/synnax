@@ -221,6 +221,7 @@ func (b *builder) build(prog ir.IR) *Scheduler {
 			topLevel[m.scope.ir.Key] = m.scope
 		}
 	}
+	s.scoped = len(topLevel) > 0
 	for _, j := range b.jumps {
 		j.state.transitionTargets[j.idx] = topLevel[j.key]
 	}

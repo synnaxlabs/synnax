@@ -12,6 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::errors {
 /// @brief it should correctly parse an error from a string with type and data.
@@ -120,6 +121,24 @@ TEST(TestXErrors, testWrapNil) {
     const auto wrapped = NIL.wrap("context");
     ASSERT_EQ(wrapped.type(), TYPE_NIL);
     ASSERT_TRUE(wrapped.data().empty());
+}
+
+/// @brief it should drop the data of an error built with the nil type.
+TEST(TestXErrors, testNilDropsData) {
+    ASSERT_NIL(Error(TYPE_NIL, "data"));
+    ASSERT_TRUE(Error(TYPE_NIL, "data").data().empty());
+    ASSERT_TRUE(Error(NIL, "data").data().empty());
+    ASSERT_TRUE(Error("nil---data").data().empty());
+}
+
+/// @brief it should keep the type and data of each copy of an error.
+TEST(TestXErrors, testCopyKeepsPayload) {
+    auto copy = Error("a.b", "data");
+    const auto original = copy;
+    copy = NIL;
+    ASSERT_NIL(copy);
+    ASSERT_EQ(original.type(), "a.b");
+    ASSERT_EQ(original.data(), "data");
 }
 
 /// @brief it should return true for ok() on nil errors and false otherwise.

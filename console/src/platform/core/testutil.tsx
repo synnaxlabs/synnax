@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { RenderResult } from "@testing-library/react";
+import { fireEvent, type RenderResult, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { type MockInstance, onTestFinished, vi } from "vitest";
 
 import { Modals } from "@/platform/modals";
 import {
   type ConsolePreloadedState,
+  getBySelector,
   renderWithConsole,
   type TestStore,
 } from "@/testutil";
@@ -50,4 +51,24 @@ export const answerMethods = (methods: string[]): MockInstance<typeof fetch> => 
   });
   onTestFinished(() => spy.mockRestore());
   return spy;
+};
+
+/** The name field of the open connect modal. */
+export const connectNameInput = (): HTMLInputElement =>
+  screen.getByPlaceholderText<HTMLInputElement>("Synnax Core");
+
+// The port field carries its default rather than a placeholder, so it is reached by
+// the field class instead.
+const connectPortInput = (): HTMLInputElement =>
+  getBySelector<HTMLInputElement>(document.body, ".lyra-field__port input");
+
+/** Fills the open connect modal's name, host, and port fields. */
+export const fillConnectForm = (name: string, host: string, port: string): void => {
+  fireEvent.change(connectNameInput(), { target: { value: name } });
+  fireEvent.change(screen.getByPlaceholderText("localhost"), {
+    target: { value: host },
+  });
+  fireEvent.change(connectPortInput(), { target: { value: port } });
+  // A numeric input commits on blur, not per keystroke.
+  fireEvent.blur(connectPortInput());
 };

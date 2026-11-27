@@ -29,4 +29,8 @@ ChannelEntry struct extends v5.ChannelEntry {
     }
 }
 
-Log struct extends v5.Log {}
+Log struct extends v5.Log {
+    timestamp_precision uint8 = 0 {
+        @doc value "is the precision of displayed timestamps (0-9)."
+    }
+}

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -138,6 +139,12 @@ func (a *CalculationAnalyzer) Analyze(
 		return CalculationAnalysisResult{
 			Unresolved: a.resolver.unresolved.Slice(),
 		}, aCtx.Diagnostics
+	}
+	if dataType.ToTelem() == telem.UnknownT {
+		aCtx.Diagnostics.Add(diagnostics.Errorf(
+			t, "the expression of calculated channel %q returns no value", ch.Name,
+		))
+		return CalculationAnalysisResult{}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
 		Name: ch.Name,

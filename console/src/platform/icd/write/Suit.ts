@@ -32,6 +32,7 @@ export const Suit: FC<SuitProps> = ({ icdKey, path }) => {
   useSuit({
     path: path.bindings,
     message,
+    fieldsOf: ({ payload }) => (payload.format === "json" ? payload.fields : null),
     suit,
     bound: (bindings) =>
       bindings.flatMap((b) => (b.type === "channel" ? [b.channel] : [])),

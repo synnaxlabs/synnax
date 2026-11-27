@@ -35,7 +35,7 @@ var (
 // StreamClientConfig configures a streaming HTTP client built by NewStreamClient.
 type StreamClientConfig struct {
 	// Codec is used for both encoding outgoing messages and decoding incoming messages
-	// on the websocket connection. Websockets negotiate a single codec at upgrade time,
+	// on the WebSocket connection. WebSockets negotiate a single codec at upgrade time,
 	// so there is no per-direction split.
 	//
 	// [REQUIRED]
@@ -63,7 +63,7 @@ func (c StreamClientConfig) Override(other StreamClientConfig) StreamClientConfi
 
 // NewStreamClient builds a freighter.StreamClient using the merged config (left to
 // right) layered on top of the default config. Returns an error if the merged config
-// fails to validate. The returned client opens a websocket connection per call to
+// fails to validate. The returned client opens a WebSocket connection per call to
 // Stream.
 func NewStreamClient[RQ, RS freighter.Payload](
 	configs ...StreamClientConfig,
@@ -84,7 +84,7 @@ type streamClient[RQ, RS freighter.Payload] struct {
 }
 
 // Report describes the stream client's protocol and the single content type it
-// negotiates at websocket upgrade time.
+// negotiates at WebSocket upgrade time.
 func (s *streamClient[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol":  streamProtocol,

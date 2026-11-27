@@ -757,7 +757,7 @@ TEST(Receiver, GivesFrameToEntryWithMatchingMessage) {
     ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{1.0}));
 }
 
-/// @brief it should list the channels of each entry, index channels included.
+/// @brief it should list the channels of each entry, index channels last.
 TEST(Receiver, ListsChannelsOfEachEntry) {
     const auto a = lines("A", 2, 1, "first");
     const auto b = lines("B", 3, 4, "second");
@@ -769,57 +769,78 @@ TEST(Receiver, ListsChannelsOfEachEntry) {
             false
         )
     );
-    ASSERT_EQ(r.channels(), (std::vector<synnax::channel::Key>{2, 1, 3, 4}));
+    ASSERT_EQ(r.channels(), (std::vector<synnax::channel::Key>{2, 3, 1, 4}));
 }
 
-/// @brief it should give a frame that two entries match to the first one.
-TEST(Receiver, GivesFrameToFirstMatchingEntry) {
+/// @brief it should give each line to the entry whose message has the longest prefix
+/// that starts it, whatever the task order.
+TEST(Receiver, GivesLineToLongestPrefixAcrossEntries) {
+    const auto a = lines("$GP", 2, 1, "first");
+    const auto b = lines("$GPGGA", 3, 4, "second");
+    for (const auto &entries:
+         {std::vector{a.entry(), b.entry()}, {b.entry(), a.entry()}}) {
+        auto r = ASSERT_NIL_P(
+            Receiver::create(
+                entries,
+                {a.ic, b.ic},
+                merged(a.channels, b.channels),
+                false
+            )
+        );
+        Memory t;
+        t.push("$GPGGA,5\n$GPRMC,7\n");
+        x::telem::Frame fr;
+        const auto res = r.read(t, fr);
+        ASSERT_NIL(res.error);
+        ASSERT_TRUE(res.warning.empty());
+        ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
+        ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+        ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
+    }
+}
+
+/// @brief it should refuse two entries whose messages have the same prefix.
+TEST(Receiver, RejectsEntriesWithOnePrefix) {
     const auto a = lines("T", 2, 1, "first");
     const auto b = lines("T", 3, 4, "second");
-    auto r = ASSERT_NIL_P(
-        Receiver::create(
-            {a.entry(), b.entry()},
-            {a.ic, b.ic},
-            merged(a.channels, b.channels),
-            false
-        )
+    const auto err = refused(
+        {a.entry(), b.entry()},
+        {a.ic, b.ic},
+        merged(a.channels, b.channels)
     );
-    Memory t;
-    t.push("T,5\n");
-    x::telem::Frame fr;
-    ASSERT_NIL(r.read(t, fr).error);
-    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
-    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data(),
+        R"(messages frame of ICD first and frame of ICD second have the same prefix "T")"
+    );
 }
 
-/// @brief it should give a frame that a JSON entry cannot parse to a later entry that
-/// matches it, with no warning.
-TEST(Receiver, GivesFrameThatIsNotJSONToLaterEntry) {
+/// @brief it should refuse a JSON entry and a text entry on one transport, as it
+/// refuses messages of different formats in one entry.
+TEST(Receiver, RejectsJSONAndTextEntries) {
     const auto a = documents(std::nullopt, 2, 1, "first");
     const auto b = lines("T", 3, 4, "second");
-    auto r = ASSERT_NIL_P(
-        Receiver::create(
-            {a.entry(), b.entry()},
-            {a.ic, b.ic},
-            merged(a.channels, b.channels),
-            false
-        )
+    const auto err = refused(
+        {a.entry(), b.entry()},
+        {a.ic, b.ic},
+        merged(a.channels, b.channels)
     );
-    Memory t;
-    t.push("T,5\n");
-    x::telem::Frame fr;
-    const auto res = r.read(t, fr);
-    ASSERT_NIL(res.error);
-    ASSERT_TRUE(res.warning.empty());
-    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3}));
-    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data(),
+        "messages frame of ICD first and frame of ICD second have different formats"
+    );
 }
 
-/// @brief it should warn about a frame that no entry matches with the error of the
-/// first entry that cannot parse it.
+/// @brief it should warn about a frame that no entry can parse.
 TEST(Receiver, WarnsAboutFrameThatNoEntryMatches) {
-    const auto a = documents(std::nullopt, 2, 1, "first");
-    const auto b = lines("T", 3, 4, "second");
+    synnax::icd::StringJSONMatch first;
+    first.pointer = "/type";
+    first.value = "a";
+    auto second = first;
+    second.value = "b";
+    const auto a = documents(first, 2, 1, "first");
+    const auto b = documents(second, 3, 4, "second");
     auto r = ASSERT_NIL_P(
         Receiver::create(
             {a.entry(), b.entry()},
@@ -1022,61 +1043,85 @@ TEST(Receiver, RejectsEntriesThatReadOneMessage) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry(), cfg.entry()}, {cfg.ic}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data(), "entries 0 and 1 both read message frame of ICD device");
+    ASSERT_EQ(err.data(), "message frame is read twice");
 }
 
-/// @brief it should refuse an entry after one that reads a binary message with no
-/// identifier, which matches every frame.
-TEST(Receiver, RejectsEntryAfterBinaryCatchAll) {
+/// @brief it should give an entry that reads a binary message with no identifier each
+/// frame that no later entry matches.
+TEST(Receiver, GivesFrameOfNoOtherEntryToEarlierBinaryCatchAll) {
     const auto a = pairs();
-    const auto b = pairs();
-    const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, b.channels);
-    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(
-        err.data(),
-        "message frame of ICD device in entry 0 matches every frame, so entry 1 never "
-        "gets one"
+    const auto b = tagged(1, 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
     );
+    Memory t;
+    t.push(std::vector<std::uint8_t>{1, 5, 2, 7});
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
 }
 
-/// @brief it should refuse a JSON entry after one that reads a text message with no
-/// prefix, which matches every frame.
-TEST(Receiver, RejectsEntryAfterTextCatchAll) {
+/// @brief it should give an entry that reads a text message with no prefix each frame
+/// that no later entry matches.
+TEST(Receiver, GivesFrameOfNoOtherEntryToEarlierTextCatchAll) {
     const auto a = lines("", 2, 1, "first");
-    synnax::icd::PresentJSONMatch rule;
-    rule.pointer = "/v";
-    const auto b = documents(rule, 3, 4, "second");
-    const auto err = refused(
-        {a.entry(), b.entry()},
-        {a.ic, b.ic},
-        merged(a.channels, b.channels)
+    const auto b = lines("T", 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
     );
-    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(
-        err.data(),
-        "message frame of ICD first in entry 0 matches every frame, so entry 1 never "
-        "gets one"
-    );
+    Memory t;
+    t.push("T,5\nX,7\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
 }
 
-/// @brief it should refuse a JSON entry after one that reads a JSON message with no
-/// match rule, which matches every JSON document.
-TEST(Receiver, RejectsJSONEntryAfterJSONCatchAll) {
+/// @brief it should give an entry that reads a JSON message with no match rule each
+/// document that no later entry matches.
+TEST(Receiver, GivesDocumentOfNoOtherEntryToEarlierJSONCatchAll) {
     const auto a = documents(std::nullopt, 2, 1, "first");
-    synnax::icd::PresentJSONMatch rule;
-    rule.pointer = "/v";
+    synnax::icd::StringJSONMatch rule;
+    rule.pointer = "/type";
+    rule.value = "b";
     const auto b = documents(rule, 3, 4, "second");
-    const auto err = refused(
-        {a.entry(), b.entry()},
-        {a.ic, b.ic},
-        merged(a.channels, b.channels)
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
     );
-    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(
-        err.data(),
-        "message frame of ICD first in entry 0 matches every JSON document, so entry 1 "
-        "never gets one"
+    Memory t;
+    t.push(
+        std::string(R"({"type": "b", "v": 5})") + "\n" + R"({"type": "a", "v": 7})" +
+        "\n"
     );
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
 }
 
 /// @brief it should give the last entry, which reads a message with no prefix, each
@@ -1103,29 +1148,34 @@ TEST(Receiver, GivesFrameOfNoOtherEntryToLastCatchAll) {
     ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
 }
 
-/// @brief it should give a frame that is not a JSON document to a binary entry after
-/// one that reads a JSON message with no match rule.
-TEST(Receiver, GivesFrameThatIsNotJSONToBinaryEntryAfterJSONCatchAll) {
+/// @brief it should refuse a JSON entry and a binary entry on one transport, as it
+/// refuses messages of different formats in one entry.
+TEST(Receiver, RejectsJSONAndBinaryEntries) {
     const auto a = documents(std::nullopt, 2, 1, "first");
     Config b{synnax::icd::BinaryPayload{}, synnax::icd::DelimitedFraming{}, "second"};
     b.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 3, 4);
-    auto r = ASSERT_NIL_P(
-        Receiver::create(
-            {a.entry(), b.entry()},
-            {a.ic, b.ic},
-            merged(a.channels, b.channels),
-            false
-        )
+    const auto err = refused(
+        {a.entry(), b.entry()},
+        {a.ic, b.ic},
+        merged(a.channels, b.channels)
     );
-    Memory t;
-    t.push(std::string(R"({"v": 3})") + "\n" + std::string{'\0', '\7'} + "\n");
-    x::telem::Frame fr;
-    const auto res = r.read(t, fr);
-    ASSERT_NIL(res.error);
-    ASSERT_TRUE(res.warning.empty());
-    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2, 4, 3}));
-    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{3.0}));
-    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data(),
+        "messages frame of ICD first and frame of ICD second have different formats"
+    );
+}
+
+/// @brief it should refuse two entries that write one channel.
+TEST(Receiver, RejectsEntriesThatWriteOneChannel) {
+    const auto a = lines("A", 2, 1, "first");
+    const auto b = lines("B", 2, 1, "second");
+    const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, a.channels);
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data(),
+        "messages frame of ICD first and frame of ICD second write to the same channel 1"
+    );
 }
 
 /// @brief it should refuse a stream entry whose ICD has no framing.
@@ -1158,12 +1208,14 @@ TEST(Receiver, RejectsMissingICD) {
     ASSERT_EQ(err.data(), "entry 0: ICD " + cfg.ic.key.to_string() + " does not exist");
 }
 
-/// @brief it should name the entry whose reader fails to create.
-TEST(Receiver, NamesEntryWhoseReaderFails) {
-    const auto cfg = pairs();
-    const auto err = refused({cfg.entry()}, {cfg.ic});
+/// @brief it should name the ICD of a message whose reader fails to create, when the
+/// entries read more than one ICD.
+TEST(Receiver, NamesICDOfMessageThatFails) {
+    const auto a = lines("A", 2, 1, "first");
+    const auto b = lines("B", 3, 4, "second");
+    const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, a.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data(), "entry 0: message frame: channel 2 does not exist");
+    ASSERT_EQ(err.data(), "message frame of ICD second: channel 3 does not exist");
 }
 
 /// @brief it should read each datagram with no framing as one message, and send the
@@ -1296,22 +1348,31 @@ TEST(Receiver, ReadsDatagramPastBatch) {
     ASSERT_EQ(second.series->at(1).values<double>(), (std::vector{7.0}));
 }
 
-/// @brief it should read nothing and send nothing with no entries.
+/// @brief it should read nothing, warn about nothing, and send nothing with no
+/// entries.
 TEST(Receiver, ReadsNothingWithoutEntries) {
     auto r = ASSERT_NIL_P(Receiver::create({}, {}, {}, false));
     Memory t;
     t.push("1,2\n");
     x::telem::Frame fr;
-    ASSERT_NIL(r.read(t, fr).error);
-    ASSERT_NIL(r.read(t, fr).error);
+    for (int i = 0; i < 2; i++) {
+        const auto res = r.read(t, fr);
+        ASSERT_NIL(res.error);
+        ASSERT_TRUE(res.warning.empty());
+    }
     ASSERT_TRUE(fr.empty());
     ASSERT_TRUE(t.writes.empty());
 }
 
-/// @brief it should give a frame to the first entry that matches it when that entry
-/// fails to decode it, warn about the error, and give the frame to no later entry.
-TEST(Receiver, KeepsFrameThatFirstMatchingEntryFailsToDecode) {
-    Config a{synnax::icd::TextPayload{.prefix = "T"}, synnax::icd::DelimitedFraming{}};
+/// @brief it should give a line to the entry whose message has the longest prefix that
+/// starts it when that entry fails to decode it, warn about the error, and give the
+/// line to no other entry.
+TEST(Receiver, KeepsFrameThatMatchingEntryFailsToDecode) {
+    Config a{
+        synnax::icd::TextPayload{.prefix = "TT"},
+        synnax::icd::DelimitedFraming{},
+        "first"
+    };
     synnax::icd::DelimitedTextField v;
     v.name = "v";
     v.position = 2;
@@ -1326,19 +1387,22 @@ TEST(Receiver, KeepsFrameThatFirstMatchingEntryFailsToDecode) {
         )
     );
     Memory t;
-    t.push("T,5\n");
+    t.push("TT,5\n");
     x::telem::Frame fr;
     const auto res = r.read(t, fr);
     ASSERT_NIL(res.error);
     ASSERT_EQ(res.warning.message, "Failed to decode message");
-    ASSERT_EQ(res.warning.description, "field v: no value at position 2");
+    ASSERT_EQ(
+        res.warning.description,
+        "message frame of ICD first: field v: no value at position 2"
+    );
     ASSERT_TRUE(fr.empty());
 }
 
-/// @brief it should write the other index groups of a frame whose field the first
-/// matching entry fails to decode, warn about the field, and give the frame to no later
-/// entry.
-TEST(Receiver, KeepsFrameWhoseFieldFirstMatchingEntryFailsToDecode) {
+/// @brief it should write the other index groups of a frame whose field the matching
+/// entry fails to decode, warn about the field, and give the frame to no catch-all of
+/// another entry.
+TEST(Receiver, KeepsFrameWhoseFieldMatchingEntryFailsToDecode) {
     synnax::icd::PresentJSONMatch rule;
     rule.pointer = "/v";
     auto a = documents(rule, 2, 1, "first");
@@ -1363,18 +1427,19 @@ TEST(Receiver, KeepsFrameWhoseFieldFirstMatchingEntryFailsToDecode) {
     ASSERT_EQ(res.warning.message, "Failed to decode message");
     ASSERT_EQ(
         res.warning.description,
-        "field w: expected a number or boolean, got an object"
+        "message frame of ICD first: field w: expected a number or boolean, got an "
+        "object"
     );
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{1.0}));
 }
 
-/// @brief it should give a binary frame to the first entry whose identifier it meets
-/// when that entry fails to decode it, warn about the error, and give the frame to no
-/// later entry.
-TEST(Receiver, KeepsBinaryFrameThatFirstMatchingEntryFailsToDecode) {
-    const auto a = tagged(1, 2, 1, "first", 2);
-    const auto b = tagged(1, 3, 4, "second");
+/// @brief it should give a binary frame to the entry whose identifier it meets when
+/// that entry fails to decode it, warn about the error, and give the frame to no
+/// catch-all of another entry.
+TEST(Receiver, KeepsBinaryFrameThatMatchingEntryFailsToDecode) {
+    const auto a = tagged(1, 3, 4, "first", 2);
+    const auto b = pairs();
     auto r = ASSERT_NIL_P(
         Receiver::create(
             {a.entry(), b.entry()},
@@ -1391,30 +1456,26 @@ TEST(Receiver, KeepsBinaryFrameThatFirstMatchingEntryFailsToDecode) {
     ASSERT_EQ(res.warning.message, "Failed to decode message");
     ASSERT_EQ(
         res.warning.description,
-        "field v: the payload has 2 bytes and the field needs 3"
+        "message frame of ICD first: field v: the payload has 2 bytes and the field "
+        "needs 3"
     );
     ASSERT_TRUE(fr.empty());
 }
 
-/// @brief it should keep a JSON frame that meets the rules of two messages of the first
-/// entry, warn about it, and give the frame to no later entry.
-TEST(Receiver, KeepsJSONFrameThatMeetsTwoRulesOfFirstEntry) {
+/// @brief it should warn about a JSON frame that meets the rules of messages of two
+/// entries, and give it to neither.
+TEST(Receiver, WarnsAboutJSONFrameThatMeetsRulesOfTwoEntries) {
     synnax::icd::PresentJSONMatch v;
     v.pointer = "/v";
-    auto a = documents(v, 2, 1, "first");
+    const auto a = documents(v, 2, 1, "first");
     auto w = v;
     w.pointer = "/w";
-    const auto other = documents(w, 5, 6, "first");
-    a.ic.messages.push_back(other.ic.messages.front());
-    a.ic.messages.back().name = "other";
-    auto entry = a.entry();
-    entry.messages.push_back(other.read);
-    const auto b = documents(std::nullopt, 3, 4, "second");
+    const auto b = documents(w, 3, 4, "second");
     auto r = ASSERT_NIL_P(
         Receiver::create(
-            {entry, b.entry()},
+            {a.entry(), b.entry()},
             {a.ic, b.ic},
-            merged(merged(a.channels, other.channels), b.channels),
+            merged(a.channels, b.channels),
             false
         )
     );
@@ -1424,7 +1485,10 @@ TEST(Receiver, KeepsJSONFrameThatMeetsTwoRulesOfFirstEntry) {
     const auto res = r.read(t, fr);
     ASSERT_NIL(res.error);
     ASSERT_EQ(res.warning.message, "Failed to decode message");
-    ASSERT_EQ(res.warning.description, "document matches messages frame and other");
+    ASSERT_EQ(
+        res.warning.description,
+        "document matches messages frame of ICD first and frame of ICD second"
+    );
     ASSERT_TRUE(fr.empty());
 }
 }
