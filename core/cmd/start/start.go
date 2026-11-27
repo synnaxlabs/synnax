@@ -387,8 +387,9 @@ func BootupCore(
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
 		Storage:          storageLayer,
 	})
+	var distributionLife context.Context
 	if err == nil {
-		lifetimes.Go(
+		distributionLife = lifetimes.Go(
 			storageLife,
 			"distribution",
 			distributionLayer.Run,
@@ -426,7 +427,10 @@ func BootupCore(
 		SecretsDir:             cfg.secretsDir,
 		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
-	if !ok(err, serviceLayer) {
+	if err == nil {
+		lifetimes.Go(distributionLife, "service", serviceLayer.Run, serviceLayer.Close)
+	}
+	if !ok(err, nil) {
 		return err
 	}
 

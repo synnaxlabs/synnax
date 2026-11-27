@@ -91,10 +91,12 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // LayerConfig is the configuration for opening the service layer. See fields for
@@ -348,10 +350,31 @@ type Layer struct {
 	Signals *signals.Provider
 	// closer is for properly shutting down the service layer.
 	closer io.MultiCloser
+	// guard orders Run against Close.
+	guard lifetime.Guard
 }
 
-// Close shuts down the service layer, returning any error encountered.
-func (l *Layer) Close() error { return l.closer.Close() }
+// Run runs the goroutines of the services in the Layer until ctx ends or one of them
+// fails, then waits for all of them to stop and returns the first error. A second Run,
+// or a Run after Close, returns an error.
+func (l *Layer) Run(ctx context.Context) error {
+	if err := l.guard.Begin(); err != nil {
+		return err
+	}
+	defer l.guard.End()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return l.Auth.Run(ctx) })
+	return g.Wait()
+}
+
+// Close shuts down the service layer, returning any error encountered. Call it after
+// Run returns: while Run runs, Close returns an error and closes nothing.
+func (l *Layer) Close() error {
+	if first, err := l.guard.Close(); !first || err != nil {
+		return err
+	}
+	return l.closer.Close()
+}
 
 func revokePasswordSessions(
 	ctx context.Context,
