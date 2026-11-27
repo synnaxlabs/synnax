@@ -281,23 +281,28 @@ var _ = Describe("Storage stream check", func() {
 
 	DescribeTable("Should read the other channels when the read of one channel fails",
 		func(ctx SpecContext, span telem.TimeSpan) {
+			core, logs := observer.New(zapcore.ErrorLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core),
+			}))
+			// Cesium and the node share ins, so the log holds wherever it is written.
+			ins := alamos.New("check", alamos.WithLogger(logger))
 			failing := &atomic.Pointer[string]{}
 			kv := DeferClose(memkv.New())
 			store := &storage.Layer{
 				KV:   kv,
 				Gorp: gorp.Wrap(kv),
-				TS: DeferClose(MustSucceed(cesium.Open(ctx, "", cesium.WithFS(
-					readFaultFS{FS: xfs.NewMem(), failing: failing},
-				)))),
+				TS: DeferClose(MustSucceed(cesium.Open(
+					ctx,
+					"",
+					cesium.WithFS(readFaultFS{FS: xfs.NewMem(), failing: failing}),
+					cesium.WithInstrumentation(ins),
+				))),
 			}
 			StartRun(store.Run)
-			core, logs := observer.New(zapcore.ErrorLevel)
-			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-				ZapLogger: zap.New(core),
-			}))
 			dist := testutil.NewNode(ctx, distribution.LayerConfig{
 				Storage:         store,
-				Instrumentation: alamos.New("check", alamos.WithLogger(logger)),
+				Instrumentation: ins,
 			})
 			idx := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
 				Name:     "check_time",
