@@ -101,8 +101,13 @@ func newSiblingIndex(scope resource.Type) siblingIndex {
 			if g.Parent == nil {
 				return s, true
 			}
+			if g.Parent.Type != resource.TypeGroup {
+				return Sibling{}, false
+			}
 			parent, err := KeyFromResourceID(*g.Parent)
 			if err != nil {
+				// A raw write can store a malformed key. The group stays out of the
+				// index, so the Core still opens over it.
 				return Sibling{}, false
 			}
 			s.Parent = parent
