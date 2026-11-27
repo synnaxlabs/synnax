@@ -1630,14 +1630,14 @@ TEST(TestScanTask, testRunningTransitions) {
     const auto scan_task = new_test_task(ctx, task);
 
     scan_task->start();
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
-    EXPECT_TRUE(ctx->statuses[0].details.running);
-    EXPECT_EQ(ctx->statuses[0].message, "Started scan task");
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
+    EXPECT_TRUE(ctx->snapshot()[0].details.running);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Started scan task");
 
     scan_task->stop(false);
-    ASSERT_EQ(ctx->statuses.size(), 2);
-    EXPECT_FALSE(ctx->statuses[1].details.running);
-    EXPECT_EQ(ctx->statuses[1].message, "Stopped scan task");
+    ASSERT_EQ(ctx->snapshot().size(), 2);
+    EXPECT_FALSE(ctx->snapshot()[1].details.running);
+    EXPECT_EQ(ctx->snapshot()[1].message, "Stopped scan task");
 }
 
 /// @brief it should come up on a second start after the first one failed. run() exits
@@ -1658,11 +1658,11 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     cancel.start();
     scan_task->exec(cmd, cancel);
     cancel.stop();
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses[0].message, "Failed to start scan task");
-    EXPECT_EQ(ctx->statuses[0].description, "scanner unavailable");
-    EXPECT_FALSE(ctx->statuses[0].details.running);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
+    EXPECT_EQ(ctx->snapshot()[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start scan task");
+    EXPECT_EQ(ctx->snapshot()[0].description, "scanner unavailable");
+    EXPECT_FALSE(ctx->snapshot()[0].details.running);
     // The thread is over once run() returns, so the pipeline must report stopped.
     ASSERT_EVENTUALLY_FALSE(scan_task->running());
 
@@ -1674,11 +1674,11 @@ TEST(TestScanTask, testStartRecoversAfterFailedStart) {
     cancel.start();
     scan_task->exec(retry, cancel);
     cancel.stop();
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].message, "Started scan task");
-    EXPECT_TRUE(ctx->statuses[1].details.running);
-    EXPECT_EQ(ctx->statuses[1].details.cmd, "start_2");
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    EXPECT_EQ(ctx->snapshot()[1].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->snapshot()[1].message, "Started scan task");
+    EXPECT_TRUE(ctx->snapshot()[1].details.running);
+    EXPECT_EQ(ctx->snapshot()[1].details.cmd, "start_2");
     scan_task->stop(false);
 }
 
@@ -1690,7 +1690,7 @@ TEST(TestScanTask, testStartOnRunningTaskAcknowledges) {
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
     scan_task->start();
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
 
     synnax::task::Command cmd{
         .task = task.key,
@@ -1702,8 +1702,8 @@ TEST(TestScanTask, testStartOnRunningTaskAcknowledges) {
     scan_task->exec(cmd, cancel);
     cancel.stop();
 
-    ASSERT_EQ(ctx->statuses.size(), 2);
-    const auto ack = ctx->statuses[1];
+    ASSERT_EQ(ctx->snapshot().size(), 2);
+    const auto ack = ctx->snapshot()[1];
     EXPECT_EQ(ack.details.cmd, "start_again");
     EXPECT_TRUE(ack.details.running);
     EXPECT_EQ(ack.details.config_hash, "hash-1");
@@ -1730,8 +1730,8 @@ TEST(TestScanTask, testStopOnStoppedTaskAcknowledges) {
     scan_task->exec(cmd, cancel);
     cancel.stop();
 
-    ASSERT_EQ(ctx->statuses.size(), 1);
-    const auto ack = ctx->statuses[0];
+    ASSERT_EQ(ctx->snapshot().size(), 1);
+    const auto ack = ctx->snapshot()[0];
     EXPECT_EQ(ack.details.cmd, "stop_1");
     EXPECT_FALSE(ack.details.running);
     EXPECT_EQ(ack.variant, synnax::status::VARIANT_SUCCESS);
@@ -1754,8 +1754,8 @@ TEST(TestScanTask, testUnknownCommandAnswersWithError) {
     scan_task->exec(cmd, cancel);
     cancel.stop();
 
-    ASSERT_EQ(ctx->statuses.size(), 1);
-    const auto ack = ctx->statuses[0];
+    ASSERT_EQ(ctx->snapshot().size(), 1);
+    const auto ack = ctx->snapshot()[0];
     EXPECT_EQ(ack.details.cmd, "unknown_1");
     EXPECT_EQ(ack.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ack.message, "Failed to execute command");
@@ -1779,9 +1779,9 @@ TEST(TestScanTask, testScanWarningDoesNotClaimCommand) {
     scan_task->exec(cmd, cancel);
     cancel.stop();
 
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
-    const auto warning = ctx->statuses[1];
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    EXPECT_EQ(ctx->snapshot()[0].details.cmd, "start_cmd");
+    const auto warning = ctx->snapshot()[1];
     EXPECT_EQ(warning.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(warning.details.cmd, driver::task::NO_COMMAND);
     EXPECT_TRUE(warning.details.running);
@@ -2317,17 +2317,17 @@ TEST(TestScanTask, ScanWarningIsSentOnceAndClears) {
     );
     scan_task->start();
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
-        ctx->statuses.size(),
+        ctx->snapshot().size(),
         3,
         std::chrono::seconds(4),
         std::chrono::milliseconds(1)
     );
     scan_task->stop(false);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[1].message, "Failed to scan for devices");
-    EXPECT_EQ(ctx->statuses[1].description, "eth1: cannot open");
-    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
+    EXPECT_EQ(ctx->snapshot()[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->snapshot()[1].message, "Failed to scan for devices");
+    EXPECT_EQ(ctx->snapshot()[1].description, "eth1: cannot open");
+    EXPECT_EQ(ctx->snapshot()[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->snapshot()[2].message, "Scan task running");
 }
 
 /// @brief it should send the data of the scanner with a scan warning, and warn again
@@ -2346,16 +2346,16 @@ TEST(TestScanTask, ScanWarningCarriesTheDataOfTheScanner) {
     );
     scan_task->start();
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
-        ctx->statuses.size(),
+        ctx->snapshot().size(),
         3,
         std::chrono::seconds(4),
         std::chrono::milliseconds(1)
     );
     scan_task->stop(false);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[1].details.data, first);
-    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[2].details.data, second);
+    EXPECT_EQ(ctx->snapshot()[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->snapshot()[1].details.data, first);
+    EXPECT_EQ(ctx->snapshot()[2].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->snapshot()[2].details.data, second);
 }
 
 /// @brief it should send the scan warning again after the scanner answers a command
@@ -2366,7 +2366,7 @@ TEST(TestScanTask, ScanWarningFollowsAnAnswerOfTheScanner) {
     const auto partial = x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open");
     const auto scan_task = new_test_task(ctx, task, {partial, partial, partial});
     scan_task->start();
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
     synnax::task::Command cmd{
         .task = task.key,
         .type = ANSWERED_CMD_TYPE,
@@ -2375,15 +2375,15 @@ TEST(TestScanTask, ScanWarningFollowsAnAnswerOfTheScanner) {
     x::breaker::Breaker cancel;
     scan_task->exec(cmd, cancel);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
-        ctx->statuses.size(),
+        ctx->snapshot().size(),
         4,
         std::chrono::seconds(4),
         std::chrono::milliseconds(1)
     );
     scan_task->stop(false);
-    EXPECT_EQ(ctx->statuses[2].message, "Answered");
-    EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[3].description, "eth1: cannot open");
+    EXPECT_EQ(ctx->snapshot()[2].message, "Answered");
+    EXPECT_EQ(ctx->snapshot()[3].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->snapshot()[3].description, "eth1: cannot open");
 }
 /// @brief it should send the running status again after the scanner answers a command
 /// with its own status.
@@ -2392,7 +2392,7 @@ TEST(TestScanTask, RunningStatusFollowsAnAnswerOfTheScanner) {
     const auto task = new_test_task_record();
     const auto scan_task = new_test_task(ctx, task);
     scan_task->start();
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     synnax::task::Command cmd{
         .task = task.key,
         .type = ANSWERED_CMD_TYPE,
@@ -2401,14 +2401,14 @@ TEST(TestScanTask, RunningStatusFollowsAnAnswerOfTheScanner) {
     x::breaker::Breaker cancel;
     scan_task->exec(cmd, cancel);
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
-        ctx->statuses.size(),
+        ctx->snapshot().size(),
         3,
         std::chrono::seconds(4),
         std::chrono::milliseconds(1)
     );
     scan_task->stop(false);
-    EXPECT_EQ(ctx->statuses[1].message, "Answered");
-    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
+    EXPECT_EQ(ctx->snapshot()[1].message, "Answered");
+    EXPECT_EQ(ctx->snapshot()[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->snapshot()[2].message, "Scan task running");
 }
 }
