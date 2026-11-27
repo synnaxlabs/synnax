@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import type { connection, Synnax as Client } from "@synnaxlabs/client";
+import { type Clock, ClockProvider } from "@synnaxlabs/lyra/hooks";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import type { aether } from "@synnaxlabs/pluto/ether";
-import { deep } from "@synnaxlabs/x";
+import { deep, TimeStamp } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -140,6 +141,8 @@ export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtE
   extra?: ReactNode;
   /** Wraps the hook but not the modal stack, such as a context that the hook reads. */
   provider?: FC<PropsWithChildren>;
+  /** The clock that the hook and the modals read; the real clock by default. */
+  clock?: Clock;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -172,6 +175,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     analytics = Analytics.NOOP,
     extra,
     provider: HookProvider,
+    clock = () => TimeStamp.now(),
   } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
@@ -181,13 +185,15 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <Analytics.Provider sink={analytics}>
-        <Triggers.Provider>
-          {HookProvider == null ? children : <HookProvider>{children}</HookProvider>}
-          <Modals.Stack />
-          {extra}
-        </Triggers.Provider>
-      </Analytics.Provider>
+      <ClockProvider value={clock}>
+        <Analytics.Provider sink={analytics}>
+          <Triggers.Provider>
+            {HookProvider == null ? children : <HookProvider>{children}</HookProvider>}
+            <Modals.Stack />
+            {extra}
+          </Triggers.Provider>
+        </Analytics.Provider>
+      </ClockProvider>
     </Console>
   );
   const { result, unmount } = renderHook(useOpen, { wrapper, onCaughtError });
@@ -211,7 +217,10 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   };
 };
 
-export interface OpenModalOptions<P> extends Pick<RenderModalOpenerOptions, "extra"> {
+export interface OpenModalOptions<P> extends Pick<
+  RenderModalOpenerOptions,
+  "extra" | "clock"
+> {
   client?: Client | null;
   params?: P;
 }
@@ -224,11 +233,12 @@ export interface OpenModalOptions<P> extends Pick<RenderModalOpenerOptions, "ext
  */
 export const openModal = async <P,>(
   useOpen: () => Modals.Opener<P>,
-  { client = null, params, extra }: OpenModalOptions<P> = {},
+  { client = null, params, extra, clock }: OpenModalOptions<P> = {},
 ): Promise<ModalOpenerHandle<void>> =>
   await renderModalOpener(useOpen as () => (params?: P) => void, [params], {
     client,
     extra,
+    clock,
   });
 
 /**

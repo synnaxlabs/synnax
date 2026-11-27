@@ -15,10 +15,9 @@ import {
   createTestClientWithRole,
   createTestUser,
 } from "@synnaxlabs/client/testutil";
-import { sleep } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Credential } from "@/platform/credential";
 import { findButton, openModal, pressEscape } from "@/platform/modals/testutil";
@@ -58,6 +57,33 @@ const setExpiryDate = async (value: string): Promise<void> => {
   const field = await screen.findByDisplayValue(/^\d{4}-\d{2}-\d{2} /);
   fireEvent.change(field, { target: { value } });
   fireEvent.keyDown(field, { key: "Enter" });
+};
+
+interface TestClock {
+  /** The clock that the modals read. */
+  now: () => TimeStamp;
+  /** Moves the clock forward and runs the timers that the move makes due. */
+  advance: (span: TimeSpan) => Promise<void>;
+}
+
+// A clock that starts at the real time and moves only when a spec advances it. Timers
+// stay fake for the rest of the spec, so a label changes the moment its time comes.
+const createTestClock = (): TestClock => {
+  const start = TimeStamp.now();
+  let offset = TimeSpan.ZERO;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+  return {
+    now: () => start.add(offset),
+    advance: async (span) => {
+      offset = offset.add(span);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(span.milliseconds);
+      });
+    },
+  };
 };
 
 const expectPassword = async (username: string, password: string): Promise<void> => {
@@ -192,6 +218,7 @@ describe("useModal", () => {
   });
 
   it("should mark a key expired when it expires while the table is open", async () => {
+    const clock = createTestClock();
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({ name: uniqueName("user"), role });
@@ -199,31 +226,41 @@ describe("useModal", () => {
     await client.auth.apiKeys.create({
       subject: id,
       name: uniqueName("key"),
-      expires: TimeStamp.now().add(TimeSpan.seconds(5)),
+      expires: clock.now().add(TimeSpan.minutes(5)),
     });
-    await openModal(Credential.useModal, { client, params: { subject: id } });
-    await screen.findByText("in 1 minute");
-    await screen.findByText("Expired", undefined, { timeout: 10000 });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: id },
+      clock: clock.now,
+    });
+    await screen.findByText("in 5 minutes");
+    await clock.advance(TimeSpan.minutes(5));
+    await screen.findByText("Expired");
   });
 
   it("should show an error when the custom time passes", async () => {
+    const clock = createTestClock();
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({ name: uniqueName("user"), role });
     const id = user.resourceID(subject.key);
-    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: id },
+      clock: clock.now,
+    });
     await screen.findByText("No API keys");
     fireEvent.click(await screen.findByText("Create key"));
     await type("Key name", uniqueName("key"));
     fireEvent.click(await screen.findByText("Custom"));
-    await setExpiryDate(localTime(new Date(Date.now() + 3000)));
+    await setExpiryDate(localTime(clock.now().add(TimeSpan.minutes(1)).date()));
     expect(screen.queryByText("Expiry must be in the future")).toBeNull();
-    await screen.findByText("Expiry must be in the future", undefined, {
-      timeout: 6000,
-    });
+    await clock.advance(TimeSpan.minutes(1));
+    await screen.findByText("Expiry must be in the future");
   });
 
   it("should mark an expired key", async () => {
+    const clock = createTestClock();
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({ name: uniqueName("user"), role });
@@ -231,10 +268,14 @@ describe("useModal", () => {
     await client.auth.apiKeys.create({
       subject: id,
       name: uniqueName("key"),
-      expires: TimeStamp.now().add(TimeSpan.milliseconds(500)),
+      expires: clock.now().add(TimeSpan.minutes(1)),
     });
-    await sleep.sleep(TimeSpan.milliseconds(600));
-    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await clock.advance(TimeSpan.minutes(2));
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: id },
+      clock: clock.now,
+    });
     await screen.findByText("Expired");
   });
 
