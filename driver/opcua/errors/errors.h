@@ -43,6 +43,11 @@ const x::errors::Error ENCRYPTION_CONFIG_FAILED = SECURITY.sub("encryption_confi
 const x::errors::Error CLIENT_CERTIFICATE_INVALID = SECURITY.sub(
     "client_certificate_invalid"
 );
+/// @brief a user certificate to log in with that cannot be read, or that does not
+/// match its private key.
+const x::errors::Error LOGIN_CERTIFICATE_INVALID = SECURITY.sub(
+    "login_certificate_invalid"
+);
 /// @brief the Driver certificate cannot be loaded, made, or saved.
 const x::errors::Error DRIVER_CERTIFICATE_FAILED = SECURITY.sub("driver_certificate");
 /// @brief the server rejected the certificate that the client presented.

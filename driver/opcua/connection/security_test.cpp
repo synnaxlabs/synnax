@@ -405,6 +405,32 @@ TEST_F(SecurityTest, PoolSeparatesLogins) {
     ASSERT_EQ(pool.available_count(ENDPOINT), 1);
 }
 
+/// @brief it should log in with a user certificate.
+TEST_F(SecurityTest, CertificateLogin) {
+    this->start_server(server_id, {}, 0, {{"op", "pw"}});
+    auto cfg = config();
+    cfg.server_certificate = server_id.certificate;
+    cfg.login_certificate_item = x::uuid::create();
+    cfg.login_identity = other_id;
+    const auto client = ASSERT_NIL_P(connect(cfg, security(), "test"));
+    ASSERT_TRUE(activated(client.get()));
+}
+
+/// @brief it should not share a connection between two user certificates.
+TEST_F(SecurityTest, PoolSeparatesCertificateLogins) {
+    this->start_server(server_id, {}, 0, {{"op", "pw"}});
+    Pool pool(this->store());
+    auto first = config();
+    first.certificate_validation_disabled = true;
+    first.login_certificate_item = x::uuid::create();
+    first.login_identity = other_id;
+    { const auto conn = ASSERT_NIL_P(pool.acquire(first, LOG_PREFIX)); }
+    auto second = first;
+    second.login_identity = client_id;
+    { const auto conn = ASSERT_NIL_P(pool.acquire(second, LOG_PREFIX)); }
+    ASSERT_EQ(pool.available_count(ENDPOINT), 2);
+}
+
 /// @brief it should stop connecting after repeated certificate rejections, and repeat
 /// the rejection while it waits.
 TEST_F(SecurityTest, PoolBreakerCountsCertificateRejections) {

@@ -72,6 +72,12 @@ struct Config {
     std::optional<x::x509::Certificate> server_certificate;
     /// @brief whether the connection accepts any server certificate.
     bool certificate_validation_disabled = false;
+    /// @brief the key of the user certificate to log in with. Nil for no certificate
+    /// login.
+    x::uuid::UUID login_certificate_item;
+    /// @brief the certificate and private key of login_certificate_item, which
+    /// read_certificates fills in.
+    std::optional<certificate::Identity> login_identity;
     /// @brief the SecureChannel lifetime in milliseconds. 0 selects 10 minutes.
     uint32_t secure_channel_lifetime_ms = 0;
     /// @brief the Session timeout in milliseconds. 0 selects 20 minutes.
@@ -148,12 +154,13 @@ private:
     const std::optional<synnax::secret::Grant> &grant = std::nullopt
 );
 
-/// @brief reads the client and server certificates of cfg from the items that it
-/// names, when it names them. It reads no private key of the server certificate.
+/// @brief reads the client, login, and server certificates of cfg from the items that
+/// it names, when it names them. It reads no private key of the server certificate.
 /// @param grant a spent grant, as for secret::Reader::read_certificate. It applies to
-/// the client certificate only, since the server certificate is public.
-/// @returns errors::CLIENT_CERTIFICATE_INVALID if the client certificate cannot be
-/// parsed, has no private key, or its key does not match it, or the error of a read.
+/// the client and login certificates only, since the server certificate is public.
+/// @returns errors::CLIENT_CERTIFICATE_INVALID or errors::LOGIN_CERTIFICATE_INVALID if
+/// the client or login certificate cannot be parsed, has no private key, or its key
+/// does not match it, or the error of a read.
 [[nodiscard]] x::errors::Error read_certificates(
     Config &cfg,
     const secret::Reader &reader,

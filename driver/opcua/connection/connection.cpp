@@ -328,6 +328,17 @@ x::errors::Error read_certificates(
         if (parse_err) return parse_err;
         cfg.server_certificate = std::move(cert);
     }
+    if (!cfg.login_certificate_item.is_nil()) {
+        auto [login, err] = reader.read_certificate(cfg.login_certificate_item, grant);
+        if (err) return err;
+        auto [id, id_err] = certificate::Identity::parse(login.pem, login.private_key);
+        if (id_err)
+            return x::errors::Error(
+                errors::LOGIN_CERTIFICATE_INVALID,
+                "The login certificate is invalid: " + id_err.data()
+            );
+        cfg.login_identity = std::move(id);
+    }
     if (!cfg.uses_client_certificate()) return x::errors::NIL;
     auto [client, err] = reader.read_certificate(cfg.client_certificate_item, grant);
     if (err) return err;
@@ -383,6 +394,14 @@ connect(const Config &cfg, const Security &sec, std::string log_prefix) {
                 config,
                 cfg.username.c_str(),
                 cfg.password.c_str()
+            )))
+            return {nullptr, err};
+    }
+    if (cfg.login_identity.has_value()) {
+        if (const auto err = errors::parse(UA_ClientConfig_setAuthenticationCert(
+                config,
+                byte_string(cfg.login_identity->certificate.der()),
+                byte_string(cfg.login_identity->private_key)
             )))
             return {nullptr, err};
     }
