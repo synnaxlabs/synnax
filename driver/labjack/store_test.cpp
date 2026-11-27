@@ -130,12 +130,63 @@ TEST(Store, PrefersRowOnScanRack) {
     synnax::rack::Rack other{.name = "labjack_store_other_rack"};
     ASSERT_NIL(env.client->racks.create(other));
     const auto serial = new_serial();
-    auto elsewhere = found_device(other.key, serial);
+    // The row on the scan rack has the older status, so only the rack rule picks it.
     auto here = found_device(env.rack.key, serial);
-    ASSERT_NIL(env.client->labjack.devices.create(elsewhere));
+    auto elsewhere = found_device(other.key, serial);
     ASSERT_NIL(env.client->labjack.devices.create(here));
+    ASSERT_NIL(env.client->labjack.devices.create(elsewhere));
     Store store(env.client);
     const auto got = ASSERT_NIL_P(store.find(found_device(env.rack.key, serial)));
     ASSERT_EQ(got.value().key, here.key);
+}
+
+/// @brief it should prefer the most recently reported row when no row is on the rack
+/// of the scan.
+TEST(Store, PrefersMostRecentlyReportedRow) {
+    auto env = create_env();
+    synnax::rack::Rack first{.name = "labjack_store_first_rack"};
+    synnax::rack::Rack second{.name = "labjack_store_second_rack"};
+    ASSERT_NIL(env.client->racks.create(first));
+    ASSERT_NIL(env.client->racks.create(second));
+    const auto serial = new_serial();
+    auto older = found_device(first.key, serial);
+    auto newer = found_device(second.key, serial);
+    ASSERT_NIL(env.client->labjack.devices.create(older));
+    ASSERT_NIL(env.client->labjack.devices.create(newer));
+    Store store(env.client);
+    older.status = synnax::labjack::device::Status{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Device present",
+        .time = x::telem::TimeStamp::now(),
+    };
+    ASSERT_NIL(store.set_statuses({older}));
+    const auto got = ASSERT_NIL_P(store.find(found_device(env.rack.key, serial)));
+    ASSERT_EQ(got.value().key, older.key);
+}
+
+/// @brief it should move a device that another rack stopped reporting to the rack of
+/// the scan, together with its status.
+TEST(Store, TakesOverDeviceFromSilentRack) {
+    auto env = create_env();
+    synnax::rack::Rack other{.name = "labjack_store_silent_rack"};
+    ASSERT_NIL(env.client->racks.create(other));
+    const auto serial = new_serial();
+    auto stored = found_device(other.key, serial);
+    ASSERT_NIL(env.client->labjack.devices.create(stored));
+    common::Sync<Device> sync(
+        std::make_unique<Store>(env.client),
+        env.rack.key,
+        "",
+        x::telem::TimeSpan(0)
+    );
+    // The first scan only notes the status time of the other rack.
+    ASSERT_NIL(sync.sync({found_device(env.rack.key, serial)}));
+    ASSERT_EQ(ASSERT_NIL_P(retrieve_by_serial(env, serial)).rack, other.key);
+    ASSERT_NIL(sync.sync({found_device(env.rack.key, serial)}));
+    const auto got = ASSERT_NIL_P(retrieve_by_serial(env, serial));
+    ASSERT_EQ(got.key, stored.key);
+    ASSERT_EQ(got.rack, env.rack.key);
+    ASSERT_EQ(got.status.value().details.rack, env.rack.key);
+    ASSERT_EQ(got.status.value().message, "Device present");
 }
 }
