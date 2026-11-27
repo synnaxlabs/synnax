@@ -11,9 +11,11 @@ package channel_test
 
 import (
 	"fmt"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -106,6 +108,66 @@ var _ = Describe("Unique names", Ordered, func() {
 		pathErr, ok := errors.AsType[validate.PathError](err)
 		Expect(ok).To(BeTrue())
 		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+	})
+
+	It("Should use no channel key on a create into a taken name", func(
+		ctx SpecContext,
+	) {
+		first := virtual(UniqueChannelName())
+		Expect(create(ctx, &first)).To(Succeed())
+		taken := virtual(first.Name)
+		Expect(create(ctx, &taken)).To(MatchError(ContainSubstring(
+			fmt.Sprintf("channel with name '%s' already exists", first.Name),
+		)))
+		next := virtual(UniqueChannelName())
+		Expect(create(ctx, &next)).To(Succeed())
+		Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
+	})
+
+	It("Should use no channel key on a create of 100 channels with one taken name",
+		func(ctx SpecContext) {
+			first := virtual(UniqueChannelName())
+			Expect(create(ctx, &first)).To(Succeed())
+			chs := make([]channel.Channel, 100)
+			for i := range chs {
+				chs[i] = virtual(UniqueChannelName())
+			}
+			chs[50].Name = first.Name
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &chs)
+			})
+			Expect(err).To(MatchError(ContainSubstring(
+				fmt.Sprintf("channel with name '%s' already exists", first.Name),
+			)))
+			pathErr, ok := errors.AsType[validate.PathError](err)
+			Expect(ok).To(BeTrue())
+			Expect(pathErr.Path).To(Equal([]string{"50", "name"}))
+			next := virtual(UniqueChannelName())
+			Expect(create(ctx, &next)).To(Succeed())
+			Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
+		})
+
+	It("Should fail one of two concurrent creates into one name", func(
+		ctx SpecContext,
+	) {
+		name := UniqueChannelName()
+		var (
+			wg   sync.WaitGroup
+			errs = make([]error, 2)
+		)
+		for i := range errs {
+			wg.Go(func() {
+				ch := virtual(name)
+				errs[i] = create(ctx, &ch)
+			})
+		}
+		wg.Wait()
+		Expect(lo.Compact(errs)).To(ConsistOf(MatchError(ContainSubstring(
+			fmt.Sprintf("channel with name '%s' already exists", name),
+		))))
+		Expect(svc.NewRetrieve().
+			Where(channel.MatchNames(name)).
+			Count(ctx, db)).To(Equal(1))
 	})
 
 	It("Should refuse a rename of two channels to one name", func(ctx SpecContext) {
