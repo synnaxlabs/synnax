@@ -14,6 +14,7 @@ package codec
 import (
 	"encoding/json/jsontext"
 	"math"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -68,7 +69,7 @@ type JSON struct {
 	router     *router
 	// failures holds the failures of the last decode.
 	failures []Failure
-	// bare is true when a field reads the root of a document.
+	// bare is true when a field or a match rule reads the root of a document.
 	bare bool
 	// quoted holds the last document that is not JSON as a JSON string.
 	quoted []byte
@@ -129,9 +130,11 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 		}
 		for _, f := range j.messages[i].fields {
 			pointers = append(pointers, f.pointer)
-			j.bare = j.bare || len(f.pointer) == 0
 		}
 	}
+	j.bare = slices.ContainsFunc(pointers, func(p xjson.Pointer) bool {
+		return len(p) == 0
+	})
 	j.extractor = xjson.NewExtractor(pointers)
 	j.values = make([]jsontext.Value, len(pointers))
 	values := j.values[j.ruleValues:]
@@ -452,8 +455,8 @@ func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
 // order, and each entry holds one slice for each binding, in binding order. ok is
 // false, and Decode appends nothing, when doc belongs to no message. Decode returns an
 // error, appending nothing, when doc is not JSON or meets two match rules. When a field
-// reads the root of a document, a doc that is not JSON reads as a JSON string, so it
-// fails only when it is not UTF-8.
+// or a match rule reads the root of a document, a doc that is not JSON reads as a JSON
+// string, so it fails only when it is not UTF-8.
 //
 // failures holds each field whose value does not convert, or that has no value and no
 // default. A failed field appends no sample, and the other fields still append.

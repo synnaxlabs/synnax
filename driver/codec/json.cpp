@@ -320,7 +320,6 @@ JSON::create(const std::vector<JSONMessage> &messages) {
                             icd::base(*found->second).name
                     ),
                 };
-            j.bare = j.bare || field.pointer.tokens.empty();
             pointers.push_back(field.pointer);
             msg.fields.push_back(std::move(field));
             msg.samples.push_back(one_sample(b.data_type));
@@ -328,6 +327,9 @@ JSON::create(const std::vector<JSONMessage> &messages) {
         msg.failures.reserve(msg.fields.size());
         j.messages.push_back(std::move(msg));
     }
+    j.bare = std::ranges::any_of(pointers, [](const auto &p) {
+        return p.tokens.empty();
+    });
     j.extractor = x::json::Extractor(std::move(pointers));
     return {std::move(j), x::errors::NIL};
 }

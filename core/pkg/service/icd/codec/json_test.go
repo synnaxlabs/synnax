@@ -264,7 +264,7 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 				MatchError(validate.ErrValidation),
 				MatchError(c.Error),
 			))
-			Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
+			Expect(lo.Flatten(samples)).ToNot(ContainElement(Not(BeEmpty())))
 			if c.Message != "" {
 				Expect(ok).To(BeTrue())
 				Expect(f.Messages[m].Name).To(Equal(c.Message))
@@ -272,7 +272,7 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 		case c.Unmatched:
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeFalse())
-			Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
+			Expect(lo.Flatten(samples)).ToNot(ContainElement(Not(BeEmpty())))
 		default:
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
@@ -297,7 +297,7 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 			}
 			for other := range samples {
 				if other != m {
-					Expect(samples[other]).To(HaveEach(BeEmpty()))
+					Expect(samples[other]).ToNot(ContainElement(Not(BeEmpty())))
 				}
 			}
 		}
