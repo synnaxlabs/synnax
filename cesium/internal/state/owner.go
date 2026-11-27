@@ -342,9 +342,9 @@ func (r *snapshotRequest) run(s *State) {
 // claim with no owner and sends no error that a later call would receive.
 type waited struct {
 	request
-	// taken is waiting while the request waits, then taken once the owner takes it, or
+	// phase is waiting while the request waits, then taken once the owner takes it, or
 	// abandoned once its caller gives up.
-	taken atomic.Int32
+	phase atomic.Int32
 }
 
 const (
@@ -354,13 +354,13 @@ const (
 )
 
 func (r *waited) run(s *State) {
-	if r.taken.CompareAndSwap(waiting, taken) {
+	if r.phase.CompareAndSwap(waiting, taken) {
 		r.request.run(s)
 	}
 }
 
 func (r *waited) fail(err error) {
-	if r.taken.CompareAndSwap(waiting, taken) {
+	if r.phase.CompareAndSwap(waiting, taken) {
 		r.request.fail(err)
 	}
 }
@@ -379,7 +379,7 @@ func waitFor(ctx context.Context, s *State, r request, done chan error) error {
 	case <-s.exit:
 		return wait(s, done)
 	case <-ctx.Done():
-		if w.taken.CompareAndSwap(waiting, abandoned) {
+		if w.phase.CompareAndSwap(waiting, abandoned) {
 			return ctx.Err()
 		}
 		return wait(s, done)
