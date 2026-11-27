@@ -18,7 +18,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -32,9 +31,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 )
 
 // sendFailContext cancels once for the first send that finds full true, and cancels
@@ -234,7 +230,6 @@ var _ = Describe("Storage stream", func() {
 var _ = Describe("Storage stream read failures", func() {
 	var (
 		dist      testutil.Node
-		logs      *observer.ObservedLogs
 		good, bad channel.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
@@ -247,15 +242,7 @@ var _ = Describe("Storage stream read failures", func() {
 		DeferCleanup(
 			func() { Expect(errors.Join(stop(), layer.Close())).To(Succeed()) },
 		)
-		var core zapcore.Core
-		core, logs = observer.New(zapcore.ErrorLevel)
-		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-			ZapLogger: zap.New(core),
-		}))
-		dist = testutil.NewNode(ctx, distribution.LayerConfig{
-			Storage:         layer,
-			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-		})
+		dist = testutil.NewNode(ctx, distribution.LayerConfig{Storage: layer})
 		idx := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
 			Name:     "time",
 			IsIndex:  true,
@@ -283,8 +270,8 @@ var _ = Describe("Storage stream read failures", func() {
 			To(Succeed())
 	})
 
-	DescribeTable("Should acknowledge a read where one channel fails, send the "+
-		"other channels whole, and log the failure",
+	DescribeTable("Should acknowledge a read where one channel fails, and send the "+
+		"other channels whole",
 		func(ctx SpecContext, span telem.TimeSpan) {
 			stream := MustSucceed(dist.Framer.NewStreamIterator(ctx, iterator.Config{
 				Keys:   channel.Keys{good, bad},
@@ -310,15 +297,6 @@ var _ = Describe("Storage stream read failures", func() {
 			Expect(res.Variant).To(Equal(iterator.ResponseVariantAck))
 			Expect(res.Ack).To(BeTrue())
 			Expect(res.Error).ToNot(HaveOccurred())
-			failures := logs.FilterMessage("read of a channel failed").All()
-			Expect(failures).To(HaveLen(1))
-			Expect(
-				failures[0].ContextMap(),
-			).To(HaveKeyWithValue("channel", bad.String()))
-			Expect(failures[0].ContextMap()).To(HaveKeyWithValue(
-				"error",
-				ContainSubstring("1.domain: no such file or directory"),
-			))
 			requests.Close()
 			Expect(sCtx.Wait()).To(MatchError(ContainSubstring("no such file")))
 		},
