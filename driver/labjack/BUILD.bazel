@@ -34,8 +34,10 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":names",
+        ":store",
         "//client/cpp:synnax",
         "//client/cpp/labjack",
+        "//client/cpp/labjack/device",
         "//driver/common",
         "//driver/labjack/device",
         "//driver/labjack/ljm",
@@ -90,7 +92,9 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/labjack",
+        "//driver/labjack:store",
         "//driver/labjack/device:mock",
+        "//x/cpp/filter",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

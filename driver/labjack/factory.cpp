@@ -11,6 +11,7 @@
 #include "driver/labjack/labjack.h"
 #include "driver/labjack/read_task.h"
 #include "driver/labjack/scan_task.h"
+#include "driver/labjack/store.h"
 #include "driver/labjack/write_task.h"
 
 namespace driver::labjack {
@@ -70,7 +71,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     common::ConfigureResult result;
     if (parser.error()) return {std::move(result), parser.error()};
     result.task = std::make_unique<common::ScanTask>(
-        std::make_unique<Scanner>(task, cfg, devs),
+        std::make_unique<Scanner>(
+            task,
+            cfg,
+            devs,
+            std::make_unique<Store>(ctx->client)
+        ),
         ctx,
         task,
         x::breaker::default_config(task.name),

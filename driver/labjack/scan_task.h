@@ -10,17 +10,26 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "client/cpp/labjack/device/device.h"
 #include "client/cpp/labjack/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/lib/lazy.h"
 
-#include "device/device.h"
 #include "driver/common/scan_task.h"
+#include "driver/common/sync.h"
+#include "driver/labjack/device/device.h"
 #include "driver/labjack/labjack.h"
-#include "ljm/LJM_Utilities.h"
+#include "driver/labjack/ljm/LJM_Utilities.h"
+#include "driver/labjack/store.h"
 
 namespace driver::labjack {
 const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
@@ -38,6 +47,41 @@ struct ScanTaskConfig : ::synnax::labjack::ScanConfig {
     }
 };
 
+/// @brief returns the typed model and empty ports of an LJM device type, or nothing
+/// when Synnax does not support the type.
+inline std::optional<std::pair<std::string, synnax::labjack::device::Ports>>
+typed_model(const int device_type) {
+    namespace lj = synnax::labjack::device;
+    switch (device_type) {
+        case LJM_dtT4:
+            return std::pair{std::string(lj::MODEL_T_4), lj::Ports{lj::T4Ports{}}};
+        case LJM_dtT7:
+            return std::pair{std::string(lj::MODEL_T_7), lj::Ports{lj::T7Ports{}}};
+        case LJM_dtT8:
+            return std::pair{std::string(lj::MODEL_T_8), lj::Ports{lj::T8Ports{}}};
+        default:
+            return std::nullopt;
+    }
+}
+
+/// @brief returns the typed connection of an LJM connection type, or nothing when the
+/// type is not one that a scan reports.
+inline std::optional<std::string> typed_connection(const int connection_type) {
+    namespace lj = synnax::labjack::device;
+    switch (connection_type) {
+        case LJM_ctUSB:
+            return lj::CONNECTION_USB;
+        case LJM_ctETHERNET:
+            return lj::CONNECTION_ETHERNET;
+        case LJM_ctWIFI:
+            return lj::CONNECTION_WIFI;
+        default:
+            return std::nullopt;
+    }
+}
+
+/// @brief finds LabJack hardware and keeps the LabJack devices of the rack in step
+/// with it. The scanner writes only the identity fields of a stored device.
 class Scanner final : public common::Scanner {
     /// @brief the raw synnax task configuration
     const synnax::task::Task task;
@@ -45,29 +89,34 @@ class Scanner final : public common::Scanner {
     const ScanTaskConfig cfg;
     /// @brief the device manager for handling LabJack connections
     std::shared_ptr<x::lib::Lazy<device::Manager>> device_manager;
+    common::Sync<Device> devices;
     /// @brief the devices that the last TCP scan found. A scan without TCP reports them
     /// too, so a network device stays present between TCP scans.
-    std::vector<synnax::device::Device> tcp_devices;
+    std::vector<Device> tcp_devices;
 
-    /// @brief returns true if the device with the key is in devices.
-    static bool contains(
-        const std::vector<synnax::device::Device> &devices,
-        const std::string &key
-    ) {
-        return std::ranges::any_of(devices, [&key](const auto &d) {
-            return d.key == key;
+    /// @brief returns true if a device in devices has the serial.
+    static bool
+    contains(const std::vector<Device> &devices, const std::uint32_t serial) {
+        return std::ranges::any_of(devices, [serial](const Device &d) {
+            return d.serial == serial;
         });
     }
 
     [[nodiscard]] common::ScannerConfig config() const override {
-        return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
+        return common::ScannerConfig{
+            .log_prefix = SCAN_LOG_PREFIX,
+            .signals = {
+                synnax::labjack::device::SET_CHANNEL,
+                synnax::labjack::device::DELETE_CHANNEL,
+            },
+        };
     }
 
-    /// @brief scans for devices with the given type and connection
+    /// @brief appends the devices that a scan of the connection type finds.
     x::errors::Error scan_for(
         device::Manager &manager,
-        int connection_type,
-        std::vector<synnax::device::Device> &devices
+        const int connection_type,
+        std::vector<Device> &devices
     ) const {
         int device_types[LJM_LIST_ALL_SIZE];
         int connection_types[LJM_LIST_ALL_SIZE];
@@ -87,43 +136,36 @@ class Scanner final : public common::Scanner {
             return err;
 
         for (int i = 0; i < num_found; i++) {
-            const auto serial_str = std::to_string(serial_numbers[i]);
+            const auto serial = static_cast<std::uint32_t>(serial_numbers[i]);
             // A device on two connections, such as Ethernet and Wi-Fi, lists twice.
-            if (contains(devices, serial_str)) continue;
-            const auto model = MODELS.find(device_types[i]);
-            if (model == MODELS.end()) {
-                VLOG(1) << SCAN_LOG_PREFIX << "skipping device " << serial_str
+            if (contains(devices, serial)) continue;
+            auto model = typed_model(device_types[i]);
+            if (!model.has_value()) {
+                VLOG(1) << SCAN_LOG_PREFIX << "skipping device " << serial
                         << " with unsupported device type " << device_types[i];
                 continue;
             }
-            const auto &device_type_str = model->second;
-            const auto conn_type_str = std::string(
-                NumberToConnectionType(connection_types[i])
-            );
-
-            auto last_four = serial_str.length() >= 4
-                               ? serial_str.substr(serial_str.length() - 4)
-                               : serial_str;
-            auto name = device_type_str + "-" + last_four;
-
-            auto rack = this->task.rack;
-            auto sy_dev = synnax::device::Device{
-                .key = serial_str,
-                .rack = rack,
-                .location = conn_type_str,
-                .make = MAKE,
-                .model = device_type_str,
-                .name = name,
-            };
-            sy_dev.status = synnax::device::Status{
-                .name = name,
-                .variant = synnax::status::VARIANT_SUCCESS,
-                .message = "Device present",
-                .time = x::telem::TimeStamp::now(),
-                .details = {.rack = rack, .connected = true},
-                .owner = synnax::device::resource_id(sy_dev.key),
-            };
-            devices.push_back(sy_dev);
+            auto connection = typed_connection(connection_types[i]);
+            if (!connection.has_value()) {
+                VLOG(1) << SCAN_LOG_PREFIX << "skipping device " << serial
+                        << " with unsupported connection type " << connection_types[i];
+                continue;
+            }
+            const auto serial_str = std::to_string(serial);
+            auto name = model->first;
+            std::ranges::transform(name, name.begin(), ::toupper);
+            name += "-" +
+                    serial_str.substr(
+                        serial_str.size() - std::min(serial_str.size(), std::size_t{4})
+                    );
+            devices.push_back({
+                .rack = this->task.rack,
+                .name = std::move(name),
+                .serial = serial,
+                .connection = std::move(*connection),
+                .model = std::move(model->first),
+                .ports = std::move(model->second),
+            });
         }
         return x::errors::NIL;
     }
@@ -132,29 +174,52 @@ class Scanner final : public common::Scanner {
     scan(const common::ScannerContext &ctx) override {
         auto [manager, err] = this->device_manager->get();
         if (err) return {{}, err};
-        std::vector<synnax::device::Device> devs;
-        if (err = this->scan_for(*manager, LJM_ctUSB, devs); err) return {devs, err};
+        std::vector<Device> found;
+        if (err = this->scan_for(*manager, LJM_ctUSB, found); err) return {{}, err};
         if (ctx.count % this->cfg.tcp_scan_multiplier == 0) {
-            std::vector<synnax::device::Device> tcp;
+            std::vector<Device> tcp;
             if (err = this->scan_for(*manager, LJM_ctTCP, tcp).skip(SCAN_SKIP_ERRORS);
                 err)
-                return {devs, err};
+                return {{}, err};
             this->tcp_devices = std::move(tcp);
         }
-        for (auto dev: this->tcp_devices) {
-            if (contains(devs, dev.key)) continue;
-            if (dev.status) dev.status->time = x::telem::TimeStamp::now();
-            devs.push_back(std::move(dev));
-        }
-        return {devs, x::errors::NIL};
+        for (const auto &dev: this->tcp_devices)
+            if (!contains(found, dev.serial)) found.push_back(dev);
+        return {{}, this->devices.sync(std::move(found))};
+    }
+
+    void on_signal(
+        const synnax::channel::Channel &ch,
+        const x::telem::Series &series
+    ) override {
+        if (ch.name == synnax::labjack::device::SET_CHANNEL)
+            for (const auto &sample: series.strings()) {
+                x::json::Parser parser(sample);
+                const auto dev = Device::parse(parser);
+                if (!parser.ok()) {
+                    LOG(WARNING) << SCAN_LOG_PREFIX
+                                 << "failed to parse a set signal: " << parser.error();
+                    continue;
+                }
+                this->devices.on_set(dev);
+            }
+        else if (ch.name == synnax::labjack::device::DELETE_CHANNEL)
+            for (const auto &key: series.uuids())
+                this->devices.on_delete(key);
+        else
+            throw std::invalid_argument("unknown LabJack signal channel " + ch.name);
     }
 
 public:
-    explicit Scanner(
+    Scanner(
         synnax::task::Task task,
         ScanTaskConfig cfg,
-        std::shared_ptr<x::lib::Lazy<device::Manager>> device_manager
+        std::shared_ptr<x::lib::Lazy<device::Manager>> device_manager,
+        std::unique_ptr<common::Store<Device>> store
     ):
-        task(std::move(task)), cfg(cfg), device_manager(std::move(device_manager)) {}
+        task(std::move(task)),
+        cfg(std::move(cfg)),
+        device_manager(std::move(device_manager)),
+        devices(std::move(store), this->task.rack, SCAN_LOG_PREFIX) {}
 };
 }
