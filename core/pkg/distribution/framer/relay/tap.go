@@ -12,12 +12,14 @@ package relay
 import (
 	"context"
 	"io"
+	"slices"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
@@ -183,6 +185,10 @@ func (t *tapper) updateTaps(ctx context.Context, stored, free channel.Keys) erro
 		t.closeStorage()
 		return nil
 	}
+	stored, err := t.withIndexes(ctx, stored)
+	if err != nil {
+		return err
+	}
 	if t.storage != nil {
 		return t.storage.setChannels(ctx, stored)
 	}
@@ -193,6 +199,29 @@ func (t *tapper) updateTaps(ctx context.Context, stored, free channel.Keys) erro
 	}
 	t.storage = &tc
 	return nil
+}
+
+// withIndexes returns keys with the index of each key that has one, so the storage tap
+// streams the time of every stored channel that a streamer demands. It leaves out a key
+// that storage does not hold, which the storage tap drops.
+func (t *tapper) withIndexes(
+	ctx context.Context,
+	keys channel.Keys,
+) (channel.Keys, error) {
+	out := slices.Clone(keys)
+	for _, key := range keys {
+		ch, err := t.TS.RetrieveChannel(ctx, key.StorageKey())
+		if errors.Is(err, ts.ErrChannelNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if index := channel.Key(ch.Index); index != 0 && index != key {
+			out = append(out, index)
+		}
+	}
+	return out, nil
 }
 
 // closeStorage stops the storage tap, if one is open, and waits for it to exit.
@@ -284,7 +313,7 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if keys == nil {
 					continue
 				}
-				req.Frame = req.Frame.KeepKeys(*keys)
+				req.Frame = req.Frame.KeepTimed(*keys, nil)
 				if req.Frame.Empty() {
 					continue
 				}

@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
@@ -26,7 +27,7 @@ import (
 )
 
 // recordSender sends a stream's responses without the samples of record channels that
-// its subject cannot read.
+// its subject cannot read, and without the time series that only those samples need.
 type recordSender struct {
 	freighter.StreamSender[StreamerResponse]
 	ctx     context.Context
@@ -38,12 +39,28 @@ type recordSender struct {
 	// applied is the Applied of the responses that Send dropped, which the next
 	// response it sends carries.
 	applied int
+	// keys holds the keys of the request that the responses answer.
+	keys streamKeys
+	mu   struct {
+		sync.Mutex
+		// staged holds the keys of the later requests that list keys, which the relay
+		// applies in order.
+		staged []streamKeys
+	}
+}
+
+// streamKeys holds the channels of a stream request and the untimed ones among them.
+type streamKeys struct{ keys, untimed set.Set[channel.Key] }
+
+func newStreamKeys(req StreamerRequest) streamKeys {
+	return streamKeys{keys: set.New(req.Keys...), untimed: set.New(req.UntimedKeys...)}
 }
 
 func (s *Service) newRecordSender(
 	ctx context.Context,
 	subject resource.ID,
 	sender freighter.StreamSender[StreamerResponse],
+	open StreamerRequest,
 ) (*recordSender, error) {
 	r := &recordSender{
 		StreamSender: sender,
@@ -51,6 +68,7 @@ func (s *Service) newRecordSender(
 		subject:      subject,
 		service:      s,
 		held:         make(set.Set[resource.ID]),
+		keys:         newStreamKeys(open),
 	}
 	if _, err := r.allowed(); err != nil {
 		return nil, err
@@ -64,6 +82,7 @@ func (s *Service) newRecordSender(
 // also sent, because the delete removes what let the subject read it. A frame left with
 // no samples is not sent, and the next response that Send sends carries its Applied.
 func (s *recordSender) Send(res StreamerResponse) error {
+	s.apply(res.Applied)
 	if !s.carriesRecords(res.Frame) {
 		return s.send(res)
 	}
@@ -92,12 +111,31 @@ func (s *recordSender) Send(res StreamerResponse) error {
 		keys = append(keys, key)
 		series = append(series, sr)
 	}
-	if len(keys) == 0 {
+	res.Frame = frame.NewMulti(keys, series).KeepTimed(s.keys.keys, s.keys.untimed)
+	if res.Frame.Empty() {
 		s.applied += res.Applied
 		return nil
 	}
-	res.Frame = frame.NewMulti(keys, series)
 	return s.send(res)
+}
+
+// stage holds the keys of req, a request that lists keys, until the response whose
+// Applied counts it.
+func (s *recordSender) stage(req StreamerRequest) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.mu.staged = append(s.mu.staged, newStreamKeys(req))
+}
+
+// apply makes the keys of the oldest n staged requests the keys of the responses.
+func (s *recordSender) apply(n int) {
+	if n == 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.keys = s.mu.staged[n-1]
+	s.mu.staged = s.mu.staged[n:]
 }
 
 // send sends res with the Applied of the responses that Send dropped before it.

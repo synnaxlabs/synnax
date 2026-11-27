@@ -21,6 +21,10 @@ import (
 type Request struct {
 	// Keys are the channels to stream live samples from.
 	Keys channel.Keys
+	// UntimedKeys are the keys among Keys whose samples the streamer needs with no
+	// time. A frame holds the time series of a clock only beside a series of a key
+	// outside them that names the clock.
+	UntimedKeys channel.Keys
 	// AckRequested asks the streamer for a Response with Ack set once the relay applies
 	// Keys. A write issued after the ack is delivered.
 	AckRequested bool

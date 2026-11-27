@@ -31,17 +31,20 @@ type calculationTransform struct {
 	confluence.UnarySink[Response]
 	confluence.AbstractUnarySource[Response]
 	keepKeys         set.Set[channel.Key]
+	untimed          set.Set[channel.Key]
 	calculators      []*calculator.Calculator
 	accumulatedError error
 }
 
 func newCalculationTransform(
 	keepKeys channel.Keys,
+	untimed channel.Keys,
 	calculators []*calculator.Calculator,
 ) *calculationTransform {
 	return &calculationTransform{
 		calculators: calculators,
 		keepKeys:    set.New(keepKeys...),
+		untimed:     set.New(untimed...),
 	}
 }
 
@@ -108,7 +111,7 @@ func (t *calculationTransform) calculate(
 				t.accumulatedError = err
 			}
 		}
-		outputs = append(outputs, round.KeepKeys(t.keepKeys))
+		outputs = append(outputs, round.KeepTimed(t.keepKeys, t.untimed))
 	}
 	return frame.Merge(outputs)
 }

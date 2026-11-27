@@ -288,7 +288,7 @@ var _ = Describe("Framer", func() {
 				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 			}))
 			iter := MustSucceed(
-				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0]),
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0], nil),
 			)
 			Expect(iter.Close()).To(Succeed())
 			Expect(res.Channels).To(HaveLen(1))
@@ -538,7 +538,7 @@ var _ = Describe("Framer", func() {
 			}))
 			Expect(res.Reduction).To(Equal(reduction))
 			iter := MustSucceed(
-				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0]),
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0], nil),
 			)
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
@@ -931,6 +931,28 @@ var _ = Describe("Framer", func() {
 			},
 		)
 
+		It("Should send no time for an untimed record channel that it filters", func(
+			ctx SpecContext,
+		) {
+			index := createIndex(ctx)
+			open(ctx, index)
+			Expect(client.Send(apiframer.StreamerRequest{
+				Keys:         channel.Keys{records.Key(), other.Key()},
+				UntimedKeys:  channel.Keys{records.Key()},
+				AckRequested: true,
+			})).To(Succeed())
+			Expect(MustSucceed(client.Receive()).Ack).To(BeTrue())
+			Expect(writer.Write(frame.NewMulti(
+				channel.Keys{index.Key(), records.Key()},
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2),
+					samples(denied, readable),
+				},
+			))).To(BeTrue())
+			fr := MustSucceed(client.Receive()).Frame
+			Expect(fr.KeysSlice()).To(Equal([]channel.Key{records.Key()}))
+		})
+
 		It("Should keep the other channels of a frame", func(ctx SpecContext) {
 			open(ctx, channel.Channel{})
 			Expect(writer.Write(frame.NewMulti(
@@ -1068,7 +1090,7 @@ var _ = Describe("Framer", func() {
 				Keys:  keys,
 			}))
 			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
-				telem.NewSeriesSecondsTSV(start, start+telem.SecondTS),
+				telem.NewSeries([]telem.TimeStamp{start, start + telem.SecondTS}),
 				telem.NewSeriesV[float32](1, 2),
 			}))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
@@ -1089,7 +1111,7 @@ var _ = Describe("Framer", func() {
 			GinkgoHelper()
 			req.TimeRanges = []telem.TimeRange{telem.TimeRangeMax}
 			res := MustSucceed(apiSvc.Read(ctx, req))
-			iter := MustSucceed(res.OpenIterator(ctx, req.Keys, res.TimeRanges[0]))
+			iter := MustSucceed(res.OpenIterator(ctx, req.Keys, res.TimeRanges[0], nil))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
 			fr := iter.Value()

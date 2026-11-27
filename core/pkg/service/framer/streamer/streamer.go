@@ -39,6 +39,10 @@ const MinKeepAlive = 2 * telem.Second
 type Config struct {
 	// Keys are the channels to stream live samples from.
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// UntimedKeys are the keys among Keys whose samples the streamer needs with no
+	// time. A frame holds the time series of a clock only beside a series of a key
+	// outside them that names the clock.
+	UntimedKeys channel.Keys `json:"untimed_keys" msgpack:"untimed_keys"`
 	// SendOpenAck sets whether an empty readiness response is sent once the relay has
 	// applied the streamer's demands.
 	SendOpenAck bool `json:"send_open_ack" msgpack:"send_open_ack"`
@@ -73,12 +77,26 @@ func (c Config) Validate() error {
 	if c.KeepAlive != 0 {
 		v.GreaterThanEq("keep_alive", c.KeepAlive, MinKeepAlive)
 	}
+	validateUntimed(v, c.Keys, c.UntimedKeys)
 	return v.Error()
+}
+
+// validateUntimed adds an error to v for each key of untimed that keys does not hold.
+func validateUntimed(v *validate.Validator, keys, untimed channel.Keys) {
+	for _, key := range untimed {
+		v.Ternaryf(
+			"untimed_keys",
+			!keys.Contains(key),
+			"channel %d is not requested",
+			key,
+		)
+	}
 }
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Keys = override.Slice(c.Keys, other.Keys)
+	c.UntimedKeys = override.Slice(c.UntimedKeys, other.UntimedKeys)
 	c.SendOpenAck = other.SendOpenAck
 	c.MissedRequested = other.MissedRequested
 	c.DownsampleFactor = override.Numeric(c.DownsampleFactor, other.DownsampleFactor)
@@ -91,6 +109,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) distribution() framer.StreamerConfig {
 	return framer.StreamerConfig{
 		Keys:            c.Keys,
+		UntimedKeys:     c.UntimedKeys,
 		SendOpenAck:     &c.SendOpenAck,
 		ExcludeGroups:   c.ExcludeGroups,
 		MissedRequested: &c.MissedRequested,

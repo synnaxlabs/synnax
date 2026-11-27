@@ -61,6 +61,9 @@ type Request struct {
 	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
 	// Reduction should only be set when opening the Iterator.
 	Reduction telem.Reduction `json:"reduction" msgpack:"reduction"`
+	// UntimedKeys are the keys among Keys that the read needs with no time. It should
+	// only be set when opening the Iterator.
+	UntimedKeys channel.Keys `json:"untimed_keys" msgpack:"untimed_keys"`
 	// Command is the command to execute on the Iterator.
 	Command Command `json:"command" msgpack:"command"`
 }

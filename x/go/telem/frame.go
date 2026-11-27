@@ -526,6 +526,40 @@ func (f Frame[K]) KeepKeys(keys set.Set[K]) Frame[K] {
 	return f.filter(keys, len(keys), set.Set[K].Contains)
 }
 
+// KeepTimed filters the frame to the series of keys and the time series they need: the
+// series of each key that a kept series names as its clock, unless untimed holds the
+// key of the kept series. It returns a shallow copy of the filtered frame.
+func (f Frame[K]) KeepTimed(keys, untimed set.Set[K]) Frame[K] {
+	var buf [8]uint32
+	clocks := buf[:0]
+	for i, k := range f.keys {
+		if f.ShouldExcludeRaw(i) || !keys.Contains(k) || untimed.Contains(k) {
+			continue
+		}
+		if c := f.series[i].Clock; c != 0 && !slices.Contains(clocks, c) {
+			clocks = append(clocks, c)
+		}
+	}
+	if len(clocks) == 0 {
+		return f.KeepKeys(keys)
+	}
+	return f.filter(
+		timedKeys[K]{keys: keys, clocks: clocks},
+		len(f.keys),
+		timedKeys[K].has,
+	)
+}
+
+// timedKeys holds the keys of a frame and the clocks that its timed series name.
+type timedKeys[K types.SizedNumeric] struct {
+	keys   set.Set[K]
+	clocks []uint32
+}
+
+func (t timedKeys[K]) has(k K) bool {
+	return t.keys.Contains(k) || slices.Contains(t.clocks, uint32(k))
+}
+
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
 // applying more pressure on GC.
 func notContains[T comparable](s []T, e T) bool { return !lo.Contains(s, e) }

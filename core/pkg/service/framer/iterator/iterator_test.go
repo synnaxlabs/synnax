@@ -1949,32 +1949,36 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should keep only requested keys alongside a stored channel", func(
-					ctx SpecContext,
-				) {
-					calc := &channel.Channel{
-						Name:       "idx_only_mixed",
-						DataType:   telem.Float32T,
-						Expression: "return sensor_1",
-					}
-					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calc)
-					})).To(Succeed())
-					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{calc.Index(), dataCh1.Key()},
-						Bounds: telem.TimeRangeMax,
-					}))
-					Expect(iter.SeekFirst()).To(BeTrue())
-					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-					v := iter.Value()
-					Expect(v.KeysSlice()).To(HaveEach(
-						BeElementOf(calc.Index(), dataCh1.Key()),
-					))
-					Expect(v.Get(calc.Index()).Series).To(HaveLen(2))
-					Expect(v.Get(dataCh1.Key()).Series).To(HaveLen(2))
-					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
-					Expect(iter.Close()).To(Succeed())
-				})
+				It(
+					"Should keep only requested keys and their time beside a stored channel",
+					func(
+						ctx SpecContext,
+					) {
+						calc := &channel.Channel{
+							Name:       "idx_only_mixed",
+							DataType:   telem.Float32T,
+							Expression: "return sensor_1",
+						}
+						Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+							return channelSvc.NewWriter(tx).Create(ctx, calc)
+						})).To(Succeed())
+						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+							Keys:   []channel.Key{calc.Index(), dataCh1.Key()},
+							Bounds: telem.TimeRangeMax,
+						}))
+						Expect(iter.SeekFirst()).To(BeTrue())
+						Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+						v := iter.Value()
+						Expect(v.KeysSlice()).To(HaveEach(
+							BeElementOf(calc.Index(), dataCh1.Key(), indexCh.Key()),
+						))
+						Expect(v.Get(calc.Index()).Series).To(HaveLen(2))
+						Expect(v.Get(dataCh1.Key()).Series).To(HaveLen(2))
+						Expect(v.Get(indexCh.Key()).Series).To(HaveLen(2))
+						Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+						Expect(iter.Close()).To(Succeed())
+					},
+				)
 
 				It("Should resolve two calculated indexes in one request", func(
 					ctx SpecContext,

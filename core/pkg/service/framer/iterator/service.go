@@ -42,6 +42,12 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// UntimedKeys are the keys among Keys whose samples the read needs with no time.
+	// Each frame holds the time series of each other key's clock, for the same
+	// alignments as the key's series.
+	//
+	// [OPTIONAL]
+	UntimedKeys channel.Keys `json:"untimed_keys" msgpack:"untimed_keys"`
 	// Bounds are the bounds of the time range to iterate over. This time range must be
 	// valid i.e., the start value must be before or equal to the end value.
 	//
@@ -76,6 +82,14 @@ func (c Config) validate() error {
 	// A read without a reduction keeps every sample.
 	if c.Reduction.Variant != nil {
 		v.Exec(c.Reduction.Validate)
+	}
+	for _, key := range c.UntimedKeys {
+		v.Ternaryf(
+			"untimed_keys",
+			!c.Keys.Contains(key),
+			"channel %d is not requested",
+			key,
+		)
 	}
 	return v.Error()
 }
@@ -148,6 +162,7 @@ func (s *Service) NewStream(
 	if err != nil {
 		return nil, err
 	}
+	indexes := timeIndexes(cfg, channels)
 	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg, channels)
 	if err != nil {
 		return nil, err
@@ -167,6 +182,7 @@ func (s *Service) NewStream(
 		}
 	}
 	distCfg := cfg.distribution()
+	distCfg.Keys = lo.Uniq(append(distCfg.Keys, indexes...))
 	if calcTransform != nil {
 		// A calculation must see every sample its expression was written over. Fed a
 		// strided or aggregated input, a stateful expression returns a different signal
@@ -179,6 +195,11 @@ func (s *Service) NewStream(
 	}
 	p.SetSegment("distribution", dist)
 	var routeInletsTo, routeOutletFrom address.Address = "distribution", "distribution"
+	if calcTransform == nil && len(indexes) > 0 {
+		p.SetSegment("time", newTimeFilter(cfg.Keys, cfg.UntimedKeys))
+		p.MustConnect[Response](routeOutletFrom, "time", 25)
+		routeOutletFrom = "time"
+	}
 	if calcTransform != nil {
 		routeInletsTo, routeOutletFrom = addCalculationSegments(
 			p,
@@ -193,6 +214,39 @@ func (s *Service) NewStream(
 		RouteInletsTo:    []address.Address{routeInletsTo},
 		RouteOutletsFrom: []address.Address{routeOutletFrom},
 	}, nil
+}
+
+// timeIndexes returns the index of each stored channel in channels that cfg reads with
+// its time, when cfg does not request the index.
+func timeIndexes(cfg Config, channels []channel.Channel) channel.Keys {
+	var indexes channel.Keys
+	for _, ch := range channels {
+		index := ch.Index()
+		if index == 0 || ch.Virtual || cfg.UntimedKeys.Contains(ch.Key()) ||
+			cfg.Keys.Contains(index) {
+			continue
+		}
+		indexes = append(indexes, index)
+	}
+	return lo.Uniq(indexes)
+}
+
+// newTimeFilter returns a transform that keeps, in each data response, the series of
+// keys and the time series that they need, and drops a response that keeps none. See
+// Frame.KeepTimed.
+func newTimeFilter(
+	keys, untimed channel.Keys,
+) *confluence.LinearTransform[Response, Response] {
+	kept, skipped := set.New(keys...), set.New(untimed...)
+	t := &confluence.LinearTransform[Response, Response]{}
+	t.Transform = func(_ context.Context, res Response) (Response, bool, error) {
+		if res.Variant != ResponseVariantData {
+			return res, true, nil
+		}
+		res.Frame = res.Frame.KeepTimed(kept, skipped)
+		return res, res.Frame.Count() > 0, nil
+	}
+	return t
 }
 
 // addCalculationSegments adds the calculation transform to p after the distribution
@@ -315,7 +369,12 @@ func (s *Service) newCalculationTransform(
 	}
 	// Calculators hold resources until they close, so they open after every other step
 	// that can fail.
-	transform, err := openCalculationTransform(ctx, originalKeys, modules)
+	transform, err := openCalculationTransform(
+		ctx,
+		originalKeys,
+		cfg.UntimedKeys,
+		modules,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -412,14 +471,17 @@ func concreteKeys(
 }
 
 // openCalculationTransform opens a calculator for each of modules and returns the
-// transform that runs them. originalKeys are the keys that the caller requested.
+// transform that runs them. originalKeys are the keys that the caller requested, and
+// untimed the ones among them that it reads with no time.
 func openCalculationTransform(
 	ctx context.Context,
 	originalKeys []channel.Key,
+	untimed []channel.Key,
 	modules []compiler.Module,
 ) (*calculationTransform, error) {
 	transform := newCalculationTransform(
 		originalKeys,
+		untimed,
 		make([]*calculator.Calculator, 0, len(modules)),
 	)
 	for _, mod := range modules {
@@ -452,6 +514,7 @@ func (s *Service) newGroupSizer(
 		if !ch.IsCalculated() {
 			if !ch.Virtual {
 				indexes[ch.Key()] = []channel.Key{ch.Index()}
+				indexes[ch.Index()] = []channel.Key{ch.Index()}
 			}
 			continue
 		}

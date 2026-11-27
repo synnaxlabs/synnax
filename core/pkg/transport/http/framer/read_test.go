@@ -133,8 +133,9 @@ func response(
 			ctx context.Context,
 			keys svcchannel.Keys,
 			bounds telem.TimeRange,
+			untimed svcchannel.Keys,
 		) (*svcframer.Iterator, error) {
-			cfg.Keys, cfg.Bounds = keys, bounds
+			cfg.Keys, cfg.Bounds, cfg.UntimedKeys = keys, bounds, untimed
 			return framerSvc.OpenIterator(ctx, cfg)
 		},
 	}

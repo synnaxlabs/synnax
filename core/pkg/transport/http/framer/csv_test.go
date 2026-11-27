@@ -434,9 +434,10 @@ var _ = Describe("CSV", func() {
 				ctx context.Context,
 				keys svcchannel.Keys,
 				bounds telem.TimeRange,
+				untimed svcchannel.Keys,
 			) (*svcframer.Iterator, error) {
 				opened = append(opened, keys)
-				return open(ctx, keys, bounds)
+				return open(ctx, keys, bounds, untimed)
 			}
 			b := MustSucceed(framer.NewCSVEncoder(ctx).Encode(res))
 			Expect(opened).To(ConsistOf(

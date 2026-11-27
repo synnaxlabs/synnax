@@ -67,10 +67,12 @@ var _ = Describe("Time", func() {
 		return req, res
 	}
 
-	// write writes the stamps and the values to index and data through w.
+	// write writes the stamps and the values to index and data through w, each on the
+	// clock of index, as the service writer stamps them.
 	write := func(w *writer.Writer, stamps telem.Series) {
 		GinkgoHelper()
 		values := telem.NewSeriesV[float32](make([]float32, stamps.Len())...)
+		stamps.Clock, values.Clock = uint32(index.Key()), uint32(index.Key())
 		Expect(w.Write(frame.NewMulti(both, []telem.Series{stamps, values}))).
 			To(BeTrue())
 	}
@@ -172,10 +174,9 @@ var _ = Describe("Time", func() {
 			Keys:  channel.Keys{index.Key()},
 			Start: 10 * telem.SecondTS,
 		}))
-		Expect(indexOnly.Write(frame.NewUnary(
-			index.Key(),
-			telem.NewSeriesSecondsTSV(10, 11),
-		))).To(BeTrue())
+		stamps := telem.NewSeriesSecondsTSV(10, 11)
+		stamps.Clock = uint32(index.Key())
+		Expect(indexOnly.Write(frame.NewUnary(index.Key(), stamps))).To(BeTrue())
 		Expect(indexOnly.Close()).To(Succeed())
 		w := MustOpen(node.Framer.OpenWriter(ctx, writer.Config{
 			Keys:  both,

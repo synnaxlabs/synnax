@@ -42,6 +42,7 @@ type IteratorRequest struct {
 	Stamp         int64                  `protobuf:"varint,4,opt,name=stamp,proto3" json:"stamp,omitempty"`
 	Keys          []uint32               `protobuf:"varint,5,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	ChunkSize     int64                  `protobuf:"varint,6,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
+	UntimedKeys   []uint32               `protobuf:"varint,7,rep,packed,name=untimed_keys,json=untimedKeys,proto3" json:"untimed_keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -116,6 +117,13 @@ func (x *IteratorRequest) GetChunkSize() int64 {
 		return x.ChunkSize
 	}
 	return 0
+}
+
+func (x *IteratorRequest) GetUntimedKeys() []uint32 {
+	if x != nil {
+		return x.UntimedKeys
+	}
+	return nil
 }
 
 type IteratorResponse struct {
@@ -473,6 +481,7 @@ type StreamerRequest struct {
 	ExcludeGroups    []uint32               `protobuf:"varint,5,rep,packed,name=exclude_groups,json=excludeGroups,proto3" json:"exclude_groups,omitempty"`
 	AckRequested     bool                   `protobuf:"varint,6,opt,name=ack_requested,json=ackRequested,proto3" json:"ack_requested,omitempty"`
 	MissedRequested  bool                   `protobuf:"varint,7,opt,name=missed_requested,json=missedRequested,proto3" json:"missed_requested,omitempty"`
+	UntimedKeys      []uint32               `protobuf:"varint,8,rep,packed,name=untimed_keys,json=untimedKeys,proto3" json:"untimed_keys,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -547,6 +556,13 @@ func (x *StreamerRequest) GetMissedRequested() bool {
 		return x.MissedRequested
 	}
 	return false
+}
+
+func (x *StreamerRequest) GetUntimedKeys() []uint32 {
+	if x != nil {
+		return x.UntimedKeys
+	}
+	return nil
 }
 
 type StreamerResponse struct {
@@ -681,7 +697,7 @@ var File_core_pkg_transport_grpc_framer_framer_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/framer/framer.proto\x12\vgrpc.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xb5\x01\n" +
+	"+core/pkg/transport/grpc/framer/framer.proto\x12\vgrpc.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xd8\x01\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x12\n" +
 	"\x04span\x18\x02 \x01(\x03R\x04span\x12+\n" +
@@ -689,7 +705,8 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\x05stamp\x18\x04 \x01(\x03R\x05stamp\x12\x12\n" +
 	"\x04keys\x18\x05 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
-	"chunk_size\x18\x06 \x01(\x03R\tchunkSize\"\xdb\x01\n" +
+	"chunk_size\x18\x06 \x01(\x03R\tchunkSize\x12!\n" +
+	"\funtimed_keys\x18\a \x03(\rR\vuntimedKeys\"\xdb\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\x05R\acommand\x12'\n" +
@@ -719,14 +736,15 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
 	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
 	"\x03end\x18\x05 \x01(\x03R\x03end\x12\"\n" +
-	"\funauthorized\x18\x06 \x01(\bR\funauthorized\"\xf3\x01\n" +
+	"\funauthorized\x18\x06 \x01(\bR\funauthorized\"\x96\x02\n" +
 	"\x0fStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
 	"\x11downsample_factor\x18\x02 \x01(\rR\x10downsampleFactor\x12(\n" +
 	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\x12%\n" +
 	"\x0eexclude_groups\x18\x05 \x03(\rR\rexcludeGroups\x12#\n" +
 	"\rack_requested\x18\x06 \x01(\bR\fackRequested\x12)\n" +
-	"\x10missed_requested\x18\a \x01(\bR\x0fmissedRequested\"}\n" +
+	"\x10missed_requested\x18\a \x01(\bR\x0fmissedRequested\x12!\n" +
+	"\funtimed_keys\x18\b \x03(\rR\vuntimedKeys\"}\n" +
 	"\x10StreamerResponse\x12'\n" +
 	"\x05frame\x18\x01 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x16\n" +
 	"\x06buffer\x18\x02 \x01(\fR\x06buffer\x12\x10\n" +
