@@ -2019,7 +2019,8 @@ var _ = Describe("Iterator read failures", func() {
 	BeforeEach(func(ctx SpecContext) {
 		mem := fs.NewMem()
 		db = mustOpenDBOnFS(ctx, mem)
-		idx, good, bad = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
+		idx = GenerateChannelKey()
+		good, bad = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
 			ctx,
 			cesium.Channel{
