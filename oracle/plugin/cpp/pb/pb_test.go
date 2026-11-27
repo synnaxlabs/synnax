@@ -851,6 +851,28 @@ var _ = Describe("C++ PB Plugin", func() {
 					"std::int16_t", "cpp.items[key] = v;"),
 			)
 
+			It("Should check a string enum map key on decode", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Port enum {
+						dio0 = "DIO0"
+						dio1 = "DIO1"
+					}
+
+					Ports struct {
+						items map<Port, uint32>
+					}
+				`
+				resp := MustGenerate(source, "types", loader, pbPlugin)
+				ExpectContent(resp, "proto.gen.h").ToContain(
+					`if (auto key_err = x::pb::member(k, {"DIO0", "DIO1"}); key_err) return {{}, key_err};`,
+					"cpp.items[k] = v;",
+					"(*pb.mutable_items())[k] =",
+				)
+			})
+
 			It("Should iterate and insert for map fields", func() {
 				source := `
 					@cpp output "client/cpp/types"

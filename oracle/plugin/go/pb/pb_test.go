@@ -2265,6 +2265,45 @@ var _ = Describe("Go PB Plugin", func() {
 			),
 		)
 
+		DescribeTable(
+			"Should convert a string enum map key through a string",
+			func(field string, expected ...string) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Port enum {
+						dio0 = "DIO0"
+						dio1 = "DIO1"
+					}
+
+					Pair struct {
+						value uint32
+					}
+
+					Test struct {
+						` + field + `
+					}
+				`
+				resp := MustGenerate(source, "test", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").ToContain(expected...)
+			},
+			Entry("a direct value", "items map<Port, uint32>",
+				"pb.Items = make(map[string]uint32",
+				"pb.Items[string(k)] = v",
+				"r.Items = make(map[test.Port]uint32",
+				"key, err := xpb.Enum[test.Port](k)",
+				"r.Items[key] = v",
+			),
+			Entry("a struct value", "items map<Port, Pair>",
+				"pb.Items = make(map[string]*Pair",
+				"pb.Items[string(k)] = converted",
+				"r.Items = make(map[test.Port]test.Pair",
+				"key, err := xpb.Enum[test.Port](k)",
+				"r.Items[key] = converted",
+			),
+		)
+
 		It("Should not range-check a uint12 key", func() {
 			source := `
 				@go output "core/test"
