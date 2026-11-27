@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/log"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -102,13 +103,14 @@ func (f brkSuffixFS) SyncDir(name string) error {
 	return f.FS.SyncDir(name)
 }
 
-var _ = Describe("Pointer log fatal path breaker", func() {
+var _ = Describe("Pointer log storage fault breaker", func() {
 	var (
 		fail, dirFail atomic.Bool
 		db            *cesium.DB
-		// done closes once Run returns, and runErr then holds its error.
+		// done closes once Run returns, and runErr then holds its error. stop ends Run.
 		done      chan struct{}
 		runErr    error
+		stop      context.CancelFunc
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
 	)
@@ -131,6 +133,7 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 			cesium.WithRandom(rand.NewPCG(1, 2)),
 		))
 		runCtx, cancel := context.WithCancel(context.Background())
+		stop = cancel
 		done = make(chan struct{})
 		go func() {
 			runErr = db.Run(runCtx)
@@ -152,20 +155,21 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
 		)).To(Succeed())
 	}
-	// syncOnce writes, commits, and syncs one sample, and returns the first error.
-	syncOnce := func(ctx context.Context) (err error) {
+	// syncOnce writes, commits, and syncs one sample at the second at, and returns the
+	// first error.
+	syncOnce := func(ctx context.Context, at telem.TimeStamp) (err error) {
 		GinkgoHelper()
 		w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
-			Start:    10 * telem.SecondTS,
+			Start:    at * telem.SecondTS,
 		})
 		if err != nil {
 			return err
 		}
 		defer func() { err = errors.Join(err, w.Close()) }()
 		if _, _, err = w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
-			telem.NewSeriesSecondsTSV(10),
-			telem.NewSeriesV[int64](10),
+			telem.NewSeriesSecondsTSV(at),
+			telem.NewSeriesV(int64(at)),
 		}), nil); err != nil {
 			return err
 		}
@@ -175,22 +179,36 @@ var _ = Describe("Pointer log fatal path breaker", func() {
 		return w.Sync()
 	}
 
-	It("Should end DB.Run after a failed sync of the log", func(ctx SpecContext) {
+	It("Should keep DB.Run after a failed sync of the log, fail each later Sync until "+
+		"a restart, and return the failure from Run as it stops", func(
+		ctx SpecContext,
+	) {
 		start(ctx, ".log")
 		fail.Store(true)
-		Expect(syncOnce(ctx)).To(MatchError(errBrkSync))
+		Expect(syncOnce(ctx, 10)).To(MatchError(errBrkSync))
+		Consistently(done).WithTimeout(200 * time.Millisecond).ShouldNot(BeClosed())
+		fail.Store(false)
+		Expect(syncOnce(ctx, 20)).To(SatisfyAll(
+			MatchError(log.ErrSyncFailed),
+			MatchError(errBrkSync),
+		))
+		Consistently(done).WithTimeout(200 * time.Millisecond).ShouldNot(BeClosed())
+		stop()
 		Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
 		Expect(runErr).To(MatchError(errBrkSync))
 	})
 
-	It("Should end DB.Run after a failed sync of a new segment's directory", func(
-		ctx SpecContext,
-	) {
+	It("Should keep DB.Run after a failed sync of a new segment's directory, write "+
+		"the next sample, and end Run with no error", func(ctx SpecContext) {
 		start(ctx, ".log")
 		dirFail.Store(true)
-		Expect(syncOnce(ctx)).To(MatchError(errBrkSync))
+		Expect(syncOnce(ctx, 10)).To(MatchError(errBrkSync))
+		Consistently(done).WithTimeout(200 * time.Millisecond).ShouldNot(BeClosed())
+		dirFail.Store(false)
+		Expect(syncOnce(ctx, 20)).To(Succeed())
+		stop()
 		Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
-		Expect(runErr).To(MatchError(errBrkSync))
+		Expect(runErr).ToNot(HaveOccurred())
 	})
 })
 
