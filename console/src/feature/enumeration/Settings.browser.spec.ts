@@ -13,7 +13,7 @@ import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
-import { server } from "vitest/browser";
+import { server, userEvent } from "vitest/browser";
 
 import {
   clickWhenEnabled,
@@ -94,9 +94,9 @@ describe("Enumeration.Settings", () => {
     expect(screen.getByRole("option", { name }).getAttribute("aria-expanded")).toBe(
       "true",
     );
-    await act(async () => {
-      fireEvent.click(within(entries).getByRole("button", { name: "Add entry" }));
-    });
+    // A real key press, so the native activation of the button adds the entry.
+    act(() => within(entries).getByRole("button", { name: "Add entry" }).focus());
+    await userEvent.keyboard("{Enter}");
     await waitFor(() =>
       expect(document.activeElement).toBe(within(entries).getByLabelText("Name 2")),
     );
