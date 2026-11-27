@@ -145,9 +145,9 @@ public:
     /// belongs to no message. When payload meets the identifiers of two messages, the
     /// first of them.
     /// @returns VALIDATION, with the message, when payload meets the identifiers of two
-    /// messages, or it is too short for its multiplexors. The error names the
-    /// multiplexor that does not fit, and also the message when the decoder holds more
-    /// than one.
+    /// messages, or it is too short for its multiplexors. A short payload's error names
+    /// the first multiplexor that does not fit, and also the message when the decoder
+    /// holds more than one.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::span<const std::uint8_t> payload);
 
