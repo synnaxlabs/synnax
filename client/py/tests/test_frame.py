@@ -11,7 +11,7 @@ import subprocess
 import sys
 from datetime import UTC
 from types import MappingProxyType
-from typing import Any
+from typing import Any, override
 
 import numpy as np
 import pandas as pd
@@ -1267,6 +1267,7 @@ class _FixedRetriever(Retriever):
     def __init__(self, channels: list[ChannelPayload]) -> None:
         self._channels = channels
 
+    @override
     def retrieve(self, channels: sy.channel.Params) -> list[ChannelPayload]:
         wanted = set(normalize_params(channels).channels)
         return [c for c in self._channels if c.key in wanted or c.name in wanted]
