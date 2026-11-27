@@ -89,10 +89,6 @@ func createApplyHolders(
 	return ch.Key(), tsk.Key
 }
 
-// BenchmarkApply measures the delete of a channel that a task and a line plot use, with
-// a pick that deletes the task, against today's two steps: delete the task, then the
-// channel. Each run uses a transaction that it then discards. The pick target is at
-// most 1.10 x today.
 // openApplyBench opens a node and a service layer that close when b ends.
 func openApplyBench(b *testing.B) (*service.Layer, *gorp.DB) {
 	b.Helper()
@@ -121,6 +117,10 @@ func runApply(b *testing.B, db *gorp.DB, op func(tx gorp.Tx) error) {
 	}
 }
 
+// BenchmarkApply measures the delete of a channel that a task and a line plot use, with
+// a pick that deletes the task, against today's two steps: delete the task, then the
+// channel. Each run uses a transaction that it then discards. The pick target is at
+// most 1.10 x today.
 func BenchmarkApply(b *testing.B) {
 	gomega.RegisterTestingT(b)
 	ctx := b.Context()
