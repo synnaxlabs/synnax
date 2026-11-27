@@ -531,6 +531,7 @@ class Forwarder {
             {
                 std::lock_guard lock(this->mu);
                 this->current = writer.get();
+                this->retrying = false;
             }
             // The writer opens with the authorities sent so far, so it is current only
             // once it sends the changes queued before the open.
@@ -678,10 +679,12 @@ public:
     }
 
     /// @brief ends the current backoff from an unreachable Core, or the next one, so
-    /// the forwarder opens the Core writer again at once.
+    /// the forwarder opens the Core writer again at once. Does nothing while a Core
+    /// writer is open.
     void retry() {
         {
             std::lock_guard lock(this->mu);
+            if (this->current != nullptr) return;
             this->retrying = true;
         }
         this->cv.notify_one();

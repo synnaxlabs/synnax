@@ -939,4 +939,23 @@ TEST(ForwarderTest, ReportsTheOpenOnceQueuedAuthoritiesAreSent) {
     ASSERT_EQ(sent_at_open.load(), 1);
     ASSERT_NIL(forwarder.close());
 }
+
+/// @brief it should back off after the next loss of the Core when a retry came while
+/// its writer was open.
+TEST(ForwarderTest, RetryWhileOpenKeepsTheNextBackoff) {
+    const auto server = factory();
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {.drain_timeout = SHORT_DRAIN, .breaker = {.base_interval = x::telem::HOUR}}
+    );
+    ASSERT_NIL(forwarder.opened());
+    forwarder.retry();
+    ASSERT_NIL(forwarder.write(frame(1)));
+    ASSERT_EVENTUALLY_EQ(server->writes->size(), 1);
+    server->end_stream(freighter::UNREACHABLE);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    ASSERT_EQ(server->writer_opens.load(), 1);
+    ASSERT_NIL(forwarder.close());
+}
 }
