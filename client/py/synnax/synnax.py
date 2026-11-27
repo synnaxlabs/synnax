@@ -42,6 +42,7 @@ from synnax import (
     license as license_,
     lineplot,
     log,
+    ni as ni_,
     panel,
     project,
     rack,
@@ -323,6 +324,11 @@ class Synnax(framer.Client):
     @_Lazy
     def devices(self) -> device.Client:
         return device.Client(client=self._transport.unary)
+
+    @_Lazy
+    def ni(self) -> ni_.Client:
+        """The clients of the NI resources in the Core."""
+        return ni_.Client(client=self._transport.unary)
 
     @_Lazy
     def tasks(self) -> task.Client:

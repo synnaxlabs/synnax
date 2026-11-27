@@ -65,18 +65,21 @@ cc_test(
     srcs = [
         "binary_test.cpp",
         "bits_test.cpp",
+        "check_fixture_test.cpp",
         "decode_fixture_test.cpp",
         "encode_fixture_test.cpp",
         "json_test.cpp",
         "text_test.cpp",
     ],
     data = [
+        "//core/pkg/service/icd:check_fixtures",
         "//core/pkg/service/icd:decode_fixtures",
         "//core/pkg/service/icd:encode_fixtures",
     ],
     deps = [
         ":codec",
         "//client/cpp/icd",
+        "//driver/codec/framing",
         "//driver/codec/testutil",
         "//x/cpp/base64",
         "//x/cpp/bench:alloc",

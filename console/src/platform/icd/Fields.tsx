@@ -695,6 +695,59 @@ const ScaleControl = ({ offset, ...rest }: ScaleControlProps): ReactElement => (
   </div>
 );
 
+interface NamedSelectProps<K extends string> extends Input.Control<K> {
+  resourceName: string;
+  /** The name of each key, in the order that the select lists them. */
+  names: Record<K, string>;
+  preview?: boolean;
+}
+
+const NamedSelect = <K extends string>({
+  resourceName,
+  names,
+  value,
+  onChange,
+  preview,
+}: NamedSelectProps<K>): ReactElement => (
+  <Select.Simple<K>
+    resourceName={resourceName}
+    value={value}
+    onChange={onChange}
+    variant="floating"
+    allowNone={false}
+    preview={preview}
+  >
+    {Object.entries<string>(names).map(([key, name]) => (
+      <Select.Item key={key} itemKey={key}>
+        {name}
+      </Select.Item>
+    ))}
+  </Select.Simple>
+);
+
+interface ConversionProps {
+  path: deep.Path<Pick<icd.TextField, "scale" | "offset" | "units">>;
+  /** A command channel fills the field, so the scale and offset convert in reverse. */
+  commanded?: boolean;
+}
+
+const WRITE_CONVERSION = "The task sends (value − offset) ÷ scale.";
+
+/** The scale with the offset beside it, then the units. */
+const Conversion = ({ path, commanded = false }: ConversionProps): ReactElement => (
+  <>
+    <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
+      {(p) => (
+        <>
+          <ScaleControl {...p} offset={path.offset} />
+          {commanded && <Input.HelpText>{WRITE_CONVERSION}</Input.HelpText>}
+        </>
+      )}
+    </Form.Field>
+    <Form.TextField path={path.units} label="Units" padHelpText={false} />
+  </>
+);
+
 export interface JSONFieldProps {
   /** The form path of the field. */
   path: deep.Path<icd.JSONField>;
@@ -707,8 +760,6 @@ export interface JSONFieldProps {
   /** A command channel fills the field, so the scale and offset convert in reverse. */
   commanded?: boolean;
 }
-
-const WRITE_CONVERSION = "The task sends (value − offset) ÷ scale.";
 
 /**
  * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
@@ -743,36 +794,116 @@ export const JSONField = ({
         inputProps={POINTER_INPUT_PROPS}
       />
       <Input.Item label="Type" padHelpText={false}>
-        <Select.Simple<JSONType>
+        <NamedSelect
           resourceName="type"
+          names={JSON_TYPE_NAMES}
           value={type}
           onChange={handleType}
-          variant="floating"
-          allowNone={false}
           preview={mode === "preview"}
-        >
-          {Object.entries(JSON_TYPE_NAMES).map(([key, name]) => (
-            <Select.Item key={key} itemKey={key}>
-              {name}
-            </Select.Item>
-          ))}
-        </Select.Simple>
+        />
       </Input.Item>
-      {isNumberKind(type) && (
-        <>
-          <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
-            {(p) => (
-              <>
-                <ScaleControl {...p} offset={path.offset} />
-                {commanded && <Input.HelpText>{WRITE_CONVERSION}</Input.HelpText>}
-              </>
-            )}
-          </Form.Field>
-          <Form.TextField path={path.units} label="Units" padHelpText={false} />
-        </>
-      )}
+      {isNumberKind(type) && <Conversion path={path} commanded={commanded} />}
       <Optional path={path} field={field} />
       <EnumValues path={path} label="Enum mapping" />
+    </Form.Section>
+  );
+};
+
+export interface TextFieldProps {
+  /** The form path of the field. */
+  path: deep.Path<icd.TextField>;
+  /** Actions in the header of the field's section. */
+  actions?: ReactNode;
+}
+
+/** A text field read the other way keeps its name, conversion, and limits. */
+const withTextEncoding = (
+  field: icd.TextField,
+  encoding: icd.TextFieldType,
+): icd.TextField => {
+  const { key, name, scale, offset, units, min, max } = field;
+  const base = { key, name, scale, offset, units, min, max, default: field.default };
+  return encoding === "delimited"
+    ? { ...base, encoding, position: 0 }
+    : { ...base, encoding, tag: "" };
+};
+
+/** Edits one field of a text message: its name, where it sits, and its conversion. */
+export const TextField = ({ path, actions }: TextFieldProps): ReactElement => {
+  const { get, set, mode } = Form.useContext();
+  const encoding = Form.useFieldValue(path.encoding);
+  const handleEncoding = (next: icd.TextFieldType) => {
+    if (next !== encoding) set(path, withTextEncoding(get(path).value, next));
+  };
+  return (
+    <Form.Section title="Field" actions={actions}>
+      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Input.Item label="Read by" padHelpText={false}>
+        <Select.Buttons<icd.TextFieldType>
+          value={encoding}
+          onChange={handleEncoding}
+          disabled={mode === "preview"}
+        >
+          <Select.Item<icd.TextFieldType> itemKey="delimited">Position</Select.Item>
+          <Select.Item<icd.TextFieldType> itemKey="tagged">Tag</Select.Item>
+        </Select.Buttons>
+      </Input.Item>
+      {encoding === "delimited" ? (
+        <Form.NumericField
+          path={deep.variant(path, "encoding", "delimited").position}
+          label="Position"
+          padHelpText={false}
+        />
+      ) : (
+        <Form.TextField
+          path={deep.variant(path, "encoding", "tagged").tag}
+          label="Tag"
+          padHelpText={false}
+        />
+      )}
+      <Conversion path={path} />
+    </Form.Section>
+  );
+};
+
+export interface BinaryFieldProps {
+  /** The form path of the field. */
+  path: deep.Path<icd.BinaryField>;
+  /** Actions in the header of the field's section. */
+  actions?: ReactNode;
+}
+
+/** Edits one field of a binary message: its name, bits, type, and conversion. */
+export const BinaryField = ({ path, actions }: BinaryFieldProps): ReactElement => {
+  const { get, set, mode } = Form.useContext();
+  const kind = Form.useFieldValue(path.kind);
+  const handleKind = (next: NumberKind) => {
+    if (next !== kind) set(path, withBinaryKind(get(path).value, next));
+  };
+  return (
+    <Form.Section title="Field" actions={actions}>
+      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.NumericField path={path.startBit} label="Start bit" padHelpText={false} />
+      <Form.NumericField path={path.bitLength} label="Bit length" padHelpText={false} />
+      <Form.Field<icd.ByteOrder>
+        path={path.byteOrder}
+        label="Byte order"
+        padHelpText={false}
+      >
+        {(p) => (
+          <NamedSelect {...p} resourceName="byte order" names={BYTE_ORDER_NAMES} />
+        )}
+      </Form.Field>
+      <Input.Item label="Type" padHelpText={false}>
+        <NamedSelect
+          resourceName="type"
+          names={NUMBER_KIND_NAMES}
+          value={kind}
+          onChange={handleKind}
+          preview={mode === "preview"}
+        />
+      </Input.Item>
+      <Conversion path={path} />
     </Form.Section>
   );
 };

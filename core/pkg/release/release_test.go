@@ -56,7 +56,7 @@ var _ = DescribeTable(
 		"synnax-v0.61.0-windows.exe",
 	),
 	Entry(
-		"Driver on NI Linux RT",
+		"Driver on NI Linux Real-Time",
 		release.File{
 			Product:  release.Driver,
 			Version:  "0.61.0",

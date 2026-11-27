@@ -52,6 +52,17 @@ export const pickMessageFormat = async (
   fireEvent.click(option);
 };
 
+/**
+ * Opens the message format field that shows current, and clicks its create item named
+ * text, such as "New text message".
+ */
+export const pickNewMessage = async (current: string, text: string): Promise<void> => {
+  fireEvent.click(await findDialogTriggerByText(current));
+  const dialogs = await screen.findAllByRole("dialog");
+  const dialog = within(dialogs[dialogs.length - 1]);
+  fireEvent.click(await dialog.findByRole("option", { name: text }));
+};
+
 /** A message of an ICD. */
 interface MessageRef {
   icd: icd.Key;

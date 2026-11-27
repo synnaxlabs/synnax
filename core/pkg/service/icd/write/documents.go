@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -58,7 +59,7 @@ type Documents struct {
 func NewDocuments(
 	wm icd.WriteMessage,
 	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
+	channels map[channel.Key]icdv0.Channel,
 	name string,
 ) (*Documents, error) {
 	sampled := ChannelBindings(wm)

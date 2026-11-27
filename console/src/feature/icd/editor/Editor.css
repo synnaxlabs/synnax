@@ -58,7 +58,3 @@
 .console-icd-editor__details {
     padding: var(--console-details-padding);
 }
-
-.console-icd-editor__flags {
-    gap: 0 3rem;
-}

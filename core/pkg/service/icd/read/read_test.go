@@ -225,6 +225,15 @@ var _ = Describe("Read", func() {
 			}, icds)).To(Succeed())
 		})
 
+		It("Should let reads that are not framed read one message twice", func(
+			ctx SpecContext,
+		) {
+			Expect(resolver.Check(ctx, db, []read.Read{
+				readAt(0, plant.Key, readOf(status, bind(temp, valueKey))),
+				readAt(1, plant.Key, readOf(status, bind(temp, pressureKey))),
+			}, icds)).To(Succeed())
+		})
+
 		It("Should return the error of the first read that it refuses", func(
 			ctx SpecContext,
 		) {

@@ -10,6 +10,7 @@
 export * from "@/icon/AutoStart";
 export * from "@/icon/Axis";
 export * from "@/icon/Bridge";
+export * from "@/icon/Colored";
 export * from "@/icon/Device";
 export * from "@/icon/Fitting";
 export * from "@/icon/Icon";

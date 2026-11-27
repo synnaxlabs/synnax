@@ -1567,13 +1567,11 @@ export class DataType
     return DataType.CODES.get(this.valueOf()) ?? DataTypeCode.unknown;
   }
 
-  /** @returns the data type of a type code, or UNKNOWN for a code with no data type. */
-  static fromCode(code: number): DataType {
-    return DataType.BY_CODE.get(code) ?? DataType.UNKNOWN;
+  /** @returns the data type of a type code, or undefined for a code with no data type. */
+  static fromCode(code: number): DataType | undefined {
+    return DataType.BY_CODE.get(code);
   }
 
-  /** Represents an Unknown/Invalid DataType. */
-  static readonly UNKNOWN = new DataType("unknown");
   /** Represents a 64-bit floating point value. */
   static readonly FLOAT64 = new DataType("float64");
   /** Represents a 32-bit floating point value. */
@@ -1691,7 +1689,6 @@ export class DataType
 
   /** All the data types. */
   static readonly ALL = [
-    DataType.UNKNOWN,
     DataType.UINT8,
     DataType.UINT16,
     DataType.UINT32,

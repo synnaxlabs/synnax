@@ -104,7 +104,7 @@ class Pool {
     std::mutex mu;
     /// @brief A map of channels to targets.
     std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels;
-    /// @brief GRPC credentials to provide when connecting to a target.
+    /// @brief gRPC credentials to provide when connecting to a target.
     std::shared_ptr<::grpc::ChannelCredentials> credentials;
     /// @brief the error that every call fails with, when the pool has no credentials.
     x::errors::Error err;

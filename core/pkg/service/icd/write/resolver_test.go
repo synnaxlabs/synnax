@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -569,6 +570,55 @@ var _ = Describe("Resolver", func() {
 			})
 			Expect(check(ctx, writeAt(0, given.Key, writeOf(setpoint, bind(temp))))).
 				To(MatchError("no channels"))
+		})
+	})
+
+	Describe("NewChecker", func() {
+		It("Should hold the stored ICDs and the channels of the bindings and the tags",
+			func(ctx SpecContext) {
+				stored := icd.ICD{Name: "Plant", Messages: []icd.Message{setpoint}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icdSvc.NewWriter(tx).Create(ctx, &stored)
+				})).To(Succeed())
+				held[modeKey] = icdv0.Channel{Name: "mode", DataType: telem.Uint8T}
+				c := MustSucceed(resolver.NewChecker(
+					ctx,
+					db,
+					[]write.Write{
+						writeAt(0, stored.Key, writeOf(setpoint, bind(temp))),
+					},
+					[]channel.Key{modeKey},
+					nil,
+				))
+				Expect(c.ICD(stored.Key)).To(Equal(stored))
+				Expect(c.Channels()).To(Equal(held))
+				Expect(asked).To(HaveExactElements(ConsistOf(valueKey, modeKey)))
+			},
+		)
+
+		It("Should hold a given ICD without retrieving it", func(ctx SpecContext) {
+			given := icd.ICD{Key: uuid.New(), Name: "Given"}
+			c := MustSucceed(resolver.NewChecker(
+				ctx,
+				db,
+				[]write.Write{writeAt(0, given.Key, writeOf(tagged))},
+				nil,
+				map[icd.Key]icd.ICD{given.Key: given},
+			))
+			Expect(c.ICD(given.Key)).To(Equal(given))
+		})
+
+		It("Should return a validation error for an ICD that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := uuid.New()
+			c := MustSucceed(resolver.NewChecker(
+				ctx, db, []write.Write{writeAt(0, missing, writeOf(tagged))}, nil, nil,
+			))
+			Expect(c.ICD(missing)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("icd: ICD %s does not exist", missing)),
+			))
 		})
 	})
 

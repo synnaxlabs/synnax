@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import group as group_, project as project_
+from synnax.log import actions_gen
 from synnax.log.types_gen import (
     Key,
     Log,
@@ -38,24 +39,14 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _SetPayload(BaseModel):
-    path: list[str]
-    value: Any
-
-
-class _SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: _SetPayload
-
-
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[_SetAction]
+    actions: list[actions_gen.Action]
 
 
 class Client:
-    """Client for creating, retrieving, renaming, and deleting logs in a Synnax Core.
+    """Client for creating, retrieving, editing, and deleting logs in a Synnax Core.
 
     A log is a Console visualization that displays the samples of a set of channels as
     timestamped rows.
@@ -191,8 +182,21 @@ class Client:
         :param key: The key of the log to rename.
         :param name: The new name for the log.
         """
-        action = _SetAction(set=_SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
+        payload = actions_gen.SetPayload(path=["name"], value=name)
+        self.dispatch(key, actions_gen.set(payload))
+
+    def dispatch(
+        self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]
+    ) -> None:
+        """Applies actions to a log, in order, in one transaction.
+
+        :param key: The key of the log.
+        :param actions: The actions to apply, such as ``log.add_channel`` and
+            ``log.set_channel_alias``.
+        :raises NotFoundError: If no log has the given key.
+        :raises ValidationError: If an action is invalid.
+        """
+        req = _DispatchRequest(key=key, actions=normalize(actions))
         self._client.send("/log/dispatch", req, Empty)
 
     def delete(self, keys: Key | list[Key]) -> None:

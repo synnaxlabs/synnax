@@ -12,7 +12,9 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { Text } from "@synnaxlabs/lyra/text";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -63,6 +65,18 @@ const favoriteCheckbox = (): HTMLInputElement =>
   screen.getByRole("checkbox", { name: "Favorite" });
 
 describe("Status.List.Item", () => {
+  it("should draw the time since the status with tabular digits", async () => {
+    const stat = await client.statuses.set({
+      name: uniqueName("status"),
+      message: "a status message",
+      variant: "warning",
+      time: TimeStamp.now().sub(TimeSpan.days(2)),
+    });
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Fixture status={stat} />, { wrapper });
+    expect(treatment(await screen.findByText(/^2d/))).toBe("numeric");
+  });
+
   it("should render the status name and message", async () => {
     const stat = await createStatus("something happened");
     const { wrapper } = await createConsoleWrapper({ client });

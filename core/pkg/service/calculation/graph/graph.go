@@ -405,7 +405,7 @@ func (g *Graph) hydratePass(
 		if err != nil {
 			statuses[ch.Key()] = calculation.StatusFromError(ch.Key(), ch.Name, err)
 			h.invalid++
-			g.L.Debug(
+			g.L.Warn(
 				"channel expression invalid",
 				zap.Stringer("channel", ch.Key()),
 				zap.String("name", ch.Name),

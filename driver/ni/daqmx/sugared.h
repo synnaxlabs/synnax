@@ -2432,7 +2432,7 @@ public:
     x::errors::Error
     GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data);
 
-    /// @brief reads a string attribute of a device. A first call asks DAQmx for the
+    /// @brief reads a string attribute of a device. A first call asks NI-DAQmx for the
     /// size, so the value is never cut.
     std::pair<std::string, x::errors::Error>
     GetDeviceAttributeString(const char deviceName[], int32 attribute);

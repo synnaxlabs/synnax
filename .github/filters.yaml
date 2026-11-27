@@ -216,6 +216,8 @@ console: &console
   - *ts
   - *x_ts
   - console/**
+  # The data type spec reads the Core's shared table.
+  - core/pkg/service/icd/testdata/data_types.json
 
 site_common: &site_common
   - *lyra
