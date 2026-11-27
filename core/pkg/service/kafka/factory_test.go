@@ -82,8 +82,10 @@ var _ = Describe("Factory", func() {
 		DescribeTable("Should reject a scan task with a rate that is not positive",
 			func(ctx SpecContext, rate float64) {
 				t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": rate})
-				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
-					To(MatchError(validate.ErrValidation))
+				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("rate: must be greater than 0"),
+				))
 			},
 			Entry("negative", -1.0),
 			Entry("an explicit zero", 0.0),

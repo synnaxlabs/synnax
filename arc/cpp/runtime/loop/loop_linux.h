@@ -118,6 +118,13 @@ public:
     }
 
     x::errors::Error start() override {
+        // Each start runs on a new thread.
+        if (!this->rt_handle) {
+            auto rt_cfg = this->config.rt();
+            x::thread::rt::apply_config(rt_cfg);
+        } else {
+            this->rt_handle->apply();
+        }
         if (this->epoll_fd != -1) return x::errors::NIL;
 
         this->epoll_fd = epoll_create1(0);
@@ -148,13 +155,6 @@ public:
                     "Failed to add eventfd to epoll: " + std::string(strerror(errno))
                 )
             );
-
-        if (!this->rt_handle) {
-            auto rt_cfg = this->config.rt();
-            x::thread::rt::apply_config(rt_cfg);
-        } else {
-            this->rt_handle->apply();
-        }
 
         const bool realtime = this->api.realtime();
         const bool busy = this->config.mode == ExecutionMode::BUSY_WAIT;
