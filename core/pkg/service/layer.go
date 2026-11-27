@@ -76,6 +76,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/serial"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -286,6 +287,8 @@ type Layer struct {
 	HTTP *http.Service
 	// Kafka owns the stored configuration records of the Kafka task types.
 	Kafka *kafka.Service
+	// Serial owns the stored configuration records of the serial task types.
+	Serial *serial.Service
 	// TaskStopper stops running tasks ahead of a delete.
 	TaskStopper *task.Stopper
 	// ArcTask owns the stored configuration records of the arc task type.
@@ -991,6 +994,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
+	if l.Serial, err = serial.OpenService(ctx, serial.ServiceConfig{
+		Instrumentation: cfg.Child("serial"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		ICD:             l.ICD,
+	}); !ok(err, l.Serial) {
+		return nil, err
+	}
 	// Arc task configs reference Arcs, and the task migrations write them.
 	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
 		Instrumentation: cfg.Child("arc"),
@@ -1046,7 +1057,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
-		l.File.Stores(),
+		l.File.Stores(), l.Serial.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {

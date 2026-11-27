@@ -20,7 +20,6 @@ import (
 	xjson "github.com/synnaxlabs/x/json"
 	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -221,11 +220,9 @@ func (c *checker) checkTextFields(path []string, p TextPayload, untyped set.Set[
 		case TaggedTextField:
 			c.checkTag(pathOf(fieldPath, "tag"), v.Tag, p.Delimiter)
 		}
-		b := f.Base()
-		if d := b.Default; d != nil && math.IsInf(float64(*d), 0) {
-			c.addf(pathOf(fieldPath, "default"), "default cannot be infinite")
+		if message, found := textDefaultProblem(f); found {
+			c.addf(pathOf(fieldPath, "default"), "default %s", message)
 		}
-		checkDefaultRange(c, fieldPath, b.BaseField, b.Default)
 	}
 	c.checkTagOverlaps(pathOf(path, "fields"), p.Fields)
 }
@@ -299,16 +296,6 @@ func startsValue(rest string) bool {
 		skipDigits()
 	}
 	return i == len(s)
-}
-
-// checkDefaultRange adds a problem when the finite default d of a number field with
-// base b decodes outside its min and max.
-func checkDefaultRange[N types.Numeric](
-	c *checker, path []string, b BaseField, d *N,
-) {
-	if message, out := defaultRangeProblem(b, d); out {
-		c.addf(pathOf(path, "default"), "default %s", message)
-	}
 }
 
 // textSpace is the text that the Driver trims from around each item of a line.
@@ -661,37 +648,16 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 	}
 }
 
-// checkBinaryDefault adds a problem when f is a float of the wrong width, or when the
-// bits of f cannot hold its default.
+// checkBinaryDefault adds a problem when f is a float of the wrong width, or when f
+// cannot hold its default.
 func (c *checker) checkBinaryDefault(path []string, f BinaryField) {
-	n := f.Base().BitLength
-	defaultPath := pathOf(path, "default")
-	switch v := f.Variant.(type) {
-	case FloatBinaryField:
-		if n != 32 && n != 64 {
+	if _, ok := f.Variant.(FloatBinaryField); ok {
+		if n := f.Base().BitLength; n != 32 && n != 64 {
 			c.addf(pathOf(path, "bit_length"), "a float field must be 32 or 64 bits")
 		}
-		if v.Default == nil {
-			return
-		}
-		d := float64(*v.Default)
-		switch {
-		case math.IsInf(d, 0):
-			c.addf(defaultPath, "default cannot be infinite")
-		case n == 32 && math.Abs(d) > math.MaxFloat32:
-			c.addf(defaultPath, "default %g does not fit a 32-bit float", d)
-		}
-		checkDefaultRange(c, path, v.BaseField, v.Default)
-	case IntegerBinaryField:
-		if v.Default != nil && !fits(int64(*v.Default), f) {
-			c.addf(defaultPath, "default %d does not fit the field", *v.Default)
-		}
-		checkDefaultRange(c, path, v.BaseField, v.Default)
-	case UnsignedBinaryField:
-		if v.Default != nil && n < 64 && uint64(*v.Default) >= 1<<n {
-			c.addf(defaultPath, "default %d does not fit the field", *v.Default)
-		}
-		checkDefaultRange(c, path, v.BaseField, v.Default)
+	}
+	if message, found := binaryDefaultProblem(f); found {
+		c.addf(pathOf(path, "default"), "default %s", message)
 	}
 }
 

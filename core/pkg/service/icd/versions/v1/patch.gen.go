@@ -16,6 +16,27 @@ import (
 	"github.com/synnaxlabs/x/patch"
 )
 
+// HashContent writes the content of the value to h, without its keys.
+func (p *Poll) HashContent(h *content.Hash) {
+	h.Bytes(p.Query)
+	h.Float(float64(p.Rate))
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (re *ReadEntry) HashContent(h *content.Hash) {
+	h.Bytes(re.ICD[:])
+	h.Len(len(re.Messages))
+	for i0 := range re.Messages {
+		re.Messages[i0].HashContent(h)
+	}
+	if re.Poll == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		re.Poll.HashContent(h)
+	}
+}
+
 // Patch applies the path action at c, which is not done, to the value.
 func (wm *WriteMessage) Patch(c patch.Cursor) error {
 	switch c.Segment() {
@@ -34,6 +55,18 @@ func (wm *WriteMessage) HashContent(h *content.Hash) {
 	h.Len(len(wm.Bindings))
 	for i0 := range wm.Bindings {
 		wm.Bindings[i0].HashContent(h)
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wt *WriteTarget) HashContent(h *content.Hash) {
+	h.Bytes(wt.ICD[:])
+	wt.Message.HashContent(h)
+	if wt.Period == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.Uint(uint64(*wt.Period))
 	}
 }
 

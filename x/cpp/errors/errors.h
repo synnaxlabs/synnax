@@ -67,6 +67,13 @@ public:
         return {parent.type + type.substr(pos), this->data};
     }
 
+    /// @brief returns a copy of the error with context before its data, as
+    /// "context: data". Wrapping NIL returns NIL.
+    [[nodiscard]] Error wrap(const std::string &context) const {
+        if (this->ok()) return *this;
+        return {*this, context + ": " + this->data};
+    }
+
     /// @brief copy constructor.
     Error(const Error &other) = default;
 

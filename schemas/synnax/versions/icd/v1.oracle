@@ -540,3 +540,57 @@ WriteMessage struct {
     @doc value  "sends one message of an ICD."
     @go marshal
 }
+
+Poll struct {
+    query bytes      {
+        @doc value """
+            is the request that the device must receive before it answers. The task
+            frames it with the framing of the ICD.
+        """
+    }
+    rate  telem.Rate = 1 {
+        @doc value "is how often the task sends the query, in Hertz."
+    }
+
+    @doc value  "is a query that a read task sends at a fixed rate."
+    @go marshal
+}
+
+ReadEntry struct {
+    icd      Key           {
+        @doc value "is the key of the ICD that holds the messages of the entry."
+    }
+    messages ReadMessage[] = [] {
+        @doc value """
+            are the messages the device sends. Each frame is read as the message whose
+            match rule it meets.
+        """
+    }
+    poll     Poll?         {
+        @doc value """
+            is the query that asks the device to send. Absent when the device sends on
+            its own.
+        """
+    }
+
+    @doc value  "reads the messages of one device on a serial port or a socket."
+    @go marshal
+}
+
+WriteTarget struct {
+    icd     Key             {
+        @doc value "is the key of the ICD that holds the message."
+    }
+    message WriteMessage    {
+        @doc value "is the message the target sends."
+    }
+    period  telem.TimeSpan? {
+        @doc value """
+            is how often the target sends the message, with the last command of each
+            bound channel. Absent when the target sends one message for each command.
+        """
+    }
+
+    @doc value  "sends one message to one device on a serial port or a socket."
+    @go marshal
+}

@@ -1292,6 +1292,102 @@ func (p *Payload) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (p Poll) EncodeOrc(w *orc.Writer) error {
+	w.Bool(p.Query != nil)
+	if p.Query != nil {
+		w.WriteWithLen(p.Query)
+	}
+	w.Float64(float64(p.Rate))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (p *Poll) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			p.Query, err = r.ReadWithLen()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	{
+		rawV, err := r.Float64()
+		if err != nil {
+			return err
+		}
+		p.Rate = telem.Rate(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (re ReadEntry) EncodeOrc(w *orc.Writer) error {
+	w.Write(re.ICD[:])
+	w.Bool(re.Messages != nil)
+	if re.Messages != nil {
+		w.Uint32(uint32(len(re.Messages)))
+		for i := range re.Messages {
+			if err := re.Messages[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	if re.Poll != nil {
+		w.Bool(true)
+		if err := re.Poll.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (re *ReadEntry) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(re.ICD[:]); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			re.Messages = make([]ReadMessage, n)
+			for i := range re.Messages {
+				if err = re.Messages[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Poll
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			re.Poll = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (tbf TextBaseField) EncodeOrc(w *orc.Writer) error {
 	w.Write(tbf.Key[:])
 	w.String(tbf.Name)
@@ -1642,6 +1738,50 @@ func (wm *WriteMessage) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wt WriteTarget) EncodeOrc(w *orc.Writer) error {
+	w.Write(wt.ICD[:])
+	if err := wt.Message.EncodeOrc(w); err != nil {
+		return err
+	}
+	if wt.Period != nil {
+		w.Bool(true)
+		w.Int64(int64(*wt.Period))
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wt *WriteTarget) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(wt.ICD[:]); err != nil {
+		return err
+	}
+	if err = wt.Message.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv telem.TimeSpan
+			{
+				rawV, err := r.Int64()
+				if err != nil {
+					return err
+				}
+				hv = telem.TimeSpan(rawV)
+			}
+			wt.Period = &hv
 		}
 	}
 	return nil

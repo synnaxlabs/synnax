@@ -101,7 +101,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{resolver: readResolver{
 		icds:     cfg.ICD,
 		channels: channels,
-		create:   createICD(cfg.ICD),
 		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}}

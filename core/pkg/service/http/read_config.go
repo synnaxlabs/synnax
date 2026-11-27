@@ -49,7 +49,7 @@ func (r readResolver) resolve(
 	if ok {
 		icds[ic.Key] = ic
 	}
-	if err = r.check(ctx, snap, cfg, icds); err != nil || !ok {
+	if err = r.reads.Check(ctx, snap, readsOf(cfg), icds); err != nil || !ok {
 		return nil, err
 	}
 	return func(ctx context.Context, tx gorp.Tx) error {
@@ -66,27 +66,6 @@ func (r readResolver) hash(
 	h *content.Hash,
 ) error {
 	return r.reads.Hash(ctx, snap, h, readsOf(cfg))
-}
-
-// check checks each enabled endpoint of cfg that names an ICD, in order, against that
-// ICD, from icds or else read through snap, and its channels.
-func (r readResolver) check(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	cfg *ReadConfig,
-	icds map[icd.Key]icd.ICD,
-) error {
-	reads := readsOf(cfg)
-	c, err := r.reads.NewChecker(ctx, snap, reads, nil, icds)
-	if err != nil {
-		return err
-	}
-	for _, rd := range reads {
-		if err = c.Read(rd); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // readsOf returns the read of each enabled endpoint of cfg that names an ICD.

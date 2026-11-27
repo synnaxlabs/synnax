@@ -23,8 +23,6 @@ export interface Server {
   command: string;
   /** The entry of the server in the dialog that the devices toolbar opens. */
   title: string;
-  /** The name the dialog starts with, which is also its placeholder. */
-  defaultName: string;
   /** The name to give the server. */
   name: string;
   /** Fills the fields of the protocol. */
@@ -37,6 +35,10 @@ export interface Server {
  */
 export const INTEGRATIONS = ["opc", "modbus", "http"];
 
+/** nameInput returns the name input at the top of a connect form. */
+export const nameInput = (modal: Locator): Locator =>
+  modal.getByRole("textbox", { name: "Name", exact: true }).first();
+
 /** checkboxField returns the checkbox with the given label. */
 const checkboxField = (modal: Locator, label: string): Locator =>
   fieldItem(modal, label).getByRole("checkbox").first();
@@ -45,7 +47,6 @@ export const MODBUS: Server = {
   server: { protocol: "modbus", port: 5020 },
   command: "Connect Modbus server",
   title: "Modbus server",
-  defaultName: "Modbus server",
   name: "Pump skid PLC",
   fill: async (session, modal) => {
     await session.click(modal.getByPlaceholder("localhost").first());
@@ -61,7 +62,6 @@ export const OPCUA: Server = {
   server: { protocol: "opcua", port: 4840 },
   command: "Connect OPC UA server",
   title: "OPC UA server",
-  defaultName: "OPC UA server",
   name: "Furnace controller",
   fill: async (session, modal) => {
     await session.click(fieldItem(modal, "Endpoint").locator("input").first());
@@ -74,7 +74,6 @@ export const HTTP: Server = {
   server: { protocol: "http", port: 8080 },
   command: "Connect HTTP server",
   title: "HTTP server",
-  defaultName: "HTTP server",
   name: "Weather station",
   fill: async (session, modal) => {
     await session.click(modal.getByPlaceholder("www.example.com").first());
@@ -100,7 +99,6 @@ export const MQTT: Server = {
   rack: CORE_RACK,
   command: "Connect an MQTT broker",
   title: "MQTT broker",
-  defaultName: "MQTT broker",
   name: "Plant broker",
   fill: async (session, modal) => {
     await session.click(modal.getByPlaceholder("broker.example.com").first());
@@ -113,7 +111,6 @@ export const KAFKA: Server = {
   rack: CORE_RACK,
   command: "Connect Kafka cluster",
   title: "Kafka cluster",
-  defaultName: "Kafka cluster",
   name: "Plant cluster",
   fill: async (session, modal) => {
     await session.click(modal.getByPlaceholder("localhost:9092").first());
@@ -152,14 +149,14 @@ export const browseNodes =
 const fillForm = async (
   session: capture.CaptureSession,
   modal: Locator,
-  { defaultName, name, fill, rack = DRIVER }: Server,
+  { name, fill, rack = DRIVER }: Server,
 ): Promise<void> => {
-  const nameInput = modal.getByPlaceholder(defaultName).first();
-  await session.waitFor(nameInput);
+  const input = nameInput(modal);
+  await session.waitFor(input);
   await session.zoom(modal);
   await session.hold(800);
 
-  await session.click(nameInput, { text: true });
+  await session.click(input, { text: true });
   await session.press("ControlOrMeta+a");
   await session.type(name);
   await session.hold(400);
