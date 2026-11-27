@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -95,6 +96,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v2.NewReadMigration(slaves),
 				v3.ReadMigration,
+				v4.ReadMigration,
 			},
 			SetEntryKey: (*ReadConfig).SetKey,
 			PatchEntry:  (*ReadConfig).Patch,
@@ -105,7 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				_ string,
 				c *ReadConfig,
 			) (func(context.Context, gorp.Tx) error, error) {
-				return nil, v3.ResolveReadConfig(ctx, snap, slaves, c)
+				return nil, v4.ResolveReadConfig(ctx, snap, slaves, c)
 			},
 			ValidateEntry: func(c *ReadConfig) error {
 				v := validate.New("ethercat.ReadConfig")
@@ -129,6 +131,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v2.NewWriteMigration(slaves),
 				v3.WriteMigration,
+				v4.WriteMigration,
 			},
 			SetEntryKey: (*WriteConfig).SetKey,
 			PatchEntry:  (*WriteConfig).Patch,
@@ -139,7 +142,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				_ string,
 				c *WriteConfig,
 			) (func(context.Context, gorp.Tx) error, error) {
-				return nil, v3.ResolveWriteConfig(ctx, snap, slaves, c)
+				return nil, v4.ResolveWriteConfig(ctx, snap, slaves, c)
 			},
 			ValidateEntry: (*WriteConfig).Validate,
 		},

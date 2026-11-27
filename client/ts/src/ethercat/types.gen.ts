@@ -80,8 +80,8 @@ export const entryReadChannelZ = baseReadChannelZ.extend({
   index: zod.uint16,
   /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
   subIndex: zod.uint8,
-  /** dataType is the data type of the PDO entry. */
-  dataType: z.string(),
+  /** dataType is the data type of the PDO entry. Absent until an entry is picked. */
+  dataType: z.string().min(1).optional(),
   /**
    * calibrated is true when the Driver turns the raw counts of the entry into physical
    * values, with the gain and offset that the slave stores for the entry.
@@ -134,8 +134,8 @@ export const entryWriteChannelZ = baseWriteChannelZ.extend({
   index: zod.uint16,
   /** subIndex is the CoE object dictionary sub-index of the PDO entry. */
   subIndex: zod.uint8,
-  /** dataType is the data type of the PDO entry. */
-  dataType: z.string(),
+  /** dataType is the data type of the PDO entry. Absent until an entry is picked. */
+  dataType: z.string().min(1).optional(),
   /**
    * stopValue is the value the entry takes when the task stops. The bus sends it before
    * the slaves leave OP.

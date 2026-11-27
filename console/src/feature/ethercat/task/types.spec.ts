@@ -194,6 +194,23 @@ describe("getEntryChannelName", () => {
   });
 });
 
+describe("hasEntry", () => {
+  it("should not count an entry channel with no data type as picked", () => {
+    const ch = { ...EtherCAT.Task.createReadChannel([]), index: 0x6000, subIndex: 1 };
+    expect(EtherCAT.Task.hasEntry(ch)).toBe(false);
+  });
+
+  it("should count an entry channel with an address and a data type as picked", () => {
+    const ch = {
+      ...EtherCAT.Task.createReadChannel([]),
+      index: 0x6000,
+      subIndex: 1,
+      dataType: "int16",
+    };
+    expect(EtherCAT.Task.hasEntry(ch)).toBe(true);
+  });
+});
+
 describe("createReadChannel", () => {
   it("should start with no entry picked when the list is empty", () => {
     const ch = EtherCAT.Task.createReadChannel([]);
@@ -216,8 +233,8 @@ describe("createReadChannel", () => {
       name: "",
       index: 0,
       subIndex: 0,
-      dataType: "",
     });
+    expect(ch).toHaveProperty("dataType", undefined);
     expect(ch.key).not.toBe(last.key);
   });
 

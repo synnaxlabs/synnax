@@ -131,11 +131,17 @@ export type EntryChannel = EntryReadChannel | EntryWriteChannel;
  */
 export type PDOType = "inputs" | "outputs";
 
-const ZERO_ENTRY = { index: 0, subIndex: 0, dataType: "" } as const;
+/** Clears the entry of a copied channel, so the form requires a new pick. */
+const ZERO_ENTRY = { index: 0, subIndex: 0, dataType: undefined } as const;
+
+/** An entry channel with an entry picked, which sets its data type. */
+export type PickedEntry<C extends Channel> = Extract<C, EntryChannel> & {
+  dataType: string;
+};
 
 /** @returns whether the channel has an entry picked. */
-export const hasEntry = <C extends Channel>(ch: C): ch is Extract<C, EntryChannel> =>
-  ch.type === "entry" && ch.index !== 0;
+export const hasEntry = <C extends Channel>(ch: C): ch is PickedEntry<C> =>
+  ch.type === "entry" && ch.index !== 0 && ch.dataType != null;
 
 /** The word for the direction of each side of the process image. */
 export const DIRECTIONS: Record<PDOType, string> = {
@@ -170,9 +176,18 @@ export const isCalibrated = (
   return input?.entries.some((e) => at(e) && e.calibration != null) === true;
 };
 
+/**
+ * @returns the data type of the entry of ch.
+ * @throws {Error} if ch has no entry picked, which deploy validation rules out.
+ */
+export const entryDataType = (ch: EntryChannel): string => {
+  if (ch.dataType == null) throw new Error(`Channel ${ch.key} has no entry picked`);
+  return ch.dataType;
+};
+
 /** @returns the data type of the read channel's Synnax channel. */
 export const readDataType = (ch: EntryReadChannel): string =>
-  isScaled(ch) || ch.calibrated ? "float64" : ch.dataType;
+  isScaled(ch) || ch.calibrated ? "float64" : entryDataType(ch);
 
 /**
  * The data type of each Synnax channel that a slave maps, keyed by the channel. A

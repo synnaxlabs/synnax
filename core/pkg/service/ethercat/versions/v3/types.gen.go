@@ -19,8 +19,7 @@ import (
 
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	taskv2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -84,14 +83,14 @@ type EntryReadChannel struct {
 	Calibrated bool `json:"calibrated" msgpack:"calibrated"`
 	// Scale is the scale applied to raw samples after acquisition. A scaled channel
 	// writes to a float Synnax channel.
-	Scale taskv2.Scale `json:"scale" msgpack:"scale"`
+	Scale task.Scale `json:"scale" msgpack:"scale"`
 }
 
 func (EntryReadChannel) isReadChannelVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
 func (e *EntryReadChannel) SetDefaults() {
-	e.Scale.Variant = taskv2.NoneScale{}
+	e.Scale.Variant = task.NoneScale{}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

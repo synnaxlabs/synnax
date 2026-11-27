@@ -353,6 +353,32 @@ TEST(Input, ReportsADataTypeWiderThanTheEntry) {
     ASSERT_EQ(ch, nullptr);
 }
 
+/// @brief it should report an input channel with no entry picked.
+TEST(Input, ReportsAChannelWithNoDataType) {
+    const auto slave = padded_slave();
+    auto j = read_entry(0x6000, 0x11);
+    j.erase("data_type");
+    auto parser = x::json::Parser(j);
+    const auto ch = input(slave, parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "data_type");
+    ASSERT_EQ(message, "pick an entry for the channel");
+    ASSERT_EQ(ch, nullptr);
+}
+
+/// @brief it should report an output channel with no entry picked.
+TEST(Output, ReportsAChannelWithNoDataType) {
+    const auto slave = wide_output_slave();
+    auto j = write_entry(0x7000, 1);
+    j.erase("data_type");
+    auto parser = x::json::Parser(j);
+    const auto ch = output(slave, parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "data_type");
+    ASSERT_EQ(message, "pick an entry for the channel");
+    ASSERT_EQ(ch, nullptr);
+}
+
 /// @brief it should report a data type that is narrower than the entry.
 TEST(Input, ReportsADataTypeNarrowerThanTheEntry) {
     const auto slave = padded_slave();

@@ -45,15 +45,18 @@ BaseReadChannel struct {
 
 ReadChannel union on type extends BaseReadChannel {
     entry {
-        index      uint16         {
+        index      uint16          {
             @doc value "is the CoE object dictionary index of the PDO entry."
         }
-        sub_index  uint8          {
+        sub_index  uint8           {
             @doc value "is the CoE object dictionary sub-index of the PDO entry."
         }
-        data_type  telem.DataType {
-            @doc value "is the data type of the PDO entry."
-            @ts type   "string"
+        data_type  telem.DataType? {
+            @doc value           """
+                is the data type of the PDO entry. Absent until an entry is picked.
+            """
+            @ts type             "string"
+            @validate min_length 1
         }
         calibrated bool = false {
             @doc value """
@@ -127,15 +130,18 @@ BaseWriteChannel struct {
 
 WriteChannel union on type extends BaseWriteChannel {
     entry {
-        index      uint16         {
+        index      uint16          {
             @doc value "is the CoE object dictionary index of the PDO entry."
         }
-        sub_index  uint8          {
+        sub_index  uint8           {
             @doc value "is the CoE object dictionary sub-index of the PDO entry."
         }
-        data_type  telem.DataType {
-            @doc value "is the data type of the PDO entry."
-            @ts type   "string"
+        data_type  telem.DataType? {
+            @doc value           """
+                is the data type of the PDO entry. Absent until an entry is picked.
+            """
+            @ts type             "string"
+            @validate min_length 1
         }
         stop_value float64 = 0 {
             @doc value """

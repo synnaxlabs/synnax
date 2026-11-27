@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -105,8 +106,9 @@ struct EntryReadChannel : public BaseReadChannel {
     std::uint16_t index = 0;
     /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
     std::uint8_t sub_index = 0;
-    /// @brief data_type is the data type of the PDO entry.
-    ::x::telem::DataType data_type;
+    /// @brief data_type is the data type of the PDO entry. Absent until an entry is
+    /// picked.
+    std::optional<::x::telem::DataType> data_type;
     /// @brief calibrated is true when the Driver turns the raw counts of the entry into
     /// physical values, with the gain and offset that the slave stores for the entry.
     bool calibrated = false;
@@ -151,8 +153,9 @@ struct EntryWriteChannel : public BaseWriteChannel {
     std::uint16_t index = 0;
     /// @brief sub_index is the CoE object dictionary sub-index of the PDO entry.
     std::uint8_t sub_index = 0;
-    /// @brief data_type is the data type of the PDO entry.
-    ::x::telem::DataType data_type;
+    /// @brief data_type is the data type of the PDO entry. Absent until an entry is
+    /// picked.
+    std::optional<::x::telem::DataType> data_type;
     /// @brief stop_value is the value the entry takes when the task stops. The bus
     /// sends it before the slaves leave OP.
     double stop_value = 0;

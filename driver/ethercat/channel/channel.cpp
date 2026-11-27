@@ -28,17 +28,22 @@ std::string bytes(const size_t n) {
 }
 
 /// @brief returns the entry at an address on slave, with the slave's bit length and
-/// data_type. Accumulates a field error under path and returns nullopt when the slave
-/// lacks the entry or data_type does not fit it.
-std::optional<pdo::Entry> bind(
+/// data_type. Accumulates a field error under path and returns nullopt when data_type
+/// is absent, the slave lacks the entry, or data_type does not fit it.
+std::optional<pdo::Entry> bind_entry(
     const bool is_input,
     const uint16_t index,
     const uint8_t sub_index,
-    const x::telem::DataType &data_type,
+    const std::optional<x::telem::DataType> &picked,
     const slave::Properties &slave,
     const x::json::Parser &parser,
     const std::string &path
 ) {
+    if (!picked) {
+        parser.field_err(path + "data_type", "pick an entry for the channel");
+        return std::nullopt;
+    }
+    const auto &data_type = *picked;
     const auto pdo = slave.find_pdo(index, sub_index, is_input);
     if (!pdo) {
         parser.field_err(
@@ -252,7 +257,8 @@ std::unique_ptr<Input> make_input(
         return nullptr;
     }
     const auto &c = std::get<::synnax::ethercat::EntryReadChannel>(cfg);
-    const auto entry = bind(true, c.index, c.sub_index, c.data_type, slave, parser, "");
+    const auto
+        entry = bind_entry(true, c.index, c.sub_index, c.data_type, slave, parser, "");
     if (!entry) return nullptr;
     auto input = std::make_unique<Input>(Input{
         .entry = *entry,
@@ -297,8 +303,15 @@ std::unique_ptr<Output> make_output(
         return nullptr;
     }
     const auto &c = std::get<::synnax::ethercat::EntryWriteChannel>(cfg);
-    const auto
-        entry = bind(false, c.index, c.sub_index, c.data_type, slave, parser, path);
+    const auto entry = bind_entry(
+        false,
+        c.index,
+        c.sub_index,
+        c.data_type,
+        slave,
+        parser,
+        path
+    );
     if (!entry) return nullptr;
     auto out = std::make_unique<Output>(Output{
         .entry = *entry,
