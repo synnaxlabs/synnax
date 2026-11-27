@@ -40,7 +40,6 @@ import {
 } from "react";
 
 import { Device } from "@/feature/mqtt/device";
-import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import {
@@ -49,7 +48,7 @@ import {
   type TopicPick,
 } from "@/feature/mqtt/task/discover/Topics";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
-import { EntryItem, EntryLabel } from "@/feature/mqtt/task/EntryLabel";
+import { describeMissing, EntryItem, EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -228,34 +227,6 @@ const splitStored = (
       .map((entry) => ({ ...storedSource(entry), disabled: entry.disabled })),
   );
 
-/** Inserts entries into the lists of one ICD. */
-type Inserter = Pick<ICD.FormatForm, "insert">;
-
-/**
- * Appends each field whose pointer the message lacks.
- * @returns the fields it appends.
- */
-const appendFields = (
-  to: Inserter,
-  message: icd.Message,
-  fields: icd.JSONField[],
-): icd.JSONField[] => {
-  const held = ICD.jsonFields(message);
-  const pointers = new Set(held.map(({ pointer }) => pointer));
-  const added = fields.filter(({ pointer }) => !pointers.has(pointer));
-  const names = ICD.fieldNames(
-    added.map(({ pointer }) => pointer),
-    held.map(({ name }) => name),
-  );
-  const appended = added.map((field, i) => ({ ...field, name: names[i] }));
-  let after = held.at(-1)?.key;
-  for (const field of appended) {
-    to.insert(ICD.fieldsPath(message.key), field, after);
-    after = field.key;
-  }
-  return appended;
-};
-
 /** @returns a message for the fields of a draft, named after its topic and kind. */
 const createMessage = (
   { topic, fields, present }: Draft,
@@ -306,10 +277,6 @@ type Bind = (
   message: icd.MessageKey,
 ) => icd.ReadBinding[];
 
-/** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string =>
-  name.trim() === "" ? DEFAULT_READ_NAME : name;
-
 /** Creates an ICD with a message for each draft, and the entries that read them. */
 const createICD = async (
   client: Synnax,
@@ -358,7 +325,7 @@ const addTopics = async ({
 }: AddTopicsParams): Promise<AddTopicsResult> => {
   const messages = await readMessages(client, format, entries);
   const actions = new Map<icd.Key, icd.Action[]>();
-  const inserterOf = (key: icd.Key): Inserter => {
+  const inserterOf = (key: icd.Key): ICD.Inserter => {
     if (key === format.key) return format.form;
     const pending = map.getOrInsert(actions, key, () => []);
     return {
@@ -378,7 +345,7 @@ const addTopics = async ({
           ? undefined
           : ICD.messageOf(messages, entry, read);
       if (entry != null && message != null) {
-        const appended = appendFields(inserterOf(key), message, draft.fields);
+        const appended = ICD.appendFields(inserterOf(key), message, draft.fields);
         result.held.push({
           key: entry.key,
           read,
@@ -437,10 +404,7 @@ const useMessageProps = (
         read,
       )?.index ?? 0,
     sourceLabel: "Arrival time",
-    missingDescription:
-      read === 0
-        ? "The ICD has no message for this topic. Add data to make one."
-        : "The ICD no longer has this message. Remove it from the topic.",
+    missingDescription: describeMissing(read),
   };
 };
 
@@ -682,6 +646,7 @@ const Entries: FC<EntriesProps> = ({
     sourceOf: (e) => (isPlain(e) ? e : null),
     pathOf: plainPath,
     SourceItem,
+    missingDescription: describeMissing,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless another field reads it. A topic that reads one message also reuses the
     // channels of its earlier messages, so a new message format keeps its channels.
@@ -744,7 +709,7 @@ const Entries: FC<EntriesProps> = ({
       drafts.length === 0
         ? { added: [], held: [] }
         : home == null || format == null
-          ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
+          ? await createICD(client, device.name, drafts, bind)
           : await addTopics({
               client,
               format: { key: home, form: format },

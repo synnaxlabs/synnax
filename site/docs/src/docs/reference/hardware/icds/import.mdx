@@ -23,7 +23,14 @@ message, such as a CAN frame.
 
   <Fragment slot="console">
 
-1. [Create](/reference/hardware/icds/create) the ICD, or open one.
+To import a file as a new ICD, run the "Import ICD" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette), then
+select a `.dbc`, `.csv`, or `.xlsx` file. The new ICD takes the name of the file and
+opens in a tab.
+
+To import a file into an ICD that exists:
+
+1. Open the ICD.
 2. Click **Import** at the top of the ICD's tab. You can also right-click the ICD in the
    **ICDs** page of the Library and select **Import**.
 3. Select a `.dbc`, `.csv`, or `.xlsx` file. The extension of the file selects its
@@ -148,13 +155,20 @@ Most errors name the row or line of the file. In the Console, an error shows und
 
 <Problem.List>
 
-<Problem.Item message={['row 1: missing required column "<column>"']}>
+<Problem.Item
+  message={[
+    'row 1: missing required column "<column>": a table needs message, field, start_bit, and bit_length',
+  ]}
+>
   <Problem.Cause>The first line does not name a required column.</Problem.Cause>
   <Problem.Fix>Add the column to the first line.</Problem.Fix>
 </Problem.Item>
 
 <Problem.Item
-  message={['row 1: unknown column "<column>"', 'row 1: duplicate column "<column>"']}
+  message={[
+    'row 1: unknown column "<column>": expected message, id, extended, length, field, start_bit, bit_length, byte_order, kind, scale, offset, units, min, or max',
+    'row 1: duplicate column "<column>"',
+  ]}
 >
   <Problem.Cause>
     The first line names a column that Synnax does not know, or names a column twice.

@@ -366,6 +366,59 @@ var _ = Describe("Runner", func() {
 				Expect(stat.Details.Data).To(BeNil())
 			},
 		)
+
+		It("Should restore the error status of the run that a warning replaced",
+			func(ctx SpecContext) {
+				r := open(waitRun)
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				r.ReportError(ctx, "Failed to send event", "outage")
+				r.Report(ctx, "Broker unreachable", errors.New("dial timeout"))
+				r.Report(ctx, "Broker unreachable", errors.New("refused"))
+				r.Report(ctx, "Broker unreachable", nil)
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to send event"))
+				Expect(stat.Description).To(Equal("outage"))
+				Expect(stat.Details.Running).To(BeTrue())
+				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+			},
+		)
+
+		It("Should not restore the data of a warning that a later status replaced",
+			func(ctx SpecContext) {
+				r := open(waitRun)
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				r.Report(ctx, "", driver.Warning{
+					Message: "Skipped 1 of 1 record",
+					Data:    msgpack.EncodedJSON{"stats": "old"},
+				}.Degraded())
+				r.ReportError(ctx, "Failed to send event", "outage")
+				r.Report(ctx, "Node failed", errors.New("details"))
+				r.Report(ctx, "Node failed", nil)
+				Expect(retrieve(ctx).Details.Data).To(BeEmpty())
+			},
+		)
+
+		It("Should clear a warning again after its write failed",
+			func(ctx SpecContext) {
+				r := open(waitRun)
+				Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+				r.Report(ctx, "Broker unreachable", errors.New("dial timeout"))
+				r.Report(hookkv.WithHook(ctx, refuse), "Broker unreachable", nil)
+				Expect(retrieve(ctx).Variant).To(Equal(status.VariantWarning))
+				r.Report(ctx, "Broker unreachable", nil)
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(stat.Message).To(Equal("Started task"))
+			},
+		)
+
+		It("Should write nothing when no warning is active", func(ctx SpecContext) {
+			r := open(waitRun)
+			Expect(r.Start(ctx, "cmd-1")).To(Succeed())
+			r.Report(ctx, "Failed to read data", nil)
+			Expect(retrieve(ctx).Details.Cmd).To(Equal("cmd-1"))
+		})
 	})
 
 	Describe("ReportError", func() {

@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { type Connector, defaultConnector, type Socket } from "@/connector";
 import {
-  asUntrustedCertificate,
+  asTLSFailure,
   EOF,
   ReceiveOverflow,
   StreamClosed,
@@ -391,8 +391,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       ws.onclose = unreachable;
       ws.onerror = (ev: object) => {
         const cause = eventCause(ev);
-        if (isAnswered(cause))
-          reject(asUntrustedCertificate(cause, endpoint) ?? eventError(ev));
+        if (isAnswered(cause)) reject(asTLSFailure(cause, endpoint) ?? eventError(ev));
         else unreachable(cause);
       };
       // Node fails a blocked port, such as 1, before the dial returns the socket.

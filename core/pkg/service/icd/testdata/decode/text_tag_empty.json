@@ -1,0 +1,31 @@
+{
+  "description": "A tagged field needs a tag.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "t",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "tagged",
+            "tag": ""
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "error": "message a: field t: the tag is empty: validation error"
+}

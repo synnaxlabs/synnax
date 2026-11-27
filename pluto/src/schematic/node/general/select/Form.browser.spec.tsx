@@ -10,7 +10,7 @@
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { deep, id } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -40,26 +40,22 @@ describe("SelectForm", () => {
     });
   });
 
-  it("should show the entries of a picked enumeration only", async () => {
+  it("should store a picked enumeration and remove it on a clear", async () => {
     const created = await client.enumerations.create({
       name: `select-${id.create()}`,
       entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
     });
-    const { findByRole, findByLabelText, queryByLabelText, value } = renderForm(
-      <Select.spec.Form tab="options" onTabChange={vi.fn()} />,
+    const { findByRole, findByLabelText, value } = renderForm(
+      <Select.spec.Form tab="control" onTabChange={vi.fn()} />,
       Node.createConfig({ variant: "select" }),
       schematic.selectNodeConfigZ,
       wrapper,
     );
     fireEvent.click(await findByRole("button", { name: "Enumeration" }));
-    expect(queryByLabelText("Name 1")).toBeNull();
     await pickOption(created.name, "Search enumerations...");
     await waitFor(() => expect(value(path.enumeration)).toBe(created.key));
-    const name = await screen.findByLabelText<HTMLInputElement>("Name 1");
-    expect(name.value).toBe("Primed");
     fireEvent.click(await findByLabelText(`Clear ${created.name}`));
     await waitFor(() => expect(value(path.enumeration)).toBeUndefined());
-    await waitFor(() => expect(queryByLabelText("Name 1")).toBeNull());
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {

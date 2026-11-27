@@ -13,8 +13,6 @@ import (
 
 // Def is one definition in a DBC file.
 type Def interface {
-	// Position returns where the definition starts.
-	Position() scanner.Position
 	parseFrom(p *parser)
 }
 
@@ -30,9 +28,6 @@ func (d *VersionDef) parseFrom(p *parser) {
 	d.Pos = p.keyword(KeywordVersion).pos
 	d.Version = p.string()
 }
-
-// Position implements Def.
-func (d *VersionDef) Position() scanner.Position { return d.Pos }
 
 // NewSymbolsDef lists the keywords a DBC file may use.
 type NewSymbolsDef struct {
@@ -54,9 +49,6 @@ func (d *NewSymbolsDef) parseFrom(p *parser) {
 		d.Symbols = append(d.Symbols, Keyword(p.identifier()))
 	}
 }
-
-// Position implements Def.
-func (d *NewSymbolsDef) Position() scanner.Position { return d.Pos }
 
 // BitTimingDef is the obsolete baud rate and BTR register settings of a network.
 type BitTimingDef struct {
@@ -82,9 +74,6 @@ func (d *BitTimingDef) parseFrom(p *parser) {
 	}
 }
 
-// Position implements Def.
-func (d *BitTimingDef) Position() scanner.Position { return d.Pos }
-
 // NodesDef names the nodes on the network.
 type NodesDef struct {
 	Pos       scanner.Position
@@ -106,9 +95,6 @@ func (d *NodesDef) parseFrom(p *parser) {
 	}
 }
 
-// Position implements Def.
-func (d *NodesDef) Position() scanner.Position { return d.Pos }
-
 // ValueDescriptionDef names one raw value.
 type ValueDescriptionDef struct {
 	Pos         scanner.Position
@@ -124,9 +110,6 @@ func (d *ValueDescriptionDef) parseFrom(p *parser) {
 	d.Description = p.string()
 }
 
-// Position implements Def.
-func (d *ValueDescriptionDef) Position() scanner.Position { return d.Pos }
-
 // ValueTableDef is a named, global set of value descriptions.
 type ValueTableDef struct {
 	Pos               scanner.Position
@@ -141,9 +124,6 @@ func (d *ValueTableDef) parseFrom(p *parser) {
 	d.TableName = p.identifier()
 	d.ValueDescriptions = p.valueDescriptions(d.Pos, KeywordValueTable)
 }
-
-// Position implements Def.
-func (d *ValueTableDef) Position() scanner.Position { return d.Pos }
 
 // MessageDef is a frame on the network and the signals it carries.
 type MessageDef struct {
@@ -171,9 +151,6 @@ func (d *MessageDef) parseFrom(p *parser) {
 		d.Signals = append(d.Signals, s)
 	}
 }
-
-// Position implements Def.
-func (d *MessageDef) Position() scanner.Position { return d.Pos }
 
 // SignalDef is a signal within a message.
 type SignalDef struct {
@@ -256,9 +233,6 @@ func (d *SignalDef) parseMultiplexing(p *parser) {
 	d.MultiplexerSwitch = i
 }
 
-// Position implements Def.
-func (d *SignalDef) Position() scanner.Position { return d.Pos }
-
 // MultiplexRange is an inclusive range of multiplexer switch values.
 type MultiplexRange struct {
 	From uint64
@@ -296,9 +270,6 @@ func (d *MultiplexedValuesDef) parseFrom(p *parser) {
 	p.token(';')
 }
 
-// Position implements Def.
-func (d *MultiplexedValuesDef) Position() scanner.Position { return d.Pos }
-
 // SignalValueTypeDef sets the extended value type of a signal.
 type SignalValueTypeDef struct {
 	Pos             scanner.Position
@@ -318,9 +289,6 @@ func (d *SignalValueTypeDef) parseFrom(p *parser) {
 	d.SignalValueType = p.signalValueType()
 	p.token(';')
 }
-
-// Position implements Def.
-func (d *SignalValueTypeDef) Position() scanner.Position { return d.Pos }
 
 // MessageTransmittersDef names more than one transmitter of a message.
 type MessageTransmittersDef struct {
@@ -342,9 +310,6 @@ func (d *MessageTransmittersDef) parseFrom(p *parser) {
 	}
 	p.token(';')
 }
-
-// Position implements Def.
-func (d *MessageTransmittersDef) Position() scanner.Position { return d.Pos }
 
 // ValueDescriptionsDef names raw values of a signal or an environment variable.
 type ValueDescriptionsDef struct {
@@ -370,9 +335,6 @@ func (d *ValueDescriptionsDef) parseFrom(p *parser) {
 	}
 	d.ValueDescriptions = p.valueDescriptions(d.Pos, KeywordValueDescriptions)
 }
-
-// Position implements Def.
-func (d *ValueDescriptionsDef) Position() scanner.Position { return d.Pos }
 
 // EnvironmentVariableDef is an environment variable of a bus simulation.
 type EnvironmentVariableDef struct {
@@ -412,9 +374,6 @@ func (d *EnvironmentVariableDef) parseFrom(p *parser) {
 	p.token(';')
 }
 
-// Position implements Def.
-func (d *EnvironmentVariableDef) Position() scanner.Position { return d.Pos }
-
 // EnvironmentVariableDataDef makes an environment variable hold DataSize bytes.
 type EnvironmentVariableDataDef struct {
 	Pos                     scanner.Position
@@ -431,9 +390,6 @@ func (d *EnvironmentVariableDataDef) parseFrom(p *parser) {
 	d.DataSize = p.uint()
 	p.token(';')
 }
-
-// Position implements Def.
-func (d *EnvironmentVariableDataDef) Position() scanner.Position { return d.Pos }
 
 // CommentDef is a comment on the network or on one of its objects.
 type CommentDef struct {
@@ -466,9 +422,6 @@ func (d *CommentDef) parseFrom(p *parser) {
 	d.Comment = p.string()
 	p.token(';')
 }
-
-// Position implements Def.
-func (d *CommentDef) Position() scanner.Position { return d.Pos }
 
 // AttributeDef defines a user attribute of one object type.
 type AttributeDef struct {
@@ -512,9 +465,6 @@ func (d *AttributeDef) parseFrom(p *parser) {
 	p.token(';')
 }
 
-// Position implements Def.
-func (d *AttributeDef) Position() scanner.Position { return d.Pos }
-
 // AttributeDefaultValueDef is the default value of an attribute.
 type AttributeDefaultValueDef struct {
 	Pos                scanner.Position
@@ -543,9 +493,6 @@ func (d *AttributeDefaultValueDef) parseFrom(p *parser) {
 	}
 	p.token(';')
 }
-
-// Position implements Def.
-func (d *AttributeDefaultValueDef) Position() scanner.Position { return d.Pos }
 
 // AttributeValueForObjectDef is the value of an attribute for one object.
 type AttributeValueForObjectDef struct {
@@ -594,9 +541,6 @@ func (d *AttributeValueForObjectDef) parseFrom(p *parser) {
 	p.token(';')
 }
 
-// Position implements Def.
-func (d *AttributeValueForObjectDef) Position() scanner.Position { return d.Pos }
-
 // attribute returns the first attribute definition named name, or nil when none
 // precedes the current definition.
 func (p *parser) attribute(name Identifier) *AttributeDef {
@@ -623,6 +567,3 @@ func (d *UnknownDef) parseFrom(p *parser) {
 	d.Keyword = Keyword(tok.txt)
 	p.discardLine()
 }
-
-// Position implements Def.
-func (d *UnknownDef) Position() scanner.Position { return d.Pos }

@@ -1,0 +1,71 @@
+{
+  "description": "A masked CAN identifier cannot meet another identifier.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "binary",
+        "identifier": {
+          "type": "can",
+          "id": 419361195,
+          "extended": true,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint8"
+        }
+      ]
+    },
+    {
+      "name": "b",
+      "payload": {
+        "format": "binary",
+        "identifier": {
+          "type": "can",
+          "id": 419361024,
+          "extended": true,
+          "fd": false,
+          "mask": 16776960
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "error": "messages a and b both match extended CAN identifier 0x18FEF1AB: validation error"
+}

@@ -74,7 +74,7 @@ const INITIAL_VALUES: {
 const hiddenDataTypes = (field: icd.JSONField): DataType[] =>
   DataType.ALL.filter((dt) => !encodes(field, dt.toString()));
 
-const ONLY_CHANNEL_TOOLTIP = "A message needs at least one field on a channel.";
+const ONLY_CHANNEL_HELP = "A message needs at least one field on a channel.";
 
 export interface FieldDetailsProps {
   /** The bindings of the message that the target sends. */
@@ -155,19 +155,11 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
       size="small"
     >
       <Select.Item<Mode> itemKey="channel">Channel</Select.Item>
-      <Select.Item<Mode>
-        itemKey="value"
-        disabled={only}
-        tooltip={only ? ONLY_CHANNEL_TOOLTIP : undefined}
-      >
+      <Select.Item<Mode> itemKey="value" disabled={only}>
         Value
       </Select.Item>
       {field.default != null && (
-        <Select.Item<Mode>
-          itemKey="default"
-          disabled={only}
-          tooltip={only ? ONLY_CHANNEL_TOOLTIP : undefined}
-        >
+        <Select.Item<Mode> itemKey="default" disabled={only}>
           Default
         </Select.Item>
       )}
@@ -179,12 +171,20 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldPath}
+            commanded={binding?.type === "channel"}
             autoFocus={autoFocus}
             onNameChange={created ? handleRename : undefined}
-            actions={<OpenInEditor icdKey={icdKey} message={message} />}
+            actions={
+              <OpenInEditor icdKey={icdKey} message={message} field={field.key} />
+            }
           />
         </PForm.Form>
         <PForm.Section title="Source" actions={modes} role="group" aria-label="Source">
+          {only && (
+            <Text.Text level="small" color={9}>
+              {ONLY_CHANNEL_HELP}
+            </Text.Text>
+          )}
           {bound && binding.type === "channel" && (
             <>
               <Task.ChannelNameField
