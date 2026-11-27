@@ -354,12 +354,13 @@ func (s *State) sealDeleted(records []log.Record) {
 			if ch == nil {
 				continue
 			}
+			sealed := false
 			for _, seg := range ch.segs {
 				if seg.holder != nil || seg.dur.sealed || !seg.dur.created ||
 					len(seg.dur.pointers) > 0 || s.sealing.Contains(seg.vis.ID) {
 					continue
 				}
-				seg.vis.Sealed = true
+				seg.vis.Sealed, sealed = true, true
 				s.sealing.Add(seg.vis.ID)
 				e.AddDeleteSeal(&log.Seal{
 					Segment: seg.vis.ID,
@@ -367,7 +368,9 @@ func (s *State) sealDeleted(records []log.Record) {
 					TailCRC: seg.dur.tailCRC,
 				})
 			}
-			ch.publish()
+			if sealed {
+				ch.publish()
+			}
 		}
 	}
 	if e.Len() > 0 {

@@ -123,8 +123,11 @@ func openEngine(o *options) (*engine, error) {
 			New: func() any { return segment.NewReader(o.readsChecked) },
 		},
 		readsChecked: o.readsChecked,
+		pins: pins{
+			readers: make(map[uint64]int),
+			dead:    make(map[uint64]ChannelKey),
+		},
 	}
-	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
 	e.cover.advanced = make(chan struct{})
 	e.handles.m = make(map[ChannelKey]map[uint64]*segmentHandles)
 	if snapshot == nil {

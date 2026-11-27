@@ -23,24 +23,29 @@ import (
 type Entry struct {
 	b       []byte
 	records []Record
-	// fenced is true when a record of the entry is not a delete or a Restart, so the
-	// entry stops at the delete reserve.
+	// fenced is true when a record of the entry is not a delete, the Seal of a delete,
+	// or a Restart, so the entry stops at the delete reserve.
 	fenced bool
 }
 
 // Add appends r to the entry. The entry keeps r, and Log.Append hands it to the
 // OnDurable hook of the log, so r must not change after Add.
 func (e *Entry) Add(r Record) {
-	if len(e.b) == 0 {
-		e.b = append(e.b, 0, 0, 0, 0, 0, 0, 0, 0)
-	}
-	e.b = r.append(e.b)
-	e.records = append(e.records, r)
+	e.add(r)
 	switch r.(type) {
 	case *Tombstone, *Intent, *Drop, *Restart:
 	default:
 		e.fenced = true
 	}
+}
+
+// add appends r and leaves fenced as it is.
+func (e *Entry) add(r Record) {
+	if len(e.b) == 0 {
+		e.b = append(e.b, 0, 0, 0, 0, 0, 0, 0, 0)
+	}
+	e.b = r.append(e.b)
+	e.records = append(e.records, r)
 }
 
 // Len returns the number of records in the entry.
@@ -59,11 +64,7 @@ func (e *Entry) Bytes() []byte {
 // AddDeleteSeal appends s, the Seal of a segment that a Tombstone left with no live
 // pointer. Unlike Add, it leaves the entry free to use the delete reserve, since the
 // delete frees nothing until the segment is sealed.
-func (e *Entry) AddDeleteSeal(s *Seal) {
-	fenced := e.fenced
-	e.Add(s)
-	e.fenced = fenced
-}
+func (e *Entry) AddDeleteSeal(s *Seal) { e.add(s) }
 
 // Reset empties the entry and keeps its byte buffer. It does not reuse the slice of
 // records that an Append took.

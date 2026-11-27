@@ -84,7 +84,7 @@ func (v *logView) load() {
 	}
 	v.next = slices.Grow(v.next[:0], len(v.keys))[:len(v.keys)]
 	count, ids := v.e.loadView(v.keys, v.next, v.spare)
-	if v.loaded && (gone(v.chs, v.next) || cut(v.chs[0], v.next[0])) {
+	if v.loaded && (keyGone(v.chs, v.next) || stampsCut(v.chs[0], v.next[0])) {
 		v.err = errors.Join(v.err, v.e.unpin(ids))
 		v.spare, v.frozen = ids[:0], true
 		return
@@ -95,8 +95,8 @@ func (v *logView) load() {
 	v.loaded, v.count = true, count
 }
 
-// gone reports whether a Channel that last holds is missing from next.
-func gone(last, next []*state.Channel) bool {
+// keyGone reports whether a Channel that last holds is missing from next.
+func keyGone(last, next []*state.Channel) bool {
 	for i, ch := range last {
 		if ch != nil && next[i] == nil {
 			return true
@@ -105,10 +105,10 @@ func gone(last, next []*state.Channel) bool {
 	return false
 }
 
-// cut reports whether the pointers of next leave out a stamp range of a pointer of
-// last, as a delete of the clock leaves them. A rewrite that keeps every stamp cuts
+// stampsCut reports whether the pointers of next leave out a stamp range of a pointer
+// of last, as a delete of the clock leaves them. A rewrite that keeps every stamp cuts
 // nothing.
-func cut(last, next *state.Channel) bool {
+func stampsCut(last, next *state.Channel) bool {
 	if last == nil || next == nil {
 		return false
 	}
@@ -403,8 +403,8 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 // the view after the last data cursor of the view. It gives c back to its source, so c
 // must not be used after it.
 func (c *logCursor) Close() error {
-	defer func() { c.src.closed = c }()
 	c.valid = false
+	c.src.closed = c
 	if c.slot == 0 {
 		return nil
 	}

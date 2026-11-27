@@ -79,7 +79,7 @@ func (e *engine) deleteRange(
 	dt telem.DataType,
 	clock ChannelKey,
 	tr telem.TimeRange,
-) (bool, error) {
+) (changed bool, err error) {
 	if tr.Start == tr.End {
 		return false, nil
 	}
@@ -87,31 +87,38 @@ func (e *engine) deleteRange(
 	if err != nil {
 		return false, err
 	}
+	defer func() { err = errors.Join(err, d.Release()) }()
 	if d.Empty {
-		return false, d.Release()
+		return false, nil
 	}
 	t := &log.Tombstone{Key: key, Start: int64(tr.Start), End: int64(tr.End)}
 	if d.Left != nil {
-		t.Left, err = e.cutAt(key, dt, clock, d.Left, tr.Start, true)
+		t.Left, err = e.cutPointer(key, dt, clock, d.Left, tr.Start, true)
+		if err != nil {
+			return false, err
+		}
 	}
-	if err == nil && d.Right != nil {
-		t.Right, err = e.cutAt(key, dt, clock, d.Right, tr.End, false)
+	if d.Right != nil {
+		t.Right, err = e.cutPointer(key, dt, clock, d.Right, tr.End, false)
+		if err != nil {
+			return false, err
+		}
 	}
-	if err == nil {
-		err = d.Check(t)
+	if err = d.Check(t); err != nil {
+		return false, err
 	}
-	if err == nil {
-		var entry log.Entry
-		entry.Add(t)
-		_, err = e.log.Append(&entry).Wait()
+	var entry log.Entry
+	entry.Add(t)
+	if _, err = e.log.Append(&entry).Wait(); err != nil {
+		return false, err
 	}
-	return err == nil, errors.Join(err, d.Release())
+	return true, nil
 }
 
-// cutAt returns the cut of the pointer of edge at the first sample whose stamp is at
-// or after at: a left cut, which keeps the samples before it, or a right cut, which
+// cutPointer returns the cut of the pointer of edge at the first sample whose stamp is
+// at or after at: a left cut, which keeps the samples before it, or a right cut, which
 // keeps it and the samples after it. It reads the stamps of the pointer from clock.
-func (e *engine) cutAt(
+func (e *engine) cutPointer(
 	key ChannelKey,
 	dt telem.DataType,
 	clock ChannelKey,
