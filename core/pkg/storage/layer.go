@@ -263,7 +263,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	kvFS, tsFS := openFileSystems(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err = configureStorageDir(cfg, kvFS, tsFS); !ok(err, nil) {
+	made, err := configureStorageDir(cfg, kvFS, tsFS)
+	if !ok(err, nil) {
 		return nil, err
 	}
 
@@ -297,6 +298,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 
 	// Open the time-series engine.
 	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
+		return nil, err
+	}
+	// The stores do not sync the entries of the directories that configureStorageDir
+	// made, nor the entry of Cesium's directory.
+	if err = syncStorageDir(cfg, tsFS, made); !ok(err, nil) {
 		return nil, err
 	}
 	l.Update = update
@@ -348,17 +354,55 @@ func openFileSystems(cfg LayerConfig) (vfs.FS, xfs.FS) {
 	return kvFS, tsFS
 }
 
-func configureStorageDir(cfg LayerConfig, vfs vfs.FS, tsFS xfs.FS) error {
+// configureStorageDir makes the storage directory and its missing parents, and returns
+// each directory that it made.
+func configureStorageDir(cfg LayerConfig, vfs vfs.FS, tsFS xfs.FS) ([]string, error) {
+	var made []string
+	if !*cfg.InMemory {
+		for dir := cfg.Dirname; ; dir = filepath.Dir(dir) {
+			if _, err := vfs.Stat(dir); !errors.Is(err, fs.ErrNotExist) {
+				break
+			}
+			made = append(made, dir)
+		}
+	}
 	if err := vfs.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
-		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
+		return nil, errors.Wrapf(
+			err,
+			"failed to create storage directory %s",
+			cfg.Dirname,
+		)
 	}
 	// The two file systems are one on disk, but an injected pair needs the directory in
 	// each.
 	if _, err := tsFS.Sub(cfg.Dirname); err != nil {
-		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
+		return nil, errors.Wrapf(
+			err,
+			"failed to create storage directory %s",
+			cfg.Dirname,
+		)
 	}
-	if !*cfg.InMemory {
-		return validateSufficientDirPermissions(cfg, vfs)
+	if *cfg.InMemory {
+		return nil, nil
+	}
+	return made, validateSufficientDirPermissions(cfg, vfs)
+}
+
+// syncStorageDir makes durable the entries of the storage directory and of the parent
+// of each directory in made. The two file systems are one on disk, so the syncs on
+// tsFS also cover the key-value store.
+func syncStorageDir(cfg LayerConfig, tsFS xfs.FS, made []string) error {
+	if *cfg.InMemory {
+		return nil
+	}
+	dirs := []string{cfg.Dirname}
+	for _, dir := range made {
+		dirs = append(dirs, filepath.Dir(dir))
+	}
+	for _, dir := range dirs {
+		if err := tsFS.SyncDir(dir); err != nil {
+			return errors.Wrapf(err, "failed to sync storage directory %s", dir)
+		}
 	}
 	return nil
 }

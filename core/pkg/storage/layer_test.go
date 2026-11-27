@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
+	"github.com/synnaxlabs/x/io/fs/testutil/pebblefs"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -54,6 +56,29 @@ var _ = Describe("storage", func() {
 		Expect(kvFS.Stat(filepath.Join("data", "LOCK"))).Error().ToNot(HaveOccurred())
 		Expect(MustSucceed(kvFS.List(filepath.Join("data", "kv")))).ToNot(BeEmpty())
 		Expect(tsFS.Exists(filepath.Join("data", "cesium", "1"))).To(BeTrue())
+	})
+
+	It("Should keep a committed write in a new storage directory through a crash", func(
+		ctx SpecContext,
+	) {
+		disk := MustSucceed(fault.New(fault.Config{}))
+		open := func(fs *fault.FS) *storage.Layer {
+			GinkgoHelper()
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				Dirname: filepath.Join("parent", "data"),
+				Version: "0.0.0",
+				KVFS:    pebblefs.New(fs),
+				TSFS:    fs,
+			}))
+			StartRun(l.Run)
+			return l
+		}
+		Expect(open(disk).KV.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+		image := MustSucceed(disk.Crash(fault.CrashConfig{}))
+		Expect(image.Exists(filepath.Join("parent", "data", "cesium"))).To(BeTrue())
+		value, closer := MustSucceed2(open(image).KV.Get([]byte("key")))
+		Expect(value).To(Equal([]byte("value")))
+		Expect(closer.Close()).To(Succeed())
 	})
 
 	Describe("Run", func() {
