@@ -312,7 +312,7 @@ func (r *Runner) Report(ctx context.Context, message string, err error) {
 	)
 	switch {
 	case err == nil:
-		sErr = r.status.ClearWarning(ctx)
+		sErr = r.status.clearWarning(ctx)
 	case errors.As(err, &w):
 		sErr = r.status.Warn(ctx, w.warning)
 	default:

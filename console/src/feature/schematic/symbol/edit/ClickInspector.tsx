@@ -132,15 +132,12 @@ export const ClickInspector = ({
         <Select.Buttons<schematic.symbol.InteractionType>
           value={click.type}
           onChange={handleTypeChange}
-          size="small"
-          variant="outlined"
         >
-          <Select.Item<schematic.symbol.InteractionType> itemKey="fire" size="small">
+          <Select.Item<schematic.symbol.InteractionType> itemKey="fire">
             Send
           </Select.Item>
           <Select.Item<schematic.symbol.InteractionType>
             itemKey="next"
-            size="small"
             disabled={partners.length === 0}
             tooltip={partners.length === 0 ? TOGGLE_NEEDS_PAIR : undefined}
           >
