@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -33,6 +34,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // readFaultFS fails each ReadAt on the files of the directory that failing names.
@@ -275,7 +279,7 @@ var _ = Describe("Storage stream check", func() {
 		),
 	)
 
-	DescribeTable("Should fail a read with the read error of one channel",
+	DescribeTable("Should read the other channels when the read of one channel fails",
 		func(ctx SpecContext, span telem.TimeSpan) {
 			failing := &atomic.Pointer[string]{}
 			kv := DeferClose(memkv.New())
@@ -287,7 +291,14 @@ var _ = Describe("Storage stream check", func() {
 				)))),
 			}
 			StartRun(store.Run)
-			dist := testutil.NewNode(ctx, distribution.LayerConfig{Storage: store})
+			core, logs := observer.New(zapcore.ErrorLevel)
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+				ZapLogger: zap.New(core),
+			}))
+			dist := testutil.NewNode(ctx, distribution.LayerConfig{
+				Storage:         store,
+				Instrumentation: alamos.New("check", alamos.WithLogger(logger)),
+			})
 			idx := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
 				Name:     "check_time",
 				IsIndex:  true,
@@ -309,9 +320,26 @@ var _ = Describe("Storage stream check", func() {
 				Command: iterator.CommandNext,
 				Span:    span,
 			})
+			Expect(ack.Error).ToNot(HaveOccurred())
+			Expect(ack.Ack).To(BeTrue())
+			Expect(read).To(Equal(seconds(10, 19)))
+			// The failed channel reports its failure once, until a seek.
+			read, ack = stream.exec(iterator.Request{
+				Command: iterator.CommandNext,
+				Span:    span,
+			})
 			Expect(read).To(BeEmpty())
 			Expect(ack.Ack).To(BeFalse())
-			Expect(ack.Error).To(MatchError(ErrFault))
+			failures := logs.FilterMessage("read of a channel failed").All()
+			Expect(failures).To(HaveLen(1))
+			Expect(failures[0].Level).To(Equal(zapcore.ErrorLevel))
+			fields := failures[0].ContextMap()
+			Expect(fields).To(HaveKeyWithValue("channel", data.Key().String()))
+			Expect(fields).To(HaveKeyWithValue(
+				"error",
+				"channel [check_data]<"+data.Key().String()+">: "+ErrFault.Error(),
+			))
+			Expect(fields).To(HaveKey("time_range"))
 			_, ack = stream.exec(iterator.Request{Command: iterator.CommandError})
 			Expect(ack.Error).To(MatchError(ErrFault))
 			Expect(stream.close()).To(MatchError(ErrFault))
