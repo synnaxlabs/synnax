@@ -21,14 +21,18 @@ export interface RackFieldProps {
 }
 
 /** The form's "rack" field: the Driver that makes the connection. */
-export const RackField = ({ integration }: RackFieldProps): ReactElement => (
-  <Form.Field path={path.rack} label="Connect from" required>
-    {({ value, onChange }) => (
-      <Rack.SelectSingle
-        value={value}
-        onChange={onChange}
-        query={{ where: { integrations: { any: [integration] } } }}
-      />
-    )}
-  </Form.Field>
-);
+export const RackField = ({ integration }: RackFieldProps): ReactElement => {
+  // A choice cannot be cleared, so the required mark shows only until one is made.
+  const empty = Form.useFieldValue(path.rack) === 0;
+  return (
+    <Form.Field path={path.rack} label="Connect from" required={empty}>
+      {({ value, onChange }) => (
+        <Rack.SelectSingle
+          value={value}
+          onChange={onChange}
+          query={{ where: { integrations: { any: [integration] } } }}
+        />
+      )}
+    </Form.Field>
+  );
+};

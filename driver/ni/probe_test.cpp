@@ -576,7 +576,7 @@ TEST(ProbeTest, testFailsOnOtherErrors) {
     api->failures[DAQmx_Dev_AI_PhysicalChans] = DAQmxErrorInvalidDeviceID;
     daqmx::SugaredAPI dmx(api);
     const auto [hw, err] = probe(dmx, DEVICE);
-    EXPECT_EQ(err.type, daqmx::CRITICAL_ERROR.sub("200220").type);
-    EXPECT_EQ(err.data, ERROR_MESSAGE);
+    EXPECT_EQ(err.type(), daqmx::CRITICAL_ERROR.sub("200220").type());
+    EXPECT_EQ(err.data(), ERROR_MESSAGE);
 }
 }

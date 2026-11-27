@@ -34,7 +34,7 @@ const retrieveTask = async ({
  * Creates the notification rule for task statuses. A status that answers a command is a
  * reply. A scanner, which is an internal task whose type one of the scanners names, is
  * in use when its rack has a configured device of the scanner's make. Every other task
- * is always in use.
+ * is always in use. A reply does not notify while a focused window shows its task.
  * @param scanners - The scanner of each integration.
  * @param inPlaceTypes - The types of the tasks whose replies show only where their
  * commands were sent.
@@ -58,7 +58,8 @@ export const createNotificationRule = (
   },
   repliesInPlace: async (args) => {
     const tsk = await retrieveTask(args);
-    return tsk != null && inPlaceTypes.includes(tsk.type);
+    if (tsk != null && inPlaceTypes.includes(tsk.type)) return true;
+    return await args.isShown(task.resourceID(args.key));
   },
   warningsDelayed: true,
 });

@@ -1,0 +1,34 @@
+{
+  "description": "A float32 sample loses its scale from its shortest decimal text.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 2,
+          "offset": 0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 0
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float32"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [2.2],
+      "text": "1.1"
+    }
+  ]
+}

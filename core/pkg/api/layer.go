@@ -276,7 +276,10 @@ type Transport struct {
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 
 	// OPC UA SERVER
+	OPCUAServerCreate   freighter.UnaryServer[server.CreateRequest, server.CreateResponse]
 	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
+	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, struct{}]
+	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -608,7 +611,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIChassisDelete,
 
 		// OPC UA SERVER
+		t.OPCUAServerCreate,
 		t.OPCUAServerRetrieve,
+		t.OPCUAServerUpdate,
+		t.OPCUAServerDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -909,7 +915,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
 
 	// OPC UA SERVER
+	t.OPCUAServerCreate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Create))
 	t.OPCUAServerRetrieve.BindHandler(bind.Read(l.binder, l.OPCUAServer.Retrieve))
+	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
+	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))

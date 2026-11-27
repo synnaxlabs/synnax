@@ -175,19 +175,6 @@ func (c Context[AST]) WithConfig(cfg parser.Config) Context[AST] {
 	return c
 }
 
-// Resolve resolves a single (unqualified) name in the current scope. If the
-// resolved symbol is deprecated, a warning is added to diagnostics. Use this
-// for bare identifier resolution. For qualified names (e.g., `math.abs`) use
-// ResolveQualified so the head and tail are resolved as separate symbols.
-func (c Context[AST]) Resolve(name string) (*symbol.Symbol, error) {
-	result, err := c.Scope.Resolve(c, name)
-	if err != nil {
-		return result, err
-	}
-	c.warnIfDeprecated(name, result)
-	return result, nil
-}
-
 // ResolveQualified resolves a possibly-qualified name. head is the first
 // segment (always present); tail is the second segment, empty when the
 // reference is bare. When tail is non-empty, ResolveQualified follows
@@ -204,6 +191,17 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 		name = head + "." + tail
 	}
 	c.warnIfDeprecated(name, sym)
+	return sym, nil
+}
+
+// ResolveName resolves n as Symbol.ResolveName does, and warns when the symbol it finds
+// is deprecated.
+func (c Context[AST]) ResolveName(n parser.Name) (*symbol.Symbol, error) {
+	sym, err := c.Scope.ResolveName(c, n)
+	if err != nil {
+		return nil, err
+	}
+	c.warnIfDeprecated(n.String(), sym)
 	return sym, nil
 }
 
@@ -225,12 +223,7 @@ func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
 	if primary == nil || primary.QualifiedIdentifier() == nil {
 		return 0, false
 	}
-	head, tail := parser.QualifiedNameParts(primary.QualifiedIdentifier())
-	headSym, err := c.Scope.Resolve(c, head)
-	if err != nil {
-		return 0, false
-	}
-	sym, err := headSym.Resolve(c, tail)
+	sym, err := c.Scope.ResolveName(c, parser.PrimaryName(primary))
 	if err != nil || sym.Kind != symbol.KindConstant {
 		return 0, false
 	}

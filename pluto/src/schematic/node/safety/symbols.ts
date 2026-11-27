@@ -9,85 +9,14 @@
 
 import type { schematic } from "@synnaxlabs/client";
 
-import { createStatic } from "@/schematic/node/common/create";
-import { BurstDisc, SYMBOL as BURST_DISC } from "@/schematic/node/safety/BurstDisc";
-import {
-  FlameArrestor,
-  SYMBOL as FLAME_ARRESTOR,
-} from "@/schematic/node/safety/FlameArrestor";
-import {
-  FlameArrestorDetonation,
-  SYMBOL as FLAME_ARRESTOR_DETONATION,
-} from "@/schematic/node/safety/FlameArrestorDetonation";
-import {
-  FlameArrestorExplosion,
-  SYMBOL as FLAME_ARRESTOR_EXPLOSION,
-} from "@/schematic/node/safety/FlameArrestorExplosion";
-import {
-  FlameArrestorFireRes,
-  SYMBOL as FLAME_ARRESTOR_FIRE_RES,
-} from "@/schematic/node/safety/FlameArrestorFireRes";
-import {
-  FlameArrestorFireResDetonation,
-  SYMBOL as FLAME_ARRESTOR_FIRE_RES_DETONATION,
-} from "@/schematic/node/safety/FlameArrestorFireResDetonation";
-import {
-  IsoBurstDisc,
-  SYMBOL as ISO_BURST_DISC,
-} from "@/schematic/node/safety/IsoBurstDisc";
-
-const burstDisc = createStatic({
-  variant: "burst_disc",
-  name: "Standard",
-  label: "Burst disc",
-  Primitive: BurstDisc,
-});
-const flameArrestor = createStatic({
-  variant: "flame_arrestor",
-  name: "Standard",
-  label: "Flame arrestor",
-  Primitive: FlameArrestor,
-});
-const flameArrestorDetonation = createStatic({
-  variant: "flame_arrestor_detonation",
-  name: "Detonation-proof",
-  label: "Flame arrestor (detonation-proof)",
-  Primitive: FlameArrestorDetonation,
-});
-const flameArrestorExplosion = createStatic({
-  variant: "flame_arrestor_explosion",
-  name: "Explosion-proof",
-  label: "Flame arrestor (explosion-proof)",
-  Primitive: FlameArrestorExplosion,
-});
-const flameArrestorFireRes = createStatic({
-  variant: "flame_arrestor_fire_res",
-  name: "Fire resistant",
-  label: "Flame arrestor (fire resistant)",
-  Primitive: FlameArrestorFireRes,
-});
-const flameArrestorFireResDetonation = createStatic({
-  variant: "flame_arrestor_fire_res_detonation",
-  name: "Fire resistant and detonation-proof",
-  label: "Flame arrestor (fire resistant and detonation-proof)",
-  Primitive: FlameArrestorFireResDetonation,
-});
-const isoBurstDisc = createStatic({
-  variant: "iso_burst_disc",
-  name: "ISO",
-  label: "ISO burst disc",
-  Primitive: IsoBurstDisc,
-});
-
-export const REGISTRY = {
-  burst_disc: burstDisc.spec,
-  flame_arrestor: flameArrestor.spec,
-  flame_arrestor_detonation: flameArrestorDetonation.spec,
-  flame_arrestor_explosion: flameArrestorExplosion.spec,
-  flame_arrestor_fire_res: flameArrestorFireRes.spec,
-  flame_arrestor_fire_res_detonation: flameArrestorFireResDetonation.spec,
-  iso_burst_disc: isoBurstDisc.spec,
-} as const;
+import type { Names } from "@/schematic/node/builtIns";
+import { SYMBOL as BURST_DISC } from "@/schematic/node/safety/BurstDisc";
+import { SYMBOL as FLAME_ARRESTOR } from "@/schematic/node/safety/FlameArrestor";
+import { SYMBOL as FLAME_ARRESTOR_DETONATION } from "@/schematic/node/safety/FlameArrestorDetonation";
+import { SYMBOL as FLAME_ARRESTOR_EXPLOSION } from "@/schematic/node/safety/FlameArrestorExplosion";
+import { SYMBOL as FLAME_ARRESTOR_FIRE_RES } from "@/schematic/node/safety/FlameArrestorFireRes";
+import { SYMBOL as FLAME_ARRESTOR_FIRE_RES_DETONATION } from "@/schematic/node/safety/FlameArrestorFireResDetonation";
+import { SYMBOL as ISO_BURST_DISC } from "@/schematic/node/safety/IsoBurstDisc";
 
 /** BUILT_INS maps the name of each built-in symbol to its spec. */
 export const BUILT_INS = {
@@ -99,3 +28,26 @@ export const BUILT_INS = {
   flame_arrestor_fire_res_detonation: FLAME_ARRESTOR_FIRE_RES_DETONATION,
   iso_burst_disc: ISO_BURST_DISC,
 } as const satisfies Record<string, schematic.symbol.Spec>;
+
+/** NAMES maps the name of each built-in symbol to its names. */
+export const NAMES = {
+  burst_disc: { name: "Standard", label: "Burst disc" },
+  flame_arrestor: { name: "Standard", label: "Flame arrestor" },
+  flame_arrestor_detonation: {
+    name: "Detonation-proof",
+    label: "Flame arrestor (detonation-proof)",
+  },
+  flame_arrestor_explosion: {
+    name: "Explosion-proof",
+    label: "Flame arrestor (explosion-proof)",
+  },
+  flame_arrestor_fire_res: {
+    name: "Fire resistant",
+    label: "Flame arrestor (fire resistant)",
+  },
+  flame_arrestor_fire_res_detonation: {
+    name: "Fire resistant and detonation-proof",
+    label: "Flame arrestor (fire resistant and detonation-proof)",
+  },
+  iso_burst_disc: { name: "ISO", label: "ISO burst disc" },
+} as const satisfies Record<keyof typeof BUILT_INS, Names>;

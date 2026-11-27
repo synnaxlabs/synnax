@@ -250,6 +250,65 @@ var _ = Describe("ICD", func() {
 				apiicd.ImportRequest{Key: ic.Key, Format: icd.ImportFormatDBC},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
+
+		It("Should import a file as a new ICD when create is granted", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			grantOn(ctx, u.ResourceID(), access.ActionCreate, icdType)
+			key := uuid.New()
+			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
+			res := MustSucceed(importFile(
+				AuthedCtx(ctx, u),
+				apiicd.ImportRequest{
+					Key:    key,
+					Name:   "Vehicle",
+					Format: icd.ImportFormatDBC,
+					Data:   data,
+				},
+			))
+			Expect(res.ICD.Key).To(Equal(key))
+			Expect(res.ICD.Name).To(Equal("Vehicle"))
+			Expect(res.ICD.Messages).ToNot(BeEmpty())
+			Expect(retrieveICD(ctx, key)).To(Equal(res.ICD))
+		})
+
+		It("Should leave no ICD when the file of a new ICD does not parse", func(
+			ctx SpecContext,
+		) {
+			u := createUser(ctx)
+			grantOn(ctx, u.ResourceID(), access.ActionCreate, icdType)
+			key := uuid.New()
+			Expect(importFile(
+				AuthedCtx(ctx, u),
+				apiicd.ImportRequest{
+					Key:    key,
+					Name:   "Broken",
+					Format: icd.ImportFormatCSV,
+					Data:   []byte("color\n"),
+				},
+			)).Error().To(MatchError(HavePrefix(`row 1: unknown column "color": `)))
+			var ic icd.ICD
+			Expect(svc.ICD.NewRetrieve().
+				Where(icd.MatchKeys(key)).
+				Entry(&ic).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should reject an import as a new ICD when create is not granted", func(
+			ctx SpecContext,
+		) {
+			data := MustSucceed(os.ReadFile("../../service/icd/testdata/basic.dbc"))
+			Expect(importFile(
+				AuthedCtx(ctx, createUser(ctx)),
+				apiicd.ImportRequest{
+					Key:    uuid.New(),
+					Name:   "Locked",
+					Format: icd.ImportFormatDBC,
+					Data:   data,
+				},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
 	})
 
 	Describe("Delete", func() {

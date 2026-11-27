@@ -168,7 +168,7 @@ TEST(CodecTests, RejectsAlignmentMultiples) {
     const auto [_, err] = codec.decode(encoded);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "remote sent alignment multiples, which this codec does not support"
     );
 }

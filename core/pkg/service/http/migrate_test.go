@@ -31,7 +31,6 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -94,10 +93,10 @@ var _ = Describe("Task migration", func() {
 			}))
 			stored := MustSucceed(svc.Read.Read(ctx, db, t.Key))
 			Expect(stored).ToNot(HaveKey("inline"))
+			Expect(stored["endpoints"]).To(HaveExactElements(Not(HaveKey("fields"))))
 			var cfg http.ReadConfig
 			Expect(stored.Unmarshal(&cfg)).To(Succeed())
 			Expect(cfg.Endpoints).To(HaveLen(1))
-			Expect(cfg.Endpoints[0].Fields).To(HaveLen(1))
 			var ic icd.ICD
 			Expect(icds.NewRetrieve().
 				Where(icd.MatchKeys(*cfg.Endpoints[0].ICD)).
@@ -117,7 +116,7 @@ var _ = Describe("ICDMigration", func() {
 		names map[uuid.UUID]string
 		// asked holds the keys of each lookup call.
 		asked  [][]uuid.UUID
-		lookup http.TaskNames
+		lookup config.TaskNames
 		ins    alamos.Instrumentation
 		// logs holds the warnings that the migration logs.
 		logs *observer.ObservedLogs
@@ -161,8 +160,6 @@ var _ = Describe("ICDMigration", func() {
 				Key:    "ep",
 				Method: "GET",
 				Path:   "/level",
-				Index:  index,
-				Fields: fields,
 			}}},
 		)).To(Succeed())
 		b := MustSucceed(json.Marshal(http.InlineRead{
@@ -186,17 +183,6 @@ var _ = Describe("ICDMigration", func() {
 			return svc.ICDMigration(lookup).Run(ctx, tx, ins)
 		})
 	}
-	// expectStaged asserts whether the fields of the config are staged.
-	expectStaged := func(key uuid.UUID, staged bool) {
-		GinkgoHelper()
-		if !staged {
-			Expect(db.Get(v5.StagedFieldsKVKey(key))).Error().
-				To(MatchError(query.ErrNotFound))
-			return
-		}
-		_, closer := MustSucceed2(db.Get(v5.StagedFieldsKVKey(key)))
-		Expect(closer.Close()).To(Succeed())
-	}
 	read := func(ctx SpecContext, key uuid.UUID) http.ReadConfig {
 		GinkgoHelper()
 		var cfg http.ReadConfig
@@ -212,12 +198,12 @@ var _ = Describe("ICDMigration", func() {
 			key := stage(ctx, "Tank farm")
 			Expect(run(ctx)).To(Succeed())
 			Expect(asked).To(Equal([][]uuid.UUID{{key}}))
-			expectStaged(key, false)
+			Expect(db.Get(v5.StagedFieldsKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
 			cfg := read(ctx, key)
 			Expect(cfg.Inline).To(BeNil())
 			Expect(cfg.Endpoints).To(HaveLen(1))
 			ep := cfg.Endpoints[0]
-			Expect(ep.Fields).To(HaveLen(1))
 			Expect(ep.Messages).To(HaveLen(1))
 			var ic icd.ICD
 			Expect(icdSvc.NewRetrieve().
@@ -305,40 +291,112 @@ var _ = Describe("ICDMigration", func() {
 				"field can. Bind field received to a data channel",
 		))
 	})
+})
 
-	It("Should do nothing without staged fields", func(ctx SpecContext) {
-		Expect(run(ctx)).To(Succeed())
-		Expect(asked).To(BeEmpty())
-	})
-
-	It("Should delete the staged fields of a config that no longer exists", func(
-		ctx SpecContext,
-	) {
-		key := stage(ctx, "Removed")
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Read.Delete(ctx, tx, key)
-		})).To(Succeed())
-		Expect(run(ctx)).To(Succeed())
-		Expect(asked).To(BeEmpty())
-		expectStaged(key, false)
-	})
-
-	It("Should keep the staged fields when the task name lookup fails", func(
-		ctx SpecContext,
-	) {
-		key := stage(ctx, "Tank farm")
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.Delete(ctx, v5.StagedFieldsKVKey(key))).To(Succeed())
-		})
+var _ = Describe("WriteICDMigration", func() {
+	var (
+		svc *http.Service
+		// names holds the task names that the lookup returns.
+		names map[uuid.UUID]string
+		// asked holds the keys of each lookup call.
+		asked  [][]uuid.UUID
+		lookup config.TaskNames
+		ins    alamos.Instrumentation
+		// logs holds the warnings that the migration logs.
+		logs *observer.ObservedLogs
+	)
+	BeforeEach(func(ctx SpecContext) {
+		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
+			DB:      db,
+			Channel: channelSvc,
+			ICD:     icdSvc,
+		}))
+		names, asked = map[uuid.UUID]string{}, nil
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.WarnLevel)
+		ins = alamos.New("test", alamos.WithLogger(MustSucceed(alamos.NewLogger(
+			alamos.LoggerConfig{ZapLogger: zap.New(core)},
+		))))
 		lookup = func(
-			context.Context,
-			gorp.Tx,
-			[]uuid.UUID,
+			_ context.Context,
+			_ gorp.Tx,
+			keys []uuid.UUID,
 		) (map[uuid.UUID]string, error) {
-			return nil, errors.New("no task")
+			asked = append(asked, keys)
+			return names, nil
 		}
-		Expect(run(ctx)).To(MatchError("tasks of HTTP read configs: no task"))
-		expectStaged(key, true)
-		Expect(read(ctx, key).Endpoints[0].ICD).To(BeNil())
 	})
+
+	// stage stores a config that the task named name owns, with one endpoint whose
+	// command channel does not exist, staged as v5.WriteMigration stages it.
+	stage := func(ctx SpecContext, name string) uuid.UUID {
+		GinkgoHelper()
+		key := uuid.New()
+		ep := http.WriteEndpoint{Key: "sp", Method: "PUT", Path: "/setpoint"}
+		Expect(gorp.WrapWriter[uuid.UUID, http.WriteConfig](db).Set(
+			ctx,
+			http.WriteConfig{Key: key, Endpoints: []http.WriteEndpoint{ep}},
+		)).To(Succeed())
+		b := MustSucceed(json.Marshal(http.InlineWrite{
+			Endpoints: []http.InlineWriteEndpoint{{
+				Key: "sp",
+				Channel: http.ChannelField{
+					Pointer:  "/value",
+					Name:     "setpoint_cmd",
+					DataType: telem.Float64T,
+				},
+			}},
+		}))
+		Expect(db.Set(ctx, v5.StagedWriteFieldsKVKey(key), b)).To(Succeed())
+		names[key] = name
+		return key
+	}
+	run := func(ctx SpecContext) error {
+		return db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.WriteICDMigration(lookup).Run(ctx, tx, ins)
+		})
+	}
+	read := func(ctx SpecContext, key uuid.UUID) http.WriteConfig {
+		GinkgoHelper()
+		var cfg http.WriteConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, http.WriteConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, http.WriteConfig](key)).
+			Entry(&cfg).
+			Exec(ctx, db)).To(Succeed())
+		return cfg
+	}
+
+	It("Should move the staged channel and fields of each config into an ICD",
+		func(ctx SpecContext) {
+			key := stage(ctx, "Valves")
+			Expect(run(ctx)).To(Succeed())
+			Expect(asked).To(Equal([][]uuid.UUID{{key}}))
+			Expect(db.Get(v5.StagedWriteFieldsKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
+			cfg := read(ctx, key)
+			Expect(cfg.Inline).To(BeNil())
+			ep := cfg.Endpoints[0]
+			var ic icd.ICD
+			Expect(icdSvc.NewRetrieve().
+				Where(icd.MatchKeys(*ep.ICD)).
+				Entry(&ic).
+				Exec(ctx, db)).To(Succeed())
+			Expect(ic.Name).To(Equal("Valves"))
+			Expect(ic.Messages).To(HaveLen(1))
+			Expect(ic.Messages[0].Name).To(Equal("PUT /setpoint"))
+			Expect(ep.Message.Message).To(Equal(ic.Messages[0].Key))
+			Expect(logs.FilterMessage("changed an HTTP write field to v5").All()).To(
+				HaveExactElements(WithTransform(
+					func(e observer.LoggedEntry) map[string]any { return e.ContextMap() },
+					SatisfyAll(
+						HaveKeyWithValue("config", key.String()),
+						HaveKeyWithValue("field", "endpoints.0.channel"),
+						HaveKeyWithValue("change", `channel name "setpoint_cmd" of `+
+							"field value on PUT /setpoint was dropped, so a client "+
+							"names the new channel"),
+					),
+				)),
+			)
+		},
+	)
 })

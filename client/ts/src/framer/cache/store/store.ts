@@ -200,7 +200,7 @@ export class Store {
       if (block.coveredCount > 0)
         this.newest.set(
           block.channel,
-          Math.max(block.index, this.newest.get(block.channel) ?? -Infinity),
+          Math.max(block.tile, this.newest.get(block.channel) ?? -Infinity),
         );
     }
     const bytes = block.bytes + ENTRY_OVERHEAD;
@@ -376,15 +376,15 @@ export class Store {
     const start = this.floors.get(index)?.start;
     if (
       start != null &&
-      cacheBlock.domainOf(start.alignment) === BigInt(block.index) &&
+      cacheBlock.domainOf(start.alignment) === BigInt(block.tile) &&
       at.before(start.time)
     )
       return false;
     const indexBlock =
-      index === block.channel ? block : this.peekRaw(index, block.index);
+      index === block.channel ? block : this.peekRaw(index, block.tile);
     const offset = indexBlock?.indexOffset(at);
     if (offset == null) return false;
-    block.truncate(cacheBlock.alignmentOf(block.index, offset), at);
+    block.truncate(cacheBlock.alignmentOf(block.tile, offset), at);
     return true;
   }
 
@@ -399,15 +399,15 @@ export class Store {
   }
 
   /**
-   * @returns the channel's raw block at the index, cached empty when absent. An expired
+   * @returns the channel's raw block at the tile, cached empty when absent. An expired
    * block comes back without its fetched samples.
    * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
-  raw(ch: channel.Key, index: number): cacheBlock.Raw {
-    const cached = this.findRaw(ch, index);
-    const key = cacheBlock.rawKey(ch, index);
+  raw(ch: channel.Key, tile: number): cacheBlock.Raw {
+    const cached = this.findRaw(ch, tile);
+    const key = cacheBlock.rawKey(ch, tile);
     if (cached == null) {
-      const block = new cacheBlock.Raw(ch, index, this.now);
+      const block = new cacheBlock.Raw(ch, tile, this.now);
       this.set(key, block);
       return block;
     }
@@ -416,11 +416,11 @@ export class Store {
   }
 
   /**
-   * @returns the channel's raw block at the index, or undefined when none is cached.
+   * @returns the channel's raw block at the tile, or undefined when none is cached.
    * @throws {UnexpectedError} if another kind of block holds the raw block's key.
    */
-  findRaw(ch: channel.Key, index: number): cacheBlock.Raw | undefined {
-    const key = cacheBlock.rawKey(ch, index);
+  findRaw(ch: channel.Key, tile: number): cacheBlock.Raw | undefined {
+    const key = cacheBlock.rawKey(ch, tile);
     const cached = this.get(key);
     if (cached == null) return undefined;
     if (!(cached instanceof cacheBlock.Raw))
@@ -429,7 +429,7 @@ export class Store {
   }
 
   /**
-   * @returns the index of the newest raw block of the channel that a read or the stream
+   * @returns the tile of the newest raw block of the channel that a read or the stream
    * filled with samples, or -Infinity when none did.
    */
   newestBlock(ch: channel.Key): number {
@@ -480,10 +480,10 @@ export class Store {
   join(block: cacheBlock.Raw): void {
     const live = this.liveOf(block.channel);
     if (live.block === block) return;
-    if (live.block != null) this.seal(live, live.block.index < block.index);
+    if (live.block != null) this.seal(live, live.block.tile < block.tile);
     block.buffer = live.buffer;
     live.block = block;
-    this.set(cacheBlock.rawKey(block.channel, block.index), block);
+    this.set(cacheBlock.rawKey(block.channel, block.tile), block);
   }
 
   /**
@@ -504,7 +504,7 @@ export class Store {
       live.buffer.startRun();
     } else if (live.buffer.leadingBuffer == null) {
       if (block.fetched.length === 0)
-        this.findRaw(block.channel, block.index - 1)?.cutNewest();
+        this.findRaw(block.channel, block.tile - 1)?.cutNewest();
       p = block.continued(p);
     }
     const res = live.buffer.write(new MultiSeries([p]));
@@ -512,7 +512,7 @@ export class Store {
     if (flushed) block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
     block.extend(p.timeRange.end, cacheBlock.offsetOf(p.alignment) + p.length);
     if (opened || flushed || res.allocated.series.length > 0)
-      this.set(cacheBlock.rawKey(block.channel, block.index), block);
+      this.set(cacheBlock.rawKey(block.channel, block.tile), block);
     if (this.indexOf.get(block.channel) === block.channel)
       this.trim(block.channel, block);
   }
@@ -576,7 +576,7 @@ export class Store {
     if (complete) block.extend(block.range.end, block.coveredCount);
     block.buffer = null;
     live.block = null;
-    this.set(cacheBlock.rawKey(block.channel, block.index), block);
+    this.set(cacheBlock.rawKey(block.channel, block.tile), block);
   }
 
   // Moves the index's floor once more than half the sample limit streamed past it. The
@@ -588,8 +588,8 @@ export class Store {
     const committed = this.now().sub(reader.COMMIT_MARGIN);
     let since = 0;
     let next: Mark | null = null;
-    walk: for (let i = open.index; ; i--) {
-      const block = i === open.index ? open : this.peekRaw(index, i);
+    walk: for (let i = open.tile; ; i--) {
+      const block = i === open.tile ? open : this.peekRaw(index, i);
       if (block == null) break;
       const series = block.seriesIn(TimeRange.MAX);
       for (let j = series.length - 1; j >= 0; j--) {
@@ -631,17 +631,17 @@ export class Store {
     const floor = index == null ? undefined : this.floors.get(index);
     if (floor == null) return;
     const { start, kept } = floor;
-    if (cacheBlock.domainOf(start.alignment) === BigInt(block.index))
+    if (cacheBlock.domainOf(start.alignment) === BigInt(block.tile))
       block.split(start.alignment, start.time);
-    if (kept != null && cacheBlock.domainOf(kept.alignment) === BigInt(block.index)) {
+    if (kept != null && cacheBlock.domainOf(kept.alignment) === BigInt(block.tile)) {
       block.split(kept.alignment, kept.time);
       block.trim(kept.alignment, kept.time);
     }
   }
 
   // Returns the cached raw block, leaving its recency alone.
-  private peekRaw(ch: channel.Key, index: number): cacheBlock.Raw | undefined {
-    const block = this.entries.get(cacheBlock.rawKey(ch, index))?.block;
+  private peekRaw(ch: channel.Key, tile: number): cacheBlock.Raw | undefined {
+    const block = this.entries.get(cacheBlock.rawKey(ch, tile))?.block;
     return block instanceof cacheBlock.Raw ? block : undefined;
   }
 

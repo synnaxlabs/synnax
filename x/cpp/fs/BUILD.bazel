@@ -19,6 +19,20 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "file",
+    srcs = ["file.cpp"] + select({
+        "@platforms//os:windows": ["file_windows.cpp"],
+        "//conditions:default": ["file_posix.cpp"],
+    }),
+    hdrs = ["file.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":fs",
+        "//x/cpp/errors",
+    ],
+)
+
 cc_test(
     name = "fs_test",
     size = "small",
@@ -26,6 +40,16 @@ cc_test(
     deps = [
         "//x/cpp/errors",
         "//x/cpp/fs",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "file_test",
+    srcs = ["file_test.cpp"],
+    deps = [
+        ":file",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

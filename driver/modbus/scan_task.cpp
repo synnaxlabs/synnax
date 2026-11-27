@@ -138,7 +138,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
             .name = dev.name,
             .variant = synnax::status::VARIANT_WARNING,
             .message = "Failed to reach device",
-            .description = err.data,
+            .description = err.data(),
             .time = x::telem::TimeStamp::now(),
             .details = details,
             .owner = synnax::device::resource_id(dev.key),
@@ -183,7 +183,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) {
     if (!err) err = dev->probe();
     if (err) {
         status.message = "Failed to connect to device";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return;
     }

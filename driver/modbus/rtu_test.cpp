@@ -169,7 +169,7 @@ TEST(RTU, LocksPortToOneConnection) {
     ASSERT_NIL(by_path->read_registers(device::HoldingRegister, 0, 1, &reg));
     const auto err = by_link->read_registers(device::HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
-    EXPECT_EQ(err.data, "serial port is in use by another connection");
+    EXPECT_EQ(err.data(), "serial port is in use by another connection");
     by_path.reset();
     ASSERT_NIL(by_link->read_registers(device::HoldingRegister, 0, 1, &reg));
 }
@@ -238,7 +238,7 @@ TEST(RTU, DemotesSilentUnitWhileOthersAnswer) {
     const auto err = silent->read_registers(device::HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "unit 3 timed out 3 times in a row, so its requests fail for 10s"
     );
     EXPECT_EQ(slave.unit_requests(3), device::DEMOTE_AFTER);
@@ -313,7 +313,7 @@ TEST(RTU, RejectsReplyFromOtherUnit) {
     uint16_t reg = 0;
     const auto err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
-    EXPECT_EQ(err.data, modbus_strerror(EMBBADSLAVE));
+    EXPECT_EQ(err.data(), modbus_strerror(EMBBADSLAVE));
 }
 
 /// @brief it should leave a silence of 3.5 characters between two frames.
@@ -352,7 +352,7 @@ TEST(RTU, RecoversFromDamagedReply) {
     slave.damage_next(1);
     const auto err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, device::TEMPORARY_ERROR);
-    EXPECT_EQ(err.data, modbus_strerror(EMBBADCRC));
+    EXPECT_EQ(err.data(), modbus_strerror(EMBBADCRC));
     ASSERT_NIL(dev->read_registers(device::HoldingRegister, 0, 1, &reg));
     EXPECT_EQ(reg, 1234);
 }
@@ -380,7 +380,7 @@ TEST(RTU, RecoversAfterUnplug) {
     std::filesystem::remove(link);
     const auto err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
-    EXPECT_EQ(err.data, modbus_strerror(ENOENT));
+    EXPECT_EQ(err.data(), modbus_strerror(ENOENT));
 
     ASSERT_NIL(slave.start());
     std::filesystem::create_symlink(slave.serial_port(), link);
@@ -449,7 +449,7 @@ TEST(RTU, KeepsPathOnPortWhenLinkMoves) {
     EXPECT_EQ(reg, 1);
     const auto err = direct->read_registers(device::HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
-    EXPECT_EQ(err.data, "serial port is in use by another connection");
+    EXPECT_EQ(err.data(), "serial port is in use by another connection");
 
     std::filesystem::remove(link);
     std::filesystem::create_symlink(after.serial_port(), link);
@@ -468,7 +468,7 @@ TEST(RTU, MissingPortIsUnreachable) {
     uint16_t reg = 0;
     const auto err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
-    EXPECT_EQ(err.data, modbus_strerror(ENOENT));
+    EXPECT_EQ(err.data(), modbus_strerror(ENOENT));
 }
 
 /// @brief it should pass a connection test of an RTU unit.

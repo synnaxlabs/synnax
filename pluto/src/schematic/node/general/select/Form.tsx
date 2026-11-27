@@ -17,6 +17,7 @@ import type { ReactElement } from "react";
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 import type { ColorFallbacks, FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
@@ -44,7 +45,13 @@ const SelectTelemForm = (): ReactElement => {
 
   return (
     <Base.Sections x>
-      <Form.StateSection />
+      <Form.StateSection>
+        <Form.EnumerationField
+          path={path.enumeration}
+          label={path.label.label}
+          symbolName={NAME}
+        />
+      </Form.StateSection>
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
@@ -64,15 +71,12 @@ const SelectTelemForm = (): ReactElement => {
 };
 
 export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
-  <Properties.Tabs
-    tabs={["control", "style", "options"]}
-    tab={tab}
-    onTabChange={onTabChange}
-  >
+  <Properties.Tabs tabs={["control", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
           <Label.Form path={path.label} />
+          <Orientation.Field path={path} hideInner label="Position" />
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />
@@ -88,13 +92,6 @@ export const SelectForm = ({ tab, onTabChange }: FormProps): ReactElement => (
     </Tabs.Content>
     <Tabs.Content itemKey="control">
       <SelectTelemForm />
-    </Tabs.Content>
-    <Tabs.Content itemKey="options">
-      <Form.States
-        enumeration={path.enumeration}
-        label={path.label.label}
-        symbolName={NAME}
-      />
     </Tabs.Content>
   </Properties.Tabs>
 );

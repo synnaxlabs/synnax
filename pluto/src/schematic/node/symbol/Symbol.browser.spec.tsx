@@ -12,7 +12,8 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
-import { ReactFlowProvider } from "@xyflow/react";
+import { renderThemed } from "@synnaxlabs/lyra/styletest";
+import { type NodeProps, ReactFlow, ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -20,10 +21,15 @@ import { render } from "vitest-browser-react";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
+import { queryButton } from "@/schematic/node/common/toggle/testutil";
 import { createChannelTelem } from "@/schematic/node/testutil";
 import type { telem } from "@/telem/aether";
+import { controlTest } from "@/telem/control/aether/testutil";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
+
+// A node with a command channel mounts the control chip.
+const REGISTRY = { ...symbolNode.REGISTRY, ...controlTest.createRegistry() };
 
 const MARKUP =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
@@ -77,11 +83,11 @@ const renderLamp = async (config: Pick<Config, "motionDisabled"> = {}) => {
   const client = createTestClient();
   const symbol = await client.schematics.symbols.create({
     name: "Lamp",
-    data: { drawing: { type: "svg", markup: MARKUP }, variant: "static", ...DATA },
+    data: { drawing: { type: "svg", markup: MARKUP }, ...DATA },
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
   });
   const { container } = await renderNode(Wrapper, {
     spec: { type: "custom", key: symbol.key },
@@ -91,6 +97,36 @@ const renderLamp = async (config: Pick<Config, "motionDisabled"> = {}) => {
   return await vi.waitUntil(() => container.querySelector(".lamp"));
 };
 
+const BuiltInWrapper = createSynnaxWrapper({
+  client: null,
+  additionalRegistry: symbolNode.REGISTRY,
+});
+
+// The theme gives the colors that a drawing with no node color falls back to.
+const renderBuiltIn = async (
+  name: string,
+  selector: string,
+  color?: string,
+): Promise<SVGElement> => {
+  const { container } = await renderThemed(
+    <BuiltInWrapper>
+      <ReactFlowProvider>
+        <Node.REGISTRY.symbol.Node
+          nodeKey="s1"
+          selected={false}
+          onConfigChange={vi.fn()}
+          config={schematic.symbolNodeConfigZ.parse({
+            variant: "symbol",
+            spec: { type: "builtin", name },
+            color: color == null ? undefined : { type: "fixed", value: color },
+          })}
+        />
+      </ReactFlowProvider>
+    </BuiltInWrapper>,
+  );
+  return await vi.waitUntil(() => container.querySelector<SVGElement>(selector));
+};
+
 // renderValve renders a valve whose active state has source, and returns its button.
 const renderValve = async (
   factory: telem.Factory,
@@ -98,14 +134,14 @@ const renderValve = async (
 ): Promise<HTMLButtonElement> => {
   const Wrapper = createSynnaxWrapper({
     client: null,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
     telemFactories: [factory],
   });
   const { container } = await renderNode(Wrapper, {
     spec: { type: "builtin", name: "valve" },
     states: [{ key: "active", source }],
   });
-  return await vi.waitUntil(() => container.querySelector("button"));
+  return await vi.waitUntil(() => queryButton(container));
 };
 
 // createAsk creates a symbol whose click asks for a value of state.
@@ -114,7 +150,6 @@ const createAsk = async (client: Synnax, state: schematic.symbol.State) =>
     name: "Ask",
     data: {
       drawing: { type: "svg", markup: MARKUP },
-      variant: "static",
       states: [state],
       commands: [{ key: "set", name: "Set", state: state.key, value: { type: "ask" } }],
       interactions: [{ type: "fire", key: "click", command: "set" }],
@@ -126,7 +161,7 @@ const createAsk = async (client: Synnax, state: schematic.symbol.State) =>
 const renderAsk = async (client: Synnax, symbol: schematic.symbol.Symbol) => {
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
   });
   const onConfigChange = vi.fn();
   const { container } = await renderNode(
@@ -137,7 +172,7 @@ const renderAsk = async (client: Synnax, symbol: schematic.symbol.Symbol) => {
     },
     onConfigChange,
   );
-  const button = await vi.waitUntil(() => container.querySelector("button"));
+  const button = await vi.waitUntil(() => queryButton(container));
   await page.elementLocator(button).click();
   return { onConfigChange, button };
 };
@@ -162,6 +197,11 @@ describe("Symbol node", () => {
     expect(getComputedStyle(lamp).strokeWidth).toBe("1px");
   });
 
+  it("should draw no fill on a shape that sets none", async () => {
+    const lamp = await renderLamp();
+    expect(getComputedStyle(lamp).fill).toBe("none");
+  });
+
   it("should draw a copy of a built-in as wide as the built-in", async () => {
     const client = createTestClient();
     const data = Node.BUILT_INS.get("ball_valve");
@@ -169,7 +209,7 @@ describe("Symbol node", () => {
     const copy = await client.schematics.symbols.create({ name: "Ball (copy)", data });
     const Wrapper = await createAsyncSynnaxWrapper({
       client,
-      additionalRegistry: symbolNode.REGISTRY,
+      additionalRegistry: REGISTRY,
     });
     const widthOf = async (spec: Config["spec"]) => {
       const { container } = await renderNode(Wrapper, { spec });
@@ -180,6 +220,59 @@ describe("Symbol node", () => {
       await widthOf({ type: "custom", key: copy.key }),
       await widthOf({ type: "builtin", name: "ball_valve" }),
     ]).toEqual(["2px", "2px"]);
+  });
+
+  it("should draw an ISO cap at 0.6 of the size of other built-ins", async () => {
+    const Wrapper = createSynnaxWrapper({ client: null, additionalRegistry: REGISTRY });
+    const { container } = await renderNode(Wrapper, {
+      spec: { type: "builtin", name: "iso_cap" },
+    });
+    const drawing = await vi.waitUntil(() =>
+      container.querySelector(".pluto-symbol__drawing"),
+    );
+    const { width, height } = drawing.getBoundingClientRect();
+    // The drawing is 36 by 48, and Primitive.SVG draws a built-in at 0.8 of its size.
+    expect(width).toBeCloseTo(36 * 0.8 * 0.6, 1);
+    expect(height).toBeCloseTo(48 * 0.8 * 0.6, 1);
+  });
+
+  it("should connect a switch at the middle of its left and right edges", async () => {
+    const Wrapper = createSynnaxWrapper({ client: null, additionalRegistry: REGISTRY });
+    const Switch = ({ id }: NodeProps) => (
+      <Node.REGISTRY.symbol.Node
+        nodeKey={id}
+        selected={false}
+        onConfigChange={vi.fn()}
+        config={schematic.symbolNodeConfigZ.parse({
+          variant: "symbol",
+          spec: { type: "builtin", name: "switch" },
+        })}
+      />
+    );
+    const { container } = await render(
+      <Wrapper>
+        <ReactFlowProvider>
+          <div style={{ width: 400, height: 400 }}>
+            <ReactFlow
+              nodes={[
+                { id: "s1", type: "symbol", position: { x: 100, y: 100 }, data: {} },
+              ]}
+              nodeTypes={{ symbol: Switch }}
+            />
+          </div>
+        </ReactFlowProvider>
+      </Wrapper>,
+    );
+    const handlesOf = () =>
+      [...container.querySelectorAll<HTMLElement>(".react-flow__handle")].map((h) => [
+        h.dataset.handleid,
+        h.style.left,
+        h.style.top,
+      ]);
+    await expect.poll(handlesOf).toEqual([
+      ["1", "0%", "50%"],
+      ["2", "100%", "50%"],
+    ]);
   });
 
   it("should ask which command to send while its state is unknown", async () => {
@@ -218,7 +311,7 @@ describe("Symbol node", () => {
     const onConfigChange = vi.fn();
     const Wrapper = createSynnaxWrapper({
       client: null,
-      additionalRegistry: symbolNode.REGISTRY,
+      additionalRegistry: REGISTRY,
     });
     const { container } = await renderNode(
       Wrapper,
@@ -234,7 +327,7 @@ describe("Symbol node", () => {
       },
       onConfigChange,
     );
-    const button = await vi.waitUntil(() => container.querySelector("button"));
+    const button = await vi.waitUntil(() => queryButton(container));
     await page.elementLocator(button).click();
     expect(onConfigChange).not.toHaveBeenCalled();
     await page.getByRole("menuitem", { name: "Open" }).click();
@@ -244,6 +337,59 @@ describe("Symbol node", () => {
           key: "active",
           source: { type: "local", value: 1 },
           match: { type: "exact" },
+        }),
+      ],
+    });
+  });
+
+  it("should ask which command to send for a click on a part", async () => {
+    const client = createTestClient();
+    const symbol = await client.schematics.symbols.create({
+      name: "Lamp switch",
+      data: {
+        drawing: { type: "svg", markup: MARKUP },
+        ...DATA,
+        commands: [
+          {
+            key: "off",
+            name: "Off",
+            state: "active",
+            value: { type: "fixed", value: 0 },
+          },
+          {
+            key: "on",
+            name: "On",
+            state: "active",
+            value: { type: "fixed", value: 1 },
+          },
+        ],
+        interactions: [
+          { type: "next", key: "switch", part: "lamp", commands: ["off", "on"] },
+        ],
+      },
+    });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const onConfigChange = vi.fn();
+    const { container } = await renderNode(
+      Wrapper,
+      {
+        spec: { type: "custom", key: symbol.key },
+        states: [{ key: "active", source: { type: "local", value: 3 } }],
+      },
+      onConfigChange,
+    );
+    const lamp = await vi.waitUntil(() => container.querySelector(".lamp"));
+    await page.elementLocator(lamp).click();
+    expect(onConfigChange).not.toHaveBeenCalled();
+    await page.getByRole("menuitem", { name: "On" }).click();
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "active",
+          source: { type: "local", value: 1 },
         }),
       ],
     });
@@ -355,5 +501,39 @@ describe("Symbol node", () => {
       .element(page.getByText("Failed to retrieve enumeration"))
       .toBeVisible();
     expect(page.getByRole("menuitem").elements()).toHaveLength(0);
+  });
+
+  // A shape body, and a letter in a span of a text.
+  it.each(["t_junction", "flowmeter_orifice"])(
+    "should fill the solid shapes of %s with the node color",
+    async (name) => {
+      const solid = await renderBuiltIn(name, ".pluto--solid", "#ff0000");
+      await vi.waitFor(() =>
+        expect(getComputedStyle(solid).fill).toBe("rgb(255, 0, 0)"),
+      );
+    },
+  );
+
+  // The theme draws a body in the stroke color of the drawing, and a letter in the
+  // color of its text.
+  it.each([
+    ["t_junction", ".lyra-symbol-colored", "stroke"],
+    ["flowmeter_orifice", "text", "fill"],
+  ] as const)(
+    "should fill the solid shapes of %s as the theme draws them with no node color",
+    async (name, selector, property) => {
+      const solid = await renderBuiltIn(name, ".pluto--solid");
+      const theme = solid.closest(selector);
+      assert(theme != null);
+      expect(getComputedStyle(solid).fill).toBe(getComputedStyle(theme)[property]);
+    },
+  );
+
+  it("should stroke a built-in in the theme color with no node color", async () => {
+    const path = await renderBuiltIn("filter", "path");
+    const root = path.closest(".lyra-symbol-colored");
+    assert(root != null);
+    expect(path.style.stroke).toBe("");
+    expect(getComputedStyle(path).stroke).toBe(getComputedStyle(root).stroke);
   });
 });

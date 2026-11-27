@@ -1,0 +1,19 @@
+{
+  "description": "A message with no fields encodes its prefix.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "$SET,",
+      "fields": []
+    },
+    "bindings": []
+  },
+  "cases": [
+    {
+      "samples": [],
+      "text": "$SET,"
+    }
+  ]
+}

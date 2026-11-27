@@ -21,9 +21,9 @@ import {
 import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const DEFAULT_READ_NAME = "Kafka read task";
+const DEFAULT_READ_NAME = "Kafka read task";
 
-export const DEFAULT_WRITE_NAME = "Kafka write task";
+const DEFAULT_WRITE_NAME = "Kafka write task";
 
 const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
@@ -51,11 +51,7 @@ const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg = WRITE_SCHEMAS.config.parse(
-    config ?? {
-      record: { channelPointer: "/channel", timestampPointer: "/timestamp" },
-    },
-  );
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
   return { name: DEFAULT_WRITE_NAME, type: WRITE_TYPE, config: cfg };
 };

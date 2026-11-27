@@ -11,23 +11,30 @@ package http
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
+	"github.com/synnaxlabs/x/content"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // writeResolver resolves write configs against the ICDs and channels they write.
 type writeResolver struct {
 	icds     *icd.Service
 	channels icdv0.Channels
+	writes   write.Resolver
 	ins      alamos.Instrumentation
 }
 
 // resolve moves the staged channel and fields of cfg, which a config from before ICDs
-// holds, into a new ICD named name, and returns the write that creates that ICD.
+// holds, into a new ICD named name, and returns the write that creates it. A stored or
+// imported config always converts, so only a config that stages nothing is checked:
+// each enabled endpoint against its ICD and its channels, read through snap.
 func (r writeResolver) resolve(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -37,10 +44,72 @@ func (r writeResolver) resolve(
 	ic, ok, err := v5.ResolveWriteConfig(
 		ctx, snap, r.channels, name, cfg, v5.NoteWriteLift(r.ins, cfg.Key),
 	)
-	if err != nil || !ok {
+	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, tx gorp.Tx) error {
-		return r.icds.NewWriter(tx).Create(ctx, &ic)
-	}, nil
+	if ok {
+		return func(ctx context.Context, tx gorp.Tx) error {
+			return r.icds.NewWriter(tx).Create(ctx, &ic)
+		}, nil
+	}
+	writes, err := writesOf(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return nil, r.writes.Check(ctx, snap, writes, nil)
+}
+
+// hash writes to h the payload of the ICD message that each enabled endpoint of cfg
+// sends, so an edit to the format of one changes the config hash of the task.
+func (r writeResolver) hash(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *WriteConfig,
+	h *content.Hash,
+) error {
+	writes, err := writesOf(cfg)
+	if err != nil {
+		return err
+	}
+	return r.writes.Hash(ctx, snap, h, writes)
+}
+
+// detachMessages clears the message of each endpoint of cfg that names no ICD, as a
+// normalize leaves one whose ICD the Core lacks.
+func detachMessages(_ context.Context, _ gorp.Tx, cfg *WriteConfig) error {
+	for i := range cfg.Endpoints {
+		if cfg.Endpoints[i].ICD == nil {
+			cfg.Endpoints[i].Message = nil
+		}
+	}
+	return nil
+}
+
+// writesOf returns the write of each enabled endpoint of cfg that names an ICD. It
+// returns a validation error for an endpoint that names only one of an ICD and a
+// message.
+func writesOf(cfg *WriteConfig) ([]write.Write, error) {
+	var writes []write.Write
+	for i, ep := range cfg.Endpoints {
+		path := []string{"endpoints", strconv.Itoa(i)}
+		switch {
+		case ep.ICD != nil && ep.Message == nil:
+			return nil, validate.PathedError(
+				validate.Errorf("required for an endpoint with an ICD"),
+				append(path, "message")...,
+			)
+		case ep.ICD == nil && ep.Message != nil:
+			return nil, validate.PathedError(
+				validate.Errorf("required for an endpoint with a message"),
+				append(path, "icd")...,
+			)
+		case ep.ICD != nil && !ep.Disabled:
+			writes = append(writes, write.Write{
+				Path:    path,
+				ICD:     *ep.ICD,
+				Message: *ep.Message,
+			})
+		}
+	}
+	return writes, nil
 }

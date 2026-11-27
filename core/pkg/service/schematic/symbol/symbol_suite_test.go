@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -59,7 +58,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:         groupSvc,
 		ImEx:          imexSvc,
 		Enumeration:   enumSvc,
-		Actuators:     noActuators,
 		RemoveOrphans: noOrphans,
 	}))
 	proj.Name = "test-project"
@@ -81,11 +79,6 @@ func colorPaint(hex string) symbol.Paint {
 	return symbol.Paint{Variant: symbol.ColorPaint{Value: namedcolor.Ref{
 		Variant: namedcolor.FixedRef{Value: MustSucceed(color.Parse(hex))},
 	}}}
-}
-
-// noActuators reports that no custom_actuator node draws a symbol.
-func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
-	return nil, nil
 }
 
 // noOrphans removes no node binding, as no schematic draws a symbol.

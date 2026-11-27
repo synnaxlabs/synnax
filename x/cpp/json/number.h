@@ -69,6 +69,9 @@ public:
     [[nodiscard]] std::optional<std::int64_t> to_int64() const;
     /// @brief returns the number when it is an integer that a uint64 holds.
     [[nodiscard]] std::optional<std::uint64_t> to_uint64() const;
+    /// @brief returns the number times factor, which is positive, truncated toward
+    /// zero, when an int64 holds the result.
+    [[nodiscard]] std::optional<std::int64_t> to_int64_times(std::int64_t factor) const;
     /// @brief returns the double nearest to the number.
     [[nodiscard]] double to_float64() const;
 

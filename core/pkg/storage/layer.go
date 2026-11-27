@@ -16,8 +16,7 @@
 //
 //  1. A key-value store (implementing the kv.DB interface) for storing cluster wide
 //     metadata.
-//  2. A time-series engine (implementing the ts.TS interface) for writing frames of
-//     telemetry.
+//  2. A time-series engine (Cesium) for writing frames of telemetry.
 //
 // It's important to note that the storage package does NOT manage any sort of
 // distributed storage implementation.
@@ -27,7 +26,6 @@ import (
 	"context"
 	"io"
 	"io/fs"
-	"os"
 	"path/filepath"
 
 	"github.com/cockroachdb/pebble/v2"
@@ -37,7 +35,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/encoding"
@@ -109,6 +106,14 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to CesiumTS
 	TSEngine TSEngine
+	// KVFS is the file system of the key-value store and the directory lock.
+	//
+	// [OPTIONAL] - Defaults to the OS file system, or to memory when InMemory is true.
+	KVFS vfs.FS
+	// TSFS is the file system of the time-series engine.
+	//
+	// [OPTIONAL] - Defaults to the OS file system, or to memory when InMemory is true.
+	TSFS xfs.FS
 	// Version is the semantic version of the Core, without a "v" prefix. Open checks it
 	// against the version recorded in the data directory, unless it is a 0.0 version.
 	//
@@ -141,6 +146,8 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
+	cfg.KVFS = override.Nil(cfg.KVFS, other.KVFS)
+	cfg.TSFS = override.Nil(cfg.TSFS, other.TSFS)
 	cfg.Version = override.String(cfg.Version, other.Version)
 	cfg.UpdateBackupDisabled = override.Nil(
 		cfg.UpdateBackupDisabled,
@@ -256,7 +263,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	kvFS, tsFS := openFileSystems(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err = configureStorageDir(cfg, kvFS); !ok(err, nil) {
+	if err = configureStorageDir(cfg, kvFS, tsFS); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -325,19 +332,33 @@ func (s *Layer) TSSize() telem.Size { return s.TS.Metrics().DiskSize }
 func (s *Layer) Size() telem.Size { return s.KVSize() + s.TSSize() }
 
 func openFileSystems(cfg LayerConfig) (vfs.FS, xfs.FS) {
-	if *cfg.InMemory {
-		return vfs.NewMem(), xfs.NewMem()
-	} else {
-		return vfs.Default, xfs.Default
+	kvFS, tsFS := cfg.KVFS, cfg.TSFS
+	if kvFS == nil {
+		kvFS = vfs.Default
+		if *cfg.InMemory {
+			kvFS = vfs.NewMem()
+		}
 	}
+	if tsFS == nil {
+		tsFS = xfs.Default
+		if *cfg.InMemory {
+			tsFS = xfs.NewMem()
+		}
+	}
+	return kvFS, tsFS
 }
 
-func configureStorageDir(cfg LayerConfig, vfs vfs.FS) error {
+func configureStorageDir(cfg LayerConfig, vfs vfs.FS, tsFS xfs.FS) error {
 	if err := vfs.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
 		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
 	}
+	// The two file systems are one on disk, but an injected pair needs the directory in
+	// each.
+	if _, err := tsFS.Sub(cfg.Dirname); err != nil {
+		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
+	}
 	if !*cfg.InMemory {
-		return validateSufficientDirPermissions(cfg)
+		return validateSufficientDirPermissions(cfg, vfs)
 	}
 	return nil
 }
@@ -358,8 +379,8 @@ Synnax requires the storage directory to have at least
 permissions.
 `
 
-func validateSufficientDirPermissions(cfg LayerConfig) error {
-	stat, err := os.Stat(cfg.Dirname)
+func validateSufficientDirPermissions(cfg LayerConfig, fs vfs.FS) error {
+	stat, err := fs.Stat(cfg.Dirname)
 	if err != nil {
 		return err
 	}
@@ -523,16 +544,17 @@ func pebbleOptions(
 	return opts
 }
 
-func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {
+func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*cesium.DB, error) {
 	if cfg.TSEngine != TSEngineCesium {
 		return nil, errors.Newf(
 			"[storage] - unsupported time-series engine: %s",
 			cfg.TSEngine,
 		)
 	}
-	return ts.Open(ctx, ts.Config{
-		Instrumentation: cfg.Child("ts"),
-		Dirname:         filepath.Join(cfg.Dirname, cesiumDir),
-		FS:              fs,
-	})
+	return cesium.Open(
+		ctx,
+		filepath.Join(cfg.Dirname, cesiumDir),
+		cesium.WithFS(fs),
+		cesium.WithInstrumentation(cfg.Child("ts")),
+	)
 }

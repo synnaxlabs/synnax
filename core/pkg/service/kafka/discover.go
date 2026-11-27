@@ -92,18 +92,18 @@ type browseResult struct {
 }
 
 // browseTopics returns the topics of the cluster of props, other than internal topics,
-// sorted by name.
+// sorted by name. It fails as the connect test does when the cluster does not answer.
 func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error) {
-	cl, err := openClient(props)
+	props, err := reachCluster(ctx, props)
+	if err != nil {
+		return nil, err
+	}
+	cl, details, err := openCluster(ctx, props, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer cl.Close()
 	adm := kadm.NewClient(cl)
-	details, err := describeTopics(ctx, cl, nil)
-	if err != nil {
-		return nil, err
-	}
 	topics, readable := listTopics(details)
 	if len(readable) == 0 {
 		return topics, nil
@@ -241,6 +241,32 @@ func (d topicDetail) readable() bool {
 	return len(d.operations) == 0 ||
 		slices.Contains(d.operations, kadm.OpRead) ||
 		slices.Contains(d.operations, kadm.OpAll)
+}
+
+// openCluster opens a client to the cluster of props, and returns it with
+// describeTopics of topics. The cluster gets the time that the connect test gives it to
+// answer, and openCluster fails as the connect test does. The caller closes the client.
+func openCluster(
+	ctx context.Context,
+	props Properties,
+	topics []string,
+) (*kgo.Client, map[string]topicDetail, error) {
+	var auth authHook
+	cl, err := openClient(props, kgo.WithHooks(&auth))
+	if err != nil {
+		return nil, nil, err
+	}
+	mdCtx, cancel := context.WithTimeout(ctx, stageTimeout)
+	details, err := describeTopics(mdCtx, cl, topics)
+	cancel()
+	if err == nil {
+		return cl, details, nil
+	}
+	cl.Close()
+	if ctx.Err() != nil {
+		return nil, nil, err
+	}
+	return nil, nil, clusterFailure(props, &auth, err)
 }
 
 // describeTopics returns the metadata of topics, or of every topic that the client may
@@ -387,6 +413,8 @@ type sampledTopic struct {
 	// Error says why the sample could not read the topic, or all of the records that it
 	// asked for. Empty when it read them.
 	Error string `json:"error" msgpack:"error"`
+	// Missing is true when the topic does not exist.
+	Missing bool `json:"missing" msgpack:"missing"`
 }
 
 // sampleResult is the data that answers a sample.
@@ -414,16 +442,16 @@ func sampleTopics(
 	}
 	count := int64(cmp.Or(args.Count, defaultSampleCount))
 	count = min(max(count, 1), maxSampleCount)
-	cl, err := openClient(props)
+	props, err := reachCluster(ctx, props)
+	if err != nil {
+		return sampleResult{}, err
+	}
+	cl, details, err := openCluster(ctx, props, args.Topics)
 	if err != nil {
 		return sampleResult{}, err
 	}
 	defer cl.Close()
 	adm := kadm.NewClient(cl)
-	details, err := describeTopics(ctx, cl, args.Topics)
-	if err != nil {
-		return sampleResult{}, err
-	}
 	res, readable := newSampleResult(args.Topics, details)
 	if len(readable) == 0 {
 		return res, nil
@@ -495,6 +523,7 @@ func newSampleResult(
 		switch d, ok := details[name]; {
 		case !ok || errors.Is(d.err, kerr.UnknownTopicOrPartition):
 			res.Topics[i].Error = "The topic does not exist."
+			res.Topics[i].Missing = true
 		case errors.Is(d.err, kerr.TopicAuthorizationFailed),
 			d.err == nil && !d.readable():
 			res.Topics[i].Error = "The cluster does not let the client read the topic."
@@ -559,7 +588,16 @@ func shapeTopic(t *sampledTopic, rs []*kgo.Record) []sampledRecord {
 		sampled[j] = rec
 		docs[j] = xjson.Document{Source: rec.Key, Data: r.Value, Time: rec.Time}
 	}
-	t.Shapes = xjson.Infer(docs)
+	var isJSON []bool
+	t.Shapes, isJSON = xjson.Infer(docs)
+	for j, r := range rs {
+		s := &sampled[j]
+		s.Format = payload.FormatJSON
+		if !isJSON[j] {
+			s.Format = formatOf(r.Value)
+		}
+		s.Payload = driver.Display(r.Value, s.Format, samplePayloadLimit)
+	}
 	return sampled
 }
 
@@ -580,8 +618,6 @@ func newSampledRecord(r *kgo.Record) sampledRecord {
 		Time:      telem.NewTimeStamp(r.Timestamp),
 		Headers:   make([]header, len(r.Headers)),
 	}
-	s.Format = formatOf(r.Value)
-	s.Payload = driver.Display(r.Value, s.Format, samplePayloadLimit)
 	for i, h := range r.Headers {
 		s.Headers[i] = header{
 			Key:   h.Key,

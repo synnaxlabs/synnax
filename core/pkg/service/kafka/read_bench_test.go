@@ -34,7 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -340,35 +340,41 @@ func benchRecords(
 	sc benchScenario,
 ) []kafka.ReadRecord {
 	GinkgoHelper()
-	unixNs := payload.TimeFormatUnixNs
-	recs := make([]kafka.InlineRecord, len(groups))
+	messages := make([]icd.Message, len(groups))
+	reads := make([]icd.ReadMessage, len(groups))
 	for gi, g := range groups {
-		rec := kafka.InlineRecord{Key: fmt.Sprintf("r%d", gi), RecordKey: g.key}
+		var (
+			fields   []icd.JSONField
+			channels []channel.Channel
+		)
 		if !sc.kafkaTime {
-			rec.Index = "ts"
-			rec.Fields = append(rec.Fields, kafka.ReadField{
-				Key:        "ts",
-				Channel:    g.index.Key(),
-				Pointer:    "/ts",
-				DataType:   telem.TimestampT,
-				TimeFormat: &unixNs,
-			})
+			fields = append(fields, jsonField(
+				"ts",
+				"/ts",
+				icd.TimestampJSONField{TimeFormat: payload.TimeFormatUnixNs},
+			))
+			channels = append(channels, g.index)
 		}
 		for i, ch := range g.data {
 			ptr := "/value"
 			if sc.shape == wide {
 				ptr = "/c" + strconv.Itoa(i)
 			}
-			rec.Fields = append(rec.Fields, kafka.ReadField{
-				Key:      "f" + strconv.Itoa(i),
-				Channel:  ch.Key(),
-				Pointer:  ptr,
-				DataType: telem.Float64T,
-			})
+			fields = append(
+				fields,
+				jsonField("f"+strconv.Itoa(i), ptr, icd.FloatJSONField{}),
+			)
+			channels = append(channels, ch)
 		}
-		recs[gi] = rec
+		messages[gi] = jsonMessage(fmt.Sprintf("r%d", gi), nil, fields...)
+		reads[gi] = read(messages[gi], channels...)
 	}
-	return lift(ctx, recs...)
+	ic := createICD(ctx, messages...)
+	recs := make([]kafka.ReadRecord, len(groups))
+	for gi, g := range groups {
+		recs[gi] = record(g.key, ic, reads[gi])
+	}
+	return recs
 }
 
 // latencyLog collects end-to-end latency samples, keyed by when they were seen.
@@ -600,7 +606,7 @@ func checkStored(
 	GinkgoHelper()
 	var stampErrs, intervals []float64
 	for gi, g := range groups {
-		idx := storedSeries(ctx, g.index.Key())
+		idx := stored(ctx, g.index.Key())
 		got := make([]telem.TimeStamp, idx.Len())
 		for i := range got {
 			got[i] = idx.ValueAt[telem.TimeStamp](i)
@@ -642,7 +648,7 @@ func checkStoredValues(
 ) {
 	GinkgoHelper()
 	for ci, ch := range g.data {
-		s := storedSeries(ctx, ch.Key())
+		s := stored(ctx, ch.Key())
 		chIndex := g.first + ci
 		if sc.shape == wide {
 			chIndex = ci
@@ -844,25 +850,4 @@ func stddevFrom(xs []float64, nominal float64) float64 {
 		sum += (x - nominal) * (x - nominal)
 	}
 	return math.Sqrt(sum / float64(len(xs)))
-}
-
-func storedSeries(ctx context.Context, key channel.Key) telem.Series {
-	GinkgoHelper()
-	it := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   channel.Keys{key},
-		Bounds: telem.TimeRangeMax,
-	}))
-	defer func() { Expect(it.Close()).To(Succeed()) }()
-	var s telem.Series
-	if !it.SeekFirst() {
-		return s
-	}
-	for it.Next(iterator.AutoSpan) {
-		for _, ser := range it.Value().Get(key).Series {
-			s.DataType = ser.DataType
-			s.Data = append(s.Data, ser.Data...)
-		}
-	}
-	Expect(it.Error()).To(Succeed())
-	return s
 }
