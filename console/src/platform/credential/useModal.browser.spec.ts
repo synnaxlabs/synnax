@@ -124,7 +124,7 @@ describe("useModal", () => {
     expect(await client.auth.apiKeys.retrieve([id])).toHaveLength(1);
   });
 
-  it("should draw the live session count with proportional digits", async () => {
+  it("should draw the live session count with tabular digits", async () => {
     const client = createTestClient();
     const r = await client.racks.create({ name: uniqueName("rack") });
     const id = rack.resourceID(r.key);
@@ -132,7 +132,7 @@ describe("useModal", () => {
     await client.auth.apiKeys.create({ subject: id, name });
     await openModal(Credential.useModal, { client, params: { subject: id } });
     const row = await screen.findByLabelText(name);
-    expect(treatment(await within(row).findByText("0"))).toBe("prose");
+    expect(treatment(await within(row).findByText("0"))).toBe("numeric");
   });
 
   it("should hide key actions the caller has no permission for", async () => {

@@ -56,7 +56,10 @@ const KeyItem = ({ sessions, ...rest }: KeyItemProps): ReactElement | null => {
           </Text.Text>
         </List.Cell>
         <List.Cell>
-          <Text.Text color={sessions == null || sessions === 0 ? 9 : undefined}>
+          <Text.Text
+            color={sessions == null || sessions === 0 ? 9 : undefined}
+            variant="numeric"
+          >
             {sessions ?? "Unknown"}
           </Text.Text>
         </List.Cell>
