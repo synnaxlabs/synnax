@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func clockWriter(start int64, bounded bool, keys ...uint32) state.WriterConfig {
@@ -98,6 +99,26 @@ var _ = Describe("Writer", func() {
 			{Segments: 1045, Alignments: 19},
 		}))
 	})
+
+	It("Should refuse a new segment of a key that the writer does not write", func() {
+		start(head(5, 3))
+		w := open(clockWriter(0, false, 1))
+		Expect(w.NewSegment(9)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("writer does not write key 9")),
+		))
+	})
+
+	It("Should refuse a new segment of a key while the writer holds an open one",
+		func() {
+			start(head(5, 3))
+			w := open(clockWriter(0, false, 1))
+			Expect(w.NewSegment(1)).To(Equal(uint64(5)))
+			Expect(w.NewSegment(1)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("writer holds open segment 5 of key 1")),
+			))
+		})
 
 	It("Should give out segment 1 and alignment number 1 first in a new database",
 		func() {
