@@ -1410,13 +1410,21 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Scope status", func() {
-		It(
-			"Should show each start, stage change, and end of a sequence",
-			func(ctx SpecContext) {
-				trig := createVirtualCh(ctx, "scope_trig", telem.Uint8T)
-				step := createVirtualCh(ctx, "scope_step", telem.Uint8T)
-				out := createVirtualCh(ctx, "scope_out", telem.Uint8T)
-				prog := arc.Text{Raw: fmt.Sprintf(`
+		type scopeTask struct {
+			driver.Task
+			trig, step *channel.Channel
+			key        task.Key
+		}
+
+		// startScopeTask starts a task whose sequence main has the stages first and
+		// second, then a last write. trig starts main, and step 1 and 2 leave the
+		// stages.
+		startScopeTask := func(ctx SpecContext, window telem.TimeSpan) scopeTask {
+			GinkgoHelper()
+			trig := createVirtualCh(ctx, "scope_trig", telem.Uint8T)
+			step := createVirtualCh(ctx, "scope_step", telem.Uint8T)
+			out := createVirtualCh(ctx, "scope_out", telem.Uint8T)
+			prog := arc.Text{Raw: fmt.Sprintf(`
 				sequence main {
 				    stage first {
 				        %[2]s == 1 => next
@@ -1429,58 +1437,109 @@ var _ = Describe("Task", Ordered, func() {
 
 				%[1]s => main
 			`, trig.Name, step.Name, out.Name)}
-				svcTask := task.Task{
-					Key:    uuid.New(),
-					Name:   "test-scope-status",
-					Type:   arctask.Type,
-					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
-				}
-				createTask(ctx, svcTask)
-				t := MustSucceed(newTextFactory(
-					ctx,
-					prog,
-					arctask.FactoryConfig{StatusWindow: telem.Millisecond},
-				).ConfigureTask(ctx, svcTask, "cmd-1"))
-				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-scope-status",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(newTextFactory(
+				ctx,
+				prog,
+				arctask.FactoryConfig{StatusWindow: window},
+			).ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			DeferCleanup(func() { Expect(t.Stop(true)).To(Succeed()) })
+			return scopeTask{Task: t, trig: trig, step: step, key: svcTask.Key}
+		}
 
-				write := func(ch *channel.Channel, v uint8) {
-					GinkgoHelper()
-					w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
-						Keys:  []channel.Key{ch.Key()},
-						Start: telem.Now(),
-					}))
-					Expect(
-						w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV(v))),
-					).To(BeTrue())
-					Expect(w.Close()).To(Succeed())
-				}
-				expectScopes := func(message string, paths ...[]string) {
-					GinkgoHelper()
-					Eventually(func(g Gomega) {
-						var stat task.Status
-						g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
-							Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
-							Entry(&stat).Exec(ctx, db)).To(Succeed())
-						g.Expect(stat.Message).To(Equal(message))
-						g.Expect(stat.Variant).To(BeEquivalentTo("success"))
-						g.Expect(stat.Details.Running).To(BeTrue())
-						var data arctask.StatusData
-						g.Expect(stat.Details.Data.Unmarshal(&data)).To(Succeed())
-						g.Expect(data.Scopes).To(HaveLen(len(paths)))
-						for i, p := range paths {
-							g.Expect(data.Scopes[i].Path).To(Equal(p))
-						}
-					}).Should(Succeed())
-				}
+		write := func(ctx SpecContext, ch *channel.Channel, v uint8) {
+			GinkgoHelper()
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{ch.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV(v)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+		}
 
-				expectScopes("Idle")
-				write(trig, 1)
-				expectScopes("Running main › first", []string{"main", "first"})
-				write(step, 1)
-				expectScopes("Running main › second", []string{"main", "second"})
-				write(step, 2)
-				expectScopes("Idle")
+		retrieveStatus := func(ctx context.Context, key task.Key) (task.Status, error) {
+			var stat task.Status
+			err := statusSvc.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchOwners[task.StatusDetails](task.ResourceID(key))).
+				Entry(&stat).Exec(ctx, db)
+			return stat, err
+		}
+
+		matchScopes := func(
+			ctx SpecContext,
+			key task.Key,
+			message string,
+			paths ...[]string,
+		) func(g Gomega) {
+			return func(g Gomega) {
+				stat, err := retrieveStatus(ctx, key)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(stat.Message).To(Equal(message))
+				g.Expect(stat.Variant).To(BeEquivalentTo("success"))
+				g.Expect(stat.Details.Running).To(BeTrue())
+				var data arctask.StatusData
+				g.Expect(stat.Details.Data.Unmarshal(&data)).To(Succeed())
+				g.Expect(data.Scopes).To(HaveLen(len(paths)))
+				for i, p := range paths {
+					g.Expect(data.Scopes[i].Path).To(Equal(p))
+				}
+			}
+		}
+
+		It(
+			"Should show each start, stage change, and end of a sequence",
+			func(ctx SpecContext) {
+				t := startScopeTask(ctx, telem.Millisecond)
+				Eventually(matchScopes(ctx, t.key, "Idle")).Should(Succeed())
+				write(ctx, t.trig, 1)
+				Eventually(matchScopes(
+					ctx, t.key, "Running main › first", []string{"main", "first"},
+				)).Should(Succeed())
+				write(ctx, t.step, 1)
+				Eventually(matchScopes(
+					ctx, t.key, "Running main › second", []string{"main", "second"},
+				)).Should(Succeed())
+				write(ctx, t.step, 2)
+				Eventually(matchScopes(ctx, t.key, "Idle")).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should clear the scopes on a stop and show them again on a restart",
+			func(ctx SpecContext) {
+				t := startScopeTask(ctx, telem.Millisecond)
+				Eventually(matchScopes(ctx, t.key, "Idle")).Should(Succeed())
+				Expect(t.Exec(ctx, task.Command{Type: "stop", Key: "cmd-stop"})).
+					To(Succeed())
+				stat := MustSucceed(retrieveStatus(ctx, t.key))
+				Expect(stat.Message).To(Equal("Stopped task"))
+				Expect(stat.Details.Data).To(BeNil())
+				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
+					To(Succeed())
+				Eventually(matchScopes(ctx, t.key, "Idle")).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should merge the scope changes inside a window into the newest one",
+			func(ctx SpecContext) {
+				t := startScopeTask(ctx, 2*telem.Second)
+				Eventually(matchScopes(ctx, t.key, "Idle")).Should(Succeed())
+				write(ctx, t.trig, 1)
+				write(ctx, t.step, 1)
+				Consistently(matchScopes(ctx, t.key, "Idle")).
+					WithTimeout(300 * time.Millisecond).
+					Should(Succeed())
+				Eventually(matchScopes(
+					ctx, t.key, "Running main › second", []string{"main", "second"},
+				)).WithTimeout(5 * time.Second).Should(Succeed())
 			},
 		)
 

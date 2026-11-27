@@ -221,7 +221,7 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 		return nil, err
 	}
 	t.sCtx = sCtx
-	// The writer outlives the graceful shutdown, which waits for the runtime to end.
+	// Closers run in reverse order, so the writer stops after the runtime has ended.
 	scopesCtx, stopScopes := context.WithCancel(context.Background())
 	scopesDone := make(chan struct{})
 	go func() {
@@ -230,13 +230,13 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 	}()
 	closers = append(
 		closers,
-		signal.NewGracefulShutdown(sCtx, cancel),
-		in.closeSignal,
 		xio.CloserFunc(func() error {
 			stopScopes()
 			<-scopesDone
 			return nil
 		}),
+		signal.NewGracefulShutdown(sCtx, cancel),
+		in.closeSignal,
 	)
 	t.closer, closers = closers, nil
 	return func() { pipeline.Flow(sCtx, opts...) }, nil
@@ -781,8 +781,9 @@ func (t *impl) writeScopes(ctx context.Context, scopes *pendingScopes) {
 			return
 		case <-window.C:
 		}
+		// A stop waits for the write in progress instead of canceling it.
 		if paths, ok := scopes.take(); ok {
-			t.setScopes(ctx, paths)
+			t.setScopes(context.WithoutCancel(ctx), paths)
 		}
 		window.Reset(t.factoryCfg.StatusWindow.Duration())
 	}

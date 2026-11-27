@@ -4037,6 +4037,10 @@ sequence main {
     const auto data = scope_status::data_of(status);
     ASSERT_EQ(data.scopes.size(), 1);
     EXPECT_EQ(data.scopes[0].path, (std::vector<std::string>{"main", "hold"}));
+    r.task->stop("stop", true);
+    const auto stopped = scope_status::last(ctx);
+    EXPECT_EQ(stopped.message, "Stopped task");
+    EXPECT_FALSE(stopped.details.data.has_value());
 }
 
 /// @brief it should show that the program is idle after its sequence ends.
