@@ -42,6 +42,7 @@ import { group } from "@/group";
 import { icd } from "@/icd";
 import { imex } from "@/imex";
 import { label } from "@/label";
+import { labjack } from "@/labjack";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
@@ -215,7 +216,10 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   http_server: null,
   icd: changes(icd.ACTION_CHANNEL_NAME, icd.DELETE_CHANNEL_NAME),
   label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
-  labjack_device: null,
+  labjack_device: changes(
+    labjack.device.SET_CHANNEL_NAME,
+    labjack.device.DELETE_CHANNEL_NAME,
+  ),
   lineplot: changes(lineplot.SET_CHANNEL_NAME, lineplot.DELETE_CHANNEL_NAME),
   log: changes(log.SET_CHANNEL_NAME, log.DELETE_CHANNEL_NAME),
   modbus_server: null,
@@ -275,6 +279,7 @@ export default class Synnax extends framer.Client {
   readonly tasks: task.Client;
   readonly racks: rack.Client;
   readonly devices: device.Client;
+  readonly labjack: labjack.Client;
   readonly ni: ni.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
@@ -509,6 +514,7 @@ export default class Synnax extends framer.Client {
       cache,
       statuses: this.statuses,
     });
+    this.labjack = new labjack.Client({ unary, cache, statuses: this.statuses });
     this.ni = new ni.Client({ unary, cache, statuses: this.statuses });
     this.arcs = new arc.Client({
       unary,
