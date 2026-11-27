@@ -77,14 +77,20 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to runtime.DefaultLoopBudget.
 	LoopBudget int64
+	// StatusWindow is the least time between two statuses that show the active scopes
+	// of a task's program. Changes inside the window merge into the last one.
+	//
+	// [OPTIONAL] - Defaults to telem.Second.
+	StatusWindow telem.TimeSpan
 	alamos.Instrumentation
 }
 
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
 	DefaultFactoryConfig                              = FactoryConfig{
-		Now:        telem.Now,
-		LoopBudget: runtime.DefaultLoopBudget,
+		Now:          telem.Now,
+		LoopBudget:   runtime.DefaultLoopBudget,
+		StatusWindow: telem.Second,
 	}
 )
 
@@ -98,6 +104,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Now = override.Nil(c.Now, other.Now)
 	c.LoopBudget = override.Numeric(c.LoopBudget, other.LoopBudget)
+	c.StatusWindow = override.Numeric(c.StatusWindow, other.StatusWindow)
 	return c
 }
 
@@ -110,6 +117,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("get_program", c.GetProgram)
 	v.NotNil("ranger", c.Ranger)
 	v.Positive("loop_budget", c.LoopBudget)
+	v.Positive("status_window", c.StatusWindow)
 	return v.Error()
 }
 

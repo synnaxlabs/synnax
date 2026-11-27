@@ -963,14 +963,15 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("FactoryConfig", func() {
 		full := func() arctask.FactoryConfig {
 			return arctask.FactoryConfig{
-				DB:         db,
-				Channel:    channelSvc,
-				Framer:     framerSvc,
-				Status:     statusSvc,
-				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
-				Ranger:     rangerSvc,
-				Now:        telem.Now,
-				LoopBudget: 1000,
+				DB:           db,
+				Channel:      channelSvc,
+				Framer:       framerSvc,
+				Status:       statusSvc,
+				GetProgram:   func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
+				Ranger:       rangerSvc,
+				Now:          telem.Now,
+				LoopBudget:   1000,
+				StatusWindow: telem.Second,
 			}
 		}
 
@@ -1021,6 +1022,11 @@ var _ = Describe("Task", Ordered, func() {
 					func(c *arctask.FactoryConfig) { c.LoopBudget = 0 },
 					"loop_budget",
 				),
+				Entry(
+					"status_window",
+					func(c *arctask.FactoryConfig) { c.StatusWindow = 0 },
+					"status_window",
+				),
 			)
 		})
 
@@ -1035,6 +1041,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.GetProgram).ToNot(BeNil())
 				Expect(merged.Now).ToNot(BeNil())
 				Expect(merged.LoopBudget).To(Equal(src.LoopBudget))
+				Expect(merged.StatusWindow).To(Equal(src.StatusWindow))
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -1429,9 +1436,11 @@ var _ = Describe("Task", Ordered, func() {
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
-				t := MustSucceed(
-					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
-				)
+				t := MustSucceed(newTextFactory(
+					ctx,
+					prog,
+					arctask.FactoryConfig{StatusWindow: telem.Millisecond},
+				).ConfigureTask(ctx, svcTask, "cmd-1"))
 				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 

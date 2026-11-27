@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	stdstrings "strings"
+	"sync"
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -176,7 +177,8 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = t.newScheduler(f, &drt); err != nil {
+	scopes := newPendingScopes()
+	if err = t.newScheduler(f, &drt, scopes); err != nil {
 		return nil, err
 	}
 	drt.startReading = timer.Now()
@@ -212,10 +214,22 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 		return nil, err
 	}
 	t.sCtx = sCtx
+	// The writer outlives the graceful shutdown, which waits for the runtime to end.
+	scopesCtx, stopScopes := context.WithCancel(context.Background())
+	scopesDone := make(chan struct{})
+	go func() {
+		defer close(scopesDone)
+		t.writeScopes(scopesCtx, scopes)
+	}()
 	closers = append(
 		closers,
 		signal.NewGracefulShutdown(sCtx, cancel),
 		in.closeSignal,
+		xio.CloserFunc(func() error {
+			stopScopes()
+			<-scopesDone
+			return nil
+		}),
 	)
 	t.closer, closers = closers, nil
 	return func() { pipeline.Flow(sCtx, opts...) }, nil
@@ -420,7 +434,11 @@ func (t *impl) instantiate(
 }
 
 // newScheduler creates the nodes of the program with f and sets the scheduler of drt.
-func (t *impl) newScheduler(f node.CompoundFactory, drt *dataRuntime) error {
+func (t *impl) newScheduler(
+	f node.CompoundFactory,
+	drt *dataRuntime,
+	scopes *pendingScopes,
+) error {
 	nodes := make(map[string]node.Node)
 	for _, irNode := range t.prog.Program.Nodes {
 		n, err := f.Create(node.Config{
@@ -456,7 +474,7 @@ func (t *impl) newScheduler(f node.CompoundFactory, drt *dataRuntime) error {
 			},
 		),
 	)
-	sched.SetScopeHandler(t.setScopes)
+	sched.SetScopeHandler(scopes.put)
 	drt.scheduler = sched
 	return nil
 }
@@ -705,6 +723,62 @@ func scopeText(data StatusData) (message, description string) {
 		paths[i] = stdstrings.Join(sc.Path, pathSeparator)
 	}
 	return "Running " + stdstrings.Join(paths, ", "), ""
+}
+
+// pendingScopes holds the latest active paths of a program until a writer takes them.
+type pendingScopes struct {
+	mu    sync.Mutex
+	paths [][]string
+	set   bool
+	// ready holds a signal while paths wait for the writer.
+	ready chan struct{}
+}
+
+func newPendingScopes() *pendingScopes {
+	return &pendingScopes{ready: make(chan struct{}, 1)}
+}
+
+// put replaces the pending paths. It never blocks, so the runtime cycle calls it.
+func (p *pendingScopes) put(_ context.Context, paths [][]string) {
+	p.mu.Lock()
+	p.paths, p.set = paths, true
+	p.mu.Unlock()
+	select {
+	case p.ready <- struct{}{}:
+	default:
+	}
+}
+
+// take returns the pending paths and clears them. ok is false when none wait.
+func (p *pendingScopes) take() (paths [][]string, ok bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	paths, ok = p.paths, p.set
+	p.paths, p.set = nil, false
+	return paths, ok
+}
+
+// writeScopes shows each pending set of paths in the task status, at most once per
+// StatusWindow, until ctx ends.
+func (t *impl) writeScopes(ctx context.Context, scopes *pendingScopes) {
+	window := stdtime.NewTimer(0)
+	defer window.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-scopes.ready:
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-window.C:
+		}
+		if paths, ok := scopes.take(); ok {
+			t.setScopes(ctx, paths)
+		}
+		window.Reset(t.factoryCfg.StatusWindow.Duration())
+	}
 }
 
 // setScopes shows the active paths of the program in the status of the task.

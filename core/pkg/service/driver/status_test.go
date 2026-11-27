@@ -305,6 +305,68 @@ var _ = Describe("StatusHandler", func() {
 		})
 	})
 
+	Describe("SendRunning", func() {
+		data := msgpack.EncodedJSON{"scopes": []any{}}
+
+		It(
+			"should write the text and data of a running instance",
+			func(ctx SpecContext) {
+				Expect(handler.Send(
+					ctx, "cmd-1", status.VariantSuccess, true, "Started task", "",
+				)).To(Succeed())
+				Expect(handler.SendRunning(ctx, "Idle", "waits", data)).To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(stat.Message).To(Equal("Idle"))
+				Expect(stat.Description).To(Equal("waits"))
+				Expect(stat.Details.Running).To(BeTrue())
+				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+				Expect(stat.Details.Data).To(HaveKey("scopes"))
+			},
+		)
+
+		It("should replace an active warning", func(ctx SpecContext) {
+			Expect(handler.Send(
+				ctx, "cmd-1", status.VariantSuccess, true, "Started task", "",
+			)).To(Succeed())
+			Expect(handler.Warn(ctx, driver.Warning{Message: "Node failed"})).
+				To(Succeed())
+			Expect(handler.SendRunning(ctx, "Idle", "", data)).To(Succeed())
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Idle"))
+		})
+
+		DescribeTable("should write nothing",
+			func(ctx SpecContext, variant status.Variant, running bool) {
+				Expect(handler.Send(
+					ctx, "cmd-1", variant, running, "Before", "",
+				)).To(Succeed())
+				Expect(handler.SendRunning(ctx, "Idle", "", data)).To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Message).To(Equal("Before"))
+				Expect(stat.Details.Data).To(BeNil())
+			},
+			Entry("when the instance does not run", status.VariantSuccess, false),
+			Entry("when the instance reports an error", status.VariantError, true),
+		)
+
+		It(
+			"should leave the status as it was after a failed write",
+			func(ctx SpecContext) {
+				Expect(handler.Send(
+					ctx, "cmd-1", status.VariantSuccess, true, "Started task", "",
+				)).To(Succeed())
+				setUnreadable(ctx)
+				Expect(handler.SendRunning(ctx, "Idle", "", data)).
+					To(MatchError(ContainSubstring("failed to decode")))
+				deleteStored(ctx)
+				Expect(handler.Ack(ctx, "cmd-2", true)).To(Succeed())
+				Expect(retrieve(ctx).Message).To(Equal("Started task"))
+			},
+		)
+	})
+
 	Describe("Ack", func() {
 		It("should attribute the current status to the command unchanged",
 			func(ctx SpecContext) {

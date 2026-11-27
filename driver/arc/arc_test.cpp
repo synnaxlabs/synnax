@@ -3909,6 +3909,8 @@ std::string replace(std::string s, const std::string &from, const std::string &t
 /// @brief an Arc task that runs, and the context that holds its statuses.
 struct Run {
     std::shared_ptr<driver::task::MockContext> ctx;
+    std::shared_ptr<driver::pipeline::testutil::WriterFactory> writer;
+    synnax::channel::Key out = 0;
     std::unique_ptr<arc::Task> task;
 
     Run() = default;
@@ -3967,12 +3969,13 @@ Run run(const std::string &source, const std::vector<float> &pressures) {
         frames->push_back(std::move(fr));
     }
     auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto writer = std::make_shared<driver::pipeline::testutil::WriterFactory>();
     auto tsk = ASSERT_NIL_P(
         arc::Task::create(
             meta,
             ctx,
             cfg,
-            std::make_shared<driver::pipeline::testutil::WriterFactory>(),
+            writer,
             driver::pipeline::testutil::simple_streamer_factory(
                 {start.key, pt.key},
                 frames
@@ -3982,6 +3985,8 @@ Run run(const std::string &source, const std::vector<float> &pressures) {
     tsk->start("start");
     Run r;
     r.ctx = ctx;
+    r.writer = writer;
+    r.out = out.key;
     r.task = std::move(tsk);
     return r;
 }
@@ -4043,6 +4048,11 @@ sequence main {
         {60}
     );
     const auto &ctx = r.ctx;
+    ASSERT_EVENTUALLY_TRUE(
+        std::ranges::any_of(r.writer->writes->snapshot(), [&r](const auto &fr) {
+            return fr.contains(r.out);
+        })
+    );
     ASSERT_EVENTUALLY_EQ(scope_status::last(ctx).message, "Idle");
     const auto status = scope_status::last(ctx);
     EXPECT_TRUE(status.details.running);
