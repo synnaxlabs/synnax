@@ -145,8 +145,6 @@ core: &core
   - *gorp
   - *x_go
   - core/**
-  # The codec specs read the golden frames that all four codecs share.
-  - x/testdata/framecodec/**
 
 arc_ts: &arc_ts
   - *ts
@@ -191,7 +189,7 @@ client_ts: &client_ts
   - core/testdata/filter/**
   - core/testdata/orphans/**
   # The codec specs read the golden frames that all four codecs share.
-  - x/testdata/framecodec/**
+  - core/testdata/framecodec/**
 
 pluto: &pluto
   - *alamos_ts
@@ -296,7 +294,7 @@ client_py: &client_py
   - *x_py
   - client/py/**
   # The codec tests read the golden frames that all four codecs share.
-  - x/testdata/framecodec/**
+  - core/testdata/framecodec/**
 
 exports_go:
   - *core
@@ -359,7 +357,7 @@ client_cpp: &client_cpp
   - core/**/BUILD.bazel
   - vendor/wasmtime/**
   # The codec tests read the golden frames that all four codecs share.
-  - x/testdata/framecodec/**
+  - core/testdata/framecodec/**
 
 driver: &driver
   - *arc_cpp
