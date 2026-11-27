@@ -46,7 +46,7 @@ class States {
         x::control::Subject subject;
         std::unordered_map<synnax::channel::Key, x::control::Authority> authorities;
         std::uint64_t order = 0;
-        std::function<void()> on_connect;
+        std::function<bool()> on_connect;
     };
 
     mutable std::shared_mutex mu;
@@ -202,18 +202,21 @@ class States {
 
     /// @brief calls the on_connect of the earliest gate not open on the Core that has
     /// not had it since the last set, so the writers reopen on the Core in gate order
-    /// and the Core breaks their ties as the gates do. Requires mu.
+    /// and the Core breaks their ties as the gates do. Moves on to the next gate when
+    /// on_connect returns false. Requires mu.
     void connect_next_locked() {
-        const Gate *next = nullptr;
-        for (const auto &[key, g]: this->gates) {
-            if (!g.on_connect || this->on_core.contains(key) ||
-                this->signalled.contains(key))
-                continue;
-            if (next == nullptr || g.order < next->order) next = &g;
+        while (true) {
+            const Gate *next = nullptr;
+            for (const auto &[key, g]: this->gates) {
+                if (!g.on_connect || this->on_core.contains(key) ||
+                    this->signalled.contains(key))
+                    continue;
+                if (next == nullptr || g.order < next->order) next = &g;
+            }
+            if (next == nullptr) return;
+            this->signalled.insert(next->subject.key);
+            if (next->on_connect()) return;
         }
-        if (next == nullptr) return;
-        this->signalled.insert(next->subject.key);
-        next->on_connect();
     }
 
     /// @brief applies to every channel the increases of the writers open on the Core,
@@ -582,13 +585,14 @@ public:
     /// @brief opens a gate for a local writer with the authorities it opens with, one
     /// for all channels or one per channel. An empty list means absolute authority.
     /// @param on_connect called once after each set that marks the Core connected,
-    /// once the earlier gates opened on the Core, until the gate closes. It runs under
-    /// the lock of the States, so it must not call them.
+    /// once the earlier gates opened on the Core, until the gate closes. It returns
+    /// false when the writer cannot reopen, so the next gate goes at once. It runs
+    /// under the lock of the States, so it must not call them.
     void open_gate(
         const x::control::Subject &subject,
         const std::vector<synnax::channel::Key> &channels,
         const std::vector<x::control::Authority> &authorities,
-        std::function<void()> on_connect = nullptr
+        std::function<bool()> on_connect = nullptr
     ) {
         std::unique_lock lock(this->mu);
         this->gate(subject).on_connect = std::move(on_connect);

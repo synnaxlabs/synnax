@@ -682,13 +682,16 @@ public:
     /// @brief ends the current backoff from an unreachable Core, or the next one, so
     /// the forwarder opens the Core writer again at once. Does nothing while a Core
     /// writer is open.
-    void retry() {
+    /// @returns false when the forwarder stopped, so it will not open again.
+    bool retry() {
         {
             std::lock_guard lock(this->mu);
-            if (this->current != nullptr) return;
+            if (this->err || this->done) return false;
+            if (this->current != nullptr) return true;
             this->retrying = true;
         }
         this->cv.notify_one();
+        return true;
     }
 
     /// @brief sends what the queue holds while the Core is reachable, for at most

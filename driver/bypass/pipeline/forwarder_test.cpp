@@ -980,4 +980,13 @@ TEST(ForwarderTest, ReportsAFailedOpenAsAClose) {
     ASSERT_NIL(forwarder.close());
     ASSERT_EQ(closes.load(), 2);
 }
+
+/// @brief it should report that it will not reopen once a Core error stopped it.
+TEST(ForwarderTest, RetryReportsAStoppedForwarder) {
+    const auto server = factory({x::errors::VALIDATION});
+    Forwarder forwarder(server, {.channels = {1}});
+    ASSERT_OCCURRED_AS(forwarder.opened(), x::errors::VALIDATION);
+    ASSERT_FALSE(forwarder.retry());
+    ASSERT_OCCURRED_AS(forwarder.close(), x::errors::VALIDATION);
+}
 }

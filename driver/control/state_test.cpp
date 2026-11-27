@@ -1021,7 +1021,10 @@ TEST(StatesTest, SetPredictsTheIncreasesOfWritersOpenOnTheCore) {
 TEST(StatesTest, SetCallsOnConnectOfOpenGates) {
     States states;
     size_t calls = 0;
-    states.open_gate(ARC, {1}, {200}, [&calls] { calls++; });
+    states.open_gate(ARC, {1}, {200}, [&calls] {
+        calls++;
+        return true;
+    });
     states.disconnect();
     states.set({});
     ASSERT_EQ(calls, 1);
@@ -1091,9 +1094,13 @@ TEST(StatesTest, DisconnectOutdatesAnOpenRead) {
 TEST(StatesTest, SetConnectsGatesInGateOrder) {
     States states;
     std::vector<std::string> calls;
-    states.open_gate(ARC, {1}, {100}, [&calls] { calls.emplace_back("arc"); });
+    states.open_gate(ARC, {1}, {100}, [&calls] {
+        calls.emplace_back("arc");
+        return true;
+    });
     states.open_gate(OPERATOR, {1}, {100}, [&calls] {
         calls.emplace_back("operator");
+        return true;
     });
     states.disconnect();
     states.set({});
@@ -1108,9 +1115,13 @@ TEST(StatesTest, SetConnectsGatesInGateOrder) {
 TEST(StatesTest, SetConnectsTheNextGateWhenAReopenFails) {
     States states;
     std::vector<std::string> calls;
-    states.open_gate(ARC, {1}, {100}, [&calls] { calls.emplace_back("arc"); });
+    states.open_gate(ARC, {1}, {100}, [&calls] {
+        calls.emplace_back("arc");
+        return true;
+    });
     states.open_gate(OPERATOR, {1}, {100}, [&calls] {
         calls.emplace_back("operator");
+        return true;
     });
     states.disconnect();
     states.set({});
@@ -1123,9 +1134,13 @@ TEST(StatesTest, SetConnectsTheNextGateWhenAReopenFails) {
 TEST(StatesTest, CloseGateConnectsTheNextGate) {
     States states;
     std::vector<std::string> calls;
-    states.open_gate(ARC, {1}, {100}, [&calls] { calls.emplace_back("arc"); });
+    states.open_gate(ARC, {1}, {100}, [&calls] {
+        calls.emplace_back("arc");
+        return true;
+    });
     states.open_gate(OPERATOR, {1}, {100}, [&calls] {
         calls.emplace_back("operator");
+        return true;
     });
     states.disconnect();
     states.set({});
@@ -1133,5 +1148,23 @@ TEST(StatesTest, CloseGateConnectsTheNextGate) {
     ASSERT_EQ(calls, (std::vector<std::string>{"arc", "operator"}));
     states.closed_on_core(ARC);
     ASSERT_EQ(calls.size(), 2);
+}
+
+/// @brief it should ask the next writer to reopen at once when the one asked before
+/// cannot reopen.
+TEST(StatesTest, SetSkipsAGateThatCannotReopen) {
+    States states;
+    std::vector<std::string> calls;
+    states.open_gate(ARC, {1}, {100}, [&calls] {
+        calls.emplace_back("arc");
+        return false;
+    });
+    states.open_gate(OPERATOR, {1}, {100}, [&calls] {
+        calls.emplace_back("operator");
+        return true;
+    });
+    states.disconnect();
+    states.set({});
+    ASSERT_EQ(calls, (std::vector<std::string>{"arc", "operator"}));
 }
 }

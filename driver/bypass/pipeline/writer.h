@@ -150,7 +150,7 @@ public:
             cfg.subject,
             cfg.channels,
             cfg.authorities,
-            [f = forwarder.get()] { f->retry(); }
+            [f = forwarder.get()] { return f->retry(); }
         );
         VLOG(1) << "[bus.writer_factory] opened writer for " << cfg.channels.size()
                 << " channels, group=" << this->group;
