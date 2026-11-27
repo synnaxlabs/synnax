@@ -144,6 +144,30 @@ var _ = Describe("Storage stream", func() {
 		Expect(sCtx.Wait()).To(Succeed())
 	})
 
+	DescribeTable("Should name the command of a read in each of its data responses",
+		func(ctx SpecContext, seek, read iterator.Command) {
+			s := DeferClose(openScenario(ctx))
+			writeStamps(ctx, s.dist, s.keys)
+			stream := openStream(ctx, s.dist, s.keys, 3)
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			requests, responses := confluence.Attach(stream, 1)
+			stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			requests.Inlet() <- iterator.Request{Command: seek}
+			Eventually(responses.Outlet()).Should(Receive(HaveField("Ack", true)))
+			requests.Inlet() <- iterator.Request{Command: read, Span: iterator.AutoSpan}
+			var res iterator.Response
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			Expect(res.Variant).To(Equal(iterator.ResponseVariantData))
+			Expect(res.Command).To(Equal(read))
+			Eventually(responses.Outlet()).Should(Receive(HaveField("Ack", true)))
+			requests.Close()
+			Expect(sCtx.Wait()).To(Succeed())
+		},
+		Entry("Next", iterator.CommandSeekFirst, iterator.CommandNext),
+		Entry("Prev", iterator.CommandSeekLast, iterator.CommandPrev),
+	)
+
 	It("Should close its iterator when it flows in a canceled context", func(
 		ctx SpecContext,
 	) {
