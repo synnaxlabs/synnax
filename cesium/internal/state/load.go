@@ -49,6 +49,7 @@ func (c *core) load(s *Snapshot) error {
 			c.segments[seg.ID] = st
 			cs.segs = append(cs.segs, st)
 		}
+		cs.respan()
 		if err := checkApart(ch); err != nil {
 			return err
 		}
@@ -130,6 +131,7 @@ func (c *core) endReplay() {
 		}
 	}
 	for _, ch := range c.channels {
+		ch.respan()
 		ch.publish()
 	}
 }

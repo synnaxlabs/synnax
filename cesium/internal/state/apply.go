@@ -60,7 +60,7 @@ func newCore(versions set.Set[uint16]) *core {
 func (c *core) channel(key uint32) *keyEntry {
 	ch, ok := c.channels[key]
 	if !ok {
-		ch = &keyEntry{key: key}
+		ch = &keyEntry{key: key, visSpan: noSpan(), durSpan: noSpan()}
 		c.channels[key] = ch
 		c.keysChanged = true
 	}
@@ -218,6 +218,8 @@ func (c *core) commit(r *log.Commit) error {
 			s.dur.length, slot.Length, r.Samples)
 		s.dur.pointers = extend(s.dur.pointers, p, extended, true)
 		s.dur.span = s.dur.span.cover(p)
+		ch := c.channels[s.key]
+		ch.durSpan = ch.durSpan.cover(p)
 		s.dur.length, s.dur.tailCRC = slot.Length, slot.TailCRC
 	}
 	return nil

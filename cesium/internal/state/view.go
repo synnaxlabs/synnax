@@ -63,7 +63,11 @@ func spanOf(ptrs []Pointer) span {
 
 // cover returns s grown to cover p.
 func (s span) cover(p Pointer) span {
-	return span{first: min(s.first, p.First), last: max(s.last, p.Last)}
+	return s.join(span{first: p.First, last: p.Last})
+}
+
+func (s span) join(o span) span {
+	return span{first: min(s.first, o.first), last: max(s.last, o.last)}
 }
 
 func (s span) overlaps(first, last telem.TimeStamp) bool {
@@ -77,6 +81,8 @@ type keyEntry struct {
 	segs   []*segEntry
 	claims []*claim
 	pub    atomic.Pointer[Channel]
+	// visSpan and durSpan join the spans of every segment in each view.
+	visSpan, durSpan span
 }
 
 // insert adds s to c in order of identity.
@@ -89,17 +95,27 @@ func (c *keyEntry) insert(s *segEntry) {
 
 func (c *keyEntry) remove(id uint64) {
 	c.segs = slices.DeleteFunc(c.segs, func(s *segEntry) bool { return s.vis.ID == id })
+	c.respan()
+}
+
+// respan sets the spans of c from the spans of its segments.
+func (c *keyEntry) respan() {
+	c.visSpan, c.durSpan = noSpan(), noSpan()
+	for _, s := range c.segs {
+		c.visSpan, c.durSpan = c.visSpan.join(s.visSpan), c.durSpan.join(s.dur.span)
+	}
 }
 
 // checkViews panics when the pointers of c, in the visible view or the durable one, are
 // not apart in time, or not in stream order inside a segment, or when a durable view
-// runs past the visible one, or a span is not the span of its pointers. It runs only in
-// a build with invariants.
+// runs past the visible one, or a span of c or of a segment is not the span of its
+// pointers. It runs only in a build with invariants.
 func (c *keyEntry) checkViews() {
 	if !invariants.Enabled {
 		return
 	}
 	vis, dur := &Channel{Key: c.key}, &Channel{Key: c.key}
+	visSpan, durSpan := noSpan(), noSpan()
 	for _, s := range c.segs {
 		if s.dur.length > s.vis.Length || len(s.dur.pointers) > len(s.vis.Pointers) {
 			panic(errors.Newf("state: durable view of segment %d runs past its "+
@@ -108,6 +124,7 @@ func (c *keyEntry) checkViews() {
 		if s.visSpan != spanOf(s.vis.Pointers) || s.dur.span != spanOf(s.dur.pointers) {
 			panic(errors.Newf("state: span of segment %d is stale", s.vis.ID))
 		}
+		visSpan, durSpan = visSpan.join(s.visSpan), durSpan.join(s.dur.span)
 		vis.Segments = append(vis.Segments, s.vis)
 		dur.Segments = append(
 			dur.Segments,
@@ -121,6 +138,9 @@ func (c *keyEntry) checkViews() {
 				}
 			}
 		}
+	}
+	if c.visSpan != visSpan || c.durSpan != durSpan {
+		panic(errors.Newf("state: span of key %d is stale", c.key))
 	}
 	for _, ch := range []*Channel{vis, dur} {
 		if err := checkApart(ch); err != nil {
@@ -139,13 +159,19 @@ func (c *keyEntry) publish() {
 }
 
 // overlaps returns the first pointer of c, in the durable view or the visible one, that
-// shares a stamp with [first, last], and false when there is none. It reads every
-// pointer of each segment whose span overlaps, since a backfill leaves the pointers of
-// a segment out of time order.
+// shares a stamp with [first, last], and false when there is none. It reads no segment
+// when the span of c misses, and every pointer of each segment whose span overlaps.
 func (c *keyEntry) overlaps(
 	first, last telem.TimeStamp,
 	durableView bool,
 ) (Pointer, bool) {
+	whole := c.visSpan
+	if durableView {
+		whole = c.durSpan
+	}
+	if !whole.overlaps(first, last) {
+		return Pointer{}, false
+	}
 	for _, s := range c.segs {
 		ptrs, sp := s.vis.Pointers, s.visSpan
 		if durableView {

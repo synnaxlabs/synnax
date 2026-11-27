@@ -504,8 +504,10 @@ func (s *State) commitVisible(w *Writer, c *log.Commit) error {
 		seg.vis.Pointers = extend(seg.vis.Pointers, p, extended, false)
 		seg.visSpan = seg.visSpan.cover(p)
 		seg.vis.Length, seg.vis.TailCRC = slot.Length, slot.TailCRC
-		s.core.channels[seg.key].checkViews()
-		s.core.channels[seg.key].publish()
+		ch := s.core.channels[seg.key]
+		ch.visSpan = ch.visSpan.cover(p)
+		ch.checkViews()
+		ch.publish()
 	}
 	return nil
 }
@@ -590,9 +592,11 @@ func (s *State) takeBack(w *Writer) []log.Seal {
 		}
 		seg.vis.Pointers, seg.visSpan = slices.Clone(seg.dur.pointers), seg.dur.span
 		seg.vis.Length, seg.vis.TailCRC = seg.dur.length, seg.dur.tailCRC
-		s.core.channels[seg.key].checkViews()
+		ch := s.core.channels[seg.key]
+		ch.respan()
+		ch.checkViews()
 		seals = append(seals, s.sealVisible(w, seg))
-		s.core.channels[seg.key].publish()
+		ch.publish()
 	}
 	sortSeals(seals)
 	return seals
