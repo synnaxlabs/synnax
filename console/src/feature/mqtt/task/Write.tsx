@@ -27,7 +27,6 @@ import {
 } from "react";
 
 import { Device } from "@/feature/mqtt/device";
-import { DEFAULT_WRITE_NAME } from "@/feature/mqtt/task/create";
 import type { Format, Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import { formatOf, type TopicPick } from "@/feature/mqtt/task/discover/Topics";
@@ -317,10 +316,6 @@ const DISCOVER_KIND: Kind<Addition> = {
   createTag: () => createSparkplugTarget(),
 };
 
-/** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string =>
-  name.trim() === "" ? DEFAULT_WRITE_NAME : name;
-
 const heldEntry = (target: WriteTarget): HeldEntry =>
   target.type === "plain"
     ? { type: "plain", topic: target.topic, messages: [] }
@@ -358,7 +353,6 @@ const Targets = ({
   onCreate,
 }: TargetsProps) => {
   const client = PSynnax.use();
-  const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
   const formats = ICD.useFormats();
   const list = PForm.useFieldListUtils(root.config.targets);
@@ -428,7 +422,7 @@ const Targets = ({
         client,
         formats,
         targets: plain,
-        name: icdName(ctx.get(root.name).value),
+        name: device.name,
         messages: inferred.map(({ topic, fields }) => ({ name: topic, fields })),
       });
       made.push(...messages.map((message) => ({ icd: key, message })));

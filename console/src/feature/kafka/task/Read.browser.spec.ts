@@ -863,7 +863,7 @@ describe("Kafka read form", () => {
   });
 
   describe("records", () => {
-    it("should create an ICD named after the task for the first record", async () => {
+    it("should create an ICD named after the device for the first record", async () => {
       const { draft, dev } = await renderRead();
       await screen.findByRole("treeitem", { name: /Topic.*oven/ });
       const dialog = await openAddData(dev, { data: sampleOf() });
@@ -876,7 +876,7 @@ describe("Kafka read form", () => {
       });
       expect(rec).toMatchObject({ recordKey: "", disabled: false });
       const format = await client.icds.retrieve(rec.icd);
-      expect(format.name).toBe("Kafka read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toMatchObject([
         {
           key: rec.messages[0].message,
@@ -1083,7 +1083,7 @@ describe("Kafka read form", () => {
       });
       expect(records.map(({ recordKey }) => recordKey)).toEqual(["oven-1", "oven-2"]);
       const format = await client.icds.retrieve(records[0].icd);
-      expect(format.name).toBe("Kafka read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toHaveLength(1);
       const [message] = format.messages;
       expect(message).toMatchObject({

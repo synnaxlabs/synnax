@@ -410,7 +410,7 @@ const retrieveFields = async (key: string): Promise<icd.JSONField[]> => {
 describe("MQTT read form", () => {
   // This first test pays the one-time load of the lazy form, which takes over 10 s on
   // a loaded CI runner.
-  it("should create a format named after the task and add later picks to it", async () => {
+  it("should create a format named after the device and add later picks to it", async () => {
     const TOPICS = [
       {
         topic: TOPIC,
@@ -452,7 +452,7 @@ describe("MQTT read form", () => {
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
     const [temperature, label] = await waitFor(async () => {
       const format = await client.icds.retrieve(entry.icd);
-      expect(format.name).toBe("MQTT read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toMatchObject([
         {
           key: entry.messages[0].message,
@@ -1055,7 +1055,7 @@ describe("MQTT read form", () => {
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
   });
 
-  it("should give the ICD a default name while the task has none", async () => {
+  it("should name a new ICD after the device while the task has no name", async () => {
     const { dev, draft } = await renderRead();
     const name = await screen.findByLabelText("Name");
     fireEvent.change(name, { target: { value: "" } });
@@ -1066,9 +1066,7 @@ describe("MQTT read form", () => {
       expect(entries).toHaveLength(1);
       return entries;
     });
-    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(
-      "MQTT read task",
-    );
+    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(dev.name);
   });
 
   it("should show the format of a field from the ICD of its entry", async () => {
