@@ -35,7 +35,7 @@ var _ = Describe("Handle", func() {
 			var b *segment.Budget
 			newBudget := func(limit int) *segment.Budget {
 				GinkgoHelper()
-				b = MustSucceed(segment.NewBudget(limit, 4, segment.GoExecutor))
+				b = MustSucceed(segment.NewBudget(limit, 4, goExec))
 				return b
 			}
 

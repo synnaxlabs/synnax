@@ -105,7 +105,7 @@ var _ = Describe("Segment", func() {
 			)
 			BeforeEach(func() {
 				fs = makeFS()
-				budget = MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
+				budget = MustSucceed(segment.NewBudget(4, 4, goExec))
 			})
 
 			create := func(c segment.Config) *segment.Writer {
@@ -246,7 +246,7 @@ var _ = Describe("Segment", func() {
 				"write a last piece with nothing staged from the caller's bytes",
 				func() {
 					ops := newOpFS(fs)
-					budget2 := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+					budget2 := MustSucceed(segment.NewBudget(1, 1, goExec))
 					h2 := MustSucceed(budget2.Create(ops, "4.seg"))
 					w := segment.NewWriter(h2, cfg)
 					Expect(w.Write(pattern(100))).To(Succeed())
@@ -383,7 +383,7 @@ var _ = Describe("Segment", func() {
 	}
 
 	It("Should refuse a write that grows the stream past 4 GiB", func() {
-		budget := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+		budget := MustSucceed(segment.NewBudget(1, 1, goExec))
 		h := MustSucceed(budget.Create(nullFS{FS: xfs.NewMem()}, "1.seg"))
 		w := segment.NewWriter(h, cfg)
 		chunk := make([]byte, 1<<20)

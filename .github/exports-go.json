@@ -343,20 +343,8 @@
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/segment",
-      "name": "Executor",
-      "caller": "sy-6398-17c-pointer-log-engine"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/segment",
       "name": "FixedTrailer",
       "caller": "sy-6568-18b-tombstones"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/segment",
-      "name": "GoExecutor",
-      "caller": "sy-6398-17c-pointer-log-engine"
     },
     {
       "module": "cesium",

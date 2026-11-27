@@ -27,6 +27,9 @@ import (
 // syncTimeout bounds each wait on a sync of the disk, which a busy machine slows.
 const syncTimeout = 10 * time.Second
 
+// goExec runs each function on a new goroutine.
+func goExec(f func()) { go f() }
+
 // queue is an executor that runs each function at once until held, and then holds each
 // until the test runs it.
 type queue struct {
@@ -70,14 +73,14 @@ func (q *queue) take() []func() {
 var _ = Describe("Budget", func() {
 	DescribeTable(
 		"Should refuse a budget with no limit, no width, or no executor",
-		func(limit, width int, exec segment.Executor, field string) {
+		func(limit, width int, exec func(f func()), field string) {
 			Expect(segment.NewBudget(limit, width, exec)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(field)),
 			))
 		},
-		Entry("no limit", 0, 32, segment.Executor(segment.GoExecutor), "limit"),
-		Entry("no width", 4, 0, segment.Executor(segment.GoExecutor), "width"),
+		Entry("no limit", 0, 32, goExec, "limit"),
+		Entry("no width", 4, 0, goExec, "width"),
 		Entry("no executor", 4, 32, nil, "executor"),
 	)
 
@@ -105,7 +108,7 @@ var _ = Describe("Budget", func() {
 			}
 
 			It("Should run at most its width of syncs at once across callers", func() {
-				b := MustSucceed(segment.NewBudget(16, 2, segment.GoExecutor))
+				b := MustSucceed(segment.NewBudget(16, 2, goExec))
 				first, second := dirty(b, 3, "a"), dirty(b, 3, "b")
 				release := fs.Hold()
 				done := make(chan error, 2)
@@ -126,7 +129,7 @@ var _ = Describe("Budget", func() {
 			It(
 				"Should return each failed sync, in order, and still sync the rest",
 				func() {
-					b := MustSucceed(segment.NewBudget(16, 32, segment.GoExecutor))
+					b := MustSucceed(segment.NewBudget(16, 32, goExec))
 					hs := dirty(b, 4, "")
 					fs.FailSync("1.seg", errInjected)
 					fs.FailSync("3.seg", errInjected)
@@ -254,7 +257,7 @@ var _ = Describe("Budget", func() {
 				"Should sync a handle that waits for its close without a slot of "+
 					"its own",
 				func() {
-					b := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+					b := MustSucceed(segment.NewBudget(1, 1, goExec))
 					hs := dirty(b, 1, "")
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)

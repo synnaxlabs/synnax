@@ -22,7 +22,7 @@ import (
 func BenchmarkWrite(b *testing.B) {
 	for _, size := range []int{512, 16 << 10, 1 << 20} {
 		b.Run(fmt.Sprintf("bytes=%d", size), func(b *testing.B) {
-			budget, err := segment.NewBudget(1, 4, segment.GoExecutor)
+			budget, err := segment.NewBudget(1, 4, goExec)
 			if err != nil {
 				b.Fatal(err)
 			}
