@@ -438,23 +438,27 @@ a format version it does not know.
 A log file is 64 MiB of zeros, written and synced before use (§5.3): `fs.FS` has no
 allocate call, and a written file gives each log sync no size change. Every entry but a
 delete (Tombstone, Intent, Drop), a Restart, and a Seal stops 1 MiB before the end, at
-the commit limit, so a delete can be logged on a full disk. The log owner takes its size
-as a `Config` field: 64 MiB in a database, and at least 8 MiB, so a 4 MiB entry fits
-before three quarters. `C` makes the file of the next log right after each switch, so a
-switch at three quarters finds it ready. A batch goes out as frames of at most 16 MiB,
-and a frame never ends past the commit limit unless it holds only deletes, Restarts, and
-Seals, and never past the end of the file. A frame that would cross three quarters goes
-to the next log once its file is ready; until then frames stop at those limits. The
-first commit entry that does not fit before them is refused, and so is every later
-commit entry in queue order, of every writer, until the next log is ready, so the log
-stays a prefix of queue order for commits; deletes, Restarts, and Seals still go. The
-log owner keeps the segments that each refused entry names and refuses each later entry
-that names one until its Seal, whatever the state of the log. On a refusal the state
-owner, which keeps each segment's holder, sends §5.4 step 4 to the holder of each named
-segment, so a segment that a handoff moved still takes the path. An entry larger than a
-frame is refused, so the compactor and progression encoding try no rewrite whose Replace
-would be larger than a frame. The file header is 64 bytes at offset 0, and again at
-4,096. Frames start at 8,192.
+the commit limit, so a delete can be logged on a full disk. The last 64 KiB of that room
+take only Restarts and the frames of the open check, so a start always has room, and no
+mark is written past the commit limit. The log owner takes its size as a `Config` field:
+64 MiB in a database, and at least 8 MiB, so a 4 MiB entry fits before three quarters.
+`C` makes the file of the next log right after each switch, so a switch at three
+quarters finds it ready. A batch goes out as frames of at most 16 MiB, and a frame never
+ends past the commit limit unless it holds only deletes, Restarts, and Seals, and never
+past the end of the file. A frame that would cross three quarters goes to the next log
+once its file is ready; until then frames stop at those limits. The first commit entry
+that does not fit before them is refused, and so is every later commit entry in queue
+order, of every writer, until the next log is ready, so the log stays a prefix of queue
+order for commits; deletes, Restarts, and Seals still go. The log owner keeps the
+segments that each refused entry names and refuses each later entry that names one until
+its Seal, whatever the state of the log. It sends a refusal only after the acks of each
+entry ahead of it, so no Seal falls below a logged Commit. A refusal sets the failed
+mark of each named segment, which moves with the segment in a handoff, so the segment's
+holder takes §5.4 step 4, and the state owner takes it for a segment that no writer
+holds. A segment whose Create the log did not take leaves the refused set with its file.
+An entry larger than a frame is refused, so the compactor and progression encoding try
+no rewrite whose Replace would be larger than a frame. The file header is 64 bytes at
+offset 0, and again at 4,096. Frames start at 8,192.
 
 | Offset | Size | Type     | Meaning                                                                                                                                                                                                                                |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -660,8 +664,8 @@ and the specs of the storage phases test each one (§12).
    segment, in the log or ahead of the Seal in the log owner's queue.
 3. **One claim**: A key holds at most one live claim (§5.8).
 4. **Durable before logged**: An entry is queued only after a sync of each segment that
-   it names passed, and each such sync started after the entry left the writer's current
-   entry.
+   its Commits and Creates name passed, and each such sync started after the entry left
+   the writer's current entry. A Seal at a durable length needs no sync.
 5. **One sync per file**: One sync of a file runs at a time, a failed sync marks the
    file before the next sync of it starts, and that sync returns the same error.
 6. **One holder**: Every open segment has at most one holder, the writer that created it
@@ -689,22 +693,21 @@ The steps:
    syncs its channel directory, and the root for a new directory, once. After its own
    sync of a segment returns, `Sync` checks the failed mark of that segment.
 4. The clock write is the unit of failure. When one segment is marked failed, the writer
-   sends no Commit: every segment of the clock write seals at its last durable length,
-   the visible samples of all its channels leave the pointer sets, and `Sync` returns
-   the error. Each segment of an entry that the log owner refuses (§5.2) takes the same
-   path at its holder, which the state owner names, so no later Commit builds on it, and
-   the visible samples of each key that the sealed clock range timed leave too. The
-   Seals of this step go in an entry of their own, ahead of the writer's next entry, so
-   no refusal holds them back, and a segment whose Create was refused goes with its file
-   and is not sealed. From a refusal until the next log is ready, and while a segment
-   write fails for space, the writer stores nothing: each write streams its frame with
-   numbers from 2^31 up, as an `Unstored` write does, and takes no identity and no
-   Reserve, and the writer raises the `ErrDiskFull` status. So live data, streams, and
-   control go on (D-425 (1)), and its first write that stores again starts new segments
-   under a new number. The next write takes a new alignment number, as after every
-   put-back. A writer takes this path only for segments that it holds: when a loser's
-   sync fails on a segment that a handoff moved, the failed mark stays, and the holder's
-   next `Sync` sees it and takes the path.
+   sends no Commit: it removes each record of the clock write's segments from its
+   pending list and current entry, every segment of the clock write seals at the end of
+   its last Commit that the log took, the visible samples of all its channels, and of
+   each key that the sealed clock range timed, leave the pointer sets, and `Sync`
+   returns the error. A segment whose Create the log did not take goes with its file and
+   is not sealed. A refused entry (§5.2) sets the failed marks that send its segments
+   here. In a refusal window the step logs no Seal: the state owner marks each such
+   segment sealed in both views at once, since it alone serves takeovers (invariant 7),
+   and the log owner writes those Seals in the first frame of the next log, as the
+   switch does with its own. A crash before then leaves the segment open at its durable
+   length, and the Restart seals it there. Outside a refusal window the step's Seals go
+   in an entry of their own, ahead of the writer's next entry. The writer then enters
+   the unstored state (below). A writer takes this path only for segments that it holds:
+   when a loser's sync fails on a segment that a handoff moved, the failed mark stays,
+   and the holder's next `Sync` sees it and takes the path.
 5. If not, `Sync` queues its pending list to the log owner, in list order, with the
    order of §5.2 inside each entry. An entry is queued only after the syncs of its
    segments pass (invariant 4), so no entry passes an earlier one, and the `Sync` task
@@ -716,6 +719,19 @@ The steps:
    no timer: a batch is what queued while the last sync ran. After a crash the recovered
    state is a prefix of entry order and holds every acked entry. Visible samples that no
    `Sync` covered are lost.
+
+**The unstored state**: A stored write that cannot store, for any cause, streams. The
+causes are a refusal window, which is a state of the database from a refusal until the
+next log is ready; a write that fails for space, with EIO, or on a read-only file
+system; a failed clock write (step 4); and a value that no durable Reserve holds while
+the log cannot take a Reserve. `Write` then returns its frame with numbers from 2^31 up,
+as an `Unstored` writer's, and the storage error, the framer relays that frame for a
+streaming session and raises a status named by the cause, and `Commit` and `Sync` return
+the error. An open in that state makes no file and starts unstored. So live data,
+streams, and control go on (D-425 (1)). When storing works again, the first write starts
+new segments only where step 4 sealed, each in the sealed segment's spare, under one new
+number. A `Bounded` writer never enters the state: its `Write`, `Commit`, and `Sync`
+return the error, so its caller keeps its copy (RFC 0113 §3.3).
 
 ### 5.5 Recovery
 
@@ -1039,19 +1055,19 @@ what repair could not save, and opens again. A repair that fails fails the start
 identity refusal (§9.0) is its own error, and the Core never repairs past it. Cesium
 does not panic.
 
-| Fault                                                                                         | What the engine sees                                                                                              | What it does                                                                                                                                                                                                                                                            |
-| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Crash                                                                                       | A torn or absent last frame, and segment bytes past committed lengths                                             | Cuts the tail (§5.5) and seals the open segments. Every acked entry is before the cut                                                                                                                                                                                   |
-| 2 Partial survival of unsynced blocks and names                                               | Any mix past a committed length or in a file that no record names, and a torn disk block that holds a durable end | The same cut, then the check of each durable end's disk block (§5.5 step 10). A named segment and its directory entry were synced before its entry was written                                                                                                          |
-| 3 Torn write                                                                                  | A frame with a missing sector fails its `crc`. No durable byte is written twice with other bytes                  | Cuts the frame as a torn tail. Handles a head with a zero header sector by §5.5 step 2                                                                                                                                                                                  |
-| 4 Lost directory entry                                                                        | A named file is never lost: `SyncDir` comes before the record. A removed file can come back                       | The orphan pass removes it. A log or part that a head names and that is missing is damage of that head, which the Core repairs at start. A missing segment fails its reads with `ErrCorrupt`                                                                            |
-| 5a One-time read fault                                                                        | The second read passes                                                                                            | No loss and no refusal                                                                                                                                                                                                                                                  |
-| 5b Lasting corruption before the confirmed offset of the log, or of a head                    | A bad frame with a valid frame or a linked header after it, or a bad chunk of a head                              | Log: `Open` returns `ErrCorrupt` and drops nothing, and the Core repairs (§6.0) and opens. Newest head: opens from the head before it and replays its logs. Both heads: as a bad log                                                                                    |
-| 5c Lasting corruption of a data block, a part, or a check file                                | A check that fails on two reads                                                                                   | That read returns `ErrCorrupt` with key, segment, and offset. The engine goes on, and the Core raises a status                                                                                                                                                          |
-| 5d Lasting corruption of any block of the last frame, before a later frame or mark is durable | The last frame fails, and nothing valid follows                                                                   | A torn tail: cut. That frame and the frames that share its first block are lost, durable acks included. A mark closes the window one log sync after the ack                                                                                                             |
-| 6 Misdirected write, stale bytes                                                              | The place differs, so the check fails where the block landed and where it should be                               | As 5b, 5c, or 5d, by position                                                                                                                                                                                                                                           |
-| 7 Sync error                                                                                  | The bytes after the last durable length of that file are unknown                                                  | Segment, or the directory of a new segment: the clock write fails (§5.4), and the file is never synced or written again. Log: no ack until the next log is synced (above). Head, part, or the root in a switch: the attempt is removed, and the next switch tries again |
-| 8 Full disk                                                                                   | A write fails with no space                                                                                       | The writer gets `ErrDiskFull`, and its length and CRC go back to the last commit. Until a write stores again, each write streams its frame unstored (§5.4 step 4), so control goes on. Reads go on. The log is already written, and its last 1 MiB takes deletes        |
+| Fault                                                                                         | What the engine sees                                                                                              | What it does                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Crash                                                                                       | A torn or absent last frame, and segment bytes past committed lengths                                             | Cuts the tail (§5.5) and seals the open segments. Every acked entry is before the cut                                                                                                                                                                                                                                              |
+| 2 Partial survival of unsynced blocks and names                                               | Any mix past a committed length or in a file that no record names, and a torn disk block that holds a durable end | The same cut, then the check of each durable end's disk block (§5.5 step 10). A named segment and its directory entry were synced before its entry was written                                                                                                                                                                     |
+| 3 Torn write                                                                                  | A frame with a missing sector fails its `crc`. No durable byte is written twice with other bytes                  | Cuts the frame as a torn tail. Handles a head with a zero header sector by §5.5 step 2                                                                                                                                                                                                                                             |
+| 4 Lost directory entry                                                                        | A named file is never lost: `SyncDir` comes before the record. A removed file can come back                       | The orphan pass removes it. A log or part that a head names and that is missing is damage of that head, which the Core repairs at start. A missing segment fails its reads with `ErrCorrupt`                                                                                                                                       |
+| 5a One-time read fault                                                                        | The second read passes                                                                                            | No loss and no refusal                                                                                                                                                                                                                                                                                                             |
+| 5b Lasting corruption before the confirmed offset of the log, or of a head                    | A bad frame with a valid frame or a linked header after it, or a bad chunk of a head                              | Log: `Open` returns `ErrCorrupt` and drops nothing, and the Core repairs (§6.0) and opens. Newest head: opens from the head before it and replays its logs. Both heads: as a bad log                                                                                                                                               |
+| 5c Lasting corruption of a data block, a part, or a check file                                | A check that fails on two reads                                                                                   | That read returns `ErrCorrupt` with key, segment, and offset. The engine goes on, and the Core raises a status                                                                                                                                                                                                                     |
+| 5d Lasting corruption of any block of the last frame, before a later frame or mark is durable | The last frame fails, and nothing valid follows                                                                   | A torn tail: cut. That frame and the frames that share its first block are lost, durable acks included. A mark closes the window one log sync after the ack                                                                                                                                                                        |
+| 6 Misdirected write, stale bytes                                                              | The place differs, so the check fails where the block landed and where it should be                               | As 5b, 5c, or 5d, by position                                                                                                                                                                                                                                                                                                      |
+| 7 Sync error                                                                                  | The bytes after the last durable length of that file are unknown                                                  | Segment, or the directory of a new segment: the clock write fails (§5.4), and the file is never synced or written again. Log: no ack until the next log is synced (above). Head, part, or the root in a switch: the attempt is removed, and the next switch tries again                                                            |
+| 8 Full disk                                                                                   | A write fails with no space                                                                                       | The writer gets `ErrDiskFull`, and its length and CRC go back to the last commit. Until a write stores again, each write streams its frame unstored (§5.4, the unstored state), so control goes on. EIO and a read-only file system take the same state. Reads go on. The log is already written, and its last 1 MiB takes deletes |
 
 **The metadata store**: Gorp runs on Pebble, the only channel registry, and its bounds
 are Pebble's (v2.1.7, measured on the crash harness). Lasting corruption of the last 32
@@ -1433,27 +1449,27 @@ syncs from the run key, so each interleaving case replays. Phase 6 extends `cras
 and adds no other test framework: a stream per record with R3 per stream, a fault gate
 on R0 and R3 for Visible acks, which a failed `Sync` takes back by design, a delete
 whose records never come back, a handoff event that moves records between streams with
-R3 per clock as well as per stream, and a `FullDisk` case at the commit limit. W1-N2's
-order is its own case: the loser's sync of a shared handle fails first, and the gainer's
-sync of it then returns that error. RFC 0120 Phases 2 to 4 then build takeover at open,
-one number per clock per session with continued stretches, and the commit-first handoff
-(§5.7, §5.8) on the pointer log. Phase 7 builds D-459's read fixes: with checks off, a
-search step reads only the 8 bytes it needs, not the whole block; the block cache splits
-its lock; and the cause of the `ReadSamples` gap is found and fixed. Phase 8 merges only
-after a box run shows every read within 15% of `main` in time, bytes, and allocations,
-at 1 and 8 readers (D-459). Phase 8 builds parts, versions 0 and 2, tombstones,
-compaction, the conversion with a crash test at each of its steps, the backup change,
-`synnax repair` with its two ways on (§6.0, §9.0), the Core's repair at start, and makes
-the new layout the only one that opens. It moves the create checks into the channel
-service, then removes `CreateChannel`, the channel list, and the channel file (§4.0,
-§5.0). RFC 0120 Phase 24 leases clock keys, Phase 25 opens each writer on groups (§4.2,
-§5.8), Phase 26 moves often paused keys, Phase 27 ends a clock with its last user
-(§4.1), and Phase 53 deletes the old code, except the old-layout reader of the
-conversion. Phases 5, 6, and 8 are the exceptions to one PR per phase. Phase 5 lands as
-the pieces of SY-6397 (D-454). Phases 6 and 8 each land as their reviewed pieces, one PR
-of about 2,000 hand-written lines each (D-392), behind the open option until the last
-piece of Phase 8 switches the layout, so each piece merges alone and leaves `main`
-green. Every other phase is one PR.
+R3 per clock as well as per stream, and a `FullDisk` case at the commit limit, with EIO
+and read-only cases. W1-N2's order is its own case: the loser's sync of a shared handle
+fails first, and the gainer's sync of it then returns that error. RFC 0120 Phases 2 to 4
+then build takeover at open, one number per clock per session with continued stretches,
+and the commit-first handoff (§5.7, §5.8) on the pointer log. Phase 7 builds D-459's
+read fixes: with checks off, a search step reads only the 8 bytes it needs, not the
+whole block; the block cache splits its lock; and the cause of the `ReadSamples` gap is
+found and fixed. Phase 8 merges only after a box run shows every read within 15% of
+`main` in time, bytes, and allocations, at 1 and 8 readers (D-459). Phase 8 builds
+parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test at
+each of its steps, the backup change, `synnax repair` with its two ways on (§6.0, §9.0),
+the Core's repair at start, and makes the new layout the only one that opens. It moves
+the create checks into the channel service, then removes `CreateChannel`, the channel
+list, and the channel file (§4.0, §5.0). RFC 0120 Phase 24 leases clock keys, Phase 25
+opens each writer on groups (§4.2, §5.8), Phase 26 moves often paused keys, Phase 27
+ends a clock with its last user (§4.1), and Phase 53 deletes the old code, except the
+old-layout reader of the conversion. Phases 5, 6, and 8 are the exceptions to one PR per
+phase. Phase 5 lands as the pieces of SY-6397 (D-454). Phases 6 and 8 each land as their
+reviewed pieces, one PR of about 2,000 hand-written lines each (D-392), behind the open
+option until the last piece of Phase 8 switches the layout, so each piece merges alone
+and leaves `main` green. Every other phase is one PR.
 
 Dependencies on other RFCs: the phase table names only phases of this RFC, so the issues
 of these phases take their blockers from this table too.
