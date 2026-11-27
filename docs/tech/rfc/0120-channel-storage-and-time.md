@@ -255,7 +255,8 @@ override sits before the length, so a decoder knows the type before it reads dat
 - Two adjacent series of one key merge only when their alignments are contiguous, as
   today (`codec.go:428`), and their clocks and types are equal.
 - The codec is stateful per stream, so nothing stores its frames. A stored frame uses a
-  form in which each series describes itself, as the Driver spool does (RFC 0113 §3.3).
+  form with no stream state, such as the Driver spool, whose segment header holds the
+  types (RFC 0113 §3.3).
 - A decoder rejects: a set reserved bit, extension flags of 0, kinds of 0, a next
   ordinal not above the current one, an override still pending at the end of the frame,
   a second type declaration for a state, a frame for a state that has no declaration,
@@ -828,18 +829,25 @@ continuation. A partial group from a task fails loud, as a partial index group d
   stamp of its group's channels, in place of the last stamp of its index channel
   (`core/pkg/service/kafka/read_task.go:529-545`,
   `core/pkg/service/mqtt/read_task.go:220-252`). With whole groups the two are equal.
-- **The bypass bus**: A Driver frame on the local bus carries the identity of its
-  writer, and each series carries the position of its group. Until Phase 50 a group
-  whose clock is an index channel names its time by that index key, as today, so the Arc
-  runtime finds it until Phase 41 moves Arc. Any other group names its time by position,
-  never by a clock key, so it works before an open returns and while the Core is down
-  (RFC 0113). The bus filter keeps the time series of each kept series' group
-  (`driver/bypass/bypass.h:97-127` keeps keys only today). One alignment counter per
-  writer and group position sets the alignment of each series of the group and of its
-  time series, in place of a counter per key that starts a new key at 0
-  (`driver/bypass/bypass.h:172-180`). The forwarder maps positions to clock keys only
-  where it writes to the Core. A local reader, such as Arc from Phase 41, pairs a series
-  with its group's time in the same frame, never by bus alignment across groups.
+- **The bypass bus**: From Phase 31 a Driver frame on the local bus carries the identity
+  of its writer (NEW, `uint64`), and each series the position of its group (NEW,
+  `uint32`), both in `x::telem::Frame`. From Phase 9 the bus sets each series' clock to
+  its index key, since bus series pass no framer. Until Phase 50 a group whose clock is
+  an index channel names its time by that index key, as today, groups on one index merge
+  into one time series, as the Core merges them (§4.8), and a group over several index
+  channels names its time under each, so the Arc runtime finds it until Phase 41 moves
+  Arc. Any other group names its time by position, never by a clock key, so it works
+  before an open returns and while the Core is down (RFC 0113). The bus filter keeps the
+  time series of each kept series' group (`driver/bypass/bypass.h:97-127` keeps keys
+  only today). One alignment counter per writer and group position sets the alignment of
+  each series of the group and of its time series, in place of a counter per key that
+  starts a new key at 0 (`driver/bypass/bypass.h:172-180`). A counter starts above, and
+  `advance_alignments` keeps it above, the highest alignment that any key of its group
+  took on the bus or in a Core frame (`:229-247`), so the alignments of a key rise
+  across writers, as today. The bus keeps its mark per key. The forwarder maps positions
+  to clock keys only where it writes to the Core. A local reader, such as Arc from Phase
+  41, pairs a series with its group's time in the same frame, never by bus alignment
+  across groups.
 - **Console forms**: From Phase 47, task forms make data channels only, with no `_time`
   channels (`console/src/feature/ni/task/AnalogRead.tsx:211-215` and its siblings).
   Until then they make index channels as today, which form whole groups (§4.8), and the
@@ -885,24 +893,29 @@ then of port numbers, drops the others, and writes a warning status.
    lookup and names both, so a new device named like a channel folder can break a lookup
    that worked.
 
-**Amendments to RFC 0113** (the spool is not built yet, so its first format takes them):
+**Amendments to RFC 0113** (the first spool format is #6165's, which proto3 extends with
+new fields and no break):
 
-1. **Groups in the spool**: A spool segment records, with its channels, its writer's
-   time groups and, until Phase 50, the index key of each channel, and each spooled
-   `pb::Frame` keeps the frame's group time list (§4.9). A segment that a Driver spooled
+1. **Groups in the spool**: The spool `Header` gains its writer's time groups, and each
+   spooled `driver.spool.pb.Frame` gains the frame's group time list by position and the
+   keys that the authority filter dropped (item 2). Until Phase 50 the header keeps the
+   index key of each channel, as #6165's `indexes` does. A segment that a Driver spooled
    with index keys drains on a Core past Phase 50: the drainer groups each frame by
    index key, writes each index series as the `"time"` of its group, and opens with
-   `time_groups`. A segment that fails at open for a reason outside RFC 0113 §3.3 is set
-   aside with a status that names it, so it never blocks the spool.
+   `time_groups`. A segment whose open or write fails for a reason that is not transient
+   (outside RFC 0113 §3.3) is set aside with a status that names it, so it never blocks
+   the spool.
 2. **Authority in the spool**: The forwarder spools the frame after the local authority
    filter, as RFC 0113 §3.3 does, and records with it the keys that the filter dropped.
-   The drainer counts those keys as present for the group check and then drops them, as
-   the framer's authority step does after its group check (§4.8). So each dropped key
-   pauses, the rest of its group writes, and the authority of the outage holds.
-3. **Phases**: RFC 0113 Phase 6, the spool format, takes 1. RFC 0113 Phase 7, the
-   forwarder and the drainer, takes 2. Phase 31 here follows RFC 0113 Phase 7 and drains
-   an index-keyed segment, with a spec that spools on one release and drains on the next
-   with no loss.
+   When the dropped set of a frame changes, the drainer closes its writer and opens one
+   on the present keys, so the Core's group check sees whole groups. Continuation gives
+   the new writer the same clock, and a change of the dropped set is rare. So each
+   dropped key pauses, the rest of its group writes, and the authority of the outage
+   holds.
+3. **Phases**: RFC 0113 Phase 7, which touches `driver/spool` and is not built, takes 1
+   and 2: the new fields of #6165's records, the forwarder, and the drainer. Phase 31
+   here follows RFC 0113 Phase 7 and drains an index-keyed segment, with a spec that
+   spools on one release and drains on the next with no loss.
 
 ### 4.10 Migration
 
