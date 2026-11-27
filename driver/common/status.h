@@ -281,10 +281,12 @@ private:
     }
 
     /// @brief sends the current status, at most once per window. A status inside the
-    /// window waits for the window to end, and only the latest one is sent. A status
-    /// equal to the last one sent is not sent again.
+    /// window, or while another write is in progress, waits for the flusher, and only
+    /// the latest one is sent. A status equal to the last one sent is not sent again.
+    /// Never waits for a write.
     void maybe_set_status() {
-        std::lock_guard write_lock(this->write_mu);
+        // A write in progress can block on the Core, so the flusher sends this later.
+        std::unique_lock write_lock(this->write_mu, std::try_to_lock);
         synnax::task::Status out;
         {
             std::lock_guard lock(this->mu);
@@ -292,7 +294,8 @@ private:
             this->last = this->status;
             auto status = this->shown(this->status);
             const auto now = std::chrono::steady_clock::now();
-            if (same(status, this->sent) || now - this->sent_at < this->window) {
+            if (!write_lock.owns_lock() || same(status, this->sent) ||
+                now - this->sent_at < this->window) {
                 this->defer(std::move(status));
                 return;
             }

@@ -446,6 +446,43 @@ TEST(TestBackgroundWarning, ChangesWhileAWriteBlocks) {
     ASSERT_EQ(status, std::future_status::ready);
 }
 
+/// @brief it should set and clear a warning at once while another status write blocks,
+/// and send the latest status when the write ends.
+TEST(TestBackgroundWarning, WarningSkipsABlockedWrite) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    std::atomic blocking = false;
+    std::promise<void> release;
+    const auto released = release.get_future().share();
+    std::atomic writing = false;
+    ctx->on_set_status = [&] {
+        if (!blocking) return;
+        writing = true;
+        released.wait();
+    };
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    StatusHandler handler(ctx, task, 10 * x::telem::MILLISECOND);
+    start(handler);
+    blocking = true;
+    handler.set_background_warning(BACKGROUND);
+    ASSERT_EVENTUALLY_TRUE(writing.load());
+    auto warn = std::async(std::launch::async, [&] {
+        handler.send_warning("Skipped invalid command", "");
+        handler.clear_warning();
+        handler.send_warning("Skipped invalid command", "");
+    });
+    const auto status = warn.wait_for(std::chrono::seconds(1));
+    blocking = false;
+    release.set_value();
+    ASSERT_EQ(status, std::future_status::ready);
+    ASSERT_EVENTUALLY_EQ_F(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().message;
+        },
+        std::string("Skipped invalid command")
+    );
+}
+
 /// @brief it should not show a background warning while the task is stopped.
 TEST(TestBackgroundWarning, HiddenWhileStopped) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
