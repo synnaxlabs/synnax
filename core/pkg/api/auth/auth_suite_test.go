@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -42,6 +43,7 @@ var (
 	passwordSvc *password.Service
 	apiKeySvc   *apikey.Service
 	oidcSvc     *oidc.Service
+	inviteSvc   *invite.Service
 	provider    *testutil.Provider
 	apiSvc      *apiauth.Service
 	root        user.User
@@ -74,6 +76,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	))
 	provider = testutil.NewProvider()
 	DeferCleanup(provider.Close)
+	inviteSvc = MustOpen(invite.OpenService(ctx, invite.ServiceConfig{DB: db}))
 	oidcSvc = MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
 		DB:          db,
 		User:        userSvc,

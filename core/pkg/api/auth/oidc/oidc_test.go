@@ -17,9 +17,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -60,7 +62,12 @@ func linkAccount(ctx context.Context, token, sub string) oidc.Link {
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apioidc.ServiceConfig {
-		return apioidc.ServiceConfig{Auth: &auth.Service{}, OIDC: &oidc.Service{}}
+		return apioidc.ServiceConfig{
+			Auth:    &auth.Service{},
+			OIDC:    &oidc.Service{},
+			Invite:  &invite.Service{},
+			Session: &session.Service{},
+		}
 	}
 
 	Describe("Validate", func() {
@@ -85,6 +92,16 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apioidc.ServiceConfig) { c.OIDC = nil },
 				"oidc: must be non-nil",
 			),
+			Entry(
+				"invite",
+				func(c *apioidc.ServiceConfig) { c.Invite = nil },
+				"invite: must be non-nil",
+			),
+			Entry(
+				"session",
+				func(c *apioidc.ServiceConfig) { c.Session = nil },
+				"session: must be non-nil",
+			),
 		)
 	})
 
@@ -94,6 +111,8 @@ var _ = Describe("ServiceConfig", func() {
 			merged := apioidc.ServiceConfig{}.Override(cfg)
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 			Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
+			Expect(merged.Invite).To(BeIdenticalTo(cfg.Invite))
+			Expect(merged.Session).To(BeIdenticalTo(cfg.Session))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -101,6 +120,8 @@ var _ = Describe("ServiceConfig", func() {
 			merged := cfg.Override(apioidc.ServiceConfig{})
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 			Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
+			Expect(merged.Invite).To(BeIdenticalTo(cfg.Invite))
+			Expect(merged.Session).To(BeIdenticalTo(cfg.Session))
 		})
 	})
 })
@@ -136,7 +157,7 @@ var _ = Describe("OIDC links", func() {
 		rootToken string
 	)
 	BeforeEach(func(ctx SpecContext) {
-		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
+		bob = createUser(ctx, "bob-"+uuid.New().String())
 		bobToken = login(ctx, passwordProof(bob.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
 	})
@@ -246,7 +267,7 @@ var _ = Describe("OIDC links", func() {
 				To(MatchError(auth.ErrInvalidToken))
 		})
 		It("Should deny a user removing another user's link", func(ctx SpecContext) {
-			alice := createUser(ctx, "alice-"+uuid.New().String(), "p")
+			alice := createUser(ctx, "alice-"+uuid.New().String())
 			link := linkAccount(
 				ctx,
 				login(ctx, passwordProof(alice.Name, "p")),

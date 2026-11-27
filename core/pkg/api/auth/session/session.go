@@ -195,10 +195,22 @@ func (s *Service) Create(
 	if err != nil {
 		return CreateResponse{}, err
 	}
+	return s.Respond(ctx, session, tk, req.Cookie)
+}
+
+// Respond returns the response of a session opened with token, and delivers the token
+// as Create does when cookie is set.
+func (s *Service) Respond(
+	ctx context.Context,
+	session auth.Session,
+	token string,
+	cookie bool,
+) (CreateResponse, error) {
 	res := CreateResponse{
-		Token:   apiauth.Deliver(ctx, s.auth, tk, req.Cookie),
+		Token:   apiauth.Deliver(ctx, s.auth, token, cookie),
 		Session: session,
 	}
+	var err error
 	if res.User, err = s.userOf(ctx, session.Subject); err != nil {
 		return CreateResponse{}, err
 	}

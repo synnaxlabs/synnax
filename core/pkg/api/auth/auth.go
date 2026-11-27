@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/x/config"
@@ -26,13 +27,14 @@ import (
 )
 
 // HeldTables returns the tables of the records that a user or rack holds: its API keys,
-// password, provider links, and sessions. Pass them as bind.ServiceConfig.Held.
+// password, provider links, invites, and sessions, for bind.ServiceConfig.Held.
 func HeldTables() []string {
 	return []string{
 		types.Name[apikey.APIKey](),
 		types.Name[password.Password](),
 		types.Name[auth.Session](),
 		types.Name[oidc.Link](),
+		types.Name[invite.Invite](),
 	}
 }
 

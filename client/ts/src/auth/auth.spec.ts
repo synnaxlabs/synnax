@@ -20,6 +20,7 @@ import {
   InvalidTokenError,
   MissingCredentialsError,
   SessionEndedError,
+  ValidationError,
 } from "@/index";
 import {
   createEmptyRole,
@@ -204,6 +205,29 @@ describe("auth", () => {
           password: "x",
         }),
       ).rejects.toThrow(InvalidCredentialsError);
+    });
+  });
+
+  describe("redeemInvite", () => {
+    it("should refuse an invite while the Core accepts no provider", async () => {
+      await expect(
+        auth.redeemInvite(
+          auth.createTokenlessClient({
+            host: testClientParams().host,
+            port: Number(testClientParams().port),
+            secure: false,
+          }),
+          {
+            token: "syi_token",
+            credentials: {
+              provider: "idp",
+              code: "code",
+              verifier: "verifier",
+              redirectUri: "http://127.0.0.1:4242/callback",
+            },
+          },
+        ),
+      ).rejects.toThrow(ValidationError);
     });
   });
 
