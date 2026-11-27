@@ -559,19 +559,23 @@ alignment and inputs of two clocks by sample time:
   and keeps the live samples past it.
 - **Inputs with no clock**: A live-only input pairs by arrival with hold. Such a
   calculation has no historical values, and its live blocks are not replaced.
-- **Running operations** (Phase 55, D-063, D-518 (3)): A running operation looks back to
-  its last reset, or to its first sample when it never resets, with no stored state, so
-  no value depends on where a read starts. A history read runs the look back before its
-  start, paced as above. The live calculator runs the same look back at its open: it
-  reads from the last reset to the newest stored sample, and again from there until a
-  pass is shorter than one chunk; then it opens its streams as in Live open and drops
-  the stream samples that the read holds by clock and alignment, so live agrees with
-  history. Until then the calculation sends no live output, and its status has message
-  `Computing history` and a description that names the span of the look back and says
-  that a reset bounds it. The look back is a rare-path exception to R2 (§4.13): its cost
-  grows with the samples since the reset, at about 25 ns a sample, so a year of a 25 kHz
-  input takes about 5.5 hours of one core. It runs on the calculation's own pipeline, so
-  no other read or stream waits (R6).
+- **Running operations** (Phase 55, D-063, D-518 (3)): A running operation is a node
+  that keeps state across samples with no window: `avg`, `min`, and `max` with no
+  window, and a stateful variable of a calculation. It looks back to its last reset, or
+  to its first sample when it never resets, with no stored state, so no history value
+  depends on where a read starts. A `count` reset (`arc/go/stl/math/math.go:77`) finds
+  its last reset from the sample counts of the pointers, with no data read. A history
+  read runs the look back before its start, paced as above. Live starts at its open, as
+  on `main`: it opens its streams first, and its output covers the data from the open,
+  under a status with message `Computing history` and a description that says so and
+  that a reset bounds the look back. In the background the calculator reads from the
+  last reset until each input's stored data reaches the alignment of its first stream
+  sample, drops the overlap, and takes the caught-up state at one primary stamp, which
+  clears the status. Every look back, of history or live, runs in one bounded pool under
+  a read rate limit, as the version 0 check pass does (RFC 0121 §5.1), so no live `Sync`
+  and no other read waits (R6). The look back is a rare-path exception to R2 (§4.13):
+  its cost grows with the samples since the reset, at about 25 ns a sample, so a year of
+  a 25 kHz input takes about 5.5 hours of one core.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
@@ -1135,8 +1139,9 @@ branch against `main` and reports to the founder session.
   `RunParallel` forms of the read benchmarks at 8 readers; a point read and `SeekGE` on
   both layouts; a relay benchmark from writer to streamer at 1 and 100 subscribers, with
   timed and untimed keys; a calculation at a 10:1 rate ratio over 10 chunks of the
-  slower input; a running `max` over 1 day of history; and bytes for the TypeScript
-  cache and codec benchmarks.
+  slower input; a running `max` over 1 day of history, with `BenchmarkCommit` p99 and a
+  plain read measured beside it; and bytes for the TypeScript cache and codec
+  benchmarks.
 - **P**: `BenchmarkReadDomains` with `jumps` of 16, 32, 64, and 128 measures one key
   against the same key on a clock of its own. P is the largest count whose read costs at
   most 2 times the own clock.
