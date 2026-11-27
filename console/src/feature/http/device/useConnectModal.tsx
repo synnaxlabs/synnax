@@ -163,6 +163,16 @@ export const Connect = ({
   const secure = Form.useFieldValue(path.properties.secure, { ctx: form });
 
   const [tab, setTab] = useState("authentication");
+  const holdsError = (tabKey: string): boolean => {
+    const errors = form.getStatuses().filter(({ variant }) => variant === "error");
+    return TAB_PATHS[tabKey].some((tabPath) =>
+      errors.some(({ key }) => key != null && deep.pathsMatch(key, String(tabPath))),
+    );
+  };
+  // The open tab keeps the view while it holds an error, since the user reads it.
+  const showTab = (tabKey: string): void => {
+    if (!holdsError(tab)) setTab(tabKey);
+  };
 
   const handleValidateResponseChange = (value: boolean) => {
     setField(healthCheck.validateResponse, value);
@@ -228,7 +238,7 @@ export const Connect = ({
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
           {Object.entries(TAB_PATHS).flatMap(([key, paths]) =>
             paths.map((p) => (
-              <TabFocus key={String(p)} path={p} onFocus={() => setTab(key)} />
+              <TabFocus key={String(p)} path={p} onFocus={() => showTab(key)} />
             )),
           )}
           <Form.TextField
