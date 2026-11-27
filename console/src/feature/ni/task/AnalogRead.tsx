@@ -125,15 +125,16 @@ const hasPortList = (devices: Device.View[]): boolean =>
   devices.some(({ hardware }) => hardware != null);
 
 const Form: FC = () => {
-  const keys = Task.useChannelDeviceKeys(root.config.channels);
-  const devices = Device.useViews(keys);
-  const configured = Device.useByKeys(keys);
+  const devices = Device.useReadTargets(
+    Task.useChannelDeviceKeys(root.config.channels),
+    "analogInput",
+  );
   PForm.useCheck(root.config, analogReadHardwareZ(devices ?? []));
   const resolve = (ch: AIChannel) => {
-    const dev = configured?.find(({ key }) => key === ch.device);
+    const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
     return {
-      channel: dev.properties.analogInput.channels[getAIChannelDeviceKey(ch)] ?? 0,
+      channel: dev.channels.channels[getAIChannelDeviceKey(ch)] ?? 0,
     };
   };
   const ports =
@@ -180,10 +181,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
-  const allDevices = await client.devices.retrieve({
-    key: devices,
-    schemas: Device.SCHEMAS,
-  });
+  const allDevices = await Device.retrieveReadTargets(client, devices, "analogInput");
   PlatformDevice.checkFound(devices, allDevices);
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
@@ -195,18 +193,18 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   }
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
-    const before = deep.copy(dev.properties);
+    const ai = dev.channels;
     rackKey = dev.rack;
     let modified = false;
-    let shouldCreateIndex = primitive.isZero(dev.properties.analogInput.index);
+    let shouldCreateIndex = primitive.isZero(ai.index);
     if (!shouldCreateIndex)
       try {
-        await client.channels.retrieve(dev.properties.analogInput.index);
+        await client.channels.retrieve(ai.index);
       } catch (e) {
         if (NotFoundError.matches(e)) shouldCreateIndex = true;
         else throw errors.fromUnknown(e);
       }
-    const identifier = channel.escapeInvalidName(dev.properties.identifier);
+    const identifier = channel.escapeInvalidName(dev.identifier);
     try {
       if (shouldCreateIndex) {
         modified = true;
@@ -215,14 +213,14 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
           dataType: "timestamp",
           isIndex: true,
         });
-        dev.properties.analogInput.index = aiIndex.key;
-        dev.properties.analogInput.channels = {};
+        ai.index = aiIndex.key;
+        ai.channels = {};
       }
       const toCreate: AIChannel[] = [];
       for (const channel of Task.firstPerPort(config.channels, portOf)) {
         if (channel.device !== dev.key) continue;
         const key = getAIChannelDeviceKey(channel);
-        const exKey = dev.properties.analogInput.channels[key];
+        const exKey = ai.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {
@@ -236,23 +234,22 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: ANALOG_INPUT.name(c, Device.toView(dev)),
+            name: ANALOG_INPUT.name(c, dev),
             dataType: "float32",
-            index: dev.properties.analogInput.index,
+            index: ai.index,
           })),
         );
         channels.forEach((c, i) => {
           const key = getAIChannelDeviceKey(toCreate[i]);
-          dev.properties.analogInput.channels[key] = c.key;
+          ai.channels[key] = c.key;
         });
       }
     } finally {
-      if (modified)
-        await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
+      if (modified) await Device.writeReadChannels(client, dev.key, "analogInput", ai);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
-      c.channel = dev.properties.analogInput.channels[getAIChannelDeviceKey(c)];
+      c.channel = ai.channels[getAIChannelDeviceKey(c)];
     });
   }
   if (rackKey == null) throw new Error("No devices selected");
