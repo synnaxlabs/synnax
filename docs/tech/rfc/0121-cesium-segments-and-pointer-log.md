@@ -776,7 +776,8 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
   Numbers from 2^31 up are for data that is not stored, and the constant moves to
   `x/go/telem`. Cesium numbers the unstored samples of a stored key: those of an
   `Unstored` writer, and a sample with no stored stamp. The framer numbers a session of
-  virtual keys only (`writer/free.go:53` today). So each key takes its numbers from one
+  virtual keys only (`writer/free.go:53` today), except a calculation's outputs, which
+  keep their primary's numbers (RFC 0120 §4.5). So each key takes its numbers from one
   owner.
 - **One step per stretch**: The counter steps at the first sample of a writer session on
   each of its clocks, after `EndStretch`, after a put-back or a failed sync (§5.4), and
