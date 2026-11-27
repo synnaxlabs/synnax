@@ -49,6 +49,10 @@ type Segment struct {
 // Channel is the state of one key. A Channel that the state publishes never changes.
 type Channel struct {
 	Key uint32
+	// Cuts counts the changes since the state opened that took visible samples out of
+	// the key: its Tombstones and the take backs of its samples. Only a Channel that
+	// the state publishes carries it.
+	Cuts uint64
 	// Segments are in rising order of identity.
 	Segments []Segment
 }
