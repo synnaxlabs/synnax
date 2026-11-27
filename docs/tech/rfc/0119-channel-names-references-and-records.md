@@ -885,15 +885,17 @@ Tombstone struct {
 - **One per path**: A unique index on (folder, name) in its own space, so a tombstone
   never blocks a create. A folder delete removes its tombstones first, and an ungroup
   moves them (§4.11). A plain rename or move runs no heal, so it can put a live channel
-  on a tombstone's path. That tombstone waits, since no create can heal it while the
-  path is taken. The delete of the live channel then replaces it, and the plan lists the
-  old one with the effect `delete`. The old list's entries go ahead of the new one,
-  oldest first, while their `at` is before the new list's first `at`. The rest drop. A
-  dropped entry with a past holder (`from` not 0) is history that the path loses. Past
-  holders exist only from Phase 36's rewires, so before then only gap entries drop. The
-  old tombstone's display links keep the dead key, as on `main`.
-- **Heal**: A rename or move through a plan route that gives a channel a tombstone's
-  path plans a heal, and a create or an ungroup heals with the defaults, with no picks.
+  on a tombstone's path. That tombstone waits, since a heal needs a free path. So a
+  rewire onto that path leaves it waiting under the new holder. If the live channel's
+  delete writes a tombstone (Write), the new one replaces the waiting one, and the plan
+  lists the old one with the effect `delete`. The old list's entries go ahead of the new
+  one, oldest first, while their `at` is before the new list's first `at`. The rest
+  drop. A dropped entry with a past holder (`from` not 0) is history that the path
+  loses. Past holders exist only from Phase 36's rewires, so before then only gap
+  entries drop. The old tombstone's display links keep the dead key, as on `main`. A
+  delete that writes no tombstone leaves the waiting one, and a create can then heal it.
+- **Heal**: A rename or move through a plan route onto a free path that a tombstone
+  holds plans a heal, and a create or an ungroup heals with the defaults, with no picks.
   Each link that holds the dead key gets `retarget` (default) or `keep`; the list moves
   to the new channel. The tombstone then goes, whatever the picks, so a path holds at
   most one. A `rewires` link is never a heal target. From Phase 18 every channel create
