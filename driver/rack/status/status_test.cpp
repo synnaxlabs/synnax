@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <thread>
 
@@ -26,6 +27,25 @@ bool owns(
     const ::service::status::pb::Status &status
 ) {
     return synnax::resource::ID::from_proto(status.owner()).first == owner;
+}
+
+/// @brief reads statuses until match returns true for one, a read fails, or timeout
+/// passes. Other tests write statuses to the same channel, so a frame count does not
+/// bound the wait.
+bool read_until(
+    synnax::framer::Streamer &streamer,
+    const std::function<bool(const x::json::json &)> &match,
+    const x::telem::TimeSpan timeout = 10 * x::telem::SECOND
+) {
+    const auto deadline = x::telem::TimeStamp::now() + timeout;
+    while (x::telem::TimeStamp::now() < deadline) {
+        auto [frm, err] = streamer.read();
+        if (err) return false;
+        for (size_t c = 0; c < frm.size(); c++)
+            for (const auto &raw: frm.series->at(c).strings())
+                if (match(x::json::json::parse(raw))) return true;
+    }
+    return false;
 }
 
 /// @brief a status set transport that fails the first rack heartbeat and the first
@@ -193,13 +213,11 @@ TEST(stateTests, Nominal) {
     ));
     const auto owner = synnax::rack::resource_id(rack.key).to_json();
     x::json::json j;
-    for (int i = 0; i < 50; i++) {
-        auto frm = ASSERT_NIL_P(streamer.read());
-        ASSERT_EQ(frm.size(), 1);
-        frm.series->at(0).at(-1, j);
-        if (j.value("owner", x::json::json()) == owner) break;
-    }
-    EXPECT_EQ(j.value("owner", x::json::json()), owner);
+    ASSERT_TRUE(read_until(streamer, [&](const x::json::json &stat) {
+        if (stat.value("owner", x::json::json()) != owner) return false;
+        j = stat;
+        return true;
+    }));
     EXPECT_EQ(j["variant"], synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
     ASSERT_NIL(streamer.close());
@@ -231,16 +249,13 @@ TEST(stateTests, RenamedRack) {
     x::defer::defer stop([&hb]() { hb->stop(false); });
     const auto owner = synnax::rack::resource_id(rack.key).to_json();
     const auto next_beat_name = [&]() -> std::string {
-        for (int i = 0; i < 50; i++) {
-            auto [frm, err] = streamer.read();
-            if (err) return "";
-            for (size_t c = 0; c < frm.size(); c++)
-                for (const auto &raw: frm.series->at(c).strings())
-                    if (const auto j = x::json::json::parse(raw);
-                        j.value("owner", x::json::json()) == owner)
-                        return j["name"];
-        }
-        return "";
+        std::string name;
+        read_until(streamer, [&](const x::json::json &j) {
+            if (j.value("owner", x::json::json()) != owner) return false;
+            name = j["name"];
+            return true;
+        });
+        return name;
     };
     ASSERT_EQ(next_beat_name(), "test_rack");
 
@@ -282,35 +297,21 @@ TEST(stateTests, TaskRunningTransitions) {
     auto hb = driver::rack::status::Task::configure(ctx, task);
     ASSERT_NE(hb, nullptr);
 
-    bool started = false;
-    for (int i = 0; i < 50 && !started; i++) {
-        auto frm = ASSERT_NIL_P(streamer.read());
-        for (size_t c = 0; c < frm.size(); c++)
-            for (const auto &raw: frm.series->at(c).strings()) {
-                const auto j = x::json::json::parse(raw);
-                if (j.value("owner", x::json::json()) != owner) continue;
-                EXPECT_EQ(j["details"]["running"], true);
-                started = true;
-            }
-    }
-    EXPECT_TRUE(started);
+    EXPECT_TRUE(read_until(streamer, [&](const x::json::json &j) {
+        if (j.value("owner", x::json::json()) != owner) return false;
+        EXPECT_EQ(j["details"]["running"], true);
+        return true;
+    }));
 
     hb->stop(false);
 
-    bool stopped = false;
-    for (int i = 0; i < 50 && !stopped; i++) {
-        auto frm = ASSERT_NIL_P(streamer.read());
-        for (size_t c = 0; c < frm.size(); c++)
-            for (const auto &raw: frm.series->at(c).strings()) {
-                const auto j = x::json::json::parse(raw);
-                if (j.value("owner", x::json::json()) != owner ||
-                    j["details"]["running"] != false)
-                    continue;
-                EXPECT_EQ(j["message"], "Stopped");
-                stopped = true;
-            }
-    }
-    EXPECT_TRUE(stopped);
+    EXPECT_TRUE(read_until(streamer, [&](const x::json::json &j) {
+        if (j.value("owner", x::json::json()) != owner ||
+            j["details"]["running"] != false)
+            return false;
+        EXPECT_EQ(j["message"], "Stopped");
+        return true;
+    }));
     ASSERT_NIL(streamer.close());
 }
 
