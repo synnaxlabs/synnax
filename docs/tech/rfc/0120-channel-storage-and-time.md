@@ -68,7 +68,9 @@ channel.
 4. **Fail loud**: An unknown type code, flag bit, or codec version is an error, and so
    is a write whose time does not fit its groups. No reader falls back to alignment
    alone.
-5. **Any type change is legal**: Every reader accepts mixed types; the Core never casts.
+5. **Any type change is legal**: Every reader accepts mixed types; the Core never casts
+   stored or streamed data. An export to another system converts to that system's
+   declared type.
 6. **A fast input never waits on a slow one**: The live wait budget is 0.
 
 ## 4 Design
@@ -512,8 +514,20 @@ new flow config, whose type widens the types of the segments in the task's range
 rule of §4.4, since no record keeps the old type. A flow whose types cannot widen, such
 as a number and text, fails its task with a status that names the channel. The encoder
 casts each value to the flow's type, where it takes the series' type today
-(`encode.go:129-160`). A clock move is not a channel edit: storage moves a key at
-continuation, at a handoff, and at a pause move (§4.0, §4.8), from Phase 25.
+(`encode.go:129-160`). Every ICD write (Kafka, MQTT, HTTP, UDP, TCP, and serial) fixes a
+field's type at configure and reads each command sample by that type today
+(`core/pkg/service/icd/write/documents.go:82`, `x/go/json/number.go:592-616`,
+`driver/icd/writer.cpp:152-160`), so after a type change a command of 1.0 could reach a
+`uint8` field as 0, or a read could run past the sample. From Phase 11 each encoder
+takes a command sample by its series' type and converts it to the field's type with a
+range check, as the NI and LabJack sinks do through `x::telem::cast`
+(`driver/ni/write_task.h:205-210`). A value that the field's type cannot hold is not
+sent, and the task raises an error status that names the channel and the value. A
+Sparkplug edge tag converts to its birth type
+(`core/pkg/service/mqtt/edge_task.go:74-79`). A spec sends a command of the old type and
+one of the new type after a type change, and each encodes the right value. A clock move
+is not a channel edit: storage moves a key at continuation, at a handoff, and at a pause
+move (§4.0, §4.8), from Phase 25.
 
 ### 4.7 Calculations and XY plots across clocks
 
@@ -1246,7 +1260,7 @@ index channel in `core/v0.62.0`, keeps that name in its config from Phase 42. Ke
 | 8     | Declare each series' type and clock in the frame codecs      | `core/pkg/distribution/framer/codec`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 7                                                  |
 | 9     | Pair data by each series' clock in the clients               | `client/ts/src/framer/cache`, `client/py/synnax/framer`, `pluto/src/vis/line`, `arc/cpp/stl/channels`, `arc/cpp/runtime`, `driver/bypass`                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 8                                                  |
 | 10    | Swap the codec state when the relay applies new keys         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/streamer`, `core/pkg/transport/grpc/framer`, `core/pkg/transport/http/framer`, `client/ts/src/framer/codec`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                                                                                                                                                                                        | 8                                                  |
-| 11    | Accept mixed data types in every reader                      | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `client/ts/src/framer`, `pluto/src/vis/line`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/arc`, `arc/cpp/stl/channels`                                                                                                                                                                                                                                                                                                                                                                                             | 1, 9                                               |
+| 11    | Accept mixed data types in every reader                      | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `client/ts/src/framer`, `pluto/src/vis/line`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/arc`, `arc/cpp/stl/channels`, `core/pkg/service/icd`, `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `driver/icd`, `driver/http`                                                                                                                                                                                                                                                                        | 1, 9                                               |
 | 12    | Send the time of its data with every read and stream         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/api/framer`, `core/pkg/transport/grpc/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                                                                                                                                                                  | 10                                                 |
 | 13    | Read and write time by channel in Python and TypeScript      | `client/py/synnax/framer`, `client/py/synnax/ranger`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 12                                                 |
 | 14    | Keep one alignment space and floor per clock in cache blocks | `client/ts/src/framer/cache`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 12                                                 |
