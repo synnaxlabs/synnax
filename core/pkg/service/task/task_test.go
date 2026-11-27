@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	kafkaversions "github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
@@ -1255,6 +1256,17 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 
+		It(
+			"Should fail to filter by ICD on a service that cannot match ICDs",
+			func(ctx SpecContext) {
+				Expect(svc.NewRetrieve().
+					Where(task.MatchICDs(uuid.New())).
+					Entries(&[]task.Task{}).
+					Exec(ctx, tx)).
+					To(MatchError("this task service cannot filter tasks by ICD"))
+			},
+		)
+
 		It("Should filter tasks by internal status", func(ctx SpecContext) {
 			regular := &task.Task{
 				Type: testType,
@@ -2218,6 +2230,97 @@ var _ = Describe("MatchArcs", func() {
 			Expect(asked).To(Equal([]arc.Key{arcKey}))
 		},
 	)
+})
+
+var _ = Describe("MatchICDs", func() {
+	It("Should keep the tasks and drafts whose config uses the ICDs", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles)),
+		}))
+		icds := MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+			DB:   db,
+			ImEx: imex.NewService(),
+		}))
+		writes := MustOpen(
+			config.OpenService(ctx, config.ServiceConfig[kafka.WriteConfig]{
+				DB:          db,
+				Type:        kafka.WriteTaskType,
+				Ladder:      kafkaversions.WriteConfigLadder,
+				SetEntryKey: (*kafka.WriteConfig).SetKey,
+				PatchEntry:  (*kafka.WriteConfig).Patch,
+				HashEntry:   (*kafka.WriteConfig).HashContent,
+				References: []gorp.Reference[uuid.UUID, kafka.WriteConfig]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[uuid.UUID, kafka.WriteConfig, icd.Key]{
+							Name:     "targets.icd",
+							Table:    "icd",
+							OnDelete: gorp.Restrict,
+							Kind:     gorp.Use,
+							Targets: func(c *kafka.WriteConfig) []icd.Key {
+								return lo.Map(
+									c.Targets,
+									func(t kafka.WriteTarget, _ int) icd.Key {
+										return t.ICD
+									},
+								)
+							},
+						},
+					),
+				},
+			}),
+		)
+		svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+			DB:      db,
+			Rack:    racks,
+			Status:  stat,
+			ImEx:    imex.NewService(),
+			Configs: MustSucceed(config.NewRegistry(writes)),
+			ICDUses: icds.Uses,
+		}))
+		createICD := func() icd.Key {
+			GinkgoHelper()
+			ic := icd.ICD{Name: "Plant"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icds.NewWriter(tx).Create(ctx, &ic)
+			})).To(Succeed())
+			return ic.Key
+		}
+		createUsing := func(ic icd.Key, r rack.Key) task.Key {
+			GinkgoHelper()
+			t := task.Task{
+				Type: kafka.WriteTaskType,
+				Rack: r,
+				Name: "Setpoints",
+				Config: msgpack.EncodedJSON{"targets": []any{
+					map[string]any{"key": "plant", "icd": ic.String()},
+				}},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
+			return t.Key
+		}
+		used := createICD()
+		saved := createUsing(used, racks.EmbeddedKey)
+		draft := createUsing(used, 0)
+		createUsing(createICD(), racks.EmbeddedKey)
+		var res []task.Task
+		Expect(svc.NewRetrieve().
+			Where(task.MatchICDs(used)).
+			Entries(&res).
+			Exec(ctx, db)).To(Succeed())
+		Expect(lo.Map(res, func(t task.Task, _ int) task.Key { return t.Key })).
+			To(ConsistOf(saved, draft))
+	})
 })
 
 var _ = Describe("Writer in concurrent transactions", func() {
