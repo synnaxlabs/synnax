@@ -150,8 +150,9 @@ var _ = Describe("Clash upgrade breaker", func() {
 		Expect(renameStatuses(ctx, n)["doubled"].Description).To(Equal(
 			`The upgrade renamed channel "pt" to "pt_2", but the text of calculated ` +
 				`channel "doubled" still reads the old name at line 1, column 8, ` +
-				`because its folder cannot be read in Arc yet. Rename the folder so ` +
-				`that Arc can read it, then edit the text so that it reads the channel.`,
+				`because the folder "Stand A" on its path cannot be read in Arc yet. ` +
+				`Rename that folder so that Arc can read it, then edit the text so ` +
+				`that it reads the channel.`,
 		))
 	})
 

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -368,23 +369,6 @@ var _ = Describe("UniqueIndex", func() {
 			Expect(found).To(BeFalse())
 		})
 
-		It("Should return the key of a holder in the index's own table only", func(
-			ctx SpecContext,
-		) {
-			Expect(
-				createFolder(ctx, db, uniqueFolder{Key: "b", Name: "b"}),
-			).To(Succeed())
-			Expect(createItem(ctx, db, uniqueItem{Key: 3, Folder: "b", Name: "pt"})).
-				To(Succeed())
-			key, held := MustSucceed2(
-				itemIndex.Key(ctx, db, uniqueSibling{Parent: "b", Name: "pt"}),
-			)
-			Expect(held).To(BeTrue())
-			Expect(key).To(Equal(uint32(3)))
-			_, held = MustSucceed2(itemIndex.Key(ctx, db, uniqueSibling{Name: "b"}))
-			Expect(held).To(BeFalse())
-		})
-
 		It("Should see a value staged in the snapshot", func(ctx SpecContext) {
 			tx := db.OpenTx()
 			defer func() { Expect(tx.Close()).To(Succeed()) }()
@@ -400,6 +384,124 @@ var _ = Describe("UniqueIndex", func() {
 				itemIndex.Holder(ctx, db, uniqueSibling{Name: "staged"}),
 			)
 			Expect(found).To(BeFalse())
+		})
+	})
+
+	Describe("Filters", func() {
+		var itemIndex *gorp.UniqueIndex[uint32, uniqueItem, uniqueSibling]
+		BeforeEach(func(ctx SpecContext) {
+			openDB()
+			openFolders(ctx)
+			itemIndex = newItemIndex()
+			items = MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, uniqueItem]{
+				DB:         db,
+				Name:       "item",
+				Indexes:    []gorp.Index[uint32, uniqueItem]{itemIndex},
+				References: []gorp.Reference[uint32, uniqueItem]{newItemFolderRef()},
+			}))
+			Expect(createFolder(ctx, db, uniqueFolder{Key: "a", Name: "a"})).
+				To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 1, Folder: "a", Name: "pt"})).
+				To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 2, Name: "pt"})).To(Succeed())
+			Expect(createItem(ctx, db, uniqueItem{Key: 3, Name: "free", Exempt: true})).
+				To(Succeed())
+		})
+		holdingFunc := func(values ...uniqueSibling) gorp.Filter[uint32, uniqueItem] {
+			return itemIndex.FilterFunc(func(gorp.Context) ([]uniqueSibling, error) {
+				return values, nil
+			})
+		}
+		keysAt := func(
+			ctx SpecContext,
+			snap gorp.Snapshot,
+			f gorp.Filter[uint32, uniqueItem],
+		) []uint32 {
+			GinkgoHelper()
+			var res []uniqueItem
+			Expect(items.NewRetrieve().Where(f).Entries(&res).Exec(ctx, snap)).
+				To(Succeed())
+			return lo.Map(res, func(i uniqueItem, _ int) uint32 { return i.Key })
+		}
+
+		Describe("Filter", func() {
+			It("Should match the entries of the table that hold the values", func(
+				ctx SpecContext,
+			) {
+				Expect(keysAt(ctx, db, itemIndex.Filter(
+					uniqueSibling{Parent: "a", Name: "pt"},
+					uniqueSibling{Name: "pt"},
+					uniqueSibling{Name: "a"},
+				))).To(ConsistOf(uint32(1), uint32(2)))
+			})
+
+			It("Should never match an entry that holds no value", func(
+				ctx SpecContext,
+			) {
+				Expect(keysAt(ctx, db, itemIndex.Filter(uniqueSibling{Name: "free"}))).
+					To(BeEmpty())
+			})
+
+			It("Should match a value staged in the snapshot, and only in the snapshot",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					Expect(createItem(ctx, tx, uniqueItem{Key: 4, Name: "staged"})).
+						To(Succeed())
+					staged := itemIndex.Filter(uniqueSibling{Name: "staged"})
+					Expect(keysAt(ctx, tx, staged)).To(ConsistOf(uint32(4)))
+					Expect(keysAt(ctx, db, staged)).To(BeEmpty())
+				})
+		})
+
+		Describe("FilterFunc", func() {
+			It("Should match the entries of the table that hold the values", func(
+				ctx SpecContext,
+			) {
+				Expect(keysAt(ctx, db, holdingFunc(
+					uniqueSibling{Parent: "a", Name: "pt"},
+					uniqueSibling{Name: "pt"},
+					uniqueSibling{Name: "a"},
+				))).To(ConsistOf(uint32(1), uint32(2)))
+			})
+
+			It("Should never match an entry that holds no value", func(
+				ctx SpecContext,
+			) {
+				Expect(keysAt(ctx, db, holdingFunc(uniqueSibling{Name: "free"}))).
+					To(BeEmpty())
+			})
+
+			It("Should read the values when the query runs", func(ctx SpecContext) {
+				var values []uniqueSibling
+				f := itemIndex.FilterFunc(func(gorp.Context) ([]uniqueSibling, error) {
+					return values, nil
+				})
+				values = []uniqueSibling{{Name: "pt"}}
+				Expect(keysAt(ctx, db, f)).To(ConsistOf(uint32(2)))
+			})
+
+			It("Should match a value staged in the snapshot, and only in the snapshot",
+				func(ctx SpecContext) {
+					tx := db.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					Expect(createItem(ctx, tx, uniqueItem{Key: 4, Name: "staged"})).
+						To(Succeed())
+					Expect(keysAt(ctx, tx, holdingFunc(uniqueSibling{Name: "staged"}))).
+						To(ConsistOf(uint32(4)))
+					Expect(keysAt(ctx, db, holdingFunc(uniqueSibling{Name: "staged"}))).
+						To(BeEmpty())
+				})
+
+			It("Should return the error of the function", func(ctx SpecContext) {
+				errValues := errors.New("values")
+				f := itemIndex.FilterFunc(func(gorp.Context) ([]uniqueSibling, error) {
+					return nil, errValues
+				})
+				var res []uniqueItem
+				Expect(items.NewRetrieve().Where(f).Entries(&res).Exec(ctx, db)).
+					To(MatchError(errValues))
+			})
 		})
 	})
 

@@ -331,9 +331,12 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 	switch {
 	case site.Captured:
 		why = "a symbol that the text declares holds one of these names there"
-	case site.FolderUnreadable:
-		why = "its folder cannot be read in Arc yet"
-		fix = "Rename the folder so that Arc can read it, then edit the text so " +
+	case site.Folder != "":
+		why = fmt.Sprintf(
+			"the folder %q on its path cannot be read in Arc yet",
+			site.Folder,
+		)
+		fix = "Rename that folder so that Arc can read it, then edit the text so " +
 			"that it reads the channel."
 	}
 	return status.Status[any]{

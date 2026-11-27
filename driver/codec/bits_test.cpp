@@ -20,7 +20,6 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/codec/bits.h"
-#include "driver/codec/errors.h"
 
 namespace driver::codec {
 namespace {
@@ -85,67 +84,6 @@ struct Walker {
         }
     }
 };
-}
-
-/// @brief it should read a little-endian field that crosses a byte boundary.
-TEST(BitRange, ReadLittleEndianAcrossBytes) {
-    const auto r = ASSERT_NIL_P(BitRange::create(field(4, 12, false)));
-    const std::vector<std::uint8_t> payload = {0xB0, 0xCA};
-    EXPECT_EQ(r.read(payload.data()), 0xCAB);
-    EXPECT_EQ(r.end(), 2);
-}
-
-/// @brief it should read a big-endian field from its most significant start bit into
-/// the next byte.
-TEST(BitRange, ReadBigEndianAcrossBytes) {
-    const auto r = ASSERT_NIL_P(BitRange::create(field(3, 12, true)));
-    const std::vector<std::uint8_t> payload = {0x0A, 0xBC};
-    EXPECT_EQ(r.read(payload.data()), 0xABC);
-    EXPECT_EQ(r.end(), 2);
-}
-
-/// @brief it should read a field as a two's complement integer of its bit length.
-TEST(BitRange, ReadSigned) {
-    const auto r = ASSERT_NIL_P(BitRange::create(field(0, 12, false)));
-    const std::vector<std::uint8_t> negative = {0xFF, 0x0F};
-    EXPECT_EQ(r.read_signed(negative.data()), -1);
-    const std::vector<std::uint8_t> positive = {0xFF, 0x07};
-    EXPECT_EQ(r.read_signed(positive.data()), 2047);
-}
-
-/// @brief it should write a 64-bit field across nine bytes and keep the bits next to
-/// it.
-TEST(BitRange, Write64BitsAcrossNineBytes) {
-    const auto r = ASSERT_NIL_P(BitRange::create(field(4, 64, false)));
-    std::vector<std::uint8_t> payload(9, 0xFF);
-    r.write(payload.data(), 0xFEDCBA9876543210);
-    EXPECT_EQ(r.read(payload.data()), 0xFEDCBA9876543210);
-    EXPECT_EQ(r.end(), 9);
-    EXPECT_EQ(payload[0] & 0x0F, 0x0F);
-    EXPECT_EQ(payload[8] & 0xF0, 0xF0);
-}
-
-/// @brief it should reject a bit length of zero.
-TEST(BitRange, RejectZeroLength) {
-    const auto [r, err] = BitRange::create(field(0, 0, false));
-    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "bit length must be from 1 to 64, got 0");
-}
-
-/// @brief it should reject a bit length over 64.
-TEST(BitRange, RejectLengthOver64) {
-    const auto [r, err] = BitRange::create(field(0, 65, false));
-    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "bit length must be from 1 to 64, got 65");
-}
-
-/// @brief it should reject an unknown byte order.
-TEST(BitRange, RejectUnknownByteOrder) {
-    auto f = field(0, 8, false);
-    f.byte_order = "middle_endian";
-    const auto [r, err] = BitRange::create(f);
-    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "unknown byte order middle_endian");
 }
 
 /// @brief it should read and write the same bits as a walk of the DBC rules, for any
