@@ -314,6 +314,8 @@ var _ = Describe("WriteICDMigration", func() {
 			DB:      db,
 			Channel: channelSvc,
 			ICD:     icdSvc,
+			Status:  statusSvc,
+			Secret:  secretSvc,
 		}))
 		names, asked = map[uuid.UUID]string{}, nil
 		var core zapcore.Core

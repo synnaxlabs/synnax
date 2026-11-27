@@ -33,6 +33,8 @@ var _ = Describe("Upgrade repair", func() {
 			DB:      db,
 			Channel: channelSvc,
 			ICD:     icdSvc,
+			Status:  statusSvc,
+			Secret:  secretSvc,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
