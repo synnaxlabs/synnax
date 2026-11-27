@@ -284,8 +284,8 @@ func (u *BinaryField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "kind" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "kind" tag injected,
+// as MarshalJSONTo does.
 func (u BinaryField) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -573,8 +573,8 @@ func (u *TextField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "encoding" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "encoding" tag injected,
+// as MarshalJSONTo does.
 func (u TextField) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -789,8 +789,8 @@ func (u *TimestampDefault) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u TimestampDefault) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -971,8 +971,8 @@ func (u *UUIDDefault) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u UUIDDefault) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -1462,8 +1462,8 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u JSONField) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -1931,8 +1931,8 @@ func (u *JSONMatch) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u JSONMatch) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -2280,8 +2280,8 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "format" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "format" tag injected,
+// as MarshalJSONTo does.
 func (u Payload) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -2740,8 +2740,8 @@ func (u *Framing) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Framing) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -3153,8 +3153,8 @@ func (u *WriteValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u WriteValue) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -3449,8 +3449,8 @@ func (u *WriteBinding) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u WriteBinding) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:

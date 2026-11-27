@@ -169,8 +169,8 @@ func (u *Identifier) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Identifier) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -485,8 +485,8 @@ func (u *TextField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "encoding" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "encoding" tag injected,
+// as MarshalJSONTo does.
 func (u TextField) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -1010,8 +1010,8 @@ func (u *JSONField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u JSONField) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -1457,8 +1457,8 @@ func (u *JSONMatch) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u JSONMatch) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -1788,8 +1788,8 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "format" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "format" tag injected,
+// as MarshalJSONTo does.
 func (u Payload) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:

@@ -121,8 +121,8 @@ func (u *Drawing) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Drawing) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -350,8 +350,8 @@ func (u *State) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u State) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -567,8 +567,8 @@ func (u *Matcher) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Matcher) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -769,8 +769,8 @@ func (u *CommandValue) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u CommandValue) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -999,8 +999,8 @@ func (u *Condition) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Condition) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -1225,8 +1225,8 @@ func (u *Paint) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Paint) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -1569,8 +1569,8 @@ func (u *Motion) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Motion) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -1815,8 +1815,8 @@ func (u *Interaction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Interaction) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -2123,8 +2123,8 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Ref) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:

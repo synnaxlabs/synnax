@@ -452,8 +452,8 @@ func (u *CJC) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "source" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "source" tag injected,
+// as MarshalJSONTo does.
 func (u CJC) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -2793,8 +2793,8 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u AIChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -4326,8 +4326,8 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u CIChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
@@ -4892,8 +4892,8 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u AOChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:

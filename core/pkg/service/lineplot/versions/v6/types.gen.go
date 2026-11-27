@@ -203,8 +203,8 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "variant" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "variant" tag injected,
+// as MarshalJSONTo does.
 func (u CustomRange) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:

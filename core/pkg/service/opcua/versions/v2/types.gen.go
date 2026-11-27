@@ -183,8 +183,8 @@ func (u *Sampling) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "type" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "type" tag injected,
+// as MarshalJSONTo does.
 func (u Sampling) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:

@@ -240,8 +240,8 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-// EncodeMsgpack encodes the active variant with its "method" tag injected, as
-// MarshalJSONTo does.
+// EncodeMsgpack encodes the active variant with its "method" tag injected,
+// as MarshalJSONTo does.
 func (u Proof) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 	switch v := u.Variant.(type) {
 	case nil:
