@@ -648,7 +648,7 @@ var _ = Describe("Service", func() {
 					d.AnalogInput.Channels = map[uint16]channel.Key{0: ch}
 					d.DigitalOutput = map[uint16]device.DigitalOutputChannels{
 						1: {Lines: map[uint8]device.CommandStatePair{
-							2: {Command: ch},
+							2: {Command: &ch},
 						}},
 					}
 					return d, nil
