@@ -131,14 +131,14 @@ writer opens. No channel record, task config, or client library keeps it.
   hold keys on other leases. Cesium takes keys in leases of 256 through an open option
   (NEW), so no counter write sits on the commit path, and a restart loses at most 256
   keys. The Core takes the next lease at half of the current one, so an open never waits
-  on the metadata store, and one that finds no leased key starts unstored (RFC 0121
-  §5.4). The free keys of today sit at `0xFFF00000` and up, and their counter still
-  serves virtual channels, such as signals and calculation outputs. The v3 record of
-  Phase 50 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
-  from then one counter serves both, above the largest key issued below `0xFFF00000`,
-  and it never enters the free range. So no value is both a channel and a clock. The
-  Core raises a warning status at half of the clock range, and at its end an open that
-  needs a new clock fails with a typed error. Storage makes a clock only when
+  on the metadata store, and one that finds no leased key fails with the metadata
+  store's error, as on `main`. The free keys of today sit at `0xFFF00000` and up, and
+  their counter still serves virtual channels, such as signals and calculation outputs.
+  The v3 record of Phase 50 stores `key` whole and drops `leaseholder` and `local_key`
+  (RFC 0119 §4.0); from then one counter serves both, above the largest key issued below
+  `0xFFF00000`, and it never enters the free range. So no value is both a channel and a
+  clock. The Core raises a warning status at half of the clock range, and at its end an
+  open that needs a new clock fails with a typed error. Storage makes a clock only when
   continuation finds none, and one new clock per second lasts 136 years.
 - **Index keys become clock keys**: The key of each index channel of today becomes the
   key of its clock, so stored data, stored positions, and frames keep their numbers.
@@ -363,15 +363,15 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   name one clock; an XY plot across clocks pairs by time (§4.7).
 - **Order**: A reader orders the stretches of a channel by time and uses alignment only
   inside one, since from RFC 0121 Phase 8 a backfill takes a higher number than later
-  data, and a stream-only session, a refusal window, or a clock move can step a stream's
-  number down. Four readers compare numbers across stretches today and change: the floor
-  walk of the TypeScript cache (`client/ts/src/framer/cache/store/store.ts:585-607`)
-  goes to time at Phase 14; the Python frame, which sorts the shared alignments of a
-  channel that skipped a session (`client/py/synnax/framer/frame.py:339-353`), pairs
-  each data series with its own time series in the data's order at Phase 9; the CSV and
-  TDMS walks (`core/pkg/transport/http/framer/csv.go:144-147`, `tdms.go:463-466`)
-  compare numbers only inside one stretch at Phase 19; and the Arc `on` nodes, Go at
-  Phase 7 and C++ at Phase 9 (`arc/go/stl/channels/channels.go:273`,
+  data, and a stream-only session or a clock move can step a stream's number down. Four
+  readers compare numbers across stretches today and change: the floor walk of the
+  TypeScript cache (`client/ts/src/framer/cache/store/store.ts:585-607`) goes to time at
+  Phase 14; the Python frame, which sorts the shared alignments of a channel that
+  skipped a session (`client/py/synnax/framer/frame.py:339-353`), pairs each data series
+  with its own time series in the data's order at Phase 9; the CSV and TDMS walks
+  (`core/pkg/transport/http/framer/csv.go:144-147`, `tdms.go:463-466`) compare numbers
+  only inside one stretch at Phase 19; and the Arc `on` nodes, Go at Phase 7 and C++ at
+  Phase 9 (`arc/go/stl/channels/channels.go:273`,
   `arc/cpp/stl/channels/channels.h:129`), compare their mark only inside one stretch, by
   the high 32 bits of the alignment, as Sift does, and mark, as a cursor, the ingest
   number that the program state gives each series of a key, taking only a series after
@@ -381,9 +381,9 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   drops samples from before a stage's entry (`channels.go:196-198`). Phase 41 keeps that
   rule per clock. Each of those phases has a spec that reads across a backfill with a
   higher number and a channel that skipped a session; the `on` node specs stream an
-  `Unstored` session, then a stored one, and a refusal window, and fire on each later
-  sample, and read a buffer of two stretches on two passes of one cycle, and across a
-  Reset, and fire on each series once. RFC 0121 Phase 8 waits for all four.
+  `Unstored` session, then a stored one, and fire on each later sample, and read a
+  buffer of two stretches on two passes of one cycle, and across a Reset, and fire on
+  each series once. RFC 0121 Phase 8 waits for all four.
 - **Reader API**: `frame.time(channel)` gives one time series per data series of the
   channel, with the same lengths, and `frame.time(series)` the times of one series: the
   time series under `series.clock` whose alignments hold the data's. Each fails when the
@@ -999,13 +999,13 @@ new fields and no break):
    index key of each channel, as #6165's `indexes` does. A segment that a Driver spooled
    with index keys drains on a Core past Phase 50: the drainer groups each frame by
    index key, writes each index series as the `"time"` of its group, and opens with
-   `time_groups`. The drainer retries each storage error of the unstored state (RFC 0121
-   §5.4), such as `ErrDiskFull`, EIO, or a read-only file system, with backoff and a
-   status, and sets aside, with a status that names it, only a segment that fails its
-   own checks. An open refused for stored data, after a retry, skips, per key, the
-   samples at or before that key's stored end and counts them in its status, as RFC 0113
-   drops an overlap, and writes the rest of the frame's groups, so a full Core disk
-   never loses a spooled segment and a bad one never blocks the spool.
+   `time_groups`. The drainer retries each storage error, such as `ErrDiskFull`, EIO, or
+   a read-only file system (RFC 0121 §5.4), with backoff and a status, and sets aside,
+   with a status that names it, only a segment that fails its own checks. An open
+   refused for stored data, after a retry, skips, per key, the samples at or before that
+   key's stored end and counts them in its status, as RFC 0113 drops an overlap, and
+   writes the rest of the frame's groups, so a full Core disk never loses a spooled
+   segment and a bad one never blocks the spool.
 2. **Authority in the spool**: The forwarder spools the frame after the local authority
    filter, as RFC 0113 §3.3 does, and records with it the keys that the filter dropped.
    When the dropped set of a frame changes, the drainer closes its writer and opens one
@@ -1017,14 +1017,14 @@ new fields and no break):
    drainer opens with auto commit off, as RFC 0113 §3.3 has it, so each of its commits
    persists, as on `main`, and from RFC 0121 Phase 6 a persist on the pointer log is a
    `Sync` that the commit waits for (RFC 0121 §4.2); it moves its read offset only after
-   a commit returns, so a full disk never drops a spooled frame (RFC 0121 §5.4, the
-   unstored state), and a spec fills the disk during a drain. So each dropped key
-   pauses, the rest of its group writes, and the authority of the outage holds. Until
-   Phase 50 an index key is the time of its group: when the dropped set of a frame holds
-   one, the drainer drops every channel of that index from the frame and counts their
-   samples in its status, so it never opens a data channel without its index. From Phase
-   50 authority is per channel, and the rule holds only for a segment spooled with index
-   keys, so such a segment still drains its good frames.
+   a commit returns, so a full disk never drops a spooled frame (RFC 0121 §5.4), and a
+   spec fills the disk during a drain. So each dropped key pauses, the rest of its group
+   writes, and the authority of the outage holds. Until Phase 50 an index key is the
+   time of its group: when the dropped set of a frame holds one, the drainer drops every
+   channel of that index from the frame and counts their samples in its status, so it
+   never opens a data channel without its index. From Phase 50 authority is per channel,
+   and the rule holds only for a segment spooled with index keys, so such a segment
+   still drains its good frames.
 3. **Phases**: RFC 0113 Phase 7, which touches `driver/spool` and is not built, takes
    item 2 and #6165's index-keyed records, since item 1 needs the time groups of Phase
    30 and the group positions of Phase 31. Phase 31 here follows RFC 0113 Phase 7: it
