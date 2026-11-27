@@ -12,6 +12,7 @@ package group
 import (
 	"context"
 	"io"
+	"maps"
 	"slices"
 	"uuid"
 
@@ -40,12 +41,19 @@ type MoveMembers func(
 	top *resource.ID,
 ) error
 
+// DeleteMembers deletes the records in groups that would keep the groups from being
+// deleted, in tx, before the delete of groups. Every group of groups has one scope.
+type DeleteMembers func(ctx context.Context, tx gorp.Tx, groups []Key) error
+
 type ServiceConfig struct {
 	alamos.Instrumentation
 	DB *gorp.DB
 	// MoveMembers runs in each write that moves groups under a new top parent. Nil
 	// means no record belongs to the top parent of its group.
 	MoveMembers MoveMembers
+	// DeleteMembers maps a scope to the hook that each delete of its groups runs first.
+	// A delete of a group whose scope has no hook removes only an empty group.
+	DeleteMembers map[resource.Type]DeleteMembers
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -55,6 +63,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.MoveMembers = override.Nil(c.MoveMembers, other.MoveMembers)
+	c.DeleteMembers = override.Nil(c.DeleteMembers, other.DeleteMembers)
 	return c
 }
 
@@ -150,6 +159,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         tx,
 		table:      s.table,
 		onMove:     s.cfg.MoveMembers,
+		onDelete:   s.cfg.DeleteMembers,
 		dispatcher: s.state.Dispatcher(),
 	}
 }
@@ -235,6 +245,7 @@ type Writer struct {
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Group]
 	onMove     MoveMembers
+	onDelete   map[resource.Type]DeleteMembers
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
@@ -401,9 +412,13 @@ func checkScope(g Group, parentScope resource.Type) error {
 	), "parent")
 }
 
-// Delete deletes the groups with keys. It returns a validation error when a group holds
-// a member or a group that keys does not name.
+// Delete deletes the groups with keys. It first runs the DeleteMembers hook of each
+// scope of the groups. It returns a validation error when a group still holds a member
+// or a group that keys does not name.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.deleteMembers(ctx, keys); err != nil {
+		return err
+	}
 	named := set.New(
 		lo.Map(keys, func(k Key, _ int) string { return gorp.FormatKey(k) })...,
 	)
@@ -428,6 +443,34 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 			return nil
 		}).
 		Exec(ctx, w.tx)
+}
+
+// deleteMembers runs the DeleteMembers hook of each scope of the groups with keys, on
+// the groups of that scope.
+func (w Writer) deleteMembers(ctx context.Context, keys []Key) error {
+	if len(w.onDelete) == 0 {
+		return nil
+	}
+	var groups []Group
+	if err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Group](keys...)).
+		SkipMissingKeys().
+		Entries(&groups).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	byScope := make(map[resource.Type][]Key)
+	for _, g := range groups {
+		if _, ok := w.onDelete[g.Scope]; ok {
+			byScope[g.Scope] = append(byScope[g.Scope], g.Key)
+		}
+	}
+	for _, scope := range slices.Sorted(maps.Keys(byScope)) {
+		if err := w.onDelete[scope](ctx, w.tx, byScope[scope]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Rename renames the group with the given key by applying a set of the name.
