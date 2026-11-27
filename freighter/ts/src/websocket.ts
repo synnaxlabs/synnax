@@ -84,10 +84,12 @@ export interface KeepAlive {
   interval: CrudeTimeSpan;
   /**
    * How long an open stream may receive no message before it fails with Unreachable.
-   * It applies only when the server sends keep-alives, and must be longer than the
-   * interval. A message counts only when all of it has arrived, so the timeout must
-   * also cover the largest message on the slowest link. Defaults to three intervals.
-   * A timeout of zero, infinity, or more than 2^31 - 1 milliseconds sets no limit.
+   * The stream fails up to 500 ms after the timeout, so that messages held by a frozen
+   * page can arrive first. It applies only when the server sends keep-alives, and must
+   * be longer than the interval. A message counts only when all of it has arrived, so
+   * the timeout must also cover the largest message on the slowest link. Defaults to
+   * three intervals. A timeout of zero, infinity, or more than 2^31 - 1 milliseconds
+   * sets no limit.
    */
   timeout: CrudeTimeSpan;
 }
