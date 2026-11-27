@@ -240,18 +240,24 @@ func (w Rewriter) Rewrite(ctx context.Context, src Source) (Result, error) {
 			res.References[i].Kept = true
 		}
 	}
+	res.Text = write(src.Text, res.References, written)
+	return res, nil
+}
+
+// write returns text with the new name in place of each of refs that reads the channel
+// and is not kept, at its span in spans.
+func write(text string, refs []Reference, spans []span) string {
 	var b strings.Builder
 	last := 0
-	for i, r := range res.References {
+	for i, r := range refs {
 		if r.Bound && r.Binding == symbol.KindChannel && !r.Kept {
-			b.WriteString(src.Text[last:written[i].start])
+			b.WriteString(text[last:spans[i].start])
 			b.WriteString(r.NewName)
-			last = written[i].end
+			last = spans[i].end
 		}
 	}
-	b.WriteString(src.Text[last:])
-	res.Text = b.String()
-	return res, nil
+	b.WriteString(text[last:])
+	return b.String()
 }
 
 // span is the byte range [start, end) of a reference in a text.
