@@ -378,6 +378,12 @@ func (s *State) sealDeleted(records []log.Record) {
 	}
 }
 
+// Timed returns the keys of the segments that a durable Create made with clock as their
+// clock.
+func (s *State) Timed(clock uint32) (set.Set[uint32], error) {
+	return nil, nil
+}
+
 // Drops returns the count of the Drop records that the state applied.
 func (s *State) Drops() uint64 { return s.core.drops.Load() }
 

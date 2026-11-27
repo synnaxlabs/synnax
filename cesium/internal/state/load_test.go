@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -73,4 +74,25 @@ var _ = Describe("Cuts", func() {
 		Expect(s.Channel(9).Segments[0].Pointers).To(BeEmpty())
 		Expect(s.Channel(9).Cuts).To(Equal(uint64(1)))
 	})
+})
+
+var _ = Describe("Timed", func() {
+	It("Should return the keys of the segments on a clock that a durable Create made",
+		func() {
+			a := &appended{}
+			s := MustSucceed(state.Open(config(a), sample()))
+			a.s, a.seq = s, sample().Sequence
+			run(s)
+			Expect(s.Timed(5)).To(Equal(set.New[uint32](5, 6)))
+			Expect(s.Timed(6)).To(BeEmpty())
+			w := MustSucceed(
+				s.OpenWriter(context.Background(), clockWriter(100, false, 9, 7)),
+			)
+			id := MustSucceed(w.NewSegment(7))
+			Expect(s.Timed(9)).To(BeEmpty(), "no durable Create made the segment")
+			Expect(a.durable([]log.Record{create(id, 7, 9)})).To(Succeed())
+			Expect(s.Timed(9)).To(Equal(set.New[uint32](7)))
+			Expect(a.durable([]log.Record{&log.Drop{Key: 6}})).To(Succeed())
+			Expect(s.Timed(5)).To(Equal(set.New[uint32](5)))
+		})
 })

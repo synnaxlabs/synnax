@@ -147,6 +147,16 @@ var _ = Describe("Tombstone", func() {
 		))
 	})
 
+	It("Should take a clock tombstone of a range that a dropped key used", func() {
+		Expect(s.Replay(10, []log.Record{
+			&log.Drop{Key: 6},
+			&log.Tombstone{Key: 5, Start: 0, End: 35},
+		})).To(Succeed())
+		Expect(
+			pointersOf(5),
+		).To(Equal([]state.Pointer{pointer(2, 0, 40, 50, 0, 16, 2)}))
+	})
+
 	It("Should remove a sealed segment that no live pointer is left in", func() {
 		Expect(s.Replay(10, []log.Record{
 			&log.Tombstone{Key: 6, Start: 0, End: 100},
