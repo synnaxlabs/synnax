@@ -149,8 +149,9 @@ const retrieveIfExists = async (
 
 /**
  * @returns a function that opens the line plot of the tasks' numeric channels. Each
- * unit gets its own y axis. It reopens the plot that it made for the same tasks before,
- * with any channel that the plot lacks added, and creates a plot when there is none.
+ * unit gets its own y axis. It reopens the plot that it made for the same tasks in the
+ * active project, with any channel that the plot lacks added, and creates a plot when
+ * there is none.
  */
 export const usePlot = (): ((tasks: PlotSource[]) => void) => {
   const client = Synnax.use();
@@ -158,6 +159,7 @@ export const usePlot = (): ((tasks: PlotSource[]) => void) => {
   const openTab = Panel.useOpenTab();
   const dispatch = Session.useDispatch();
   const getOfTasks = Session.LinePlot.useGetOfTasks();
+  const getActiveProject = Session.Project.useGetSelected();
   const handleError = Status.useErrorHandler();
   return (tasks) =>
     handleError(async () => {
@@ -181,8 +183,16 @@ export const usePlot = (): ((tasks: PlotSource[]) => void) => {
         .map(({ key }) => key)
         .sort()
         .join(",");
-      const linked = getOfTasks(ofTasks);
-      const plot = linked == null ? null : await retrieveIfExists(client, linked);
+      // The link is read again until no other run changes it during a retrieve. No
+      // await may come between the last read and the create, which puts the plot in the
+      // client's cache, where the next run finds it.
+      let linked = getOfTasks(ofTasks);
+      let found = linked == null ? null : await retrieveIfExists(client, linked);
+      while (getOfTasks(ofTasks) !== linked) {
+        linked = getOfTasks(ofTasks);
+        found = linked == null ? null : await retrieveIfExists(client, linked);
+      }
+      const plot = found?.project === getActiveProject() ? found : null;
       if (plot == null) {
         const key = uuid.create();
         dispatch(Session.LinePlot.setOfTasks({ tasks: ofTasks, key }));

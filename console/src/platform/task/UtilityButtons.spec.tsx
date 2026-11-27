@@ -231,6 +231,47 @@ describe("UtilityButtons", () => {
       });
     });
 
+    it("should make one plot when clicked twice before it exists", async () => {
+      const [rpm, degC] = await createFieldChannels(["rpm", "degC"]);
+      const { proj, container, form } = await renderPlot([rpm], undefined, ICD_TYPE);
+      act(() => form.current?.set(path.config.channels, [rpm, degC]));
+      clickIcon(container, "line-plot");
+      await waitFor(async () => {
+        const plots = await client.lineplots.retrieve({ projects: [proj.key] });
+        expect(plots).toHaveLength(1);
+        expect(plots[0].channels).toMatchObject({
+          y1: [rpm.channel],
+          y2: [degC.channel],
+        });
+      });
+    });
+
+    it("should make one plot when clicked twice after a delete", async () => {
+      const key = await createChannel("float32");
+      const { proj, container } = await renderPlot([{ channel: key, disabled: false }]);
+      const first = await findPlot(proj.key);
+      await client.lineplots.delete(first.key);
+      clickIcon(container, "line-plot");
+      clickIcon(container, "line-plot");
+      await waitFor(async () => {
+        const plots = await client.lineplots.retrieve({ projects: [proj.key] });
+        expect(plots).toHaveLength(1);
+        expect(plots[0].key).not.toBe(first.key);
+      });
+    });
+
+    it("should create a plot when its plot moved to another project", async () => {
+      const key = await createChannel("float32");
+      const { proj, container } = await renderPlot([{ channel: key, disabled: false }]);
+      const first = await findPlot(proj.key);
+      const other = await client.projects.create({ name: uniqueName("proj") });
+      await client.batch.send(client.lineplots.setProjectRequest(first.key, other.key));
+      clickIcon(container, "line-plot");
+      const second = await findPlot(proj.key);
+      expect(second.key).not.toBe(first.key);
+      expect(second.channels.y1).toEqual([key]);
+    });
+
     it("should keep what the user changed on the plot it reopens", async () => {
       const [rpm, degC] = await createFieldChannels(["rpm", "degC"]);
       const extra = await createChannel("float32");
