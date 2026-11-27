@@ -77,6 +77,7 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 // NewUniqueIndex constructs a UniqueIndex named name in the space named space. value
 // returns the value of an entry, or false to exempt the entry. Every index of a space
 // must have the same value type V, and a table can have at most one index in a space.
+// value reads the stored entry and must not change it.
 func NewUniqueIndex[K Key, E Entry[K], V comparable](
 	name string,
 	space string,
@@ -93,32 +94,22 @@ func NewUniqueIndex[K Key, E Entry[K], V comparable](
 // Name implements Index.
 func (u *UniqueIndex[K, E, V]) Name() string { return u.name }
 
-func (u *UniqueIndex[K, E, V]) populate() (func(E), func(error)) {
+func (u *UniqueIndex[K, E, V]) populate() (func(*E), func(error)) {
 	insert, finish := u.store.Populate()
-	return func(entry E) {
-			if v, ok := u.value(&entry); ok {
-				insert(entry.GorpKey(), v)
+	return func(entry *E) {
+			if v, ok := u.value(entry); ok {
+				insert((*entry).GorpKey(), v)
 			}
 		},
 		func(err error) { finish(populateErr(u.name, err)) }
 }
 
-func (u *UniqueIndex[K, E, V]) set(entry E) {
-	if v, ok := u.value(&entry); ok {
-		u.store.Set(entry.GorpKey(), v)
+func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry *E) {
+	if v, ok := u.value(entry); ok {
+		u.store.Stage(tx.txIdentity(), (*entry).GorpKey(), v)
 		return
 	}
-	u.store.Delete(entry.GorpKey())
-}
-
-func (u *UniqueIndex[K, E, V]) delete(key K) { u.store.Delete(key) }
-
-func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	if v, ok := u.value(&entry); ok {
-		u.store.Stage(tx.txIdentity(), entry.GorpKey(), v)
-		return
-	}
-	u.store.StageDelete(tx.txIdentity(), entry.GorpKey())
+	u.store.StageDelete(tx.txIdentity(), (*entry).GorpKey())
 }
 
 func (u *UniqueIndex[K, E, V]) stageDelete(tx Tx, key K) {

@@ -288,7 +288,7 @@ var _ = Describe("Import", func() {
 
 	It("Should reject data that does not parse", func(ctx SpecContext) {
 		Expect(importICD(ctx, ic.Key, icd.ImportFormatCSV, "color\n")).Error().To(
-			MatchError(`data: row 1: unknown column "color": validation error`),
+			MatchError(HavePrefix(`data: row 1: unknown column "color": expected `)),
 		)
 	})
 

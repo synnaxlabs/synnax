@@ -35,6 +35,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
@@ -677,6 +678,16 @@ func (s *Symbol) ResolveMember(
 		)
 	}
 	return sym.Resolve(ctx, tail)
+}
+
+// ResolveName resolves the name that a value site in Arc source holds: a variable, a
+// channel, a constant, or the member of a module.
+func (s *Symbol) ResolveName(
+	ctx context.Context,
+	n parser.Name,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	return s.ResolveMember(ctx, n.Head, n.Tail, options...)
 }
 
 // resolve does the actual lexical walk. origin is the scope the caller

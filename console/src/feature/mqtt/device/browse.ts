@@ -8,15 +8,74 @@
 // included in the file licenses/APL.txt.
 
 import { status, type Synnax } from "@synnaxlabs/client";
-import { TimeSpan } from "@synnaxlabs/x";
+import { json, TimeSpan } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
 import {
   BROWSE_COMMAND_TYPE,
   BROWSE_SPARKPLUG_COMMAND_TYPE,
-  type BrowsedTopic,
 } from "@/feature/mqtt/device/scan";
 import type { Device } from "@/feature/mqtt/device/types";
+
+const browsedFieldZ = json.inferredFieldZ
+  .pick({ pointer: true, type: true, kind: true, timeFormat: true })
+  .extend({
+    /** The start of the JSON text of the last value heard. */
+    sample: z.string(),
+  });
+
+export interface BrowsedField extends z.infer<typeof browsedFieldZ> {}
+
+/** The JSON messages of a topic that hold the same fields. */
+const browsedShapeZ = z.object({
+  fields: browsedFieldZ.array(),
+  /** The pointer of the timestamp in fields that indexes the messages. */
+  index: z.string().optional(),
+  /** The pointer of the field that only the messages of the shape hold. */
+  present: z.string().optional(),
+  /** The number of messages heard. */
+  count: z.number(),
+});
+
+const browsedTopicZ = z.object({
+  topic: z.string(),
+  /** The start of the last payload. */
+  payload: z.string(),
+  /** The shapes of the JSON messages heard, in the order first heard. */
+  shapes: browsedShapeZ.array(),
+  retained: z.boolean(),
+});
+
+export interface BrowsedTopic extends z.infer<typeof browsedTopicZ> {}
+
+const browseResultZ = z.object({
+  topics: browsedTopicZ.array(),
+  truncated: z.boolean(),
+});
+
+const browsedSparkplugNodeZ = z.object({
+  group: z.string(),
+  edgeNode: z.string(),
+  devices: z.string().array(),
+});
+
+export interface BrowsedSparkplugNode extends z.infer<typeof browsedSparkplugNodeZ> {}
+
+const browsedSparkplugTagZ = z.object({
+  device: z.string(),
+  name: z.string(),
+  dataType: z.string(),
+  value: z.string(),
+  supported: z.boolean(),
+});
+
+export interface BrowsedSparkplugTag extends z.infer<typeof browsedSparkplugTagZ> {}
+
+const browseSparkplugResultZ = z.object({
+  nodes: browsedSparkplugNodeZ.array(),
+  tags: browsedSparkplugTagZ.array(),
+});
 
 /** How long the Core listens to the broker for one browse. */
 export const BROWSE_DURATION = TimeSpan.seconds(3);
@@ -47,10 +106,7 @@ export const browseTopics = async (
     args: { device: device.key, filter, duration: BROWSE_DURATION.milliseconds },
   });
   if (res.variant !== "success") throw status.toError(res);
-  const data = res.details?.data;
-  // A sample answer holds topics too, beside its shapes.
-  if (data == null || !("topics" in data) || "shapes" in data)
-    throw new Error("The scan task replied without topics");
+  const data = browseResultZ.parse(res.details?.data);
   return {
     topics: data.topics.map((t) => ({ ...t, key: t.topic })),
     truncated: data.truncated,
@@ -79,8 +135,5 @@ export const browseSparkplug = async (
     },
   });
   if (res.variant !== "success") throw status.toError(res);
-  const data = res.details?.data;
-  if (data == null || !("nodes" in data))
-    throw new Error("The scan task replied without edge nodes");
-  return data;
+  return browseSparkplugResultZ.parse(res.details?.data);
 };

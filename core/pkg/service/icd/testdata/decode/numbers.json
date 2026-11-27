@@ -182,6 +182,10 @@
     {
       "text": "not json",
       "error": "jsontext: invalid character 'o' in literal null (expecting 'u') after offset 1: validation error"
+    },
+    {
+      "text": "{\"temp\": 0, \"count\": 1, \"total\": 1, \"armed\": false, \"level\": 1, \"raw\": 1} {}",
+      "error": "unexpected data after the top-level value: validation error"
     }
   ]
 }

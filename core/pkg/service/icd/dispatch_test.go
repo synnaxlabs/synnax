@@ -142,6 +142,22 @@ var _ = Describe("Apply", func() {
 		}))
 	})
 
+	It("Should insert a field and keep the keys of the other fields", func(
+		ctx SpecContext,
+	) {
+		gear := field("gear", 16)
+		after := binaryFieldOf(bus.Messages[0], 1).Base().Key.String()
+		Expect(dispatch(ctx, icd.NewInsertAction(icd.InsertPayload{
+			Path:  messagePath(0, "payload", "fields"),
+			Value: gear,
+			After: &after,
+		}))).To(Succeed())
+		engine := updateBinary(bus.Messages[0], func(p *icd.BinaryPayload) {
+			p.Fields = append(p.Fields[:2:2], gear)
+		})
+		Expect(retrieve(ctx).Messages).To(Equal([]icd.Message{engine, bus.Messages[1]}))
+	})
+
 	It("Should set a value of a field in a binary payload", func(ctx SpecContext) {
 		Expect(dispatch(ctx, set(
 			fieldPath(0, 1, "scale"),

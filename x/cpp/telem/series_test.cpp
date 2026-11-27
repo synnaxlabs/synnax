@@ -2480,7 +2480,7 @@ TEST(SeriesShallowCopy, ReadOnlyOperationsDoNotDetach) {
     [[maybe_unused]] auto vals = copy.values<float>();
     [[maybe_unused]] auto sz = copy.size();
     [[maybe_unused]] auto bs = copy.byte_size();
-    [[maybe_unused]] auto dt = copy.data_type();
+    [[maybe_unused]] const auto &dt = copy.data_type();
     [[maybe_unused]] auto emp = copy.empty();
     ASSERT_EQ(original.data(), copy.data());
 }

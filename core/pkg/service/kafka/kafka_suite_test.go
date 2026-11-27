@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
@@ -190,7 +191,8 @@ func toJSON(v any, opts ...json.Options) msgpack.EncodedJSON {
 	return m
 }
 
-// createDevice creates a Kafka cluster device with props on the embedded rack.
+// createDevice creates a Kafka cluster device with props on the embedded rack, and
+// deletes it when the spec ends.
 func createDevice(ctx context.Context, props kafka.Properties) device.Device {
 	GinkgoHelper()
 	dev := device.Device{
@@ -206,6 +208,11 @@ func createDevice(ctx context.Context, props kafka.Properties) device.Device {
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
 	})).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return deviceSvc.NewWriter(tx).Delete(ctx, dev.Key)
+		})).To(Succeed())
+	})
 	return dev
 }
 
@@ -258,11 +265,17 @@ func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	return t
 }
 
-// taskStatus retrieves the status of t.
+// taskStatus retrieves the status of t, which must exist.
 func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
+	return retrieveTaskStatus(ctx, Default, t)
+}
+
+// retrieveTaskStatus retrieves the status of t, and fails g when t has none.
+func retrieveTaskStatus(ctx context.Context, g Gomega, t task.Task) task.Status {
+	GinkgoHelper()
 	var stat task.Status
-	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+	g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&stat).
 		Exec(ctx, db)).To(Succeed())
@@ -379,21 +392,46 @@ func closedAddress() string {
 	return addr
 }
 
-// consume reads at least n records from topic.
+// consume reads exactly n records from topic.
 func consume(ctx context.Context, topic string, n int) []*kgo.Record {
 	GinkgoHelper()
 	cl := newKafkaClient(
 		kgo.ConsumeTopics(topic),
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+		kgo.FetchMaxBytes(16<<20),
 	)
-	var recs []*kgo.Record
+	recs := make([]*kgo.Record, 0, n)
 	Eventually(func() int {
 		pollCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 		defer cancel()
 		recs = append(recs, cl.PollFetches(pollCtx).Records()...)
 		return len(recs)
-	}).WithTimeout(15 * time.Second).Should(BeNumerically(">=", n))
+	}).WithTimeout(2 * time.Minute).WithPolling(time.Millisecond).
+		Should(BeNumerically(">=", n))
+	Expect(recs).To(HaveLen(n))
 	return recs
+}
+
+// stored returns every sample persisted in key.
+func stored(ctx context.Context, key channel.Key) telem.Series {
+	GinkgoHelper()
+	it := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:   channel.Keys{key},
+		Bounds: telem.TimeRangeMax,
+	}))
+	defer func() { Expect(it.Close()).To(Succeed()) }()
+	var s telem.Series
+	if !it.SeekFirst() {
+		return s
+	}
+	for it.Next(iterator.AutoSpan) {
+		for _, ser := range it.Value().Get(key).Series {
+			s.DataType = ser.DataType
+			s.Data = append(s.Data, ser.Data...)
+		}
+	}
+	Expect(it.Error()).To(Succeed())
+	return s
 }
 
 // decode returns the JSON value of rec.
@@ -437,6 +475,23 @@ func topicID(ctx context.Context, cl *kgo.Client, topic string) [16]byte {
 	res := MustSucceed(req.RequestWith(ctx, cl))
 	Expect(res.Topics).To(HaveLen(1))
 	return res.Topics[0].TopicID
+}
+
+// control runs fn on requests of key to the suite cluster, as kfake.Cluster.ControlKey
+// does, until the spec ends.
+func control(key kmsg.Key, fn func(kmsg.Request) (kmsg.Response, error, bool)) {
+	var ended atomic.Bool
+	DeferCleanup(func() { ended.Store(true) })
+	cluster.ControlKey(
+		key.Int16(),
+		func(req kmsg.Request) (kmsg.Response, error, bool) {
+			if ended.Load() {
+				cluster.DropControl()
+				return nil, nil, false
+			}
+			return fn(req)
+		},
+	)
 }
 
 // cutConnections closes each connection that sends a request to broker until restore
