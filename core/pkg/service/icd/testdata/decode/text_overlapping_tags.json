@@ -1,0 +1,50 @@
+{
+  "description": "A tagged item belongs to the field with the longest tag that starts it, in any field order.",
+  "messages": [
+    {
+      "name": "cmd",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "te",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "tagged",
+            "tag": "TE"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "t",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "tagged",
+            "tag": "T"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "TE5,T3",
+      "message": "cmd",
+      "samples": [5, 3]
+    }
+  ]
+}
