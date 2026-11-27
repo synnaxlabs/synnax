@@ -794,14 +794,14 @@ or without the flag.
   or a signals channel. It runs before the text holders open, so it reports the channels
   that it creates and renames; before the API serves, `channel/tree` applies their heals
   and text passes with the defaults. A migration that moves a channel onto a tombstone's
-  path runs the same heal, so a live channel and a tombstone never share a path.
-  `Declare` renames a user channel and creates the built-in as two actions, the rename
-  first, so text that names the user channel follows it. Before any compile and before
-  the API serves, the rename's text pass runs from the stored old path, with
-  `update_text` for each of its tokens whatever holds the path by then, and deletes the
-  stored path. A crash before the pass runs it at the next start. Every first free
-  suffix in this RFC (`Declare`, the Phase 7 migration, a displaced channel) skips
-  tombstone paths.
+  path runs the same heal, so a live channel and a tombstone never share a path. No
+  migration of this RFC meets one, since `core/v0.62.0` holds no tombstones. `Declare`
+  renames a user channel and creates the built-in as two actions, the rename first, so
+  text that names the user channel follows it. Before any compile and before the API
+  serves, the rename's text pass runs from the stored old path, with `update_text` for
+  each of its tokens whatever holds the path by then, and deletes the stored path. A
+  crash before the pass runs it at the next start. Every first free suffix in this RFC
+  (`Declare`, the Phase 7 migration, a displaced channel) skips tombstone paths.
 - **Access**: The plan and apply routes refuse a request that names a record the caller
   cannot retrieve, before any plan, so an apply never acts on effects that the caller
   could not see. The refusal names the key that the caller sent. An entry for any other
@@ -827,11 +827,8 @@ or without the flag.
   each folder's live members and tombstones to its parent and deletes the folder, in one
   action. A tombstone that lands on a taken path drops, and the plan lists it as
   dropped. A live member that lands on a tombstone's path heals with the defaults, as a
-  create does (§4.12). If that member holds its own list, the ungroup fails and names
-  the channel, since the default would drop that list with no pick. A move of that
-  channel, which plans its picks, comes first. A folder delete or ungroup takes no
-  picks: its entries offer none, and the API refuses one that holds a pick or a hidden
-  pick.
+  create does (§4.12). A folder delete or ungroup takes no picks: its entries offer
+  none, and the API refuses one that holds a pick or a hidden pick.
 - **Routes**: `/impact/plan` and `/impact/apply` take one change union, with a record
   arm that `impact` serves and the channel tree arms that `channel/tree` serves. The
   response holds an `impact.Plan`, keyed like the change. The change union and the route
@@ -881,20 +878,25 @@ Tombstone struct {
   never blocks a create. A folder delete removes its tombstones first, and an ungroup
   moves them (§4.11).
 - **Heal**: A rename or move that gives a channel a tombstone's path plans a heal, and a
-  create or an ungroup heals with the defaults, with no picks (an ungroup refuses an
-  arriving channel that holds a list, §4.11). Each link that holds the dead key gets
-  `retarget` (default) or `keep`; the list moves to the new channel. The tombstone then
-  goes, whatever the picks, so a path holds at most one. A `rewires` link is never a
-  heal target. From Phase 18 every channel create heals a tombstone at its path with the
-  defaults, whatever its caller, such as a task save or `Declare`, so a live channel and
-  a tombstone never share a path. Text holders need no entry: the path binds at the next
-  compile. A graph-mode Arc that holds the dead key in a node config is a key holder and
-  gets an entry. The arriving channel's own list, if it holds one, gets an entry: `drop`
-  (default; that history of the path it leaves goes, and the past holders keep their
-  data) or `cancel`, so the result writes one list. `uses` leaves out tombstone holders,
-  which have no resource type. A script that makes channels again on each run heals
-  every display on each run, and a remake for another purpose heals by default too; only
-  the dialog shows it.
+  create or an ungroup heals with the defaults, with no picks. Each link that holds the
+  dead key gets `retarget` (default) or `keep`; the list moves to the new channel. The
+  tombstone then goes, whatever the picks, so a path holds at most one. A `rewires` link
+  is never a heal target. From Phase 18 every channel create heals a tombstone at its
+  path with the defaults, whatever its caller, such as a task save or `Declare`, so a
+  live channel and a tombstone never share a path. Text holders need no entry: the path
+  binds at the next compile. A graph-mode Arc that holds the dead key in a node config
+  is a key holder and gets an entry. A list of gap entries only covers no time, so in
+  every heal it drops with no choice. An arriving channel's list that holds a past
+  holder (`from` not 0) gets an entry: `drop` (default; that history of the path it
+  leaves goes, and the past holders keep their data) or `cancel`, so the result writes
+  one list. A heal with no picks fails on such a list, by every route: a rename or move
+  with no picks, and an ungroup, which takes no picks, as a rename onto a taken path
+  with no picks fails (§4.13). The error names the channel only to a caller who can
+  retrieve it, and else gives a hidden count (§4.11). A create holds no list, and
+  `Declare`'s suffix skips tombstone paths, so neither meets one. `uses` leaves out
+  tombstone holders, which have no resource type. A script that makes channels again on
+  each run heals every display on each run, and a remake for another purpose heals by
+  default too; only the dialog shows it.
 
 ### 4.13 Rewires and measured reads
 
