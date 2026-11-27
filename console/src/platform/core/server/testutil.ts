@@ -51,8 +51,8 @@ export interface ServeOIDCParams {
   methods?: string[];
   providers?: auth.OIDCLogin[];
   links?: auth.oidc.Link[];
-  /** Refuses every link, as for an account that already has one. */
-  linkRefused?: boolean;
+  /** The type of the validation error that every link is refused with. */
+  linkRefusal?: string;
 }
 
 export interface OIDCServer {
@@ -72,7 +72,7 @@ export const serveOIDC = async ({
   methods = ["password", "oidc"],
   providers = [],
   links = [],
-  linkRefused = false,
+  linkRefusal,
 }: ServeOIDCParams = {}): Promise<OIDCServer> => {
   const state = { links: [...links], linked: [] as unknown[] };
   const answer = (path: string, body: string): { status?: number; body: unknown } => {
@@ -93,11 +93,8 @@ export const serveOIDC = async ({
       credentials: auth.OIDCCredentials;
     };
     state.linked.push(credentials);
-    if (linkRefused)
-      return {
-        status: 400,
-        body: { type: "sy.validation", data: "the account is already linked" },
-      };
+    if (linkRefusal != null)
+      return { status: 400, body: { type: linkRefusal, data: "link refused" } };
     const issuer = providers.find((p) => p.provider === credentials.provider)?.issuer;
     const link = {
       key: crypto.randomUUID(),

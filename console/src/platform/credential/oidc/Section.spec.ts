@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  AccountLinkedError,
   type auth,
   connection,
   type resource,
@@ -247,7 +248,11 @@ describe("OIDC section", () => {
       await screen.findByText(`Link ${PROVIDER.provider}`);
       fireEvent.click(findButton(`Link ${PROVIDER.provider}`));
       await waitFor(() => expect(server.linked).toHaveLength(1));
-      return { onMessage, messages: () => statuses.map((s) => s.message) };
+      return {
+        onMessage,
+        messages: () => statuses.map((s) => s.message),
+        failed: () => statuses.find((s) => s.message === "Failed to link account"),
+      };
     };
 
     it("should link the account over the loopback redirect", async () => {
@@ -281,11 +286,22 @@ describe("OIDC section", () => {
     it("should report a link the Core refuses", async () => {
       const { client, server } = await open({
         providers: [PROVIDER],
-        linkRefused: true,
+        linkRefusal: "sy.validation",
       });
       const { messages } = await clickLink(server, client);
+      await waitFor(() => expect(messages()).toContain("Failed to link account"));
+    });
+
+    it("should name the provider of an account another user holds", async () => {
+      const { client, server } = await open({
+        providers: [PROVIDER],
+        linkRefusal: AccountLinkedError.TYPE,
+      });
+      const { failed } = await clickLink(server, client);
       await waitFor(() =>
-        expect(messages()).toContain("Failed to link provider account"),
+        expect(failed()).toMatchObject({
+          description: `This ${PROVIDER.provider} account is linked to another user.`,
+        }),
       );
     });
   });

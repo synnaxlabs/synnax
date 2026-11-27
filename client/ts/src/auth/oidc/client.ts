@@ -36,8 +36,9 @@ export class Client {
    * Links the OpenID Connect provider account that the credentials prove to the
    * caller, so the account can log in as the caller.
    * @throws {InvalidCredentialsError} when the provider rejects the credentials.
-   * @throws {ValidationError} when the account or the caller already has a link for
-   * the provider.
+   * @throws {ProviderLinkedError} when the caller already has an account of the
+   * provider linked.
+   * @throws {AccountLinkedError} when the account is linked to another user.
    */
   async link(credentials: OIDCCredentials): Promise<Link> {
     const res = await this.client.send(

@@ -124,7 +124,7 @@ export const useCompleteBrowserLogin = (): void => {
         dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
         dispatch(Session.Core.select(core.key));
       },
-      purpose === "link" ? "Failed to link provider account" : "Failed to log in",
+      purpose === "link" ? "Failed to link account" : "Failed to log in",
     );
   }, []);
   useEffect(() => {
@@ -141,9 +141,9 @@ export const useCompleteBrowserLogin = (): void => {
         addStatus({
           variant: "success",
           name: provider,
-          message: "Linked provider account",
+          message: "Linked account",
         });
-    }, "Failed to link provider account");
+    }, "Failed to link account");
   }, [client]);
 };
 

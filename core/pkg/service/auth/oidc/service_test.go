@@ -588,7 +588,7 @@ var _ = Describe("Service", func() {
 			}
 			MustSucceed(link(ctx, svc, subject, account))
 			Expect(link(ctx, svc, createUser(ctx), account)).Error().
-				To(MatchError(validate.ErrValidation))
+				To(MatchError(oidc.ErrAccountLinked))
 		})
 		It("Should refuse a second link from one user to a provider", func(
 			ctx SpecContext,
@@ -598,7 +598,19 @@ var _ = Describe("Service", func() {
 			}))
 			Expect(link(ctx, svc, subject, oidc.Account{
 				Provider: "idp", Issuer: provider.Issuer(), ID: uuid.New().String(),
-			})).Error().To(MatchError(validate.ErrValidation))
+			})).Error().To(MatchError(oidc.ErrProviderLinked))
+		})
+		It("Should report a provider linked when the user holds the account", func(
+			ctx SpecContext,
+		) {
+			account := oidc.Account{
+				Provider: "idp",
+				Issuer:   provider.Issuer(),
+				ID:       uuid.New().String(),
+			}
+			MustSucceed(link(ctx, svc, subject, account))
+			Expect(link(ctx, svc, subject, account)).Error().
+				To(MatchError(oidc.ErrProviderLinked))
 		})
 		It("Should refuse the second of two links to one account made at once", func(
 			ctx SpecContext,
@@ -617,7 +629,7 @@ var _ = Describe("Service", func() {
 				})
 			}
 			wg.Wait()
-			Expect(errs).To(ConsistOf(Succeed(), MatchError(validate.ErrValidation)))
+			Expect(errs).To(ConsistOf(Succeed(), MatchError(oidc.ErrAccountLinked)))
 			var links []oidc.Link
 			Expect(svc.NewRetrieve().Where(oidc.MatchUsers(subjects...)).
 				Entries(&links).Exec(ctx, db)).To(Succeed())

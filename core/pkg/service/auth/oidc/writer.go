@@ -15,8 +15,6 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer creates and deletes links in one transaction. It makes no identity check and
@@ -27,8 +25,9 @@ type Writer struct {
 	tx  gorp.Tx
 }
 
-// Create links account to u and returns the link. It returns a validation error when
-// the account is already linked or u already has a link for the account's issuer.
+// Create links account to u and returns the link. It returns [ErrProviderLinked] when u
+// already has a link for the account's issuer, and [ErrAccountLinked] when another
+// user holds the account.
 func (w Writer) Create(
 	ctx context.Context,
 	u user.Key,
@@ -43,21 +42,10 @@ func (w Writer) Create(
 	if err := l.Validate(); err != nil {
 		return Link{}, err
 	}
-	linked, err := w.svc.NewRetrieve().
-		Where(MatchIssuers(account.Issuer)).
-		Where(Or(MatchAccounts(account.ID), MatchUsers(u))).
-		Exists(ctx, w.tx)
-	if err != nil {
+	if err := w.refuseLinked(ctx, u, account); err != nil {
 		return Link{}, err
 	}
-	if linked {
-		return Link{}, errors.Wrapf(
-			validate.ErrValidation,
-			"an account of %s is already linked to this user, or this account to another",
-			account.Issuer,
-		)
-	}
-	if err = w.svc.table.NewCreate().Entry(&l).Exec(ctx, w.tx); err != nil {
+	if err := w.svc.table.NewCreate().Entry(&l).Exec(ctx, w.tx); err != nil {
 		return Link{}, err
 	}
 	return l, nil
@@ -68,4 +56,30 @@ func (w Writer) Delete(ctx context.Context, keys ...LinkKey) error {
 	return w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[LinkKey, Link](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// refuseLinked returns ErrProviderLinked or ErrAccountLinked when account cannot link
+// to u.
+func (w Writer) refuseLinked(ctx context.Context, u user.Key, account Account) error {
+	held, err := w.svc.NewRetrieve().
+		Where(MatchIssuers(account.Issuer)).
+		Where(MatchUsers(u)).
+		Exists(ctx, w.tx)
+	if err != nil {
+		return err
+	}
+	if held {
+		return ErrProviderLinked
+	}
+	taken, err := w.svc.NewRetrieve().
+		Where(MatchIssuers(account.Issuer)).
+		Where(MatchAccounts(account.ID)).
+		Exists(ctx, w.tx)
+	if err != nil {
+		return err
+	}
+	if taken {
+		return ErrAccountLinked
+	}
+	return nil
 }

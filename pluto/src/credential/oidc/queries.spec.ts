@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
+import {
+  AccountLinkedError,
+  type auth,
+  ProviderLinkedError,
+  user,
+} from "@synnaxlabs/client";
 import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Credential } from "@/credential";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -34,18 +39,37 @@ describe("OIDC queries", () => {
     await waitFor(() => expect(result.current.data).toEqual([]));
   });
 
-  it("should report a link the Core refuses", async () => {
+  const CREDENTIALS: auth.OIDCCredentials = {
+    provider: "Google",
+    code: "code",
+    verifier: "verifier",
+    redirectUri: "http://127.0.0.1:4242/callback",
+  };
+
+  const link = async () => {
     const { result } = renderHook(() => Credential.OIDC.useLink(), { wrapper });
     let linked: boolean | undefined;
     await act(async () => {
-      linked = await result.current.updateAsync({
-        provider: "idp",
-        code: "code",
-        verifier: "verifier",
-        redirectUri: "http://127.0.0.1:4242/callback",
-      });
+      linked = await result.current.updateAsync(CREDENTIALS);
     });
     expect(linked).toBe(false);
-    expect(result.current.status.message).toEqual("Failed to link provider account");
+    return result.current.status;
+  };
+
+  it("should report a link the Core refuses", async () => {
+    expect((await link()).message).toEqual("Failed to link account");
+  });
+
+  it.each([
+    [new ProviderLinkedError("linked"), "You already have a Google account linked."],
+    [
+      new AccountLinkedError("linked"),
+      "This Google account is linked to another user.",
+    ],
+  ])("should name the provider when the Core refuses %s", async (err, description) => {
+    vi.spyOn(client.auth.oidc, "link").mockRejectedValueOnce(err);
+    const status = await link();
+    expect(status.message).toEqual("Failed to link account");
+    expect(status.description).toEqual(description);
   });
 });

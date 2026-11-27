@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -56,6 +57,16 @@ var _ = Describe("NewErrorCodec", func() {
 		),
 		Entry("unsupported", query.ErrUnsupported, "sy.query.unsupported"),
 		Entry("validation", validate.ErrValidation, "sy.validation"),
+		Entry(
+			"provider linked",
+			oidc.ErrProviderLinked,
+			"sy.validation.provider_linked",
+		),
+		Entry(
+			"account linked",
+			oidc.ErrAccountLinked,
+			"sy.validation.account_linked",
+		),
 		Entry("unauthorized", control.ErrUnauthorized, "sy.control.unauthorized"),
 		Entry(
 			"invalid credentials",
@@ -83,6 +94,10 @@ var _ = Describe("NewErrorCodec", func() {
 		Entry("license fingerprint", license.ErrFingerprint, "sy.license.fingerprint"),
 		Entry("too many channels", license.ErrTooMany, "sy.license.too_many"),
 	)
+	It("Should leave the validation suffix out of a link error's text", func() {
+		Expect(codec.Encode(oidc.ErrAccountLinked, false).Data).
+			To(Equal("provider account is linked to another user"))
+	})
 	It("Should encode an Arc compile error", func() {
 		Expect(codec.Encode(arc.CompileError{}, false).Type).To(Equal("arc"))
 	})

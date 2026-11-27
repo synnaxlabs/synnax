@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, connection } from "@synnaxlabs/client";
+import { channel, connection, ProviderLinkedError } from "@synnaxlabs/client";
 import {
   createProxiedTestClient,
   createTestClient,
@@ -238,6 +238,7 @@ describe("auth guard", () => {
       return {
         store,
         statuses: () => statuses.map((s) => s.message),
+        failed: () => statuses.find((s) => s.message === "Failed to link account"),
         unfinished: () => statuses.find((s) => s.message === "Link not finished"),
       };
     };
@@ -267,7 +268,7 @@ describe("auth guard", () => {
       const server = await serveOIDC();
       returnFromProvider("/?code=abc&state=state");
       const { store, statuses } = await renderReturn(server);
-      await waitFor(() => expect(statuses()).toContain("Linked provider account"));
+      await waitFor(() => expect(statuses()).toContain("Linked account"));
       expect(server.linked).toEqual([
         {
           provider: PROVIDER,
@@ -284,13 +285,24 @@ describe("auth guard", () => {
     });
 
     it("should report a link the Core refuses", async () => {
-      const server = await serveOIDC({ linkRefused: true });
+      const server = await serveOIDC({ linkRefusal: "sy.validation" });
       returnFromProvider("/?code=abc&state=state");
       const { statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Failed to link account"));
+      expect(statuses()).not.toContain("Linked account");
+    });
+
+    it("should name the provider when the user already has its account", async () => {
+      const server = await serveOIDC({
+        linkRefusal: ProviderLinkedError.TYPE,
+      });
+      returnFromProvider("/?code=abc&state=state");
+      const { failed } = await renderReturn(server);
       await waitFor(() =>
-        expect(statuses()).toContain("Failed to link provider account"),
+        expect(failed()).toMatchObject({
+          description: `You already have a ${PROVIDER} account linked.`,
+        }),
       );
-      expect(statuses()).not.toContain("Linked provider account");
     });
 
     it("should report a cancelled link as not finished and keep the session", async () => {
@@ -303,7 +315,7 @@ describe("auth guard", () => {
           description: "You cancelled the login, or the provider refused it.",
         }),
       );
-      expect(statuses()).not.toContain("Failed to link provider account");
+      expect(statuses()).not.toContain("Failed to link account");
       expect(server.linked).toEqual([]);
       expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY);
       expect(screen.getByText("authenticated content")).toBeTruthy();
@@ -322,9 +334,7 @@ describe("auth guard", () => {
       const server = await serveOIDC();
       returnFromProvider("/?error=server_error&state=state");
       const { statuses } = await renderReturn(server);
-      await waitFor(() =>
-        expect(statuses()).toContain("Failed to link provider account"),
-      );
+      await waitFor(() => expect(statuses()).toContain("Failed to link account"));
       expect(server.linked).toEqual([]);
     });
 
@@ -332,9 +342,7 @@ describe("auth guard", () => {
       const server = await serveOIDC();
       returnFromProvider("/?code=abc&state=state", CORE_KEY, "another-user");
       const { statuses } = await renderReturn(server);
-      await waitFor(() =>
-        expect(statuses()).toContain("Failed to link provider account"),
-      );
+      await waitFor(() => expect(statuses()).toContain("Failed to link account"));
       expect(server.linked).toEqual([]);
     });
 
@@ -342,9 +350,7 @@ describe("auth guard", () => {
       const server = await serveOIDC();
       returnFromProvider("/?code=abc&state=state", "another-core");
       const { statuses } = await renderReturn(server);
-      await waitFor(() =>
-        expect(statuses()).toContain("Failed to link provider account"),
-      );
+      await waitFor(() => expect(statuses()).toContain("Failed to link account"));
       expect(server.linked).toEqual([]);
     });
   });

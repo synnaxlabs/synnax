@@ -168,7 +168,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
       }
       setLinking(false);
       if (failure != null) reportUnfinished(failure, "Link not finished");
-    }, "Failed to link provider account");
+    }, "Failed to link account");
   };
   const confirm = Modals.useConfirm();
   const handleUnlink = (link: auth.oidc.Link, label: string) => {
@@ -185,7 +185,7 @@ export const Section = ({ subject, onMessage }: SectionProps): ReactElement => {
         cancel: { label: "Cancel" },
       });
       if (confirmed === true) unlink.update(link.key);
-    }, "Failed to unlink provider account");
+    }, "Failed to unlink account");
   };
   // Drop the answer on unmount so the next mount shows changes made elsewhere.
   useEffect(() => () => invalidate(query), []);
