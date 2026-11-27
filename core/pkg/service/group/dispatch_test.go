@@ -47,7 +47,8 @@ var _ = Describe("Dispatch", func() {
 		StartRun(db.Run)
 		moved = nil
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
+			DB:        db,
+			NameRules: nameRules,
 			MoveMembers: func(
 				_ context.Context,
 				_ gorp.Tx,
@@ -128,14 +129,32 @@ var _ = Describe("Dispatch", func() {
 		Expect(moved).To(Equal([][]group.Key{{child.Key}}))
 	})
 
-	It("Should broadcast a rename with the name in NFC", func(ctx SpecContext) {
-		rec := record()
-		Expect(apply(ctx, set("name", "cafe\u0301"))).To(Succeed())
-		Expect(retrieve(ctx).Name).To(Equal("café"))
-		frames := rec.Snapshot()
-		Expect(frames).To(HaveLen(1))
-		Expect(frames[0].Actions).To(Equal([]group.Action{set("name", "café")}))
-	})
+	It("Should broadcast a rename of a channel folder with the name that it stores",
+		func(ctx SpecContext) {
+			folder := group.Group{Name: "Folder", Scope: resource.TypeChannel}
+			create(ctx, &folder)
+			rec := record()
+			Expect(write(ctx, func(w group.Writer) error {
+				return w.Apply(ctx, folder.Key, set("name", "cafe\u0301"))
+			})).To(Succeed())
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(
+				frames[0].Actions,
+			).To(Equal([]group.Action{set("name", "caf\u00e9")}))
+		})
+
+	It("Should broadcast a rename of a folder of a scope with no rule as sent",
+		func(ctx SpecContext) {
+			rec := record()
+			Expect(apply(ctx, set("name", "cafe\u0301"))).To(Succeed())
+			Expect(retrieve(ctx).Name).To(Equal("cafe\u0301"))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(
+				frames[0].Actions,
+			).To(Equal([]group.Action{set("name", "cafe\u0301")}))
+		})
 
 	It("Should broadcast a create and an applied batch", func(ctx SpecContext) {
 		rec := record()
