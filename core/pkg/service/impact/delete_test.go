@@ -133,16 +133,23 @@ var _ = Describe("Delete", Ordered, func() {
 	deleteOf := func(keys ...channel.Key) []resource.ID {
 		return channel.ResourceIDsFromKeys(keys)
 	}
+	applyTo := func(
+		ctx SpecContext,
+		records []resource.ID,
+		opts impact.ApplyOptions,
+	) (applied impact.Plan, err error) {
+		err = db.WithTx(ctx, func(tx gorp.Tx) error {
+			applied, err = layer.Impact.Apply(ctx, tx, records, opts)
+			return err
+		})
+		return applied, err
+	}
 	apply := func(
 		ctx SpecContext,
 		opts impact.ApplyOptions,
 		keys ...channel.Key,
-	) (applied impact.Plan, err error) {
-		err = db.WithTx(ctx, func(tx gorp.Tx) error {
-			applied, err = layer.Impact.Apply(ctx, tx, deleteOf(keys...), opts)
-			return err
-		})
-		return applied, err
+	) (impact.Plan, error) {
+		return applyTo(ctx, deleteOf(keys...), opts)
 	}
 	entry := func(id resource.ID, effect impact.Effect) impact.Entry {
 		e := impact.Entry{Record: id, Effect: effect}
@@ -323,7 +330,7 @@ var _ = Describe("Delete", Ordered, func() {
 			}
 			p := MustSucceed(layer.Impact.Plan(ctx, db, records, impact.PlanOptions{}))
 			Expect(p.Entries).To(BeEmpty())
-			Expect(layer.Impact.Apply(ctx, db, records, impact.ApplyOptions{})).
+			Expect(applyTo(ctx, records, impact.ApplyOptions{})).
 				To(Equal(impact.Plan{Records: records}))
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 			Expect(layer.Task.NewRetrieve().
@@ -393,8 +400,7 @@ var _ = Describe("Delete", Ordered, func() {
 		)
 		Expect(layer.Impact.Plan(ctx, db, bad, impact.PlanOptions{})).
 			Error().To(refused)
-		Expect(layer.Impact.Apply(ctx, db, bad, impact.ApplyOptions{})).
-			Error().To(refused)
+		Expect(applyTo(ctx, bad, impact.ApplyOptions{})).Error().To(refused)
 	})
 
 	It("Should name the pick with the smallest record among the picks it refuses", func(

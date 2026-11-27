@@ -225,20 +225,13 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 // the entries that it applied, as opts.Visible lets the caller see them. A restrict
 // entry that takes cancel fails Apply with the gorp.RestrictError of its record. Each
 // type's records go through its Deleter, each holder before what it holds. Picks fail
-// as they fail Plan. Given a gorp.DB, Apply runs in a transaction of its own.
+// as they fail Plan.
 func (s *Service) Apply(
 	ctx context.Context,
 	tx gorp.Tx,
 	records []resource.ID,
 	opts ApplyOptions,
-) (applied Plan, err error) {
-	if db, ok := tx.(*gorp.DB); ok {
-		err = db.WithTx(ctx, func(tx gorp.Tx) error {
-			applied, err = s.Apply(ctx, tx, records, opts)
-			return err
-		})
-		return applied, err
-	}
+) (Plan, error) {
 	chosen, err := newPicks(PlanOptions{
 		Picks:   opts.Picks,
 		Hidden:  opts.Hidden,
