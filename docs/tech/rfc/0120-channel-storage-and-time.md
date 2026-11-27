@@ -359,10 +359,14 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   of coverage and eviction. A block holds the series of every type and of every clock,
   each clock in an alignment space of its own, so a type or clock change keeps history
   and no read loses part of a tile. One stamp block per clock and tile serves every
-  channel on the clock. The cache trusts the Core it is connected to, not `leaseholder`
-  (`cache/store/store.ts:289`). A line plot draws one line through a change, a TDMS
-  export writes one column per type, and an Arc node converts an input per series with
-  no recompile.
+  channel on the clock, and floors are kept per clock (Phase 14). A pause leaves a gap
+  in a key's alignments while its clock's stay whole, so the cache join treats a gap as
+  a pause when the frame's time series of the key's clock covers it. Only the `missed`
+  flag of a stream shows a drop (`core/pkg/transport/grpc/framer/framer.proto:89`,
+  `:96`), and only a drop starts a catch-up read (Phase 15). The cache trusts the Core
+  it is connected to, not `leaseholder` (`cache/store/store.ts:289`). A line plot draws
+  one line through a change, a TDMS export writes one column per type, and an Arc node
+  converts an input per series with no recompile.
 - **Pluto**: A line plot with no x channel draws y against `telem.timeOf(y)` (NEW), the
   time series of y's own series, in place of y's index channel
   (`pluto/src/lineplot/LinePlot.tsx:257-263`). `useIndexOfChannel` goes.
