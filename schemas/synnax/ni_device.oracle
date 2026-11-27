@@ -12,6 +12,7 @@ import "schemas/synnax/ni_chassis"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 
 @cpp output "client/cpp/ni/device"
 @go output  "core/pkg/service/ni/device"
@@ -26,6 +27,7 @@ Device struct {
     }
     rack           rack.Key                           {
         @doc value     "is the key of the rack the device is connected to."
+        @patch
         @ref kind      place
         @ref on_delete restrict
     }
@@ -33,6 +35,7 @@ Device struct {
         @doc value         "is a human-readable name for the device."
         @filter
         @index sorted
+        @patch
         @search
         @validate required
     }
@@ -40,6 +43,7 @@ Device struct {
         @doc value    "is the serial number of the device. Empty on simulated hardware."
         @filter
         @index lookup
+        @patch
     }
     resource_name  string                             {
         @doc value         """
@@ -47,17 +51,20 @@ Device struct {
         """
         @filter
         @index lookup
+        @patch
         @validate required
     }
     model          string                             {
         @doc value         "is the product name of the device."
         @filter
+        @patch
         @validate required
     }
     chassis        ni_chassis.Key?                    {
         @doc value     """
             is the chassis that holds the device. Absent for a standalone device.
         """
+        @patch
         @ref kind      place
         @ref on_delete cascade
     }
@@ -67,27 +74,50 @@ Device struct {
             while it is empty.
         """
         @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
+        @patch
     }
     analog_input   AnalogInputPorts = {} {
         @doc value "are the channels of the analog input ports."
+        @patch
     }
     analog_output  map<uint16, AnalogOutputChannels> = {} {
         @doc value "maps an analog output port number to its channels."
+        @patch
     }
     counter_input  map<uint16, CounterInputChannels> = {} {
         @doc value "maps a counter number to its channels."
+        @patch
     }
     digital_input  map<uint16, DigitalInputChannels> = {} {
         @doc value "maps a digital port number to its input channels."
+        @patch
     }
     digital_output map<uint16, DigitalOutputChannels> = {} {
         @doc value "maps a digital port number to its output channels."
+        @patch
     }
     status         Status?                            {
         @doc value  "is the current operational status of the device."
         @go marshal omit
         @include
     }
+
+    action Create {
+        device Device
+
+        @doc value """
+            replaces the device with the given created state. Emitted by the Core when a
+            device is created; clients never dispatch it.
+        """
+    }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
 
     @create
     @doc value     "is an NI module in a chassis, or a standalone USB or PCIe device."

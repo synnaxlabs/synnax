@@ -418,7 +418,7 @@ var _ = Describe("Service", func() {
 					return d, nil
 				},
 			)).To(Succeed())
-			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
 				Variant: device.IdentityUpdate{Identity: device.Identity{
 					Rack:         rackKey,
 					Serial:       "02B",
@@ -438,7 +438,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			d := create(ctx)
-			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
 				Variant: device.ConfigurationUpdate{
 					Configuration: device.Configuration{
 						Name:       "Renamed",
@@ -469,7 +469,7 @@ var _ = Describe("Service", func() {
 					return d, nil
 				},
 			)).To(Succeed())
-			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
 				Variant: device.ConfigurationUpdate{
 					Configuration: device.Configuration{
 						Name:       "Renamed",
@@ -483,7 +483,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should return not found for a missing device", func(ctx SpecContext) {
-			Expect(svc.NewWriter(tx).Apply(ctx, uuid.New(), device.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, uuid.New(), device.Update{
 				Variant: device.ConfigurationUpdate{
 					Configuration: device.Configuration{Name: "Renamed"},
 				},
@@ -494,7 +494,7 @@ var _ = Describe("Service", func() {
 			"Should reject an invalid update",
 			func(ctx SpecContext, update device.Update, message string) {
 				d := create(ctx)
-				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, update)).
+				Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, update)).
 					To(MatchError(ContainSubstring(message)))
 			},
 			Entry("no group", device.Update{}, "no field group"),
@@ -515,7 +515,7 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should reject an invalid identifier",
 			func(ctx SpecContext, identifier string) {
 				d := create(ctx)
-				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
 					Variant: device.ConfigurationUpdate{
 						Configuration: device.Configuration{
 							Name:       "Renamed",
@@ -551,7 +551,7 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should accept a valid identifier",
 			func(ctx SpecContext, identifier string) {
 				d := create(ctx)
-				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
 					Variant: device.ConfigurationUpdate{
 						Configuration: device.Configuration{
 							Name:       "Renamed",
@@ -580,7 +580,7 @@ var _ = Describe("Service", func() {
 				d := create(ctx)
 				identity := newIdentity()
 				unset(&identity)
-				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
 					Variant: device.IdentityUpdate{Identity: identity},
 				})).To(MatchError(ContainSubstring(field + ": required")))
 			},
@@ -594,12 +594,30 @@ var _ = Describe("Service", func() {
 			d := create(ctx)
 			identity := newIdentity()
 			identity.Serial = ""
-			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
 				Variant: device.IdentityUpdate{Identity: identity},
 			})).To(Succeed())
 			got := retrieve(ctx, d.Key)
 			Expect(got.Serial).To(BeEmpty())
 			Expect(got.ResourceName).To(Equal("Mod2"))
+		})
+
+		It("Should set the chassis of an identity update, then clear it", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			c := createChassis(ctx)
+			identity := newIdentity()
+			identity.Chassis = &c
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			Expect(retrieve(ctx, d.Key).Chassis).To(Equal(&c))
+			identity.Chassis = nil
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			Expect(retrieve(ctx, d.Key).Chassis).To(BeNil())
 		})
 	})
 
@@ -672,7 +690,7 @@ var _ = Describe("Service", func() {
 			}))
 			apply := func(update device.Update) error {
 				return mDB.WithTx(ctx, func(tx gorp.Tx) error {
-					return mSvc.NewWriter(tx).Apply(ctx, old.Key, update)
+					return mSvc.NewWriter(tx).ApplyUpdate(ctx, old.Key, update)
 				})
 			}
 			configure := device.Update{Variant: device.ConfigurationUpdate{

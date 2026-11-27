@@ -267,6 +267,7 @@ type Transport struct {
 	NIDeviceCreate   freighter.UnaryServer[nidevice.CreateRequest, nidevice.CreateResponse]
 	NIDeviceRetrieve freighter.UnaryServer[nidevice.RetrieveRequest, nidevice.RetrieveResponse]
 	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, nidevice.UpdateResponse]
+	NIDeviceDispatch freighter.UnaryServer[nidevice.DispatchRequest, struct{}]
 	NIDeviceDelete   freighter.UnaryServer[nidevice.DeleteRequest, struct{}]
 
 	// NI CHASSIS
@@ -602,6 +603,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIDeviceCreate,
 		t.NIDeviceRetrieve,
 		t.NIDeviceUpdate,
+		t.NIDeviceDispatch,
 		t.NIDeviceDelete,
 
 		// NI CHASSIS
@@ -906,6 +908,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIDeviceCreate.BindHandler(bind.Write(l.binder, l.NIDevice.Create))
 	t.NIDeviceRetrieve.BindHandler(bind.Read(l.binder, l.NIDevice.Retrieve))
 	t.NIDeviceUpdate.BindHandler(bind.Write(l.binder, l.NIDevice.Update))
+	t.NIDeviceDispatch.BindHandler(bind.Write(l.binder, l.NIDevice.Dispatch))
 	t.NIDeviceDelete.BindHandler(bind.Write(l.binder, l.NIDevice.Delete))
 
 	// NI CHASSIS

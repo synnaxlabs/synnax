@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -159,7 +160,8 @@ func (s *Service) Update(
 	tx gorp.Tx,
 	req UpdateRequest,
 ) (UpdateResponse, error) {
-	if err := s.cfg.Device.NewWriter(tx).Apply(ctx, req.Key, req.Update); err != nil {
+	if err := s.cfg.Device.NewWriter(tx).
+		ApplyUpdate(ctx, req.Key, req.Update); err != nil {
 		return UpdateResponse{}, err
 	}
 	var res UpdateResponse
@@ -168,6 +170,23 @@ func (s *Service) Update(
 		Entry(&res.Device).
 		Exec(ctx, tx)
 	return res, err
+}
+
+// DispatchRequest carries an action sequence to apply to one device. DispatchKey is a
+// client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[device.Key, device.Action]
+
+// Dispatch applies the action sequence to the device atomically. Subscribers to
+// sy_ni_device_action_set receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Device.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 // DeleteRequest carries the keys of the devices to delete.

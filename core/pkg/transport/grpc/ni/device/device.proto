@@ -29,6 +29,10 @@ service NIDeviceUpdateService {
   rpc Exec(UpdateRequest) returns (UpdateResponse);
 }
 
+service NIDeviceDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty);
+}
+
 service NIDeviceDeleteService {
   rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
 }
@@ -50,6 +54,15 @@ message UpdateRequest {
 // UpdateResponse carries the device as stored after an update.
 message UpdateResponse {
   service.ni_device.pb.Device device = 1;
+}
+
+// DispatchRequest applies actions to one device.
+message DispatchRequest {
+  string key = 1;
+  string dispatch_key = 2;
+  // actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+  // route takes, such as {"type": "set", "set": {...}}.
+  repeated bytes actions = 3;
 }
 
 message DeleteRequest {

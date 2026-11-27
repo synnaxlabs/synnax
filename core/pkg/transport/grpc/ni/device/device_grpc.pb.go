@@ -330,6 +330,106 @@ var NIDeviceUpdateService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	NIDeviceDispatchService_Exec_FullMethodName = "/grpc.ni_device.NIDeviceDispatchService/Exec"
+)
+
+// NIDeviceDispatchServiceClient is the client API for NIDeviceDispatchService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type NIDeviceDispatchServiceClient interface {
+	Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type nIDeviceDispatchServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNIDeviceDispatchServiceClient(cc grpc.ClientConnInterface) NIDeviceDispatchServiceClient {
+	return &nIDeviceDispatchServiceClient{cc}
+}
+
+func (c *nIDeviceDispatchServiceClient) Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NIDeviceDispatchService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NIDeviceDispatchServiceServer is the server API for NIDeviceDispatchService service.
+// All implementations should embed UnimplementedNIDeviceDispatchServiceServer
+// for forward compatibility.
+type NIDeviceDispatchServiceServer interface {
+	Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedNIDeviceDispatchServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNIDeviceDispatchServiceServer struct{}
+
+func (UnimplementedNIDeviceDispatchServiceServer) Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedNIDeviceDispatchServiceServer) testEmbeddedByValue() {}
+
+// UnsafeNIDeviceDispatchServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NIDeviceDispatchServiceServer will
+// result in compilation errors.
+type UnsafeNIDeviceDispatchServiceServer interface {
+	mustEmbedUnimplementedNIDeviceDispatchServiceServer()
+}
+
+func RegisterNIDeviceDispatchServiceServer(s grpc.ServiceRegistrar, srv NIDeviceDispatchServiceServer) {
+	// If the following call panics, it indicates UnimplementedNIDeviceDispatchServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NIDeviceDispatchService_ServiceDesc, srv)
+}
+
+func _NIDeviceDispatchService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DispatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NIDeviceDispatchServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NIDeviceDispatchService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NIDeviceDispatchServiceServer).Exec(ctx, req.(*DispatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NIDeviceDispatchService_ServiceDesc is the grpc.ServiceDesc for NIDeviceDispatchService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NIDeviceDispatchService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.ni_device.NIDeviceDispatchService",
+	HandlerType: (*NIDeviceDispatchServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _NIDeviceDispatchService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/ni/device/device.proto",
+}
+
+const (
 	NIDeviceDeleteService_Exec_FullMethodName = "/grpc.ni_device.NIDeviceDeleteService/Exec"
 )
 
