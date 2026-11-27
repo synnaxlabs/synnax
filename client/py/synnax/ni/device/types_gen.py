@@ -183,10 +183,13 @@ class StatusDetails(BaseModel):
     Attributes:
         rack: Is the key of the rack the device belongs to.
         device: Is the key of the device.
+        connected: Is true while the Driver confirms that it can reach the device. A
+            device whose state is unknown is not connected.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
     device: Key
+    connected: bool = False
 
 
 class Cursor(BaseModel):

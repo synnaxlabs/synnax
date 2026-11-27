@@ -155,6 +155,11 @@ export const statusDetailsZ = z.object({
   rack: rack.keyZ,
   /** device is the key of the device. */
   device: keyZ,
+  /**
+   * connected is true while the Driver confirms that it can reach the device. A device
+   * whose state is unknown is not connected.
+   */
+  connected: z.boolean().default(false),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 

@@ -880,24 +880,31 @@ func DigitalOutputChannelsListFromPB(pbs []*DigitalOutputChannels) ([]device.Dig
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
 func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
-		Rack:   uint32(r.Rack),
-		Device: r.Device.String(),
+		Rack:      uint32(r.Rack),
+		Connected: r.Connected,
+		Device:    r.Device.String(),
 	}
 	return pb, nil
 }
 
 // StatusDetailsFromPB converts StatusDetails to StatusDetails.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 	var r device.StatusDetails
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Device, err = uuid.Parse(pb.Device)
 	if err != nil {
 		return device.StatusDetails{}, err
 	}
 	r.Rack = rack.Key(pb.Rack)
+	r.Connected = pb.Connected
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

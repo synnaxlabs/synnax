@@ -80,6 +80,9 @@ type StatusDetails struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Device is the key of the device.
 	Device Key `json:"device" msgpack:"device"`
+	// Connected is true while the Driver confirms that it can reach the device. A
+	// device whose state is unknown is not connected.
+	Connected bool `json:"connected" msgpack:"connected"`
 }
 
 // Status is the operational status of a device.

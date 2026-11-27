@@ -83,11 +83,17 @@ DigitalOutputChannels struct {
 }
 
 StatusDetails struct {
-    rack   rack.Key {
+    rack      rack.Key {
         @doc value "is the key of the rack the device belongs to."
     }
-    device Key      {
+    device    Key      {
         @doc value "is the key of the device."
+    }
+    connected bool = false {
+        @doc value """
+            is true while the Driver confirms that it can reach the device. A device
+            whose state is unknown is not connected.
+        """
     }
 
     @doc value "identifies the device and rack that a status pertains to."

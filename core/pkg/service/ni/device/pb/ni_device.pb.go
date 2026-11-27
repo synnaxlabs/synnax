@@ -915,7 +915,10 @@ type StatusDetails struct {
 	// rack is the key of the rack the device belongs to.
 	Rack uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
 	// device is the key of the device.
-	Device        string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	Device string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	// connected is true while the Driver confirms that it can reach the device. A device
+	// whose state is unknown is not connected.
+	Connected     bool `protobuf:"varint,3,opt,name=connected,proto3" json:"connected,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -962,6 +965,13 @@ func (x *StatusDetails) GetDevice() string {
 		return x.Device
 	}
 	return ""
+}
+
+func (x *StatusDetails) GetConnected() bool {
+	if x != nil {
+		return x.Connected
+	}
+	return false
 }
 
 // Identity holds the device fields that the scanner owns.
@@ -1333,10 +1343,11 @@ const file_core_pkg_service_ni_device_pb_ni_device_proto_rawDesc = "" +
 	"\n" +
 	"LinesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12<\n" +
-	"\x05value\x18\x02 \x01(\v2&.service.ni_device.pb.CommandStatePairR\x05value:\x028\x01\";\n" +
+	"\x05value\x18\x02 \x01(\v2&.service.ni_device.pb.CommandStatePairR\x05value:\x028\x01\"Y\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\"\x9c\x01\n" +
+	"\x06device\x18\x02 \x01(\tR\x06device\x12\x1c\n" +
+	"\tconnected\x18\x03 \x01(\bR\tconnected\"\x9c\x01\n" +
 	"\bIdentity\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
 	"\x06serial\x18\x02 \x01(\tR\x06serial\x12#\n" +

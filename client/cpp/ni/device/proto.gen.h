@@ -464,6 +464,7 @@ StatusDetails::to_proto() const {
     ::service::ni_device::pb::StatusDetails pb;
     pb.set_rack(this->rack);
     pb.set_device(this->device.to_string());
+    pb.set_connected(this->connected);
     return {pb, x::errors::NIL};
 }
 
@@ -476,6 +477,7 @@ StatusDetails::from_proto(const ::service::ni_device::pb::StatusDetails &pb) {
         if (err) return {{}, err};
         cpp.device = v;
     }
+    cpp.connected = pb.connected();
     return {cpp, x::errors::NIL};
 }
 
