@@ -70,9 +70,9 @@ const FAST_RETRY = {
 
 describe("constructor", () => {
   beforeEach(() => {
-    vi.stubEnv("SYNNAX_HOST", "core.env");
-    vi.stubEnv("SYNNAX_PORT", "9091");
-    vi.stubEnv("SYNNAX_API_KEY", "syk_env");
+    vi.stubEnv("SYNNAX_CLIENT_HOST", "core.env");
+    vi.stubEnv("SYNNAX_CLIENT_PORT", "9091");
+    vi.stubEnv("SYNNAX_CLIENT_API_KEY", "syk_env");
     vi.stubEnv("SYNNAX_CLIENT_INSECURE", "true");
   });
 
@@ -101,7 +101,7 @@ describe("constructor", () => {
   });
 
   it("should throw when no argument, variable, or Synnax Desktop gives a host", () => {
-    vi.stubEnv("SYNNAX_HOST", "");
+    vi.stubEnv("SYNNAX_CLIENT_HOST", "");
     const home = mkdtempSync(join(tmpdir(), "synnax-home-"));
     vi.stubEnv("HOME", home);
     vi.stubEnv("USERPROFILE", home);
@@ -109,7 +109,7 @@ describe("constructor", () => {
     vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
     try {
       expect(() => new Synnax()).toThrow(ValidationError);
-      expect(() => new Synnax()).toThrow(/^give a host, or set SYNNAX_HOST$/);
+      expect(() => new Synnax()).toThrow(/^give a host, or set SYNNAX_CLIENT_HOST$/);
     } finally {
       rmSync(home, { recursive: true });
     }
@@ -121,8 +121,8 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), "synnax-home-"));
-    vi.stubEnv("SYNNAX_HOST", "");
-    vi.stubEnv("SYNNAX_API_KEY", "");
+    vi.stubEnv("SYNNAX_CLIENT_HOST", "");
+    vi.stubEnv("SYNNAX_CLIENT_API_KEY", "");
     vi.stubEnv("HOME", home);
     vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
     mkdirSync(join(home, ".synnax"));
@@ -317,8 +317,8 @@ describe("constructor with caCert", () => {
     );
   });
 
-  it("should not fill SYNNAX_API_KEY in next to an OpenID Connect code", async () => {
-    vi.stubEnv("SYNNAX_API_KEY", "syk_env");
+  it("should not fill SYNNAX_CLIENT_API_KEY in next to an OpenID Connect code", async () => {
+    vi.stubEnv("SYNNAX_CLIENT_API_KEY", "syk_env");
     const logins: string[] = [];
     const server = createHTTPServer((req, res) => {
       let body = "";
@@ -385,8 +385,8 @@ describe("constructor with caCert", () => {
     ).toThrow("Deno cannot use caCert. Leave it out and start Deno with --cert");
   });
 
-  it("should use TLS with no CA for SYNNAX_CA_CERT in Deno", async () => {
-    vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
+  it("should use TLS with no CA for SYNNAX_CLIENT_CA_CERT in Deno", async () => {
+    vi.stubEnv("SYNNAX_CLIENT_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
     vi.stubGlobal("Deno", {});
     const client = new Synnax({ host: "localhost", port: 9090 });
     expect(client.params.insecure).toBe(false);
@@ -394,12 +394,12 @@ describe("constructor with caCert", () => {
     await client.close();
   });
 
-  it("should reject SYNNAX_CA_CERT with SYNNAX_CLIENT_INSECURE true in Deno", () => {
+  it("should reject SYNNAX_CLIENT_CA_CERT with SYNNAX_CLIENT_INSECURE true in Deno", () => {
     vi.stubEnv("SYNNAX_CLIENT_INSECURE", "true");
-    vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
+    vi.stubEnv("SYNNAX_CLIENT_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
     vi.stubGlobal("Deno", {});
     expect(() => new Synnax({ host: "localhost", port: 9090 })).toThrow(
-      "SYNNAX_CA_CERT requires TLS",
+      "SYNNAX_CLIENT_CA_CERT requires TLS",
     );
   });
 });
