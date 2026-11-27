@@ -13,11 +13,12 @@ import type { icd, Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useDebouncedCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import type { payload, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { Fragment, type ReactElement } from "react";
+import { type payload, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { Fragment, type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { useListen } from "@/platform/icd/picker/useListen";
@@ -31,6 +32,8 @@ export interface Sample {
 }
 
 const BYTES_PER_ROW = 8;
+// The Core runs one scan command at a time, so a listen per keystroke would queue.
+const SOURCE_DEBOUNCE = TimeSpan.milliseconds(500);
 const BYTE_LIMIT = 256;
 const PART_LIMIT = 64;
 
@@ -125,7 +128,7 @@ export interface LastPayloadProps {
 /**
  * The last payload of a source, laid out as its message reads it: the parts of a text
  * line with their positions, or the bytes of a binary payload with their offsets.
- * Listens on mount, when the source changes, and on Listen again.
+ * Listens on mount, once the source stops changing, and on Listen again.
  */
 export const LastPayload = ({
   payload,
@@ -133,17 +136,23 @@ export const LastPayload = ({
   duration,
   sample,
 }: LastPayloadProps): ReactElement => {
+  const [settled, setSettled] = useState(source);
+  const settle = useDebouncedCallback(setSettled, SOURCE_DEBOUNCE, []);
+  useEffect(() => {
+    settle(source);
+    return () => settle.cancel();
+  }, [source, settle]);
   const { result, listen } = useListen<{ sample: Sample | null }>(
     async (client) => ({ sample: await sample(client) }),
-    { message: "Failed to read the last payload", name: source },
-    [source],
+    { message: "Failed to read the last payload", name: settled },
+    [settled],
   );
   let body: ReactElement;
   if (result.variant === "error") body = <Status.Summary status={result.status} />;
-  else if (result.data == null)
+  else if (result.variant === "loading" || result.data == null || source !== settled)
     body = <Note>{`Listening for ${duration.seconds} seconds`}</Note>;
   else if (result.data.sample == null)
-    body = <Note>{`No message on ${source} in ${duration.seconds} seconds.`}</Note>;
+    body = <Note>{`No message on ${settled} in ${duration.seconds} seconds.`}</Note>;
   else body = <Payload payload={payload} sample={result.data.sample} />;
   return (
     <PForm.Section

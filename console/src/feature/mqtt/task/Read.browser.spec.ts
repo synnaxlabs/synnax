@@ -2505,6 +2505,21 @@ describe("MQTT read form", () => {
         expect((await screen.findByText("1.5")).nextSibling?.textContent).toBe("0");
       });
 
+      it("should listen once the topic stops changing", async () => {
+        const scanner = await openSampled(TEXT);
+        await scanner.answer(sampled("text", "1.5,2"));
+        await screen.findByText("1.5");
+        // The Core refuses a task that reads a text message, and so undoes the edits.
+        holdRequests(client, "/task/dispatch");
+        for (const topic of ["plant/a", "plant/ab", "plant/abc"])
+          await edit("Topic", topic);
+        await screen.findByText("Listening for 3 seconds");
+        expect(screen.queryByText("1.5")).toBeNull();
+        const cmd = await scanner.answer(sampled("text", "7,8"));
+        expect(cmd.args).toMatchObject({ topics: ["plant/abc"] });
+        expect((await screen.findByText("7")).nextSibling?.textContent).toBe("0");
+      });
+
       it("should show why it could not listen", async () => {
         const scanner = await openSampled(TEXT);
         await scanner.answer(UNREACHABLE);
