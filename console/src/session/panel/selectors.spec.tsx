@@ -220,7 +220,7 @@ describe("panel selectors", () => {
     client?: Synnax | null;
   }
 
-  // setup mounts the reactive hooks in the production-shaped console stack: the full
+  // setup mounts the reactive hooks in the production-shaped Console stack: the full
   // session store wired through Drift's middleware, nested inside the Pluto Flux
   // provider. The wiring under test is the scope, window-default, and
   // overlaid/focused/visible resolution the Console selectors layer on top.

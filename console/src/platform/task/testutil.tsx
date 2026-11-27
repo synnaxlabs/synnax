@@ -800,7 +800,7 @@ export const reportTaskRunning = async (
 
 /**
  * Writes the status a Driver reports once a task has stopped. Specs run without a
- * driver, so a start command otherwise leaves the task mid-start forever and the
+ * Driver, so a start command otherwise leaves the task mid-start forever and the
  * form offers no way to deploy again.
  */
 export const reportTaskStopped = async (

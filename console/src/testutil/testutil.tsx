@@ -201,7 +201,7 @@ export interface ConsoleTestProviderOptions {
  * Builds the Console test store with the app's createStore, but with a NoopRuntime in
  * place of the Tauri runtime and no persistence. Window actions (Drift.focusWindow,
  * createWindow) resolve their labels exactly as they do in production. This is the one
- * console store — every render helper below is backed by it.
+ * Console store — every render helper below is backed by it.
  */
 export const createTestStore = async (options: ConsoleTestProviderOptions = {}) => {
   const { preloadedState, windowLabel } = options;

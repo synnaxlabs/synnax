@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 
-// Every console surface resolves the subject and its policies before it renders, and
+// Every Console surface resolves the subject and its policies before it renders, and
 // the Flux store needs the frame stream to receive any live update at all.
 const BASELINE = [
   user.TYPE_RESOURCE_ID,
