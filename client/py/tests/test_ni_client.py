@@ -103,3 +103,71 @@ class TestNIDeviceClient:
             client.ni.devices.retrieve(name=name)
         client.ni.devices.delete([devs[1].key])
         assert client.ni.devices.retrieve(name=name).key == devs[0].key
+
+
+def _create_chassis(client: sy.Synnax, rack: sy.Rack) -> ni.chassis.Chassis:
+    return client.ni.chassis.create(
+        ni.chassis.Chassis(
+            rack=rack.key,
+            name="NI cDAQ-9189",
+            resource_name=str(uuid4()),
+            model="cDAQ-9189",
+        )
+    )
+
+
+@pytest.mark.ni
+class TestNIChassisClient:
+    def test_retrieve_by_key_with_status(self, client: sy.Synnax) -> None:
+        """Should retrieve a chassis by key with its status."""
+        rack = client.racks.create(name="ni_chassis_rack")
+        chassis = _create_chassis(client, rack)
+        got = client.ni.chassis.retrieve(chassis.key, include_status=True)
+        assert got.name == "NI cDAQ-9189"
+        assert got.status is not None
+        assert got.status.details is not None
+        assert got.status.details.chassis == chassis.key
+
+    def test_retrieve_by_filter(self, client: sy.Synnax) -> None:
+        """Should retrieve the chassis that a filter field selects."""
+        rack = client.racks.create(name="ni_chassis_rack")
+        chassis = _create_chassis(client, rack)
+        assert [c.key for c in client.ni.chassis.retrieve(rack=rack.key)] == [
+            chassis.key
+        ]
+        one = client.ni.chassis.retrieve(resource_name=chassis.resource_name, one=True)
+        assert one.key == chassis.key
+
+    def test_update_identity(self, client: sy.Synnax) -> None:
+        """Should write the identity group and keep the name."""
+        rack = client.racks.create(name="ni_chassis_rack")
+        chassis = _create_chassis(client, rack)
+        got = client.ni.chassis.update(
+            chassis.key,
+            ni.chassis.IdentityUpdate(
+                rack=rack.key,
+                serial="01A",
+                resource_name=chassis.resource_name,
+                model="cDAQ-9189",
+            ),
+        )
+        assert got.serial == "01A"
+        assert got.name == "NI cDAQ-9189"
+
+    def test_update_configuration(self, client: sy.Synnax) -> None:
+        """Should write the configuration group and keep the identity group."""
+        rack = client.racks.create(name="ni_chassis_rack")
+        chassis = _create_chassis(client, rack)
+        got = client.ni.chassis.update(
+            chassis.key, ni.chassis.ConfigurationUpdate(name="Chassis A")
+        )
+        assert got.name == "Chassis A"
+        assert got.resource_name == chassis.resource_name
+
+    def test_delete(self, client: sy.Synnax) -> None:
+        """Should delete a chassis."""
+        rack = client.racks.create(name="ni_chassis_rack")
+        chassis = _create_chassis(client, rack)
+        client.ni.chassis.delete([chassis.key])
+        with pytest.raises(sy.NotFoundError):
+            client.ni.chassis.retrieve(chassis.key)

@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import UnaryClient
-from synnax.ni import device
+from synnax.ni import chassis as chassis_, device
 
 
 class Client:
@@ -16,6 +16,9 @@ class Client:
 
     devices: device.Client
     """Creates, retrieves, updates, and deletes NI devices."""
+    chassis: chassis_.Client
+    """Creates, retrieves, updates, and deletes NI chassis."""
 
     def __init__(self, *, client: UnaryClient) -> None:
         self.devices = device.Client(client=client)
+        self.chassis = chassis_.Client(client=client)
