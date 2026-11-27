@@ -623,6 +623,16 @@ var _ = Describe("Log", func() {
 				Entry("a Restart", &log.Restart{}),
 			)
 
+			It("Should take the Seal of a delete in the delete reserve", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				n := logSize - log.DeleteReserve - log.FramesStart - 24
+				var e log.Entry
+				e.AddDeleteSeal(&log.Seal{Segment: 1, Length: 8})
+				Expect(l.Append(fill(&e, n)).Wait()).To(Equal(uint64(5)))
+				Expect(hook.refusals()).To(BeEmpty())
+			})
+
 			It("Should take a delete in the delete reserve from an entry reset after "+
 				"a Commit", func() {
 				open(logSize)
