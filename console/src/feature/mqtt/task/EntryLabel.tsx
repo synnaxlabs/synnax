@@ -145,6 +145,7 @@ const PlainMark = ({ path }: { path: deep.Path<PlainEntry> }) => {
       icdKey={icdKey}
       messages={[written]}
       missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+      jsonOnly
     />
   );
 };
