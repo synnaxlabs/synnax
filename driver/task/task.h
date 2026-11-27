@@ -241,9 +241,11 @@ public:
 
     /// @brief closes op. A later status for its command is written as it is, unless
     /// op was cancelled. Then the status still goes through op, so it answers nothing.
+    /// deployed_hash is the config hash of the instance that runs, or empty for none.
     /// @returns the joined starts that got no final status.
-    std::vector<synnax::task::Command> end(const std::shared_ptr<Operation> &op) {
-        auto joined = op->close();
+    std::vector<synnax::task::Command>
+    end(const std::shared_ptr<Operation> &op, const std::string &deployed_hash) {
+        auto joined = op->close(deployed_hash);
         std::lock_guard lock{this->operations_mu};
         const auto it = this->operations.find(op->cmd.key);
         if (it == this->operations.end() || it->second != op) return joined;

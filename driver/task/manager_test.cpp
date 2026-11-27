@@ -3361,6 +3361,36 @@ TEST_F(TaskManagerTest, StopOfACancelledConfigureAnswersStopped) {
     EXPECT_FALSE(stopped.details.running);
 }
 
+/// @brief it should end a start that a stop cancelled during its configure with no
+/// config hash, since the configure built no instance.
+TEST_F(TaskManagerTest, StopOfACancelledConfigureEndsTheStartWithNoHash) {
+    start_manager(
+        std::make_unique<CancelledConfigureFactory>(),
+        {.poll_interval = 100 * x::telem::MILLISECOND}
+    );
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "start-cmd";
+    });
+    send_stop(client, task);
+    const auto ended = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-cmd" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(ended.message, "Stopped task");
+    EXPECT_TRUE(ended.details.config_hash.empty());
+}
+
 /// @brief it should answer a stop with the error of a start that failed on its own
 /// while the stop waited, since that error says what to fix.
 TEST_F(TaskManagerTest, StopKeepsTheErrorOfAStartThatFailedOnItsOwn) {
@@ -3683,6 +3713,7 @@ TEST_F(TaskManagerTest, StopAnswersASilentStartAndItsJoinOnce) {
             finals[key].description,
             "A stop ended the start before it finished."
         );
+        EXPECT_EQ(finals[key].details.config_hash, task.config_hash);
     }
     EXPECT_EQ(finals["stop-cmd"].message, "stopped");
     EXPECT_EQ(f->starts.load(), 1);

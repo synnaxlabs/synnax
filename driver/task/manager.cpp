@@ -649,7 +649,12 @@ void Manager::worker_loop() {
         const auto operation = entry->op;
         lock.unlock();
         this->execute_op(op, entry, *operation);
-        const auto unanswered = this->ctx->end(operation);
+        std::string deployed;
+        {
+            std::lock_guard entry_lock{entry->mu};
+            deployed = entry->deployed_hash;
+        }
+        const auto unanswered = this->ctx->end(operation, deployed);
         // The flag flips under mu so a waiter mid-predicate cannot miss the
         // notify and sleep past a claimable op.
         lock.lock();
