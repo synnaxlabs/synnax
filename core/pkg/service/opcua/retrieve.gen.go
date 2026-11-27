@@ -12,6 +12,7 @@
 package opcua
 
 import (
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -62,6 +63,14 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i4, v5 := range e.Channels {
+					if v5.Channel == t {
+						return []string{"channels", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i2 := range e.Channels {
@@ -124,6 +133,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i4, v5 := range e.Channels {
+					if v5.CmdChannel == t {
+						return []string{"channels", strconv.Itoa(i4), "cmd_channel"}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i2 := range e.Channels {

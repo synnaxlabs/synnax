@@ -1,0 +1,60 @@
+{
+  "description": "A float field writes a negative zero sample as -0, whether or not it scales or checks limits.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "plain",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/plain",
+          "type": "float"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "bounded",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/bounded",
+          "type": "float",
+          "min": -1,
+          "max": 1
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "scaled",
+          "scale": 2,
+          "offset": 0,
+          "units": "",
+          "pointer": "/scaled",
+          "type": "float"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "float32"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [-0, -0, -0],
+      "text": "{\"plain\":-0,\"bounded\":-0,\"scaled\":-0}"
+    }
+  ]
+}

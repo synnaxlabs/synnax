@@ -15,6 +15,7 @@ import (
 	"encoding/json/v2"
 	"os"
 	"path/filepath"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -84,11 +86,14 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 	}))
 	imexSvc := imex.NewService()
 	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:           db,
-		Rack:         rackSvc,
-		Status:       statusSvc,
-		ImEx:         imexSvc,
-		Configs:      MustSucceed(config.NewRegistry(pd.Stores()...)),
+		DB:     db,
+		Rack:   rackSvc,
+		Status: statusSvc,
+		ImEx:   imexSvc,
+		Configs: MustSucceed(config.NewRegistry(slices.Concat(
+			pd.Stores(),
+			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db})).Stores(),
+		)...)),
 		ImExExcluded: excluded,
 	}))
 	r := &rack.Rack{Name: rackName}
@@ -345,6 +350,38 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(imported.Config["alerts"]).To(HaveExactElements(SatisfyAll(
 					HaveKeyWithValue("status", ""),
 					HaveKeyWithValue("component", "c"),
+				)))
+			},
+		)
+
+		It(
+			"Should name each refused field by its path in the file",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Rack:   testRack.Key,
+					Name:   "Refused Rate",
+					Type:   "labjack_read",
+					Config: msgpack.EncodedJSON{"sample_rate": 50},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, t)
+				})).To(Succeed())
+				env := MustSucceed(svc.Export(ctx, db, t.ResourceID()))
+				var body map[string]any
+				Expect(
+					json.Unmarshal(MustSucceed(json.Marshal(env)), &body),
+				).To(Succeed())
+				body["stream_rate"] = 0
+				body["device_scan_backlog_warn_on_count"] = 0
+				Expect(
+					json.Unmarshal(MustSucceed(json.Marshal(body)), &env),
+				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := imexSvc.Import(ctx, tx, env, imex.ImportOptions{})
+					return err
+				})).To(WithTransform(errorPaths, ConsistOf(
+					[]string{"stream_rate"},
+					[]string{"device_scan_backlog_warn_on_count"},
 				)))
 			},
 		)

@@ -229,16 +229,13 @@ class ChannelClient(ResourceClient):
         sy.sleep(0.2)
         self.layout.type_text(expression)
 
-        save_btn = self.layout.locator("button").filter(has_text="Save").first
-        if save_btn.count() == 0:
-            save_btn = self.layout.locator("button").filter(has_text="Create").first
-        click_past(save_btn)
+        modal = self.layout.locator(self.layout.MODAL_SELECTOR)
+        click_past(modal.locator("button").filter(has_text="Create"))
 
         try:
             name_input.wait_for(state="hidden", timeout=3000)
             return None
         except PlaywrightTimeoutError:
-            modal = self.layout.locator(self.layout.MODAL_SELECTOR)
             if modal.count() > 0:
                 modal_text = modal.inner_text()
                 if "Failed to update calculated channel" in modal_text:
@@ -271,7 +268,8 @@ class ChannelClient(ResourceClient):
         self.layout.sleep(50)
         self.layout.select_all_and_type(new_expression)
 
-        self.layout.locator("button").filter(has_text="Save").first.click()
+        modal = self.layout.locator(self.layout.MODAL_SELECTOR)
+        modal.locator("button").filter(has_text="Save").click()
         self.layout.wait_for_hidden(editor)
 
         self.hide_channels()

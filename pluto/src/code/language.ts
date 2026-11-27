@@ -75,7 +75,8 @@ export interface Language {
   languageServer?: (client: Synnax) => Promise<LSPStream>;
 }
 
-const toDataURL = (raw: string): string => `data:application/json;base64,${btoa(raw)}`;
+const toDataURL = (raw: string): string =>
+  `data:application/json,${encodeURIComponent(raw)}`;
 
 const applyTheme = async (theme: LanguageTheme): Promise<void> => {
   try {

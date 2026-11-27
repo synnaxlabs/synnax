@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -34,7 +35,8 @@ TEST(StateTest, UserStateWithoutService) {
     GTEST_SKIP() << "Linux keeps the state of every process in the folder of the "
                     "computer";
 #endif
-    const auto home = std::filesystem::temp_directory_path() / "rack-test-home";
+    const auto home = std::filesystem::temp_directory_path() /
+                      ("rack-test-home-" + std::to_string(std::random_device()()));
     std::filesystem::remove_all(home);
 #ifdef _WIN32
     const std::string var = "LOCALAPPDATA";
@@ -66,7 +68,8 @@ TEST(StateTest, RefuseUserStateUnderSudo) {
 #if defined(__linux__) || defined(_WIN32)
     GTEST_SKIP() << "only macOS keeps the state of a user in the folder of that user";
 #else
-    const auto home = std::filesystem::temp_directory_path() / "rack-test-sudo-home";
+    const auto home = std::filesystem::temp_directory_path() /
+                      ("rack-test-sudo-home-" + std::to_string(std::random_device()()));
     std::filesystem::remove_all(home);
     const char *previous = std::getenv("HOME");
     const char *sudo_user = std::getenv("SUDO_USER");
@@ -130,7 +133,8 @@ namespace fs = std::filesystem;
 /// @brief runs each spec with the default state path, and with --state-file.
 class StateModeTest : public ::testing::TestWithParam<bool> {
 protected:
-    fs::path home = fs::temp_directory_path() / "rack-state-mode-test";
+    fs::path home = fs::temp_directory_path() /
+                    ("rack-state-mode-test-" + std::to_string(std::random_device()()));
     fs::path path;
     x::args::Parser args;
     std::string previous_home;
@@ -275,7 +279,9 @@ TEST(StateTest, RefuseReadableRelativeStateFile) {
 #ifdef _WIN32
     GTEST_SKIP() << "Windows files have no POSIX mode";
 #endif
-    const auto dir = fs::temp_directory_path() / "rack-state-relative-test";
+    const auto dir = fs::temp_directory_path() /
+                     ("rack-state-relative-test-" +
+                      std::to_string(std::random_device()()));
     fs::remove_all(dir);
     fs::create_directories(dir);
     const auto previous = fs::current_path();

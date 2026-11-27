@@ -557,6 +557,7 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Description).To(Equal("bad config"))
 			Expect(stat.Details.Cmd).To(Equal("cmd-9"))
 			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.ConfigHash).To(BeEmpty())
 		})
 		It("should write an error status at boot", func(ctx SpecContext) {
 			reporter().Report(ctx, t, driver.NoCommand, cfgErr)
@@ -566,6 +567,51 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Description).To(Equal("bad config"))
 			Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 			Expect(stat.Details.Running).To(BeFalse())
+		})
+		It("should keep a running task running on its last deployed config", func(
+			ctx SpecContext,
+		) {
+			Expect(sendFirst(ctx, handler)).To(Succeed())
+			changed := t
+			changed.ConfigHash = "hash-2"
+			reporter().Report(ctx, changed, "cmd-2", cfgErr)
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to deploy changes"))
+			Expect(stat.Description).To(Equal(
+				"The task still runs its last deployed config. bad config",
+			))
+			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+			Expect(stat.Details.Running).To(BeTrue())
+			Expect(stat.Details.ConfigHash).To(Equal("hash-1"))
+		})
+		It("should report a task that another rack ran as not configured", func(
+			ctx SpecContext,
+		) {
+			Expect(sendFirst(ctx, handler)).To(Succeed())
+			moved := t
+			moved.Rack = t.Rack + 1
+			moved.ConfigHash = "hash-2"
+			reporter().Report(ctx, moved, "cmd-2", cfgErr)
+			stat := retrieve(ctx)
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Rack).To(Equal(moved.Rack))
+			Expect(stat.Details.ConfigHash).To(BeEmpty())
+		})
+		It("should report a stopped task as not configured", func(ctx SpecContext) {
+			Expect(sendFirst(ctx, handler)).To(Succeed())
+			Expect(stopSecond(ctx, handler)).To(Succeed())
+			changed := t
+			changed.ConfigHash = "hash-2"
+			reporter().Report(ctx, changed, "cmd-3", cfgErr)
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(Equal("bad config"))
+			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.ConfigHash).To(BeEmpty())
 		})
 	})
 })

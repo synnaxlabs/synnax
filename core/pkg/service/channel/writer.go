@@ -796,6 +796,9 @@ func (w Writer) allocateAndWrite(
 	minimal []channel.Channel,
 	opts createOptions,
 ) error {
+	if err := w.refuseTakenNames(ctx, channels, newIndices); err != nil {
+		return err
+	}
 	if err := w.checkLimit(channels, newIndices, opts); err != nil {
 		return err
 	}
@@ -841,6 +844,37 @@ func (w Writer) allocateAndWrite(
 		w.svc.mu.Unlock()
 		return nil
 	})
+	return nil
+}
+
+// refuseTakenNames refuses a channel at newIndices in channels whose name another
+// channel holds, before any key is allocated, so that the create uses no key. The name
+// index stays the rule for every write path.
+func (w Writer) refuseTakenNames(
+	ctx context.Context,
+	channels []Channel,
+	newIndices []int,
+) error {
+	if len(newIndices) == 0 {
+		return nil
+	}
+	names := make([]string, len(newIndices))
+	for j, i := range newIndices {
+		names[j] = channels[i].Name
+	}
+	var holders []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(w.svc.names.Filter(names...)).
+		Entries(&holders).
+		Exec(ctx, w.tx); err != nil || len(holders) == 0 {
+		return err
+	}
+	taken := set.New(Names(holders)...)
+	for _, i := range newIndices {
+		if taken.Contains(channels[i].Name) {
+			return nameExists(channels[i].Name, i)
+		}
+	}
 	return nil
 }
 

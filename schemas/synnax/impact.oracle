@@ -13,19 +13,6 @@ import "schemas/synnax/resource"
 @py output "client/py/synnax/impact"
 @ts output "client/ts/src/impact"
 
-Change union on type {
-    delete {
-        records resource.ID[] {
-            @doc value "are the records to delete."
-        }
-
-        @doc value "deletes records."
-    }
-
-    @doc value "is a change that a plan covers."
-    @go output "core/pkg/api/impact"
-}
-
 Effect enum {
     restrict    = "restrict"
     cascade     = "cascade"
@@ -128,58 +115,4 @@ Plan struct {
     }
 
     @doc value "is every record that a change touches, with the picks for each."
-}
-
-Response union on type {
-    delete {
-        plan Plan {
-            @doc value "is the plan of the delete."
-        }
-
-        @doc value "answers a delete of records."
-    }
-
-    @doc value "is the plan of a change, under the type of the change."
-    @go output "core/pkg/api/impact"
-}
-
-PlanRequest struct {
-    change Change              {
-        @doc value "is the change to plan."
-    }
-    picks  map<string, Effect> {
-        @doc value        """
-            maps the text form of the record of a visible entry to the pick for it.
-        """
-        @ts preserve_keys
-    }
-    hidden Effect?             {
-        @doc value "is the pick for every hidden entry that stops the change."
-    }
-
-    @doc value "asks what a change would do with the caller's picks."
-    @go output "core/pkg/api/impact"
-}
-
-ApplyRequest struct {
-    change Change              {
-        @doc value "is the change to apply."
-    }
-    token  string = "" {
-        @doc value """
-            is the token of the plan that the caller saw. Empty skips the check.
-        """
-    }
-    picks  map<string, Effect> {
-        @doc value        """
-            maps the text form of the record of a visible entry to the pick for it.
-        """
-        @ts preserve_keys
-    }
-    hidden Effect?             {
-        @doc value "is the pick for every hidden entry that stops the change."
-    }
-
-    @doc value "carries out a change with the caller's picks."
-    @go output "core/pkg/api/impact"
 }

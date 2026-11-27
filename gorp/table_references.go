@@ -91,7 +91,7 @@ func (t *Table[K, E]) joinSpaces() error {
 		}
 	}
 	for _, u := range t.uniques {
-		u.join(r, t.name)
+		u.join(r, t.name, t.keyPrefix)
 	}
 	return nil
 }

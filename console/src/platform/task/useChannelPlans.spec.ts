@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -16,26 +16,26 @@ import { Task } from "@/platform/task";
 import { createConsoleWrapper, createTestStore } from "@/testutil";
 
 const client = createTestClient();
+const MISSING_KEY = 4294967295;
 
 describe("useChannelPlans", () => {
   it("should keep the plan of an unchanged source until a new plan resolves", async () => {
     const store = await createTestStore();
     const { wrapper } = await createConsoleWrapper({ client, store });
-    let resolve: (plans: string[]) => void = () => {};
-    const next = new Promise<string[]>((r) => {
-      resolve = r;
-    });
     const { result, rerender } = renderHook(
       ({ b }: { b: string }) =>
-        Task.useChannelPlans([{ a: "a" }, { b }], async () =>
-          b === "b" ? ["plan a", "plan b"] : await next,
+        Task.useChannelPlans([{ a: "a" }, { b }], (planner) =>
+          b === "b"
+            ? ["plan a", "plan b"]
+            : ["plan a2", planner.retrieve(MISSING_KEY)?.name ?? "plan c"],
         ),
       { wrapper, initialProps: { b: "b" } },
     );
     await waitFor(() => expect(result.current).toEqual(["plan a", "plan b"]));
+    const { release } = holdRequests(client, "/channel/retrieve");
     rerender({ b: "c" });
     expect(result.current).toEqual(["plan a", undefined]);
-    act(() => resolve(["plan a2", "plan c"]));
+    act(() => release());
     await waitFor(() => expect(result.current).toEqual(["plan a2", "plan c"]));
   });
 
@@ -44,7 +44,7 @@ describe("useChannelPlans", () => {
     const { wrapper } = await createConsoleWrapper({ client, store });
     const { result, rerender } = renderHook(
       ({ at }: { at: TimeStamp }) =>
-        Task.useChannelPlans([{ default: at }], async () => [at.toString()]),
+        Task.useChannelPlans([{ default: at }], () => [at.toString()]),
       { wrapper, initialProps: { at: TimeStamp.seconds(1) } },
     );
     await waitFor(() =>
@@ -56,21 +56,25 @@ describe("useChannelPlans", () => {
     );
   });
 
-  it("should abort the plan in flight when the sources change", async () => {
+  it("should stop a plan whose sources change while it loads", async () => {
     const store = await createTestStore();
     const { wrapper } = await createConsoleWrapper({ client, store });
-    const signals: AbortSignal[] = [];
-    const { rerender } = renderHook(
+    const { release } = holdRequests(client, "/channel/retrieve");
+    const runs: string[] = [];
+    const { result, rerender } = renderHook(
       ({ b }: { b: string }) =>
-        Task.useChannelPlans([{ b }], async (_, signal) => {
-          signals.push(signal);
-          return await new Promise<string[]>(() => {});
+        Task.useChannelPlans([{ b }], (planner) => {
+          runs.push(b);
+          return [planner.retrieve(MISSING_KEY)?.name ?? b];
         }),
       { wrapper, initialProps: { b: "b" } },
     );
-    await waitFor(() => expect(signals).toHaveLength(1));
+    await waitFor(() => expect(runs).toEqual(["b"]));
     rerender({ b: "c" });
-    await waitFor(() => expect(signals).toHaveLength(2));
-    expect(signals.map(({ aborted }) => aborted)).toEqual([true, false]);
+    await waitFor(() => expect(runs).toEqual(["b", "c"]));
+    act(() => release());
+    await waitFor(() => expect(result.current).toEqual(["c"]));
+    await act(async () => {});
+    expect(runs).toEqual(["b", "c", "c"]);
   });
 });

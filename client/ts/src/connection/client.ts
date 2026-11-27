@@ -88,7 +88,7 @@ export interface CheckParams {
  * result into a status. Never throws: failures land in the returned status.
  */
 export const check = async (params: CheckParams): Promise<Status> => {
-  const { host, port, secure = false, name } = params;
+  const { host, port, secure = true, name } = params;
   const endpoint = new url.URL({ host, port: Number(port) });
   const transport = new Transport({ url: endpoint, secure });
   transport.use(errorsMiddleware);

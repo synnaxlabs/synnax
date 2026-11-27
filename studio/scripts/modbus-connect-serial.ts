@@ -9,7 +9,7 @@
 
 import { capture } from "@/index";
 
-import { INTEGRATIONS } from "./common/server";
+import { INTEGRATIONS, nameInput } from "./common/server";
 import { choose, DRIVER, fieldItem } from "./common/task";
 
 export const driver = true;
@@ -39,7 +39,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1200);
   await session.click(entry, { text: true, zoom: false });
 
-  const name = modal.getByPlaceholder("Modbus server").first();
+  const name = nameInput(modal);
   await session.waitFor(name);
   await session.hold(800);
   await session.click(name, { text: true });

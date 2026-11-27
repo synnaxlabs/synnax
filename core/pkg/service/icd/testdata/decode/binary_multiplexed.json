@@ -1,0 +1,73 @@
+{
+  "description": "A frame decodes only the fields that its multiplexor selects.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "mode",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [1],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned",
+            "multiplexor": "00000000-0000-4000-8000-000000000001"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "b",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [2, 3],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned",
+            "multiplexor": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "uint8"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "0110",
+      "message": "frame",
+      "samples": [16, null]
+    },
+    {
+      "hex": "0320",
+      "message": "frame",
+      "samples": [null, 32]
+    }
+  ]
+}

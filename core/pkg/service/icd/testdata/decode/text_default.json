@@ -1,0 +1,48 @@
+{
+  "description": "A field takes its default, after its scale, when its item is empty or missing.",
+  "messages": [
+    {
+      "name": "line",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "b",
+            "scale": 2,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 1,
+            "default": 3
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "1,,2",
+      "message": "line",
+      "samples": [6]
+    },
+    {
+      "text": "1",
+      "message": "line",
+      "samples": [6]
+    },
+    {
+      "text": "1,5",
+      "message": "line",
+      "samples": [10]
+    }
+  ]
+}
