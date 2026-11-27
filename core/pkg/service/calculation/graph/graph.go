@@ -640,9 +640,9 @@ func (g *Graph) inspectNode(
 	}
 	result, err := analyzer.Analyze(ctx, ch)
 	nd := node{Channel: ch}
+	nd.deps = result.Deps
 	if err == nil {
 		nd.DataType = result.ChanDataType
-		nd.deps = result.Deps
 	} else {
 		nd.unresolved = result.Unresolved
 	}

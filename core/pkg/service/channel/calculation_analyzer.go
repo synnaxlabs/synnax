@@ -38,7 +38,10 @@ type resolver struct {
 		unstored map[string]*symbol.Symbol
 	}
 	unresolved set.Set[string]
-	readErr    error
+	// ambiguous holds the holders of each name that several channels hold, so a delete
+	// or rename of one checks the calculation again.
+	ambiguous Keys
+	readErr   error
 }
 
 // CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
@@ -88,13 +91,15 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 	}
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
 	// The analysis reports an ambiguous name as a diagnostic, like an unknown one.
-	_, ambiguous := errors.AsType[AmbiguousNameError](resolveErr)
+	amb, ambiguous := errors.AsType[AmbiguousNameError](resolveErr)
 	switch {
 	case errors.Is(resolveErr, query.ErrNotFound):
 		if s, ok := r.temp.unstored[name]; ok {
 			return s, nil
 		}
 		r.unresolved.Add(name)
+	case ambiguous:
+		r.ambiguous = append(r.ambiguous, amb.Holders...)
 	case resolveErr != nil && !ambiguous && r.readErr == nil:
 		r.readErr = resolveErr
 	}
@@ -110,7 +115,8 @@ type CalculationAnalysisResult struct {
 	ChanDataType telem.DataType
 	// ExpressionReturnType is the inferred type of the calculated expression itself.
 	ExpressionReturnType types.Type
-	// Deps lists the keys of channels read by the expression.
+	// Deps lists the keys of channels read by the expression, and of each holder of a
+	// name that it reads but several channels hold.
 	Deps Keys
 	// Unresolved lists symbol names that could not be resolved during analysis.
 	Unresolved []string
@@ -126,6 +132,7 @@ func (a *CalculationAnalyzer) Analyze(
 ) (CalculationAnalysisResult, error) {
 	a.resolver.SymbolResolver = NewConsistentResolver(a.symbols)
 	a.resolver.unresolved = make(set.Set[string])
+	a.resolver.ambiguous = nil
 	a.resolver.readErr = nil
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
 	if err != nil {
@@ -143,6 +150,7 @@ func (a *CalculationAnalyzer) Analyze(
 	if !aCtx.Diagnostics.Ok() {
 		return CalculationAnalysisResult{
 			Unresolved: a.resolver.unresolved.Slice(),
+			Deps:       a.resolver.ambiguous,
 		}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
