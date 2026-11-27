@@ -12,6 +12,7 @@ package driver_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1857,6 +1858,141 @@ var _ = Describe("Driver", func() {
 			},
 		)
 
+		It("should build a redeploy before it stops the instance it replaces", func(
+			ctx SpecContext,
+		) {
+			var (
+				mu      sync.Mutex
+				events  []string
+				taskKey atomic.Value
+			)
+			record := func(event string) {
+				mu.Lock()
+				defer mu.Unlock()
+				events = append(events, event)
+			}
+			recorded := func() []string {
+				mu.Lock()
+				defer mu.Unlock()
+				return slices.Clone(events)
+			}
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(_ context.Context, t task.Task) (driver.Task, error) {
+					if t.Key != taskKey.Load() {
+						return &mockTask{key: t.Key}, nil
+					}
+					record("build " + t.ConfigHash)
+					return &mockTask{key: t.Key, stopFunc: func(sendStatus bool) error {
+						record(fmt.Sprintf("stop %s %t", t.ConfigHash, sendStatus))
+						return nil
+					}}, nil
+				},
+			}
+			openDriver(ctx, factory)
+			t := newTask(embeddedRackKey(ctx))
+			t.ConfigHash = "a"
+			taskKey.Store(t.Key)
+			createTask(ctx, t)
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
+			Eventually(recorded).Should(Equal([]string{"build a"}))
+			t.ConfigHash = "b"
+			Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+				To(Succeed())
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})
+			Eventually(recorded).
+				Should(Equal([]string{"build a", "build b", "stop a false"}))
+		})
+
+		DescribeTable("should keep the deployed instance when a redeploy fails",
+			func(ctx SpecContext, running bool, message, description, hash string) {
+				var (
+					stopped atomic.Bool
+					taskKey atomic.Value
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.ConfigHash == "bad" {
+							return nil, errors.New("bad config")
+						}
+						h := driver.NewStatusHandler(db, statusSvc, t)
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(ctx context.Context, cmd task.Command) error {
+								return h.Send(
+									ctx,
+									cmd.Key,
+									status.VariantSuccess,
+									cmd.Type == "start",
+									"Ran command",
+									"",
+								)
+							},
+							stopFunc: func(bool) error {
+								if t.Key == taskKey.Load() {
+									stopped.Store(true)
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				t := newTask(embeddedRackKey(ctx))
+				t.ConfigHash = "good"
+				taskKey.Store(t.Key)
+				createTask(ctx, t)
+				answered := func(cmdKey string) task.Status {
+					GinkgoHelper()
+					var stat task.Status
+					Eventually(func(g Gomega) {
+						stat = retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
+						g.Expect(stat.Details.Cmd).To(Equal(cmdKey))
+					}).Should(Succeed())
+					return stat
+				}
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-1"},
+				)
+				answered("cmd-1")
+				if !running {
+					writeCommand(
+						ctx,
+						task.Command{Task: t.Key, Type: "stop", Key: "cmd-stop"},
+					)
+					answered("cmd-stop")
+				}
+				t.ConfigHash = "bad"
+				Expect(gorp.NewCreate[task.Key, task.Task]().Entry(&t).Exec(ctx, db)).
+					To(Succeed())
+				writeCommand(
+					ctx,
+					task.Command{Task: t.Key, Type: "start", Key: "cmd-2"},
+				)
+				stat := answered("cmd-2")
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal(message))
+				Expect(stat.Description).To(Equal(description))
+				Expect(stat.Details.Running).To(Equal(running))
+				Expect(stat.Details.ConfigHash).To(Equal(hash))
+				Expect(stopped.Load()).To(BeFalse())
+				By("Sending the next stop to the deployed instance")
+				writeCommand(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-3"})
+				Expect(answered("cmd-3").Message).To(Equal("Ran command"))
+			},
+			Entry("running", true,
+				"Failed to deploy changes",
+				"The task still runs its last deployed config. bad config",
+				"good",
+			),
+			Entry("stopped", false, "Failed to configure task", "bad config", "bad"),
+		)
+
 		It("should configure existing tasks on startup", func(ctx SpecContext) {
 			var configuredTasks sync.Map
 
@@ -2005,10 +2141,58 @@ var _ = Describe("Driver", func() {
 		})
 	})
 
+	Describe("Interrupted tasks", func() {
+		It(
+			"should report a task that ran when the Core stopped",
+			func(ctx SpecContext) {
+				rackKey := embeddedRackKey(ctx)
+				ran, moved := newTask(rackKey), newTask(rackKey)
+				ran.ConfigHash = "deployed"
+				createTask(ctx, ran)
+				createTask(ctx, moved)
+				storeRunning := func(t task.Task, on rack.Key) {
+					details := task.NewStatusDetails(t, true)
+					details.Rack = on
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
+							Owner:   new(t.ResourceID()),
+							Name:    t.Name,
+							Time:    telem.Now(),
+							Variant: status.VariantSuccess,
+							Message: "Started task",
+							Details: details,
+						})
+					})).To(Succeed())
+				}
+				storeRunning(ran, rackKey)
+				// A task moved here runs on its old rack until a start arrives.
+				storeRunning(moved, rackKey+1)
+				openDriver(ctx, &mockFactory{
+					name: "test",
+					configureFunc: func(_ context.Context, t task.Task) (driver.Task, error) {
+						return &mockTask{key: t.Key}, nil
+					},
+				})
+				stat := retrieveStatus[task.StatusDetails](ctx, ran.ResourceID())
+				Expect(stat.Variant).To(Equal(status.VariantWarning))
+				Expect(stat.Message).To(Equal("Task stopped"))
+				Expect(stat.Description).To(Equal(
+					"The Core restarted while the task was running. Start the task again.",
+				))
+				Expect(stat.Details.Running).To(BeFalse())
+				Expect(stat.Details.ConfigHash).To(Equal("deployed"))
+				stat = retrieveStatus[task.StatusDetails](ctx, moved.ResourceID())
+				Expect(stat.Message).To(Equal("Started task"))
+				Expect(stat.Details.Running).To(BeTrue())
+			},
+		)
+	})
+
 	Describe("Close", func() {
-		It("should stop all tasks", func(ctx SpecContext) {
+		It("should stop all tasks without a status", func(ctx SpecContext) {
 			var (
 				stopCount     atomic.Int32
+				statusSent    atomic.Bool
 				configCount   atomic.Int32
 				testTaskKeys  sync.Map
 				allConfigured = make(chan struct{})
@@ -2029,9 +2213,12 @@ var _ = Describe("Driver", func() {
 					}
 					return &mockTask{
 						key: t.Key,
-						stopFunc: func(bool) error {
+						stopFunc: func(sendStatus bool) error {
 							if _, isTestTask := testTaskKeys.Load(t.Key); isTestTask {
 								stopCount.Add(1)
+								if sendStatus {
+									statusSent.Store(true)
+								}
 							}
 							return nil
 						},
@@ -2070,6 +2257,7 @@ var _ = Describe("Driver", func() {
 
 			Expect(driver.Close()).To(Succeed())
 			Expect(stopCount.Load()).To(Equal(expectedTasks))
+			Expect(statusSent.Load()).To(BeFalse())
 		})
 
 		It("should handle stop errors during close gracefully", func(ctx SpecContext) {
@@ -2210,7 +2398,7 @@ var _ = Describe("Driver", func() {
 				Consistently(otherStopped).ShouldNot(BeClosed())
 				release()
 				Eventually(closed).Should(Receive(BeNil()))
-				Expect(deployedStop).To(Receive(BeTrue()))
+				Expect(deployedStop).To(Receive(BeFalse()))
 			},
 			Entry("new task", false),
 			Entry("task whose config changed", true),
@@ -3323,6 +3511,7 @@ var _ = Describe("Driver", func() {
 					Entry(&stat).
 					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
+				g.Expect(stat.Message).To(Equal("Failed to configure task"))
 				g.Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 			}).Should(Succeed())
 		})

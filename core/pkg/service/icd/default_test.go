@@ -130,6 +130,13 @@ var _ = Describe("CheckBinaryDefault", func() {
 			},
 			"cannot be infinite: validation error",
 		),
+		Entry("an infinite 32-bit float, which reports only that",
+			icd.FloatBinaryField{
+				BinaryBaseField: binaryOf(32, icd.BaseField{Scale: 1}),
+				Default:         new(payload.Float(math.Inf(1))),
+			},
+			"cannot be infinite: validation error",
+		),
 		Entry("a float that overflows 32 bits",
 			icd.FloatBinaryField{
 				BinaryBaseField: binaryOf(32, icd.BaseField{Scale: 1}),
