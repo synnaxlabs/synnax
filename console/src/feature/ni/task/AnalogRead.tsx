@@ -89,7 +89,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
   const value = PForm.useFieldValue(path);
   const channels = PForm.useFieldValue(root.config.channels);
   const device = useChannelDevice(path);
-  const hardware = device?.properties.hardware;
+  const hardware = device?.hardware;
   const Icon = AI_CHANNEL_TYPE_ICONS[value.type];
   const port = channelPort(value);
   const own = channels.filter((c) => c.device === value.device);
@@ -121,14 +121,16 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 
 const deviceOf = (c: AIChannel) => c.device;
 
-const hasPortList = (devices: Device.Device[]): boolean =>
-  devices.some(({ properties }) => properties.hardware != null);
+const hasPortList = (devices: Device.View[]): boolean =>
+  devices.some(({ hardware }) => hardware != null);
 
 const Form: FC = () => {
-  const devices = Device.useByKeys(Task.useChannelDeviceKeys(root.config.channels));
+  const keys = Task.useChannelDeviceKeys(root.config.channels);
+  const devices = Device.useViews(keys);
+  const configured = Device.useByKeys(keys);
   PForm.useCheck(root.config, analogReadHardwareZ(devices ?? []));
   const resolve = (ch: AIChannel) => {
-    const dev = devices?.find(({ key }) => key === ch.device);
+    const dev = configured?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
     return {
       channel: dev.properties.analogInput.channels[getAIChannelDeviceKey(ch)] ?? 0,
@@ -234,7 +236,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         modified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: ANALOG_INPUT.name(c, dev),
+            name: ANALOG_INPUT.name(c, Device.toView(dev)),
             dataType: "float32",
             index: dev.properties.analogInput.index,
           })),

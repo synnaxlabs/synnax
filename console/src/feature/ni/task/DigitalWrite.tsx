@@ -45,7 +45,7 @@ const Properties = () => (
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const entry = root.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
-  const device = Device.useFromConfig();
+  const device = Device.useViewFromConfig();
   const skipped = Task.useSkipped(
     root.config.channels,
     itemKey,
@@ -70,17 +70,18 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = Device.useFromConfig();
+  const dev = Device.useViewFromConfig();
+  const configured = Device.useFromConfig();
   PForm.useCheck(root.config, digitalHardwareZ(dev, "output"));
   const resolve = (ch: DOChannel) => {
-    if (dev == null) return null;
+    if (configured == null) return null;
     const pair =
-      dev.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)] ??
+      configured.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)] ??
       PlatformDevice.ZERO_COMMAND_STATE_PAIR;
     return { cmdChannel: pair.command, stateChannel: pair.state };
   };
   const map =
-    dev?.properties.hardware == null
+    dev?.hardware == null
       ? undefined
       : (props: Task.Views.PortsProps<DOChannel>) => (
           <LinesView<DOChannel>
@@ -172,7 +173,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       modified = true;
       const states = await client.channels.create(
         statesToCreate.map((c) => ({
-          name: digitalOutputStateName(c, dev),
+          name: digitalOutputStateName(c, Device.toView(dev)),
           index: dev.properties.digitalOutput.stateIndex,
           dataType: "uint8",
         })),
@@ -188,14 +189,14 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       modified = true;
       const commandIndexes = await client.channels.create(
         commandsToCreate.map((c) => ({
-          name: `${digitalOutputName(c, dev)}_time`,
+          name: `${digitalOutputName(c, Device.toView(dev))}_time`,
           dataType: "timestamp",
           isIndex: true,
         })),
       );
       const commands = await client.channels.create(
         commandsToCreate.map((c, i) => ({
-          name: digitalOutputName(c, dev),
+          name: digitalOutputName(c, Device.toView(dev)),
           index: commandIndexes[i].key,
           dataType: "uint8",
         })),

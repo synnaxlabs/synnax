@@ -349,6 +349,20 @@ describe("AnalogWrite channel names", () => {
     const item = await findChannelListItem(`${identifier}_ao_1_cmd`);
     expect(within(item).getByText(`${identifier}_ao_1_state`)).toBeTruthy();
   });
+
+  it("should rename the channels in the list when the device's identifier changes", async () => {
+    const dev = await createNIDevice(client);
+    await renderAnalogWrite(
+      createConfig([createChannel("ao_voltage", 1, { cmdChannelName: "" })], dev.key),
+    );
+    await findChannelListItem(`${dev.properties.identifier}_ao_1_cmd`);
+    const identifier = id.create();
+    await client.devices.create(
+      { ...dev, properties: { ...dev.properties, identifier } },
+      NI.Device.SCHEMAS,
+    );
+    expect(await findChannelListItem(`${identifier}_ao_1_cmd`)).toBeTruthy();
+  });
 });
 
 describe("AnalogWrite function generators", () => {

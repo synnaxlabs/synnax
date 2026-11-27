@@ -22,10 +22,8 @@ interface ChannelSource {
 /** The device of the channel at the path. */
 export const useChannelDevice = (
   path: deep.Target<ChannelSource>,
-): Device.Device | undefined =>
-  Device.useByKey(
-    Form.useFieldValue(deep.widen(path).device, { optional: true }) ?? "",
-  );
+): Device.View | undefined =>
+  Device.useView(Form.useFieldValue(deep.widen(path).device, { optional: true }) ?? "");
 
 /**
  * The analog input port of the channel at the path. Undefined when the device has no
@@ -36,7 +34,7 @@ export const useAnalogInputPort = (
 ): ni.device.AnalogInputPort | undefined => {
   const device = useChannelDevice(path);
   const port = Form.useFieldValue(deep.widen(path).port, { optional: true });
-  return device?.properties.hardware?.analogInputs.find((p) => p.port === port);
+  return device?.hardware?.analogInputs.find((p) => p.port === port);
 };
 
 /**

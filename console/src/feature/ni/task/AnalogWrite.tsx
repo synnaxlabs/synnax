@@ -63,7 +63,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = root.config.channels[itemKey];
   const item = PForm.useFieldValue(entry);
-  const device = Device.useFromConfig();
+  const device = Device.useViewFromConfig();
   const skipped = Task.useSkipped(root.config.channels, itemKey, portOf, isCommanded);
   if (item == null) return null;
   const Icon = AO_CHANNEL_TYPE_ICONS[item.type];
@@ -99,14 +99,14 @@ const channelDetails = Component.renderProp(ChannelDetails);
 const DetailsTitle = ({ path }: Task.Views.DetailsProps<AOChannel>) => {
   const value = PForm.useFieldValue(path);
   const channels = PForm.useFieldValue(root.config.channels);
-  const device = Device.useFromConfig();
+  const device = Device.useViewFromConfig();
   const skipped = Task.useSkipped(root.config.channels, value.key, portOf, isCommanded);
   const Icon = AO_CHANNEL_TYPE_ICONS[value.type];
   return (
     <Title
       port={{
         label: String(value.port),
-        state: holdState(ANALOG_OUTPUT, channels, value, device?.properties.hardware),
+        state: holdState(ANALOG_OUTPUT, channels, value, device?.hardware),
         disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
@@ -130,17 +130,18 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = Device.useFromConfig();
+  const dev = Device.useViewFromConfig();
+  const configured = Device.useFromConfig();
   PForm.useCheck(root.config, analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
-    if (dev == null || isGenerated(ch)) return null;
+    if (configured == null || isGenerated(ch)) return null;
     const pair =
-      dev.properties.analogOutput.channels[ch.port.toString()] ??
+      configured.properties.analogOutput.channels[ch.port.toString()] ??
       PlatformDevice.ZERO_COMMAND_STATE_PAIR;
     return { cmdChannel: pair.command, stateChannel: pair.state };
   };
   const ports =
-    dev?.properties.hardware == null
+    dev?.hardware == null
       ? undefined
       : (props: Task.Views.PortsProps<AOChannel>) => (
           <PortsView<AOChannel>
@@ -228,7 +229,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       modified = true;
       const states = await client.channels.create(
         statesToCreate.map((c) => ({
-          name: analogOutputStateName(c, dev),
+          name: analogOutputStateName(c, Device.toView(dev)),
           index: dev.properties.analogOutput.stateIndex,
           dataType: "float32",
         })),
@@ -253,7 +254,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       );
       const commands = await client.channels.create(
         commandsToCreate.map((c, i) => ({
-          name: ANALOG_OUTPUT.name(c, dev),
+          name: ANALOG_OUTPUT.name(c, Device.toView(dev)),
           index: commandIndexes[i].key,
           dataType: "float32",
         })),

@@ -21,7 +21,7 @@ export interface PortFieldProps<C extends Task.Channel> {
   path: deep.Target<{ key: string; port: number }>;
   /** The path of the task's channels. */
   channelsPath: deep.Target<C[]>;
-  device?: Device.Device;
+  device?: Device.View;
   kind: PortKind<C>;
   deviceOf: (channel: C) => device.Key;
 }
@@ -40,7 +40,7 @@ export const PortField = <C extends Task.Channel>({
   const { key: keyPath, port } = deep.widen(path);
   const key = Form.useFieldValue(keyPath);
   const channels = Form.useFieldValue(channelsPath);
-  const hardware = device?.properties.hardware;
+  const hardware = device?.hardware;
   if (device == null || hardware == null)
     return <Form.NumericField path={port} label="Port" />;
   const own = channels.filter((c) => deviceOf(c) === device.key);

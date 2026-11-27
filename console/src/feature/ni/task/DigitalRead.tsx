@@ -46,7 +46,7 @@ const Properties = () => (
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const entry = root.config.channels[itemKey];
   const ch = PForm.useFieldValue(entry);
-  const device = Device.useFromConfig();
+  const device = Device.useViewFromConfig();
   const skipped = Task.useSkipped(
     root.config.channels,
     itemKey,
@@ -69,17 +69,20 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = Device.useFromConfig();
+  const dev = Device.useViewFromConfig();
+  const configured = Device.useFromConfig();
   PForm.useCheck(root.config, digitalHardwareZ(dev, "input"));
   const resolve = (ch: DIChannel) =>
-    dev == null
+    configured == null
       ? null
       : {
           channel:
-            dev.properties.digitalInput.channels[getDigitalChannelDeviceKey(ch)] ?? 0,
+            configured.properties.digitalInput.channels[
+              getDigitalChannelDeviceKey(ch)
+            ] ?? 0,
         };
   const map =
-    dev?.properties.hardware == null
+    dev?.hardware == null
       ? undefined
       : (props: Task.Views.PortsProps<DIChannel>) => (
           <LinesView<DIChannel>
@@ -157,7 +160,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: digitalInputName(c, dev),
+          name: digitalInputName(c, Device.toView(dev)),
           dataType: "uint8",
           index: dev.properties.digitalInput.index,
         })),

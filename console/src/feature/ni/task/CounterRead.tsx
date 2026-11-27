@@ -109,14 +109,16 @@ const listItem = Component.renderProp(ChannelListItem);
 
 const deviceOf = (c: CIChannel) => c.device;
 
-const hasPortList = (devices: Device.Device[]): boolean =>
-  devices.some(({ properties }) => properties.hardware != null);
+const hasPortList = (devices: Device.View[]): boolean =>
+  devices.some(({ hardware }) => hardware != null);
 
 const Form: FC = () => {
-  const devices = Device.useByKeys(Task.useChannelDeviceKeys(root.config.channels));
+  const keys = Task.useChannelDeviceKeys(root.config.channels);
+  const devices = Device.useViews(keys);
+  const configured = Device.useByKeys(keys);
   PForm.useCheck(root.config, counterReadHardwareZ(devices ?? []));
   const resolve = (ch: CIChannel) => {
-    const dev = devices?.find(({ key }) => key === ch.device);
+    const dev = configured?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
     return { channel: dev.properties.counterInput.channels[ch.port.toString()] ?? 0 };
   };
@@ -212,7 +214,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         devModified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: COUNTER_INPUT.name(c, dev),
+            name: COUNTER_INPUT.name(c, Device.toView(dev)),
             dataType: "float64",
             index: dev.properties.counterInput.index,
           })),

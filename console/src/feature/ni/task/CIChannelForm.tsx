@@ -197,7 +197,7 @@ const FALLBACK_TERMINALS = Array.from({ length: 16 }, (_, i) => `PFI${i}`);
 
 // The PFI terminals of the channel's device, and the current terminal.
 const useTerminalItems = (path: deep.Target<{ device: string }>, current: string) => {
-  const hardware = useChannelDevice(path)?.properties.hardware;
+  const hardware = useChannelDevice(path)?.hardware;
   const terminals =
     hardware == null
       ? [...FALLBACK_TERMINALS]
@@ -567,9 +567,7 @@ const TypeFields = createTypeFields<CIChannel>(CHANNEL_FORMS);
 export const CIChannelForm = ({ type, path, channelsPath }: CIChannelFormProps) => {
   const device = useChannelDevice(path);
   const port = Form.useFieldValue(path.port);
-  const counter = device?.properties.hardware?.counterInputs.find(
-    (c) => c.port === port,
-  );
+  const counter = device?.hardware?.counterInputs.find((c) => c.port === port);
   const types = allowedTypes(CI_CHANNEL_TYPES, type, counter);
   return (
     <Form.Sections>

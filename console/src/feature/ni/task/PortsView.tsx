@@ -40,7 +40,7 @@ const lineKey = (port: number, line: number): string => `${port}/${line}`;
 const LINES_PER_ROW = 8;
 
 interface DeviceSectionProps {
-  device: Device.Device;
+  device: Device.View;
   /** What the device's ports hold, such as "3 of 16 ports used". */
   usage: string;
   editable: boolean;
@@ -131,7 +131,7 @@ interface DevicePortsProps<C extends Task.Channel> extends Omit<
   Task.Views.PortsProps<C>,
   "path"
 > {
-  device: Device.Device;
+  device: Device.View;
   kind: PortKind<C>;
   channels: C[];
   editable: boolean;
@@ -149,7 +149,7 @@ const DevicePorts = <C extends Task.Channel>({
   onAdd,
   onRemove,
 }: DevicePortsProps<C>): ReactElement => {
-  const { hardware } = device.properties;
+  const { hardware } = device;
   const ports = hardware == null ? [] : kind.ports(hardware);
   const claims = claimsOf(kind, channels, hardware);
   const names = ports.map(({ port }) => `${kind.prefix}${port}`);
@@ -223,7 +223,7 @@ export interface PortsViewProps<C extends Task.Channel> extends Task.Views
   .PortsProps<C> {
   kind: PortKind<C>;
   /** The devices the task uses. They show in the order of their first channels. */
-  devices: Device.Device[];
+  devices: Device.View[];
   deviceOf: (channel: C) => device.Key;
   /** Creates a channel on the device, on the port or the lowest free one. */
   create: (channels: C[], device: device.Key, port?: number) => C;
@@ -294,12 +294,12 @@ export const PortsView = <C extends Task.Channel>({
 
 export interface LinesViewProps<C extends DigitalChannel> extends Task.Views
   .PortsProps<C> {
-  device: Device.Device;
+  device: Device.View;
   direction: "input" | "output";
   /** Creates a channel on the line, or on the lowest free line. */
   create: (channels: C[], placement: Channel.LinePlacement) => C;
   /** The name a channel shows by. */
-  name: (channel: C, device: Device.Device) => string;
+  name: (channel: C, device: Device.View) => string;
 }
 
 /**
@@ -320,7 +320,7 @@ export const LinesView = <C extends DigitalChannel>({
   const { push } = Form.useFieldList(path);
   const channels = Form.useFieldValue(path);
   const editable = !Task.useIsPreview();
-  const { hardware } = device.properties;
+  const { hardware } = device;
   const ports = hardware == null ? [] : digitalPorts(hardware, direction);
   const claims = lineClaims(channels);
   const add = (placement: Channel.LinePlacement = {}) => {
