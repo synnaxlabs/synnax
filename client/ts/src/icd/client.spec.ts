@@ -723,9 +723,35 @@ describe("icd", () => {
 
     it("should reject a document that does not parse", async () => {
       const ic = await client.icds.create({ name: "Import" });
-      await expect(client.icds.import(ic.key, encode(""), "csv")).rejects.toThrow(
-        PathError,
+      await expect(
+        client.icds.import(ic.key, encode("color\n"), "csv"),
+      ).rejects.toThrow(
+        new ValidationError(
+          'row 1: unknown column "color": expected message, id, extended, length, ' +
+            "field, start_bit, bit_length, byte_order, kind, scale, offset, units, " +
+            "min, or max",
+        ),
       );
+    });
+
+    it("should import a document as a new ICD with the name", async () => {
+      const name = `${id.create()} Import`;
+      const csv = encode("message,field,start_bit,bit_length\nEngine,Rpm,0,16");
+      const imported = await client.icds.import({ name }, csv, "csv");
+      expect(imported.name).toEqual(name);
+      expect(imported.messages.map((m) => m.name)).toEqual(["Engine"]);
+      expect(await client.icds.retrieve(imported.key)).toEqual(imported);
+      const named = (await client.icds.retrieve({})).filter((ic) => ic.name === name);
+      expect(named.map(({ key }) => key)).toEqual([imported.key]);
+    });
+
+    it("should create no ICD when the document of a new ICD does not parse", async () => {
+      const name = `${id.create()} Import`;
+      await expect(
+        client.icds.import({ name }, encode("color\n"), "csv"),
+      ).rejects.toThrow(ValidationError);
+      const named = (await client.icds.retrieve({})).filter((ic) => ic.name === name);
+      expect(named).toEqual([]);
     });
   });
 

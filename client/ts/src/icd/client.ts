@@ -15,6 +15,7 @@ import {
   type destructor,
   errors,
   strings,
+  uuid,
   zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -85,6 +86,7 @@ const emptyResZ = z.object({});
 
 const importReqZ = z.object({
   key: keyZ,
+  name: z.string(),
   format: importFormatZ,
   data: z.string(),
   dispatchKey: z.string(),
@@ -204,21 +206,31 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   }
 
   /**
-   * Replaces the messages of an ICD with those parsed from an interface control
-   * document. Messages and fields that match by name keep their keys.
-   * @param key - The key of the ICD to import into.
+   * Imports the messages of an interface control document into an ICD.
+   * @param target - Either the key of an existing ICD, whose messages the import
+   * replaces, or `{ name }`, which creates an ICD with that name to hold the messages.
+   * In an existing ICD, messages and fields that match by name keep their keys. A
+   * document that fails to import creates no ICD.
    * @param data - The raw bytes of the document.
    * @param format - The file format of the document.
    * @returns The ICD as the Core stored it.
    * @throws {ValidationError} if the format is unknown or the document is invalid.
    */
-  async import(key: Key, data: Uint8Array, format: ImportFormat): Promise<ICD> {
+  async import(
+    target: Key | { name: string },
+    data: Uint8Array,
+    format: ImportFormat,
+  ): Promise<ICD> {
+    const { key, name } =
+      typeof target === "string"
+        ? { key: target, name: "" }
+        : { key: uuid.create(), name: target.name };
     const res = await this.dispatcher.create(
       [key],
       async (dispatchKey) =>
         await this.cfg.unary.send(
           "/icd/import",
-          { key, format, data: binary.encodeBase64(data), dispatchKey },
+          { key, name, format, data: binary.encodeBase64(data), dispatchKey },
           importReqZ,
           importResZ,
         ),

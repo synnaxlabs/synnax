@@ -9,6 +9,7 @@
 
 import base64
 from typing import Any, Literal, overload
+from uuid import uuid4
 
 from pydantic import BaseModel, field_serializer
 
@@ -69,6 +70,7 @@ class _DispatchRequest(BaseModel):
 
 class _ImportRequest(BaseModel):
     key: Key
+    name: str = ""
     format: ImportFormat
     data: bytes
 
@@ -180,17 +182,35 @@ class Client:
         )
         self._client.send("/icd/dispatch", req, Empty)
 
-    def import_file(self, key: Key, data: bytes, format: ImportFormat) -> ICD:
-        """Import an interface control document file into an ICD. Messages and fields
-        that match existing ones by name keep their keys.
+    def import_file(
+        self,
+        data: bytes,
+        format: ImportFormat,
+        *,
+        key: Key | None = None,
+        name: str | None = None,
+    ) -> ICD:
+        """Import an interface control document file into an ICD. Give exactly one of
+        key and name.
 
-        :param key: The key of the ICD to import into.
         :param data: The contents of the file.
         :param format: The format of the file: "dbc", "csv", or "xlsx".
+        :param key: The key of an existing ICD, whose messages the import replaces.
+            Messages and fields that match existing ones by name keep their keys.
+        :param name: The name of a new ICD that the import creates to hold the
+            messages. A file that fails to import creates no ICD.
         :returns: The ICD after the import.
+        :raises ValueError: If neither or both of key and name are given.
         :raises ValidationError: If the file cannot be parsed or the result is invalid.
         """
-        req = _ImportRequest(key=key, format=format, data=data)
+        if (key is None) == (name is None):
+            raise ValueError("import_file takes exactly one of key and name")
+        req = _ImportRequest(
+            key=uuid4() if key is None else key,
+            name=name or "",
+            format=format,
+            data=data,
+        )
         return self._client.send("/icd/import", req, _ImportResponse).icd
 
     @overload
