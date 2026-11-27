@@ -15,7 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/join"
+	"github.com/synnaxlabs/arc/join"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -85,10 +85,10 @@ var _ = Describe("Join break", func() {
 		func(lag float64) {
 			var now telem.TimeStamp
 			j := MustSucceed(join.New(join.Config{
-				DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-				From:      secs(10),
-				Live:      true,
-				Now:       func() telem.TimeStamp { return now },
+				Inputs: floatInputs(2),
+				From:   secs(10),
+				Live:   true,
+				Now:    func() telem.TimeStamp { return now },
 			}))
 			const n = 40
 			drops := make([]int, n)
@@ -161,9 +161,9 @@ var _ = Describe("Join break", func() {
 
 		var now telem.TimeStamp
 		live := MustSucceed(join.New(join.Config{
-			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-			Live:      true,
-			Now:       func() telem.TimeStamp { return now },
+			Inputs: floatInputs(2),
+			Live:   true,
+			Now:    func() telem.TimeStamp { return now },
 		}))
 		var got join.Output
 		o := 0
@@ -189,21 +189,21 @@ var _ = Describe("Join break", func() {
 		// Intervals of 1 ns and 2 ns: the median is 1.5 ns, so the limit is 4.5 ns,
 		// and a primary stamp 4 ns past the held sample holds.
 		j := newJoin(2, 0, 0)
-		Expect(j.Push(1, values(1, 2, 3), at(0, 0, 1, 3))).To(Succeed())
-		Expect(j.Push(0, values(9), at(0, 7))).To(Succeed())
+		Expect(j.Push(1, values(1, 2, 3), rawStamps(0, 0, 1, 3))).To(Succeed())
+		Expect(j.Push(0, values(9), rawStamps(0, 7))).To(Succeed())
 		var out join.Output
 		j.Next(telem.TimeStampMax, &out)
 		Expect(out.Dropped).To(BeZero())
 	})
 
-	Describe("Seeded live in stamp order", func() {
-		// Each seed builds a primary and two steady inputs at random rates, each
+	Describe("Random live in stamp order", func() {
+		// Each run builds a primary and two steady inputs at random rates, each
 		// sample in its own frame that arrives at its stamp, with random stops. Live
 		// then owes the history output exactly.
-		for seed := range uint64(48) {
+		for run := range uint64(48) {
 			It("Should join a live read in stamp order to the history samples",
 				func() {
-					r := rand.New(rand.NewPCG(seed, seed^0x51ed270b27c1a3))
+					r := rand.New(rand.NewPCG(run, run^0x51ed270b27c1a3))
 					gen := func(start, step telem.TimeStamp, n int) []telem.TimeStamp {
 						ts := make([]telem.TimeStamp, n)
 						t := start
@@ -240,11 +240,9 @@ var _ = Describe("Join break", func() {
 
 					var now telem.TimeStamp
 					live := MustSucceed(join.New(join.Config{
-						DataTypes: []telem.DataType{
-							telem.Float64T, telem.Float64T, telem.Float64T,
-						},
-						Live: true,
-						Now:  func() telem.TimeStamp { return now },
+						Inputs: floatInputs(3),
+						Live:   true,
+						Now:    func() telem.TimeStamp { return now },
 					}))
 					var got join.Output
 					pos := make([]int, 3)
@@ -255,7 +253,7 @@ var _ = Describe("Join break", func() {
 								Expect(live.Push(
 									i,
 									values(float64(i*100000+pos[i])),
-									at(0, ts[i][pos[i]]),
+									rawStamps(0, ts[i][pos[i]]),
 								)).To(Succeed())
 								pos[i]++
 							}
@@ -264,7 +262,7 @@ var _ = Describe("Join break", func() {
 						Expect(live.Push(
 							0,
 							values(float64(k)),
-							at(telem.Alignment(k), stamp),
+							rawStamps(telem.Alignment(k), stamp),
 						)).To(Succeed())
 						live.Next(stamp, &got)
 					}
@@ -282,9 +280,9 @@ func TestJoinAllocs(t *testing.T) {
 		const frames, size = 400, 40
 		var now telem.TimeStamp
 		j, err := join.New(join.Config{
-			DataTypes: []telem.DataType{telem.Float64T, telem.Int16T},
-			Live:      live,
-			Now:       func() telem.TimeStamp { return now },
+			Inputs: []join.Input{{DataType: telem.Float64T}, {DataType: telem.Int16T}},
+			Live:   live,
+			Now:    func() telem.TimeStamp { return now },
 		})
 		if err != nil {
 			t.Fatal(err)

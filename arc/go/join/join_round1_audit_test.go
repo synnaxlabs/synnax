@@ -12,7 +12,7 @@ package join_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/join"
+	"github.com/synnaxlabs/arc/join"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -21,37 +21,41 @@ var _ = Describe("Join audit, round 1", func() {
 	var now telem.TimeStamp
 	sec := func(s float64) telem.TimeStamp { return telem.TimeStamp(s * float64(telem.Second)) }
 	clock := func() telem.TimeStamp { return now }
-	newLive := func(from telem.TimeStamp, arrival []bool) *join.Join {
+	newLive := func(from telem.TimeStamp, arrivalTimed bool) *join.Join {
 		return MustSucceed(join.New(join.Config{
-			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-			From:      from,
-			Live:      true,
-			Arrival:   arrival,
-			Now:       clock,
+			Inputs: []join.Input{
+				{DataType: telem.Float64T},
+				{DataType: telem.Float64T, ArrivalTimed: arrivalTimed},
+			},
+			From: from,
+			Live: true,
+			Now:  clock,
 		}))
 	}
 
-	It("Should hold a seed for a whole primary frame whose first stamp lies within "+
-		"one hold limit of the seed (Config.Live doc)", func() {
-		j := newLive(sec(18), nil)
-		seed := make([]float64, 17)
-		for i := range seed {
-			seed[i] = float64(i)
+	// D-510: until the input's first live frame, a loaded sample holds for each
+	// primary stamp within one hold limit of its own stamp.
+	It("Should hold a loaded sample for each primary stamp within one hold limit "+
+		"of its own stamp", func() {
+		j := newLive(sec(18), false)
+		stored := make([]float64, 17)
+		for i := range stored {
+			stored[i] = float64(i)
 		}
-		Expect(j.Push(1, values(seed...), stamps(0, seed...))).To(Succeed())
+		Expect(j.Load(1, values(stored...), stamps(0, stored...))).To(Succeed())
 		Expect(j.Push(0, values(1, 2, 3), stamps(0, 18, 19, 20))).To(Succeed())
 		var out join.Output
 		j.Next(sec(20), &out)
-		Expect(out.Dropped).To(BeZero())
+		// The limit is 3 s: 18 s and 19 s hold the sample at 16 s, and 20 s drops.
+		Expect(out.Dropped).To(Equal(1))
 	})
 
-	It("Should count no primary seed before From as a frame when it settles "+
-		"(Config.Live: a push before From seeds the input as no frame)", func() {
-		j := newLive(sec(100), nil)
+	It("Should count no loaded primary samples as a frame when it settles "+
+		"(Join.Load: loaded samples count as no frame)", func() {
+		j := newLive(sec(100), false)
 		now = 0
-		Expect(j.Push(0, values(1, 2, 3), stamps(0, 1, 2, 3))).To(Succeed())
+		Expect(j.Load(0, values(1, 2, 3), stamps(0, 1, 2, 3))).To(Succeed())
 		var out join.Output
-		j.Next(sec(3), &out)
 		for _, s := range []float64{100, 101, 102} {
 			now = sec(s)
 			Expect(j.Push(0, values(s), stamps(telem.Alignment(s), s))).To(Succeed())
@@ -66,7 +70,7 @@ var _ = Describe("Join audit, round 1", func() {
 	It("Should drop an arrival input that stopped when its pushes share one arrival "+
 		"(Config.Arrival: it holds while its last push arrived within 3 times the "+
 		"median gap)", func() {
-		j := newLive(0, []bool{false, true})
+		j := newLive(0, true)
 		now = 0
 		for range 3 {
 			Expect(j.Push(1, values(1), telem.Series{})).To(Succeed())

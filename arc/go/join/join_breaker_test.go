@@ -15,13 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/join"
+	"github.com/synnaxlabs/arc/join"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // at returns a timestamp series of ts, with the alignment of its first sample.
-func at(alignment telem.Alignment, ts ...telem.TimeStamp) telem.Series {
+func rawStamps(alignment telem.Alignment, ts ...telem.TimeStamp) telem.Series {
 	s := telem.NewSeries(ts)
 	s.Alignment = alignment
 	return s
@@ -55,6 +55,15 @@ func flatten(out join.Output) flat {
 
 const ms = telem.TimeStamp(telem.Millisecond)
 
+// inputsOf returns an input of each data type of dts.
+func inputsOf(dts []telem.DataType) []join.Input {
+	inputs := make([]join.Input, len(dts))
+	for i, dt := range dts {
+		inputs[i] = join.Input{DataType: dt}
+	}
+	return inputs
+}
+
 var _ = Describe("Join breaker", func() {
 	It("Should drop only the primary frame before the other input's first frame "+
 		"arrives, when each primary frame comes first", func() {
@@ -74,16 +83,16 @@ var _ = Describe("Join breaker", func() {
 			pv[k], ov[k] = float64(k), float64(-k)
 		}
 		history := newJoin(2, 0, 0)
-		Expect(history.Push(0, values(pv...), at(0, primary...))).To(Succeed())
-		Expect(history.Push(1, values(ov...), at(0, other...))).To(Succeed())
+		Expect(history.Push(0, values(pv...), rawStamps(0, primary...))).To(Succeed())
+		Expect(history.Push(1, values(ov...), rawStamps(0, other...))).To(Succeed())
 		var want join.Output
 		history.Next(telem.TimeStampMax, &want)
 
 		var now telem.TimeStamp
 		live := MustSucceed(join.New(join.Config{
-			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-			Live:      true,
-			Now:       func() telem.TimeStamp { return now },
+			Inputs: floatInputs(2),
+			Live:   true,
+			Now:    func() telem.TimeStamp { return now },
 		}))
 		var got join.Output
 		dropped := make([]int, 0, frames)
@@ -93,13 +102,13 @@ var _ = Describe("Join breaker", func() {
 			Expect(live.Push(
 				0,
 				values(pv[lo:hi]...),
-				at(telem.Alignment(lo), primary[lo:hi]...),
+				rawStamps(telem.Alignment(lo), primary[lo:hi]...),
 			)).To(Succeed())
 			before := got.Dropped
 			live.Next(primary[hi-1], &got)
 			dropped = append(dropped, got.Dropped-before)
 			now += 20 * ms
-			Expect(live.Push(1, values(ov[lo:hi]...), at(0, other[lo:hi]...))).
+			Expect(live.Push(1, values(ov[lo:hi]...), rawStamps(0, other[lo:hi]...))).
 				To(Succeed())
 		}
 		Expect(want.Dropped).To(Equal(1))
@@ -126,11 +135,13 @@ var _ = Describe("Join breaker", func() {
 		// The primary has one sample, then its device goes quiet while another input
 		// streams at 1 kHz in frames of 1000. Each frame, the live read passes the
 		// newest primary stamp.
+		var now telem.TimeStamp
 		j := MustSucceed(join.New(join.Config{
-			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-			Live:      true,
+			Inputs: floatInputs(2),
+			Live:   true,
+			Now:    at(&now),
 		}))
-		Expect(j.Push(0, values(0), at(0, 0))).To(Succeed())
+		Expect(j.Push(0, values(0), rawStamps(0, 0))).To(Succeed())
 		const frame = 1000
 		vs := make([]float64, frame)
 		ts := make([]telem.TimeStamp, frame)
@@ -143,7 +154,7 @@ var _ = Describe("Join breaker", func() {
 				for k := range ts {
 					ts[k], next = next, next+ms
 				}
-				Expect(j.Push(1, values(vs...), at(0, ts...))).To(Succeed())
+				Expect(j.Push(1, values(vs...), rawStamps(0, ts...))).To(Succeed())
 				j.Next(0, &out)
 				out.Reset()
 			}
@@ -162,9 +173,10 @@ var _ = Describe("Join breaker", func() {
 
 	It("Should hold a sample within 3 times a median interval past 2^64/3", func() {
 		j := newJoin(2, 0, 0)
-		Expect(j.Push(1, values(1, 2), at(0, 0, 6_500_000_000_000_000_000))).
+		Expect(j.Push(1, values(1, 2), rawStamps(0, 0, 6_500_000_000_000_000_000))).
 			To(Succeed())
-		Expect(j.Push(0, values(1), at(0, 8_500_000_000_000_000_000))).To(Succeed())
+		Expect(j.Push(0, values(1), rawStamps(0, 8_500_000_000_000_000_000))).
+			To(Succeed())
 		var out join.Output
 		j.Next(telem.TimeStampMax, &out)
 		Expect(out.Dropped).To(BeZero())
@@ -173,7 +185,7 @@ var _ = Describe("Join breaker", func() {
 	It("Should give the run at the last stamp a time range that ends after it starts",
 		func() {
 			j := newJoin(1, 0, 0)
-			Expect(j.Push(0, values(1), at(0, telem.TimeStampMax))).To(Succeed())
+			Expect(j.Push(0, values(1), rawStamps(0, telem.TimeStampMax))).To(Succeed())
 			var out join.Output
 			j.Next(telem.TimeStampMax, &out)
 			Expect(out.Runs).To(HaveLen(1))
@@ -183,8 +195,10 @@ var _ = Describe("Join breaker", func() {
 
 	It("Should join three inputs of mixed densities", func() {
 		j := MustSucceed(join.New(join.Config{
-			DataTypes: []telem.DataType{telem.Int8T, telem.Uint64T, telem.TimestampT},
-			Primary:   1,
+			Inputs: inputsOf(
+				[]telem.DataType{telem.Int8T, telem.Uint64T, telem.TimestampT},
+			),
+			Primary: 1,
 		}))
 		Expect(j.Push(0, telem.NewSeriesV[int8](-1, -2), stamps(0, 1, 3))).
 			To(Succeed())
@@ -235,13 +249,13 @@ var _ = Describe("Join breaker", func() {
 		Expect(out.Dropped).To(Equal(1))
 	})
 
-	Describe("Seeded live and history", func() {
-		// Each seed builds a primary and two other inputs with random rates, gaps,
+	Describe("Random live and history", func() {
+		// Each run builds a primary and two other inputs with random rates, gaps,
 		// and primary alignment jumps. Live pushes no input late: each other sample
 		// arrives before the primary frame that reaches its stamp.
-		for seed := range uint64(48) {
+		for run := range uint64(48) {
 			It("Should join live and chunked reads to the history samples", func() {
-				r := rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))
+				r := rand.New(rand.NewPCG(run, run^0x9e3779b97f4a7c15))
 				gen := func(n int, step telem.TimeStamp) []telem.TimeStamp {
 					ts := make([]telem.TimeStamp, n)
 					t := telem.TimeStamp(r.Int64N(int64(step) * 5))
@@ -306,9 +320,9 @@ var _ = Describe("Join breaker", func() {
 				}
 				newJ := func() *join.Join {
 					return MustSucceed(join.New(join.Config{
-						DataTypes: dts,
-						Primary:   p,
-						From:      from,
+						Inputs:  inputsOf(dts),
+						Primary: p,
+						From:    from,
 					}))
 				}
 				slice := func(i, lo, hi int) (telem.Series, telem.Series) {

@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/stl/join"
+	"github.com/synnaxlabs/arc/join"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -112,9 +112,9 @@ var _ = Describe("Join check", func() {
 		const frame, frames, stop = 40, 9, 4
 		var now telem.TimeStamp
 		j := MustSucceed(join.New(join.Config{
-			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-			Live:      true,
-			Now:       func() telem.TimeStamp { return now },
+			Inputs: floatInputs(2),
+			Live:   true,
+			Now:    func() telem.TimeStamp { return now },
 		}))
 		var out join.Output
 		dropped := make([]int, 0, frames)
@@ -154,9 +154,11 @@ var _ = Describe("Join check", func() {
 		Expect(history.Push(1, full, stamps(0, ss[:most]...))).To(Succeed())
 		Expect(history.Push(1, values(0), stamps(0, ss[most]))).
 			To(MatchError(ContainSubstring("input 1")))
+		var now telem.TimeStamp
 		live := MustSucceed(join.New(join.Config{
-			DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-			Live:      true,
+			Inputs: floatInputs(2),
+			Live:   true,
+			Now:    at(&now),
 		}))
 		Expect(live.Push(1, values(make([]float64, most+1)...), stamps(0, ss...))).
 			To(Succeed())
@@ -204,8 +206,8 @@ var _ = Describe("Join check", func() {
 	)
 
 	It("Should hold an input of Poisson stamps with no limit", func() {
-		for seed := range uint64(8) {
-			r := rand.New(rand.NewPCG(seed, 1))
+		for run := range uint64(8) {
+			r := rand.New(rand.NewPCG(run, 1))
 			ss := make([]float64, 0, 33)
 			ss = append(ss, 0)
 			for range 32 {
@@ -217,7 +219,7 @@ var _ = Describe("Join check", func() {
 			Expect(j.Push(0, values(1), stamps(0, ss[len(ss)-1]+1000))).To(Succeed())
 			var out join.Output
 			j.Next(telem.TimeStampMax, &out)
-			Expect(out.Dropped).To(BeZero(), "seed %d", seed)
+			Expect(out.Dropped).To(BeZero(), "run %d", run)
 		}
 	})
 })
