@@ -117,5 +117,38 @@ describe("useConnectModal", () => {
         expect(screen.queryByPlaceholderText("Synnax Core")).toBeNull(),
       );
     });
+
+    it("should keep a redeemed token when the address stays", async () => {
+      const alpha = createCore("Alpha", { token: "sys_invited", lastLogin: 1 });
+      const { store } = await openConnect(
+        [{ coreKey: alpha.key }],
+        createCoreState([alpha], alpha.key),
+      );
+      fireEvent.change(connectNameInput(), { target: { value: "Alpha_Edited" } });
+      fireEvent.click(findButton("Save"));
+      await waitFor(() => {
+        const edited = Session.Core.selectState(store.getState(), alpha.key);
+        expect(edited?.name).toEqual("Alpha_Edited");
+        expect(edited?.token).toEqual("sys_invited");
+        expect(edited?.lastLogin).toEqual(1);
+      });
+    });
+
+    it("should drop a redeemed token when the address moves", async () => {
+      const alpha = createCore("Alpha", { token: "sys_invited" });
+      const { store } = await openConnect(
+        [{ coreKey: alpha.key }],
+        createCoreState([alpha], alpha.key),
+      );
+      fireEvent.change(screen.getByPlaceholderText("localhost"), {
+        target: { value: "elsewhere.example.com" },
+      });
+      fireEvent.click(findButton("Save"));
+      await waitFor(() => {
+        const edited = Session.Core.selectState(store.getState(), alpha.key);
+        expect(edited?.host).toEqual("elsewhere.example.com");
+        expect(edited?.token).toBeUndefined();
+      });
+    });
   });
 });

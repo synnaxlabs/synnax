@@ -17,7 +17,9 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreSelectable?: boolean } => ({
+  engine: "web",
+}));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -44,6 +46,7 @@ const renderParams = async (core = CORE) =>
 describe("Core.useConnParams", () => {
   beforeEach(() => {
     mocks.engine = "web";
+    mocks.coreSelectable = undefined;
   });
 
   it("should give no parameters while no Core is selected", async () => {
@@ -115,6 +118,23 @@ describe("Core.useConnParams", () => {
     pinLocationOrigin("http://localhost:5173");
     const { result } = await renderParams();
     expect(result.current).toBeUndefined();
+  });
+
+  it("should resume from a redeemed token on another origin", async () => {
+    pinLocationOrigin("http://localhost:5173");
+    const { result } = await renderParams({ ...CORE, token: "sys_invited" });
+    expect(result.current?.token).toBe("sys_invited");
+  });
+
+  describe("on the dev server", () => {
+    // the tab's token resolves outside any act
+    disableActEnvironment();
+
+    it("should resume from a redeemed token", async () => {
+      mocks.coreSelectable = true;
+      const { result } = await renderParams({ ...CORE, token: "sys_invited" });
+      await waitFor(() => expect(result.current?.token).toBe("sys_invited"));
+    });
   });
 
   it("should log in with a password the user entered", async () => {

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type access,
   AccountLinkedError,
   type auth,
   connection,
@@ -24,7 +25,7 @@ import {
 import type { Status } from "@synnaxlabs/lyra/status";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement, type FC, type PropsWithChildren } from "react";
 import {
   afterEach,
@@ -44,7 +45,9 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 });
 
 import {
+  createHold,
   LOCAL_SUBJECT,
+  type LocalInvite,
   type OIDCServer,
   pointAtOIDC,
   serveOIDC,
@@ -87,6 +90,12 @@ const createLink = (subject: resource.ID): auth.oidc.Link => ({
 });
 
 const CORE = createCore("local");
+
+const createInvite = (subject: resource.ID): LocalInvite => ({
+  key: crypto.randomUUID(),
+  user: subject.key,
+  expiry: 1,
+});
 
 const OTHER_USER = user.resourceID("9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a");
 
@@ -201,6 +210,135 @@ describe("OIDC section", () => {
     await expectAlways(() =>
       expect(screen.queryByText(`Link ${OTHER_PROVIDER.provider}`)).toBeNull(),
     );
+  });
+
+  describe("invites", () => {
+    const CREATE = "Create invite";
+    const REPLACE = "Replace invite";
+    const ALL: access.Action[] = ["create", "update", "delete"];
+
+    it.each([
+      ["another user", OTHER_USER],
+      ["the caller", LOCAL_SUBJECT],
+    ])("should hide without permission to change invites of %s", async (_, subject) => {
+      const { client, server } = await open({ userActions: ["retrieve"] });
+      await renderLocal(client, subject);
+      await screen.findByText("Provider accounts");
+      await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
+      await expectAlways(() => expect(screen.queryByText(CREATE)).toBeNull());
+    });
+
+    it("should show a new invite's code until the section unmounts", async () => {
+      const { client, server } = await open({ userActions: ALL });
+      const onMessage = await renderLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(CREATE));
+      await waitFor(() => expect(server.invites).toHaveLength(1));
+      const token = `syi_${server.invites[0].key}`;
+      expect(await screen.findByText(token)).toBeTruthy();
+      expect(
+        screen.getByText("Copy this invite code now. You won't see it again."),
+      ).toBeTruthy();
+      await waitFor(() =>
+        expect(onMessage).toHaveBeenLastCalledWith("Successfully created invite"),
+      );
+      cleanup();
+      await renderLocal(client, OTHER_USER);
+      await screen.findByText(REPLACE);
+      expect(screen.queryByText(token)).toBeNull();
+    });
+
+    it("should revoke a live invite and hide its code", async () => {
+      const old = createInvite(OTHER_USER);
+      const { client, server } = await open({
+        userActions: ALL,
+        invites: [old],
+      });
+      const onMessage = await renderLocal(client, OTHER_USER);
+      expect(await screen.findByText(/^Invite expires/)).toBeTruthy();
+      fireEvent.click(await screen.findByText(REPLACE));
+      await waitFor(() => expect(server.invites[0].key).not.toBe(old.key));
+      const token = `syi_${server.invites[0].key}`;
+      await screen.findByText(token);
+      fireEvent.click(await screen.findByText("Revoke"));
+      await screen.findByText(CREATE);
+      expect(server.invites).toEqual([]);
+      expect(screen.queryByText(/^Invite expires/)).toBeNull();
+      expect(screen.queryByText(token)).toBeNull();
+      await waitFor(() =>
+        expect(onMessage).toHaveBeenLastCalledWith("Successfully revoked invite"),
+      );
+    });
+
+    it("should say that a new invite replaces a live one", async () => {
+      const old = createInvite(OTHER_USER);
+      const { client, server } = await open({
+        userActions: ALL,
+        invites: [old],
+      });
+      await renderLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(REPLACE));
+      expect(screen.queryByText(CREATE)).toBeNull();
+      await waitFor(() => expect(server.invites[0].key).not.toBe(old.key));
+      expect(server.invites).toHaveLength(1);
+    });
+
+    it("should offer no new invite without create permission", async () => {
+      const { client, server } = await open({ userActions: ["update"] });
+      await renderLocal(client, OTHER_USER);
+      await screen.findByText("Provider accounts");
+      await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
+      await expectAlways(() => expect(screen.queryByText(CREATE)).toBeNull());
+    });
+
+    it("should replace but not revoke an invite without delete permission", async () => {
+      const { client, server } = await open({
+        userActions: ["update"],
+        invites: [createInvite(OTHER_USER)],
+      });
+      await renderLocal(client, OTHER_USER);
+      await screen.findByText(REPLACE);
+      await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
+      expect(screen.queryByText("Revoke")).toBeNull();
+    });
+
+    // an expired invite stays stored, so a new one may be an update on the Core
+    it("should offer no new invite with create permission alone", async () => {
+      const { client, server } = await open({ userActions: ["create"] });
+      await renderLocal(client, OTHER_USER);
+      await screen.findByText("Provider accounts");
+      await waitFor(() => expect(server.policyReads).toBeGreaterThan(0));
+      await expectAlways(() => expect(screen.queryByText(CREATE)).toBeNull());
+    });
+
+    it("should create a new invite with create and update permission", async () => {
+      const { client, server } = await open({ userActions: ["create", "update"] });
+      await renderLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(CREATE));
+      await waitFor(() => expect(server.invites).toHaveLength(1));
+      await screen.findByText(/^Invite expires/);
+      expect(screen.getByText(REPLACE)).toBeTruthy();
+      expect(screen.queryByText("Revoke")).toBeNull();
+    });
+
+    it.each([
+      ["Revoke", REPLACE, "Successfully revoked invite"],
+      [REPLACE, "Revoke", "Successfully created invite"],
+    ])("should keep %s from running with %s", async (first, second, done) => {
+      const hold = createHold("/auth/oidc/invite/create", "/auth/oidc/invite/delete");
+      const { client, server } = await open({
+        userActions: ALL,
+        invites: [createInvite(OTHER_USER)],
+        hold,
+      });
+      const onMessage = await renderLocal(client, OTHER_USER);
+      await screen.findByText(/^Invite expires/);
+      fireEvent.click(await screen.findByText(first));
+      await waitFor(() => expect(server.held).toBe(1));
+      fireEvent.click(screen.getByText(second));
+      await expectAlways(() => expect(server.held).toBe(1));
+      hold.release();
+      await waitFor(() => expect(onMessage).toHaveBeenLastCalledWith(done));
+    });
   });
 
   describe("with a Core's permissions", () => {

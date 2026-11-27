@@ -18,12 +18,13 @@ import {
 import { uuid } from "@synnaxlabs/x";
 import { expectAlways, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { answerMethods } from "@/platform/core/testutil";
 import { Credential } from "@/platform/credential";
 import {
   findButton,
+  findDismissButton,
   openModal,
   pressEscape,
   renderModalOpener,
@@ -62,6 +63,33 @@ const expectPassword = async (username: string, password: string): Promise<void>
       }
     })
     .toBe(true);
+};
+
+// The test Core rejects invites, so the stub answers them and accepts OIDC. Each invite
+// create waits for the release.
+const holdInviteCreate = (subject: user.Key) => {
+  const real = globalThis.fetch;
+  const held = Promise.withResolvers<void>();
+  const released = Promise.withResolvers<void>();
+  const json = (body: unknown): Response =>
+    new Response(JSON.stringify(body), {
+      headers: { "Content-Type": "application/json" },
+    });
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    if (url.endsWith("/auth/methods"))
+      return json({ methods: ["password", "api_key", "oidc"], providers: [] });
+    if (url.endsWith("/auth/oidc/invite/retrieve")) return json({ invites: [] });
+    if (url.endsWith("/auth/oidc/invite/create")) {
+      held.resolve();
+      await released.promise;
+      const key = crypto.randomUUID();
+      return json({ token: `syi_${key}`, invite: { key, user: subject, expiry: 1 } });
+    }
+    return await real(input, init);
+  });
+  onTestFinished(() => spy.mockRestore());
+  return { held: held.promise, release: () => released.resolve() };
 };
 
 describe("useModal", () => {
@@ -284,6 +312,21 @@ describe("useModal", () => {
     // the password form shows once the methods answer arrives
     await screen.findByPlaceholderText("Password");
     expect(screen.queryByText("Provider accounts")).toBeNull();
+  });
+
+  it("should stay open while an invite is being created", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const { held, release } = holdInviteCreate(subject.key);
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    fireEvent.click(await screen.findByText("Create invite"));
+    await held;
+    fireEvent.click(findDismissButton());
+    expect(screen.queryByText("Create invite")).not.toBeNull();
+    release();
+    await screen.findByText(/^syi_/);
   });
 
   it("should hide provider accounts for a rack", async () => {
