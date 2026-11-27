@@ -11,6 +11,60 @@
 
 import { z } from "zod";
 
+export const DATA_TYPE_NAMES = [
+  "float64",
+  "float32",
+  "int64",
+  "int32",
+  "int16",
+  "int8",
+  "uint64",
+  "uint32",
+  "uint16",
+  "uint8",
+  "timestamp",
+  "uuid",
+  "boolean",
+  "string",
+  "json",
+  "bytes",
+] as const;
+export const dataTypeNameZ = z.enum(DATA_TYPE_NAMES);
+export type DataTypeName = z.infer<typeof dataTypeNameZ>;
+
+export const FIXED_WIDTH_DATA_TYPES = [
+  "float64",
+  "float32",
+  "int64",
+  "int32",
+  "int16",
+  "int8",
+  "uint64",
+  "uint32",
+  "uint16",
+  "uint8",
+  "timestamp",
+  "uuid",
+  "boolean",
+] as const;
+export const fixedWidthDataTypeZ = z.enum(FIXED_WIDTH_DATA_TYPES);
+export type FixedWidthDataType = z.infer<typeof fixedWidthDataTypeZ>;
+
+export const NUMERIC_DATA_TYPES = [
+  "float64",
+  "float32",
+  "int64",
+  "int32",
+  "int16",
+  "int8",
+  "uint64",
+  "uint32",
+  "uint16",
+  "uint8",
+] as const;
+export const numericDataTypeZ = z.enum(NUMERIC_DATA_TYPES);
+export type NumericDataType = z.infer<typeof numericDataTypeZ>;
+
 export const AGGREGATIONS = ["min_max", "average", "decimate"] as const;
 export const aggregationZ = z.enum(AGGREGATIONS);
 export type Aggregation = z.infer<typeof aggregationZ>;

@@ -39,37 +39,37 @@ const (
 	// UnknownT is an unknown data type.
 	UnknownT DataType = ""
 	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
-	Uint8T DataType = "uint8"
+	Uint8T DataType = DataType(DataTypeNameUint8)
 	// Uint16T is a data type for a 16-bit unsigned integer.
-	Uint16T DataType = "uint16"
+	Uint16T DataType = DataType(DataTypeNameUint16)
 	// Uint32T is a data type for a 32-bit unsigned integer.
-	Uint32T DataType = "uint32"
+	Uint32T DataType = DataType(DataTypeNameUint32)
 	// Uint64T is a data type for a 64-bit unsigned integer.
-	Uint64T DataType = "uint64"
+	Uint64T DataType = DataType(DataTypeNameUint64)
 	// Int8T is a data type for an 8-bit integer.
-	Int8T DataType = "int8"
+	Int8T DataType = DataType(DataTypeNameInt8)
 	// Int16T is a data type for a 16-bit integer.
-	Int16T DataType = "int16"
+	Int16T DataType = DataType(DataTypeNameInt16)
 	// Int32T is a data type for a 32-bit integer.
-	Int32T DataType = "int32"
+	Int32T DataType = DataType(DataTypeNameInt32)
 	// Int64T is a data type for a 64-bit integer.
-	Int64T DataType = "int64"
+	Int64T DataType = DataType(DataTypeNameInt64)
 	// Float32T is a data type for a 32-bit IEEE-754 floating point number.
-	Float32T DataType = "float32"
+	Float32T DataType = DataType(DataTypeNameFloat32)
 	// Float64T is a data type for a 64-bit IEEE-754 floating point number.
-	Float64T DataType = "float64"
+	Float64T DataType = DataType(DataTypeNameFloat64)
 	// TimestampT is a data type for a signed 64-bit nanosecond count since the Unix
 	// epoch.
-	TimestampT DataType = "timestamp"
+	TimestampT DataType = DataType(DataTypeNameTimestamp)
 	// UUIDT is a data type for a 128-bit UUID value.
-	UUIDT DataType = "uuid"
+	UUIDT DataType = DataType(DataTypeNameUUID)
 	// StringT is a variable density data type for a UTF-8 encoded string.
-	StringT DataType = "string"
+	StringT DataType = DataType(DataTypeNameString)
 	// BytesT is a variable density data type for an arbitrary byte array.
-	BytesT DataType = "bytes"
+	BytesT DataType = DataType(DataTypeNameBytes)
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
-	JSONT DataType = "json"
+	JSONT DataType = DataType(DataTypeNameJSON)
 	// BooleanT is a data type for a boolean value. Samples are a single byte with
 	// canonical values 0x00 (false) and 0x01 (true).
-	BooleanT DataType = "boolean"
+	BooleanT DataType = DataType(DataTypeNameBoolean)
 )
