@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { auth, type connection, type Synnax as Client, user } from "@synnaxlabs/client";
+import { createTestClient, createTestUser } from "@synnaxlabs/client/testutil";
+import { Synnax } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
-import { act, waitFor } from "@testing-library/react";
+import { act, render, waitFor } from "@testing-library/react";
+import type { PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
@@ -21,7 +27,12 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 import { Core } from "@/platform/core";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { pinLocationOrigin, renderHookWithConsole } from "@/testutil";
+import {
+  createConsoleWrapper,
+  disableActEnvironment,
+  pinLocationOrigin,
+  renderHookWithConsole,
+} from "@/testutil";
 
 const CORE = createCore("Alpha", { host: "example.com", port: 9095, password: "" });
 
@@ -196,5 +207,137 @@ describe("Core.useConnParams", () => {
     const { result } = await renderParams();
     await waitFor(() => expect(result.current).toBeDefined());
     expect(result.current?.token).toBeUndefined();
+  });
+
+  it("should keep the parameters when the user's own password changes", async () => {
+    const { result, store } = await renderParams({ ...CORE, password: "old" });
+    const before = result.current;
+    act(() => {
+      store.dispatch(Session.Core.set({ ...CORE, password: "new" }));
+    });
+    expect(Session.Core.selectState(store.getState(), CORE.key)?.password).toBe("new");
+    expect(result.current).toBe(before);
+  });
+
+  it("should give new parameters for a new login", async () => {
+    const { result, store } = await renderParams({ ...CORE, password: "old" });
+    act(() => {
+      store.dispatch(
+        Session.Core.set({ ...CORE, username: "other", password: "new", lastLogin: 1 }),
+      );
+    });
+    expect(result.current).toMatchObject({ username: "other", password: "new" });
+  });
+
+  it("should keep the parameters on desktop while the user renames themselves", async () => {
+    mocks.engine = "tauri";
+    mockIPC((cmd) => (cmd === "keychain_get" ? "sys_saved" : undefined));
+    onTestFinished(clearMocks);
+    const seen: unknown[] = [];
+    const { result, store } = await renderHookWithConsole(
+      () => {
+        const params = Core.useConnParams();
+        seen.push(params);
+        return { params, setUsername: Core.useSetUsername() };
+      },
+      { preloadedState: createCoreState([CORE], CORE.key) },
+    );
+    await waitFor(() => expect(result.current.params?.token).toBe("sys_saved"));
+    const before = result.current.params;
+    seen.length = 0;
+    act(() => result.current.setUsername("after"));
+    await waitFor(() =>
+      expect(Session.Core.selectState(store.getState(), CORE.key)?.username).toBe(
+        "after",
+      ),
+    );
+    expect(seen.every((params) => params === before)).toBe(true);
+  });
+
+  describe("against a live Core", () => {
+    interface Seen {
+      clients: Set<Client | null>;
+      status?: connection.Status;
+      core?: Session.Core.Core;
+      setUsername?: (username: string) => void;
+    }
+
+    const Observe = ({ seen }: { seen: Seen }): null => {
+      seen.clients.add(Synnax.use());
+      seen.status = Synnax.useConnectionStatus();
+      seen.core = Session.Core.useSelectSelected();
+      seen.setUsername = Core.useSetUsername();
+      return null;
+    };
+
+    const Connect = ({ children }: PropsWithChildren): ReactElement => (
+      <Synnax.Provider connParams={Core.useConnParams()}>{children}</Synnax.Provider>
+    );
+
+    // a user logged in through the selected Core's record, who may rename themselves
+    const renderSession = async () => {
+      disableActEnvironment();
+      const admin = createTestClient();
+      const roles = await admin.access.roles.retrieve({});
+      const role = roles.find((r) => r.name === "Owner")?.key;
+      if (role == null) throw new Error("no Owner role");
+      const username = `self-${id.create()}`;
+      const { user: u } = await createTestUser(admin, {
+        role,
+        username,
+        password: "old",
+      });
+      const core = createCore("Local", { username, password: "old" });
+      const { wrapper, store } = await createConsoleWrapper({
+        client: null,
+        preloadedState: createCoreState([core], core.key),
+      });
+      const seen: Seen = { clients: new Set() };
+      render(
+        <Connect>
+          <Observe seen={seen} />
+        </Connect>,
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(seen.status?.details.authenticated).toBe(true);
+        expect(seen.status?.details.epoch).toBeGreaterThanOrEqual(1);
+      });
+      const client = [...seen.clients].find((c) => c != null);
+      if (client == null) throw new Error("no client");
+      seen.clients.clear();
+      return { admin, client, core, seen, store, u };
+    };
+
+    it("should keep the client when the user sets their own password", async () => {
+      const { client, core, seen, store } = await renderSession();
+      const { epoch } = client.connection.status.details;
+      await client.auth.passwords.set({ password: "new", currentPassword: "old" });
+      store.dispatch(Session.Core.set({ ...core, password: "new" }));
+      await waitFor(() => expect(seen.core?.password).toBe("new"));
+      await expectAlways(() => {
+        expect([...seen.clients]).toEqual([client]);
+        expect(seen.status?.details.epoch).toBe(epoch);
+      });
+    });
+
+    it("should keep the client when the user renames themselves", async () => {
+      const { admin, client, seen, u } = await renderSession();
+      const { epoch } = client.connection.status.details;
+      const [p] = await admin.auth.passwords.retrieve({
+        subjects: [user.resourceID(u.key)],
+      });
+      const username = `renamed-${id.create()}`;
+      await client.auth.passwords.dispatch(
+        p.key,
+        auth.password.setUsername({ username }),
+      );
+      seen.setUsername?.(username);
+      await waitFor(() => expect(seen.core?.username).toBe(username));
+      await expectAlways(() => {
+        expect([...seen.clients]).toEqual([client]);
+        expect(seen.status?.details.epoch).toBe(epoch);
+      });
+    });
   });
 });
