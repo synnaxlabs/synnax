@@ -247,8 +247,9 @@ func (t *Text) route(name, prefix string, i int) error {
 // ok is false, and Decode appends nothing, when line belongs to no message. A line of
 // only spaces, tabs, and carriage returns belongs to none. Decode returns an error
 // wrapping validate.ErrValidation, and appends nothing, when a field with no default
-// has no value, a value is not a number, or a value does not fit its channel. The
-// error names the field, and also the message when the decoder holds more than one.
+// has no value, a value is not a number, or a value does not fit its channel. message
+// and ok still name the message of the line. The error names the field, and also the
+// message when the decoder holds more than one.
 func (t *Text) Decode(
 	line []byte,
 	samples [][][]byte,
