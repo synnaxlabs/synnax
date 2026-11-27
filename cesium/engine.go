@@ -119,7 +119,7 @@ func openEngine(o *options) (*engine, error) {
 		reaps:    make(chan struct{}, 1),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 		readers: sync.Pool{
-			New: func() any { return segment.NewReader(o.readsChecked) },
+			New: func() any { return segment.NewReader() },
 		},
 		readsChecked: o.readsChecked,
 	}

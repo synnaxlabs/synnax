@@ -193,7 +193,6 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
 	cfg := c.e.segmentConfig(*r.seg)
-	cfg.Key = c.key
 	hs := c.e.readHandles(c.key, r.seg.ID)
 	h := hs.take(c.e.budget, c.e.fs)
 	file, err := h.Hold()
@@ -215,6 +214,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 		rd:  rd,
 		seg: segment.Committed{
 			Config:  cfg,
+			Key:     c.key,
 			Length:  int64(r.seg.Length),
 			TailCRC: r.seg.TailCRC,
 		},
