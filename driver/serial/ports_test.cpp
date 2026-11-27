@@ -16,7 +16,7 @@
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/errors/errors.h"
-#include "driver/serial/serial.h"
+#include "driver/serial/ports.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial {

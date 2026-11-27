@@ -47,6 +47,11 @@ std::pair<std::size_t, std::error_code> queued_output(Handle handle);
 /// waits up to 30 s for them otherwise.
 void discard_output(Handle handle);
 
+/// @returns the name that each path to the port at path shares: the path with its
+/// symlinks resolved on POSIX, or the COM name in upper case with no \\.\ prefix on
+/// Windows.
+std::string identity(const std::string &path);
+
 /// @brief Line is the line errors of an open port, carried from one read to the next.
 struct Line {
     /// @brief marked is how many bytes of an error mark ended the last read.

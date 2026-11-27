@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -129,6 +130,13 @@ x::errors::Error failed(const std::string &setting, const std::string &port) {
 
 void discard_output(const Handle handle) {
     ::tcflush(static_cast<int>(handle), TCOFLUSH);
+}
+
+std::string identity(const std::string &path) {
+    std::error_code ec;
+    const auto resolved = std::filesystem::weakly_canonical(path, ec);
+    // A path that does not resolve has no other name.
+    return ec ? path : resolved.string();
 }
 
 std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
