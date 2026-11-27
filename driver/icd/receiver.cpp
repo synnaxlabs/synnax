@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -296,8 +297,19 @@ Receiver::send(transport::Transport &t) {
     return {std::min(READ_TIMEOUT, x::telem::TimeSpan(ready - now)), x::errors::NIL};
 }
 
-common::ReadResult Receiver::fail(const x::errors::Error &err) {
+std::vector<synnax::channel::Key> Receiver::channels() const {
+    std::vector<synnax::channel::Key> keys;
+    for (const auto &reader: this->readers)
+        std::ranges::copy(reader.channels(), std::back_inserter(keys));
+    return keys;
+}
+
+void Receiver::clear() {
     if (this->framer != nullptr) this->framer->clear();
+}
+
+common::ReadResult Receiver::fail(const x::errors::Error &err) {
+    this->clear();
     return {.error = err};
 }
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { certificate, type resource, secret } from "@synnaxlabs/client";
+import { certificate, secret } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -29,19 +29,19 @@ export interface SelectCertificate {
   (key: certificate.Key): void;
 }
 
-const NO_USES: resource.ID[] = [];
+const NO_USES: UsedBy.Use[] = [];
 
 /** Every secret's uses, read in one request that a deleted secret cannot fail. */
 const ALL_USES: Secret.RetrieveMultipleQuery = { includeUses: true };
 
 /**
- * Returns the IDs of the resources that use the secret and that the caller can read, or
- * undefined while they load or after their read fails.
+ * Returns the uses of the secret that the caller can read, or undefined while they load
+ * or after their read fails.
  */
-const useUses = (key: secret.Key): resource.ID[] | undefined => {
+const useUses = (key: secret.Key): UsedBy.Use[] | undefined => {
   const { data } = Secret.useResultMultiple(ALL_USES);
   if (data == null) return undefined;
-  return data.find((s) => s.key === key)?.uses ?? NO_USES;
+  return data.find((s) => s.key === key)?.uses?.map((id) => ({ id })) ?? NO_USES;
 };
 
 const SECRET_COLUMNS: List.Column[] = [
@@ -130,7 +130,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
           </Text.Text>
         </List.Cell>
         <List.Cell>
-          <UsedBy.UsedBy
+          <UsedBy.Popover
             itemKey={itemKey}
             kind="secret"
             uses={uses}

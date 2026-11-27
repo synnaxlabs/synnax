@@ -232,6 +232,7 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	// [REQUIRED]
 	Table string
 	// Targets returns the keys of the targets that e holds, or nil when it holds none.
+	// It reads the stored entry and must not change it.
 	//
 	// [REQUIRED]
 	Targets func(e *E) []T
@@ -324,7 +325,8 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	//
 	// [REQUIRED]
 	Tables []string
-	// Targets returns the targets that e holds, or nil when it holds none.
+	// Targets returns the targets that e holds, or nil when it holds none. It reads the
+	// stored entry and must not change it.
 	//
 	// [REQUIRED]
 	Targets func(e *E) []Target
@@ -412,20 +414,14 @@ func (r *reference[K, E, T]) bind(owner string, position int) {
 	r.owner, r.position = owner, position
 }
 
-func (r *reference[K, E, T]) populate() (func(E), func(error)) {
+func (r *reference[K, E, T]) populate() (func(*E), func(error)) {
 	insert, finish := r.store.Populate()
-	return func(entry E) { insert(entry.GorpKey(), r.targetsOf(&entry)) },
+	return func(entry *E) { insert((*entry).GorpKey(), r.targetsOf(entry)) },
 		func(err error) { finish(populateErr(r.name, err)) }
 }
 
-func (r *reference[K, E, T]) set(entry E) {
-	r.store.Set(entry.GorpKey(), r.targetsOf(&entry))
-}
-
-func (r *reference[K, E, T]) delete(key K) { r.store.Delete(key) }
-
-func (r *reference[K, E, T]) stageSet(tx Tx, entry E) {
-	k, held := entry.GorpKey(), r.targetsOf(&entry)
+func (r *reference[K, E, T]) stageSet(tx Tx, entry *E) {
+	k, held := (*entry).GorpKey(), r.targetsOf(entry)
 	// Transactions run one at a time, so no other one stages k between the check and
 	// the skip.
 	if r.store.Current(scopeOf(tx), k, held) {

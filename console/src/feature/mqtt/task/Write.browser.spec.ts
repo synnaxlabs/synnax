@@ -1167,6 +1167,32 @@ describe("MQTT Write form", () => {
       expect(screen.queryByText("Message has no fields")).toBeNull();
     });
 
+    describe("the conversion of a number field", () => {
+      const CONVERSION = "The task sends (value − offset) ÷ scale.";
+
+      it("should say how a command channel's value converts", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        await renderWrite([target]);
+        await fieldGroup(setpoint.name);
+        expect(await screen.findByText(CONVERSION)).toBeTruthy();
+        await fieldGroup(mode.name);
+        await waitFor(() => expect(screen.queryByText(CONVERSION)).toBeNull());
+      });
+
+      it("should say nothing for a fixed value, which the task sends as typed", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        await renderWrite([target]);
+        const group = await fieldGroup(setpoint.name);
+        await screen.findByText(CONVERSION);
+        fireEvent.click(group.getByRole("button", { name: "Value" }));
+        await waitFor(() => expect(screen.queryByText(CONVERSION)).toBeNull());
+      });
+    });
+
     it("should rename a field in its ICD from its pane", async () => {
       const setpoint = createField("setpoint", "float");
       const { target, ic, message } = await createFormatTarget([setpoint]);
@@ -1246,7 +1272,7 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
-      return { dialog, draft };
+      return { dialog, draft, dev };
     };
 
     const retrievePlainTarget = async (key: task.Key, topic: string) => {
@@ -1275,14 +1301,14 @@ describe("MQTT Write form", () => {
       expect(dialog.getByText("Command topics often do not show here.")).toBeTruthy();
     });
 
-    it("should add a whole picked topic with a format from its messages, in an ICD named after the task", async () => {
-      const { dialog, draft } = await openOnPickedTopic();
+    it("should add a whole picked topic with a format from its messages, in an ICD named after the device", async () => {
+      const { dialog, draft, dev } = await openOnPickedTopic();
       dialog.getByText("1 topic selected");
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, TOPIC.topic);
       const [ic] = await client.icds.retrieve([target.icd]);
       expect(ic).toMatchObject({
-        name: "MQTT write task",
+        name: dev.name,
         messages: [
           {
             key: target.message.message,

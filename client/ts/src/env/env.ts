@@ -226,7 +226,7 @@ const resolveTLS = (
     return { secure: params.secure ?? true, caCert: params.caCert };
   const secure = readSecure(env);
   const path = read(env, "SYNNAX_CA_CERT");
-  if (path === "") return { secure: secure ?? desktop?.secure ?? false };
+  if (path === "") return { secure: secure ?? desktop?.secure ?? true };
   if (secure === false) throw new ValidationError(CA_NEEDS_SECURE_MSG);
   if (system?.caCertUnsupported === true) return { secure: true };
   return { secure: true, caCert: readCA(system, path) };
@@ -358,7 +358,7 @@ export const nodeSystem = (
 
 /**
  * Fills each connection parameter from the params, then its environment variable, then
- * Synnax Desktop when neither gives a host, then its default (port 9090, secure false).
+ * Synnax Desktop when neither gives a host, then its default (port 9090, secure true).
  * The API key comes from SYNNAX_API_KEY or Synnax Desktop only when the params give no
  * credentials, token, or OpenID Connect code. The key of Synnax Desktop comes as
  * loadAPIKey, which runs its key helper and rejects with a ValidationError if the

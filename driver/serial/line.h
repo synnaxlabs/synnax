@@ -13,6 +13,8 @@
 #include <asm/termbits.h>
 #elif defined(__APPLE__)
 #include <termios.h>
+#elif defined(_WIN32)
+#include <windows.h>
 #endif
 
 #include "client/cpp/serial/types.gen.h"
@@ -26,6 +28,8 @@ namespace driver::serial::line {
 using Settings = ::termios2;
 #elif defined(__APPLE__)
 using Settings = ::termios;
+#elif defined(_WIN32)
+using Settings = ::DCB;
 #endif
 
 /// @returns CONFIG_ERROR when props holds a baud rate of 0, data bits outside 5 to 8,
