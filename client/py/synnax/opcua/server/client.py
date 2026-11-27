@@ -106,9 +106,32 @@ class Client:
     def retrieve(
         self,
         *,
+        key: Key,
+        name: filter.StringInput = ...,
+        rack: filter.SetInput[RackKey] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
+    ) -> Server: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
         name: str,
         rack: filter.SetInput[RackKey] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
         include_status: bool = ...,
+        one: bool = ...,
     ) -> Server: ...
 
     @overload
@@ -122,6 +145,7 @@ class Client:
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
+        keys: list[Key] | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
         one: Literal[True],

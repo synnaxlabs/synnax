@@ -49,6 +49,16 @@ class TestServerClient:
         assert retrieved.status.details is not None
         assert retrieved.status.details.server == created.key
 
+    def test_retrieve_one_by_keyword(self, client: sy.Synnax, rack: sy.Rack) -> None:
+        created = client.opcua.servers.create(new_server(rack, uuid4().hex))
+        by_key: opcua.server.Server = client.opcua.servers.retrieve(
+            key=created.key, rack=rack.key
+        )
+        by_name: opcua.server.Server = client.opcua.servers.retrieve(
+            name=created.name, search_term=created.name
+        )
+        assert by_key.key == by_name.key == created.key
+
     def test_retrieve_missing(self, client: sy.Synnax) -> None:
         with pytest.raises(sy.NotFoundError):
             client.opcua.servers.retrieve(uuid4())
@@ -73,10 +83,12 @@ class TestServerClient:
     def test_update_configuration(self, client: sy.Synnax, rack: sy.Rack) -> None:
         created = client.opcua.servers.create(new_server(rack))
         index = client.channels.create(
-            name=f"opcua_time_{uuid4()}", data_type=sy.DataType.TIMESTAMP, is_index=True
+            name=f"opcua_time_{uuid4().hex}",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
         )
         data = client.channels.create(
-            name=f"opcua_temp_{uuid4()}",
+            name=f"opcua_temp_{uuid4().hex}",
             data_type=sy.DataType.FLOAT64,
             index=index.key,
         )
