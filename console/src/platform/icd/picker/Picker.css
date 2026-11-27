@@ -120,6 +120,11 @@
         padding: 0.5rem 3rem 2rem;
     }
 
+    .console-icd-picker__values.console--defaults {
+        --console-values-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr) 11rem
+            18rem;
+    }
+
     .console-icd-picker__values {
         flex-shrink: 0;
         margin: 0 3rem;

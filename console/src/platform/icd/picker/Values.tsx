@@ -308,7 +308,7 @@ export const Values = ({
     onDefaultChange != null &&
     groups.some(({ values }) => values.some((v) => v.default != null));
   return (
-    <div className={CSS(CSS.BE("icd-picker", "values"), defaults && CSS.M("defaults"))}>
+    <div className={CSS.cls(CSS.BE("icd-picker", "values"), defaults && CSS.M("defaults"))}>
       <Head noun={noun} defaults={defaults} />
       <DefaultContext value={defaults ? onDefaultChange : null}>
         {groups.map(({ title, note, dimmed, values }) => (
