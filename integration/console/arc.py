@@ -7,10 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
 from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 from console.base import ResourceClient
 from console.notifications import click_past
+
+# A running automation shows "Started task", then "Idle" or the scopes that run.
+RUNNING_STATUS = re.compile(r"^(Started task|Idle|Running .+)$")
 
 
 class ArcClient(ResourceClient):
@@ -151,7 +156,7 @@ class ArcClient(ResourceClient):
         """Deploy the Arc from the editor controls.
 
         Play deploys and starts a stopped task; a drifted deployment shows a
-        Redeploy button instead. Waits for "Started task".
+        Redeploy button instead. Waits for a status that shows the task running.
         """
         controls = self._get_controls()
         redeploy_btn = controls.locator(".console-task-redeploy--visible button")
@@ -161,7 +166,7 @@ class ArcClient(ResourceClient):
             play_btn = controls.locator("button:has(.lyra-icon--play)")
             play_btn.wait_for(state="visible", timeout=5000)
             click_past(play_btn)
-        controls.locator("text=Started task").wait_for(state="visible", timeout=30000)
+        controls.get_by_text(RUNNING_STATUS).wait_for(state="visible", timeout=30000)
 
     def get_status(self) -> str:
         """Expand the diagnostics panel, click copy, and return clipboard text."""

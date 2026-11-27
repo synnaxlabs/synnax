@@ -14,6 +14,7 @@
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -53,6 +54,7 @@ scope_text(const synnax::arc::task::StatusData &data) {
     if (data.scopes.empty())
         return {"Idle", "No sequence or stage runs. A trigger can start one."};
     std::vector<std::string> paths;
+    paths.reserve(data.scopes.size());
     for (const auto &sc: data.scopes)
         paths.push_back(x::strings::join(sc.path, PATH_SEPARATOR));
     return {"Running " + x::strings::join(paths, ", "), ""};
@@ -193,12 +195,11 @@ class Task final : public task::Task {
                 return this->scopes_closed || this->pending_scopes.has_value();
             });
             if (this->scopes_closed) return;
-            auto data = std::move(*this->pending_scopes);
-            this->pending_scopes.reset();
+            auto data = std::exchange(this->pending_scopes, std::nullopt);
             lock.unlock();
-            {
+            if (data.has_value()) {
                 std::lock_guard state_lock(this->state_mu);
-                this->scopes = std::move(data);
+                this->scopes = std::move(*data);
                 this->send_scopes();
             }
             lock.lock();

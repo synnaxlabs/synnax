@@ -1089,8 +1089,9 @@ TEST(TestSendRunning, SendsTheTextAndDataOfARunningTask) {
     EXPECT_EQ(running.message, "Idle");
     EXPECT_EQ(running.description, "waits");
     EXPECT_TRUE(running.details.running);
-    ASSERT_TRUE(running.details.data.has_value());
-    EXPECT_TRUE(running.details.data->contains("scopes"));
+    EXPECT_TRUE(
+        running.details.data.value_or(x::json::json::object_t{}).contains("scopes")
+    );
 }
 
 /// @brief it should send nothing for a task that does not run or has an error.
