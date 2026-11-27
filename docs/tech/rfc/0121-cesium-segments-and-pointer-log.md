@@ -361,10 +361,11 @@ block twice, takes a CRC only from two reads that agree, writes `<S>.chk`, syncs
 its directory, and logs a Check record, which turns the checks on. In a clock file it
 also checks that the stamps of each pointer rise inside its time range. A run of stamps
 that do not rise through the end of the file is a crash tail: the pass logs a Tombstone
-from its first stamp, for the clock and for each key that it times. Any other sample
-whose stamp is not above the last kept stamp is cut alone, for the clock and for each
-key that it times at that position, by a split of the pointer around it. A warning names
-the channel and the time range of each cut.
+whose left cut is the first sample of that run, by alignment, for the clock and for each
+key that it times at that position. Any other sample whose stamp is not above the last
+kept stamp is cut alone, for the clock and for each key that it times at that position,
+by a split of the pointer around it. A warning names the channel and the time range of
+each cut.
 
 | Offset | Size | Type     | Check file of a version 0 segment of length `len`, with `n = ceil(len / 65,536)`                                     |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -472,9 +473,12 @@ not know. Without the bit, that binary refuses to open.
   for the clock.
 - **Order at a roll**: For its clock, an entry holds the Commits up to the roll, then
   the Seal, then the Create and the Commits after it.
-- **Tombstone**: A pointer inside the range dies. The pointer with the left cut keeps
-  the bytes below it, and the pointer with the right cut keeps the bytes from it on. The
-  deleter reads the clock once to find the cuts
+- **Tombstone**: A pointer inside the range dies, unless it holds a cut. A cut is found
+  by alignment, not by time, so a pointer whose samples share one stamp still has an
+  edge. The pointer with the left cut keeps the samples below it, even when the range
+  covers it whole by time, and the pointer with the right cut keeps the bytes from it
+  on. A clock Tombstone is valid when its left cut is at or past each timed key's cut by
+  alignment (D-502). The deleter reads the clock once to find the cuts
   (`cesium/internal/unary/delete.go:150-279` today), so replay needs no clock. The state
   owner refuses a Tombstone whose cut names a segment that is no longer live, and a
   Replace that a later Tombstone or Drop made stale. The caller computes it again. Over
@@ -678,7 +682,8 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
   claim of an open writer holds part of the range (RFC 0095 §4.0). A sealed segment with
   no live pointer is unlinked. From RFC 0120 Phase 25 the Core adds each clock of the
   keys that has no record, and Cesium logs, in the same entry, a Tombstone of the clock
-  over each part of the range that no live pointer of another key names.
+  over each part of the range that no live pointer of another key names, judged by
+  alignment (§5.2).
 - **Compaction**: When a rewrite of a sealed segment would free more than the threshold
   of its length (today `GCConfig`, `cesium/delete.go:32`), with its padding counted, the
   compactor copies the live ranges to a new segment, syncs the file and its directory,
@@ -786,12 +791,15 @@ into that session's writer through `DB.Handoff` (§4.2), the one path that moves
   writers, a handoff, the gainer's sync first, then a restart. A takeover appends at the
   committed length. It first checks the tail through the same helper as the open check
   (§5.5 step 10), and for a variable type rebuilds the sample cursor from the file. A
-  tail that fails its check seals, and the key starts a new segment. Two writers on one
-  key at once have two open segments. No segment file is made on the frame path. A
-  writer makes at open the files of its new clocks and of each key new to a clock, a key
-  that another writer holds included. A handoff makes a spare file for the key on the
-  clock of the writer that loses it, so a move back opens no file. A close removes its
-  unused spares, and the orphan pass (§5.5 step 10) removes any that a crash leaves.
+  tail that fails its check takes the failure path of the open check (§5.5 step 10,
+  D-482): a Tombstone per pointer from the first sample in the bad range, over the same
+  stamp range on every key that the clock times, then a Seal, and an error to the error
+  handler (§7). The key then starts a new segment. Two writers on one key at once have
+  two open segments. No segment file is made on the frame path. A writer makes at open
+  the files of its new clocks and of each key new to a clock, a key that another writer
+  holds included. A handoff makes a spare file for the key on the clock of the writer
+  that loses it, so a move back opens no file. A close removes its unused spares, and
+  the orphan pass (§5.5 step 10) removes any that a crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, and a `Bounded` claim that starts inside another claim.
 - **At commit**: Cesium refuses a commit whose time range overlaps any stored pointer or
