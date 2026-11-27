@@ -53,7 +53,7 @@ def interpolate(
     data_ch_2_time_series: sy.MultiSeries,
     data_ch_2_series: sy.MultiSeries,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    # Start off by converting the data to numpy arrays
+    # Start off by converting the data to NumPy arrays
     data_ch_1_time = np.array(data_ch_1_time_series)
     data_ch_1 = np.array(data_ch_1_series)
     data_ch_2_time = np.array(data_ch_2_time_series)

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -153,13 +154,13 @@ var _ target = commandTarget{}
 // newCommandTarget validates cfg against ch, its command channel.
 func newCommandTarget(
 	cfg SparkplugWriteTarget,
-	ch channel.Channel,
+	ch icdv0.Channel,
 ) (commandTarget, error) {
 	t := commandTarget{
 		node:    sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode},
 		device:  cfg.Device,
 		name:    cfg.Tag,
-		channel: ch.Key(),
+		channel: cfg.Channel,
 	}
 	if err := t.validate(); err != nil {
 		return commandTarget{}, err

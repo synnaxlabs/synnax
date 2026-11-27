@@ -74,18 +74,16 @@ export const useMessage = (
     ctx: formatOf(useFormats(), icdKey),
   });
 
-/** @returns the fields of a message of an ICD. */
-export const fieldsOf = (
+/** @returns a message of an open ICD, or undefined when the ICD has none. */
+export const heldMessage = (
   formats: Formats,
   icdKey: icd.Key,
   message: icd.MessageKey,
-): icd.JSONField[] =>
-  jsonFields(
-    formats
-      .get(icdKey)
-      ?.value()
-      .messages.find(({ key }) => key === message),
-  );
+): icd.Message | undefined =>
+  formats
+    .get(icdKey)
+    ?.value()
+    .messages.find(({ key }) => key === message);
 
 /** Inserts entries into the lists of one ICD. */
 export type Inserter = Pick<FormatForm, "insert">;
