@@ -40,6 +40,10 @@ type Config struct {
 	// OnHead gets the durable snapshot that the head of the log of generation holds, on
 	// a step of the owner. It must return at once.
 	OnHead func(generation uint64, s *Snapshot)
+	// OnDead reports that a durable entry took a segment out of the state, so TakeDead
+	// returns it. It runs on a step of the owner and must return at once. A nil OnDead
+	// gets nothing.
+	OnDead func()
 }
 
 // validate returns an error that wraps validate.ErrValidation when a field of c is not

@@ -177,6 +177,25 @@ var _ = Describe("Tombstone", func() {
 		Entry("by a Restart", &log.Restart{}),
 	)
 
+	It("Should seal an open segment that a durable Tombstone empties, and report the "+
+		"segment once its Seal takes it out", func() {
+		a := &appended{}
+		dead := make(chan struct{}, 4)
+		cfg := config(a)
+		cfg.OnDead = func() { dead <- struct{}{} }
+		s = MustSucceed(state.Open(cfg, sample()))
+		run(s)
+		Expect(s.Durable(10, []log.Record{
+			&log.Tombstone{Key: 6, Start: 0, End: 100},
+		})).To(Succeed())
+		seal := log.Seal{Segment: 3, Length: 12, TailCRC: 3}
+		Eventually(a.seals).Should(Equal([]log.Seal{seal}))
+		Expect(s.Durable(11, []log.Record{&seal})).To(Succeed())
+		Eventually(dead).Should(Receive())
+		Expect(s.TakeDead()).
+			To(Equal([]state.Dead{{Segment: 3, Key: 6, Sequence: 11}}))
+	})
+
 	It("Should bury a segment that a Tombstone empties after a replayed Seal", func() {
 		Expect(s.Replay(10, []log.Record{
 			&log.Seal{Segment: 3, Length: 12, TailCRC: 3},
