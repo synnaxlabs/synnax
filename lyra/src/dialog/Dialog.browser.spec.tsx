@@ -1430,6 +1430,38 @@ describe("Dialog", () => {
       expect(variable(el, "available-height")).toBe(`${500 - top - 6}px`);
     });
 
+    describe("a dialog that a narrow window moved to its other side", () => {
+      // Below and left-aligned fits the full window. At 650 pixels, only below and
+      // right-aligned fits.
+      const narrow = (): { el: HTMLElement; widen: () => void } => {
+        const el = open(rect(400, 100, 100, 30), rect(0, 0, 300, 100));
+        expect(el.style.left).toBe("400px");
+        const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(650);
+        resize();
+        expect(el.style.left).toBe("200px");
+        return { el, widen: () => width.mockRestore() };
+      };
+
+      it("should go back to its first side when the window widens", () => {
+        const { el, widen } = narrow();
+        widen();
+        resize();
+        expect(el.style.left).toBe("400px");
+      });
+
+      it("should open on its first side again after it closes", async () => {
+        const { widen } = narrow();
+        const toggle = page.getByText("Toggle").element();
+        fireEvent.click(toggle);
+        // No resize event, so only the open places the dialog.
+        widen();
+        fireEvent.click(toggle);
+        await expect
+          .poll(() => (page.getByRole("dialog").element() as HTMLElement).style.left)
+          .toBe("400px");
+      });
+    });
+
     describe("a connected dialog with a min-width", () => {
       const MIN_WIDTH: CSSProperties = { minWidth: "300px" };
 
