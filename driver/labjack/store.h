@@ -24,7 +24,7 @@
 #include "driver/common/sync.h"
 
 namespace driver::labjack {
-using Device = synnax::labjack::device::Device;
+using synnax::labjack::device::Device;
 
 /// @brief returns stored with the identity group of found: its rack, serial,
 /// connection, and model.
@@ -44,7 +44,10 @@ identity_actions(const Device &stored, const Device &next) {
     const auto set = [&](const std::string &field, x::json::json value) {
         acts.push_back(
             synnax::labjack::device::set(
-                synnax::labjack::device::SetPayload{.path = {field}, .value = value}
+                synnax::labjack::device::SetPayload{
+                    .path = {field},
+                    .value = std::move(value)
+                }
             )
         );
     };
