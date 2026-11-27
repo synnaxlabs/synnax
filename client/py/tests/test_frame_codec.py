@@ -13,7 +13,7 @@ import pathlib
 import re
 import struct
 from collections.abc import Callable
-from typing import Any
+from typing import Any, override
 
 import numpy as np
 import pytest
@@ -890,6 +890,7 @@ class TestAgreement:
         """Should raise on a series whose size a length field cannot hold."""
 
         class Huge(bytes):
+            @override
             def __len__(self) -> int:
                 return 2**32
 
