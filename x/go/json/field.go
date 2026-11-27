@@ -555,10 +555,10 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	panic(fmt.Sprintf("json: invalid type %d", e.field.Type))
 }
 
-// Number returns the number that Append writes for sample when Type is Number. ok is
-// false when sample matches an enum, whose label Append writes instead. It returns an
-// error wrapping validate.ErrValidation when sample is NaN or infinite, and panics when
-// the data type of the field does not hold numbers.
+// Number returns sample as a number. ok is false when sample matches an enum, whose
+// label Append writes instead. It returns an error wrapping validate.ErrValidation when
+// sample is NaN or infinite. It panics when the data type of the field does not hold
+// numbers.
 func (e *Encoder) Number(sample []byte) (n ParsedNumber, ok bool, err error) {
 	dt := e.field.DataType
 	for _, en := range e.enums {
