@@ -10,6 +10,7 @@
 package join_test
 
 import (
+	"runtime"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -199,4 +200,44 @@ var _ = Describe("Variable-density inputs", func() {
 		Expect(j.Push(1, texts(telem.StringT, "a", "b"), stamps(0, 1))).
 			To(MatchError(ContainSubstring("input 1 has 2 samples and 1 stamps")))
 	})
+
+	It("Should keep the data of a live input bounded while the primary is silent",
+		func() {
+			// The primary has one sample, then its device goes quiet while a string
+			// input streams frames of 16 samples of 64 KiB. Each frame, the live read
+			// passes the newest primary stamp.
+			j := newTextJoin(true, numberAndText(telem.StringT)...)
+			Expect(j.Push(0, values(0), rawStamps(0, 0))).To(Succeed())
+			frame := make([]string, 16)
+			for k := range frame {
+				frame[k] = strings.Repeat("a", 64<<10)
+			}
+			data := texts(telem.StringT, frame...)
+			ts := make([]telem.TimeStamp, len(frame))
+			var (
+				out  join.Output
+				next = ms
+			)
+			push := func(n int) {
+				GinkgoHelper()
+				for range n {
+					for k := range ts {
+						ts[k], next = next, next+ms
+					}
+					Expect(j.Push(1, data, rawStamps(0, ts...))).To(Succeed())
+					j.Next(0, &out)
+					out.Reset()
+				}
+			}
+			var before, after runtime.MemStats
+			push(300)
+			runtime.GC()
+			runtime.ReadMemStats(&before)
+			push(300)
+			runtime.GC()
+			runtime.ReadMemStats(&after)
+			runtime.KeepAlive(j)
+			Expect(int64(after.HeapAlloc) - int64(before.HeapAlloc)).
+				To(BeNumerically("<", 1<<20))
+		})
 })

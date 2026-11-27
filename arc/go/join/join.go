@@ -58,7 +58,8 @@ type Config struct {
 	// [OPTIONAL] - Defaults to 0.
 	From telem.TimeStamp
 	// Live makes the join judge late inputs by arrival. A live join drops the oldest
-	// samples of an input past 65,536, so a silent primary leaves memory bounded.
+	// samples of an input past 65,536, or past 64 MiB of a variable-density input, so a
+	// silent primary leaves memory bounded.
 	//
 	// [OPTIONAL] - Defaults to false.
 	Live bool
@@ -502,10 +503,16 @@ func between(from, to telem.TimeStamp) telem.TimeSpan {
 // most is the number of samples past the held one that an input keeps.
 const most = 1 << 16
 
-// bound steps in past all but its last most samples. A later primary stamp before the
-// held sample gets no output, as past the limit.
+// mostBytes is the size of the samples past the held one that a live variable-density
+// input keeps: most samples of 1 KiB.
+const mostBytes = most << 10
+
+// bound steps in past all but its last most samples, and past all but its last
+// mostBytes of variable-density samples. A later primary stamp before the held sample
+// gets no output, as past the limit.
 func (in *input) bound() {
-	for len(in.stamps)-in.first > most {
+	for len(in.stamps)-in.first > most ||
+		in.density == 0 && len(in.data)-in.start(in.first) > mostBytes {
 		in.step()
 	}
 }
