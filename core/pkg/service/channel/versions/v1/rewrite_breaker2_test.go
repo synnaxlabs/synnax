@@ -327,7 +327,7 @@ var _ = Describe("Folder rewrite breaker", func() {
 				folder(third, "rig", &second),
 			)).To(Equal("return pt * 2"))
 			Expect(resource.StagedTextSites(db)).To(ConsistOf(
-				HaveField("FolderUnreadable", true),
+				HaveField("Folder", "Stand A"),
 			))
 		})
 
@@ -376,7 +376,7 @@ var _ = Describe("Folder rewrite breaker", func() {
 				Expect(c.Expression).To(Equal("return pt * 2"))
 				Expect(resource.StagedTextSites(db)).To(ConsistOf(SatisfyAll(
 					HaveField("Name", "pt"),
-					HaveField("FolderUnreadable", true),
+					HaveField("Folder", Not(BeEmpty())),
 				)))
 			})
 

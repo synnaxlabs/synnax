@@ -312,13 +312,12 @@ var _ = Describe("NewClashMigration", func() {
 			Expect(channels[2]).To(Equal("pt_2"))
 			Expect(expressionOf(ctx, 3)).To(Equal(calc.Expression))
 			Expect(resource.StagedTextSites(db)).To(ConsistOf(resource.TextSite{
-				Holder:           calc.ResourceID(),
-				Name:             "pt",
-				NewName:          "pt_2",
-				Line:             1,
-				Column:           7,
-				FolderUnreadable: true,
-				Folder:           "Stand A",
+				Holder:  calc.ResourceID(),
+				Name:    "pt",
+				NewName: "pt_2",
+				Line:    1,
+				Column:  7,
+				Folder:  "Stand A",
 			}))
 		})
 
