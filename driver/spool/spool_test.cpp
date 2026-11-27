@@ -718,9 +718,7 @@ TEST_F(SpoolTest, LeavesNoOffsetWhenCommitRacesRemove) {
         const auto commit_err = reader->commit();
         remover.join();
         ASSERT_NIL(remove_err);
-        if (commit_err) {
-            ASSERT_MATCHES(commit_err, BASE_ERROR);
-        }
+        if (commit_err) { ASSERT_MATCHES(commit_err, BASE_ERROR); }
         ASSERT_FALSE(
             std::filesystem::exists(this->dir / (std::to_string(key) + ".offset"))
         );
@@ -873,6 +871,19 @@ TEST_F(SpoolTest, ReadsDamageInClosedSegmentAsCorrupt) {
     ASSERT_MATCHES(err, journal::CORRUPT);
     EXPECT_TRUE(is_bad(err));
     EXPECT_EQ(spool->cut(), 0);
+}
+
+/// @brief it should set aside a closed segment whose header is damaged, and not
+/// remove it as a segment that a crash left without a header.
+TEST_F(SpoolTest, SetsAsideClosedSegmentWithDamagedHeader) {
+    const auto path = this->write_segment();
+    auto data = read_file(path);
+    const auto i = journal::HEADER_SIZE + journal::RECORD_PREFIX_SIZE;
+    data[i] = static_cast<char>(data[i] ^ 0xFF);
+    std::ofstream(path, std::ios::binary | std::ios::trunc)
+        .write(data.data(), static_cast<std::streamsize>(data.size()));
+    this->expect_set_aside("0.seg", journal::CORRUPT);
+    EXPECT_EQ(read_file(this->dir / "0.seg.bad"), data);
 }
 
 /// @brief it should fail on a close record before the end of a segment.

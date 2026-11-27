@@ -613,7 +613,11 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
     }
     for (const auto key: keys) {
         const auto path = spool->segment_path(key);
-        auto [file, err] = open_segment(path);
+        auto size = std::filesystem::file_size(path, ec);
+        if (ec) return {nullptr, fs_error("failed to stat segment", ec)};
+        // Damage anywhere in a closed segment, also in its header, is CORRUPT.
+        const auto end = close_pos(path, size);
+        auto [file, err] = open_segment(path, 0, end);
         std::optional<Header> header;
         if (!err) std::tie(header, err) = read_header(*file);
         if (is_bad(err)) {
@@ -630,9 +634,7 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
             continue;
         }
         file.reset();
-        auto size = std::filesystem::file_size(path, ec);
-        if (ec) return {nullptr, fs_error("failed to stat segment", ec)};
-        if (!close_pos(path, size)) {
+        if (!end) {
             if (const auto r_err = spool->recover(path)) {
                 if (!is_bad(r_err)) return {nullptr, r_err};
                 if (const auto s_err = spool->set_aside_files(path, r_err))
