@@ -176,13 +176,13 @@ class ReadTask final : public driver::task::Task {
             if (err) {
                 this->forget_warning();
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
-                    auto description = err.data;
+                    auto description = err.data();
                     if (const auto retry = breaker.next_retry(); !retry.empty()) {
                         if (!description.empty()) description += ' ';
                         description += "Next " + retry + ".";
                     }
                     LOG(WARNING)
-                        << this->p.name() << ": [" << err.type << "] " << description;
+                        << this->p.name() << ": [" << err.type() << "] " << description;
                     this->p.state.send_warning("Failed to read data", description);
                 } else if (!err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
                     LOG(ERROR) << this->p.name() << ": " << err.message();

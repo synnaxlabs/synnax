@@ -416,7 +416,7 @@ telem::SampleValue convert(
         const auto &str = value.get_ref<const std::string &>();
         if (target == telem::BYTES_T) {
             auto [bytes, err] = base64::decode_strict(str);
-            if (err) throw std::runtime_error(err.data);
+            if (err) throw std::runtime_error(err.data());
             return telem::SampleValue(std::move(bytes));
         }
         const auto [uuid, err] = uuid::UUID::parse(str);

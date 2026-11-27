@@ -102,63 +102,135 @@
         "sec": "inf",
         "ns": 1
       },
-      "error": "field sec: inf is out of range for a unix_sec timestamp: validation error"
+      "message": "reading",
+      "samples": [null, 1],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field sec: inf is out of range for a unix_sec timestamp: validation error"
+        }
+      ]
     },
     {
       "document": {
         "sec": 1,
         "ns": " -Infinity "
       },
-      "error": "field ns: -Infinity is out of range for a unix_ns timestamp: validation error"
+      "message": "reading",
+      "samples": [1000000000, null],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field ns: -Infinity is out of range for a unix_ns timestamp: validation error"
+        }
+      ]
     },
     {
       "document": {
         "sec": "nan",
         "ns": 1
       },
-      "error": "field sec: nan is out of range for a unix_sec timestamp: validation error"
+      "message": "reading",
+      "samples": [null, 1],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field sec: nan is out of range for a unix_sec timestamp: validation error"
+        }
+      ]
     },
     {
       "document": {
         "sec": 1,
         "ns": "0x8000000000000000"
       },
-      "error": "field ns: 0x8000000000000000 is out of range for a unix_ns timestamp: validation error"
+      "message": "reading",
+      "samples": [1000000000, null],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field ns: 0x8000000000000000 is out of range for a unix_ns timestamp: validation error"
+        }
+      ]
     },
     {
       "document": {
         "sec": 1,
         "ns": "-0x8000000000000001"
       },
-      "error": "field ns: -0x8000000000000001 is out of range for a unix_ns timestamp: validation error"
+      "message": "reading",
+      "samples": [1000000000, null],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field ns: -0x8000000000000001 is out of range for a unix_ns timestamp: validation error"
+        }
+      ]
     },
     {
       "document": {
         "sec": "0x7fffffffffffffff",
         "ns": 1
       },
-      "error": "field sec: 0x7fffffffffffffff is out of range for a unix_sec timestamp: validation error"
+      "message": "reading",
+      "samples": [null, 1],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field sec: 0x7fffffffffffffff is out of range for a unix_sec timestamp: validation error"
+        }
+      ]
     },
     {
       "document": {
         "sec": "0x1p62",
         "ns": 1
       },
-      "error": "field sec: 0x1p62 is out of range for a unix_sec timestamp: validation error"
+      "message": "reading",
+      "samples": [null, 1],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field sec: 0x1p62 is out of range for a unix_sec timestamp: validation error"
+        }
+      ]
     },
     {
       "document": {
         "sec": "0x",
         "ns": 1
       },
-      "error": "field sec: invalid number \"0x\": validation error"
+      "message": "reading",
+      "samples": [null, 1],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field sec: invalid number \"0x\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "sec": "1 2",
         "ns": 1
       },
-      "error": "field sec: invalid number \"1 2\": validation error"
+      "message": "reading",
+      "samples": [null, 1],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field sec: invalid number \"1 2\": validation error"
+        }
+      ]
     }
   ]
 }

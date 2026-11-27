@@ -1,8 +1,8 @@
 ---
 title: "Visualizations in code"
 description:
-  "Create projects, line plots, logs, and panels from a Python or TypeScript script, and
-  copy, find, rename, and delete visualizations."
+  "Create projects, line plots, logs, and panels from a Python or TypeScript script,
+  edit logs, and copy, find, rename, and delete visualizations."
 clients: ["python", "typescript"]
 ---
 
@@ -158,6 +158,73 @@ const events = await client.logs.create({
   </Fragment>
 
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## Edit a log
+
+Send actions to `dispatch` to change the channels of a log and what each line shows. The
+Core applies the actions in order, in one transaction.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+pressure = client.channels.retrieve("tank_pressure")
+pressure_2 = client.channels.retrieve("tank_pressure_2")
+
+client.logs.dispatch(
+    events.key,
+    [
+        sy.log.add_channel(sy.log.AddChannelPayload(channel=pressure.key)),
+        sy.log.set_channel_alias(
+            sy.log.SetChannelAliasPayload(channel=pressure.key, alias="Tank")
+        ),
+        sy.log.set_channel_precision(
+            sy.log.SetChannelPrecisionPayload(channel=pressure.key, precision=2)
+        ),
+        sy.log.swap_channel(
+            sy.log.SwapChannelPayload(from_=pressure.key, to=pressure_2.key)
+        ),
+        sy.log.remove_channel(sy.log.RemoveChannelPayload(channel=notes.key)),
+        sy.log.set_time_zone(sy.log.SetTimeZonePayload(time_zone="UTC")),
+    ],
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+`dispatch` applies only to a log that the client holds in its cache. It throws a
+`NotCachedError` when the log is not in the cache, so retrieve the log first. A log that
+the client created is in the cache.
+
+```typescript
+import { log } from "@synnaxlabs/client";
+
+const pressure = await client.channels.retrieve("tank_pressure");
+const pressure2 = await client.channels.retrieve("tank_pressure_2");
+
+await client.logs.dispatch(events.key, [
+  log.addChannel({ channel: pressure.key }),
+  log.setChannelAlias({ channel: pressure.key, alias: "Tank" }),
+  log.setChannelPrecision({ channel: pressure.key, precision: 2 }),
+  log.swapChannel({ from: pressure.key, to: pressure2.key }),
+  log.removeChannel({ channel: notes.key }),
+  log.setTimeZone({ timeZone: "UTC" }),
+]);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A swap keeps the position and settings of the channel that it replaces. An add does
+nothing when the log already shows the channel. The other channel actions do nothing
+when the log does not show the channel. Other actions set the color, notation, and
+timestamp format of a channel, and hide the timestamps or channel names of each line.
 
 <Divider.Divider x />
 

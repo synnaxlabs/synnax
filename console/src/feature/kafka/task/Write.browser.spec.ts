@@ -277,6 +277,35 @@ describe("Kafka Write form", () => {
     );
   });
 
+  it("should keep a string field with enum labels a string, in the preview and the target", async () => {
+    const { dev, draft } = await renderWrite();
+    const mode = {
+      ...createInferredField("/mode", "string", "string"),
+      enum: ["auto", "manual"],
+    };
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: {
+        data: sampleOfTopic(TOPIC, { ...createShape(["pump-1"], 2), fields: [mode] }),
+      },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    await dialog.findByText("/mode");
+    dialog.getByText("string");
+    expect(dialog.queryByText("int64")).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+    await waitFor(async () => {
+      const [target] = await retrieveTargets(draft.key);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      const message = ic.messages.find(({ key }) => key === target.message.message);
+      expect(ICD.jsonFields(message)).toMatchObject([
+        { pointer: "/mode", type: "string", enumValues: [] },
+      ]);
+    });
+  });
+
   it("should add a target with an empty message for a topic that holds no records", async () => {
     const { dev, draft } = await renderWrite();
     const { answered } = await answerScan(dev, "browse", {
@@ -496,6 +525,21 @@ describe("Kafka Write form", () => {
     await answered;
     await dialog.findByText("Topic does not exist yet");
     dialog.getByText("2 topics");
+  });
+
+  it("should show the format of the message of a target in the tree and its pane", async () => {
+    const { ic, message, target } = await createTarget([]);
+    await renderWrite([target]);
+    await screen.findByRole("treeitem", { name: /JSON.*No key/ });
+    await client.icds.dispatch(
+      ic.key,
+      icd.set({
+        path: ["messages", message.key, "payload"],
+        value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+      }),
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /TEXT.*No key/ }));
+    await waitFor(() => expect(screen.getAllByText("TEXT")).toHaveLength(2));
   });
 
   it("should show one Message section for a target whose message has no fields", async () => {

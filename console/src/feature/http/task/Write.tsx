@@ -148,6 +148,7 @@ const MessageMark = ({ itemKey }: { itemKey: string }) => {
       icdKey={icdKey}
       messages={[message]}
       missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+      jsonOnly
     />
   );
 };
@@ -197,6 +198,7 @@ const MessageDetails = ({ epKey, onAddField }: DetailsProps) => {
       <ICD.MessageWarning
         message={message}
         missingDescription={ICD.Write.MISSING_DESCRIPTION}
+        jsonOnly
       />
     </PForm.Section>
   );

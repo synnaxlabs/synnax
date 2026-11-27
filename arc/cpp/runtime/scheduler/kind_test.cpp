@@ -104,7 +104,7 @@ TEST(ValidateTest, RejectsANestedTransitionWithNoKind) {
     const auto err = validate(two_step_seq(ir::EdgeKind::Unspecified).root);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "scope main has a transition with no kind: on first_node/output ?> second"
     );
 }
@@ -112,6 +112,6 @@ TEST(ValidateTest, RejectsANestedTransitionWithNoKind) {
 TEST(ValidateTest, RejectsAnActivationWithNoKind) {
     const auto err = validate(gated_stage(ir::EdgeKind::Unspecified).root);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "scope stage has an activation with no kind");
+    EXPECT_EQ(err.data(), "scope stage has an activation with no kind");
 }
 }

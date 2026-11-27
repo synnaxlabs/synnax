@@ -12,19 +12,12 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { ICD } from "@synnaxlabs/pluto";
+import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep, record } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import {
-  formatEscaped,
-  formatHexBytes,
-  FormattedField,
-  orError,
-  parseEscaped,
-  parseHexBytes,
-} from "@/feature/icd/editor/FormattedField";
 import { CSS } from "@/platform/css";
+import { ICD } from "@/platform/icd";
 
 const SYNC_ERROR = "Sync bytes must be pairs of hex digits, such as AA 55";
 const DELIMITER_ERROR = "Delimiter must be text, with escapes such as \\n or \\x1F";
@@ -137,12 +130,12 @@ interface SyncFieldsProps {
 const SyncFields = ({ path }: SyncFieldsProps): ReactElement => (
   <>
     <Flex.Box x>
-      <FormattedField<Uint8Array>
+      <ICD.FormattedField<Uint8Array>
         path={path.sync}
         label="Sync bytes"
         placeholder="AA 55"
-        format={formatHexBytes}
-        parse={(text) => orError(parseHexBytes(text), SYNC_ERROR)}
+        format={ICD.formatHexBytes}
+        parse={(text) => ICD.orError(ICD.parseHexBytes(text), SYNC_ERROR)}
       />
       <Form.NumericField path={path.maxLength} label="Max length" inputProps={BYTES} />
     </Flex.Box>
@@ -179,7 +172,7 @@ const SyncFields = ({ path }: SyncFieldsProps): ReactElement => (
  * the framing with a new one of that type.
  */
 export const Framing = (): ReactElement => {
-  const path = ICD.formPath.framing;
+  const path = PICD.formPath.framing;
   const { set, mode } = Form.useContext();
   const type = Form.useFieldValue(deep.present(path).type, { optional: true });
   const handleChange = (next: Type) => {
@@ -208,12 +201,12 @@ export const Framing = (): ReactElement => {
               </Select.Simple>
             </Input.Item>
             {type === "delimited" && (
-              <FormattedField<string>
+              <ICD.FormattedField<string>
                 path={deep.variant(path, "type", "delimited").delimiter}
                 label="Delimiter"
                 placeholder="\n"
-                format={formatEscaped}
-                parse={(text) => orError(parseEscaped(text), DELIMITER_ERROR)}
+                format={ICD.formatEscaped}
+                parse={(text) => ICD.orError(ICD.parseEscaped(text), DELIMITER_ERROR)}
               />
             )}
             {type === "fixed" && (

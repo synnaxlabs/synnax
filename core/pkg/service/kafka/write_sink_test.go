@@ -222,6 +222,31 @@ var _ = Describe("Write task with targets", func() {
 		Entry("two periods", "..", `cannot be "." or ".."`),
 	)
 
+	It(
+		"Should refuse an enabled target whose ICD does not exist",
+		func(ctx SpecContext) {
+			ch := createVirtual(ctx)
+			dev := createDevice(ctx, clusterProperties())
+			missing := icd.ICD{Key: uuid.New()}
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device: dev.Key,
+				Targets: []kafka.WriteTarget{
+					writeTarget(uniqueTopic(), ic, setpoint, command(setpoint, 0, ch)),
+					writeTarget(
+						uniqueTopic(),
+						missing,
+						setpoint,
+						command(setpoint, 0, ch),
+					),
+				},
+			})
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("icd: ICD %s does not exist", missing.Key)),
+			))
+		},
+	)
+
 	It("Should send to a 249-character topic with each kind of allowed character",
 		func(ctx SpecContext) {
 			ch := createVirtual(ctx)

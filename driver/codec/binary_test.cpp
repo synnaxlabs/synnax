@@ -188,7 +188,7 @@ TEST(BinaryEncoder, RejectMissingValue) {
     std::vector<std::uint8_t> payload;
     const auto err = enc.encode(series_of(none()), payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message frame: field v: no value and no default");
+    EXPECT_EQ(err.data(), "message frame: field v: no value and no default");
 }
 
 /// @brief it should encode without allocating once its payload has room.
@@ -216,10 +216,10 @@ TEST(BinaryEncoder, CheckSampleLimits) {
     ASSERT_NIL(enc.check(0, x::telem::Series(0.1F), 0));
     auto err = enc.check(0, x::telem::Series(0.5F), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message frame: field v: 0.5 is above the max 0.1");
+    EXPECT_EQ(err.data(), "message frame: field v: 0.5 is above the max 0.1");
     err = enc.check(0, x::telem::Series(-2.0F), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message frame: field v: -2 is below the min -1");
+    EXPECT_EQ(err.data(), "message frame: field v: -2 is below the min -1");
 }
 
 /// @brief it should check the value that a sample rounds to, so a sample under the max
@@ -233,7 +233,7 @@ TEST(BinaryEncoder, CheckSampleLimitsAfterRounding) {
     const auto err = enc.check(0, x::telem::Series(13.0), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "message frame: field v: 3 decodes to 15, which is above the max 13"
     );
 }
@@ -248,7 +248,7 @@ TEST(BinaryEncoder, CheckFloat32FieldLimits) {
     const auto err = enc.check(0, x::telem::Series(0.10000001), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "message frame: field v: 0.10000000894069672 is above the max 0.1"
     );
 }
@@ -298,13 +298,13 @@ TEST(BinaryEncoder, CheckNonFiniteSampleLimits) {
         constexpr double inf = std::numeric_limits<double>::infinity();
         auto err = enc.check(0, x::telem::Series(inf), 0);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "message frame: field v: Infinity is above the max 10");
+        EXPECT_EQ(err.data(), "message frame: field v: Infinity is above the max 10");
         err = enc.check(0, x::telem::Series(-inf), 0);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "message frame: field v: -Infinity is below the min -10");
+        EXPECT_EQ(err.data(), "message frame: field v: -Infinity is below the min -10");
         err = enc.check(0, x::telem::Series(std::nan("")), 0);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "message frame: field v: NaN is outside the limits");
+        EXPECT_EQ(err.data(), "message frame: field v: NaN is outside the limits");
     }
 }
 

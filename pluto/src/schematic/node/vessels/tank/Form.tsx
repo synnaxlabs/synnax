@@ -87,7 +87,7 @@ export const TankForm = ({
     <Base.Sections x>
       <Base.Section title="Label">
         <Label.Form path={path.label} />
-        <Orientation.Field path={path} hideInner showOuterCenter label="Location" />
+        <Orientation.Field path={path} hideInner showOuterCenter label="Position" />
       </Base.Section>
       <Base.Section title="Appearance">
         <Form.ColorField path={path.strokeColor} label="Stroke" />

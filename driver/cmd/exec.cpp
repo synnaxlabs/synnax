@@ -73,7 +73,7 @@ int exec(const int argc, char *argv[]) {
     if (installed) argv_vec.push_back(rack::MACHINE_STATE_FLAG);
     auto args = x::args::Parser(std::move(argv_vec));
     // Color only when stderr is a terminal so ANSI codes never land in redirected log
-    // files (systemd journal, /var/log/synnax-driver.log on NI Linux RT).
+    // files (systemd journal, /var/log/synnax-driver.log on NI Linux Real-Time).
     x::log::init(!args.flag("--no-color") && x::log::stderr_is_terminal());
     if (args.flag("--debug")) absl::SetGlobalVLogLevel(2);
     VLOG(1) << "debug logging enabled";

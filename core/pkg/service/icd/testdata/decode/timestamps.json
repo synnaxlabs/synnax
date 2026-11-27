@@ -107,11 +107,27 @@
     },
     {
       "document": { "iso": 10, "sec": 1, "ns": 1, "ms": 1, "us": 1 },
-      "error": "field iso: expected an ISO 8601 string, got a number: validation error"
+      "message": "reading",
+      "samples": [null, 1000000000, 1, 1000000, 1000],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field iso: expected an ISO 8601 string, got a number: validation error"
+        }
+      ]
     },
     {
       "document": { "iso": "yesterday", "sec": 1, "ns": 1, "ms": 1, "us": 1 },
-      "error": "field iso: invalid ISO 8601 timestamp \"yesterday\": validation error"
+      "message": "reading",
+      "samples": [null, 1000000000, 1, 1000000, 1000],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field iso: invalid ISO 8601 timestamp \"yesterday\": validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -121,7 +137,15 @@
         "ms": 1,
         "us": 1
       },
-      "error": "field ns: expected a number, got a boolean: validation error"
+      "message": "reading",
+      "samples": [1000000000, 1000000000, null, 1000000, 1000],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": false,
+          "error": "field ns: expected a number, got a boolean: validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -131,7 +155,15 @@
         "ms": 1,
         "us": 1
       },
-      "error": "field sec: 1e13 is out of range for a unix_sec timestamp: validation error"
+      "message": "reading",
+      "samples": [1000000000, null, 1, 1000000, 1000],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field sec: 1e13 is out of range for a unix_sec timestamp: validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -141,7 +173,15 @@
         "ms": 1000000000000000000,
         "us": 1
       },
-      "error": "field ms: 1000000000000000000 is out of range for a unix_ms timestamp: validation error"
+      "message": "reading",
+      "samples": [1000000000, 1000000000, 1, null, 1000],
+      "failures": [
+        {
+          "binding": 3,
+          "missing": false,
+          "error": "field ms: 1000000000000000000 is out of range for a unix_ms timestamp: validation error"
+        }
+      ]
     }
   ]
 }

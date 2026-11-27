@@ -9,7 +9,7 @@
 
 import "@/form/Section.css";
 
-import type { ReactElement, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -80,6 +80,17 @@ export const Section = ({
     )}
     <div className={CSS.BE("form-section", "body")}>{children}</div>
   </Flex.Box>
+);
+
+export interface ColumnProps extends ComponentPropsWithoutRef<"div"> {}
+
+/**
+ * Stacks fields in a side-by-side section, so each column keeps the heights of its own
+ * fields. A tall field, such as a table, then leaves no gaps in the columns beside it.
+ * Stacked sections lay the fields out as if the column were absent.
+ */
+export const Column = ({ className, ...rest }: ColumnProps): ReactElement => (
+  <div className={CSS.cls(CSS.BE("form-section", "column"), className)} {...rest} />
 );
 
 export interface AlignedProps extends Flex.BoxProps {}

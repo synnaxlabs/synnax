@@ -50,13 +50,29 @@
       "document": {
         "v": "1"
       },
-      "error": "field v: expected a boolean, got string \"1\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: expected a boolean, got string \"1\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "true"
       },
-      "error": "field v: expected a boolean, got string \"true\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: expected a boolean, got string \"true\": validation error"
+        }
+      ]
     }
   ]
 }

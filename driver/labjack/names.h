@@ -14,7 +14,7 @@
 namespace driver::labjack {
 /// @brief make of LabJack devices.
 const std::string MAKE = "LabJack";
-/// @brief labjack integration name.
+/// @brief LabJack integration name.
 const std::string INTEGRATION_NAME = "labjack";
 const std::string SCAN_TASK_TYPE = "labjack_scan";
 const std::string READ_TASK_TYPE = "labjack_read";

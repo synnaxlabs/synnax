@@ -150,7 +150,7 @@ x::errors::Error check_scaled_channel(const bool scaled, const x::telem::DataTyp
 }
 
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
-    return {CONFIG_ERROR, err.wrap(context).data};
+    return {CONFIG_ERROR, err.wrap(context).data()};
 }
 
 x::errors::Error check_limits(const icd::BaseField &b, const double v) {

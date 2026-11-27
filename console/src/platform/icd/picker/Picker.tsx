@@ -207,11 +207,14 @@ export const SideAction = ({
   );
 };
 
-export interface NoticeProps extends Pick<Empty.ActionProps, "message"> {}
+export interface NoticeProps extends Pick<
+  Empty.ActionProps,
+  "message" | "action" | "onClick"
+> {}
 
-/** Says why a list or the pane shows nothing. */
-export const Notice = ({ message }: NoticeProps): ReactElement => (
-  <Empty.Action message={message} className={CSS.BE("icd-picker", "notice")} />
+/** Says why a list or the pane shows nothing, with an action that fills it. */
+export const Notice = (props: NoticeProps): ReactElement => (
+  <Empty.Action {...props} className={CSS.BE("icd-picker", "notice")} />
 );
 
 /** The area that shows the values of what the side selects. */

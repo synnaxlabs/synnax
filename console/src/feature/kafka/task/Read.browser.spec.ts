@@ -21,6 +21,7 @@ import {
   holdRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import {
   array,
   DataType,
@@ -33,6 +34,7 @@ import {
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { server, userEvent } from "vitest/browser";
 
 import { Kafka } from "@/feature/kafka";
 import {
@@ -45,7 +47,12 @@ import {
 } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
-import { pickMessageFormat, retype } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  pickNewMessage,
+  retype,
+  searchMessageFormats,
+} from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -57,6 +64,28 @@ import {
   renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
+
+const flags = vi.hoisted((): { textMessages: boolean } => ({ textMessages: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
+  return {
+    FLAGS: {
+      ...FLAGS,
+      get textMessages() {
+        return flags.textMessages;
+      },
+    },
+  };
+});
+
+/** Takes only JSON messages in the task for the rest of the test, as a release does. */
+const hideTextMessages = () => {
+  flags.textMessages = false;
+  onTestFinished(() => {
+    flags.textMessages = true;
+  });
+};
 
 const client = createTestClient();
 
@@ -399,6 +428,8 @@ describe("Kafka read form", () => {
       expect(screen.getAllByRole("treeitem", { name: /JSON.*Any key/ })).toHaveLength(
         2,
       );
+      expect(treatment(screen.getByText("plant"))).toBe("prose");
+      expect(treatment(screen.getAllByText("Any key")[0])).toBe("prose");
     });
 
     it("should show no topics for a new task", async () => {
@@ -675,6 +706,36 @@ describe("Kafka read form", () => {
       dialog.getByRole("checkbox", { name: "Record /temperature" });
     });
 
+    // WebKit tabs to a button only when the user turns on full keyboard access.
+    it.runIf(server.browser === "chromium")(
+      "should read a typed topic that no topic matches from the keyboard",
+      async () => {
+        const { dev } = await renderRead({ empty: true });
+        await screen.findByText("No topics");
+        const scan = await createScanTask(client, dev);
+        const first = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: { topics: [listTopic("alarms")], truncated: true } },
+          sample: { data: sampleOfTopic("alarms") },
+        });
+        const dialog = await clickAddData();
+        await first.answered;
+        await dialog.findByText("1 topic, list is full");
+        const second = await answerCommandsUntil(client, [scan], "sample", {
+          sample: { data: sampleOfTopic("plant", OVEN_SHAPE) },
+        });
+        const search = dialog.getByPlaceholderText("Search topics");
+        fireEvent.change(search, { target: { value: "plant" } });
+        const action = await dialog.findByRole("button", { name: "Read “plant”" });
+        search.focus();
+        // The topic tree takes focus before its empty content.
+        await userEvent.tab();
+        await userEvent.tab();
+        expect(document.activeElement).toBe(action);
+        await userEvent.keyboard("{Enter}");
+        expect((await second.answered)[0].args.topics).toEqual(["plant"]);
+      },
+    );
+
     it("should keep the topics of the task when the browse fails", async () => {
       const { dev } = await renderRead();
       const scan = await createScanTask(client, dev);
@@ -797,8 +858,29 @@ describe("Kafka read form", () => {
         expect(dialog.queryByRole("checkbox", { name: `Pick ${TOPIC}` })).toBeNull(),
       );
       dialog.getByRole("checkbox", { name: "Pick plant" });
+      dialog.getByRole("button", { name: "Read “pla”" });
       fireEvent.change(search, { target: { value: "boiler" } });
       await dialog.findByText("No topic matches “boiler”.");
+      const empty = dialog.getByText("No topic matches “boiler”.");
+      within(empty).getByRole("button", { name: "Read “boiler”" });
+      expect(dialog.getAllByRole("button", { name: "Read “boiler”" })).toHaveLength(1);
+    });
+
+    it("should clear the pane while the search hides the active topic", async () => {
+      const { dev } = await renderRead();
+      const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
+      const sample = { data: sampleOf(OVEN_SHAPE) };
+      const dialog = await openAddData(dev, sample, TOPIC, browse);
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.change(search, { target: { value: "boiler" } });
+      await dialog.findByText("Select a topic to see its records.");
+      expect(
+        dialog.queryByRole("checkbox", { name: "Record /temperature" }),
+      ).toBeNull();
+      expect(dialog.queryByText("Add an empty record")).toBeNull();
+      fireEvent.change(search, { target: { value: "" } });
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
     });
 
     it("should open Add data on the topic of the selected record", async () => {
@@ -1011,6 +1093,26 @@ describe("Kafka read form", () => {
       });
     });
 
+    it("should show the format of the message of a record in the tree and its pane", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        bound: {},
+      });
+      await renderRead({
+        records: [rec],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            rec.icd,
+            icd.set({
+              path: ["messages", rec.messages[0].message, "payload"],
+              value: { format: "binary", fields: [] },
+            }),
+          ),
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /BINARY.*Any key/ }));
+      await waitFor(() => expect(screen.getAllByText("BINARY")).toHaveLength(2));
+    });
+
     it.each([
       { name: "gone", note: "Message not found", change: removeMessage },
       {
@@ -1028,6 +1130,7 @@ describe("Kafka read form", () => {
     ])(
       "should not offer Add field for a record whose message is $name",
       async ({ note, change }) => {
+        hideTextMessages();
         const rec = await createRecord({
           fields: [createField("temperature", "float")],
         });
@@ -1043,6 +1146,7 @@ describe("Kafka read form", () => {
     );
 
     it("should mark a later message that is not JSON and its record", async () => {
+      hideTextMessages();
       const rec = await createRecord({ fields: [createField("temperature", "float")] });
       const status = await addMessage(
         rec,
@@ -1195,6 +1299,49 @@ describe("Kafka read form", () => {
       expect(record.messages.map(({ bindings }) => bindings.length)).toEqual([3, 2]);
     });
 
+    it("should give a field that two kinds of one held message share the labels of both", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float")],
+        recordKey: "pump",
+        index: time.key,
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const withState = (kind: ReturnType<typeof createKind>, labels: string[]) => ({
+        ...kind,
+        fields: [
+          ...kind.fields,
+          { ...createInferredField("/state", "string", "string"), enum: labels },
+        ],
+      });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(
+          withState(createKind("/rpm"), ["OFF", "ON"]),
+          withState(createKind("/fault"), ["FAULT", "OFF"]),
+        ),
+      });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+      await waitFor(async () => {
+        const [record] = await retrieveRecords(draft.key);
+        const { messages } = await client.icds.retrieve(record.icd);
+        expect(ICD.jsonFields(messages[0])).toMatchObject([
+          { pointer: "/time" },
+          { pointer: "/rpm" },
+          {
+            pointer: "/state",
+            type: "integer",
+            enumValues: [
+              { label: "FAULT", value: "0" },
+              { label: "OFF", value: "1" },
+              { label: "ON", value: "2" },
+            ],
+          },
+          { pointer: "/fault" },
+        ]);
+      });
+    });
+
     it("should offer a field of a kind that only the message of another kind reads", async () => {
       const time = createTimeField();
       const rec = await createRecord({
@@ -1304,6 +1451,44 @@ describe("Kafka read form", () => {
           { pointer: "/count", type: "integer" },
           { pointer: "/id", type: "unsigned" },
           { pointer: "/level", type: "float" },
+        ],
+      });
+    });
+
+    it("should add a string field with enum labels as an integer with a value for each label", async () => {
+      const { draft, dev } = await renderRead();
+      const pump = {
+        sources: ["pump"],
+        fields: [
+          { ...createInferredField("/state", "string", "string"), enum: ["OFF", "ON"] },
+        ],
+        index: -1,
+        count: 3,
+        present: -1,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(pump) });
+      const state = await dialog.findByRole("checkbox", { name: "Record /state" });
+      const option = state.closest<HTMLElement>('[role="option"]');
+      assertDefined(option);
+      within(option).getByText("int64");
+      fireEvent.click(state);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages[0].payload).toMatchObject({
+        fields: [
+          {
+            pointer: "/state",
+            type: "integer",
+            enumValues: [
+              { label: "OFF", value: "0" },
+              { label: "ON", value: "1" },
+            ],
+          },
         ],
       });
     });
@@ -2233,6 +2418,37 @@ describe("Kafka read form", () => {
       );
       const { messages } = await client.icds.retrieve({ key: rec.icd });
       expect(messages.map(({ key }) => key)).toContain(status.key);
+    });
+
+    it("should read a new message in the ICD of the record", async () => {
+      const { draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      await pickNewMessage("Any key", "New JSON message");
+      await waitFor(async () => {
+        const [rec] = await retrieveRecords(draft.key);
+        const { messages } = await client.icds.retrieve({ key: rec.icd });
+        expect(messages).toHaveLength(2);
+        expect(messages[1].payload).toEqual({ format: "json", fields: [] });
+        expect(rec.messages).toMatchObject([
+          { message: messages[1].key, bindings: [] },
+        ]);
+      });
+    });
+
+    it("should offer no new message to a user who cannot update the ICD", async () => {
+      const reader = await createICDReaderClient();
+      const { draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+        as: reader,
+      });
+      const [rec] = await retrieveRecords(draft.key);
+      const { name } = await client.icds.retrieve({ key: rec.icd });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      const dialog = await searchMessageFormats("Any key", name);
+      await dialog.findByRole("option", { name: new RegExp(name) });
+      expect(dialog.queryByRole("option", { name: "New JSON message" })).toBeNull();
     });
 
     it("should read a message of another ICD with each of its fields", async () => {
