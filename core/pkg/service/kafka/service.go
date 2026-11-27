@@ -56,6 +56,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	ICD *icd.Service
 	// Signals publishes cluster changes.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	alamos.Instrumentation

@@ -26,9 +26,11 @@ import (
 // ServiceConfig is the configuration for the Kafka cluster API service.
 type ServiceConfig struct {
 	// Cluster stores and retrieves clusters.
+	//
 	// [REQUIRED]
 	Cluster *cluster.Service
 	// Status retrieves cluster statuses.
+	//
 	// [REQUIRED]
 	Status *status.Service
 }
