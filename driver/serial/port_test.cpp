@@ -34,20 +34,18 @@
 
 namespace driver::serial {
 namespace {
+#ifdef __linux__
 /// @returns true when the terminal at path refuses programs other than its holder. A
 /// program without root cannot open it at all, and root can read its exclusive flag.
 bool exclusive(const std::string &path) {
     const int fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd < 0) return errno == EBUSY;
     int flag = 0;
-#ifdef TIOCGEXCL
     const bool read = ::ioctl(fd, TIOCGEXCL, &flag) == 0;
-#else
-    const bool read = false;
-#endif
     ::close(fd);
     return read && flag != 0;
 }
+#endif
 
 /// @brief expects got to be want, with its message.
 void expect_same(const x::errors::Error &got, const x::errors::Error &want) {
@@ -258,7 +256,10 @@ TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
         "failed to open serial port " + this->path() +
             ": the port is in use by another program"
     );
+#ifdef __linux__
+    // A macOS pseudo-terminal lets programs without root open past TIOCEXCL.
     EXPECT_TRUE(exclusive(this->path()));
+#endif
 }
 
 /// @brief it should refuse settings outside the schema and release the port.
