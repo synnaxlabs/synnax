@@ -60,15 +60,7 @@ type address struct {
 
 type readKind struct {
 	address
-	scaled, calibrated bool
-}
-
-func entryAddresses(entries []PDOEntry) set.Set[address] {
-	m := make(set.Set[address], len(entries))
-	for _, e := range entries {
-		m.Add(address{index: e.Index, subIndex: e.SubIndex})
-	}
-	return m
+	samples Samples
 }
 
 func bindingErr(field string, i int, b address, problem string) error {
@@ -89,20 +81,26 @@ func validateSlave(s Slave) error {
 	if err := s.Validate(); err != nil {
 		return err
 	}
-	inputs := entryAddresses(s.Pdos.Inputs)
+	inputs := make(set.Set[address], len(s.Pdos.Inputs))
+	for _, e := range s.Pdos.Inputs {
+		inputs.Add(address{index: e.Index, subIndex: e.SubIndex})
+	}
 	reads := make(set.Set[readKind], len(s.ReadBindings))
 	for i, b := range s.ReadBindings {
 		a := address{index: b.Index, subIndex: b.SubIndex}
 		if !inputs.Contains(a) {
 			return bindingErr("read_bindings", i, a, "is not an input of the slave")
 		}
-		k := readKind{address: a, scaled: b.Scaled, calibrated: b.Calibrated}
+		k := readKind{address: a, samples: b.Samples}
 		if reads.Contains(k) {
 			return bindingErr("read_bindings", i, a, "is bound twice")
 		}
 		reads.Add(k)
 	}
-	outputs := entryAddresses(s.Pdos.Outputs)
+	outputs := make(set.Set[address], len(s.Pdos.Outputs))
+	for _, e := range s.Pdos.Outputs {
+		outputs.Add(address{index: e.Index, subIndex: e.SubIndex})
+	}
 	writes := make(set.Set[address], len(s.WriteBindings))
 	for i, b := range s.WriteBindings {
 		a := address{index: b.Index, subIndex: b.SubIndex}

@@ -30,8 +30,8 @@ var _ = Describe("Update", func() {
 			ProductCode: 0x0C1E3052,
 			Master:      uuid.New(),
 			Pdos: slave.PDOs{
-				Inputs:  []slave.PDOEntry{},
-				Outputs: []slave.PDOEntry{},
+				Inputs:  []slave.InputEntry{},
+				Outputs: []slave.OutputEntry{},
 			},
 		},
 	}}

@@ -365,12 +365,8 @@ Identity struct {
         @doc value         "is the key of the rack the slave is connected to."
         @validate required
     }
-    serial       uint64 = 0 {
-        @doc value    """
-            is the serial number of the slave. 0 when the slave reports none.
-        """
-        @ts type      "number"
-        @validate max 9007199254740991
+    serial       uint32 = 0 {
+        @doc value "is the serial number of the slave. 0 when the slave reports none."
     }
     vendor_id    uint32              {
         @doc value "is the EtherCAT vendor ID of the slave."
@@ -409,10 +405,10 @@ Configuration struct {
     startup_parameters StartupParameter[] = [] {
         @doc value "are the CoE objects the Driver writes to the slave in PRE-OP."
     }
-    read_index         channel.Key = 0 {
+    read_index         channel.Key?       {
         @doc value "is the index channel of the channels that the slave reads into."
     }
-    write_state_index  channel.Key = 0 {
+    write_state_index  channel.Key?       {
         @doc value "is the index channel of the state channels of the slave's outputs."
     }
     read_bindings      ReadBinding[] = [] {

@@ -14,6 +14,7 @@ package v0
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"regexp"
 	"strconv"
 	"uuid"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
@@ -43,14 +45,12 @@ type StatusDetails struct {
 // Status is the operational status of a slave.
 type Status = status.Status[StatusDetails]
 
-// PDOEntry is a PDO entry that a scan found on a slave.
+// PDOEntry holds the fields of a PDO entry that a scan found on a slave.
 type PDOEntry struct {
 	// Name is the name of the entry, such as Input.
 	Name string `json:"name" msgpack:"name"`
 	// PdoName is the name of the PDO that holds the entry, such as Channel 1.
-	PdoName string `json:"pdo_name" msgpack:"pdo_name"`
-	// PdoIndex is the index of the PDO that holds the entry, such as 0x1A00.
-	PdoIndex uint16 `json:"pdo_index" msgpack:"pdo_index"`
+	PdoName *string `json:"pdo_name,omitzero" msgpack:"pdo_name,omitempty"`
 	// Index is the CoE object dictionary index of the entry.
 	Index uint16 `json:"index" msgpack:"index"`
 	// SubIndex is the CoE object dictionary sub-index of the entry.
@@ -61,12 +61,92 @@ type PDOEntry struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PDOEntry) Validate() error {
+	v := validate.New("PDOEntry")
+	v.GreaterThanEq("bit_length", p.BitLength, 1)
+	return v.Error()
+}
+
+// InputEntry is an entry that the slave sends.
+type InputEntry struct {
+	PDOEntry
+	// PdoIndex is the index of the TxPDO that holds the entry, 0x1A00 to 0x1BFF.
+	PdoIndex uint16 `json:"pdo_index" msgpack:"pdo_index"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i InputEntry) Validate() error {
+	v := validate.New("InputEntry")
+	v.GreaterThanEq("pdo_index", i.PdoIndex, 6656)
+	v.LessThanEq("pdo_index", i.PdoIndex, 7167)
+	v.Exec(i.PDOEntry.Validate)
+	return v.Error()
+}
+
+// OutputEntry is an entry that the slave receives.
+type OutputEntry struct {
+	PDOEntry
+	// PdoIndex is the index of the RxPDO that holds the entry, 0x1600 to 0x17FF.
+	PdoIndex uint16 `json:"pdo_index" msgpack:"pdo_index"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o OutputEntry) Validate() error {
+	v := validate.New("OutputEntry")
+	v.GreaterThanEq("pdo_index", o.PdoIndex, 5632)
+	v.LessThanEq("pdo_index", o.PdoIndex, 6143)
+	v.Exec(o.PDOEntry.Validate)
+	return v.Error()
+}
+
 // PDOs holds the PDO entries of a slave.
 type PDOs struct {
 	// Inputs are the entries that the slave sends.
-	Inputs []PDOEntry `json:"inputs" msgpack:"inputs"`
+	Inputs []InputEntry `json:"inputs" msgpack:"inputs"`
 	// Outputs are the entries that the slave receives.
-	Outputs []PDOEntry `json:"outputs" msgpack:"outputs"`
+	Outputs []OutputEntry `json:"outputs" msgpack:"outputs"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PDOs) Validate() error {
+	v := validate.New("PDOs")
+	for i := range p.Inputs {
+		v.Exec(func() error { return validate.PathedError(p.Inputs[i].Validate(), "inputs", strconv.Itoa(i)) })
+	}
+	for i := range p.Outputs {
+		v.Exec(func() error { return validate.PathedError(p.Outputs[i].Validate(), "outputs", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// Samples is which samples of an input entry a channel holds.
+type Samples string
+
+const (
+	// SamplesRaw are the samples that the slave sends.
+	SamplesRaw Samples = "raw"
+	// SamplesCalibrated are the raw samples after the gain and offset of the slave.
+	SamplesCalibrated Samples = "calibrated"
+	// SamplesScaled are the raw samples after the scale of the task.
+	SamplesScaled Samples = "scaled"
+	// SamplesCalibratedScaled are the calibrated samples after the scale of the task.
+	SamplesCalibratedScaled Samples = "calibrated_scaled"
+)
+
+// IsValid reports whether s is one of the defined Samples
+// values.
+func (s Samples) IsValid() bool {
+	switch s {
+	case SamplesRaw, SamplesCalibrated, SamplesScaled, SamplesCalibratedScaled:
+		return true
+	default:
+		return false
+	}
 }
 
 // ReadBinding is the channel that a slave maps for one input entry.
@@ -75,18 +155,41 @@ type ReadBinding struct {
 	Index uint16 `json:"index" msgpack:"index"`
 	// SubIndex is the CoE object dictionary sub-index of the input entry.
 	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
-	// Scaled is whether the channel holds the scaled samples of the entry.
-	Scaled bool `json:"scaled" msgpack:"scaled"`
-	// Calibrated is whether the channel holds the calibrated samples of the entry.
-	Calibrated bool `json:"calibrated" msgpack:"calibrated"`
+	// Samples is which samples of the entry the channel holds.
+	Samples Samples `json:"samples" msgpack:"samples"`
 	// Channel is the channel that holds the samples of the entry.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadBinding) SetDefaults() {
+	r.Samples = SamplesRaw
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadBinding) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadBinding
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadBinding) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadBinding
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (r ReadBinding) Validate() error {
 	v := validate.New("ReadBinding")
+	v.Ternaryf("samples", !r.Samples.IsValid(), "invalid samples: %v", r.Samples)
 	v.NonZero("channel", r.Channel)
 	return v.Error()
 }
@@ -519,8 +622,8 @@ type WriteBinding struct {
 	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
 	// Command is the channel that commands the entry.
 	Command channel.Key `json:"command" msgpack:"command"`
-	// State is the channel that holds the state of the entry. 0 is no channel.
-	State channel.Key `json:"state" msgpack:"state"`
+	// State is the channel that holds the state of the entry.
+	State *channel.Key `json:"state,omitzero" msgpack:"state,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -540,7 +643,7 @@ type Slave struct {
 	// Name is a human-readable name for the slave.
 	Name string `json:"name" msgpack:"name"`
 	// Serial is the serial number of the slave. 0 when the slave reports none.
-	Serial uint64 `json:"serial" msgpack:"serial"`
+	Serial uint32 `json:"serial" msgpack:"serial"`
 	// VendorID is the EtherCAT vendor ID of the slave.
 	VendorID uint32 `json:"vendor_id" msgpack:"vendor_id"`
 	// ProductCode is the product code of the slave.
@@ -559,10 +662,10 @@ type Slave struct {
 	// StartupParameters are the CoE objects the Driver writes to the slave in PRE-OP.
 	StartupParameters []StartupParameter `json:"startup_parameters" msgpack:"startup_parameters"`
 	// ReadIndex is the index channel of the channels that the slave reads into.
-	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	ReadIndex *channel.Key `json:"read_index,omitzero" msgpack:"read_index,omitempty"`
 	// WriteStateIndex is the index channel of the state channels of the slave's
 	// outputs.
-	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
+	WriteStateIndex *channel.Key `json:"write_state_index,omitzero" msgpack:"write_state_index,omitempty"`
 	// ReadBindings are the channels of the input entries.
 	ReadBindings []ReadBinding `json:"read_bindings" msgpack:"read_bindings"`
 	// WriteBindings are the channels of the output entries.
@@ -576,8 +679,8 @@ type Slave struct {
 func (s Slave) Validate() error {
 	v := validate.New("Slave")
 	v.NotEmptyString("name", s.Name)
-	v.LessThanEq("serial", s.Serial, 9007199254740991)
 	v.Ternary("identifier", !validatePattern0.MatchString(string(s.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
+	v.Exec(func() error { return validate.PathedError(s.Pdos.Validate(), "pdos") })
 	for i := range s.StartupParameters {
 		v.Exec(func() error {
 			return validate.PathedError(s.StartupParameters[i].Validate(), "startup_parameters", strconv.Itoa(i))

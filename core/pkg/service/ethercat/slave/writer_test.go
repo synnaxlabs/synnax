@@ -98,19 +98,21 @@ var _ = Describe("Writer", func() {
 			ProductCode: 0x0C1E3052,
 			Master:      m.Key,
 			Pdos: slave.PDOs{
-				Inputs: []slave.PDOEntry{{
+				Inputs: []slave.InputEntry{{
 					Name:      "Value",
 					Index:     0x6000,
 					SubIndex:  0x11,
 					BitLength: 16,
 					DataType:  "int16",
+					PdoIndex:  0x1A00,
 				}},
-				Outputs: []slave.PDOEntry{{
+				Outputs: []slave.OutputEntry{{
 					Name:      "Output",
 					Index:     0x7000,
 					SubIndex:  1,
 					BitLength: 1,
 					DataType:  "uint8",
+					PdoIndex:  0x1600,
 				}},
 			},
 		}
@@ -147,7 +149,7 @@ var _ = Describe("Writer", func() {
 		It("Should mint a key and write an unknown status", func(ctx SpecContext) {
 			s := create(ctx)
 			Expect(s.Key).ToNot(Equal(uuid.Nil()))
-			Expect(retrieve(ctx, s.Key).Serial).To(Equal(uint64(1001)))
+			Expect(retrieve(ctx, s.Key).Serial).To(Equal(uint32(1001)))
 			st := statusOf(ctx, s)
 			Expect(st.Message).To(Equal("Status unknown"))
 			Expect(
@@ -197,7 +199,12 @@ var _ = Describe("Writer", func() {
 		) {
 			s := newSlave()
 			s.ReadBindings = []slave.ReadBinding{
-				{Index: 0x6001, SubIndex: 1, Channel: chs[1]},
+				{
+					Index:    0x6001,
+					SubIndex: 1,
+					Samples:  slave.SamplesRaw,
+					Channel:  chs[1],
+				},
 			}
 			Expect(w.Create(ctx, &s)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
@@ -215,12 +222,13 @@ var _ = Describe("Writer", func() {
 				Name:       "Inlet",
 				Identifier: "inlet",
 			}))).To(Succeed())
-			pdos := slave.PDOs{Inputs: []slave.PDOEntry{{
+			pdos := slave.PDOs{Inputs: []slave.InputEntry{{
 				Name:      "Value",
 				Index:     0x6000,
 				SubIndex:  0x11,
 				BitLength: 16,
 				DataType:  "int16",
+				PdoIndex:  0x1A00,
 			}}}
 			Expect(w.Apply(ctx, s.Key, slave.Update{Variant: slave.IdentityUpdate{
 				Identity: slave.Identity{
@@ -234,7 +242,7 @@ var _ = Describe("Writer", func() {
 				},
 			}})).To(Succeed())
 			got := retrieve(ctx, s.Key)
-			Expect(got.Serial).To(Equal(uint64(2002)))
+			Expect(got.Serial).To(Equal(uint32(2002)))
 			Expect(got.Revision).To(Equal(uint32(3)))
 			Expect(got.Pdos).To(Equal(pdos))
 			Expect(got.Name).To(Equal("Inlet"))
@@ -246,13 +254,18 @@ var _ = Describe("Writer", func() {
 		) {
 			s := create(ctx)
 			bindings := []slave.ReadBinding{
-				{Index: 0x6000, SubIndex: 0x11, Channel: chs[1]},
+				{
+					Index:    0x6000,
+					SubIndex: 0x11,
+					Samples:  slave.SamplesRaw,
+					Channel:  chs[1],
+				},
 			}
 			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
 				Name:         "Inlet",
 				Identifier:   "inlet",
 				Disabled:     true,
-				ReadIndex:    chs[0],
+				ReadIndex:    &chs[0],
 				ReadBindings: bindings,
 			}))).To(Succeed())
 			got := retrieve(ctx, s.Key)
@@ -270,8 +283,18 @@ var _ = Describe("Writer", func() {
 			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
 				Name: "Inlet",
 				ReadBindings: []slave.ReadBinding{
-					{Index: 0x6000, SubIndex: 0x11, Channel: chs[1]},
-					{Index: 0x6000, SubIndex: 0x11, Scaled: true, Channel: chs[2]},
+					{
+						Index:    0x6000,
+						SubIndex: 0x11,
+						Samples:  slave.SamplesRaw,
+						Channel:  chs[1],
+					},
+					{
+						Index:    0x6000,
+						SubIndex: 0x11,
+						Samples:  slave.SamplesScaled,
+						Channel:  chs[2],
+					},
 				},
 			}))).To(Succeed())
 		})
@@ -296,7 +319,12 @@ var _ = Describe("Writer", func() {
 				func(chs channel.Keys) slave.Configuration {
 					return slave.Configuration{
 						ReadBindings: []slave.ReadBinding{
-							{Index: 0x7000, SubIndex: 1, Channel: chs[1]},
+							{
+								Index:    0x7000,
+								SubIndex: 1,
+								Samples:  slave.SamplesRaw,
+								Channel:  chs[1],
+							},
 						},
 					}
 				},
@@ -318,8 +346,18 @@ var _ = Describe("Writer", func() {
 				func(chs channel.Keys) slave.Configuration {
 					return slave.Configuration{
 						ReadBindings: []slave.ReadBinding{
-							{Index: 0x6000, SubIndex: 0x11, Channel: chs[1]},
-							{Index: 0x6000, SubIndex: 0x11, Channel: chs[2]},
+							{
+								Index:    0x6000,
+								SubIndex: 0x11,
+								Samples:  slave.SamplesRaw,
+								Channel:  chs[1],
+							},
+							{
+								Index:    0x6000,
+								SubIndex: 0x11,
+								Samples:  slave.SamplesRaw,
+								Channel:  chs[2],
+							},
 						},
 					}
 				},
@@ -355,7 +393,12 @@ var _ = Describe("Writer", func() {
 			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
 				Name: "Inlet",
 				ReadBindings: []slave.ReadBinding{
-					{Index: 0x6000, SubIndex: 0x11, Channel: chs[1]},
+					{
+						Index:    0x6000,
+						SubIndex: 0x11,
+						Samples:  slave.SamplesRaw,
+						Channel:  chs[1],
+					},
 				},
 			}))).To(Succeed())
 			Expect(w.Apply(ctx, s.Key, slave.Update{Variant: slave.IdentityUpdate{

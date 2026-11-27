@@ -33,11 +33,31 @@ type StatusDetails = versions.StatusDetails
 // Status is the operational status of a slave.
 type Status = versions.Status
 
-// PDOEntry is a PDO entry that a scan found on a slave.
+// PDOEntry holds the fields of a PDO entry that a scan found on a slave.
 type PDOEntry = versions.PDOEntry
+
+// InputEntry is an entry that the slave sends.
+type InputEntry = versions.InputEntry
+
+// OutputEntry is an entry that the slave receives.
+type OutputEntry = versions.OutputEntry
 
 // PDOs holds the PDO entries of a slave.
 type PDOs = versions.PDOs
+
+// Samples is which samples of an input entry a channel holds.
+type Samples = versions.Samples
+
+const (
+	// SamplesRaw are the samples that the slave sends.
+	SamplesRaw Samples = versions.SamplesRaw
+	// SamplesCalibrated are the raw samples after the gain and offset of the slave.
+	SamplesCalibrated Samples = versions.SamplesCalibrated
+	// SamplesScaled are the raw samples after the scale of the task.
+	SamplesScaled Samples = versions.SamplesScaled
+	// SamplesCalibratedScaled are the calibrated samples after the scale of the task.
+	SamplesCalibratedScaled Samples = versions.SamplesCalibratedScaled
+)
 
 // ReadBinding is the channel that a slave maps for one input entry.
 type ReadBinding = versions.ReadBinding
@@ -145,7 +165,7 @@ type Identity struct {
 	// Rack is the key of the rack the slave is connected to.
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Serial is the serial number of the slave. 0 when the slave reports none.
-	Serial uint64 `json:"serial" msgpack:"serial"`
+	Serial uint32 `json:"serial" msgpack:"serial"`
 	// VendorID is the EtherCAT vendor ID of the slave.
 	VendorID uint32 `json:"vendor_id" msgpack:"vendor_id"`
 	// ProductCode is the product code of the slave.
@@ -163,8 +183,8 @@ type Identity struct {
 func (i Identity) Validate() error {
 	v := validate.New("Identity")
 	v.NonZero("rack", i.Rack)
-	v.LessThanEq("serial", i.Serial, 9007199254740991)
 	v.NonZero("master", i.Master)
+	v.Exec(func() error { return validate.PathedError(i.Pdos.Validate(), "pdos") })
 	return v.Error()
 }
 
@@ -180,10 +200,10 @@ type Configuration struct {
 	// StartupParameters are the CoE objects the Driver writes to the slave in PRE-OP.
 	StartupParameters []StartupParameter `json:"startup_parameters" msgpack:"startup_parameters"`
 	// ReadIndex is the index channel of the channels that the slave reads into.
-	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	ReadIndex *channel.Key `json:"read_index,omitzero" msgpack:"read_index,omitempty"`
 	// WriteStateIndex is the index channel of the state channels of the slave's
 	// outputs.
-	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
+	WriteStateIndex *channel.Key `json:"write_state_index,omitzero" msgpack:"write_state_index,omitempty"`
 	// ReadBindings are the channels of the input entries.
 	ReadBindings []ReadBinding `json:"read_bindings" msgpack:"read_bindings"`
 	// WriteBindings are the channels of the output entries.
