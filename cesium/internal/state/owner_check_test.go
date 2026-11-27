@@ -65,7 +65,7 @@ var _ = Describe("State owner check", func() {
 		MustSucceed(s.Snapshot())
 		Expect(s.Err()).ToNot(HaveOccurred())
 		Expect(MustSucceed(s.TakeDead())).
-			To(ContainElement(state.Dead{Segment: id, Key: 5}))
+			To(ContainElement(deadSegment(id, 5, 0)))
 	})
 
 	It("Should seal every open segment of a key after a takeover and a close", func() {
