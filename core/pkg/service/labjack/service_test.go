@@ -267,23 +267,24 @@ var _ = Describe("Service", func() {
 
 		It("Should lower a stored range above the largest range of the model on open",
 			func(ctx SpecContext) {
-				stored := labjack.ReadConfig{
+				stored := v2.ReadConfig{
 					Key:    uuid.New(),
 					Device: deviceKeys["T7"],
-					Channels: []labjack.ReadChannel{{
-						Variant: labjack.AnalogReadChannel{
-							BaseReadChannel: labjack.BaseReadChannel{
+					Channels: []v2.ReadChannel{{
+						Variant: v2.AnalogReadChannel{
+							BaseReadChannel: v2.BaseReadChannel{
 								Key:  "ai",
 								Port: "AIN0",
 							},
-							Range: 20,
-							Scale: task.Scale{Variant: task.NoneScale{}},
+							Range:   20,
+							NegChan: 199,
+							Scale:   task.Scale{Variant: task.NoneScale{}},
 						},
 					}},
 				}
 				fresh := DeferClose(gorp.Wrap(memkv.New()))
 				StartRun(fresh.Run)
-				Expect(gorp.NewCreate[uuid.UUID, labjack.ReadConfig]().
+				Expect(gorp.NewCreate[uuid.UUID, v2.ReadConfig]().
 					Entry(&stored).Exec(ctx, fresh)).To(Succeed())
 				var t7 device.Device
 				Expect(devices.NewRetrieve().
