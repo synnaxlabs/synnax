@@ -17,6 +17,7 @@
 #include "driver/labjack/names.h"
 #include "driver/ni/names.h"
 #include "driver/rack/rack.h"
+#include "driver/serial/read_task.h"
 #include "driver/version/version.h"
 
 namespace driver::rack {
@@ -212,5 +213,57 @@ TEST(RackFactoriesTest, DisabledIntegrationLogsAtBoot) {
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     EXPECT_TRUE(ctx->snapshot().empty());
+}
+
+namespace {
+/// @returns the status of a commanded configure of an empty serial read task, under
+/// a config that runs integrations.
+synnax::task::Status serial_status(const std::vector<std::string> &integrations) {
+    x::breaker::Breaker cancel;
+    const Config cfg{.integrations = integrations};
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    cancel.start();
+    const auto [tsk, handled] = factory->configure_task(
+        ctx,
+        synnax::task::Task{.name = "t", .type = serial::READ_TASK_TYPE},
+        "start-cmd",
+        cancel
+    );
+    cancel.stop();
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses.size(), 1);
+    return statuses.empty() ? synnax::task::Status{} : statuses.front();
+}
+}
+
+/// @brief it should build serial but leave it off unless a config names it.
+TEST(RackFactoriesTest, SerialIsOffByDefault) {
+    const auto built = built_integrations();
+    EXPECT_NE(std::ranges::find(built, serial::INTEGRATION_NAME), built.end());
+    const auto defaults = default_integrations();
+    EXPECT_EQ(std::ranges::find(defaults, serial::INTEGRATION_NAME), defaults.end());
+    EXPECT_EQ(defaults.size(), built.size() - 1);
+    EXPECT_EQ(
+        serial_status(defaults).description,
+        "The configuration of this Driver turns off the 'serial' integration. Turn it "
+        "on in the Driver configuration, then restart the Driver."
+    );
+}
+
+/// @brief it should configure serial tasks when a config names serial.
+TEST(RackFactoriesTest, ListedSerialConfiguresItsTasks) {
+    const auto status = serial_status({serial::INTEGRATION_NAME});
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to configure task");
+    EXPECT_EQ(
+        status.description,
+        "device: this field is required\nentries: at least one entry is required"
+    );
 }
 }

@@ -426,6 +426,19 @@ TEST(Receiver, DropsBytesOnTransportError) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
 }
 
+/// @brief it should drop the bytes of a partial frame on clear.
+TEST(Receiver, DropsPartialFrameOnClear) {
+    auto r = fixed();
+    Memory t;
+    t.push(std::vector<std::uint8_t>{0});
+    t.push(std::vector<std::uint8_t>{0, 7});
+    x::telem::Frame fr;
+    ASSERT_NIL(r.read(t, fr).error);
+    r.clear();
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
+}
+
 /// @brief it should warn about a frame that it cannot decode, and read the frames after
 /// it.
 TEST(Receiver, WarnsAboutFrameItCannotDecode) {
@@ -645,6 +658,21 @@ TEST(Receiver, GivesFrameToEntryWithMatchingMessage) {
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{2.0}));
     ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{1.0}));
+}
+
+/// @brief it should list the channels of each entry, index channels included.
+TEST(Receiver, ListsChannelsOfEachEntry) {
+    const auto a = lines("A", 2, 1, "first");
+    const auto b = lines("B", 3, 4, "second");
+    const auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    ASSERT_EQ(r.channels(), (std::vector<synnax::channel::Key>{2, 1, 3, 4}));
 }
 
 /// @brief it should give a frame that two entries match to the first one.

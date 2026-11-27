@@ -46,6 +46,36 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "tasks",
+    srcs = [
+        "factory.cpp",
+        "read_task.cpp",
+    ],
+    hdrs = [
+        "read_task.h",
+        "serial.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":serial",
+        "//client/cpp/channel",
+        "//client/cpp/device",
+        "//client/cpp/framer",
+        "//client/cpp/icd",
+        "//client/cpp/serial",
+        "//driver/common",
+        "//driver/icd:receiver",
+        "//driver/icd:retrieve",
+        "//driver/task",
+        "//driver/transport",
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+    ],
+)
+
 cc_test(
     name = "port_test",
     size = "small",
@@ -68,6 +98,55 @@ cc_test(
         "//x/cpp/defer",
         "//x/cpp/telem",
         "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "read_task_test",
+    size = "small",
+    srcs = [
+        "pty.h",
+        "read_task_test.cpp",
+    ],
+    # The tests play the device on a pseudo-terminal, which Windows lacks.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":serial",
+        ":tasks",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//client/cpp/serial",
+        "//driver/common",
+        "//driver/icd:receiver",
+        "//driver/pipeline/testutil",
+        "//driver/task",
+        "//driver/transport",
+        "//x/cpp/breaker",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "configure_test",
+    srcs = ["configure_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":tasks",
+        "//client/cpp/icd",
+        "//client/cpp/serial",
+        "//client/cpp/testutil",
+        "//driver/task",
+        "//x/cpp/breaker",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )
