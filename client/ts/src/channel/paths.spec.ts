@@ -16,7 +16,12 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { group } from "@/group";
 import type { Synnax } from "@/index";
-import { createTestClient, createTestClientWithPolicy } from "@/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+  requestsTo,
+  spyOnSend,
+} from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -153,6 +158,33 @@ describe("channel paths", () => {
     });
   });
 
+  describe("requests", () => {
+    it("should send no path in the create of a channel built from a retrieved one", async () => {
+      const folder = await createFolder();
+      const ch = await createChannel(folder);
+      const [withPath] = await client.channels.retrieve({
+        where: { key: { in: [ch.key] } },
+        includePath: true,
+      });
+      expect(withPath.path).toEqual(`${folder.name}.${ch.name}`);
+      const send = spyOnSend(client);
+      onTestFinished(() => send.mockRestore());
+      const copy = await client.channels.create({
+        ...withPath.payload,
+        key: undefined,
+        name: `path_${id.create()}`,
+        path: withPath.path,
+      });
+      onTestFinished(async () => await client.channels.delete(copy.key));
+      const [request] = requestsTo(send, "/channel/create") as Array<{
+        channels: Array<Record<string, unknown>>;
+      }>;
+      expect(request.channels).toHaveLength(1);
+      expect(request.channels[0]).not.toHaveProperty("path");
+      expect(withPath.payload).not.toHaveProperty("path");
+    });
+  });
+
   describe("cases shared with the Core", () => {
     it.each(cases)(
       "should build the path of $name as the Core builds it",
@@ -255,6 +287,27 @@ describe("channel paths", () => {
       const paths = await watchPaths([ch.key]);
       await remote.batch.send(remote.channels.setGroupRequest(ch.key));
       await expect.poll(paths).toEqual([ch.name]);
+    });
+
+    it("should not notify a watched answer when a channel folder off its paths changes", async () => {
+      const [folder, other] = await Promise.all([createFolder(), createFolder()]);
+      const ch = await createChannel(folder);
+      const live = client.channels.watch({
+        where: { key: { in: [ch.key] } },
+        includePath: true,
+      });
+      let notices = 0;
+      onTestFinished(live.onChange(() => notices++));
+      await live.retrieve();
+      await expect.poll(() => client.groups.store.has(other.key)).toBe(true);
+      const before = notices;
+      await remote.groups.rename(other.key, id.create());
+      await createFolder(other);
+      await expect
+        .poll(() => client.groups.store.get(other.key)?.name)
+        .not.toEqual(other.name);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(notices).toEqual(before);
     });
 
     it("should fetch again an answer that filters by path after a folder rename", async () => {
