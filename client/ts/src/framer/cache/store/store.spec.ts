@@ -189,13 +189,13 @@ describe("Store", () => {
 
     const createSignaled = (virtual = false) => {
       const clock = new ManualClock();
-      const store = new cacheStore.Store({ now: clock.now });
+      const store = new cacheStore.Store({ now: clock.now, node: () => 1 });
       store.setChannel(
         new channel.Channel({
           key: 1,
           name: "data",
           dataType: "float32",
-          leaseholder: 2,
+          leaseholder: 1,
           virtual,
         }).payload,
       );
@@ -211,6 +211,25 @@ describe("Store", () => {
       clock.advance(TimeSpan.hours(1));
       expect(store.expired(sealed)).toBe(false);
       expect(store.expired(unsealed)).toBe(true);
+    });
+
+    it("should expire a sealed block of a channel stored on another node", () => {
+      const clock = new ManualClock();
+      // History signals name only the channels stored on the node the client reaches.
+      const store = new cacheStore.Store({ now: clock.now, node: () => 1 });
+      store.setChannel(
+        new channel.Channel({
+          key: 1,
+          name: "data",
+          dataType: "float32",
+          leaseholder: 2,
+        }).payload,
+      );
+      store.setSignalKey(99);
+      store.setAcked(new Set([99]));
+      const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
+      clock.advance(TimeSpan.hours(1));
+      expect(store.expired(sealed)).toBe(true);
     });
 
     it("should expire a sealed block of a virtual channel", () => {

@@ -51,6 +51,11 @@ export interface Props extends Partial<
   liveSamples?: number;
   /** Used for logging. */
   instrumentation?: alamos.Instrumentation;
+  /**
+   * The key of the Core node the client connects to, once known. History signals name
+   * only the channels stored on it.
+   */
+  node?: () => number | undefined;
 }
 
 const DEFAULT_BUDGET = Size.megabytes(128);
@@ -127,6 +132,7 @@ export class Store {
   private readonly dynamicBufferSize: number | TimeSpan;
   private readonly instrumentation: alamos.Instrumentation;
   private readonly now: () => TimeStamp;
+  private readonly node: () => number | undefined;
   // Map order is recency order: a get moves its entry to the end.
   private readonly entries = new Map<string, Entry>();
   private readonly live = new Map<channel.Key, Live>();
@@ -140,8 +146,8 @@ export class Store {
   private bytes = 0;
   private readonly calculated = new Set<channel.Key>();
   private readonly names = new Map<channel.Key, string>();
-  // storedKeys holds each known channel that the Core stores.
-  private readonly storedKeys = new Set<channel.Key>();
+  // leaseholders holds the node of each stored channel.
+  private readonly leaseholders = new Map<channel.Key, number>();
   private readonly liveSamples: number;
   // indexOf holds the index of each known channel, an index itself included.
   private readonly indexOf = new Map<channel.Key, channel.Key>();
@@ -161,6 +167,7 @@ export class Store {
     liveSamples = DEFAULT_LIVE_SAMPLES,
     instrumentation = alamos.NOOP,
     now = () => TimeStamp.now(),
+    node = () => undefined,
   }: Props = {}) {
     this.budget = budget.valueOf();
     this.staleThreshold = staleThreshold;
@@ -168,6 +175,7 @@ export class Store {
     this.liveSamples = liveSamples;
     this.instrumentation = instrumentation;
     this.now = now;
+    this.node = node;
   }
 
   /** @returns the block cached under the key, marking it the most recently used. */
@@ -269,13 +277,16 @@ export class Store {
     return !this.signaled(block);
   }
 
-  // A sealed block of a stored channel, fetched while the stream carried the history
-  // signals, stays valid until a signal names it. The signals never name an append.
+  // A sealed block fetched while the stream carried the history signals stays valid
+  // until a signal names it. The signals name only the channels stored on the node, and
+  // never an append.
   private signaled(block: cacheBlock.Block): boolean {
+    const node = this.node();
     return (
       block.sealed &&
       this.signalsSince != null &&
-      this.storedKeys.has(block.channel) &&
+      node != null &&
+      this.leaseholders.get(block.channel) === node &&
       !block.fetchedAt.before(this.signalsSince)
     );
   }
@@ -287,7 +298,7 @@ export class Store {
 
   /** @returns true when the Core stores the channel's samples. */
   stored(ch: channel.Key): boolean {
-    return this.storedKeys.has(ch);
+    return this.leaseholders.has(ch);
   }
 
   /**
@@ -318,8 +329,8 @@ export class Store {
     }
     if (calculated(p)) this.calculated.add(p.key);
     else this.calculated.delete(p.key);
-    if (p.virtual) this.storedKeys.delete(p.key);
-    else this.storedKeys.add(p.key);
+    if (p.virtual) this.leaseholders.delete(p.key);
+    else this.leaseholders.set(p.key, p.leaseholder);
   }
 
   /** Sets the channel that carries the history signals. */

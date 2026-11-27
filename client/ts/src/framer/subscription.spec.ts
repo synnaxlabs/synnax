@@ -2116,6 +2116,41 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it.each([
+      ["an unknown node", undefined],
+      ["another node", 2],
+    ])("should expire the blocks of a channel on %s", async (_, node) => {
+      const core = createCore();
+      core.node = node;
+      const feed = core.openFeed(OPTIONS);
+      const key = core.data[0].key;
+      const window = staticWindow(tiles);
+      const load = async (): Promise<number> => {
+        const reads = core.reads;
+        const sub = feed.subscribe({
+          keys: [key],
+          window,
+          limit: { variant: "points", count: EXACT, aggregation: "min_max" },
+        });
+        try {
+          await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        } finally {
+          sub.close();
+        }
+        return core.reads - reads;
+      };
+      try {
+        await listen(core, feed);
+        const reads = await load();
+        expect(reads).toBeGreaterThan(0);
+        expect(await load()).toBe(0);
+        core.advance(TimeSpan.minutes(20));
+        expect(await load()).toBe(reads);
+      } finally {
+        await feed.close();
+      }
+    });
+
     it("should keep signaled blocks past the expiry, and expire calculated ones", async () => {
       const core = createCore({ derived: true });
       const feed = core.openFeed(OPTIONS);
