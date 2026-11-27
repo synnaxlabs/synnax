@@ -164,6 +164,16 @@ class Task final : public task::Task {
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
 
+    /// @brief swaps in the reloaded calculator, if there is one. A restore can take it
+    /// back after has_reloaded was read, so this checks again under reload_mu.
+    void swap_reloaded() {
+        std::lock_guard lock(this->reload_mu);
+        if (this->reloaded == nullptr) return;
+        std::swap(this->calculator, *this->reloaded);
+        this->retired = std::move(this->reloaded);
+        this->has_reloaded.store(false, std::memory_order_release);
+    }
+
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
         for (const auto &key: this->pending_starts)
@@ -213,12 +223,8 @@ class Task final : public task::Task {
 
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
-            if (this->task.has_reloaded.load(std::memory_order_acquire)) {
-                std::lock_guard lock(this->task.reload_mu);
-                std::swap(this->task.calculator, *this->task.reloaded);
-                this->task.retired = std::move(this->task.reloaded);
-                this->task.has_reloaded.store(false, std::memory_order_release);
-            }
+            if (this->task.has_reloaded.load(std::memory_order_acquire))
+                this->task.swap_reloaded();
             this->task.calculator.compute(frame);
             const auto err = this->task.runtime->write(std::move(frame));
             // A runtime that stopped itself already reported why, so the frame drops.
@@ -762,13 +768,10 @@ public:
             }
         }
         if (this->control) {
-            // No compute runs while the control pipeline is stopped. A reload that
-            // came after the last compute is already fresh.
-            if (this->has_reloaded.exchange(false, std::memory_order_acq_rel)) {
-                std::lock_guard lock(this->reload_mu);
-                std::swap(this->calculator, *this->reloaded);
-                this->retired = std::move(this->reloaded);
-            } else if (const auto err = this->calculator.reset()) {
+            // No compute runs while the control pipeline is stopped. A restored
+            // calculator has computed before, so it resets too.
+            this->swap_reloaded();
+            if (const auto err = this->calculator.reset()) {
                 std::lock_guard lock(this->state_mu);
                 this->state.error(err, "Failed to load calculations");
                 this->answer_pending_starts();
