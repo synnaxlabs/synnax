@@ -613,8 +613,7 @@ alignment and inputs of two clocks by sample time:
   calculation has no historical values, and its live blocks are not replaced.
 - **Running operations**: An operation that keeps state across samples with no window,
   such as `max` with no window or a stateful variable, keeps `main`'s behavior: a
-  history read starts it at the read start, and live starts it at its open. A later RFC
-  owns their history.
+  history read starts it at the read start, and live starts it at its open.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
@@ -1412,9 +1411,8 @@ Phase 42. Keys of `core/v0.62.0` keep their numbers.
 - The constant-step time series and frame compression (PR #6147).
 - Units, limits, the link from a channel to an enumeration, T-zero, templates, the
   maximum length of a string sample, state and command pairs, and clock correction.
-- Stored calculation outputs, linear interpolation, and the history of running
-  operations, which a later RFC owns. Calculations on a rack are RFC 0113's; this RFC
-  adds only their join (§4.9 item 4).
+- Stored calculation outputs and linear interpolation. Calculations on a rack are RFC
+  0113's; this RFC adds only their join (§4.9 item 4).
 
 ## 7 Resolved decisions
 
@@ -1466,9 +1464,8 @@ for a new plan at a failed gate. Decisions 10, 13, 19, 29, 32, and 35 to 44 sett
 12. **Pair by sample time, hold only, budget 0; history is canonical**: Arrival pairing
     gives different numbers live, in history, and per client. A wait budget above 0
     would make live equal history and make a fast input wait.
-13. **Running operations keep `main`'s behavior**: A later RFC owns their history, since
-    each look back that this RFC tried, to the last reset with stored states, with live
-    catch-up, or with a cap, opened new defects in each review round.
+13. **Running operations keep `main`'s behavior**: A history read counts from the read
+    start, and live counts from its open.
 14. **Port links on the device, not in the task config**: A port keeps its channel
     across a task delete and create, at the cost of two hops from channel to task.
 15. **An exact lookup accepts device paths**: A string that matches a channel path and a
