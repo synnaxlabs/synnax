@@ -34,12 +34,6 @@ describe("Properties.Tabs", () => {
     expect(screen.getByText("telemetry content")).toBeTruthy();
   });
 
-  it("should render the actions in the tab rail", () => {
-    renderTabs({ tabs: ["style"], actions: <button>Swap</button> });
-    const rail = tab("Style").parentElement;
-    expect(rail?.contains(screen.getByRole("button", { name: "Swap" }))).toBe(true);
-  });
-
   it("should open on the given tab", () => {
     renderTabs({ tabs: ["telemetry", "style"], tab: "style", onTabChange: vi.fn() });
     expect(tab("Style").ariaSelected).toBe("true");

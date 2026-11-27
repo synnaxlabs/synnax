@@ -86,7 +86,6 @@ func (p *Plugin) generateFile(
 ) ([]byte, error) {
 	fp := pytypes.NewFieldProcessor(
 		typ.Namespace,
-		typ.FilePath,
 		outputPath,
 		req.Resolutions,
 	)

@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -40,6 +41,21 @@ namespace driver::icd {
 namespace {
 common::Warning dropped(const x::errors::Error &err) {
     return {.message = "Dropped invalid data", .description = err.data};
+}
+
+/// @returns the warning about the line errors and overruns of chunk. It names only the
+/// kinds that occurred, so its text stays the same from read to read.
+common::Warning line_errors(const transport::Chunk &chunk) {
+    std::string kinds;
+    if (chunk.errors > 0) kinds = "parity errors, framing errors, or breaks";
+    if (chunk.overruns > 0)
+        kinds += kinds.empty() ? "receive overruns" : ", and receive overruns";
+    return {
+        .message = "Received serial line errors",
+        .description = "The port reported " + kinds +
+                       ". Check that the baud rate, parity, and data bits match the "
+                       "device.",
+    };
 }
 
 x::errors::Error refuse(const std::string &text) {
@@ -296,8 +312,19 @@ Receiver::send(transport::Transport &t) {
     return {std::min(READ_TIMEOUT, x::telem::TimeSpan(ready - now)), x::errors::NIL};
 }
 
-common::ReadResult Receiver::fail(const x::errors::Error &err) {
+std::vector<synnax::channel::Key> Receiver::channels() const {
+    std::vector<synnax::channel::Key> keys;
+    for (const auto &reader: this->readers)
+        std::ranges::copy(reader.channels(), std::back_inserter(keys));
+    return keys;
+}
+
+void Receiver::clear() {
     if (this->framer != nullptr) this->framer->clear();
+}
+
+common::ReadResult Receiver::fail(const x::errors::Error &err) {
+    this->clear();
     return {.error = err};
 }
 
@@ -308,6 +335,8 @@ common::ReadResult Receiver::read(transport::Transport &t, x::telem::Frame &fr) 
     if (this->framer != nullptr && this->decode(fr, res.warning) > 0) return res;
     const auto [chunk, err] = t.read(timeout);
     if (err) return this->fail(err);
+    if ((chunk.errors > 0 || chunk.overruns > 0) && res.warning.empty())
+        res.warning = line_errors(chunk);
     if (this->framer == nullptr) {
         this->received = chunk.time;
         if (!chunk.data.empty()) this->dispatch(chunk.data, fr, res.warning);

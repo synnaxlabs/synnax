@@ -45,7 +45,7 @@ channel.
 - **Shared formats** -> an ICD is not part of a task, so more than one task can read it.
   You cannot delete an ICD while a task reads it.
 - **New topics** -> the message of a new topic goes into the ICD that most topics of the
-  task read. A task with no topics creates an ICD named after the task.
+  task read. A task with no topics creates an ICD named after the device.
 
 When you upgrade the Core, it moves the fields of each read task from an earlier version
 into a new ICD named after the task, with one message for each topic.
@@ -74,7 +74,7 @@ into a new ICD named after the task, with one message for each topic.
    field**.
 9. Click <Icon.Play /> (**Start**).
 
-The first topic makes an ICD named after the task. Each topic gets a message in it,
+The first topic makes an ICD named after the device. Each topic gets a message in it,
 named after the topic. Click **Open in editor** to see the ICD in the ICD editor.
 
 The Console creates a channel for each field that the task reads, and an index channel

@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/control"
@@ -47,9 +46,7 @@ type readGroup struct {
 	read.Group
 	// name names the message and its record key in errors.
 	name string
-	// data[i] holds the current poll's samples of channel i.
-	data [][]byte
-	// columns[i] places the samples of channel i in data[i].
+	// columns[i] holds the current poll's samples of channel i.
 	columns []column
 	// rows are the current poll's records, which columns hold in arrival order.
 	rows []row
@@ -110,19 +107,23 @@ type readTask struct {
 	reassigned atomic.Bool
 	// disconnected is true from a connection failure until records arrive again.
 	disconnected bool
-	// marks is the offsets the current poll consumed by topic and partition.
-	marks map[string]map[int32]kgo.EpochOffset
+	// heads is the last record of each partition the current poll read.
+	heads []*kgo.Record
 }
 
 var _ driver.Task = (*readTask)(nil)
 
-func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, error) {
+// configureRead returns the read task of t, and whether the factory starts it.
+func (f *factory) configureRead(
+	ctx context.Context,
+	t task.Task,
+) (*readTask, bool, error) {
 	var cfg ReadConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := cfg.Validate(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if _, err := resolveProperties(
 		ctx,
@@ -130,17 +131,16 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		f.cfg.Device,
 		cfg.Device,
 	); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	rt := &readTask{
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
-		marks:      make(map[string]map[int32]kgo.EpochOffset),
 	}
 	var err error
 	if rt.records, rt.groups, err = f.buildReadRecords(ctx, cfg); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if rt.Runner, err = driver.NewRunner(driver.RunnerConfig{
 		DB:              f.cfg.DB,
@@ -149,15 +149,14 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		Task:            t,
 		Open:            rt.open,
 	}); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	for _, topic := range cfg.Topics {
 		if _, ok := rt.records[topic.Name]; ok {
 			rt.topics = append(rt.topics, topic.Name)
-			rt.marks[topic.Name] = make(map[int32]kgo.EpochOffset)
 		}
 	}
-	return rt, nil
+	return rt, cfg.AutoStart, nil
 }
 
 // buildReadRecords resolves the enabled records of cfg against their ICDs and channels.
@@ -260,12 +259,10 @@ func newReadRecord(topic string, rec ReadRecord, source *read.Source) *readRecor
 			name: fmt.Sprintf(
 				"message %s of key %q of topic %q", g.Message, rec.RecordKey, topic,
 			),
-			data: make([][]byte, len(g.Channels)),
 			columns: lo.Map(g.DataTypes, func(dt telem.DataType, _ int) column {
 				return newColumn(dt)
 			}),
-			keys:      g.Keys(),
-			replaying: true,
+			keys: g.Keys(),
 		})
 	}
 	return rd
@@ -374,11 +371,11 @@ func (t *readTask) resetGroups(ctx context.Context) error {
 		if g.Index == 0 {
 			continue
 		}
-		var err error
-		if g.last, err = t.lastStored(ctx, g.Index); err != nil {
+		last, err := driver.LastStored(ctx, t.factoryCfg.Framer, g.Index)
+		if err != nil {
 			return err
 		}
-		g.replaying = true
+		g.last, g.replaying = last, true
 	}
 	return nil
 }
@@ -460,37 +457,6 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 		// commit before then or a crash loses samples Kafka will not replay.
 		AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 	})
-}
-
-// lastStored returns the last timestamp stored in index, or zero when it is empty.
-func (t *readTask) lastStored(
-	ctx context.Context,
-	index channel.Key,
-) (last telem.TimeStamp, err error) {
-	it, err := t.factoryCfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   channel.Keys{index},
-		Bounds: telem.TimeRangeMax,
-	})
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if cErr := it.Close(); cErr != nil {
-			last, err = 0, errors.Join(err, cErr)
-		}
-	}()
-	if !it.SeekLast() || !it.Prev(iterator.AutoSpan) {
-		return 0, it.Error()
-	}
-	ms := it.Value().Get(index)
-	if len(ms.Series) == 0 {
-		return 0, nil
-	}
-	s := ms.Series[len(ms.Series)-1]
-	if s.Len() == 0 {
-		return 0, nil
-	}
-	return s.ValueAt[telem.TimeStamp](int(s.Len()) - 1), nil
 }
 
 // consume polls the topics until ctx ends. A connection failure sets a warning status
@@ -592,24 +558,16 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 		g.reset()
 	}
 	clear(t.skipped)
-	for _, marks := range t.marks {
-		clear(marks)
-	}
-	marked := false
+	t.heads = t.heads[:0]
+	// The records hold their batch buffers, which an idle task must not keep.
+	defer func() { clear(t.heads) }()
 	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
 		for _, rec := range p.Records {
 			t.convert(rec)
 		}
-		marks, ok := t.marks[p.Topic]
-		if !ok || len(p.Records) == 0 {
-			return
+		if len(p.Records) > 0 {
+			t.heads = append(t.heads, p.Records[len(p.Records)-1])
 		}
-		last := p.Records[len(p.Records)-1]
-		head := kgo.EpochOffset{Epoch: last.LeaderEpoch, Offset: last.Offset + 1}
-		if cur, ok := marks[p.Partition]; !ok || cur.Less(head) {
-			marks[p.Partition] = head
-		}
-		marked = true
 	})
 	var keys, size int
 	for _, g := range t.groups {
@@ -627,9 +585,7 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 			return errors.Wrap(err, "writing records")
 		}
 	}
-	if marked {
-		t.client.MarkCommitOffsets(t.marks)
-	}
+	t.client.MarkCommitRecords(t.heads...)
 	return nil
 }
 
@@ -677,8 +633,7 @@ func (t *readTask) convert(rec *kgo.Record) {
 		gr := r
 		gr.pos = len(g.rows)
 		for i, data := range s.Data {
-			g.data[i] = append(g.data[i], data...)
-			g.columns[i].appended(g.data[i])
+			g.columns[i].append(data)
 		}
 		if g.Stamped {
 			gr.ts = s.Stamp
@@ -719,14 +674,8 @@ func (t *readTask) keep(g *readGroup) {
 func (g *readGroup) reset() {
 	g.rows = g.rows[:0]
 	for i := range g.columns {
-		g.data[i] = g.data[i][:0]
-		g.columns[i].ends = g.columns[i].ends[:0]
+		g.columns[i].reset()
 	}
-}
-
-// sample returns the sample of channel i at pos.
-func (g *readGroup) sample(i, pos int) []byte {
-	return g.columns[i].sample(g.data[i], pos)
 }
 
 func (g *readGroup) size() int {
@@ -735,7 +684,7 @@ func (g *readGroup) size() int {
 		n = len(g.rows) * int(telem.TimestampT.Density())
 	}
 	for i := range g.columns {
-		n += g.columns[i].size(g.data[i], g.rows)
+		n += g.columns[i].size(g.rows)
 	}
 	return n
 }
@@ -759,7 +708,7 @@ func (g *readGroup) appendSeries(
 	for i := range g.columns {
 		start := len(data)
 		for _, r := range g.rows {
-			data = append(data, g.sample(i, r.pos)...)
+			data = append(data, g.columns[i].sample(r.pos)...)
 		}
 		series = append(series, telem.Series{
 			DataType: g.columns[i].dataType,

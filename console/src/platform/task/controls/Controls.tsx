@@ -20,7 +20,7 @@ import { Rack } from "@/platform/rack";
 import { Bar } from "@/platform/task/controls/Bar";
 import { useRegistry } from "@/platform/task/registry";
 import { formPath } from "@/platform/task/types";
-import { useDrifted } from "@/platform/task/useDrifted";
+import { useDrifted, useUndeployed } from "@/platform/task/useDrifted";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
 import { useIsRunning, useStatus } from "@/platform/task/useStatus";
@@ -113,6 +113,7 @@ export const Controls = ({
   const running = useIsRunning();
   const key = useKey();
   const drifted = useDrifted();
+  const undeployed = useUndeployed();
   const canControl = Framer.useCanCommand();
   const type = Form.useFieldValue(formPath.type);
   const rackKey = Form.useFieldValue(formPath.rack, { optional: true }) ?? null;
@@ -163,6 +164,7 @@ export const Controls = ({
       status={shownStatus}
       running={running}
       drifted={drifted}
+      startDeploys={undeployed}
       hideActions={!canControl}
       disabled={(configuring || blocked != null) && !running}
       startStopVariant={startStopVariant}

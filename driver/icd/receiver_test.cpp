@@ -46,9 +46,18 @@ class Memory final : public transport::Transport {
     std::vector<std::uint8_t> held;
 
 public:
-    /// @brief chunks holds the result of each read to come. An empty chunk is a
-    /// timeout.
-    std::deque<std::pair<std::vector<std::uint8_t>, x::errors::Error>> chunks;
+    /// @brief Read is the result of one read. A read of no bytes is a timeout.
+    struct Read {
+        std::vector<std::uint8_t> bytes;
+        x::errors::Error err;
+        /// @brief errors is the number of line errors that the read reports.
+        std::size_t errors = 0;
+        /// @brief overruns is the number of overruns that the read reports.
+        std::size_t overruns = 0;
+    };
+
+    /// @brief chunks holds each read to come.
+    std::deque<Read> chunks;
     /// @brief time is the arrival time of each chunk.
     x::telem::TimeStamp time = ARRIVED;
     /// @brief timeouts holds the timeout of each read.
@@ -62,10 +71,16 @@ public:
     read(const x::telem::TimeSpan timeout) override {
         this->timeouts.push_back(timeout);
         if (this->chunks.empty()) return {{.time = this->time}, x::errors::NIL};
-        auto [bytes, err] = std::move(this->chunks.front());
+        auto r = std::move(this->chunks.front());
         this->chunks.pop_front();
-        this->held = std::move(bytes);
-        return {{.data = this->held, .time = this->time}, err};
+        this->held = std::move(r.bytes);
+        return {
+            {.data = this->held,
+             .time = this->time,
+             .errors = r.errors,
+             .overruns = r.overruns},
+            r.err,
+        };
     }
 
     x::errors::Error write(
@@ -78,7 +93,7 @@ public:
     }
 
     void push(std::vector<std::uint8_t> bytes) {
-        this->chunks.emplace_back(std::move(bytes), x::errors::NIL);
+        this->chunks.push_back({.bytes = std::move(bytes)});
     }
 
     void push(const std::string &text) {
@@ -414,9 +429,8 @@ TEST(Receiver, DropsBytesOnTransportError) {
     auto r = fixed();
     Memory t;
     t.push(std::vector<std::uint8_t>{0});
-    t.chunks.emplace_back(
-        std::vector<std::uint8_t>{},
-        x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed")
+    t.chunks.push_back(
+        {.err = x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed")}
     );
     t.push(std::vector<std::uint8_t>{0, 7});
     x::telem::Frame fr;
@@ -424,6 +438,102 @@ TEST(Receiver, DropsBytesOnTransportError) {
     ASSERT_OCCURRED_AS(r.read(t, fr).error, transport::UNREACHABLE_ERROR);
     ASSERT_NIL(r.read(t, fr).error);
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
+}
+
+/// @brief it should warn about the line errors and overruns of a read, and decode its
+/// frames.
+TEST(Receiver, WarnsAboutLineErrors) {
+    auto r = fixed();
+    Memory t;
+    t.chunks.push_back({.bytes = {0, 7}, .errors = 3, .overruns = 1});
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Received serial line errors");
+    ASSERT_EQ(
+        res.warning.description,
+        "The port reported parity errors, framing errors, or breaks, and receive "
+        "overruns. Check that the baud rate, parity, and data bits match the device."
+    );
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
+}
+
+/// @brief it should name only the kinds of line error that a read reports.
+TEST(Receiver, NamesEachKindOfLineError) {
+    auto r = fixed();
+    Memory t;
+    t.chunks.push_back({.errors = 1});
+    t.chunks.push_back({.overruns = 2});
+    x::telem::Frame fr;
+    ASSERT_EQ(
+        r.read(t, fr).warning.description,
+        "The port reported parity errors, framing errors, or breaks. Check that the "
+        "baud rate, parity, and data bits match the device."
+    );
+    ASSERT_EQ(
+        r.read(t, fr).warning.description,
+        "The port reported receive overruns. Check that the baud rate, parity, and "
+        "data bits match the device."
+    );
+    ASSERT_TRUE(r.read(t, fr).warning.empty());
+}
+
+/// @brief it should give equal warnings for reads with different counts of the same
+/// kinds of line error.
+TEST(Receiver, GivesSameWarningForDifferentLineErrorCounts) {
+    auto r = fixed();
+    Memory t;
+    t.chunks.push_back({.errors = 3, .overruns = 1});
+    t.chunks.push_back({.errors = 12, .overruns = 5});
+    x::telem::Frame fr;
+    const auto first = r.read(t, fr).warning;
+    ASSERT_FALSE(first.empty());
+    ASSERT_EQ(r.read(t, fr).warning, first);
+}
+
+/// @brief it should warn about the line errors of a read before a frame of the read
+/// that it cannot decode.
+TEST(Receiver, WarnsAboutLineErrorsBeforeDecodeErrors) {
+    auto r = create(lines());
+    Memory t;
+    const std::string text = "oven\n";
+    t.chunks.push_back(
+        {.bytes = std::vector<std::uint8_t>(text.begin(), text.end()), .errors = 2}
+    );
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Received serial line errors");
+}
+
+/// @brief it should drop the bytes of a partial frame on clear.
+TEST(Receiver, DropsPartialFrameOnClear) {
+    auto r = fixed();
+    Memory t;
+    t.push(std::vector<std::uint8_t>{0});
+    t.push(std::vector<std::uint8_t>{0, 7});
+    x::telem::Frame fr;
+    ASSERT_NIL(r.read(t, fr).error);
+    r.clear();
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
+}
+
+/// @brief it should drop the frames past BATCH that no read has decoded on clear.
+TEST(Receiver, DropsUndecodedFramesOnClear) {
+    auto r = fixed();
+    Memory t;
+    std::vector<std::uint8_t> chunk;
+    for (std::size_t i = 0; i <= BATCH; i++)
+        chunk.insert(chunk.end(), {0, 1});
+    t.push(chunk);
+    x::telem::Frame first;
+    ASSERT_NIL(r.read(t, first).error);
+    r.clear();
+    t.push(std::vector<std::uint8_t>{0, 200});
+    x::telem::Frame second;
+    ASSERT_NIL(r.read(t, second).error);
+    ASSERT_EQ(second.series->at(1).values<double>(), (std::vector{200.0}));
 }
 
 /// @brief it should warn about a frame that it cannot decode, and read the frames after
@@ -645,6 +755,21 @@ TEST(Receiver, GivesFrameToEntryWithMatchingMessage) {
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{2.0}));
     ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{1.0}));
+}
+
+/// @brief it should list the channels of each entry, index channels included.
+TEST(Receiver, ListsChannelsOfEachEntry) {
+    const auto a = lines("A", 2, 1, "first");
+    const auto b = lines("B", 3, 4, "second");
+    const auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    ASSERT_EQ(r.channels(), (std::vector<synnax::channel::Key>{2, 1, 3, 4}));
 }
 
 /// @brief it should give a frame that two entries match to the first one.

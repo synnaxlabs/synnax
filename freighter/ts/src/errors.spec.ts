@@ -10,7 +10,14 @@
 import { errors } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { EOF, StreamClosed, Timeout, Unreachable, UntrustedCertificate } from "@/index";
+import {
+  EOF,
+  NoTLS,
+  StreamClosed,
+  Timeout,
+  Unreachable,
+  UntrustedCertificate,
+} from "@/index";
 
 describe("errors", () => {
   test("encoding and decoding freighter errors", () => {
@@ -20,6 +27,7 @@ describe("errors", () => {
       new Unreachable(),
       new Timeout("no response"),
       new UntrustedCertificate("not trusted"),
+      new NoTLS("no TLS"),
     ].forEach((error) => {
       const encoded = errors.encode(error);
       expect(encoded.type.startsWith("freighter")).toBeTruthy();

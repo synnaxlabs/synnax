@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/used-by/UsedBy";
+export * from "@/platform/used-by/List";
+export * from "@/platform/used-by/Popover";
