@@ -51,8 +51,7 @@ channel.
   hold for a key. A **steady-state** frame holds only series that match both, and the
   time series of each clock that a timed key of its data names (§4.5). A frame that
   leaves out a key of the state, requested or declared, takes the keyed form, as today.
-  `untimed_keys` belong to the request, so a change to them starts a new state with an
-  empty declared list.
+  `untimed_keys` belong to the request and never to a codec state (D-524).
 
 ## 3 Principles
 
@@ -219,20 +218,21 @@ override sits before the length, so a decoder knows the type before it reads dat
   agreed clock at once: it reaches its own series and every later series of that key in
   the frame. A golden frame pins the reach in all four languages.
 - **Declared clocks**: A time series travels under its clock key, which a request need
-  not name (§4.5, §4.8). The encoder first drops each series whose key the request did
-  not name and that no kept timed series names as its clock. The list that a frame needs
-  then holds each clock key that a kept timed series names and the request did not name,
-  plus each key already in the list that the agreed clock of a timed requested key still
-  names. Any change to a request, of its keys or its `untimed_keys`, swaps the encoder's
-  state when the relay applies it, not when the transport decodes it. The encoder's
-  state takes the request's `untimed_keys`; the decoder needs none. So a stream that
-  carries no time series declares nothing, and its frames stay the frames of today. The
-  encoder sends the whole list in field 5 when it differs from the list of the state,
-  and it becomes the list of the state; N can be 0. A list applies to the frame that
-  holds it. A state's key list is the sorted, unique union of the requested and the
-  declared keys in all four codecs, and `allChannelsPresent` compares with it. A
-  declared key has the agreed type `timestamp` and is its own agreed clock. It takes no
-  type and no clock override; the override chain can sit on it for another kind.
+  not name (§4.5, §4.8). The codec takes no untimed set: the relay, the iterator, and
+  the record filter drop a time series that only untimed keys name, and the encoder
+  keeps each time series that a series in the frame names (D-524). The list that a frame
+  needs then holds each clock key that a kept timed series names and the request did not
+  name, plus each key already in the list that the agreed clock of a timed requested key
+  still names. A change to a request's keys swaps the encoder's state when the relay
+  applies it, not when the transport decodes it, and a change of its `untimed_keys`
+  swaps no codec state. So a stream that carries no time series declares nothing, and
+  its frames stay the frames of today. The encoder sends the whole list in field 5 when
+  it differs from the list of the state, and it becomes the list of the state; N can
+  be 0. A list applies to the frame that holds it. A state's key list is the sorted,
+  unique union of the requested and the declared keys in all four codecs, and
+  `allChannelsPresent` compares with it. A declared key has the agreed type `timestamp`
+  and is its own agreed clock. It takes no type and no clock override; the override
+  chain can sit on it for another kind.
 - **Sequence numbers**: Only a client request that lists keys makes a state and a
   sequence number (`core/pkg/transport/grpc/framer/handler.go:210`,
   `core/pkg/transport/http/framer/codec.go:269`). The Core never adds a key to a
@@ -434,8 +434,8 @@ names no clock key.
   field. The TypeScript client shares one stream across every display
   (`client/ts/src/framer/cache/streamer`), so it marks a key untimed only while every
   display that holds the key marks it. A change of `untimed_keys` takes effect at one
-  point: the relay applies the new set and the codec takes its new state when the relay
-  applies the request, not when the transport decodes it. The response to the request is
+  point: the relay applies the new set when it applies the request, not when the
+  transport decodes it, and the codec keeps its state. The response to the request is
   the ack. A demand that needs time waits for that ack, and until then a display ignores
   a series of the key that comes with no time. A read of one channel that returns a bare
   series, such as Python `client.read(tr, "temperature")`, marks its key untimed.
@@ -1109,12 +1109,16 @@ branch against `main` and reports to the founder session.
   grows with the samples since the reset (§4.7). The 8-reader reads run on the OS file
   system at the shapes of D-481.
 - **The read prototype** (Phase 18): The storage reads of §4.5 on the pointer log, with
-  today's index keys as clocks and no format change. Phases 24 to 54 merge only when the
-  one-clock reads are within 15% of `main`, the prototype is within 3% of the storage
-  branch on them, and the reads with two clocks or 64 pauses are within 2 times their
-  one-clock reads. Their code may be built before the gate, as D-519 (3) has the writer
-  time groups built while index channels exist. A failed gate stops the line for a new
-  plan, with no waiver (founder delegation).
+  today's index keys as clocks and no format change. It ships with one-clock specs; the
+  multi-clock specs land with the first phase that moves a key, and the reads with two
+  clocks or 64 pauses are measured on a commit of the bench branch that is never merged
+  (D-520). Before Phase 12 a read frame holds only the named keys, and a named index
+  takes its series per chunk by offset from the key's alignments. Phases 24 to 54 merge
+  only when the one-clock reads are within 15% of `main`, the prototype is within 3% of
+  the storage branch on them, and the reads with two clocks or 64 pauses are within 2
+  times their one-clock reads. Their code may be built before the gate, as D-519 (3) has
+  the writer time groups built while index channels exist. A failed gate stops the line
+  for a new plan, with no waiver (founder delegation).
 - **The compare script**: Before the prototype is measured, the box's
   `scripts/compare_benchmarks.py` gets `layout=log` cases for `ReadDomains`,
   `ReadSamples`, and `StreamFixedSpan`, puts `ReadOneClock` and `SeekPointerLog` in its
