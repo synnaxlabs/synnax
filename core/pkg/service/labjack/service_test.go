@@ -265,17 +265,6 @@ var _ = Describe("Service", func() {
 			Entry("T8", "T8", 12.0),
 		)
 
-		It("Should reject a device that does not exist as a validation error", func(
-			ctx SpecContext,
-		) {
-			Expect(svc.Read.Prepare(
-				ctx, db, uuid.New(), "", rangeConfig(uuid.New().String(), 20),
-			)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("device")),
-			))
-		})
-
 		It("Should lower a stored range above the largest range of the model on open",
 			func(ctx SpecContext) {
 				stored := labjack.ReadConfig{

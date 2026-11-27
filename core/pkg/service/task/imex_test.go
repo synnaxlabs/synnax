@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -92,7 +93,14 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		ImEx:   imexSvc,
 		Configs: MustSucceed(config.NewRegistry(slices.Concat(
 			pd.Stores(),
-			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db})).Stores(),
+			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+				DB: db,
+				Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
+					DB:     db,
+					Status: statusSvc,
+					Rack:   rackSvc,
+				})),
+			})).Stores(),
 		)...)),
 		ImExExcluded: excluded,
 	}))
