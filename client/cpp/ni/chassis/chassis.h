@@ -105,8 +105,8 @@ public:
     update(const Key &key, const Update &update) const;
 
     /// @brief applies the actions to the chassis with the given key in one transaction.
-    /// Each action edits only its path of the record the Core holds when it applies
-    /// them, so edits to other fields that commit earlier survive.
+    /// Each action edits only its path, so concurrent edits to different fields both
+    /// survive.
     /// @param key the key of the chassis.
     /// @param actions the actions to apply, in order.
     /// @returns an error that matches NOT_FOUND when no chassis has the key, or
