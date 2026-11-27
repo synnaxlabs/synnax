@@ -154,7 +154,8 @@ func (r Resolver) Hash(
 }
 
 // Check checks each of reads, in order, against its ICD, from icds or else retrieved
-// through snap, and its channels. It returns the validation error of the first problem.
+// through snap, and its channels, then claims the index channels that each read writes.
+// It returns the validation error of the first problem.
 func (r Resolver) Check(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -167,6 +168,11 @@ func (r Resolver) Check(
 	}
 	for _, rd := range reads {
 		if err = c.Read(rd); err != nil {
+			return err
+		}
+	}
+	for _, rd := range reads {
+		if err = c.ClaimIndexes(rd); err != nil {
 			return err
 		}
 	}
