@@ -264,10 +264,19 @@ class ScanTask final : public task::Task, public pipeline::Base {
     std::unique_ptr<pipeline::Streamer> signal_streamer;
     std::thread signal_thread;
     std::mutex mu;
+    /// @brief guards status, which the command thread and the scan thread both
+    /// change. Never held while the scan thread starts or stops.
+    std::mutex status_mu;
 
     /// @brief sends the current status, then clears the command key so later
     /// unsolicited updates do not claim it.
     void send_status() {
+        std::lock_guard lock(this->status_mu);
+        this->send_locked();
+    }
+
+    /// @brief sends the current status. Requires status_mu.
+    void send_locked() {
         this->status.time = x::telem::TimeStamp::now();
         this->ctx->set_status(this->status);
         this->status.details.cmd = driver::task::NO_COMMAND;
@@ -280,11 +289,28 @@ class ScanTask final : public task::Task, public pipeline::Base {
         const std::string &description = "",
         const std::optional<x::json::json::object_t> &data = std::nullopt
     ) {
+        std::lock_guard lock(this->status_mu);
+        this->send_locked(variant, message, description, data);
+    }
+
+    /// @brief sets the variant, text, and scanner data of the status, then sends it.
+    /// Requires status_mu.
+    void send_locked(
+        const std::string &variant,
+        const std::string &message,
+        const std::string &description = "",
+        const std::optional<x::json::json::object_t> &data = std::nullopt
+    ) {
         this->status.variant = variant;
         this->status.message = message;
         this->status.description = description;
         this->status.details.data = data;
-        this->send_status();
+        this->send_locked();
+    }
+
+    void set_running(const bool running) {
+        std::lock_guard lock(this->status_mu);
+        this->status.details.running = running;
     }
 
     /// @brief sends a warning when the scan error changes, and a success once scans
@@ -292,20 +318,21 @@ class ScanTask final : public task::Task, public pipeline::Base {
     /// scan started, since a scan that started earlier can report stale data.
     void report_scan(const ScanResult &res, const bool replaced) {
         const auto &[err, data] = res;
+        std::lock_guard lock(this->status_mu);
         if (err) {
             if (!replaced && this->status.variant == synnax::status::VARIANT_WARNING &&
                 this->status.description == err.data &&
                 this->status.details.data == data)
                 return;
             LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
-            this->send_status(
+            this->send_locked(
                 synnax::status::VARIANT_WARNING,
                 "Failed to scan for devices",
                 err.data,
                 data
             );
         } else if (replaced || this->status.variant != synnax::status::VARIANT_SUCCESS)
-            this->send_status(synnax::status::VARIANT_SUCCESS, "Scan task running");
+            this->send_locked(synnax::status::VARIANT_SUCCESS, "Scan task running");
     }
 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
@@ -573,7 +600,7 @@ public:
     }
 
     void run() override {
-        this->status.details.running = false;
+        this->set_running(false);
         if (const auto err = this->init()) {
             this->send_status(
                 synnax::status::VARIANT_ERROR,
@@ -596,7 +623,7 @@ public:
             LOG(WARNING) << this->log_prefix
                          << "failed to start signal monitoring: " << err;
 
-        this->status.details.running = true;
+        this->set_running(true);
         this->send_status(synnax::status::VARIANT_SUCCESS, "Started scan task");
         while (this->breaker.running()) {
             const bool replaced = this->status_replaced.exchange(false);
@@ -605,7 +632,7 @@ public:
         }
 
         this->stop_signal_monitoring();
-        this->status.details.running = false;
+        this->set_running(false);
         if (const auto err = this->scanner->stop())
             this->send_status(
                 synnax::status::VARIANT_ERROR,
@@ -617,7 +644,7 @@ public:
     }
 
     void stopped_with_err(const x::errors::Error &err) override {
-        this->status.details.running = false;
+        this->set_running(false);
         this->send_status(
             synnax::status::VARIANT_ERROR,
             "Failed to scan for devices",
@@ -626,7 +653,10 @@ public:
     }
 
     void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
-        this->status.details.cmd = cmd.key;
+        {
+            std::lock_guard lock(this->status_mu);
+            this->status.details.cmd = cmd.key;
+        }
         // run() writes the status that answers a start or a stop. A command that
         // changes nothing never reaches it, so the current status answers instead.
         if (cmd.type == synnax::task::STOP_CMD_TYPE) {
@@ -652,6 +682,7 @@ public:
         }
         // The scanner answers the commands it handles with its own status.
         if (this->scanner->exec(cmd, this->task, this->ctx)) {
+            std::lock_guard lock(this->status_mu);
             this->status.details.cmd = driver::task::NO_COMMAND;
             this->status_replaced = true;
             return;
