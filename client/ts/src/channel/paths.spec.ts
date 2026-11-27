@@ -16,12 +16,7 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { group } from "@/group";
 import type { Synnax } from "@/index";
-import {
-  createTestClient,
-  createTestClientWithPolicy,
-  requestsTo,
-  spyOnSend,
-} from "@/testutil";
+import { createTestClient, createTestClientWithPolicy, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
@@ -176,11 +171,13 @@ describe("channel paths", () => {
         path: withPath.path,
       });
       onTestFinished(async () => await client.channels.delete(copy.key));
-      const [request] = requestsTo(send, "/channel/create") as Array<{
-        channels: Array<Record<string, unknown>>;
-      }>;
-      expect(request.channels).toHaveLength(1);
-      expect(request.channels[0]).not.toHaveProperty("path");
+      // The request schema encodes the body, so the spec reads it as the wire does.
+      const [[, body, schema]] = send.mock.calls.filter(
+        ([target]) => target === "/channel/create",
+      );
+      const { channels } = (schema as z.ZodType<{ channels: object[] }>).parse(body);
+      expect(channels).toHaveLength(1);
+      expect(channels[0]).not.toHaveProperty("path");
       expect(withPath.payload).not.toHaveProperty("path");
     });
   });
@@ -189,23 +186,25 @@ describe("channel paths", () => {
     it.each(cases)(
       "should build the path of $name as the Core builds it",
       async ({ folders, channel: name, path }) => {
-        const top = await createFolder();
+        // A case with no folders makes its channel at the top.
+        const top = folders.length === 0 ? undefined : await createFolder();
         let parent = top;
         for (const folder of folders)
           parent = await remote.groups.create({
             name: folder,
-            parent: group.resourceID(parent.key),
+            parent: group.resourceID((parent as group.Group).key),
           });
         const suffix = `_${id.create()}`;
         const ch = await remote.channels.create({
           name: `${name}${suffix}`,
           dataType: DataType.FLOAT32,
           virtual: true,
-          group: parent.key,
+          group: parent?.key,
         });
         const later = await connectLater();
         const res = await later.channels.retrieve({ key: ch.key, includePath: true });
-        expect(res.path).toEqual(`${top.name}.${path}${suffix}`);
+        const prefix = top == null ? "" : `${top.name}.`;
+        expect(res.path).toEqual(`${prefix}${path}${suffix}`);
       },
     );
   });
