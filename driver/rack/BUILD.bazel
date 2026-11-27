@@ -73,6 +73,7 @@ cc_library(
         "//driver/secret",
         "//driver/serial:tasks",
         "//driver/task",
+        "//driver/tcp:tasks",
         "//x/cpp/args",
         "//x/cpp/defer",
         "//x/cpp/env",
@@ -122,6 +123,7 @@ cc_test(
         "//driver/rack",
         "//driver/serial:tasks",
         "//driver/task",
+        "//driver/tcp:tasks",
         "@googletest//:gtest_main",
     ],
 )

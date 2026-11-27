@@ -19,6 +19,7 @@
 #include "driver/ni/names.h"
 #include "driver/rack/rack.h"
 #include "driver/serial/serial.h"
+#include "driver/tcp/tcp.h"
 #include "driver/version/version.h"
 
 namespace driver::rack {
@@ -255,9 +256,10 @@ TEST(RackFactoriesTest, DisabledIntegrationLogsAtBoot) {
 }
 
 namespace {
-/// @returns the status of a commanded configure of an empty serial read task, under a
+/// @returns the status of a commanded configure of an empty read task of type, under a
 /// config that runs integrations.
-synnax::task::Status serial_status(const std::vector<std::string> &integrations) {
+synnax::task::Status
+read_status(const std::string &type, const std::vector<std::string> &integrations) {
     x::breaker::Breaker cancel;
     const Config cfg{.integrations = integrations};
     const auto factory = cfg.new_factory(
@@ -268,7 +270,7 @@ synnax::task::Status serial_status(const std::vector<std::string> &integrations)
     cancel.start();
     const auto [tsk, handled] = factory->configure_task(
         ctx,
-        synnax::task::Task{.name = "t", .type = serial::READ_TASK_TYPE},
+        synnax::task::Task{.name = "t", .type = type},
         "start-cmd",
         cancel
     );
@@ -279,30 +281,42 @@ synnax::task::Status serial_status(const std::vector<std::string> &integrations)
     EXPECT_EQ(statuses.size(), 1);
     return statuses.empty() ? synnax::task::Status{} : statuses.front();
 }
+
+/// @brief BUS holds the name and the read task type of each bus integration.
+const std::vector<std::pair<std::string, std::string>> BUS = {
+    {serial::INTEGRATION_NAME, serial::READ_TASK_TYPE},
+    {tcp::INTEGRATION_NAME, tcp::READ_TASK_TYPE},
+};
 }
 
-/// @brief it should build serial but leave it off unless a config names it.
-TEST(RackFactoriesTest, SerialIsOffByDefault) {
+/// @brief it should build the bus integrations but leave them off unless a config names
+/// them.
+TEST(RackFactoriesTest, BusIntegrationsAreOffByDefault) {
     const auto built = built_integrations();
-    EXPECT_NE(std::ranges::find(built, serial::INTEGRATION_NAME), built.end());
     const auto defaults = default_integrations();
-    EXPECT_EQ(std::ranges::find(defaults, serial::INTEGRATION_NAME), defaults.end());
-    EXPECT_EQ(defaults.size(), built.size() - 1);
-    EXPECT_EQ(
-        serial_status(defaults).description,
-        "The configuration of this Driver turns off the 'serial' integration. Turn it "
-        "on in the Driver configuration, then restart the Driver."
-    );
+    EXPECT_EQ(defaults.size(), built.size() - BUS.size());
+    for (const auto &[name, type]: BUS) {
+        EXPECT_NE(std::ranges::find(built, name), built.end());
+        EXPECT_EQ(std::ranges::find(defaults, name), defaults.end());
+        EXPECT_EQ(
+            read_status(type, defaults).description,
+            "The configuration of this Driver turns off the '" + name +
+                "' integration. Turn it on in the Driver configuration, then restart "
+                "the Driver."
+        );
+    }
 }
 
-/// @brief it should configure serial tasks when a config names serial.
-TEST(RackFactoriesTest, ListedSerialConfiguresItsTasks) {
-    const auto status = serial_status({serial::INTEGRATION_NAME});
-    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(status.message, "Failed to configure task");
-    EXPECT_EQ(
-        status.description,
-        "device: this field is required\nentries: at least one entry is required"
-    );
+/// @brief it should configure the tasks of a bus integration that a config names.
+TEST(RackFactoriesTest, ListedBusIntegrationConfiguresItsTasks) {
+    for (const auto &[name, type]: BUS) {
+        const auto status = read_status(type, {name});
+        EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+        EXPECT_EQ(status.message, "Failed to configure task");
+        EXPECT_EQ(
+            status.description,
+            "device: this field is required\nentries: at least one entry is required"
+        );
+    }
 }
 }

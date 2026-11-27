@@ -44,6 +44,7 @@
 #include "driver/opcua/opcua.h"
 #include "driver/serial/serial.h"
 #include "driver/task/task.h"
+#include "driver/tcp/tcp.h"
 
 namespace driver::rack {
 /// @brief the persisted state file or its directory cannot be used safely, such as
@@ -98,7 +99,8 @@ inline std::vector<std::string> built_integrations() {
         ethercat::INTEGRATION_NAME,
         http::INTEGRATION_NAME,
         file::INTEGRATION_NAME,
-        serial::INTEGRATION_NAME
+        serial::INTEGRATION_NAME,
+        tcp::INTEGRATION_NAME
     };
     std::ranges::copy(platform_integrations(), std::back_inserter(integrations));
 #ifndef SYNNAX_NILINUXRT
@@ -108,10 +110,11 @@ inline std::vector<std::string> built_integrations() {
 }
 
 /// @brief returns the integrations that a config runs unless it names its own: each
-/// built integration except serial, which ships dark.
+/// built integration except serial and TCP, which ship dark.
 inline std::vector<std::string> default_integrations() {
     auto integrations = built_integrations();
     std::erase(integrations, serial::INTEGRATION_NAME);
+    std::erase(integrations, tcp::INTEGRATION_NAME);
     return integrations;
 }
 
