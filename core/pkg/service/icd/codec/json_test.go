@@ -131,9 +131,8 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	return nil
 }
 
-// expectSample checks that data, the sample of the binding at index i with data type
-// dt,
-// is want. MatchJSON reads each number as a float64, so an integer compares as text.
+// expectSample checks that data, the sample of binding i with data type dt, is want.
+// MatchJSON reads each number as a float64, so an integer compares as text.
 func expectSample(dt telem.DataType, data []byte, want json.RawMessage, i int) {
 	GinkgoHelper()
 	actual := MustSucceed(json.Marshal(sampleJSON(dt, data)))
