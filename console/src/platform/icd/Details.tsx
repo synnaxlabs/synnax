@@ -199,6 +199,8 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
 
 export interface FieldDetailsProps {
   path: deep.Path<ReadSource>;
+  /** Sections after the field, such as its last payload. */
+  children?: ReactNode;
   /** The index of the message in the source's reads. */
   read: number;
   field: TreeField;
@@ -247,6 +249,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   field,
   format,
   prefix,
+  children,
 }) => {
   const readPath = path.messages[read];
   const plan = usePlan(path, read);
@@ -281,6 +284,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
             ),
           })}
         </PForm.Form>
+        {children}
         <PForm.Section title="Channel">
           {preview == null ? (
             <Text.Text status="disabled">

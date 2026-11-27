@@ -2484,6 +2484,94 @@ describe("MQTT read form", () => {
         ).toBe("text");
       });
 
+      it("should mark the part of a field and show its last value", async () => {
+        const scanner = await openSampled({
+          ...TEXT,
+          fields: [
+            icd.textFieldZ.parse({
+              key: uuid.create(),
+              name: "temperature",
+              encoding: "delimited",
+              position: 1,
+            }),
+            // The Core refuses an empty tag, so it labels no part.
+            icd.textFieldZ.parse({
+              key: uuid.create(),
+              name: "new",
+              encoding: "tagged",
+              tag: "",
+            }),
+            // A part takes the longest tag that starts it.
+            icd.textFieldZ.parse({
+              key: uuid.create(),
+              name: "phase",
+              encoding: "tagged",
+              tag: "P",
+            }),
+            icd.textFieldZ.parse({
+              key: uuid.create(),
+              name: "pressure",
+              encoding: "tagged",
+              tag: "P=",
+            }),
+          ],
+        });
+        await scanner.answer(sampled("text", "$LN,21.7, P=101.2 ,ok"));
+        expect((await screen.findByText("P=101.2")).nextSibling?.textContent).toBe(
+          "2 · P=",
+        );
+        expect(screen.getByText("$LN").nextSibling?.textContent).toBe("0");
+        // The field shares the listen of its topic, so it shows the payload at once.
+        fireEvent.click(screen.getByRole("treeitem", { name: /temperature/ }));
+        await screen.findByText("Last value 21.7");
+        expect(screen.getByText("21.7").parentElement?.className).toContain(
+          "console--marked",
+        );
+        fireEvent.click(screen.getByRole("treeitem", { name: /pressure/ }));
+        await screen.findByText("Last value 101.2");
+        expect(screen.getByText("P=101.2").parentElement?.className).toContain(
+          "console--marked",
+        );
+      });
+
+      it("should not show the payload of a topic on the next topic", async () => {
+        const entries = await Promise.all(
+          ["plant/a", "plant/b"].map(
+            async (topic) =>
+              await createEntry({
+                fields: [createField("temperature", "float")],
+                topic,
+                bound: {},
+              }),
+          ),
+        );
+        const opened: { scanner?: Scanner } = {};
+        await renderRead({
+          entries,
+          beforeRender: async (dev) => {
+            for (const entry of entries) {
+              const { icd: key, message } = messageOf(entry);
+              await client.icds.dispatch(
+                key,
+                icd.set({ path: ["messages", message, "payload"], value: TEXT }),
+              );
+            }
+            opened.scanner = await openScanner(client, dev.rack);
+          },
+        });
+        const { scanner } = opened;
+        assertDefined(scanner, "the scanner did not open");
+        fireEvent.click(
+          await screen.findByRole("treeitem", { name: /TEXT.*plant\/a/ }),
+        );
+        await scanner.answer(sampled("text", "$LN,21.7"));
+        await screen.findByText("21.7");
+        fireEvent.click(screen.getByRole("treeitem", { name: /TEXT.*plant\/b/ }));
+        // The next topic shows no payload before its own listen answers.
+        expect(screen.queryByText("21.7")).toBeNull();
+        expect(screen.getByText(MQTT.Device.LISTENING)).toBeTruthy();
+      });
+
       it("should say that the last payload is empty", async () => {
         const scanner = await openSampled({ format: "binary", fields: [] });
         await scanner.answer(sampled("binary", ""));

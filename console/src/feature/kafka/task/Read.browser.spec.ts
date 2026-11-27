@@ -1257,6 +1257,42 @@ describe("Kafka read form", () => {
         expect(screen.queryByText("5")).toBeNull();
       });
 
+      it("should mark the part of a field in the payload of its record", async () => {
+        const records = [sampledRecord("", 1, "text", "$LN,21.7,ok")];
+        await openRecord(
+          {
+            ...TEXT,
+            fields: [
+              icd.textFieldZ.parse({
+                key: uuid.create(),
+                name: "temperature",
+                encoding: "delimited",
+                position: 1,
+              }),
+              icd.textFieldZ.parse({
+                key: uuid.create(),
+                name: "status",
+                encoding: "delimited",
+                position: 2,
+              }),
+            ],
+          },
+          sampledOf({ records }),
+        );
+        await screen.findByText("21.7");
+        // The fields share the read of their record, so each shows the payload at once.
+        fireEvent.click(screen.getByRole("treeitem", { name: /temperature/ }));
+        await screen.findByText("Last value 21.7");
+        expect(screen.getByText("21.7").parentElement?.className).toContain(
+          "console--marked",
+        );
+        fireEvent.click(screen.getByRole("treeitem", { name: /status/ }));
+        await screen.findByText("Last value ok");
+        expect(screen.getByText("ok").parentElement?.className).toContain(
+          "console--marked",
+        );
+      });
+
       it("should show the bytes of a schema registry record", async () => {
         const records = [sampledRecord("", 1, "schema_registry", "000000002a0b")];
         await openRecord({ format: "binary", fields: [] }, sampledOf({ records }));

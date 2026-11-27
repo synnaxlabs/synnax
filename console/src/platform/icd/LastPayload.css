@@ -26,3 +26,13 @@
     -webkit-user-select: text;
     user-select: text;
 }
+
+.console-icd-last-payload__part {
+    padding: 0.25rem 0.5rem;
+    margin: -0.25rem -0.5rem;
+    border-radius: var(--pluto-border-radius-medium);
+
+    &.console--marked {
+        background: var(--pluto-primary-z-20);
+    }
+}

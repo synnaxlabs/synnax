@@ -447,14 +447,48 @@ const MessageDetails = ({
   );
 };
 
-interface FieldDetailsProps extends MessagePanelProps {
-  field: ICD.TreeField;
+interface LastPayloadProps extends Pick<
+  ICD.LastPayloadProps,
+  "state" | "payload" | "field"
+> {
+  topic: string;
 }
 
-const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
+/** The last payload of a topic. */
+const LastPayload = ({ topic, ...rest }: LastPayloadProps) => (
+  <ICD.LastPayload
+    {...rest}
+    pendingMessage={Device.LISTENING}
+    emptyMessage={`No message on ${topic} in ${Device.BROWSE_DURATION.seconds} seconds.`}
+  />
+);
+
+interface FieldDetailsProps extends MessagePanelProps {
+  field: ICD.TreeField;
+  /** The listen of the topic, when it listens. */
+  lastPayload?: ICD.LastPayloadState;
+}
+
+const FieldDetails = ({ device, lastPayload, ...rest }: FieldDetailsProps) => {
   const topic = PForm.useFieldValue(rest.path.topic);
+  const message = PForm.useFieldValue(rest.path.messages[rest.read].message);
+  const read = PForm.useFieldValue(PICD.formPath.messages[message].payload, {
+    optional: true,
+    ctx: rest.format,
+  });
   const prefix = namePrefix(device.name, topic);
-  return <ICD.FieldDetails {...rest} prefix={prefix} />;
+  return (
+    <ICD.FieldDetails {...rest} prefix={prefix}>
+      {lastPayload != null && read != null && read.format !== "json" && (
+        <LastPayload
+          state={lastPayload}
+          payload={read}
+          field={rest.field.key}
+          topic={topic}
+        />
+      )}
+    </ICD.FieldDetails>
+  );
 };
 
 interface TopicDetailsProps {
@@ -470,6 +504,8 @@ interface TopicDetailsProps {
   /** Makes the topic read a new message of the format with no fields. */
   onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
+  /** The listen of the topic, when it listens. */
+  lastPayload?: ICD.LastPayloadState;
 }
 
 /**
@@ -485,6 +521,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onFormatChange,
   onFormatCreate,
   bindDisabled,
+  lastPayload,
 }) => {
   const isPreview = Task.useIsPreview();
   const topic = PForm.useFieldValue(path.topic);
@@ -538,19 +575,9 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
           />
         </PForm.Section>
-        {topic !== "" &&
-          read != null &&
-          read.format !== "json" &&
-          ICD.isTaskFormat(read.format) && (
-            <ICD.LastPayload
-              key={device.key}
-              payload={read}
-              source={topic}
-              pendingMessage={Device.LISTENING}
-              emptyMessage={`No message on ${topic} in ${Device.BROWSE_DURATION.seconds} seconds.`}
-              sample={(client) => Device.sampleTopic(client, device, topic)}
-            />
-          )}
+        {lastPayload != null && read != null && read.format !== "json" && (
+          <LastPayload state={lastPayload} payload={read} topic={topic} />
+        )}
         {reads.length === 1 && (
           <MessageSections path={path} read={0} format={format} device={device} />
         )}
@@ -779,6 +806,26 @@ const Entries: FC<EntriesProps> = ({
     current == null ? undefined : entries.find(({ key }) => key === current.source);
   const entryFormat =
     entry != null && isPlain(entry) ? formats.get(entry.icd) : undefined;
+  // The topic and field panes of a topic that reads one message share one listen.
+  const single =
+    entry != null && isPlain(entry) && entry.messages.length === 1 ? entry : undefined;
+  const singleFormat = PForm.useFieldValue(
+    PICD.formPath.messages[single?.messages[0].message ?? ""].payload.format,
+    { optional: true, ctx: entryFormat },
+  );
+  const listened =
+    single != null &&
+    single.topic !== "" &&
+    singleFormat != null &&
+    singleFormat !== "json" &&
+    ICD.isTaskFormat(singleFormat);
+  const listenedTopic = listened ? single.topic : "";
+  const lastPayloadState = ICD.useLastPayload({
+    key: `${device.key}/${single?.key ?? ""}`,
+    source: listenedTopic,
+    sample: (client) => Device.sampleTopic(client, device, listenedTopic),
+  });
+  const lastPayload = listened ? lastPayloadState : undefined;
   let details = null;
   let title = null;
   let detailsPath: deep.Target<unknown> | null = null;
@@ -806,6 +853,7 @@ const Entries: FC<EntriesProps> = ({
         field={current.field}
         format={entryFormat}
         device={device}
+        lastPayload={lastPayload}
       />
     );
   } else if (entry != null && current?.kind === "message" && entryFormat != null) {
@@ -845,6 +893,7 @@ const Entries: FC<EntriesProps> = ({
           onFormatChange={(icdKey, message) => setMessage(entry.key, icdKey, message)}
           onFormatCreate={(format) => setNewMessage(entry.key, format)}
           bindDisabled={bindDisabled}
+          lastPayload={lastPayload}
         />
       );
   }
