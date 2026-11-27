@@ -115,10 +115,10 @@ decode_input(Decoder &dec, const std::string &doc, const std::string &c) {
 void check_error(const x::errors::Error &err, const std::string &expected) {
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     if (const auto syntax = expected.find(SYNTAX_PREFIX); syntax != std::string::npos) {
-        EXPECT_TRUE(err.data.starts_with(expected.substr(0, syntax))) << err.data;
+        EXPECT_TRUE(err.data().starts_with(expected.substr(0, syntax))) << err.data();
         return;
     }
-    EXPECT_EQ(err.data, error_data(expected));
+    EXPECT_EQ(err.data(), error_data(expected));
 }
 
 /// @brief checks the decode of one case of a fixture. A case with an error checks that
@@ -186,7 +186,7 @@ void check_codec(const std::string &doc) {
     auto [dec, err] = Decoder::create(messages);
     if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-        ASSERT_EQ(err.data, error_data(expected));
+        ASSERT_EQ(err.data(), error_data(expected));
         return;
     }
     ASSERT_NIL(err);
