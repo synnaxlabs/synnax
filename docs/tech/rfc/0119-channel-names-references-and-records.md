@@ -791,22 +791,24 @@ or without the flag.
   writer runs each scope's delete hook in its transaction first, and `channel/tree`'s
   hook for scope `channel` deletes the folder's tombstones (Folders, below), so every
   caller passes the group guard. Phase 17 builds the hook with the tombstones, in a new
-  `channel/tree` that holds only it until Phase 40 moves the folder edits there. The
-  channel delete route looks up its keys and paths and deletes in one transaction: one
-  apply over its keys, then one over the keys of its paths, in `main`'s order, so no
-  request changes `main`'s answer. `Declare`, inside `channel`, creates the built-ins
-  that a service makes at open, such as the task command channel or a signals channel.
-  It runs before the text holders open, so it reports the channels that it creates and
-  renames; before the API serves, `channel/tree` applies their heals and text passes
-  with the defaults. A migration that moves a channel onto a tombstone's path runs the
-  same heal, so a live channel and a tombstone never share a path. No migration of this
-  RFC meets one, since `core/v0.62.0` holds no tombstones. `Declare` renames a user
-  channel and creates the built-in as two actions, the rename first, so text that names
-  the user channel follows it. Before any compile and before the API serves, the
-  rename's text pass runs from the stored old path, with `update_text` for each of its
-  tokens whatever holds the path by then, and deletes the stored path. A crash before
-  the pass runs it at the next start. Every first free suffix in this RFC (`Declare`,
-  the Phase 7 migration, a displaced channel) skips tombstone paths.
+  `channel/tree` that holds only it until Phase 40 moves the folder edits there. Until
+  then an ungroup is the client's moves and one folder delete, so the hook deletes the
+  folder's tombstones, as a folder delete does. The channel delete route looks up its
+  keys and paths and deletes in one transaction: one apply over its keys, then one over
+  the keys of its paths, in `main`'s order, so no request changes `main`'s answer.
+  `Declare`, inside `channel`, creates the built-ins that a service makes at open, such
+  as the task command channel or a signals channel. It runs before the text holders
+  open, so it reports the channels that it creates and renames; before the API serves,
+  `channel/tree` applies their heals and text passes with the defaults. A migration that
+  moves a channel onto a tombstone's path runs the same heal, so a live channel and a
+  tombstone never share a path. No migration of this RFC meets one, since `core/v0.62.0`
+  holds no tombstones. `Declare` renames a user channel and creates the built-in as two
+  actions, the rename first, so text that names the user channel follows it. Before any
+  compile and before the API serves, the rename's text pass runs from the stored old
+  path, with `update_text` for each of its tokens whatever holds the path by then, and
+  deletes the stored path. A crash before the pass runs it at the next start. Every
+  first free suffix in this RFC (`Declare`, the Phase 7 migration, a displaced channel)
+  skips tombstone paths.
 - **Access**: The plan and apply routes refuse a request that names a record the caller
   cannot retrieve, before any plan, so an apply never acts on effects that the caller
   could not see. The refusal names the key that the caller sent. An entry for any other
@@ -987,6 +989,10 @@ switch, Phase 39 is documentation, Phases 40 and 41 split the impact service, an
   every other path write through `channel/tree`. It waits for SY-6990, the link
   framework, which decides how every write applies its effects (§4.11). Until then other
   callers keep the plain writers, as on `main`.
+- **Phase 17: Ungroup.** Until Phase 40, an ungroup deletes the folder's tombstones
+  (§4.11 Writers), so their display links keep the dead key, as on `main`, and a channel
+  made again at the parent path does not heal them. From Phase 40 the ungroup moves them
+  to the parent.
 - **Phase 22: Uses.** The inspector builds on the shared used-by list
   (`console/src/platform/settings/UsedBy.tsx`), which learns to group uses by direction,
   with no copy.
