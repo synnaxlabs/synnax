@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -254,23 +256,34 @@ public:
     /// @param variant Variant to set on the status.
     /// @param time When the status was set. A zero time or a time later than the
     /// Core's clock means now. A set older than the stored status does not replace it.
+    /// @param timeout how long the call waits for the Core, or std::nullopt for the
+    /// default of the transport.
     /// @returns A pair of the result (resolved key and multi-match flag) and an
     /// error where ok() is false if the status could not be set.
     [[nodiscard]] std::pair<SetByKeyOrNameResult, x::errors::Error> set_by_key_or_name(
         const std::string &key_or_name,
         const std::string &message,
         const std::string &variant,
-        const x::telem::TimeStamp time
+        const x::telem::TimeStamp time,
+        const std::optional<x::telem::TimeSpan> timeout = std::nullopt
     ) const {
         grpc::status::SetByKeyOrNameRequest req;
         req.set_key_or_name(key_or_name);
         req.set_message(message);
         req.set_variant(variant);
         req.set_time(time.nanoseconds());
-        auto [res, err] = this->set_by_key_or_name_client->send(
-            "/status/set_by_key_or_name",
-            req
-        );
+        const std::string target = "/status/set_by_key_or_name";
+        auto [res, err] = timeout.has_value()
+                            ? this->set_by_key_or_name_client->send_until(
+                                  target,
+                                  req,
+                                  std::chrono::time_point_cast<
+                                      std::chrono::system_clock::duration>(
+                                      std::chrono::system_clock::now() +
+                                      timeout->chrono()
+                                  )
+                              )
+                            : this->set_by_key_or_name_client->send(target, req);
         if (err) return {SetByKeyOrNameResult{}, err};
         return {
             SetByKeyOrNameResult{res.key(), res.multiple_matches()},

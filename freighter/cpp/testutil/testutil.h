@@ -9,7 +9,13 @@
 
 #pragma once
 
+#include <chrono>
+#include <mutex>
+#include <optional>
+#include <stdexcept>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "freighter/cpp/freighter.h"
 
@@ -34,14 +40,26 @@ public:
 
     void use(std::shared_ptr<Middleware> middleware) override { mw.use(middleware); }
 
+    /// @brief the deadline of each request, or std::nullopt for a request with none.
+    std::vector<std::optional<std::chrono::system_clock::time_point>> deadlines;
+
+    /// @returns a copy of requests, safe while another thread sends.
+    std::vector<RQ> sent() const {
+        std::lock_guard lock(this->requests_mu);
+        return this->requests;
+    }
+
     std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) override {
-        requests.push_back(request);
-        if (responses.empty())
-            throw std::runtime_error("mock unary client has no responses left!");
-        const auto ctx = Context("mock", x::url::URL(target), TransportVariant::STREAM);
-        auto [res, err] = mw.exec(ctx, this, request);
-        return {res, err};
+        return this->exec(target, request, std::nullopt);
+    }
+
+    std::pair<RS, x::errors::Error> send_until(
+        const std::string &target,
+        RQ &request,
+        const std::chrono::system_clock::time_point deadline
+    ) override {
+        return this->exec(target, request, deadline);
     }
 
     FinalizerReturn<RS> operator()(Context outboundContext, RQ &req) override {
@@ -54,5 +72,23 @@ public:
 
 private:
     MiddlewareCollector<RQ, RS> mw;
+    mutable std::mutex requests_mu;
+
+    std::pair<RS, x::errors::Error> exec(
+        const std::string &target,
+        RQ &request,
+        const std::optional<std::chrono::system_clock::time_point> deadline
+    ) {
+        {
+            std::lock_guard lock(this->requests_mu);
+            requests.push_back(request);
+        }
+        deadlines.push_back(deadline);
+        if (responses.empty())
+            throw std::runtime_error("mock unary client has no responses left!");
+        auto ctx = Context("mock", x::url::URL(target), TransportVariant::STREAM);
+        ctx.deadline = deadline;
+        return mw.exec(ctx, this, request);
+    }
 };
 }
