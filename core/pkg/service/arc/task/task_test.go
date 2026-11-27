@@ -3911,6 +3911,75 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 
+		It(
+			"Should report a sample out of range once a calculated channel that it "+
+				"reads changes type",
+			func(ctx SpecContext) {
+				input := createVirtualCh(ctx, "oor_input", telem.Float64T)
+				output := createVirtualCh(ctx, "oor_output", telem.Int8T)
+				calc := &channel.Channel{
+					Name:       "oor_calc_" + uuid.New().String()[:8],
+					Virtual:    true,
+					Expression: fmt.Sprintf("return i8(%s)", input.Name),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, calc)
+				})).To(Succeed())
+				Expect(calc.DataType).To(Equal(telem.Int8T))
+				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s", calc.Name, output.Name)}
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-out-of-range",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+				// The task compiled the channel as int8, and a channel change does not
+				// recompile it.
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := channelSvc.NewWriter(tx).Apply(
+						ctx,
+						calc.Key(),
+						channel.NewSetAction(channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: "return " + input.Name,
+						}),
+					)
+					return err
+				})).To(Succeed())
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{input.Key()},
+					Start: telem.Now(),
+				}))
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				Eventually(func(g Gomega) {
+					g.Expect(
+						w.Write(
+							frame.NewUnary(input.Key(), telem.NewSeriesV[float64](300)),
+						),
+					).To(BeTrue())
+					var stat task.Status
+					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+						Entry(&stat).Exec(ctx, db)).To(Succeed())
+					g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
+					g.Expect(stat.Message).To(Equal("Sample out of range"))
+					g.Expect(stat.Description).To(Equal(fmt.Sprintf(
+						"The on node could not read channel %s: value 300 (float64) "+
+							"does not fit int8. Change the channel's data type to "+
+							"one that holds the value, or delete that data.",
+						calc.Name,
+					)))
+					g.Expect(stat.Details.Running).To(BeTrue())
+				}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+			},
+		)
+
 		It("Should read config param channel value correctly", func(ctx SpecContext) {
 			inputCh := createVirtualCh(ctx, "cfg_read_input", telem.Uint8T)
 			maxCh := createVirtualCh(ctx, "cfg_read_max", telem.Float32T)
