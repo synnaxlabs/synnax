@@ -55,14 +55,14 @@ const PROPERTIES: View.Filter.Properties<ranger.Where> = {
 };
 
 const Inner = (): ReactElement => {
-  const [where, setWhere] = useState(View.useContext().getInitialView().where);
+  const [where, setWhere] = useState(View.useInitialView("range").where);
   const listProps = Flux.useList((client) => client.ranges, {
     name: "ranges",
     query: { where },
   });
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_RESOURCE_ID);
   return (
-    <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
+    <View.Form type="range" {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar properties={PROPERTIES}>
         {hasCreatePermission && (
           <Button.Button tooltip="Create range">

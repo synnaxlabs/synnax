@@ -1,0 +1,37 @@
+{
+  "description": "A value too large for a float32 channel fails.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 64,
+            "byte_order": "little_endian",
+            "kind": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float32"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "9c7500883ce4377e",
+      "error": "field v: 1e+300 overflows float32: validation error"
+    }
+  ]
+}

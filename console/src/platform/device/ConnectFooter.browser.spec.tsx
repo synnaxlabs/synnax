@@ -9,24 +9,32 @@
 
 import type { status } from "@synnaxlabs/client";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { findButton, pressEscape, renderModalOpener } from "@/platform/modals/testutil";
+import type { Rack } from "@/platform/rack";
 
 interface FooterParams {
   variant: status.Variant;
   onBack: () => void;
+  reason?: Rack.BlockedReason;
 }
 
-const Footer: Modals.Content<FooterParams, void> = ({ variant, onBack }) => (
+const Footer: Modals.Content<FooterParams, void> = ({
+  variant,
+  onBack,
+  reason,
+  close,
+}) => (
   <Modal.Frame>
     <Device.ConnectFooter
-      reason={null}
+      reason={reason ?? null}
       variant={variant}
       onConnect={() => {}}
+      onCancel={() => close()}
       onBack={onBack}
     />
   </Modal.Frame>
@@ -35,13 +43,30 @@ const Footer: Modals.Content<FooterParams, void> = ({ variant, onBack }) => (
 const useOpen = Modals.create(Footer);
 
 describe("ConnectFooter", () => {
-  it("should hold the dialog and Back while it connects", async () => {
+  it("should hold the dialog, Back, and Cancel while it connects", async () => {
     const onBack = vi.fn();
     await renderModalOpener(useOpen, [{ variant: "loading", onBack }]);
     fireEvent.click(findButton("Back"));
+    fireEvent.click(findButton("Cancel"));
     await pressEscape();
     expect(onBack).not.toHaveBeenCalled();
     expect(screen.queryByText("Back")).not.toBeNull();
+  });
+
+  it("should show what blocks Connect and what to do about it", async () => {
+    const reason = {
+      message: "Driver not running",
+      description: "Start the Driver on Node 1.",
+    };
+    await renderModalOpener(useOpen, [{ variant: "success", onBack: vi.fn(), reason }]);
+    expect(await screen.findByText("Driver not running")).toBeTruthy();
+    expect(screen.getByText("Start the Driver on Node 1.")).toBeTruthy();
+  });
+
+  it("should close the dialog on Cancel", async () => {
+    await renderModalOpener(useOpen, [{ variant: "success", onBack: vi.fn() }]);
+    fireEvent.click(findButton("Cancel"));
+    await waitFor(() => expect(screen.queryByText("Back")).toBeNull());
   });
 
   it("should let Escape close the dialog when idle", async () => {

@@ -113,10 +113,7 @@ func (d *delta[K, V]) set(key K, values []V) {
 
 // setOne stages value as the one value of key.
 func (d *delta[K, V]) setOne(key K, value V) {
-	if len(d.arena) == cap(d.arena) {
-		d.arena = make([]V, 0, max(arenaMin, 2*cap(d.arena)))
-	}
-	d.arena = append(d.arena, value)
+	d.arena = append(grow(d.arena), value)
 	n := len(d.arena)
 	d.set(key, d.arena[n-1:n:n])
 }
@@ -130,17 +127,20 @@ func (d *delta[K, V]) addHolder(value V, key K) {
 		d.forward[value] = h
 		return
 	}
-	if len(d.keys) == cap(d.keys) {
-		d.keys = make([]K, 0, max(arenaMin, 2*cap(d.keys)))
-	}
-	d.keys = append(d.keys, key)
+	d.keys = append(grow(d.keys), key)
 	n := len(d.keys)
 	h.few = d.keys[n-1 : n : n]
 	d.forward[value] = h
 }
 
-// arenaMin is the size of the first arena of a delta.
-const arenaMin = 8
+// grow returns s with room for one more element. A full s moves to a new array of twice
+// its size and leaves its elements in the old one, which the slices taken from it keep.
+func grow[T any](s []T) []T {
+	if len(s) < cap(s) {
+		return s
+	}
+	return make([]T, 0, max(1, 2*cap(s)))
+}
 
 func (d *delta[K, V]) delete(key K) {
 	d.unstage(key)

@@ -12,6 +12,7 @@ package group
 import (
 	"context"
 	"io"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -208,13 +209,19 @@ func (s *Service) Ancestors(
 }
 
 // Children returns the ID of every record and group that sits in the group with key, as
-// seen by snap.
+// seen by snap. It lists only records of a resource type.
 func (s *Service) Children(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key Key,
 ) ([]resource.ID, error) {
-	return resource.Dependents(ctx, snap, s.table, key)
+	ids, err := resource.Dependents(ctx, snap, s.table, key)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(ids, func(id resource.ID) bool {
+		return !id.Type.IsValid()
+	}), nil
 }
 
 func (s *Service) Close() error {

@@ -93,10 +93,11 @@ export interface MessagePlan {
 /**
  * Plans the channel of each field that a message reads: the one it has, the one stored
  * for its pointer, or a new one of the binding's data type. A channel that is gone or
- * no longer suits its field is replaced, and leaves the stored channels. Reads from the
- * Core, and changes neither bound nor props.
+ * no longer suits its field is replaced, and leaves the stored channels. Changes
+ * neither bound nor props.
  *
- * @param namer - Names the new channels of every source that the task plans.
+ * @param planner - Reads for every source that the task plans, and names their new
+ * channels.
  * @param prefix - The prefix of the names of the channels it creates.
  * @param props - What the device stores for the message.
  * @param written - The channels that bindings write. When another message writes one,
@@ -107,15 +108,14 @@ export interface MessagePlan {
  * names a channel the same, a new channel takes the kind of its message, such as
  * `plant_pump_code_ts`.
  */
-export const planMessage = async (
-  client: Synnax,
-  namer: Task.Namer,
+export const planMessage = (
+  planner: Task.Planner,
   { source, read: r, message, fields }: BoundMessage<ReadSource>,
   prefix: string,
   props?: Task.ReadChannelProps,
   written: ReadonlySet<channel.Key> = new Set(),
   reads: readonly BoundMessage<ReadSource>[] = [],
-): Promise<MessagePlan> => {
+): MessagePlan => {
   const read = source.messages[r];
   const index = fields.find(({ key }) => key === read.index)?.key;
   const clashes = new Set(
@@ -136,12 +136,12 @@ export const planMessage = async (
     };
   const own = new Set(read.bindings.map(({ channel }) => channel));
   const elsewhere = [...written].filter((key) => !own.has(key));
-  const bound =
-    elsewhere.length === 0
-      ? []
-      : await client.channels.retrieve(
-          [...elsewhere, ...own].filter(primitive.isNonZero),
-        );
+  const retrieve = (keys: channel.Key[]): channel.Channel[] =>
+    keys.map((key) => planner.retrieve(key)).filter((ch) => ch != null);
+  const bound = elsewhere.length === 0 ? [] : retrieve([...elsewhere, ...own]);
+  const live = new Map(
+    retrieve([...own, ...Object.values(held)]).map((ch) => [ch.key, ch]),
+  );
   const indexOf = (ch: channel.Channel): channel.Key =>
     ch.isIndex ? ch.key : ch.index;
   const ownIndexes = new Set(
@@ -171,12 +171,6 @@ export const planMessage = async (
   }
   const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
   const storedKeys = fields.map(({ pointer }) => held[pointer] ?? 0);
-  const live = new Map(
-    (await client.channels.retrieve([...reused, ...Object.values(held)])).map((ch) => [
-      ch.key,
-      ch,
-    ]),
-  );
   const onTaken = (ch: channel.Channel): boolean =>
     taken.has(ch.key) || taken.has(ch.index);
   for (const [pointer, key] of Object.entries(held)) {
@@ -224,9 +218,8 @@ export const planMessage = async (
       binding: { ...binding, dataType },
     };
   });
-  const channels = await Task.planReadChannels({
-    client,
-    namer,
+  const channels = Task.planReadChannels({
+    planner,
     props: props == null ? undefined : { index: storedIndex, channels: held },
     fields: planned,
     namePrefix: prefixOf(Task.ARRIVAL_NAME),

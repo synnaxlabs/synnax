@@ -14,6 +14,7 @@ package server
 import (
 	"context"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -79,6 +80,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Server, t channel.Key) []string {
+				for i4, v5 := range e.Reads {
+					if v5.Index == t {
+						return []string{"reads", strconv.Itoa(i4), "index"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Server, t channel.Key) {
 				e.Reads = slices.DeleteFunc(e.Reads, func(v2 Read) bool {
 					if v2.Index == t {
@@ -111,6 +120,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Server, t channel.Key) []string {
+				for i4, v5 := range e.Reads {
+					if v5.Channel == t {
+						return []string{"reads", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Server, t channel.Key) {
 				e.Reads = slices.DeleteFunc(e.Reads, func(v2 Read) bool {
 					if v2.Channel == t {
@@ -142,6 +159,14 @@ func newIndexes() indexes {
 					targets = append(targets, v1.Channel)
 				}
 				return targets
+			},
+			Locate: func(e *Server, t channel.Key) []string {
+				for i4, v5 := range e.Writes {
+					if v5.Channel == t {
+						return []string{"writes", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Server, t channel.Key) {
 				e.Writes = slices.DeleteFunc(e.Writes, func(v2 Write) bool {

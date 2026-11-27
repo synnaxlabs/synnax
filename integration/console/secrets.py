@@ -117,12 +117,12 @@ class SecretClient(_Page):
         item = self._get_item(name)
         self.ctx_menu.action(item, "Used by")
         popover = self._used_by_popover()
-        names = popover.locator("button")
+        entries = popover.locator("button")
         # The list loads after the popover opens, and says so when it is empty.
-        names.first.or_(popover.get_by_text("Nothing uses this secret.")).wait_for(
+        entries.first.or_(popover.get_by_text("Nothing uses this secret.")).wait_for(
             state="visible", timeout=5000
         )
-        return [n.strip() for n in names.all_inner_texts()]
+        return [self._used_by_name(entry) for entry in entries.all()]
 
     def open_used_by(self, *, secret: str, resource: str) -> None:
         """Click a resource in the popover that lists the uses of a secret."""
@@ -130,8 +130,17 @@ class SecretClient(_Page):
             raise ValueError(f"'{resource}' does not use secret '{secret}'")
         self._used_by_popover().get_by_text(resource, exact=True).click()
 
+    @staticmethod
+    def _used_by_name(entry: Locator) -> str:
+        """Return the name of a use, which its entry shows before its type."""
+        text = entry.inner_text().strip()
+        kind = entry.locator(".console-used-by__type")
+        if kind.count() == 0:
+            return text
+        return text.removesuffix(kind.inner_text().strip()).strip()
+
     def _used_by_popover(self) -> Locator:
-        return self.page.locator(".console-collection-used-by__popover")
+        return self.page.locator(".console-used-by__popover")
 
 
 class CertificateClient(_Page):

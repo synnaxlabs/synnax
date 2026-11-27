@@ -215,7 +215,6 @@ func buildData(
 		fp: &tstypes.FieldProcessor{
 			Imports:    data.Manager,
 			Namespace:  where.Namespace,
-			FilePath:   where.FilePath,
 			OutputPath: outputPath,
 			Request:    req,
 		},

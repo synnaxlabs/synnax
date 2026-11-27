@@ -1,0 +1,97 @@
+{
+  "description": "A line belongs to the message with the longest prefix that starts it, or else to the message with no prefix.",
+  "messages": [
+    {
+      "name": "any",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 1
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "gp",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "$GP",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 1
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "gga",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "$GPGGA",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 1
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "$GPGGA,1",
+      "message": "gga",
+      "samples": [1]
+    },
+    {
+      "text": "$GPRMC,2",
+      "message": "gp",
+      "samples": [2]
+    },
+    {
+      "text": "$HC,3",
+      "message": "any",
+      "samples": [3]
+    }
+  ]
+}

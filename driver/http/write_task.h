@@ -17,6 +17,7 @@
 #include "client/cpp/http/types.gen.h"
 
 #include "driver/common/write_task.h"
+#include "driver/http/device/device.h"
 #include "driver/http/http.h"
 #include "driver/http/processor/processor.h"
 #include "driver/http/types/types.h"
@@ -89,5 +90,18 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
 build_writers(
     const synnax::Synnax &client,
     const std::vector<::synnax::http::WriteEndpoint> &endpoints
+);
+
+/// @brief builds the request of each enabled write endpoint. A request carries the
+/// content type of the message format of its writer.
+/// @param conn the resolved device connection.
+/// @param endpoints the endpoints to build requests for.
+/// @param writers the writer of each enabled endpoint, in order, as build_writers
+/// returns them.
+/// @returns one request per enabled endpoint, in order.
+[[nodiscard]] std::vector<Request> build_requests(
+    const device::ConnectionConfig &conn,
+    const std::vector<::synnax::http::WriteEndpoint> &endpoints,
+    const std::vector<driver::icd::Writer> &writers
 );
 }
