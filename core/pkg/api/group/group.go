@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/tree"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -29,6 +30,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
+	// Tree deletes channel folders.
+	//
+	// [REQUIRED]
+	Tree *tree.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -36,6 +41,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Tree = override.Nil(c.Tree, other.Tree)
 	return c
 }
 
@@ -43,11 +49,13 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.group")
 	v.NotNil("group", c.Group)
+	v.NotNil("tree", c.Tree)
 	return v.Error()
 }
 
 type Service struct {
 	internal *group.Service
+	tree     *tree.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -57,6 +65,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Group,
+		tree:     cfg.Tree,
 	}, nil
 }
 
@@ -171,12 +180,32 @@ type DeleteRequest struct {
 	Keys []group.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the groups with the given keys. It returns a validation error when a
-// group holds a member or a group that the request does not name.
+// Delete deletes the groups with the given keys, the channel folders through the
+// channel tree. It returns a validation error when a group holds a member or a group
+// that the request does not name.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
+	var groups []group.Group
+	if err := s.internal.NewRetrieve().
+		Where(group.MatchKeys(req.Keys...)).
+		SkipMissingKeys().
+		Entries(&groups).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	var folders, others []group.Key
+	for _, g := range groups {
+		if g.Scope == resource.TypeChannel {
+			folders = append(folders, g.Key)
+		} else {
+			others = append(others, g.Key)
+		}
+	}
+	if err := s.tree.DeleteFolders(ctx, tx, folders...); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, others...)
 }

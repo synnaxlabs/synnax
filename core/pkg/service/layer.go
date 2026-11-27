@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/tree"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -233,6 +234,8 @@ func (c LayerConfig) Validate() error {
 type Layer struct {
 	// Group is for grouping related resources.
 	Group *group.Service
+	// Tree applies edits to the channel tree.
+	Tree *tree.Service
 	// User is the service for registering and retrieving information about users.
 	User *user.Service
 	// RBAC implements role-based access control for users.
@@ -450,6 +453,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			return nil
 		},
 	}); !ok(err, l.Group) {
+		return nil, err
+	}
+	if l.Tree, err = tree.OpenService(
+		tree.ServiceConfig{Group: l.Group},
+	); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Node, err = node.NewService(node.ServiceConfig{

@@ -65,6 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apigroup.NewService(apigroup.ServiceConfig{
 		Group: svc.Group,
+		Tree:  svc.Tree,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
 		DB:   db,

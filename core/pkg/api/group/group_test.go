@@ -208,6 +208,21 @@ var _ = Describe("Group", func() {
 				Expect(exists(ctx, nested.Key)).To(BeTrue())
 			},
 		)
+
+		It(
+			"Should delete a channel folder and a folder of another scope together",
+			func(ctx SpecContext) {
+				channels := newGroup(ctx, resource.TypeChannel, nil)
+				schematics := newGroup(ctx, resource.TypeSchematic, nil)
+				u := newUser(
+					ctx,
+					grant(remove, channels.ResourceID(), schematics.ResourceID()),
+				)
+				MustSucceed(deleteAs(ctx, u, channels.Key, schematics.Key))
+				Expect(exists(ctx, channels.Key)).To(BeFalse())
+				Expect(exists(ctx, schematics.Key)).To(BeFalse())
+			},
+		)
 	})
 
 	Describe("Dispatch rename", func() {
