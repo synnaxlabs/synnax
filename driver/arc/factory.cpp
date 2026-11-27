@@ -16,29 +16,9 @@
 namespace driver::arc {
 Factory::Factory(
     std::shared_ptr<x::thread::rt::Manager> rt_manager,
-    const std::filesystem::path &keys_path,
-    const std::string &cluster,
-    const std::size_t max_keys,
-    x::fs::OnCreate on_create
+    std::pair<std::shared_ptr<status::Keys>, x::errors::Error> keys
 ):
-    rt_manager(std::move(rt_manager)) {
-    auto [keys, err] = status::Keys::open(
-        keys_path,
-        cluster,
-        max_keys,
-        std::move(on_create)
-    );
-    if (err) {
-        err = x::errors::Error(
-            err,
-            "The Driver cannot load the status keys in " + keys_path.string() + ": " +
-                err.data + ". Move " + keys_path.string() +
-                " aside, then restart the Driver."
-        );
-        LOG(ERROR) << "[arc] " << err.data;
-    }
-    this->keys = {std::move(keys), err};
-}
+    rt_manager(std::move(rt_manager)), keys(std::move(keys)) {}
 
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,

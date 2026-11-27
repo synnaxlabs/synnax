@@ -43,15 +43,11 @@ class Factory final : public task::Factory {
     );
 
 public:
-    /// @brief loads the status keys at keys_path that the Core cluster with the key
-    /// cluster gave, which hold at most max_keys names. on_create gets each file a
-    /// save of the keys creates.
+    /// @param keys the keys of resolved status sets, or the error that kept them from
+    /// loading, whose data tells the user what to do.
     Factory(
         std::shared_ptr<x::thread::rt::Manager> rt_manager,
-        const std::filesystem::path &keys_path,
-        const std::string &cluster,
-        std::size_t max_keys,
-        x::fs::OnCreate on_create = x::fs::no_create_hook
+        std::pair<std::shared_ptr<status::Keys>, x::errors::Error> keys
     );
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(

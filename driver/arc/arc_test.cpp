@@ -2205,7 +2205,9 @@ TEST(ArcNoOutbox, FactoryReportsDamagedKeys) {
         client,
         outbox::testutil::open(client->statuses)
     );
-    Factory factory(nullptr, keys_path, "cluster", status::DEFAULT_MAX_KEYS);
+    auto keys_err = status::Keys::open(keys_path, "cluster").second;
+    ASSERT_OCCURRED_AS(keys_err, journal::CORRUPT);
+    Factory factory(nullptr, {nullptr, status::keys_failure(keys_path, keys_err)});
     x::breaker::Breaker cancel;
     const auto [tsk, handled] = factory.configure_task(
         ctx,
@@ -4433,9 +4435,7 @@ TEST(ArcFactory, BootConfigureErrorWritesStatus) {
     );
     synnax::task::Task task{.name = "arc_missing", .type = TASK_TYPE};
     task.config = nlohmann::json{{"arc_key", x::uuid::create().to_string()}};
-    const auto keys_path = std::filesystem::temp_directory_path() /
-                           ("status_keys_" + x::uuid::create().to_string());
-    Factory factory(nullptr, keys_path, "cluster", status::DEFAULT_MAX_KEYS);
+    Factory factory(nullptr, test_keys());
     x::breaker::Breaker cancel;
     auto [tsk, handled] = factory.configure_task(ctx, task, task::NO_COMMAND, cancel);
     EXPECT_TRUE(handled);

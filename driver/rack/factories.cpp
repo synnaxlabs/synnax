@@ -138,13 +138,7 @@ void configure_arc(
         factories,
         arc::INTEGRATION_NAME,
         [&config, &rt_manager]() {
-            return std::make_unique<arc::Factory>(
-                rt_manager,
-                config.state_dir / DATA_DIR / arc::status::KEYS_FILE,
-                config.remote_info.cluster_key.to_string(),
-                config.status_keys,
-                config.on_create
-            );
+            return std::make_unique<arc::Factory>(rt_manager, config.status_keys_store);
         }
     );
 }

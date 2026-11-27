@@ -178,9 +178,9 @@ struct Config {
     x::errors::Error outbox_err;
     /// @brief the warning of a stuck outbox, which the rack status reports.
     std::shared_ptr<status::Alert> outbox_alert = std::make_shared<status::Alert>();
-    /// @brief called with each file that the Driver creates in the data directory, such
-    /// as to give it to the owner of that directory. Set by Rack::run.
-    x::fs::OnCreate on_create = x::fs::no_create_hook;
+    /// @brief the keys of resolved Arc status sets, or the error that kept them from
+    /// loading. Set by Rack::run, which opens them only once it holds the outbox lock.
+    std::pair<std::shared_ptr<arc::status::Keys>, x::errors::Error> status_keys_store;
 
     /// @brief returns a new task factory to use for creating tasks in the task manager.
     /// Give it the same client as the task manager. With an incompatible Core, the

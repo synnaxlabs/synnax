@@ -53,6 +53,15 @@ x::errors::Error fs_error(const std::string &action, const std::error_code &ec) 
 }
 }
 
+x::errors::Error
+keys_failure(const std::filesystem::path &path, const x::errors::Error &err) {
+    return {
+        err,
+        "The Driver cannot load the status keys in " + path.string() + ": " + err.data +
+            ". Move " + path.string() + " aside, then restart the Driver."
+    };
+}
+
 Keys::Keys(
     std::filesystem::path path,
     std::string cluster,

@@ -37,6 +37,11 @@ constexpr std::size_t DEFAULT_MAX_KEYS = 1024;
 /// @brief the file in the data directory that holds the status keys.
 const std::string KEYS_FILE = "status_keys";
 
+/// @returns the error that tells the user why the keys at path did not load and what to
+/// do. It matches err.
+x::errors::Error
+keys_failure(const std::filesystem::path &path, const x::errors::Error &err);
+
 /// @brief the keys that the Core gave to status names, kept in a file across
 /// restarts. Holds the max most recently used names. Safe for concurrent use.
 class Keys {

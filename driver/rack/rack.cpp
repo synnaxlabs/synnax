@@ -145,13 +145,28 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             };
         auto [hook, hook_err] = state::owner_hook(data);
         if (hook_err) return {nullptr, hook_err};
-        cfg.on_create = hook;
         outbox_cfg.on_create = std::move(hook);
         return outbox::Outbox::open(outbox_cfg);
     }();
     if (outbox_err) {
         cfg.outbox_err = outbox_failure(outbox_cfg.dir, outbox_err);
         LOG(ERROR) << OUTBOX_FAILURE_MSG << ". " << cfg.outbox_err.data;
+        // Another Driver can hold the outbox, so the keys file next to it stays as it
+        // is.
+        cfg.status_keys_store = {nullptr, cfg.outbox_err};
+    } else {
+        const auto path = data / arc::status::KEYS_FILE;
+        auto [keys, keys_err] = arc::status::Keys::open(
+            path,
+            cfg.remote_info.cluster_key.to_string(),
+            cfg.status_keys,
+            outbox_cfg.on_create
+        );
+        if (keys_err) {
+            keys_err = arc::status::keys_failure(path, keys_err);
+            LOG(ERROR) << "[rack] " << keys_err.data;
+        }
+        cfg.status_keys_store = {std::move(keys), keys_err};
     }
     {
         std::lock_guard lock{this->mu};
