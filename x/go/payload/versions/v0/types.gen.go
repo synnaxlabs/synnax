@@ -224,11 +224,11 @@ type EnumEntry struct {
 type JSONType string
 
 const (
-	// JSONTypeNumber writes the value as a JSON number.
+	// JSONTypeNumber is a JSON number.
 	JSONTypeNumber JSONType = "number"
-	// JSONTypeString writes the value as a JSON string.
+	// JSONTypeString is a JSON string.
 	JSONTypeString JSONType = "string"
-	// JSONTypeBoolean writes the value as a JSON boolean.
+	// JSONTypeBoolean is a JSON boolean.
 	JSONTypeBoolean JSONType = "boolean"
 )
 

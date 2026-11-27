@@ -521,6 +521,10 @@ jobs:
       repository: ghcr.io/synnaxlabs/synnax
       unused_by_forks: true
       prebuilt: true
+      # The binary build sits on the merge-queue critical path. The larger runner is
+      # billed, so pull requests keep the free one.
+      runner:
+        ${{ github.event_name == 'merge_group' && 'ubuntu-8-core' || 'ubuntu-latest' }}
 
   # Fails a pull request that adds a runtime or development dependency with a high or
   # critical advisory. A merge group has no diff to review, so the job skips it. The
@@ -570,6 +574,7 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
+          cache-save-if: ${{ github.ref == 'refs/heads/main' }}
           components: llvm-tools-preview
           rust-src-dir: console/src-tauri
 

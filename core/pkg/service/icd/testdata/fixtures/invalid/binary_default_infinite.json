@@ -1,5 +1,6 @@
 {
   "description": "A binary float field has an infinite default.",
+  "codec_rejects": false,
   "problems": [
     {
       "path": "messages.0.payload.fields.0.default",

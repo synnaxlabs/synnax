@@ -62,7 +62,6 @@ const Label = ({ type, kind, identity }: LabelProps) => {
         kind={kind}
         kindColor={color}
         color={identity === "" ? 8 : 10}
-        variant="code"
       >
         {identity === "" ? placeholder : identity}
       </Task.Views.ItemLabel>

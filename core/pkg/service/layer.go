@@ -1243,6 +1243,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.HTTP.ICDMigration(taskNames(l.Task)),
 			l.HTTP.WriteICDMigration(taskNames(l.Task)),
 			l.MQTT.ICDMigration(taskNames(l.Task)),
+			l.Channel.UntypedDeleteMigration(),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
 		),

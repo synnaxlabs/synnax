@@ -24,7 +24,7 @@ namespace driver::ni {
 std::string trim_resource_name(const std::string &raw);
 
 /// @brief finds the DAQmx name of the present device with the given resource name.
-/// DAQmx calls take the device's NI-MAX alias, which a user can rename at any time,
+/// DAQmx calls take the device's NI MAX alias, which a user can rename at any time,
 /// so a task looks it up when it starts.
 /// @param syscfg the NI System Configuration library.
 /// @param resource_name the resource name of the device, as the Driver stores it.

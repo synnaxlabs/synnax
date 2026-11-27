@@ -10,6 +10,7 @@
 import { device, type task, TimeStamp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -255,7 +256,7 @@ describe("Device.useFindModal", () => {
     });
     await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
     await screen.findByText(dev.name);
-    expect(screen.getByText("en5.Slot 3 given")).toBeTruthy();
+    expect(treatment(screen.getByText("en5.Slot 3 given"))).toBe("prose");
   });
 
   it("should say the integration is off when a running Driver does not have it", async () => {

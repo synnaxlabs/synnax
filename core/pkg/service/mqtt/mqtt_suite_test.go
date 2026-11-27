@@ -383,6 +383,18 @@ type brokerOptions struct {
 	port    int
 }
 
+// startSilentServer starts a TCP server on a free port that never answers, and returns
+// the port. The kernel completes connections in its backlog, so a dial succeeds and a
+// TLS handshake or an MQTT connect then waits. It stops at the end of the spec.
+func startSilentServer() int {
+	GinkgoHelper()
+	l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
+	DeferCleanup(l.Close)
+	addr, ok := l.Addr().(*net.TCPAddr)
+	Expect(ok).To(BeTrue())
+	return addr.Port
+}
+
 // startBroker starts an open broker on port, or on a free port when port is zero. It
 // stops the broker at the end of the spec.
 func startBroker(port int) *testBroker {
