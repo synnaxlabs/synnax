@@ -578,6 +578,22 @@ class TestRangeClient:
                 ]
             )
 
+        def test_time(
+            self,
+            client: sy.Synnax,
+            rng: sy.Range,
+            indexed_pair: tuple[sy.Channel, sy.Channel],
+        ) -> None:
+            """Should give the time of a channel's samples in the range"""
+            idx, data = indexed_pair
+            start = rng.time_range.start
+            stamps = [start, start + sy.TimeSpan.SECOND]
+            with client.open_writer(start, [idx.key, data.key]) as w:
+                w.write({idx.key: stamps, data.key: [1.0, 2.0]})
+                w.commit()
+            assert list(rng[data.key].time) == stamps
+            assert list(rng[data.key]) == [1.0, 2.0]
+
         def test_access_by_key(
             self, rng: sy.Range, two_channels: list[sy.Channel]
         ) -> None:
