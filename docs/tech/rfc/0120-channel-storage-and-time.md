@@ -1163,13 +1163,16 @@ to 45), and the removals (Phases 46 to 50). Phases 51 to 54 follow. Phase 55, th
 back of running operations to their last reset, may land any time after Phase 21, and
 Phase 56, the C++ join of rack calculations, any time after Phase 41. Each phase is one
 PR of up to about 2,000 hand-written lines, specs and generated code not counted. Phase
-8 is the exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases
-41 and 50 land as two PRs each: 41 pairs Arc reads by clock, then groups the outputs; 50
-retires the records and registers the steps on channel v2, then mints v3 and drops the
-fields. Phases 46 to 49 remove every client use of `is_index` and `index`, and Phase 50
-removes the fields from the generated payloads with `schemas/synnax/channel.oracle`, so
-its regeneration breaks no user outside its touches. A phase that grows past the limit
-splits along its touches before it opens, each part green alone.
+8 is an exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases
+41 and 50 are the others: each is one PR, past the target if it must be, since D-519 (2)
+gives each phase one PR and a split would leave a release between the parts. Phase 50
+first detaches each data channel's index on channel v2, whose `index` reference is
+`Restrict` (`core/pkg/service/channel/index.go:16-29`), then retires the records and
+registers the steps, then mints v3 and drops the fields. Phases 46 to 49 remove every
+client use of `is_index` and `index`, and Phase 50 removes the fields from the generated
+payloads with `schemas/synnax/channel.oracle`, so its regeneration breaks no user
+outside its touches. A phase that grows past the limit splits along its touches before
+it opens, each part green alone.
 
 - **Shared storage fixes**: Today on the pointer log, every writer open seals its
   segments, a `client.write` loop steps the alignment counter at each call, and a
