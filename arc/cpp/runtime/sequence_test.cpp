@@ -4767,4 +4767,85 @@ TEST(StageEntrySamplesTest, EmitsOnlyTheSamplesTakenAtOrAfterEntry) {
         (std::vector<float>{3.0f, 4.0f})
     );
 }
+
+// `=> next` in the last stage of a sequence completes the sequence, the same way a last
+// flow step does.
+namespace next_completion {
+Sequence new_h(const std::string &source) {
+    return Sequence(
+        source,
+        {{"start_cmd", x::telem::UINT8_T},
+         {"done_cmd", x::telem::UINT8_T},
+         {"log", x::telem::STRING_T}}
+    );
+}
+}
+
+/// @brief it should exit a top-level sequence and start it again on a new trigger.
+TEST(NextCompletionTest, ExitsATopLevelSequenceAndStartsItAgain) {
+    auto h = next_completion::new_h(R"(
+    sequence main {
+        stage only {
+            "ran" -> %log%
+            %done_cmd% == 1 => next
+        }
+    }
+    %start_cmd% => main)");
+    h.trigger("start_cmd");
+    EXPECT_EQ(count_of(h.flush(), h.key("log"), "ran"), 1);
+    h.trigger("start_cmd");
+    EXPECT_EQ(count_of(h.flush(), h.key("log"), "ran"), 0);
+    h.trigger("done_cmd");
+    h.trigger("start_cmd");
+    EXPECT_EQ(count_of(h.flush(), h.key("log"), "ran"), 1);
+}
+
+/// @brief it should advance the parent when the last stage of a nested sequence ends
+/// it.
+TEST(NextCompletionTest, AdvancesTheParentOfANestedSequence) {
+    auto h = next_completion::new_h(R"(
+    sequence main {
+        sequence inner {
+            stage only {
+                "inner" -> %log%
+                %done_cmd% == 1 => next
+            }
+        }
+        "after" -> %log%
+    }
+    %start_cmd% => main)");
+    h.trigger("start_cmd");
+    EXPECT_EQ(
+        collect<std::string>(h.flush(), h.key("log")),
+        (std::vector<std::string>{"inner"})
+    );
+    h.trigger("done_cmd");
+    EXPECT_EQ(
+        collect<std::string>(h.flush(), h.key("log")),
+        (std::vector<std::string>{"after"})
+    );
+}
+
+/// @brief it should flush the writes of the last stage in the cycle it ends.
+TEST(NextCompletionTest, FlushesTheWritesOfTheLastStage) {
+    auto h = Sequence(
+        R"(
+    sequence main {
+        stage only {
+            %src% -> %dst%
+            %src% > 5 => next
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"src", x::telem::FLOAT32_T},
+         {"dst", x::telem::FLOAT32_T}}
+    );
+    h.trigger("start_cmd");
+    h.flush();
+    h.push("src", x::telem::Series(10.0f));
+    EXPECT_EQ(last<float>(h.flush(), h.key("dst")), 10.0f);
+    h.push("src", x::telem::Series(20.0f));
+    EXPECT_TRUE(collect<float>(h.flush(), h.key("dst")).empty());
+}
 }

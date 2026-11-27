@@ -717,6 +717,121 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
+	// `=> next` in the last stage of a sequence completes the sequence, the same way
+	// a last flow step does.
+	Describe("Completion through next in the last stage", func() {
+		It(
+			"Should exit a top-level sequence and start it again on a new trigger",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"log":       {types.String(), 101},
+					"done_cmd":  {types.U8(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    stage only {
+				        "ran" -> log
+				        done_cmd == 1 => next
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(countOf(out, 101, "ran")).To(Equal(1))
+
+				trigger(h, ctx, 100)
+				out, _ = h.Flush()
+				Expect(countOf(out, 101, "ran")).To(Equal(0),
+					"a running sequence must not restart on a new trigger")
+
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 100)
+				out, _ = h.Flush()
+				Expect(countOf(out, 101, "ran")).To(Equal(1),
+					"a completed sequence must accept a new trigger")
+			},
+		)
+
+		It(
+			"Should advance the parent when the last stage of a nested sequence ends it",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"log":       {types.String(), 101},
+					"done_cmd":  {types.U8(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    sequence inner {
+				        stage only {
+				            "inner" -> log
+				            done_cmd == 1 => next
+				        }
+				    }
+				    "after" -> log
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.StringT},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"inner"}))
+
+				trigger(h, ctx, 102)
+				out, _ = h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"after"}))
+			},
+		)
+
+		It(
+			"Should flush the writes of the last stage in the cycle it ends",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"src":       {types.F32(), 101},
+					"dst":       {types.F32(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    stage only {
+				        src -> dst
+				        src > 5 => next
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Float32T},
+					channels.Digest{Key: 102, DataType: telem.Float32T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				h.Flush()
+				h.Ingest(101, telem.NewSeriesV[float32](10))
+				advance(h, ctx, 10*telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(lastF32(out, 102)).To(Equal(float32(10)))
+
+				h.Ingest(101, telem.NewSeriesV[float32](20))
+				advance(h, ctx, 20*telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(out.Get(102).Series).To(BeEmpty(),
+					"the sequence must have ended in the cycle of the write")
+			},
+		)
+	})
+
 	// A reassignment takes effect when its stage runs, even reached out of source
 	// order or after a skipped stage; guards against the old source-order chain.
 	Describe("Reactive re-expression", func() {
