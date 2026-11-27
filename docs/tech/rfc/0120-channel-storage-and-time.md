@@ -115,10 +115,13 @@ writer opens. No channel record, task config, or client library keeps it.
 - **End of a clock**: A clock lives while a kept segment of a key names it. When a
   channel delete removes the last such key and no session holds the clock, the same log
   entry holds the clock's Intent (RFC 0121 §4.1). A range delete that leaves no live
-  pointer on a clock in its range adds the clock's Tombstone over that range. When it
-  leaves no segment of another key on the clock, the next start ends the clock (RFC 0121
-  §4.1). `Keys` marks each clock, and the Core counts a clock as accounted for. The Core
-  never deletes a key on the absence of its record (D-469); a clock never has one.
+  pointer on a clock in its range adds the clock's Tombstone over that range. A leased
+  clock stores stamps only beside data that names it, so that Tombstone takes the last
+  of them. A retired index clock can hold stamps outside all its data; when a range
+  delete leaves it with no user, the next start ends it by its retired entry, never by a
+  key range, since channels and clocks share one counter from Phase 50 (RFC 0121 §4.1).
+  `Keys` marks each clock, and the Core counts a clock as accounted for. The Core never
+  deletes a key on the absence of its record (D-469); a clock never has one.
 - **Key ranges**: A channel's local key stays below 2^20 until Phase 50
   (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
   hold a larger one. From Phase 24, clock keys come from their own counter below
@@ -1008,8 +1011,8 @@ The migration changes metadata only and runs at the first start, before any writ
 3. **Start check**: After the migrations and that delete, a clock that has a Core record
    must never take a write. The Core starts with an error status that names the channel,
    the framer refuses writes to that channel, and continuation never picks its key: the
-   Core passes these keys to Cesium at open (RFC 0121 §5.8) (D-518, D-425 (3)). It is
-   the one check that Gorp and Cesium agree.
+   Core names these keys to Cesium after this check and before any writer opens (RFC
+   0121 §5.8) (D-518, D-425 (3)). It is the one check that Gorp and Cesium agree.
 4. **Holders**: Every holder of an index key migrates in its own chain or composition
    step, at its own phase or at the upgrade that retires the records:
 
@@ -1017,7 +1020,7 @@ The migration changes metadata only and runs at the first start, before any writ
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | NI, LabJack, and OPC UA server devices                                                                            | A new schema version drops the index fields (§4.9)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | EtherCAT and OPC UA client devices, the `core/v0.62.0` LabJack, HTTP, Modbus, and MQTT devices, and Kafka devices | A composition step drops the index keys from untyped JSON, by shape and not by release, as `l.Kafka.ICDMigration` does (`core/pkg/service/layer.go:1239`). A Kafka device's `read` sources hold `index` (`console/src/feature/kafka/device/types.ts:27`, `console/src/platform/task/channels.ts:58-61`), so a stable release before Phase 50 ships them. The fields per make: OPC UA `read.index`, `read.indexes`, and each `read.channels` and `read.fields` entry whose key the retired index table holds, found by value since the Console writes the index key there too (`console/src/feature/opcua/task/Read.tsx:170-191`), EtherCAT `readIndex` and `writeStateIndex`, LabJack `readIndex`, `thermocoupleIndex`, and `writeStateIndex`, Modbus `read.index`, HTTP `readIndexes` of the v0 shape (`console/src/feature/http/device/types.ts:200`), and HTTP, MQTT, and Kafka `read[source].index`. An EtherCAT PDO `index` is a hardware address and stays                                                                                                    |
-| HTTP, Kafka, MQTT, and ICD messages                                                                               | Phase 37 renames the index field to the time field in a new ICD schema version, with each schema and service that embeds `icd.ReadMessage` (HTTP, Kafka, MQTT, UDP, TCP, and serial), and that step registers at once, since its readers move with it. The channel binding of the time field drops at Phase 50 in a new ICD schema version, so an imported `core/v0.62.0` HTTP, Kafka, or MQTT task migrates too                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| HTTP, Kafka, MQTT, and ICD messages                                                                               | Phase 37 renames the index field to the time field in a new ICD schema version, with each schema and service that embeds `icd.ReadMessage` (HTTP, Kafka, MQTT, UDP, TCP, and serial), and that step registers at once, since its readers move with it. At Phase 50 a new ICD schema version, with one for each schema that embeds the message, drops the time field's binding where its key holds a retired entry, and keeps it where it binds a timestamp data channel (§4.9), so an imported `core/v0.62.0` HTTP, Kafka, or MQTT task migrates too                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | OPC UA read                                                                                                       | A read channel with `is_index` becomes the task's time node, and its binding drops. A channel CSV import maps a line of its `index` column to the time node (`console/src/feature/opcua/task/csv/csv.ts:17`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Sift                                                                                                              | Phase 42 groups Sift flows by the clock of each series, where it refuses a channel with no index today (`core/pkg/service/sift/ingest/flow.go:129-130`). A composition step drops retired keys from `channels`, by the retired index table, before the records go, since the list is `restrict`. A stored position keeps its key, which is now a clock. A flow for a new clock takes the name of its task, or of its first channel, and no status text shows a clock key                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Line plot, log                                                                                                    | A composition step, by the retired index table, sets a line plot axis that names a retired key to x 0, which shows time (`schemas/synnax/lineplot.oracle:230`), and drops a y line or a log channel that names one. Not `DropDangling`, which keeps a dead key that the Core issued (RFC 0119)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -1025,8 +1028,10 @@ The migration changes metadata only and runs at the first start, before any writ
 | Schematic symbol, table cell                                                                                      | Keeps a weak link, and the Console shows a missing channel. The release notes name the loss                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 - **Order**: The channel step writes the entries. The holder steps merge dark in the
-  phase of their integration (32 to 40), and at Phases 42 and 43, and register at Phase
-  50 as composition migrations after the channel step and before `SyncHashes`
+  phase of their integration (32 to 40), and at Phases 42 and 43, each with an injected
+  predicate that tells a retired key, which Phase 50 wires to the retired index table,
+  so no step needs the table's type before Phase 50. They register at Phase 50 as
+  composition migrations after the channel step and before `SyncHashes`
   (`core/pkg/service/layer.go:1228-1252`), so task hashes see their edits. Each runs
   once, as a Gorp migration does. The retire runs last, so no `restrict` link blocks it.
   A crash before the retire leaves the entries for the next start, and the steps that
@@ -1185,14 +1190,14 @@ Phase 56, the C++ join of rack calculations, any time after Phase 41. Each phase
 PR of up to about 2,000 hand-written lines, specs and generated code not counted. Phase
 8 is an exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases
 41 and 50 are the others: each is one PR, past the target if it must be, since D-519 (2)
-gives each phase one PR and a split would leave a release between the parts. Phase 50
-first detaches each data channel's index on channel v2, whose `index` reference is
-`Restrict` (`core/pkg/service/channel/index.go:16-29`), then retires the records and
-registers the steps, then mints v3 and drops the fields. Phases 46 to 49 remove every
-client use of `is_index` and `index`, and Phase 50 removes the fields from the generated
-payloads with `schemas/synnax/channel.oracle`, so its regeneration breaks no user
-outside its touches. A phase that grows past the limit splits along its touches before
-it opens, each part green alone.
+gives each phase one PR and a split would leave a release between the parts. At the
+upgrade, Phase 50 runs: the detach of each data channel's index on channel v2, whose
+`index` reference is `Restrict` (`core/pkg/service/channel/index.go:16-29`); the channel
+step, with its entries and channel v3; the holder steps; and the retire (§4.10). Phases
+46 to 49 remove every client use of `is_index` and `index`, and Phase 50 removes the
+fields from the generated payloads with `schemas/synnax/channel.oracle`, so its
+regeneration breaks no user outside its touches. A phase that grows past the limit
+splits along its touches before it opens, each part green alone.
 
 - **Shared storage fixes**: Today on the pointer log, every writer open seals its
   segments, a `client.write` loop steps the alignment counter at each call, and a
@@ -1263,9 +1268,10 @@ one schema version each for the NI device (from v1), the LabJack device and the 
 server (each from v0), OPC UA, HTTP, Kafka, MQTT, and ICD (from what `core/v0.62.0`
 shipped), Phase 37 one more for each schema that embeds the ICD message, and Phase 42
 for Sift (from v0, first stable in `core/v0.62.0`), with migrations. Line plot v11 and
-log v6 take no new shape. Phase 50 mints channel v3 from v2. A Sift flow, named after an
-index channel in `core/v0.62.0`, keeps that name in its config from Phase 42. Keys of
-`core/v0.62.0` keep their numbers.
+log v6 take no new shape. Phase 50 mints channel v3 from v2, and the ICD schema version
+of the holders table with one for each schema that embeds the ICD message. A Sift flow,
+named after an index channel in `core/v0.62.0`, keeps that name in its config from
+Phase 42. Keys of `core/v0.62.0` keep their numbers.
 
 | Pieces in flight                                              | Fate                                                                  | Phases                  |
 | ------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------- |
