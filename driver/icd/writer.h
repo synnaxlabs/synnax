@@ -15,6 +15,7 @@
 #include <map>
 #include <optional>
 #include <span>
+#include <string>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -113,5 +114,9 @@ public:
     /// command or a default.
     /// @returns the error of the encode or of send.
     [[nodiscard]] x::errors::Error encode(const Send &send);
+
+    /// @brief returns the format of the message that the writer encodes, as one of
+    /// x::payload::FORMAT_JSON, FORMAT_TEXT, and FORMAT_BINARY.
+    [[nodiscard]] std::string format() const;
 };
 }
