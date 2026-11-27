@@ -270,7 +270,8 @@ func (r *alignmentRequest) run(s *State) {
 }
 
 // NewSegment gives out a segment identity, registers a new open segment of key that w
-// holds, and returns its identity. The caller logs its Create.
+// holds, and returns its identity. The caller logs its Create. It returns an error that
+// wraps validate.ErrValidation when w does not write key, or already holds one.
 func (w *Writer) NewSegment(key uint32) (uint64, error) {
 	r := &segmentRequest{w: w, key: key}
 	if err := w.call(r); err != nil {
@@ -283,9 +284,14 @@ func (s *State) checkNewSegment(r *segmentRequest) error {
 	t, ok := r.w.types[r.key]
 	switch {
 	case !ok:
-		return errors.Newf("writer does not write key %d", r.key)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"writer does not write key %d",
+			r.key,
+		)
 	case r.w.held[r.key] != nil:
-		return errors.Newf(
+		return errors.Wrapf(
+			validate.ErrValidation,
 			"writer holds open segment %d of key %d",
 			r.w.held[r.key].vis.ID,
 			r.key,
@@ -528,7 +534,11 @@ func (r *takeBackRequest) run(s *State) {
 func (r *sealRequest) run(s *State) {
 	seg, ok := r.w.held[r.key]
 	if !ok {
-		r.w.done <- errors.Newf("writer holds no open segment of key %d", r.key)
+		r.w.done <- errors.Wrapf(
+			validate.ErrValidation,
+			"writer holds no open segment of key %d",
+			r.key,
+		)
 		return
 	}
 	r.seal = s.sealVisible(r.w, seg)
@@ -548,7 +558,8 @@ func (s *State) sealVisible(w *Writer, seg *segEntry) log.Seal {
 }
 
 // Seal seals the open segment that w holds for key at its committed length, and returns
-// the Seal that the caller logs.
+// the Seal that the caller logs. It returns an error that wraps validate.ErrValidation
+// when w holds no open segment of key.
 func (w *Writer) Seal(key uint32) (log.Seal, error) {
 	r := &sealRequest{w: w, key: key}
 	if err := w.call(r); err != nil {
