@@ -139,10 +139,8 @@ export class Channel {
   readonly group?: group.Key;
   /**
    * The names of the channel's folders from the top, then its name, joined by '.'. Set
-   * only on a channel that a retrieve with `includePath` returns, from the folders that
-   * the client caches. Absent when a folder on the path is not cached, as for a folder
-   * that the caller cannot retrieve. The payload does not carry it, and no request
-   * sends it.
+   * only by a retrieve with `includePath`, and absent when a folder on it is hidden or
+   * not cached. The payload does not carry it.
    */
   readonly path?: string;
 
