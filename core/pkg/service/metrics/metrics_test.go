@@ -301,8 +301,20 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 	Describe("Writer Control Subject", func() {
-		It("Should name the writer after the host node", func(ctx SpecContext) {
-			svc := MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
+		var (
+			svc    *metrics.Service
+			holder string
+		)
+		holders := func() []string {
+			states := dist.Storage.TS.ControlStates()
+			names := make([]string, 0, len(states.Transfers))
+			for _, t := range states.Transfers {
+				names = append(names, t.To.Subject.Name)
+			}
+			return names
+		}
+		BeforeEach(func(ctx SpecContext) {
+			svc = MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
@@ -311,19 +323,18 @@ var _ = Describe("Metrics", func() {
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
 			}))
+			holder = fmt.Sprintf("Node %v Metrics Writer", dist.Identity.HostKey)
+		})
+		It("Should name the writer after the host node", func() {
 			StartRun(svc.Run)
-			Eventually(func() []string {
-				states := dist.Storage.TS.ControlStates()
-				holders := make([]string, 0, len(states.Transfers))
-				for _, t := range states.Transfers {
-					if t.To != nil {
-						holders = append(holders, t.To.Subject.Name)
-					}
-				}
-				return holders
-			}).Should(ContainElement(fmt.Sprintf(
-				"Node %v Metrics Writer", dist.Identity.HostKey,
-			)))
+			Eventually(holders).Should(ContainElement(holder))
+		})
+		It("Should hold control only while Run runs", func() {
+			Expect(holders()).ToNot(ContainElement(holder))
+			stop := StartRun(svc.Run)
+			Eventually(holders).Should(ContainElement(holder))
+			stop()
+			Expect(holders()).ToNot(ContainElement(holder))
 		})
 	})
 	Describe("Metric Collection", func() {
