@@ -714,6 +714,14 @@ class TestHTTPRequestRows:
         with pytest.raises(ValidationError):
             sy.http.QueryParam(parameter="", value="1")
 
+    def test_keeps_absent_health_check_rows(self) -> None:
+        """Should keep health check rows that a stored device omits."""
+        check = sy.http.HealthCheck.model_validate(
+            {"headers": None, "query_params": None}
+        )
+        assert check.headers is None
+        assert check.query_params is None
+
     def test_drops_stored_health_check_rows_with_no_name(self) -> None:
         """Should drop the stored health check rows that have no name."""
         check = sy.http.HealthCheck.model_validate(
