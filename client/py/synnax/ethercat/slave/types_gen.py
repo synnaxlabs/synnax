@@ -21,16 +21,26 @@ from synnax.ethercat import master as master_
 from synnax.resource import ID
 from x import filter, telem
 
+SAMPLES_RAW: Literal["raw"] = "raw"
+
+SAMPLES_CALIBRATED: Literal["calibrated"] = "calibrated"
+
+SAMPLES_SCALED: Literal["scaled"] = "scaled"
+
+SAMPLES_CALIBRATED_SCALED: Literal["calibrated_scaled"] = "calibrated_scaled"
+
+
+Samples = Literal["raw", "calibrated", "scaled", "calibrated_scaled"]
+
 Key: TypeAlias = UUID
 
 
 class PDOEntry(BaseModel):
-    """Is a PDO entry that a scan found on a slave.
+    """Holds the fields of a PDO entry that a scan found on a slave.
 
     Attributes:
         name: Is the name of the entry, such as Input.
         pdo_name: Is the name of the PDO that holds the entry, such as Channel 1.
-        pdo_index: Is the index of the PDO that holds the entry, such as 0x1A00.
         index: Is the CoE object dictionary index of the entry.
         sub_index: Is the CoE object dictionary sub-index of the entry.
         bit_length: Is the size of the entry in bits.
@@ -38,11 +48,10 @@ class PDOEntry(BaseModel):
     """
 
     name: str
-    pdo_name: str = ""
-    pdo_index: int = Field(default=0, ge=0, le=65535)
+    pdo_name: str | None = None
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    bit_length: int = Field(ge=0, le=255)
+    bit_length: int = Field(ge=1, le=255)
     data_type: telem.DataType
 
 
@@ -52,15 +61,13 @@ class ReadBinding(BaseModel):
     Attributes:
         index: Is the CoE object dictionary index of the input entry.
         sub_index: Is the CoE object dictionary sub-index of the input entry.
-        scaled: Is whether the channel holds the scaled samples of the entry.
-        calibrated: Is whether the channel holds the calibrated samples of the entry.
+        samples: Is which samples of the entry the channel holds.
         channel: Is the channel that holds the samples of the entry.
     """
 
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
-    scaled: bool = False
-    calibrated: bool = False
+    samples: Samples = "raw"
     channel: channel_.Key = Field(gt=0, le=4294967295)
 
 
@@ -85,13 +92,13 @@ class WriteBinding(BaseModel):
         index: Is the CoE object dictionary index of the output entry.
         sub_index: Is the CoE object dictionary sub-index of the output entry.
         command: Is the channel that commands the entry.
-        state: Is the channel that holds the state of the entry. 0 is no channel.
+        state: Is the channel that holds the state of the entry.
     """
 
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     command: channel_.Key = Field(gt=0, le=4294967295)
-    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
 class StatusDetails(BaseModel):
@@ -166,16 +173,24 @@ class Cursor(BaseModel):
     key: Key
 
 
-class PDOs(BaseModel):
-    """Holds the PDO entries of a slave.
+class InputEntry(PDOEntry):
+    """Is an entry that the slave sends.
 
     Attributes:
-        inputs: Are the entries that the slave sends.
-        outputs: Are the entries that the slave receives.
+        pdo_index: Is the index of the TxPDO that holds the entry, 0x1A00 to 0x1BFF.
     """
 
-    inputs: list[PDOEntry] = Field(default_factory=list)
-    outputs: list[PDOEntry] = Field(default_factory=list)
+    pdo_index: int = Field(ge=6656, le=7167)
+
+
+class OutputEntry(PDOEntry):
+    """Is an entry that the slave receives.
+
+    Attributes:
+        pdo_index: Is the index of the RxPDO that holds the entry, 0x1600 to 0x17FF.
+    """
+
+    pdo_index: int = Field(ge=5632, le=6143)
 
 
 class Int8StartupParameter(StartupParameterBase):
@@ -288,6 +303,18 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
+class PDOs(BaseModel):
+    """Holds the PDO entries of a slave.
+
+    Attributes:
+        inputs: Are the entries that the slave sends.
+        outputs: Are the entries that the slave receives.
+    """
+
+    inputs: list[InputEntry] = Field(default_factory=list)
+    outputs: list[OutputEntry] = Field(default_factory=list)
+
+
 class Slave(BaseModel):
     """Is an EtherCAT slave: one module on the bus of a master.
 
@@ -317,7 +344,7 @@ class Slave(BaseModel):
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
-    serial: int = Field(default=0, ge=0, le=9007199254740991)
+    serial: int = Field(default=0, ge=0, le=4294967295)
     vendor_id: int = Field(ge=0, le=4294967295)
     product_code: int = Field(ge=0, le=4294967295)
     revision: int = Field(ge=0, le=4294967295)
@@ -326,10 +353,8 @@ class Slave(BaseModel):
     identifier: str = ""
     disabled: bool = False
     startup_parameters: list[StartupParameter] = Field(default_factory=list)
-    read_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    write_state_index: channel_.Key = Field(
-        default=channel_.Key(0), ge=0, le=4294967295
-    )
+    read_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    write_state_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     read_bindings: list[ReadBinding] = Field(default_factory=list)
     write_bindings: list[WriteBinding] = Field(default_factory=list)
     status: Status | None = None

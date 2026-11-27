@@ -36,7 +36,7 @@ var _ = Describe("Service", func() {
 	var (
 		u      user.User
 		m      master.Master
-		serial uint64
+		serial uint32
 	)
 	BeforeEach(func(ctx SpecContext) {
 		u = createUser(ctx)
