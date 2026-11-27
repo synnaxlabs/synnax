@@ -296,8 +296,9 @@ describe("Controls.Controls", () => {
     it.each<[string, string, string | undefined, status.Variant?]>([
       ["Deploy and start", "a task that never ran", undefined],
       ["Deploy and start", "a config that changed since the task last ran", "stale"],
-      ["Deploy and start", "a config whose start failed", CONFIG_HASH, "error"],
+      ["Deploy and start", "a start that built no instance", "", "error"],
       ["Start", "the config that the task last ran", CONFIG_HASH],
+      ["Start", "the config whose run ended in an error", CONFIG_HASH, "error"],
     ])("should name the start button %s for %s", async (name, _, deployed, variant) => {
       const { container } = await renderInTaskFormWithClient(
         <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
