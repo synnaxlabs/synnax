@@ -590,7 +590,9 @@ const Records: FC<RecordsProps> = ({
       }
       for (const { icd: icdKey, message, fields, bindings } of extensions) {
         const format = ICD.formatOf(formats, icdKey);
-        let after = ICD.fieldsOf(formats, icdKey, message).at(-1)?.key;
+        let after = ICD.jsonFields(ICD.heldMessage(formats, icdKey, message)).at(
+          -1,
+        )?.key;
         format.batch(() => {
           for (const field of fields) {
             format.insert(ICD.fieldsPath(message), field, after);
