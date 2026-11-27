@@ -446,6 +446,18 @@ var _ = Describe("JSONEncoder", func() {
 		))
 	})
 
+	It("Should write a token of digits past an int as a member name", func() {
+		key := uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{{Variant: icd.FloatJSONField{
+				Key: key, Name: "v", Scale: 1, Pointer: "/a/99999999999999999999",
+			}}},
+			codec.Binding{Field: key, DataType: telem.Float64T},
+		)))
+		Expect(string(MustSucceed(enc.Encode(nil, [][]byte{float64Sample(1.5)})))).
+			To(Equal(`{"a":{"99999999999999999999":1.5}}`))
+	})
+
 	Describe("Check", func() {
 		var (
 			key = uuid.New()

@@ -512,6 +512,19 @@ var _ = Describe("JSON", func() {
 		})
 	})
 
+	It("Should reject a string default that is not valid UTF-8", func() {
+		f := icd.JSONField{Variant: icd.StringJSONField{
+			Key: uuid.New(), Name: "s", Scale: 1, Pointer: "/s", Default: new("\xff"),
+		}}
+		Expect(codec.NewJSON([]codec.JSONMessage{{
+			Name:     "reading",
+			Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+			Bindings: []codec.Binding{{Field: f.Base().Key, DataType: telem.StringT}},
+		}})).Error().To(MatchError(
+			"message reading: field s: default: jsontext: invalid UTF-8: validation error",
+		))
+	})
+
 	DescribeTable("Should accept the present rules that Infer gives the kinds of a key",
 		func(kinds ...string) {
 			docs := make([]xjson.Document, len(kinds))
