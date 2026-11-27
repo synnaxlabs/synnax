@@ -213,8 +213,9 @@ Stop the range in the Console. See
 
 ### The automation shows a `ranges` warning
 
-When a `ranges` call fails, Synnax shows a warning, the call outputs an empty key, and
-the automation keeps running.
+When a `ranges` call fails, Synnax shows a warning and the automation keeps running. A
+call that fails at once outputs an empty key. On a Driver, a call goes to the Core
+later, so a create that the Core refuses has already output its key.
 
 | Message                  | Description                                        | Cause                                                                 |
 | ------------------------ | -------------------------------------------------- | --------------------------------------------------------------------- |
