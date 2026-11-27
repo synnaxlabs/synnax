@@ -69,9 +69,9 @@ rename_aside(const std::filesystem::path &path) {
         auto to = path;
         to += BAD_EXT;
         if (n > 0) to += "." + std::to_string(n);
-        const auto err = journal::rename_new(path, to);
+        const auto err = x::fs::rename_new(path, to);
         if (!err) return {std::move(to), x::errors::NIL};
-        if (!err.matches(journal::EXISTS)) return {{}, err};
+        if (!err.matches(x::fs::EXISTS)) return {{}, err};
     }
 }
 
@@ -579,7 +579,7 @@ x::errors::Error Spool::set_aside_files(
     if (ec) return fs_error("failed to stat read offset", ec);
     if (found)
         if (const auto o_err = rename_aside(offset).second) return o_err;
-    if (const auto s_err = journal::sync_dir(this->cfg.dir)) return s_err;
+    if (const auto s_err = x::fs::sync_dir(this->cfg.dir)) return s_err;
     std::lock_guard lock(this->mu);
     this->bad.push_back({.path = std::move(bad_path), .cause = cause});
     return x::errors::NIL;

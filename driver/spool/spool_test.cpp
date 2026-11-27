@@ -677,7 +677,7 @@ TEST_F(SpoolTest, LocksDirectory) {
     const auto spool = this->open_spool();
     ASSERT_OCCURRED_AS_P(
         Spool::open(Config{.dir = this->dir, .cap = DEFAULT_CAP}),
-        journal::LOCKED
+        x::fs::LOCKED
     );
 }
 

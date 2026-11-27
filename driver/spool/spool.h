@@ -83,7 +83,7 @@ struct Config {
     /// value lets a reader find more damage.
     std::uint32_t max_payload = journal::MAX_PAYLOAD;
     /// @brief called with each file that the spool creates, before the spool uses it.
-    journal::OnCreate on_create = journal::no_create_hook;
+    x::fs::OnCreate on_create = x::fs::no_create_hook;
     /// @brief gets the result of each sync of a segment and returns the result the
     /// spool uses. Writers call it from their own threads, so it must be safe for
     /// concurrent use.
@@ -245,7 +245,7 @@ public:
     /// directory when it does not exist. Removes segments that a crash left without a
     /// header, read offsets without a segment, and temp files. Sets aside each segment
     /// that fails its checks, as set_aside does.
-    /// @returns journal::LOCKED when another process has the spool open. An error
+    /// @returns x::fs::LOCKED when another process has the spool open. An error
     /// when the spool cannot read or change its directory.
     static std::pair<std::unique_ptr<Spool>, x::errors::Error> open(Config cfg);
 
