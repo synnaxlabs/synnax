@@ -170,6 +170,25 @@ var _ = Describe("StagedMigration", func() {
 		Expect(read(ctx, key)).To(Equal(stagedConfig{Key: key}))
 	})
 
+	It("Should fail on a staged key that is not a config key", func(ctx SpecContext) {
+		Expect(sdb.Set(ctx, []byte(prefix+"pump"), []byte(`"pump"`))).To(Succeed())
+		Expect(run(ctx)).To(MatchError("invalid uuid"))
+		Expect(asked).To(BeEmpty())
+	})
+
+	It("Should fail on a staged value that is not JSON, naming its config", func(
+		ctx SpecContext,
+	) {
+		key := stage(ctx, "Pump station", "pump")
+		Expect(sdb.Set(ctx, []byte(prefix+key.String()), []byte("pump"))).
+			To(Succeed())
+		Expect(run(ctx)).To(MatchError(
+			"config " + key.String() + ": jsontext: invalid character 'p' at start of value",
+		))
+		Expect(asked).To(BeEmpty())
+		Expect(isStaged(key)).To(BeTrue())
+	})
+
 	It("Should keep the staged values when a move fails", func(ctx SpecContext) {
 		key := stage(ctx, "Pump station", "pump")
 		moveErr = errors.New("bad value")

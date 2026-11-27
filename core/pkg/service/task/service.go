@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -77,6 +78,14 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - A retrieve that filters by Arc fails without it.
 	MatchArcs func(arcs ...uuid.UUID) Filter
+	// ICDUses returns the ID of every record in snap that uses the ICD with key.
+	//
+	// [OPTIONAL] - A retrieve that filters by ICD fails without it.
+	ICDUses func(
+		ctx context.Context,
+		snap gorp.Snapshot,
+		key uuid.UUID,
+	) ([]resource.ID, error)
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -97,6 +106,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Configs = override.Zero(c.Configs, other.Configs)
 	c.ImExExcluded = override.Slice(c.ImExExcluded, other.ImExExcluded)
 	c.MatchArcs = override.Nil(c.MatchArcs, other.MatchArcs)
+	c.ICDUses = override.Nil(c.ICDUses, other.ICDUses)
 	return c
 }
 
@@ -304,6 +314,7 @@ func (s *Service) NewRetrieve() Retrieve {
 		gorp:      s.table.NewRetrieve(),
 		configs:   s.cfg.Configs,
 		matchArcs: s.cfg.MatchArcs,
+		icdUses:   s.cfg.ICDUses,
 	}
 }
 

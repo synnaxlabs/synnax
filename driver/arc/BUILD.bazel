@@ -58,6 +58,7 @@ cc_test(
         "//x/cpp/defer",
         "//x/cpp/sync",
         "//x/cpp/testutil",
+        "//x/cpp/thread/rt",
         "@googletest//:gtest_main",
     ],
 )

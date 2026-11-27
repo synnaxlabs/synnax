@@ -34,7 +34,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -600,7 +599,7 @@ func checkStored(
 	GinkgoHelper()
 	var stampErrs, intervals []float64
 	for gi, g := range groups {
-		idx := storedSeries(ctx, g.index.Key())
+		idx := stored(ctx, g.index.Key())
 		got := make([]telem.TimeStamp, idx.Len())
 		for i := range got {
 			got[i] = idx.ValueAt[telem.TimeStamp](i)
@@ -642,7 +641,7 @@ func checkStoredValues(
 ) {
 	GinkgoHelper()
 	for ci, ch := range g.data {
-		s := storedSeries(ctx, ch.Key())
+		s := stored(ctx, ch.Key())
 		chIndex := g.first + ci
 		if sc.shape == wide {
 			chIndex = ci
@@ -844,25 +843,4 @@ func stddevFrom(xs []float64, nominal float64) float64 {
 		sum += (x - nominal) * (x - nominal)
 	}
 	return math.Sqrt(sum / float64(len(xs)))
-}
-
-func storedSeries(ctx context.Context, key channel.Key) telem.Series {
-	GinkgoHelper()
-	it := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   channel.Keys{key},
-		Bounds: telem.TimeRangeMax,
-	}))
-	defer func() { Expect(it.Close()).To(Succeed()) }()
-	var s telem.Series
-	if !it.SeekFirst() {
-		return s
-	}
-	for it.Next(iterator.AutoSpan) {
-		for _, ser := range it.Value().Get(key).Series {
-			s.DataType = ser.DataType
-			s.Data = append(s.Data, ser.Data...)
-		}
-	}
-	Expect(it.Error()).To(Succeed())
-	return s
 }
