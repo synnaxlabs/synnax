@@ -149,24 +149,34 @@ jobs:
           permission-contents: read
           permission-pull-requests: read
 
-      # The check run shows on the pull request while the runner boots. A retried POST
-      # can land twice, so the step cancels the other queued check runs of this run.
+      # The check run shows on the pull request while the runner boots.
       - name: Queue the check run
         id: check
         if: steps.skip.outputs.skip == 'false' && !inputs.replay
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
-          BOT: ${{ steps.app.outputs.app-slug }}
           HEAD_SHA: ${{ steps.pr.outputs.head }}
           KEY: ${{ steps.pr.outputs.key }}
         run: |
-          api=.github/scripts/gh_api.sh
-          runs="repos/$GITHUB_REPOSITORY/check-runs"
-          ID=$("$api" -X POST "$runs" \
+          id=$(.github/scripts/gh_api.sh -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
             -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" -f external_id="$KEY" \
             -f status=queued -f details_url="$RUN_URL" --jq .id)
-          echo "id=$ID" >> "$GITHUB_OUTPUT"
-          export ID
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      # A retried POST can land twice. The gate reads only the newest check run, so a
+      # stray is only noise on the pull request, and a failure here keeps the review.
+      - name: Cancel the stray check runs
+        if: steps.check.outputs.id != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          KEY: ${{ steps.pr.outputs.key }}
+          ID: ${{ steps.check.outputs.id }}
+        run: |
+          api=.github/scripts/gh_api.sh
+          runs="repos/$GITHUB_REPOSITORY/check-runs"
           ours="repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs"
           ours+="?check_name=Sedosaur%20Review&filter=all&per_page=100"
           strays=$("$api" "$ours" --jq '.check_runs[] | select(.app.slug == env.BOT
