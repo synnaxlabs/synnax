@@ -251,12 +251,12 @@ resource has a concrete writer and generated retrieve, in the shape of
 Opening a resource opens its Gorp table with its migration chain and Oracle-generated
 indexes and references, and publishes `sy_<type>_set` and `sy_<type>_delete` through
 `signals.PublishTable`. `Resources` returns its provider for the resource service. Its
-writer runs in the transaction of the caller and exposes `Create`, `Update`, and
-`Delete`. `Create` writes the row and an initial unknown status. The `@ref` fields put
-the resource under its chassis or rack. `Update` takes a function over the stored row,
-so a caller changes one field group and leaves the other as stored. `Delete` removes the
-row. Gorp deletes its status, and the modules of a chassis, through the references. The
-API binder checks delete access on each record that the delete removes.
+writer runs in the transaction of the caller and exposes `Create`, `Apply`, and
+`Delete`, as `core/pkg/service/rack/writer.go` does. `Create` writes the row and an
+initial unknown status. The `@ref` fields put the resource under its chassis or rack.
+`Apply` runs the patch actions of §4.3 on one row. `Delete` removes the row. Gorp
+deletes its status, and the modules of a chassis, through the references. The API binder
+checks delete access on each record that the delete removes.
 
 Phase 22 gives each NI config channel a `device` field that references `ni.Device` with
 `@ref on_delete restrict`. Gorp then refuses to delete a device that a task uses, also
@@ -271,11 +271,17 @@ slave.
 The scanner creates a resource it has not seen with both groups filled: the identity
 group from the hardware, and the configuration group with today's defaults (`name` is
 `NI <model>` or `<type>-<last4 of serial>`, `identifier` is empty). After creation the
-scanner writes only the identity group, as `patch.Set` actions on its fields. When
-hardware appears on another rack, the scanner moves it; `name` stays as the user left
-it. The user writes the configuration group through the same patch actions. Each action
-changes one field, so concurrent edits to different fields both survive. The shallow
-merge in `driver/common/scan_task.h:40-51` and the EtherCAT `enabled` guard are deleted.
+scanner writes only the identity group, as `patch.Set` actions on its fields. The user
+writes the configuration group through the same patch actions. Each action changes one
+field, so concurrent edits to different fields both survive. `Apply` enforces principle
+5: it refuses an action whose first path segment is outside the group of the caller. The
+Driver's role writes identity fields, and every other subject writes configuration
+fields. No dispatch writes `server_trust`; only `/opcua/server/pin` changes it (§4.5).
+
+When hardware appears on another rack, the scanner sends `patch.Set` on `rack`. `Apply`
+treats it as a move: it moves the modules of a chassis and the slaves of a master to the
+new rack, and rewrites the status. `name` stays as the user left it. The shallow merge
+in `driver/common/scan_task.h:40-51` and the EtherCAT `enabled` guard are deleted.
 
 Each scan matches found hardware to stored rows by a per-resource rule:
 
@@ -301,22 +307,24 @@ their master, and a deleted parent takes its children. A resource with no parent
 sits under its rack.
 
 The master holds an ordered `slaves Slave.Key[]`. A slave's position is its index, so
-two slaves cannot share one, and a scan writes the bus order as one update of the master
-row. The slave stores no position. Topology validation
-(`driver/ethercat/topology/topology.h:27-58`) reads the master's list. The `network`
-string and the `<master>.Slot <n>` location encoding are deleted.
+two slaves cannot share one, and a scan writes the bus order as one `patch.Set` of the
+whole list. The list holds bare keys, which patch actions cannot address one by one, so
+`Apply` refuses `patch.Insert`, `patch.Move`, and `patch.Remove` on `slaves`. The slave
+stores no position. Topology validation (`driver/ethercat/topology/topology.h:27-58`)
+reads the master's list. The `network` string and the `<master>.Slot <n>` location
+encoding are deleted.
 
 ### 4.5 API and clients
 
 Each resource gets routes under its integration: `/ni/device/create`,
 `/ni/device/retrieve`, `/ni/device/dispatch`, `/ni/device/delete`, and the same for
 `/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `dispatch` takes
-`patch.Set`, `patch.Remove`, `patch.Insert`, and `patch.Move` actions, as every other
-resource does. Retrieve filters are the struct's `@filter` fields plus `search_term`,
-`include_status`, and `include_parent`. The generic `/device/*` routes are deleted. Two
-narrow writes serve OPC UA: `/opcua/server/pin` for the certificate pin (§4.1), and
-`/opcua/server/resolve`, which appends resolved `ns=` bindings, skips duplicates, and
-rewrites the parked task node IDs.
+`patch.Set`, `patch.Remove`, `patch.Insert`, and `patch.Move` actions, as the other
+dispatch resources do, with the field checks of §4.3. Retrieve filters are the struct's
+`@filter` fields plus `search_term`, `include_status`, and `include_parent`. The generic
+`/device/*` routes are deleted. Two narrow writes serve OPC UA: `/opcua/server/pin` for
+the certificate pin (§4.1), and `/opcua/server/resolve`, which appends resolved `ns=`
+bindings, skips duplicates, and rewrites the parked task node IDs.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
@@ -340,12 +348,12 @@ in Phase 23.
 
 `ScanTask` keeps the scan loop, the signal stream, and the commands. A per-resource
 `common::Sync<D>` tracks the stored resources on the rack, matches found hardware to
-them, creates new hardware, writes the identity group, and marks missing hardware as
-disconnected. NI finds chassis and modules in one scan, and a module needs its chassis
-key, so NI runs `Sync<Chassis>` and then `Sync<Device>`. EtherCAT runs `Sync<Master>`,
-then `Sync<Slave>`, then writes each master's `slaves` list in bus order with the slave
-keys. The master's `merge_identity` keeps the stored `slaves`, so `Sync<Slave>` matches
-zero-serial slaves by the stored list, and only the last step writes it. A
+them, creates new hardware, writes identity fields as `patch.Set` actions, and marks
+missing hardware as disconnected. NI finds chassis and modules in one scan, and a module
+needs its chassis key, so NI runs `Sync<Chassis>` and then `Sync<Device>`. EtherCAT runs
+`Sync<Master>`, then `Sync<Slave>`, then writes each master's `slaves` list in bus order
+with the slave keys. `Sync<Master>` leaves `slaves` out of its actions, so `Sync<Slave>`
+matches zero-serial slaves by the stored list, and only the last step writes it. A
 single-resource integration runs one `Sync`. Read and write tasks take the generated
 struct in place of `parser.field` reads. NI looks up the DAQmx alias for physical
 channel names from `resource_name` when a task starts. LabJack opens by `serial`
@@ -413,10 +421,11 @@ policy object `{type: "device"}` into the eight typed objects and maps a per-key
 
 ### 4.10 Testing
 
-Each integration service gets specs for create, identity update, configuration update,
-refused delete, and cascade. The migration suite seeds 0.59-shaped rows for every make,
-including one that quarantines. Driver specs build devices from generated structs.
-Console specs for each make's forms and tree items run against the typed client.
+Each integration service gets specs for create, identity and configuration dispatch, an
+action refused outside the caller's group, a rack move, refused delete, and cascade. The
+migration suite seeds 0.59-shaped rows for every make, including one that quarantines.
+Driver specs build devices from generated structs. Console specs for each make's forms
+and tree items run against the typed client.
 
 ## 5 Prior art
 
@@ -504,9 +513,9 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 12. **No generic device store**: A `device.Service[D]` needed 8 hooks, did not fit
     racks, and left the same code in every other resource. The trade is real: eight
     hand-written writers until a project deduplicates all resources.
-13. **Patch dispatch, not a group `Update` union**: The 28 other resources write through
-    patch actions. A whole-group update loses one of two concurrent edits to different
-    fields.
+13. **Patch dispatch, not a group `Update` union**: The other dispatch resources write
+    through patch actions. A whole-group update loses one of two concurrent edits to
+    different fields. The trade is real: `Apply` checks the group of each action path.
 
 ## 9 Open questions
 
