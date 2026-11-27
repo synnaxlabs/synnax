@@ -30,4 +30,14 @@ var _ = Describe("Load", func() {
 		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
 		Eventually(func() bool { return s.Unchanged(count) }).Should(BeFalse())
 	})
+
+	It("Should set the Channel of a key with no segment to nil", func() {
+		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		run(s)
+		Eventually(func() *state.Channel { return s.Channel(6) }).ShouldNot(BeNil())
+		chs := []*state.Channel{nil, {Key: 9}}
+		s.Load([]uint32{6, 9}, chs)
+		Expect(chs[0].Key).To(Equal(uint32(6)))
+		Expect(chs[1]).To(BeNil())
+	})
 })

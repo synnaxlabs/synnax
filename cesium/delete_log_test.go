@@ -456,6 +456,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			write(ctx, 20, 21)
 			dir := strconv.FormatUint(uint64(data), 10)
 			segments := func() int {
+				GinkgoHelper()
 				n := 0
 				for _, e := range MustSucceed(fs.List(dir)) {
 					if strings.HasSuffix(e.Name(), ".seg") {

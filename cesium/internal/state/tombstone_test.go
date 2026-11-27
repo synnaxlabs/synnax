@@ -95,6 +95,7 @@ var _ = Describe("Tombstone", func() {
 	// stamped opens s on sample() with the stamps of the first pointer of clock 5 and
 	// of key 6 bounded by first and last.
 	stamped := func(first, last int64) {
+		GinkgoHelper()
 		snap := sample()
 		for _, ch := range snap.Channels[:2] {
 			ch.Segments[0].Pointers[0].First = telem.TimeStamp(first)
@@ -294,7 +295,7 @@ var _ = Describe("Tombstone", func() {
 				MatchError(ContainSubstring("reaches the claim of a delete from 35")),
 			))
 			Expect(d.Release()).To(Succeed())
-			Expect(s.BeginDelete(6, 39, 40)).Error().ToNot(HaveOccurred())
+			Expect(MustSucceed(s.BeginDelete(6, 39, 40)).Release()).To(Succeed())
 		})
 
 	It(
