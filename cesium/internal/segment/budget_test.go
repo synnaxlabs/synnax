@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -86,8 +87,10 @@ var _ = Describe("Budget", func() {
 
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
-			var fs *opFS
-			BeforeEach(func() { fs = newOpFS(makeFS()) })
+			var fs *testutil.OpFS
+			BeforeEach(func() {
+				fs = testutil.NewOpFS(makeFS(), "open", "close", "sync", "syncdir")
+			})
 
 			// dirty returns n handles of b with one write each since their last sync.
 			dirty := func(b *segment.Budget, n int, prefix string) []*segment.Handle {
@@ -114,9 +117,9 @@ var _ = Describe("Budget", func() {
 				done := make(chan error, 2)
 				go func() { done <- b.Sync(first) }()
 				go func() { done <- b.Sync(second) }()
-				Eventually(fs.held).WithTimeout(syncTimeout).Should(Receive())
-				Eventually(fs.held).WithTimeout(syncTimeout).Should(Receive())
-				Consistently(fs.held).ShouldNot(Receive())
+				Eventually(fs.Held()).WithTimeout(syncTimeout).Should(Receive())
+				Eventually(fs.Held()).WithTimeout(syncTimeout).Should(Receive())
+				Consistently(fs.Held()).ShouldNot(Receive())
 				fs.Unhold()
 				close(release)
 				Eventually(done).WithTimeout(syncTimeout).Should(Receive(BeNil()))
@@ -183,14 +186,14 @@ var _ = Describe("Budget", func() {
 					release := fs.Hold()
 					synced := make(chan error, 1)
 					go func() { synced <- b.Sync(hs[:1]) }()
-					Eventually(fs.held).WithTimeout(syncTimeout).
+					Eventually(fs.Held()).WithTimeout(syncTimeout).
 						Should(Receive(Equal("0.seg")))
 					created := make(chan *segment.Handle, 1)
 					go func() {
 						defer GinkgoRecover()
 						created <- MustSucceed(b.Create(fs, "2.seg"))
 					}()
-					Consistently(fs.held).ShouldNot(Receive())
+					Consistently(fs.Held()).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
 					Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
@@ -229,7 +232,7 @@ var _ = Describe("Budget", func() {
 						created <- MustSucceed(b.Create(fs, "b0.seg"))
 					}()
 					Eventually(
-						fs.held,
+						fs.Held(),
 					).WithTimeout(syncTimeout).
 						Should(Receive(Equal("a0.seg")))
 					synced := make(chan error, 2)
@@ -265,7 +268,7 @@ var _ = Describe("Budget", func() {
 						defer GinkgoRecover()
 						created <- MustSucceed(b.Create(fs, "1.seg"))
 					}()
-					Eventually(fs.held).WithTimeout(syncTimeout).
+					Eventually(fs.Held()).WithTimeout(syncTimeout).
 						Should(Receive(Equal("0.seg")))
 					synced := make(chan error, 1)
 					go func() { synced <- b.Sync(hs) }()

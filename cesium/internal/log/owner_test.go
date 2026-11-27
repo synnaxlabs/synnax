@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -177,7 +178,7 @@ var _ = Describe("Log", func() {
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
 			var (
-				fs    *opFS
+				fs    *testutil.OpFS
 				l     *log.Log
 				ran   chan error
 				steps chan struct{}
@@ -215,7 +216,9 @@ var _ = Describe("Log", func() {
 				Eventually(ran).Should(Receive(BeNil()))
 			}
 
-			BeforeEach(func() { fs = newOpFS(makeFS()) })
+			BeforeEach(func() {
+				fs = testutil.NewOpFS(makeFS(), "write", "sync", "syncdir")
+			})
 
 			Describe("Prepare", func() {
 				It("Should make a synced file of zeros and sync its entry", func() {
@@ -306,7 +309,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				release := fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				e := of(&log.Drop{Key: 2})
 				second := l.Append(e)
 				e.Reset()
@@ -340,7 +343,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				release := fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				second := l.Append(of(&log.Drop{Key: 2}))
 				third := l.Append(of(&log.Drop{Key: 3}))
 				fs.Unhold()
@@ -361,11 +364,11 @@ var _ = Describe("Log", func() {
 				size := int64(32 + len(entryOf(&log.Drop{Key: 3})))
 				release := fs.Hold()
 				a := l.Append(of(&log.Drop{Key: 3}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				b := l.Append(of(&log.Drop{Key: 3}))
 				release <- struct{}{}
 				Expect(a.Wait()).To(Equal(uint64(5)))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				c := l.Append(of(&log.Drop{Key: 3}))
 				fs.Unhold()
 				release <- struct{}{}
@@ -380,7 +383,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				release := fs.Hold()
 				first := l.Append(of(&log.Restart{}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				second := l.Append(bigEntry(10 << 20))
 				third := l.Append(bigEntry(10 << 20))
 				fs.Unhold()
@@ -413,12 +416,12 @@ var _ = Describe("Log", func() {
 					fs.Unhold()
 					close(release)
 					select {
-					case <-fs.held:
+					case <-fs.Held():
 					case <-time.After(time.Second):
 					}
 				})
 				first := l.Append(of(&log.Drop{Key: 1}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				small := l.Append(commitEntry(64))
 				big := l.Append(
 					commitEntry(logSize - log.DeleteReserve - log.FramesStart),
@@ -431,7 +434,7 @@ var _ = Describe("Log", func() {
 				}()
 				release <- struct{}{}
 				Expect(first.Wait()).To(Equal(uint64(5)))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				Consistently(refused).ShouldNot(Receive())
 				fs.Unhold()
 				release <- struct{}{}
@@ -487,7 +490,7 @@ var _ = Describe("Log", func() {
 					Expect(l.Close()).To(MatchError(fault))
 					Eventually(ran).Should(Receive(BeNil()))
 				},
-				Entry("sync", func(err error) { fs.FailSync(err) }),
+				Entry("sync", func(err error) { fs.FailSync(logName, err) }),
 				Entry("write", func(err error) { fs.FailWrite(err) }),
 			)
 

@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -245,7 +246,7 @@ var _ = Describe("Segment", func() {
 			It("Should stage at most one block and its trailer of a large write, and "+
 				"write a last piece with nothing staged from the caller's bytes",
 				func() {
-					ops := newOpFS(fs)
+					ops := testutil.NewOpFS(fs)
 					budget2 := MustSucceed(segment.NewBudget(1, 1, goExec))
 					h2 := MustSucceed(budget2.Create(ops, "4.seg"))
 					w := segment.NewWriter(h2, cfg)
