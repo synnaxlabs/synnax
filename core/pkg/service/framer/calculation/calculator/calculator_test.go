@@ -747,13 +747,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				DataType: telem.Float32T,
 				Virtual:  true,
 			}}
-			calc := channel.Channel{
+			c, calc := open(ctx, nil, &base, calctestutil.Calculation{
 				Name:       UniqueChannelName(),
 				DataType:   telem.Float32T,
-				Virtual:    true,
 				Expression: "return " + base[0].Name + " * 2",
-			}
-			c := open(ctx, nil, &base, &calc)
+			})
 			return c, base[0], calc.Key()
 		}
 
