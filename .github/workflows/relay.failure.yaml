@@ -9,7 +9,7 @@
 
 # The last job of a watched workflow calls this when a job of its run failed. It starts
 # Agent - Requeue, and Report - Failures for a scheduled run. Both wait for the run to
-# complete and read its conclusion, so a run that ends cancelled starts nothing.
+# complete and read its conclusion. A run that a person cancels starts nothing.
 name: Relay - Failure
 
 on:
@@ -43,6 +43,21 @@ jobs:
       - name: Start Agent - Requeue
         if: env.REQUEUE == 'true'
         run: gh workflow run agent.requeue.yaml --ref main -f run="$GITHUB_RUN_ID"
+
+      # When each failed job only stopped at a usage limit or a rejected token, the
+      # seat left the pool and Agent - Requeue runs the job again. The run then ends
+      # cancelled, as GitHub emails the person who started a failed run.
+      - name: Cancel a run that only a usage limit stopped
+        if: env.REQUEUE == 'true'
+        run: |
+          jobs="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest"
+          drained=$(gh api --paginate "$jobs" --jq '.jobs[]
+            | select(.conclusion == "failure")
+            | any(.steps[]; (.name | startswith("Leave the pool until"))
+              and .conclusion == "success")')
+          if [ -n "$drained" ] && ! grep -qx false <<< "$drained"; then
+            gh run cancel "$GITHUB_RUN_ID"
+          fi
 
       # Report - Failures reads this attempt, so a rerun that Agent - Requeue starts
       # does not hide the failure.

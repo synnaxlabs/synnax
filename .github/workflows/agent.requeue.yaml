@@ -18,7 +18,7 @@ name: Agent - Requeue
 run-name: Requeue run ${{ inputs.run }}
 
 # A failed run of a watched workflow starts this from its last job, through
-# relay.failure.yaml.
+# relay.failure.yaml. The relay cancels the run when only usage limits stopped it.
 on:
   workflow_dispatch:
     inputs:
@@ -59,7 +59,8 @@ jobs:
           exit 1
 
       - name: Assume the runner start role
-        if: steps.run.outputs.conclusion == 'failure'
+        if: >-
+          contains(fromJSON('["failure", "cancelled"]'), steps.run.outputs.conclusion)
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
@@ -68,11 +69,13 @@ jobs:
       # agent.yaml runs a drain step only when the agent stopped at a usage limit or a
       # rejected token. A runner that the drain stopped just after it took a job leaves
       # no such step, only a lost runner on a seat that shut down. An idle seat never
-      # shuts down under a job, so such a job runs again too. Only one job of a run can
-      # run again at a time, so the first one goes.
+      # shuts down under a job, so such a job of a failed run runs again too. Only one
+      # job of a run can run again at a time, so the first one goes.
       - name: Run a job that a usage limit stopped again where usage is left
-        if: steps.run.outputs.conclusion == 'failure'
+        if: >-
+          contains(fromJSON('["failure", "cancelled"]'), steps.run.outputs.conclusion)
         env:
+          CONCLUSION: ${{ steps.run.outputs.conclusion }}
           ATTEMPT: ${{ steps.run.outputs.attempt }}
           TITLE: ${{ steps.run.outputs.title }}
         run: |
@@ -86,7 +89,7 @@ jobs:
           found=""
           while IFS=$'\t' read -r id runner drained name; do
             if [ "$drained" = false ]; then
-              [[ $runner == agent-*-* ]] || continue
+              [ "$CONCLUSION" = failure ] && [[ $runner == agent-*-* ]] || continue
               annotations="repos/$GITHUB_REPOSITORY/check-runs/$id/annotations"
               messages=$(gh api "$annotations" --jq '.[].message')
               grep -qE 'shutdown signal|lost communication' <<< "$messages" ||
@@ -150,17 +153,27 @@ jobs:
           # A rerun cannot reopen the check run that the review ended, so the review of
           # a pull request starts again in a new run, with the flags of its title. A
           # replay has no check run, and a restore has no Review job. Each new run
-          # starts at attempt 1, so the cap counts the failed reviews of the pull
-          # request in the last day instead, with or without repeat.
+          # starts at attempt 1, so the cap counts the reviews of the pull request in
+          # the last day with a failed job instead, with or without repeat. The relay
+          # cancels a run that a usage limit stopped, so cancelled runs count too.
           read -r pr flags <<< "$TITLE"
           if [ "$name" = Review ] && [[ " $flags " != *" replay "* ]]; then
             repeat=false
             if [[ " $flags " == *" repeat "* ]]; then repeat=true; fi
             review="repos/$GITHUB_REPOSITORY/actions/workflows/review.sedosaur.yaml"
             since=$(date -u -d '-1 day' +%FT%TZ)
-            failed=$(gh api "$review/runs?created=>$since&status=failure&per_page=100" \
-              --jq "[.workflow_runs[]
-                | select(.display_title | IN(\"$pr\", \"$pr repeat\"))] | length")
+            failed=0
+            for status in failure cancelled; do
+              runs=$(gh api "$review/runs?created=>$since&status=$status&per_page=100" \
+                --jq ".workflow_runs[]
+                  | select(.display_title | IN(\"$pr\", \"$pr repeat\")) | .id")
+              for id in $runs; do
+                jobs="repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?filter=latest"
+                if gh api "$jobs" --jq '.jobs[].conclusion' | grep -qx failure; then
+                  failed=$((failed + 1))
+                fi
+              done
+            done
             if [ "$failed" -ge 3 ]; then
               echo "::error::The review of #$pr failed $failed times in a day." \
                 "It does not run again."
