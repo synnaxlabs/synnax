@@ -74,7 +74,7 @@ TEST_F(PtyTest, RefusesOpenPortToSecondDevice) {
     const Link link(this->path());
     const auto [none, err] = ports.acquire(device("press", link.path.string()));
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    ASSERT_EQ(err.data, refused("oven", link.path.string()));
+    ASSERT_EQ(err.data(), refused("oven", link.path.string()));
     oven.reset();
     const auto press = ASSERT_NIL_P(ports.acquire(device("press", link.path.string())));
 }
@@ -93,7 +93,7 @@ TEST_F(PtyTest, FollowsOpenPortWhenLinkMoves) {
     const auto press = ASSERT_NIL_P(ports.acquire(device("press", this->path())));
     const auto [none, err] = ports.acquire(device("mixer", other.path()));
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    ASSERT_EQ(err.data, refused("oven", other.path()));
+    ASSERT_EQ(err.data(), refused("oven", other.path()));
 }
 
 /// @brief it should configure and start a device on a missing port, and claim the port
@@ -110,7 +110,7 @@ TEST_F(PtyTest, ClaimsPortOnlyWhenItOpens) {
     link.point(this->path());
     const auto err = reopen(*oven);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    ASSERT_EQ(err.data, refused("press", link.path.string()));
+    ASSERT_EQ(err.data(), refused("press", link.path.string()));
 }
 
 /// @brief it should release the port when the open fails after the claim.
