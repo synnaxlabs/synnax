@@ -43,6 +43,12 @@ export interface SeverableProxy {
    * blackholed.
    */
   blackholeStreams: () => number;
+  /**
+   * Holds every new connection open without forwarding it, as if the link stalled.
+   * Live connections still forward. Returns a function that forwards new connections
+   * again.
+   */
+  stallNewConnections: () => () => void;
   /** Accepts connections again on the same port. */
   restore: () => Promise<void>;
   /** Shuts the proxy down for good. */
@@ -72,11 +78,18 @@ export const createSeverableProxy = async (
   // is severed or closed.
   const zombies = new Set<Socket>();
   let severed = false;
+  let stalled = false;
   const server = createServer((downstream) => {
     // A connection the kernel accepted before the sever is still delivered after it,
     // and forwarding it would let a request through a severed link.
     if (severed) {
       downstream.destroy();
+      return;
+    }
+    if (stalled) {
+      downstream.on("error", () => {});
+      downstream.on("data", () => {});
+      zombies.add(downstream);
       return;
     }
     const upstream = connect(port, host);
@@ -152,6 +165,12 @@ export const createSeverableProxy = async (
     port: boundPort,
     sever,
     blackholeStreams,
+    stallNewConnections: () => {
+      stalled = true;
+      return () => {
+        stalled = false;
+      };
+    },
     restore: async () => {
       severed = false;
       await listen(boundPort);

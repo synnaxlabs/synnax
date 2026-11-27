@@ -16,7 +16,7 @@ import {
   unaryWithBreaker,
   WebSocketClient,
 } from "@synnaxlabs/freighter";
-import { binary, type breaker, type url } from "@synnaxlabs/x";
+import { binary, type breaker, type CrudeTimeSpan, type url } from "@synnaxlabs/x";
 
 /** Configures a {@link Transport}. */
 export interface TransportConfig {
@@ -33,6 +33,8 @@ export interface TransportConfig {
    * HTTP_PROXY or HTTPS_PROXY is set, defaults to a connector that uses that proxy.
    */
   connector?: Connector;
+  /** The longest a stream waits to open. Defaults to 10 seconds. */
+  streamOpenTimeout?: CrudeTimeSpan;
 }
 
 export class Transport {
@@ -47,7 +49,14 @@ export class Transport {
   readonly stream: WebSocketClient;
   readonly secure: boolean;
 
-  constructor({ url, retry = {}, secure, onRetry, connector }: TransportConfig) {
+  constructor({
+    url,
+    retry = {},
+    secure,
+    onRetry,
+    connector,
+    streamOpenTimeout,
+  }: TransportConfig) {
     this.secure = secure;
     this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();
@@ -59,7 +68,13 @@ export class Transport {
     this.unary = unaryWithBreaker(http, retry, onRetry);
     this.unaryNoRetry = http;
     this.file = http;
-    this.stream = new WebSocketClient({ endpoint: this.url, codec, secure, connector });
+    this.stream = new WebSocketClient({
+      endpoint: this.url,
+      codec,
+      secure,
+      connector,
+      openTimeout: streamOpenTimeout,
+    });
   }
 
   use(...middleware: Middleware[]): void {

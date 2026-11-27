@@ -101,6 +101,11 @@ export const synnaxParamsZ = z.object({
     .optional(),
   name: z.string().optional(),
   retry: breaker.configZ.optional(),
+  /**
+   * The longest a stream waits to open, from the dial to the Core's open ack. A
+   * hardened streamer retries an open that times out. Defaults to 10 seconds.
+   */
+  streamOpenTimeout: TimeSpan.z.optional(),
   cache: z.boolean().default(true),
   /**
    * Receives cache errors that have no caller to throw to (listener fan-out, streamer
@@ -365,6 +370,7 @@ export default class Synnax extends framer.Client {
       secure,
       onRetry: parsedParams.onRetry,
       connector,
+      streamOpenTimeout: parsedParams.streamOpenTimeout,
     });
     transport.use(errorsMiddleware);
     const tokenless = new Transport({ url: address, secure, connector });

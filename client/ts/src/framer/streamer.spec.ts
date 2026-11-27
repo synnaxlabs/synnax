@@ -907,6 +907,34 @@ describe("Streamer", () => {
       expect(Array.from((await pending).get(ch.key))).toEqual([2]);
     }, 30_000);
 
+    it("should retry a reconnect that cannot open during a long stall", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+        streamOpenTimeout: TimeSpan.milliseconds(500),
+      });
+      const ch = await newVirtualChannel(client);
+      const onDrop = vi.fn();
+      const onReopen = vi.fn();
+      const onRetry = vi.fn();
+      await using hardened = await framer.HardenedStreamer.open(
+        async (cfg) => await proxied.openStreamer(cfg),
+        { channels: ch.key, keepAlive: KEEP_ALIVE },
+        { breaker: FAST_RETRY, onReopen, onDrop, onRetry },
+      );
+      await sleep.sleep(ARMED);
+      const unstall = proxy.stallNewConnections();
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      const pending = hardened.read();
+      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
+      // Each open times out on the stalled link, and the streamer retries it.
+      await expect.poll(() => onRetry.mock.calls.length, POLL).toBeGreaterThan(2);
+      expect(onReopen).not.toHaveBeenCalled();
+      unstall();
+      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
+      await write(ch, [1]);
+      expect(Array.from((await pending).get(ch.key))).toEqual([1]);
+    }, 30_000);
+
     it("should reject a pending update ack when the read fails", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient({
         onRetry: quiet,

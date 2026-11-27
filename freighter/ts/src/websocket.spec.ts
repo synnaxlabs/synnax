@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { IncomingMessage } from "node:http";
-import { type AddressInfo, createServer } from "node:net";
+import { type AddressInfo, createServer, type Socket as NetSocket } from "node:net";
 
 import { binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -245,6 +245,45 @@ describe("unreachable server", () => {
       failingConnector(() => {}, globalThis.WebSocket.CLOSED),
     );
     expect(Unreachable.matches(err)).toBe(true);
+  });
+
+  test("should throw Unreachable when the server never answers the dial", async () => {
+    const sockets: NetSocket[] = [];
+    const server = createServer((socket) => sockets.push(socket));
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as AddressInfo;
+    const c = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: binary.JSON_CODEC,
+      openTimeout: TimeSpan.milliseconds(100),
+    });
+    const err = await c.stream("stream", messageSchema, messageSchema).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(Unreachable.matches(err)).toBe(true);
+    expect(err).toHaveProperty("message", "stream did not open within 100ms");
+    sockets.forEach((socket) => socket.destroy());
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  test("should throw Unreachable when the server never acks the open", async () => {
+    const server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    await new Promise((resolve) => server.on("listening", resolve));
+    const closed = new Promise((resolve) =>
+      server.on("connection", (ws) => ws.on("close", resolve)),
+    );
+    const { port } = server.address() as AddressInfo;
+    const c = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: binary.JSON_CODEC,
+      openTimeout: TimeSpan.milliseconds(100),
+    });
+    await expect(c.stream("stream", messageSchema, messageSchema)).rejects.toThrow(
+      Unreachable,
+    );
+    await closed;
+    await new Promise((resolve) => server.close(resolve));
   });
 });
 

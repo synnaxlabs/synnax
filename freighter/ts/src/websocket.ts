@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, errors, sleep, TimeSpan, url } from "@synnaxlabs/x";
+import {
+  type binary,
+  type CrudeTimeSpan,
+  errors,
+  sleep,
+  sync,
+  TimeSpan,
+  url,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Connector, defaultConnector, type Socket } from "@/connector";
@@ -66,6 +74,8 @@ const DEFAULT_FLOW_CONTROL: FlowControl = {
   sendHighWaterMark: 8 * 1024 * 1024,
   receiveQueueLimit: 256 * 1024 * 1024,
 };
+
+const DEFAULT_OPEN_TIMEOUT = TimeSpan.seconds(10);
 
 // WebSocket has no drain event, so send polls bufferedAmount.
 const DRAIN_POLL_INTERVAL = TimeSpan.milliseconds(5);
@@ -297,6 +307,11 @@ export interface WebSocketClientConfig {
   flowControl?: Partial<FlowControl>;
   /** Opens the WebSockets. Defaults to {@link defaultConnector}. */
   connector?: Connector;
+  /**
+   * The longest a stream waits to open, from the dial to the server's open ack.
+   * Defaults to 10 seconds.
+   */
+  openTimeout?: CrudeTimeSpan;
 }
 
 /**
@@ -308,6 +323,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   secure: boolean;
   flowControl: FlowControl;
   private readonly connector: Connector;
+  private readonly openTimeout: TimeSpan;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
@@ -317,6 +333,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     secure = false,
     flowControl = {},
     connector = defaultConnector(),
+    openTimeout = DEFAULT_OPEN_TIMEOUT,
   }: WebSocketClientConfig) {
     super();
     this.secure = secure;
@@ -324,6 +341,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     this.baseUrl = endpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = codec;
     this.connector = connector;
+    this.openTimeout = new TimeSpan(openTimeout);
   }
 
   withCodec(codec: binary.Codec): WebSocketClient {
@@ -333,6 +351,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       secure: this.secure,
       flowControl: this.flowControl,
       connector: this.connector,
+      openTimeout: this.openTimeout,
     });
     c.use(...this.middleware);
     return c;
@@ -342,9 +361,9 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
    * Implements the StreamClient interface.
    * @throws {UntrustedCertificate} if the runtime names a certificate it does not trust
    * (Bun and Deno).
-   * @throws {Unreachable} if the socket fails or closes before it opens. Another TLS
-   * failure or a refused upgrade that the runtime names (Bun and Deno) throws the
-   * runtime error instead.
+   * @throws {Unreachable} if the socket fails or closes before it opens, or the server
+   * does not ack the open within the open timeout. Another TLS failure or a refused
+   * upgrade that the runtime names (Bun and Deno) throws the runtime error instead.
    */
   async stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
@@ -382,8 +401,8 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     reqSchema: RQ,
     resSchema: RS,
   ): Promise<WebSocketStream<RQ, RS>> {
-    return await new Promise((resolve, reject) => {
-      const endpoint = this.baseUrl.child(target);
+    const endpoint = this.baseUrl.child(target);
+    const opened = new Promise<WebSocketStream<RQ, RS>>((resolve, reject) => {
       const hint =
         endpoint.protocol === "wss" && hidesDialCause() ? CERTIFICATE_HINT : undefined;
       const unreachable = (cause: unknown) =>
@@ -412,5 +431,19 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
           .catch((err: unknown) => reject(errors.fromUnknown(err)));
       };
     });
+    try {
+      return await sync.withTimeout(
+        opened,
+        this.openTimeout,
+        () =>
+          new Unreachable({
+            url: endpoint,
+            message: `stream did not open within ${this.openTimeout.toString()}`,
+          }),
+      );
+    } catch (e) {
+      ws.close();
+      throw errors.fromUnknown(e);
+    }
   }
 }
