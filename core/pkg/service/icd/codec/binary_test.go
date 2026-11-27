@@ -123,9 +123,9 @@ var _ = Describe("Binary", func() {
 		}
 		mode := byteField("mode", 2)
 		selected := byteField("a", 1)
-		b := selected.Variant.(icd.UnsignedBinaryField)
+		b := selected.Base()
 		b.Multiplexor, b.MultiplexValues = new(mode.Base().Key), []int32{1}
-		selected.Variant = b
+		selected.SetBase(b)
 		dec := MustSucceed(codec.NewBinary([]codec.BinaryMessage{
 			identified("muxed", 1, mode, selected),
 			identified("plain", 2, byteField("v", 1)),
