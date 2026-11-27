@@ -78,14 +78,11 @@ var _ = Describe("BinaryEncoder", func() {
 		f.checkCases(MustSucceed(codec.NewBinaryEncoder(m)), m.Bindings)
 	}, fixtureEntries("encode", payload.FormatBinary))
 
-	It("Should refuse a message with a CAN identifier", func() {
+	It("Should encode only the payload of a message with a CAN identifier", func() {
 		m := frame(telem.Uint8T, byteField("v", 0))
 		m.Payload.Identifier = &icd.Identifier{Variant: icd.CanIdentifier{ID: 0x100}}
-		Expect(codec.NewBinaryEncoder(m)).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError("message frame: identifier: only the Driver writes CAN "+
-				"frames: validation error"),
-		))
+		enc := MustSucceed(codec.NewBinaryEncoder(m))
+		Expect(enc.Encode(nil, [][]byte{uint8Sample(5)})).To(Equal([]byte{5}))
 	})
 
 	It("Should encode a scaled sample that a decoder of the same message reads back",

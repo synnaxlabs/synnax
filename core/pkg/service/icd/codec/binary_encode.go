@@ -59,9 +59,9 @@ type binaryEncodeField struct {
 
 // NewBinaryEncoder returns an encoder of the payloads of m. Each binding names a field
 // that takes a sample, in sample order, and every other field takes its default. The
-// identifier field takes the identifier's value. It returns an error wrapping
-// validate.ErrValidation when m has a CAN identifier or an invalid identifier, a
-// binding names no field, a field has two bindings, a binding names the identifier
+// identifier field takes the identifier's value, and a CAN identifier is not encoded.
+// It returns an error wrapping validate.ErrValidation when m has an invalid identifier,
+// a binding names no field, a field has two bindings, a binding names the identifier
 // field, a field's layout, default, or multiplexor is invalid, a bound field has a zero
 // scale, a field's channel does not hold numbers, a scaled field's channel does not
 // hold floats, a field that the multiplexors can select has no binding and no default,
@@ -89,9 +89,7 @@ func newBinaryEncoder(m BinaryMessage) (*BinaryEncoder, error) {
 		case icd.FieldIdentifier:
 			id = &v
 		case icd.CanIdentifier:
-			return nil, errors.Wrap(
-				validate.ErrValidation, "identifier: only the Driver writes CAN frames",
-			)
+			// A CAN task writes the identifier in the frame, not the payload.
 		default:
 			panic(errors.Newf("codec: unknown identifier %T", v))
 		}
