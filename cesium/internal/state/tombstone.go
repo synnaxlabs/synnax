@@ -39,25 +39,8 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 	case ch == nil:
 		return refuse("tombstone of key %d, which holds no segment", t.Key)
 	}
-	gone := removed(ch, t)
-	for _, s := range c.segments {
-		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created {
-			continue
-		}
-		for _, p := range s.dur.pointers {
-			if hits(p, gone) {
-				return refuse(
-					"tombstone of clock %d from %d to %d, which "+
-						"key %d uses from %d to %d",
-					t.Key,
-					start,
-					end,
-					s.key,
-					p.First,
-					p.Last,
-				)
-			}
-		}
+	if err := c.checkClock(t); err != nil {
+		return err
 	}
 	for _, s := range ch.segs {
 		for i, p := range s.dur.pointers {
@@ -87,6 +70,24 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 		(l.Offset > r.Offset || l.Alignment > r.Alignment) {
 		return refuse("tombstone of key %d cuts its right end before its "+
 			"left end", t.Key)
+	}
+	return nil
+}
+
+// checkClock refuses t when a segment of another key that names the key of t as its
+// clock keeps a sample at an alignment that t takes out of the clock.
+func (c *core) checkClock(t *log.Tombstone) error {
+	gone := removed(c.channels[t.Key], t)
+	for _, s := range c.segments {
+		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created {
+			continue
+		}
+		for _, p := range s.dur.pointers {
+			if hits(p, gone) {
+				return refuse("tombstone of clock %d from %d to %d, which key %d uses "+
+					"from %d to %d", t.Key, t.Start, t.End, s.key, p.First, p.Last)
+			}
+		}
 	}
 	return nil
 }
