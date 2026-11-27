@@ -94,7 +94,8 @@ type SampledShape struct {
 	Samples []string
 }
 
-// Infer returns the shapes of docs, which are in the order that each source wrote them.
+// Infer returns the shapes of docs, which are in the order that each source wrote them,
+// and for each document, true when it is one JSON value.
 //   - The documents of a source that hold the same fields are one cluster. A cluster
 //     whose fields are all in one widest cluster joins it, so a field that some
 //     documents lack does not split a cluster. A source with more than 16 clusters or
@@ -117,17 +118,19 @@ type SampledShape struct {
 //
 // A document that is not JSON gives no fields, and a source with no JSON document gives
 // no shape.
-func Infer(docs []Document) []Shape {
+func Infer(docs []Document) ([]Shape, []bool) {
 	now := telem.Now()
 	var (
 		sources []*inferSource
 		byName  = make(map[string]*inferSource)
+		isJSON  = make([]bool, len(docs))
 	)
-	for _, doc := range docs {
+	for i, doc := range docs {
 		leaves, err := parseLeaves(doc.Data)
 		if err != nil {
 			continue
 		}
+		isJSON[i] = true
 		src, ok := byName[doc.Source]
 		if !ok {
 			src = newInferSource(doc.Source, math.MaxInt)
@@ -145,7 +148,7 @@ func Infer(docs []Document) []Shape {
 	for i := range shapes {
 		shapes[i] = inf.shape(i)
 	}
-	return shapes
+	return shapes, isJSON
 }
 
 // inference is what infer finds in the documents of its sources.
