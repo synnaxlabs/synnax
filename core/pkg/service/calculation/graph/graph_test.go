@@ -485,7 +485,7 @@ var _ = Describe("Graph", func() {
 						To(ContainSubstring("returns no value"))
 					Expect(
 						retrieveChannelDataType(ctx, untyped.Key()),
-					).To(Equal(telem.UnknownT))
+					).To(Equal(telem.DataType("")))
 				},
 			)
 

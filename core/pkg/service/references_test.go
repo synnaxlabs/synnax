@@ -104,7 +104,7 @@ var _ = Describe("References", Ordered, func() {
 
 		It("Should keep and log a channel with no data type that a task config names",
 			func(ctx SpecContext) {
-				ch.DataType = telem.UnknownT
+				ch.DataType = ""
 				Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, ch)).
 					To(Succeed())
 				core, logs := observer.New(zapcore.WarnLevel)
