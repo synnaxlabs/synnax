@@ -259,11 +259,11 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 						if v9.Channel == t {
 							return []string{"channels", strconv.Itoa(i7), "channel"}
 						}
-					case AIThermistorIexChannel:
+					case AIThermistorIExChannel:
 						if v9.Channel == t {
 							return []string{"channels", strconv.Itoa(i7), "channel"}
 						}
-					case AIThermistorVexChannel:
+					case AIThermistorVExChannel:
 						if v9.Channel == t {
 							return []string{"channels", strconv.Itoa(i7), "channel"}
 						}
@@ -832,11 +832,11 @@ func analogReadConfigReferences() []gorp.Reference[uuid.UUID, AnalogReadConfig] 
 						if v9.Device == t {
 							return []string{"channels", strconv.Itoa(i7), "device"}
 						}
-					case AIThermistorIexChannel:
+					case AIThermistorIExChannel:
 						if v9.Device == t {
 							return []string{"channels", strconv.Itoa(i7), "device"}
 						}
-					case AIThermistorVexChannel:
+					case AIThermistorVExChannel:
 						if v9.Device == t {
 							return []string{"channels", strconv.Itoa(i7), "device"}
 						}

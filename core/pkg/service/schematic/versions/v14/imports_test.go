@@ -402,7 +402,7 @@ var _ = Describe("ImportCustomNodes", func() {
 			}
 		}
 		tank := symbol.Symbol{Key: uuid.New(), Name: "Tank", Data: symbol.Spec{
-			Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
+			Drawing: symbol.Drawing{Variant: symbol.SVGDrawing{Markup: "<svg/>"}},
 			States: []symbol.State{{Variant: symbol.EnumerationState{
 				BaseState:   symbol.BaseState{Key: "active", Name: "Active"},
 				Enumeration: &e.Key,
