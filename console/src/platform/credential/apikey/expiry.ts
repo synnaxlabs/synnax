@@ -21,7 +21,7 @@ export type Expiry = keyof typeof LIFETIMES | "custom" | "never";
 const DEFAULT_LIFETIME: keyof typeof LIFETIMES = "90d";
 
 /** The expiry a new API key gets unless the user picks another. */
-export const DEFAULT_EXPIRY: Expiry = DEFAULT_LIFETIME;
+const DEFAULT_EXPIRY: Expiry = DEFAULT_LIFETIME;
 
 const fits = (expiry: Expiry, maxLifetime: TimeSpan | null): boolean => {
   if (maxLifetime == null || expiry === "custom") return true;
