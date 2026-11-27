@@ -154,8 +154,8 @@ var _ = Describe("Delete", Ordered, func() {
 	entry := func(id resource.ID, effect impact.Effect) impact.Entry {
 		e := impact.Entry{Record: id, Effect: effect}
 		if effect == impact.EffectRestrict {
-			e.Choices = []impact.Choice{impact.ChoiceCancel, impact.ChoiceDelete}
-			e.Default = new(impact.ChoiceCancel)
+			e.Choices = []impact.Effect{impact.EffectCancel, impact.EffectDelete}
+			e.Default = new(impact.EffectCancel)
 		}
 		return e
 	}
@@ -185,8 +185,8 @@ var _ = Describe("Delete", Ordered, func() {
 				Entry(&st).
 				Exec(ctx, db)).To(Succeed())
 			p := MustSucceed(apply(ctx, impact.ApplyOptions{
-				Picks: picksOf(map[string]impact.Choice{
-					task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+				Picks: picksOf(map[string]impact.Effect{
+					task.ResourceID(tsk.Key).String(): impact.EffectDelete,
 				}),
 			}, ch.Key()))
 			Expect(p.Entries).To(ConsistOf(
@@ -263,7 +263,7 @@ var _ = Describe("Delete", Ordered, func() {
 			tsk := createTask(ctx, ch.Key())
 			id := task.ResourceID(tsk.Key).String()
 			Expect(apply(ctx, impact.ApplyOptions{
-				Picks: picksOf(map[string]impact.Choice{id: impact.ChoiceDelete}),
+				Picks: picksOf(map[string]impact.Effect{id: impact.EffectDelete}),
 			}, ch.Key())).Error().ToNot(HaveOccurred())
 			Expect(exists(ctx, ch.Key())).To(BeFalse())
 			Expect(layer.Task.NewRetrieve().
@@ -284,8 +284,8 @@ var _ = Describe("Delete", Ordered, func() {
 			LocalIndex: index.LocalKey,
 		})
 		applied := MustSucceed(apply(ctx, impact.ApplyOptions{
-			Picks: picksOf(map[string]impact.Choice{
-				channel.ResourceID(data.Key()).String(): impact.ChoiceDelete,
+			Picks: picksOf(map[string]impact.Effect{
+				channel.ResourceID(data.Key()).String(): impact.EffectDelete,
 			}),
 		}, index.Key()))
 		Expect(applied.Entries).To(Equal([]impact.Entry{
@@ -298,18 +298,34 @@ var _ = Describe("Delete", Ordered, func() {
 	It("Should ignore a pick for no entry", func(ctx SpecContext) {
 		ch := createChannel(ctx, channel.Channel{})
 		applied := MustSucceed(apply(ctx, impact.ApplyOptions{
-			Picks: picksOf(map[string]impact.Choice{"task:none": impact.ChoiceDelete}),
+			Picks: picksOf(map[string]impact.Effect{"task:none": impact.EffectDelete}),
 		}, ch.Key()))
 		Expect(applied.Entries).To(BeEmpty())
 		Expect(exists(ctx, ch.Key())).To(BeFalse())
 	})
+
+	DescribeTable("Should refuse a pick of a word that is only an effect",
+		func(ctx SpecContext, word impact.Effect) {
+			ch := createChannel(ctx, channel.Channel{})
+			Expect(layer.Impact.Plan(ctx, db, deleteOf(ch.Key()), impact.PlanOptions{
+				Hidden: new(word),
+			})).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(string(word)+" is not a choice")),
+			))
+		},
+		Entry("restrict", impact.EffectRestrict),
+		Entry("cascade", impact.EffectCascade),
+		Entry("detach", impact.EffectDetach),
+		Entry("rename", impact.EffectRename),
+	)
 
 	It("Should refuse a pick that its entry does not allow", func(ctx SpecContext) {
 		ch := createChannel(ctx, channel.Channel{})
 		plot := createPlot(ctx, ch.Key())
 		id := lineplot.ResourceID(plot.Key).String()
 		Expect(apply(ctx, impact.ApplyOptions{
-			Picks: picksOf(map[string]impact.Choice{id: impact.ChoiceDelete}),
+			Picks: picksOf(map[string]impact.Effect{id: impact.EffectDelete}),
 		}, ch.Key())).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("entry "+id+" cannot take delete")),
@@ -369,19 +385,19 @@ var _ = Describe("Delete", Ordered, func() {
 		Expect(p.Entries).To(Equal([]impact.Entry{{
 			Record:  id,
 			Effect:  impact.EffectRestrict,
-			Choices: []impact.Choice{impact.ChoiceCancel},
-			Default: new(impact.ChoiceCancel),
+			Choices: []impact.Effect{impact.EffectCancel},
+			Default: new(impact.EffectCancel),
 		}}))
 		Expect(apply(ctx, impact.ApplyOptions{}, index.Key())).
 			Error().To(BeAssignableToTypeOf(gorp.RestrictError{}))
 		Expect(apply(ctx, impact.ApplyOptions{
-			Picks: map[resource.ID]impact.Choice{id: impact.ChoiceDelete},
+			Picks: map[resource.ID]impact.Effect{id: impact.EffectDelete},
 		}, index.Key())).Error().To(And(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("entry "+id.String()+" cannot take delete")),
 		))
 		Expect(apply(ctx, impact.ApplyOptions{
-			Hidden:  new(impact.ChoiceDelete),
+			Hidden:  new(impact.EffectDelete),
 			Visible: func(r resource.ID) bool { return r != id },
 		}, index.Key())).Error().To(BeAssignableToTypeOf(gorp.RestrictError{}))
 		Expect(exists(ctx, index.Key())).To(BeTrue())
@@ -407,10 +423,10 @@ var _ = Describe("Delete", Ordered, func() {
 		ctx SpecContext,
 	) {
 		ch := createChannel(ctx, channel.Channel{})
-		invalid := make(map[resource.ID]impact.Choice, 8)
+		invalid := make(map[resource.ID]impact.Effect, 8)
 		for c := 'a'; c <= 'h'; c++ {
 			id := resource.ID{Type: resource.TypeTask, Key: string(c)}
-			invalid[id] = impact.Choice(
+			invalid[id] = impact.Effect(
 				fmt.Sprintf("keep_%c", c),
 			)
 		}
@@ -482,8 +498,8 @@ var _ = Describe("Delete", Ordered, func() {
 			func(ctx SpecContext) {
 				ch := createChannel(ctx, channel.Channel{})
 				tsk := createTask(ctx, ch.Key())
-				picks := picksOf(map[string]impact.Choice{
-					task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+				picks := picksOf(map[string]impact.Effect{
+					task.ResourceID(tsk.Key).String(): impact.EffectDelete,
 				})
 				picked := MustSucceed(layer.Impact.Plan(
 					ctx,
@@ -515,8 +531,8 @@ var _ = Describe("Delete", Ordered, func() {
 				ctx,
 				db,
 				deleteOf(ch.Key()),
-				impact.PlanOptions{Picks: picksOf(map[string]impact.Choice{
-					task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+				impact.PlanOptions{Picks: picksOf(map[string]impact.Effect{
+					task.ResourceID(tsk.Key).String(): impact.EffectDelete,
 				})},
 			))
 			Expect(picked).To(Equal(plan(ctx, nil, ch.Key())))
@@ -591,7 +607,7 @@ var _ = Describe("Delete", Ordered, func() {
 			visible := hide(task.ResourceID(first.Key), task.ResourceID(second.Key))
 			applied := MustSucceed(apply(ctx, impact.ApplyOptions{
 				Token:   p.Token,
-				Hidden:  new(impact.ChoiceDelete),
+				Hidden:  new(impact.EffectDelete),
 				Visible: visible,
 			}, ch.Key()))
 			Expect(applied.Token).To(Equal(p.Token))
@@ -609,7 +625,7 @@ var _ = Describe("Delete", Ordered, func() {
 			a, b := createTask(ctx, ch.Key()), createTask(ctx, ch.Key())
 			visible := hide(task.ResourceID(a.Key), task.ResourceID(b.Key))
 			applied := MustSucceed(apply(ctx, impact.ApplyOptions{
-				Hidden:  new(impact.ChoiceDelete),
+				Hidden:  new(impact.EffectDelete),
 				Visible: visible,
 			}, ch.Key()))
 			Expect(applied.Entries).To(BeEmpty())
@@ -629,8 +645,8 @@ var _ = Describe("Delete", Ordered, func() {
 			tsk := createTask(ctx, ch.Key())
 			id := task.ResourceID(tsk.Key)
 			_, err := apply(ctx, impact.ApplyOptions{
-				Picks: picksOf(map[string]impact.Choice{
-					id.String(): impact.ChoiceDelete,
+				Picks: picksOf(map[string]impact.Effect{
+					id.String(): impact.EffectDelete,
 				}),
 				Visible: hide(id),
 			}, ch.Key())

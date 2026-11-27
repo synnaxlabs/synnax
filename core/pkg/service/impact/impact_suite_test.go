@@ -27,9 +27,9 @@ func TestImpact(t *testing.T) {
 }
 
 // picksOf returns picks keyed by the records that their text keys name.
-func picksOf(picks map[string]impact.Choice) map[resource.ID]impact.Choice {
+func picksOf(picks map[string]impact.Effect) map[resource.ID]impact.Effect {
 	GinkgoHelper()
-	parsed := make(map[resource.ID]impact.Choice, len(picks))
+	parsed := make(map[resource.ID]impact.Effect, len(picks))
 	for text, pick := range picks {
 		parsed[MustSucceed(resource.ParseID(text))] = pick
 	}

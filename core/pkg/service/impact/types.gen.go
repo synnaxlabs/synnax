@@ -18,42 +18,29 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Effect is what a delete does to a record that holds a record it deletes. A restrict
-// record stops the delete unless the caller picks to delete it too, a cascade record is
-// deleted with the record it holds, and a detach record loses it.
+// Effect is what a change does to a record that it touches, and what a pick asks it to
+// do. Restrict, cascade, detach, and rename are only effects. Cancel, which stops the
+// whole change, is only a pick. Delete, drop, retarget, keep, and update_text are both.
 type Effect string
 
 const (
-	EffectRestrict Effect = "restrict"
-	EffectCascade  Effect = "cascade"
-	EffectDetach   Effect = "detach"
+	EffectRestrict   Effect = "restrict"
+	EffectCascade    Effect = "cascade"
+	EffectDetach     Effect = "detach"
+	EffectRename     Effect = "rename"
+	EffectCancel     Effect = "cancel"
+	EffectDelete     Effect = "delete"
+	EffectDrop       Effect = "drop"
+	EffectRetarget   Effect = "retarget"
+	EffectKeep       Effect = "keep"
+	EffectUpdateText Effect = "update_text"
 )
 
 // IsValid reports whether e is one of the defined Effect
 // values.
 func (e Effect) IsValid() bool {
 	switch e {
-	case EffectRestrict, EffectCascade, EffectDetach:
-		return true
-	default:
-		return false
-	}
-}
-
-// Choice is a pick for an entry. Cancel stops the whole change, and delete deletes the
-// record too.
-type Choice string
-
-const (
-	ChoiceCancel Choice = "cancel"
-	ChoiceDelete Choice = "delete"
-)
-
-// IsValid reports whether c is one of the defined Choice
-// values.
-func (c Choice) IsValid() bool {
-	switch c {
-	case ChoiceCancel, ChoiceDelete:
+	case EffectRestrict, EffectCascade, EffectDetach, EffectRename, EffectCancel, EffectDelete, EffectDrop, EffectRetarget, EffectKeep, EffectUpdateText:
 		return true
 	default:
 		return false
@@ -67,9 +54,9 @@ type Entry struct {
 	// Effect is what the change does to the record.
 	Effect Effect `json:"effect" msgpack:"effect"`
 	// Choices are the picks the caller may make, empty when it has none.
-	Choices []Choice `json:"choices" msgpack:"choices"`
+	Choices []Effect `json:"choices" msgpack:"choices"`
 	// Default is the pick that applies when the caller makes none.
-	Default *Choice `json:"default,omitzero" msgpack:"default,omitempty"`
+	Default *Effect `json:"default,omitzero" msgpack:"default,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -93,6 +80,18 @@ type Hidden struct {
 	Cascade uint32 `json:"cascade" msgpack:"cascade"`
 	// Detach is the number of hidden entries that lose a record.
 	Detach uint32 `json:"detach" msgpack:"detach"`
+	// Rename is the number of hidden entries that the change renames.
+	Rename uint32 `json:"rename" msgpack:"rename"`
+	// Delete is the number of hidden entries whose effect is delete.
+	Delete uint32 `json:"delete" msgpack:"delete"`
+	// Drop is the number of hidden entries whose effect is drop.
+	Drop uint32 `json:"drop" msgpack:"drop"`
+	// Retarget is the number of hidden entries whose effect is retarget.
+	Retarget uint32 `json:"retarget" msgpack:"retarget"`
+	// Keep is the number of hidden entries whose effect is keep.
+	Keep uint32 `json:"keep" msgpack:"keep"`
+	// UpdateText is the number of hidden entries whose effect is update_text.
+	UpdateText uint32 `json:"update_text" msgpack:"update_text"`
 }
 
 // Plan is every record that a change touches, with the picks for each.

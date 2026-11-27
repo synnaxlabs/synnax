@@ -23,15 +23,33 @@ EFFECT_CASCADE: Literal["cascade"] = "cascade"
 
 EFFECT_DETACH: Literal["detach"] = "detach"
 
+EFFECT_RENAME: Literal["rename"] = "rename"
 
-Effect = Literal["restrict", "cascade", "detach"]
+EFFECT_CANCEL: Literal["cancel"] = "cancel"
 
-CHOICE_CANCEL: Literal["cancel"] = "cancel"
+EFFECT_DELETE: Literal["delete"] = "delete"
 
-CHOICE_DELETE: Literal["delete"] = "delete"
+EFFECT_DROP: Literal["drop"] = "drop"
+
+EFFECT_RETARGET: Literal["retarget"] = "retarget"
+
+EFFECT_KEEP: Literal["keep"] = "keep"
+
+EFFECT_UPDATE_TEXT: Literal["update_text"] = "update_text"
 
 
-Choice = Literal["cancel", "delete"]
+Effect = Literal[
+    "restrict",
+    "cascade",
+    "detach",
+    "rename",
+    "cancel",
+    "delete",
+    "drop",
+    "retarget",
+    "keep",
+    "update_text",
+]
 
 
 class Entry(BaseModel):
@@ -46,8 +64,8 @@ class Entry(BaseModel):
 
     record: resource.ID
     effect: Effect
-    choices: list[Choice] = Field(default_factory=list)
-    default: Choice | None = None
+    choices: list[Effect] = Field(default_factory=list)
+    default: Effect | None = None
 
 
 class Hidden(BaseModel):
@@ -58,11 +76,23 @@ class Hidden(BaseModel):
         restrict: Is the number of hidden entries that stop the change.
         cascade: Is the number of hidden entries that the change deletes.
         detach: Is the number of hidden entries that lose a record.
+        rename: Is the number of hidden entries that the change renames.
+        delete: Is the number of hidden entries whose effect is delete.
+        drop: Is the number of hidden entries whose effect is drop.
+        retarget: Is the number of hidden entries whose effect is retarget.
+        keep: Is the number of hidden entries whose effect is keep.
+        update_text: Is the number of hidden entries whose effect is update_text.
     """
 
     restrict: int = Field(ge=0, le=4294967295)
     cascade: int = Field(ge=0, le=4294967295)
     detach: int = Field(ge=0, le=4294967295)
+    rename: int = Field(ge=0, le=4294967295)
+    delete: int = Field(ge=0, le=4294967295)
+    drop: int = Field(ge=0, le=4294967295)
+    retarget: int = Field(ge=0, le=4294967295)
+    keep: int = Field(ge=0, le=4294967295)
+    update_text: int = Field(ge=0, le=4294967295)
 
 
 class DeleteChange(BaseModel):
@@ -111,8 +141,8 @@ class PlanRequest(BaseModel):
     """
 
     change: Change
-    picks: dict[str, Choice] = Field(default_factory=dict)
-    hidden: Choice | None = None
+    picks: dict[str, Effect] = Field(default_factory=dict)
+    hidden: Effect | None = None
 
 
 class ApplyRequest(BaseModel):
@@ -127,8 +157,8 @@ class ApplyRequest(BaseModel):
 
     change: Change
     token: str = ""
-    picks: dict[str, Choice] = Field(default_factory=dict)
-    hidden: Choice | None = None
+    picks: dict[str, Effect] = Field(default_factory=dict)
+    hidden: Effect | None = None
 
 
 class DeleteResponse(BaseModel):

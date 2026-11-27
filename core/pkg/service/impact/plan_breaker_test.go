@@ -146,7 +146,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		))
 	}
 	// withPicks returns the apply options that make picks.
-	withPicks := func(picks map[string]impact.Choice) impact.ApplyOptions {
+	withPicks := func(picks map[string]impact.Effect) impact.ApplyOptions {
 		return impact.ApplyOptions{Picks: picksOf(picks)}
 	}
 	apply := func(
@@ -172,7 +172,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		Expect(p.Hidden).To(Equal(impact.Hidden{Detach: 1}))
 		_, err := apply(ctx, impact.ApplyOptions{
 			Token:   p.Token,
-			Hidden:  new(impact.Choice("bogus")),
+			Hidden:  new(impact.Effect("bogus")),
 			Visible: visible,
 		}, ch.Key())
 		Expect(err).To(
@@ -263,7 +263,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 			late := createTask(ctx, data.Key())
 			_, err := apply(ctx, impact.ApplyOptions{
 				Token:   p.Token,
-				Hidden:  new(impact.ChoiceDelete),
+				Hidden:  new(impact.EffectDelete),
 				Visible: hide(dataID, task.ResourceID(late.Key)),
 			}, index.Key())
 			_, changed := errors.AsType[impact.PlanChangedError](err)
@@ -290,7 +290,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		Expect(hidden.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 		_, err := apply(ctx, impact.ApplyOptions{
 			Token:   seen.Token,
-			Hidden:  new(impact.ChoiceDelete),
+			Hidden:  new(impact.EffectDelete),
 			Visible: hide(id),
 		}, ch.Key())
 		changed, ok := errors.AsType[impact.PlanChangedError](err)
@@ -307,7 +307,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		Expect(p.Hidden).To(BeZero())
 		MustSucceed(apply(ctx, impact.ApplyOptions{
 			Token:   p.Token,
-			Hidden:  new(impact.ChoiceCancel),
+			Hidden:  new(impact.EffectCancel),
 			Visible: hide(),
 		}, ch.Key()))
 		Expect(exists(ctx, ch.Key())).To(BeFalse())
@@ -321,7 +321,7 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		id := task.ResourceID(tsk.Key)
 		Expect(apply(
 			ctx,
-			withPicks(map[string]impact.Choice{id.String(): "bogus"}),
+			withPicks(map[string]impact.Effect{id.String(): "bogus"}),
 			ch.Key(),
 		)).Error().To(MatchError(validate.ErrValidation))
 		Expect(exists(ctx, ch.Key())).To(BeTrue())

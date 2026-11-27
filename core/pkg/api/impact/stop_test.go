@@ -252,8 +252,8 @@ var _ = Describe("Running task deletes", Ordered, func() {
 			MustSucceed(
 				svc.ApplyHandler(binder)(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 					Change: deleteOf(ch),
-					Picks: map[string]impact.Choice{
-						t.ResourceID().String(): impact.ChoiceDelete,
+					Picks: map[string]impact.Effect{
+						t.ResourceID().String(): impact.EffectDelete,
 					},
 				}),
 			)
@@ -274,7 +274,7 @@ var _ = Describe("Running task deletes", Ordered, func() {
 		commands := streamCommands(ctx)
 		Expect(svc.ApplyHandler(binder)(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
-			Hidden: new(impact.ChoiceDelete),
+			Hidden: new(impact.EffectDelete),
 		})).Error().To(SatisfyAll(
 			MatchError(access.ErrDenied),
 			MatchError(ContainSubstring("a record that it cannot see")),
@@ -296,8 +296,8 @@ var _ = Describe("Running task deletes", Ordered, func() {
 		driver := expectStop(ctx, streamCommands(ctx), t, cancel)
 		Expect(svc.ApplyHandler(binder)(reqCtx, apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
-			Picks: map[string]impact.Choice{
-				t.ResourceID().String(): impact.ChoiceDelete,
+			Picks: map[string]impact.Effect{
+				t.ResourceID().String(): impact.EffectDelete,
 			},
 		})).Error().To(MatchError(context.Canceled))
 		Eventually(driver).Should(BeClosed())

@@ -105,10 +105,10 @@ func (PlanChangedError) Error() string {
 type PlanOptions struct {
 	// Picks maps the record of a visible entry to the pick for it. An entry with no
 	// pick takes its default.
-	Picks map[resource.ID]Choice
+	Picks map[resource.ID]Effect
 	// Hidden is the pick for every entry that Visible hides and that allows it. Nil
 	// leaves those entries at their defaults.
-	Hidden *Choice
+	Hidden *Effect
 	// Visible reports whether the caller may see a record. An entry whose record it
 	// cannot see counts in Plan.Hidden instead. Nil sees every record.
 	Visible func(resource.ID) bool
@@ -143,24 +143,24 @@ type ApplyOptions struct {
 	// Token is the token of the plan that the caller saw. Empty skips the check.
 	Token string
 	// Picks are the picks of PlanOptions.Picks.
-	Picks map[resource.ID]Choice
+	Picks map[resource.ID]Effect
 	// Hidden is the pick of PlanOptions.Hidden.
-	Hidden *Choice
+	Hidden *Effect
 	// Visible reports whether the caller may see a record, as PlanOptions.Visible does.
 	Visible func(resource.ID) bool
 }
 
 // picks is PlanOptions with its picks checked.
 type picks struct {
-	named   map[resource.ID]Choice
-	hidden  *Choice
+	named   map[resource.ID]Effect
+	hidden  *Effect
 	visible func(resource.ID) bool
 }
 
 // newPicks checks the picks of opts. A pick that is not a choice fails with a
 // validation error for the pick with the smallest record.
 func newPicks(opts PlanOptions) (picks, error) {
-	if opts.Hidden != nil && !opts.Hidden.IsValid() {
+	if opts.Hidden != nil && !isChoice(*opts.Hidden) {
 		return picks{}, errors.Wrapf(
 			validate.ErrValidation,
 			"%s is not a choice",
@@ -169,7 +169,7 @@ func newPicks(opts PlanOptions) (picks, error) {
 	}
 	var invalid []resource.ID
 	for id, pick := range opts.Picks {
-		if !pick.IsValid() {
+		if !isChoice(pick) {
 			invalid = append(invalid, id)
 		}
 	}
@@ -183,15 +183,27 @@ func newPicks(opts PlanOptions) (picks, error) {
 	return picks{named: opts.Picks, hidden: opts.Hidden, visible: opts.Visible}, nil
 }
 
+// isChoice reports whether e is a word that a pick may take.
+func isChoice(e Effect) bool {
+	switch e {
+	case EffectCancel, EffectDelete, EffectDrop, EffectRetarget, EffectKeep,
+		EffectUpdateText:
+		return true
+	case EffectRestrict, EffectCascade, EffectDetach, EffectRename:
+		return false
+	}
+	return false
+}
+
 // sees reports whether the caller may see r.
 func (p picks) sees(r resource.ID) bool { return p.visible == nil || p.visible(r) }
 
 // pickOf returns the pick for e, or its default, or nothing when e allows no pick. A
 // pick that names a hidden entry does not reach it, so it answers as a pick for no
 // entry does, and the hidden pick reaches only a hidden entry that allows it.
-func (p picks) pickOf(e Entry) (Choice, error) {
+func (p picks) pickOf(e Entry) (Effect, error) {
 	var (
-		pick    Choice
+		pick    Effect
 		ok      bool
 		visible = p.sees(e.Record)
 	)
@@ -429,13 +441,16 @@ func choose(p planned, chosen picks) ([]resource.ID, *gorp.RestrictError, error)
 			return nil, nil, err
 		}
 		switch pick {
-		case ChoiceCancel:
+		case EffectCancel:
 			if cancelled == nil {
 				cancelled = set.New[resource.ID]()
 			}
 			cancelled.Add(e.Record)
-		case ChoiceDelete:
+		case EffectDelete:
 			records = append(records, e.Record)
+		case EffectRestrict, EffectCascade, EffectDetach, EffectRename, EffectDrop,
+			EffectRetarget, EffectKeep, EffectUpdateText:
+			// No entry of a record delete offers these.
 		}
 	}
 	for _, r := range p.restricts {
@@ -456,7 +471,19 @@ func (h *Hidden) count(e Effect) {
 		h.Cascade++
 	case EffectDetach:
 		h.Detach++
-	default:
+	case EffectRename:
+		h.Rename++
+	case EffectDelete:
+		h.Delete++
+	case EffectDrop:
+		h.Drop++
+	case EffectRetarget:
+		h.Retarget++
+	case EffectKeep:
+		h.Keep++
+	case EffectUpdateText:
+		h.UpdateText++
+	case EffectCancel:
 		panic(fmt.Sprintf("[impact] - no hidden count for effect %q", e))
 	}
 }

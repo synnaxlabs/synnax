@@ -12,7 +12,6 @@ from synnax.impact.errors import EXCEPTION_PROVIDER, PlanChangedError
 from synnax.impact.types_gen import (
     ApplyRequest,
     Change,
-    Choice,
     DeleteChange,
     DeleteResponse,
     Effect,
@@ -27,7 +26,6 @@ __all__ = [
     "EXCEPTION_PROVIDER",
     "ApplyRequest",
     "Change",
-    "Choice",
     "Client",
     "DeleteChange",
     "DeleteResponse",

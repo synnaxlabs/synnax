@@ -101,8 +101,8 @@ var _ = Describe("Stop", func() {
 		) {
 			Expect(
 				svc.Stopping(ctx, db, []resource.ID{labelOf("1")}, impact.ApplyOptions{
-					Picks: map[resource.ID]impact.Choice{
-						rangeOf("1"): impact.ChoiceDelete,
+					Picks: map[resource.ID]impact.Effect{
+						rangeOf("1"): impact.EffectDelete,
 					},
 				}),
 			).To(Equal([]resource.ID{rangeOf("1")}))
@@ -134,8 +134,8 @@ var _ = Describe("Stop", func() {
 		It("Should list nothing of a type that does not stop", func(ctx SpecContext) {
 			Expect(
 				svc.Stopping(ctx, db, []resource.ID{labelOf("1")}, impact.ApplyOptions{
-					Picks: map[resource.ID]impact.Choice{
-						rangeOf("1"): impact.ChoiceCancel,
+					Picks: map[resource.ID]impact.Effect{
+						rangeOf("1"): impact.EffectCancel,
 					},
 				}),
 			).To(BeEmpty())
@@ -144,10 +144,10 @@ var _ = Describe("Stop", func() {
 		It("Should refuse a pick that is not a choice", func(ctx SpecContext) {
 			Expect(
 				svc.Stopping(ctx, db, []resource.ID{labelOf("1")}, impact.ApplyOptions{
-					Picks: map[resource.ID]impact.Choice{rangeOf("1"): "keep"},
+					Picks: map[resource.ID]impact.Effect{rangeOf("1"): "restrict"},
 				}),
 			).Error().
-				To(MatchError(ContainSubstring("keep is not a choice")))
+				To(MatchError(ContainSubstring("restrict is not a choice")))
 			Expect(stopped).To(BeEmpty())
 		})
 	})

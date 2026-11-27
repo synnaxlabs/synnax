@@ -172,11 +172,11 @@ func (s *Service) addEntries(p *planned, removed map[resource.ID]int) {
 		effectOf[record] = effect
 		entry := Entry{Record: record, Effect: effect}
 		if effect == EffectRestrict {
-			entry.Choices = []Choice{ChoiceCancel}
+			entry.Choices = []Effect{EffectCancel}
 			if _, ok := s.cfg.Deleters[record.Type]; ok {
-				entry.Choices = append(entry.Choices, ChoiceDelete)
+				entry.Choices = append(entry.Choices, EffectDelete)
 			}
-			entry.Default = new(ChoiceCancel)
+			entry.Default = new(EffectCancel)
 		}
 		p.Entries = append(p.Entries, entry)
 		return record, true
@@ -272,8 +272,18 @@ func tokenOf(records []resource.ID, p Plan) string {
 		h.String(e.Record.Key)
 		h.String(string(e.Effect))
 	}
-	h.Uint(uint64(p.Hidden.Restrict))
-	h.Uint(uint64(p.Hidden.Cascade))
-	h.Uint(uint64(p.Hidden.Detach))
+	for _, n := range []uint32{
+		p.Hidden.Restrict,
+		p.Hidden.Cascade,
+		p.Hidden.Detach,
+		p.Hidden.Rename,
+		p.Hidden.Delete,
+		p.Hidden.Drop,
+		p.Hidden.Retarget,
+		p.Hidden.Keep,
+		p.Hidden.UpdateText,
+	} {
+		h.Uint(uint64(n))
+	}
 	return h.Sum()
 }

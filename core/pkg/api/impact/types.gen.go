@@ -243,9 +243,9 @@ type PlanRequest struct {
 	// Change is the change to plan.
 	Change Change `json:"change" msgpack:"change"`
 	// Picks maps the text form of the record of a visible entry to the pick for it.
-	Picks map[string]serviceimpact.Choice `json:"picks" msgpack:"picks"`
+	Picks map[string]serviceimpact.Effect `json:"picks" msgpack:"picks"`
 	// Hidden is the pick for every hidden entry that stops the change.
-	Hidden *serviceimpact.Choice `json:"hidden,omitzero" msgpack:"hidden,omitempty"`
+	Hidden *serviceimpact.Effect `json:"hidden,omitzero" msgpack:"hidden,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -266,9 +266,9 @@ type ApplyRequest struct {
 	// Token is the token of the plan that the caller saw. Empty skips the check.
 	Token string `json:"token" msgpack:"token"`
 	// Picks maps the text form of the record of a visible entry to the pick for it.
-	Picks map[string]serviceimpact.Choice `json:"picks" msgpack:"picks"`
+	Picks map[string]serviceimpact.Effect `json:"picks" msgpack:"picks"`
 	// Hidden is the pick for every hidden entry that stops the change.
-	Hidden *serviceimpact.Choice `json:"hidden,omitzero" msgpack:"hidden,omitempty"`
+	Hidden *serviceimpact.Effect `json:"hidden,omitzero" msgpack:"hidden,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

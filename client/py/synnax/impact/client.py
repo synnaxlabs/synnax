@@ -12,9 +12,9 @@ from synnax.channel import types_gen as channel
 from synnax.impact.types_gen import (
     ApplyRequest,
     Change,
-    Choice,
     DeleteChange,
     DeleteResponse,
+    Effect,
     PlanRequest,
     Response,
 )
@@ -37,8 +37,8 @@ class Client:
         self,
         change: Change,
         *,
-        picks: dict[str, Choice] | None = None,
-        hidden: Choice | None = None,
+        picks: dict[str, Effect] | None = None,
+        hidden: Effect | None = None,
     ) -> Response:
         """Returns every record that change touches with the picks, under the type of
         change: an entry for each record that the caller can see, a count of the
@@ -53,8 +53,8 @@ class Client:
         change: Change,
         *,
         token: str = "",
-        picks: dict[str, Choice] | None = None,
-        hidden: Choice | None = None,
+        picks: dict[str, Effect] | None = None,
+        hidden: Effect | None = None,
     ) -> Response:
         """Carries out change with the picks and returns the entries that it applied,
         under the type of change. With a token, it raises PlanChangedError before any

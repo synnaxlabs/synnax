@@ -14,13 +14,20 @@ import { z } from "zod";
 
 import { resource } from "@/resource";
 
-export const EFFECTS = ["restrict", "cascade", "detach"] as const;
+export const EFFECTS = [
+  "restrict",
+  "cascade",
+  "detach",
+  "rename",
+  "cancel",
+  "delete",
+  "drop",
+  "retarget",
+  "keep",
+  "update_text",
+] as const;
 export const effectZ = z.enum(EFFECTS);
 export type Effect = z.infer<typeof effectZ>;
-
-export const CHOICES = ["cancel", "delete"] as const;
-export const choiceZ = z.enum(CHOICES);
-export type Choice = z.infer<typeof choiceZ>;
 
 /** Entry is one record that a change touches. */
 export const entryZ = z.object({
@@ -29,9 +36,9 @@ export const entryZ = z.object({
   /** effect is what the change does to the record. */
   effect: effectZ,
   /** choices are the picks the caller may make, empty when it has none. */
-  choices: choiceZ.array().default(() => []),
+  choices: effectZ.array().default(() => []),
   /** default is the pick that applies when the caller makes none. */
-  default: choiceZ.optional(),
+  default: effectZ.optional(),
 });
 export interface Entry extends z.infer<typeof entryZ> {}
 
@@ -46,6 +53,18 @@ export const hiddenZ = z.object({
   cascade: z.uint32(),
   /** detach is the number of hidden entries that lose a record. */
   detach: z.uint32(),
+  /** rename is the number of hidden entries that the change renames. */
+  rename: z.uint32(),
+  /** delete is the number of hidden entries whose effect is delete. */
+  delete: z.uint32(),
+  /** drop is the number of hidden entries whose effect is drop. */
+  drop: z.uint32(),
+  /** retarget is the number of hidden entries whose effect is retarget. */
+  retarget: z.uint32(),
+  /** keep is the number of hidden entries whose effect is keep. */
+  keep: z.uint32(),
+  /** updateText is the number of hidden entries whose effect is update_text. */
+  updateText: z.uint32(),
 });
 export interface Hidden extends z.infer<typeof hiddenZ> {}
 
@@ -100,9 +119,9 @@ export const planRequestZ = z.object({
   /** change is the change to plan. */
   change: changeZ,
   /** picks maps the text form of the record of a visible entry to the pick for it. */
-  picks: caseconv.preserveKeys(z.record(z.string(), choiceZ).default(() => ({}))),
+  picks: caseconv.preserveKeys(z.record(z.string(), effectZ).default(() => ({}))),
   /** hidden is the pick for every hidden entry that stops the change. */
-  hidden: choiceZ.optional(),
+  hidden: effectZ.optional(),
 });
 export interface PlanRequest extends z.infer<typeof planRequestZ> {}
 
@@ -113,9 +132,9 @@ export const applyRequestZ = z.object({
   /** token is the token of the plan that the caller saw. Empty skips the check. */
   token: z.string().default(""),
   /** picks maps the text form of the record of a visible entry to the pick for it. */
-  picks: caseconv.preserveKeys(z.record(z.string(), choiceZ).default(() => ({}))),
+  picks: caseconv.preserveKeys(z.record(z.string(), effectZ).default(() => ({}))),
   /** hidden is the pick for every hidden entry that stops the change. */
-  hidden: choiceZ.optional(),
+  hidden: effectZ.optional(),
 });
 export interface ApplyRequest extends z.infer<typeof applyRequestZ> {}
 

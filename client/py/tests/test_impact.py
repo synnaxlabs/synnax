@@ -68,7 +68,7 @@ class TestImpact:
             (str(record), "restrict")
         ]
         assert plan.entries[0].default == "cancel"
-        picks: dict[str, sy.impact.Choice] = {str(record): "delete"}
+        picks: dict[str, sy.impact.Effect] = {str(record): "delete"}
         picked = client.impact.plan(delete_of(virtual_channel), picks=picks).plan
         client.impact.apply(delete_of(virtual_channel), token=picked.token, picks=picks)
         assert_eventually(

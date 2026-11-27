@@ -85,11 +85,11 @@ func named(c Change) []resource.ID {
 
 // parsePicks returns the picks of a request keyed by record. A key that is not a record
 // fails with a validation error for the smallest such key.
-func parsePicks(picks map[string]impact.Choice) (map[resource.ID]impact.Choice, error) {
+func parsePicks(picks map[string]impact.Effect) (map[resource.ID]impact.Effect, error) {
 	if len(picks) == 0 {
 		return nil, nil
 	}
-	parsed := make(map[resource.ID]impact.Choice, len(picks))
+	parsed := make(map[resource.ID]impact.Effect, len(picks))
 	var unparsed []string
 	for text, pick := range picks {
 		id, err := resource.ParseID(text)

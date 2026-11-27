@@ -360,7 +360,7 @@ var _ = Describe("Restrict", func() {
 			Entry("on an apply with a hidden delete pick", func() error {
 				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
 					Change: deleteOf(),
-					Hidden: new(impact.ChoiceDelete),
+					Hidden: new(impact.EffectDelete),
 				}, nil)
 			}),
 		)

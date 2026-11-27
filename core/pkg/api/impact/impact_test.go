@@ -277,9 +277,9 @@ var _ = Describe("Routes", Ordered, func() {
 			[]access.Action{access.ActionRetrieve, access.ActionDelete},
 			channel.ResourceID(ch),
 		)
-		unparsed := make(map[string]impact.Choice, 8)
+		unparsed := make(map[string]impact.Effect, 8)
 		for c := 'a'; c <= 'h'; c++ {
-			unparsed[string(c)] = impact.ChoiceDelete
+			unparsed[string(c)] = impact.EffectDelete
 		}
 		refused := And(
 			MatchError(validate.ErrValidation),
@@ -312,7 +312,7 @@ var _ = Describe("Routes", Ordered, func() {
 		)
 		applied, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
-			Hidden: new(impact.ChoiceDelete),
+			Hidden: new(impact.EffectDelete),
 		})
 		Expect(applied).To(BeZero())
 		Expect(err).To(And(
@@ -342,7 +342,7 @@ var _ = Describe("Routes", Ordered, func() {
 		grant(ctx, u, []access.Action{access.ActionDelete}, channel.ResourceID(ch))
 		applied, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
-			Picks:  map[string]impact.Choice{id.String(): impact.ChoiceDelete},
+			Picks:  map[string]impact.Effect{id.String(): impact.EffectDelete},
 		})
 		Expect(applied).To(BeZero())
 		Expect(err).To(And(
@@ -365,8 +365,8 @@ var _ = Describe("Routes", Ordered, func() {
 			[]access.Action{access.ActionRetrieve, access.ActionDelete},
 			channel.ResourceID(ch),
 		)
-		picks := map[string]impact.Choice{
-			task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+		picks := map[string]impact.Effect{
+			task.ResourceID(tsk.Key).String(): impact.EffectDelete,
 		}
 		picked := MustSucceed(plan(
 			AuthedCtx(ctx, u),
@@ -394,11 +394,11 @@ var _ = Describe("Routes", Ordered, func() {
 			Entries: []impact.Entry{{
 				Record: task.ResourceID(uuid.New()),
 				Effect: impact.EffectRestrict,
-				Choices: []impact.Choice{
-					impact.ChoiceCancel,
-					impact.ChoiceDelete,
+				Choices: []impact.Effect{
+					impact.EffectCancel,
+					impact.EffectDelete,
 				},
-				Default: new(impact.ChoiceCancel),
+				Default: new(impact.EffectCancel),
 			}},
 			Hidden: impact.Hidden{Restrict: 2},
 			Token:  "0123456789abcdef0123456789abcdef",

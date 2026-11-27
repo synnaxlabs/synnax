@@ -27,24 +27,22 @@ Change union on type {
 }
 
 Effect enum {
-    restrict = "restrict"
-    cascade  = "cascade"
-    detach   = "detach"
+    restrict    = "restrict"
+    cascade     = "cascade"
+    detach      = "detach"
+    rename      = "rename"
+    cancel      = "cancel"
+    delete      = "delete"
+    drop        = "drop"
+    retarget    = "retarget"
+    keep        = "keep"
+    update_text = "update_text"
 
     @doc value """
-        is what a delete does to a record that holds a record it deletes. A restrict
-        record stops the delete unless the caller picks to delete it too, a cascade
-        record is deleted with the record it holds, and a detach record loses it.
-    """
-}
-
-Choice enum {
-    cancel = "cancel"
-    delete = "delete"
-
-    @doc value """
-        is a pick for an entry. Cancel stops the whole change, and delete deletes the
-        record too.
+        is what a change does to a record that it touches, and what a pick asks it to
+        do. Restrict, cascade, detach, and rename are only effects. Cancel, which stops
+        the whole change, is only a pick. Delete, drop, retarget, keep, and update_text
+        are both.
     """
 }
 
@@ -57,10 +55,10 @@ Entry struct {
     effect  Effect      {
         @doc value "is what the change does to the record."
     }
-    choices Choice[]    {
+    choices Effect[]    {
         @doc value "are the picks the caller may make, empty when it has none."
     }
-    default Choice?     {
+    default Effect?     {
         @doc value "is the pick that applies when the caller makes none."
     }
 
@@ -68,14 +66,32 @@ Entry struct {
 }
 
 Hidden struct {
-    restrict uint32 {
+    restrict    uint32 {
         @doc value "is the number of hidden entries that stop the change."
     }
-    cascade  uint32 {
+    cascade     uint32 {
         @doc value "is the number of hidden entries that the change deletes."
     }
-    detach   uint32 {
+    detach      uint32 {
         @doc value "is the number of hidden entries that lose a record."
+    }
+    rename      uint32 {
+        @doc value "is the number of hidden entries that the change renames."
+    }
+    delete      uint32 {
+        @doc value "is the number of hidden entries whose effect is delete."
+    }
+    drop        uint32 {
+        @doc value "is the number of hidden entries whose effect is drop."
+    }
+    retarget    uint32 {
+        @doc value "is the number of hidden entries whose effect is retarget."
+    }
+    keep        uint32 {
+        @doc value "is the number of hidden entries whose effect is keep."
+    }
+    update_text uint32 {
+        @doc value "is the number of hidden entries whose effect is update_text."
     }
 
     @doc value """
@@ -131,13 +147,13 @@ PlanRequest struct {
     change Change              {
         @doc value "is the change to plan."
     }
-    picks  map<string, Choice> {
+    picks  map<string, Effect> {
         @doc value        """
             maps the text form of the record of a visible entry to the pick for it.
         """
         @ts preserve_keys
     }
-    hidden Choice?             {
+    hidden Effect?             {
         @doc value "is the pick for every hidden entry that stops the change."
     }
 
@@ -154,13 +170,13 @@ ApplyRequest struct {
             is the token of the plan that the caller saw. Empty skips the check.
         """
     }
-    picks  map<string, Choice> {
+    picks  map<string, Effect> {
         @doc value        """
             maps the text form of the record of a visible entry to the pick for it.
         """
         @ts preserve_keys
     }
-    hidden Choice?             {
+    hidden Effect?             {
         @doc value "is the pick for every hidden entry that stops the change."
     }
 

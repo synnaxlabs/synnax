@@ -251,11 +251,11 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 				_, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 					Change: deleteOf(index.Key()),
 					Token:  p.Token,
-					Picks: map[string]impact.Choice{
-						guess.String(): impact.ChoiceDelete,
+					Picks: map[string]impact.Effect{
+						guess.String(): impact.EffectDelete,
 						channel.ResourceID(visible.Key()).String(): "bogus",
 					},
-					Hidden: new(impact.ChoiceDelete),
+					Hidden: new(impact.EffectDelete),
 				})
 				Expect(err).To(MatchError(validate.ErrValidation))
 				return strings.ReplaceAll(err.Error(), guess.String(), "<guess>")
@@ -281,7 +281,7 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		_, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
 			Token:  p.Token,
-			Hidden: new(impact.ChoiceDelete),
+			Hidden: new(impact.EffectDelete),
 		})
 		changed, ok := errors.AsType[impact.PlanChangedError](err)
 		Expect(ok).To(BeTrue())
@@ -341,7 +341,7 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		_, err := apply(AuthedCtx(ctx, other), apiimpact.ApplyRequest{
 			Change: deleteOf(ch),
 			Token:  p.Token,
-			Picks:  map[string]impact.Choice{id.String(): impact.ChoiceDelete},
+			Picks:  map[string]impact.Effect{id.String(): impact.EffectDelete},
 		})
 		changed, ok := errors.AsType[impact.PlanChangedError](err)
 		Expect(ok).To(BeTrue(), "%v", err)

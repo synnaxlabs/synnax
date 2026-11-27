@@ -159,7 +159,7 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 	}
 	apply := func(
 		ctx SpecContext,
-		picks map[string]impact.Choice,
+		picks map[string]impact.Effect,
 		keys ...channel.Key,
 	) (applied impact.Plan, err error) {
 		err = db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -184,8 +184,8 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 	entry := func(id resource.ID, effect impact.Effect) impact.Entry {
 		e := impact.Entry{Record: id, Effect: effect}
 		if effect == impact.EffectRestrict {
-			e.Choices = []impact.Choice{impact.ChoiceCancel, impact.ChoiceDelete}
-			e.Default = new(impact.ChoiceCancel)
+			e.Choices = []impact.Effect{impact.EffectCancel, impact.EffectDelete}
+			e.Default = new(impact.EffectCancel)
 		}
 		return e
 	}
@@ -199,8 +199,8 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 			tsk := createTask(ctx, calc.Key())
 			applied := MustSucceed(apply(
 				ctx,
-				map[string]impact.Choice{
-					task.ResourceID(tsk.Key).String(): impact.ChoiceDelete,
+				map[string]impact.Effect{
+					task.ResourceID(tsk.Key).String(): impact.EffectDelete,
 				},
 				calc.Key(),
 			))
@@ -218,7 +218,7 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 			id := task.ResourceID(tsk.Key).String()
 			Expect(apply(
 				ctx,
-				map[string]impact.Choice{id: impact.ChoiceDelete},
+				map[string]impact.Effect{id: impact.EffectDelete},
 				calc.Key(),
 			)).Error().ToNot(HaveOccurred())
 			Expect(exists(ctx, calc.Key())).To(BeFalse())
@@ -267,7 +267,7 @@ var _ = Describe("Delete breaker", Ordered, ContinueOnFailure, func() {
 			id := task.ResourceID(tsk.Key).String()
 			Expect(apply(
 				ctx,
-				map[string]impact.Choice{id: impact.ChoiceDelete},
+				map[string]impact.Effect{id: impact.EffectDelete},
 				builtIn,
 			)).Error().To(MatchError(ContainSubstring("can't delete built-in channel")))
 			Expect(exists(ctx, builtIn)).To(BeTrue())
