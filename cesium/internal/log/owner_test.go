@@ -207,7 +207,7 @@ var _ = Describe("Log", func() {
 				OnDurable:  noDurable,
 				OnRefused:  noRefused,
 				Prepare:    func(uint64) {},
-				Switched:   func(uint64) {},
+				OnSwitched: func(uint64) {},
 				Generation: 1,
 				Sequence:   1,
 			}
@@ -222,7 +222,11 @@ var _ = Describe("Log", func() {
 		Entry("durable hook", func(c *log.Config) { c.OnDurable = nil }, "on_durable"),
 		Entry("refused hook", func(c *log.Config) { c.OnRefused = nil }, "on_refused"),
 		Entry("prepare hook", func(c *log.Config) { c.Prepare = nil }, "prepare"),
-		Entry("switched hook", func(c *log.Config) { c.Switched = nil }, "switched"),
+		Entry(
+			"switched hook",
+			func(c *log.Config) { c.OnSwitched = nil },
+			"on_switched",
+		),
 		Entry("generation", func(c *log.Config) { c.Generation = 0 }, "generation"),
 		Entry("sequence", func(c *log.Config) { c.Sequence = 0 }, "sequence"),
 	)
@@ -253,7 +257,7 @@ var _ = Describe("Log", func() {
 					OnDurable:  hook.on,
 					OnRefused:  hook.onRefused,
 					Prepare:    func(next uint64) { prepare(next) },
-					Switched:   func(uint64) {},
+					OnSwitched: func(uint64) {},
 					DB:         db,
 					Generation: generation,
 					Sequence:   sequence,
@@ -317,7 +321,7 @@ var _ = Describe("Log", func() {
 						OnDurable:  noDurable,
 						OnRefused:  noRefused,
 						Prepare:    func(uint64) {},
-						Switched:   func(uint64) {},
+						OnSwitched: func(uint64) {},
 						Generation: generation,
 						Sequence:   1,
 					})).Error().To(SatisfyAll(

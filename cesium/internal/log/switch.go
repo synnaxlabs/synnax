@@ -56,7 +56,7 @@ func (l *Log) advance() error {
 		l.fail(err)
 		return l.failure()
 	}
-	l.cfg.Switched(next)
+	l.cfg.OnSwitched(next)
 	l.cfg.Prepare(next + 1)
 	return nil
 }

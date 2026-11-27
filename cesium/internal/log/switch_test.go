@@ -72,7 +72,7 @@ var _ = Describe("Switch", func() {
 						calls.prepare(next)
 						go answer(next)
 					},
-					Switched:   calls.onSwitched,
+					OnSwitched: calls.onSwitched,
 					DB:         db,
 					Generation: generation,
 					Sequence:   5,

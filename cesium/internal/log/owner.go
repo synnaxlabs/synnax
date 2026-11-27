@@ -88,12 +88,12 @@ type Config struct {
 	// caller of Append for an entry refused at once. It must return at once.
 	OnRefused func(records []Record, err error)
 	// Prepare asks for the file of the log of generation next and returns at once. The
-	// caller of Prepare later calls Log.Prepared.
+	// hook later answers with Log.Prepared.
 	Prepare func(next uint64)
-	// Switched reports that the log of generation is live, after every entry of the log
-	// before it went to OnDurable and before any entry of it does. It must return at
-	// once.
-	Switched func(generation uint64)
+	// OnSwitched reports that the log of generation is live, after every entry of the
+	// log before it went to OnDurable and before any entry of it does. It must return
+	// at once.
+	OnSwitched func(generation uint64)
 	// DB is the identity of the database.
 	//
 	// [OPTIONAL]
@@ -121,7 +121,7 @@ func (c Config) validate() error {
 	v.NotNil("on_durable", c.OnDurable)
 	v.NotNil("on_refused", c.OnRefused)
 	v.NotNil("prepare", c.Prepare)
-	v.NotNil("switched", c.Switched)
+	v.NotNil("on_switched", c.OnSwitched)
 	v.Positive("generation", c.Generation)
 	v.Positive("sequence", c.Sequence)
 	return v.Error()
@@ -180,7 +180,7 @@ type Log struct {
 
 // Start writes both header copies of the prepared log of cfg, syncs it, and returns the
 // log, ready for its first frame. The size of the file is the size of the log, a whole
-// number of blocks that holds the frames start, the delete reserve, and two blocks.
+// number of blocks of at least 8 times DeleteReserve.
 func Start(cfg Config) (*Log, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
