@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, filter } from "@synnaxlabs/x";
+import { array, type destructor, filter, id } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, dispatchReqZ, dispatchResZ } from "@/ni/device/actions.gen";
 import {
   type Device,
   deviceZ,
@@ -224,6 +225,25 @@ export class Client extends query.Retriever<
     // during the request.
     this.store.set([stripStatus(device)]);
     return device;
+  }
+
+  /**
+   * Applies the actions to the device in one transaction of the Core. Each action edits
+   * only its path, so concurrent edits to different fields both survive. Actions hold
+   * the snake_case form that the Core stores. The cache holds the result when dispatch
+   * resolves.
+   * @throws {NotFoundError} if the device does not exist.
+   * @throws {ValidationError} if the device cannot hold an action.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/ni/device/dispatch",
+      { key, dispatchKey: id.create(), actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
+    // The fetch ingests the stored record unless a newer stream set arrived.
+    await this.fetchThrough({ key });
   }
 
   /** Deletes the devices with their statuses. */
