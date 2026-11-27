@@ -1002,8 +1002,8 @@ export class Log
     this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
   }
 
-  // Moves the source to a time older than its entries, and waits at the oldest entry
-  // while stored samples can still reach the time. When none does, the view stays
+  // Moves a live source to a time older than its entries, and waits at the oldest
+  // entry while stored samples can still reach the time. When none does, the view stays
   // there. Entries that share the time all show.
   private reach(time: bigint): void {
     const { lineHeight, telem } = this.internal;
@@ -1011,7 +1011,7 @@ export class Log
     if (this.entries.length === 0) return;
     const reached = time >= this.entries[0].timestamp.valueOf();
     if (!reached && telem.wrapped.exhausted === false) {
-      telem.wrapped.seek?.(new TimeStamp(time));
+      if (telem.wrapped.live !== false) telem.wrapped.seek?.(new TimeStamp(time));
       return;
     }
     if (reached) {

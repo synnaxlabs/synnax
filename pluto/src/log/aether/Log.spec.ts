@@ -1135,6 +1135,16 @@ describe("log/aether/Log", () => {
       expect(log.scrollState.offset).toBe(101);
     });
 
+    it("should wait for older entries of a source that already moved", () => {
+      const { leaf: log, source } = paused([]);
+      log.seek(timeOf(100));
+      source.live = false;
+      source.setEntries(entries.slice(150));
+      source.notify();
+      source.notify();
+      expect(source.seeks.map((t) => t.valueOf().toString())).toEqual([timeOf(100)]);
+    });
+
     it("should report loading while a seek on a change of the entries reads", () => {
       const { leaf: log, source } = paused([]);
       log.seek(timeOf(100));
