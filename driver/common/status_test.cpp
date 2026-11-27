@@ -674,7 +674,7 @@ public:
 };
 
 /// @brief a config error during a start-triggered deploy should write an error
-/// status.
+/// status with no config hash.
 TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -699,7 +699,7 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
     EXPECT_EQ(ctx->statuses[0].description, "bad config");
     EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
-    EXPECT_EQ(ctx->statuses[0].details.config_hash, "hash1");
+    EXPECT_TRUE(ctx->statuses[0].details.config_hash.empty());
 }
 
 /// @brief it should write no status for a configure that its cancel ended, so the
