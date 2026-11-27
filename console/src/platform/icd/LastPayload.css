@@ -19,3 +19,10 @@
     justify-content: start;
     gap: 0.25rem 1rem;
 }
+
+.console-icd-last-payload__parts,
+.console-icd-last-payload__bytes,
+.console-icd-last-payload__text {
+    -webkit-user-select: text;
+    user-select: text;
+}

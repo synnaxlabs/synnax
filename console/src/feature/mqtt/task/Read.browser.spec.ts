@@ -2477,6 +2477,17 @@ describe("MQTT read form", () => {
         expect((await screen.findByText("1.02")).nextSibling?.textContent).toBe("1");
         expect(screen.getByText("$GP").nextSibling?.textContent).toBe("0");
         expect(screen.getByText("7").nextSibling?.textContent).toBe("3");
+        expect(
+          getComputedStyle(screen.getByText("1.02")).getPropertyValue(
+            "-webkit-user-select",
+          ),
+        ).toBe("text");
+      });
+
+      it("should say that the last payload is empty", async () => {
+        const scanner = await openSampled({ format: "binary", fields: [] });
+        await scanner.answer(sampled("binary", ""));
+        await screen.findByText("The last payload is empty.");
       });
 
       it("should show the bytes of a binary payload with their offsets", async () => {
