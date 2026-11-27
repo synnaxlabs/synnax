@@ -174,6 +174,32 @@ var _ = Describe("Checkpointer", func() {
 				Expect(exists(log.Name(1))).To(BeTrue())
 			})
 
+			It("Should remove a whole log file whose sync fails, and make it again at "+
+				"the next ask", func() {
+				Expect(log.Prepare(fs, 4, logSize)).To(Succeed())
+				faults := newOpFS(fs)
+				faults.failSync = 1
+				q := &prepared{}
+				fc := MustSucceed(checkpoint.New(checkpoint.Config{
+					FS:       faults,
+					DB:       db,
+					LogSize:  logSize,
+					Prepared: q.on,
+					Executor: goExec,
+				}))
+				start(fc)
+				fc.Prepare(4)
+				Eventually(q.count).WithTimeout(fileTimeout).Should(Equal(1))
+				Expect(q.errs[0]).To(MatchError(errSync))
+				Expect(exists(log.Name(4))).To(BeFalse())
+				fc.Prepare(4)
+				Eventually(q.count).WithTimeout(fileTimeout).Should(Equal(2))
+				Expect(q.errs[1]).ToNot(HaveOccurred())
+				Expect(
+					MustSucceed(fs.Stat(log.Name(4))).Size(),
+				).To(Equal(int64(logSize)))
+			})
+
 			It(
 				"Should refuse the file of a next log when the root holds 16 logs",
 				func() {
