@@ -65,6 +65,28 @@ import {
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
+const flags = vi.hoisted((): { textMessages: boolean } => ({ textMessages: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
+  return {
+    FLAGS: {
+      ...FLAGS,
+      get textMessages() {
+        return flags.textMessages;
+      },
+    },
+  };
+});
+
+/** Takes only JSON messages in the task for the rest of the test, as a release does. */
+const hideTextMessages = () => {
+  flags.textMessages = false;
+  onTestFinished(() => {
+    flags.textMessages = true;
+  });
+};
+
 const client = createTestClient();
 
 const REFUSED = "unable to dial: dial tcp 127.0.0.1:9092: connect: connection refused";
@@ -1071,6 +1093,26 @@ describe("Kafka read form", () => {
       });
     });
 
+    it("should show the format of the message of a record in the tree and its pane", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        bound: {},
+      });
+      await renderRead({
+        records: [rec],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            rec.icd,
+            icd.set({
+              path: ["messages", rec.messages[0].message, "payload"],
+              value: { format: "binary", fields: [] },
+            }),
+          ),
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /BINARY.*Any key/ }));
+      await waitFor(() => expect(screen.getAllByText("BINARY")).toHaveLength(2));
+    });
+
     it.each([
       { name: "gone", note: "Message not found", change: removeMessage },
       {
@@ -1088,6 +1130,7 @@ describe("Kafka read form", () => {
     ])(
       "should not offer Add field for a record whose message is $name",
       async ({ note, change }) => {
+        hideTextMessages();
         const rec = await createRecord({
           fields: [createField("temperature", "float")],
         });
@@ -1103,6 +1146,7 @@ describe("Kafka read form", () => {
     );
 
     it("should mark a later message that is not JSON and its record", async () => {
+      hideTextMessages();
       const rec = await createRecord({ fields: [createField("temperature", "float")] });
       const status = await addMessage(
         rec,

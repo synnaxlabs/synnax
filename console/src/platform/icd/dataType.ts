@@ -70,14 +70,13 @@ const holds = (field: icd.BinaryField, to: payload.Kind, dataType: string): bool
 
 /**
  * @returns whether the Core writes the values of field to a channel of the data type. A
- * scaled field writes only to a float. Else a number or a boolean also writes to a
- * float, and an unsigned number or a boolean to any integer. A binary field reads into
- * an integer only when the integer holds its bits.
+ * value writes to a channel of its kind. A number or a boolean also writes to a float,
+ * and an unsigned number or a boolean to any integer. A scaled field writes only to a
+ * float, and a binary field only to an integer that holds its bits.
  */
 export const converts = (field: Field, dataType: string): boolean => {
   const to = payload.kindOf(dataType);
-  if (to == null) return false;
-  if (isScaled(field)) return to === "float";
+  if (to == null || (isScaled(field) && to !== "float")) return false;
   const kind = kindOf(field);
   if (to !== kind && !widens(kind, to)) return false;
   return !("bitLength" in field) || holds(field, to, dataType);
@@ -92,17 +91,16 @@ const NUMERIC: ReadonlySet<payload.Kind> = new Set([
 
 /**
  * @returns whether the Core writes the samples of a channel of the data type to field.
- * A scaled field takes only a float. Else a number or a boolean writes to any number or
- * boolean field.
+ * A sample writes to a field of its kind, and a number or a boolean to any number or
+ * boolean field. A scaled field takes only a float.
  */
 export const encodes = (
   field: Pick<icd.JSONField, "type" | "scale" | "offset">,
   dataType: string,
 ): boolean => {
   const from = payload.kindOf(dataType);
-  if (isScaled(field)) return from === "float";
-  if (from === field.type) return true;
-  return from != null && NUMERIC.has(from) && NUMERIC.has(field.type);
+  if (from == null || (isScaled(field) && from !== "float")) return false;
+  return from === field.type || (NUMERIC.has(from) && NUMERIC.has(field.type));
 };
 
 /**

@@ -10,22 +10,23 @@
 import { type channel, icd } from "@synnaxlabs/client";
 
 import { converts } from "@/platform/icd/dataType";
+import type { Field } from "@/platform/icd/read";
 import type { Task } from "@/platform/task";
 
 /**
  * @returns the bindings of fields, each to the channel stored for its pointer. A field
- * gets no channel when its stored channel is in written, as the Core refuses a channel
- * that two bindings write, or when it does not convert to the data type of the channel
- * in dataTypes. Adds the channels it binds to written.
+ * gets no channel when it has no pointer, when its stored channel is in written, as the
+ * Core refuses a channel that two bindings write, or when it does not convert to the
+ * data type of the channel in dataTypes. Adds the channels it binds to written.
  */
 export const bindingsOf = (
   stored: Record<string, channel.Key>,
-  fields: icd.JSONField[],
+  fields: Field[],
   written: Set<channel.Key>,
   dataTypes: ReadonlyMap<channel.Key, string>,
 ): icd.ReadBinding[] =>
   fields.map((f) => {
-    const ch = stored[f.pointer] ?? 0;
+    const ch = ("pointer" in f ? stored[f.pointer] : undefined) ?? 0;
     const dataType = dataTypes.get(ch);
     if (written.has(ch) || dataType == null || !converts(f, dataType))
       return icd.readBindingZ.parse({ field: f.key });
