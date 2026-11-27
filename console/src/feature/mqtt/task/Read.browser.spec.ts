@@ -24,6 +24,7 @@ import {
   createBroker,
   openAddData,
   openScanner,
+  type Scanner,
   type ScannerReply,
 } from "@/feature/mqtt/testutil";
 import {
@@ -295,7 +296,10 @@ const selectField = async (name: string) =>
   );
 
 /** Renders a topic whose message, once the task exists, has the payload. */
-const renderPayload = async (value: icd.Message["payload"]) => {
+const renderPayload = async (
+  value: icd.Message["payload"],
+  beforeRender?: RenderParams["beforeRender"],
+) => {
   const entry = await createEntry({
     fields: [createField("temperature", "float")],
     bound: {},
@@ -303,11 +307,13 @@ const renderPayload = async (value: icd.Message["payload"]) => {
   const { icd: key, message } = messageOf(entry);
   await renderRead({
     entries: [entry],
-    beforeRender: async () =>
+    beforeRender: async (dev) => {
       await client.icds.dispatch(
         key,
         icd.set({ path: ["messages", message, "payload"], value }),
-      ),
+      );
+      await beforeRender?.(dev);
+    },
   });
   return async () =>
     (await client.icds.retrieve(key)).messages.find((m) => m.key === message)?.payload;
@@ -2422,6 +2428,108 @@ describe("MQTT read form", () => {
           length: 8,
         }),
       );
+    });
+
+    describe("last payload", () => {
+      const TEXT: icd.Message["payload"] = {
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [],
+      };
+
+      /** @returns the answer of a sample that heard one message with the payload. */
+      const sampled = (format: payload.Format, data: string) => ({
+        data: {
+          topics: [
+            {
+              topic: TOPIC,
+              messages: [{ time: 0, format, payload: data, retained: false }],
+            },
+          ],
+          shapes: [],
+          truncated: false,
+        },
+      });
+
+      /** Renders a topic with the message payload, and opens its last payload. */
+      const openSampled = async (value: icd.Message["payload"]): Promise<Scanner> => {
+        let scanner: Scanner | null = null;
+        await renderPayload(value, async (dev) => {
+          scanner = await openScanner(client, dev.rack);
+        });
+        assertDefined(scanner, "the scanner did not open");
+        fireEvent.click(
+          await screen.findByRole("treeitem", {
+            name: new RegExp(`${value.format.toUpperCase()}.*${TOPIC}`),
+          }),
+        );
+        return scanner;
+      };
+
+      it("should show each part of a text payload with its position", async () => {
+        const scanner = await openSampled(TEXT);
+        const cmd = await scanner.answer(sampled("text", "$GP,1.02,,7"));
+        expect(cmd).toMatchObject({
+          type: "sample",
+          args: { topics: [TOPIC], count: 1 },
+        });
+        expect((await screen.findByText("1.02")).nextSibling?.textContent).toBe("1");
+        expect(screen.getByText("$GP").nextSibling?.textContent).toBe("0");
+        expect(screen.getByText("7").nextSibling?.textContent).toBe("3");
+      });
+
+      it("should show the bytes of a binary payload with their offsets", async () => {
+        const scanner = await openSampled({ format: "binary", fields: [] });
+        await scanner.answer(sampled("binary", "0a1b2c3d4e5f60718293"));
+        await screen.findByText("0A");
+        expect(screen.getByText("82").previousSibling?.textContent).toBe("8");
+        expect(screen.getByText("93")).toBeTruthy();
+      });
+
+      it("should show only the first 256 bytes of a long binary payload", async () => {
+        const scanner = await openSampled({ format: "binary", fields: [] });
+        await scanner.answer(sampled("binary", "ab".repeat(300)));
+        await screen.findByText("Shows the first 256 bytes.");
+        expect(screen.getAllByText("AB")).toHaveLength(256);
+        expect(screen.getByText("248")).toBeTruthy();
+        expect(screen.queryByText("256")).toBeNull();
+      });
+
+      it("should say that the topic sent nothing, then listen again", async () => {
+        const scanner = await openSampled(TEXT);
+        await scanner.answer({ data: { topics: [], shapes: [], truncated: false } });
+        await screen.findByText(`No message on ${TOPIC} in 3 seconds.`);
+        fireEvent.click(screen.getByRole("button", { name: "Listen again" }));
+        await scanner.answer(sampled("text", "1.5,2"));
+        expect((await screen.findByText("1.5")).nextSibling?.textContent).toBe("0");
+      });
+
+      it("should show why it could not listen", async () => {
+        const scanner = await openSampled(TEXT);
+        await scanner.answer(UNREACHABLE);
+        await screen.findByText("Failed to read the last payload");
+        screen.getByText(/Could not reach dev1:1883/);
+      });
+
+      it("should not listen while the task takes only JSON messages", async () => {
+        hideTextMessages();
+        await renderPayload(TEXT);
+        fireEvent.click(
+          await screen.findByRole("treeitem", { name: new RegExp(`TEXT.*${TOPIC}`) }),
+        );
+        await screen.findByText("Subscription");
+        expect(screen.queryByText("Last payload")).toBeNull();
+      });
+
+      it("should not listen for a JSON message", async () => {
+        await renderPayload({ format: "json", fields: [] });
+        fireEvent.click(
+          await screen.findByRole("treeitem", { name: new RegExp(`JSON.*${TOPIC}`) }),
+        );
+        await screen.findByText("Subscription");
+        expect(screen.queryByText("Last payload")).toBeNull();
+      });
     });
 
     it("should name a text message of a topic that reads several", async () => {

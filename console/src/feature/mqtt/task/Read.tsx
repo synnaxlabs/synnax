@@ -490,10 +490,11 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   const topic = PForm.useFieldValue(path.topic);
   const reads = PForm.useFieldValue(path.messages);
   const icdKey = PForm.useFieldValue(path.icd);
-  const encoding = PForm.useFieldValue(
-    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
+  const read = PForm.useFieldValue(
+    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload,
     { optional: true, ctx: format },
   );
+  const encoding = read?.format;
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -537,6 +538,18 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
           />
         </PForm.Section>
+        {topic !== "" &&
+          read != null &&
+          read.format !== "json" &&
+          ICD.isTaskFormat(read.format) && (
+            <ICD.LastPayload
+              key={device.key}
+              payload={read}
+              source={topic}
+              duration={Device.BROWSE_DURATION}
+              sample={(client) => Device.sampleTopic(client, device, topic)}
+            />
+          )}
         {reads.length === 1 && (
           <MessageSections path={path} read={0} format={format} device={device} />
         )}
