@@ -16,6 +16,7 @@
 
 #include "driver/bus/tasks.h"
 #include "driver/common/status.h"
+#include "driver/errors/errors.h"
 #include "driver/transport/transport.h"
 #include "driver/udp/socket.h"
 #include "driver/udp/udp.h"
@@ -71,7 +72,15 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
             bus::configure_write<synnax::udp::WriteConfig, synnax::udp::Properties>(
                 ctx,
                 task,
-                acquire
+                acquire,
+                [](const Device &dev) {
+                    if (dev.props.remote.has_value()) return x::errors::NIL;
+                    return x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "The device '" + dev.name +
+                            "' has no remote to send to. Set a remote on the device."
+                    );
+                }
             ),
             cmd_key,
             cancel

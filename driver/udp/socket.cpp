@@ -196,14 +196,14 @@ x::errors::Error Socket::write(
 ) {
     if (!this->remote)
         return x::errors::Error(
-            transport::CONFIG_ERROR,
+            x::errors::VALIDATION,
             "no remote host is set to send to"
         );
     const auto max = this->remote->address().is_v4() ? MAX_V4_DATAGRAM
                                                      : MAX_V6_DATAGRAM;
     if (data.size() > max)
         return x::errors::Error(
-            transport::CONFIG_ERROR,
+            x::errors::VALIDATION,
             "failed to send to " + to_string(*this->remote) + ": " +
                 std::to_string(data.size()) + " bytes exceed the " +
                 std::to_string(max) + " bytes of a datagram"

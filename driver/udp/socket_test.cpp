@@ -187,7 +187,7 @@ TEST(Socket, ReceiveFromAnySender) {
     peer.send("anyone", loopback(port));
     EXPECT_EQ(text(ASSERT_NIL_P(s->read(TIMEOUT))), "anyone");
     const auto err = s->write(bytes("x"), TIMEOUT);
-    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data(), "no remote host is set to send to");
 }
 
@@ -250,7 +250,7 @@ TEST(Socket, RefuseOversizedDatagram) {
     auto s = open_to(peer);
     const std::vector<std::uint8_t> big(70000);
     const auto err = s->write(big, TIMEOUT);
-    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
         err.data(),
         "failed to send to 127.0.0.1:" + std::to_string(peer.port()) +

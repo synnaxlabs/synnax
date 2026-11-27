@@ -130,6 +130,38 @@ protected:
 };
 }
 
+/// @brief it should refuse a write task on a device with no remote, and name the
+/// device.
+TEST_F(UDPConfigure, RefusesWriteTaskOnDeviceWithNoRemote) {
+    synnax::udp::WriteConfig cfg;
+    cfg.device = this->dev.key;
+    cfg.targets = {
+        {.icd = x::uuid::create(), .message = {.message = x::uuid::create()}}
+    };
+    this->cancel.start();
+    const auto [tsk, handled] = this->factory.configure_task(
+        this->ctx,
+        synnax::task::Task{
+            .key = x::uuid::create(),
+            .name = "udp write",
+            .type = WRITE_TASK_TYPE,
+            .config = cfg.to_json(),
+        },
+        "start-cmd",
+        this->cancel
+    );
+    this->cancel.stop();
+    ASSERT_TRUE(handled);
+    ASSERT_EQ(tsk, nullptr);
+    const auto statuses = this->ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 1);
+    EXPECT_EQ(statuses[0].message, "Failed to configure task");
+    EXPECT_EQ(
+        statuses[0].description,
+        "The device 'udp device' has no remote to send to. Set a remote on the device."
+    );
+}
+
 /// @brief it should refuse a second read task on a device and name the first, and
 /// configure the second once the first is gone.
 TEST_F(UDPConfigure, RefusesSecondReadTaskOnDevice) {

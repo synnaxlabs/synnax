@@ -24,7 +24,7 @@
 
 namespace driver::bus {
 namespace {
-/// @returns true when err came from the transport, which closes on any error.
+/// @returns true when err is a failure of the transport, after which it must reopen.
 bool from_transport(const x::errors::Error &err) {
     return err.matches(
         std::vector{

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <map>
@@ -177,6 +178,15 @@ protected:
         );
     }
 
+    /// @returns the last status whose message is message, or an empty status.
+    [[nodiscard]] synnax::task::Status status(const std::string &message) const {
+        const auto statuses = this->ctx->snapshot();
+        const auto it = std::ranges::find_if(statuses, [&](const auto &st) {
+            return st.message == message;
+        });
+        return it == statuses.end() ? synnax::task::Status{} : *it;
+    }
+
     /// @returns the last status of the task.
     [[nodiscard]] synnax::task::Status last_status() const {
         const auto statuses = this->ctx->snapshot();
@@ -243,6 +253,71 @@ TEST_F(UDPTasks, SendsCommandedMessage) {
     );
     ASSERT_TRUE(this->writer->start("start", this->cancel));
     ASSERT_EQ(this->peer.receive(), "4.5\n");
+}
+
+/// @brief it should keep the socket open for a read task on the device when a write
+/// refuses a message too large for a datagram.
+TEST_F(UDPTasks, ReadKeepsDatagramsAfterTooLargeWrite) {
+    this->create_read();
+    ASSERT_TRUE(this->reader->start("start", this->cancel));
+    synnax::icd::StringJSONField blob;
+    blob.key = x::uuid::create();
+    blob.name = "blob";
+    blob.pointer = "/blob";
+    synnax::icd::Message m;
+    m.key = x::uuid::create();
+    m.name = "dump";
+    m.payload = synnax::icd::JSONPayload{.fields = {blob}};
+    synnax::icd::ICD ic;
+    ic.key = x::uuid::create();
+    ic.name = "logger";
+    ic.messages = {m};
+    synnax::icd::ChannelWriteBinding b;
+    b.field = blob.key;
+    b.channel = 3;
+    auto sender = ASSERT_NIL_P(
+        icd::Sender::create(
+            {{.icd = ic.key, .message = {.message = m.key, .bindings = {b}}}},
+            {ic},
+            {{3, channel(3, x::telem::STRING_T, 0)}},
+            true
+        )
+    );
+    std::vector<x::telem::Frame> commands;
+    commands.emplace_back(3, x::telem::Series(std::vector{std::string(70000, 'x')}));
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    t.name = "udp write";
+    this->writer = std::make_unique<common::WriteTask>(
+        t,
+        this->ctx,
+        common::unlimited_retry_config(t.name),
+        std::make_unique<bus::Sink>(
+            this->acquire(),
+            std::move(sender),
+            std::vector<synnax::channel::Key>{3}
+        ),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        pipeline::testutil::simple_streamer_factory(
+            {3},
+            std::make_shared<std::vector<x::telem::Frame>>(std::move(commands))
+        )
+    );
+    ASSERT_TRUE(this->writer->start("start", this->cancel));
+    const std::string failed = "Failed to write commands";
+    ASSERT_EVENTUALLY_EQ(this->status(failed).message, failed);
+    const auto description = this->status(failed).description;
+    EXPECT_TRUE(description.ends_with("bytes exceed the 65507 bytes of a datagram"))
+        << description;
+    const auto conn = ASSERT_NIL_P(this->acquire()());
+    {
+        auto guard = conn->lock();
+        ASSERT_NIL_P(guard.transport());
+        ASSERT_EQ(guard.opens(), 1);
+    }
+    this->peer.send("T,7\n", this->port);
+    ASSERT_EVENTUALLY_GE(this->writes->writes->size(), 1);
+    ASSERT_EQ(this->writes->writes->at(0).at<double>(2, 0), 7);
 }
 
 /// @brief it should fail to acquire a device whose local port another device holds.

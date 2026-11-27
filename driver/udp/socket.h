@@ -72,9 +72,9 @@ public:
     read(x::telem::TimeSpan timeout) override;
 
     /// @brief sends data to the remote host as one datagram.
-    /// @returns transport::CONFIG_ERROR when there is no remote host or data is too
-    /// large for a datagram, and transport::UNREACHABLE_ERROR when the send fails or
-    /// timeout elapses.
+    /// @returns VALIDATION when there is no remote host or data is too large for a
+    /// datagram, after which the socket stays open, and transport::UNREACHABLE_ERROR
+    /// when the send fails or timeout elapses.
     x::errors::Error
     write(std::span<const std::uint8_t> data, x::telem::TimeSpan timeout) override;
 };
