@@ -197,9 +197,11 @@ export const useCompleteBrowserLogin = (): void => {
 const startProviderLogin = async (
   core: ProviderCore,
   login: auth.OIDCLogin,
-  invite?: string,
+  invite: string | undefined,
+  signal: AbortSignal,
 ): Promise<void> => {
-  if (Session.Runtime.ENGINE === "tauri") await Core.loginDesktop(core, login, invite);
+  if (Session.Runtime.ENGINE === "tauri")
+    await Core.loginDesktop(core, login, invite, signal);
   else if (invite == null) await Core.beginBrowserLogin(core.key, login);
   else await Core.beginBrowserInvite(core.key, login, invite);
 };
@@ -213,12 +215,15 @@ export const Login = (): ReactElement => {
   const servingCore = Core.detectConnection();
   const cores = Session.Core.useSelectMany();
   const activeKey = Session.Core.useSelectSelectedKey();
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(activeKey);
+  const linked = Session.Link.useSelectInvite();
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(
+    linked?.core ?? activeKey,
+  );
   const selectedCore = Session.Core.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
   const [step, setStep] = useState<Step>(() =>
-    servingCore != null || activeKey != null ? "login" : "cores",
+    servingCore != null || activeKey != null || linked != null ? "login" : "cores",
   );
   const target = servingCore ?? selectedCore;
   const { password: passwordAccepted, oidc: oidcAccepted } =
@@ -228,30 +233,44 @@ export const Login = (): ReactElement => {
   // a provider list that is still loading, or failed to load, says nothing yet
   const noLogin = !passwordAccepted && (!oidcAccepted || loadedProviders?.length === 0);
   const handleError = Status.useErrorHandler();
+  const providersShown = providers.length > 0 && window.isSecureContext;
+  // a linked invite keeps its field, so the person can cancel it on any Core
+  const inviteOffered = providersShown || linked != null;
   const reportUnfinished = Core.useReportUnfinished();
-  // a newer provider login replaces an older one, which then ends unreported
+  // A newer provider login replaces an older one, which then ends unreported. Leaving
+  // the login surface ends one too, before it can save a token over an open session.
   const attempts = useRef(0);
-  const [inviteRevealed, setInviteRevealed] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
+  const unfinished = useRef<AbortController | null>(null);
+  const endProviderLogin = (): void => {
+    attempts.current++;
+    unfinished.current?.abort();
+    unfinished.current = null;
+  };
+  const [inviteRevealed, setInviteRevealed] = useState(linked != null);
+  const [inviteCode, setInviteCode] = useState(linked?.code ?? "");
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      endProviderLogin();
     };
   }, []);
 
   const handleProvider = (login: auth.OIDCLogin): void => {
     const core = servingCore ?? selectedCore;
     if (core == null) return;
-    const attempt = ++attempts.current;
+    endProviderLogin();
+    const attempt = attempts.current;
+    const controller = new AbortController();
+    unfinished.current = controller;
     const trimmed = inviteCode.trim();
     const invite = trimmed === "" ? undefined : trimmed;
     handleError(
       async () => {
         let failure: Error | undefined;
         try {
-          await startProviderLogin(core, login, invite);
+          await startProviderLogin(core, login, invite, controller.signal);
         } catch (e) {
           failure = errors.fromUnknown(e);
         }
@@ -265,8 +284,9 @@ export const Login = (): ReactElement => {
         // the token is saved under the address the login started with
         assertAddressKept(core, current);
         // a user who left the login surface has moved on
-        if (mounted.current)
-          dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
+        if (!mounted.current) return;
+        dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
+        dispatch(Session.Link.clearInvite());
       },
       invite == null
         ? `Failed to log in with ${display(login).label}`
@@ -294,6 +314,7 @@ export const Login = (): ReactElement => {
       }),
     );
     dispatch(Session.Core.select(key));
+    dispatch(Session.Link.clearInvite());
   };
 
   const handleSelectedCoreChange = (key?: string) => {
@@ -301,10 +322,19 @@ export const Login = (): ReactElement => {
     const next = cores.find((c) => c.key === key);
     if (next == null) return;
     methods.reset({ username: next.username ?? "", password: "" });
+    endProviderLogin();
     setInviteRevealed(false);
     setInviteCode("");
+    dispatch(Session.Link.clearInvite());
     setSelectedKey(key);
     setStep("login");
+  };
+
+  const handleCancelInvite = (): void => {
+    endProviderLogin();
+    setInviteRevealed(false);
+    setInviteCode("");
+    dispatch(Session.Link.clearInvite());
   };
 
   const errorNote = (
@@ -337,7 +367,8 @@ export const Login = (): ReactElement => {
         />
       ) : (
         <Flex.Box y gap="huge" className={CSS.BE("login", "form")} grow>
-          {servingCore == null && (
+          {/* an invite from a link is for its Core alone */}
+          {servingCore == null && linked == null && (
             <Button.Button
               variant="text"
               className={CSS.BE("login", "back")}
@@ -413,55 +444,63 @@ export const Login = (): ReactElement => {
                     description="The browser can only log in through a provider on a page served over HTTPS. Open the Console over HTTPS, or use the desktop Console."
                   />
                 )}
-                {providers.length > 0 && window.isSecureContext && (
-                  <>
-                    <Flex.Box
-                      y
-                      gap="small"
-                      full="x"
-                      className={CSS.BE("login", "providers")}
-                    >
-                      <Icon.Colored>
-                        {providers.map((login) => {
-                          const { label, icon } = display(login);
-                          return (
-                            <Button.Button
-                              key={login.provider}
-                              onClick={() => handleProvider(login)}
-                              variant="outlined"
-                              size="large"
-                              full="x"
-                              justify="center"
-                            >
-                              {icon}
-                              Log in with {label}
-                            </Button.Button>
-                          );
-                        })}
-                      </Icon.Colored>
-                    </Flex.Box>
-                    {inviteRevealed ? (
+                {providersShown && (
+                  <Flex.Box
+                    y
+                    gap="small"
+                    full="x"
+                    className={CSS.BE("login", "providers")}
+                  >
+                    <Icon.Colored>
+                      {providers.map((login) => {
+                        const { label, icon } = display(login);
+                        return (
+                          <Button.Button
+                            key={login.provider}
+                            onClick={() => handleProvider(login)}
+                            variant="outlined"
+                            size="large"
+                            full="x"
+                            justify="center"
+                          >
+                            {icon}
+                            Log in with {label}
+                          </Button.Button>
+                        );
+                      })}
+                    </Icon.Colored>
+                  </Flex.Box>
+                )}
+                {inviteOffered &&
+                  (inviteRevealed ? (
+                    <Flex.Box x align="center" gap="small" full="x">
                       <Input.Text
                         value={inviteCode}
                         onChange={setInviteCode}
                         placeholder="Invite code"
                         size="large"
-                        full="x"
+                        grow
                         autoFocus
                       />
-                    ) : (
                       <Button.Button
                         variant="text"
                         size="large"
-                        full="x"
-                        justify="center"
-                        onClick={() => setInviteRevealed(true)}
+                        onClick={handleCancelInvite}
                       >
-                        I have an invite code
+                        Cancel
                       </Button.Button>
-                    )}
-                  </>
-                )}
+                    </Flex.Box>
+                  ) : (
+                    <Button.Button
+                      variant="text"
+                      size="large"
+                      full="x"
+                      justify="center"
+                      onClick={() => setInviteRevealed(true)}
+                    >
+                      I have an invite code
+                    </Button.Button>
+                  ))}
                 {errorNote}
               </Flex.Box>
             </Flex.Box>

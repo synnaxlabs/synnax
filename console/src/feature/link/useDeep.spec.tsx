@@ -26,6 +26,7 @@ import type { PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Link } from "@/feature/link";
+import { Core as PlatformCore } from "@/platform/core";
 import type { Link as PlatformLink } from "@/platform/link";
 import { Session } from "@/session";
 import {
@@ -280,6 +281,69 @@ describe("useDeep", () => {
         expect.objectContaining({ key: "r9" }),
       ),
     );
+  });
+
+  describe("an invite link", () => {
+    const CODE = "syi_code";
+
+    it("should refuse a Core that no saved record has", async () => {
+      const { deps, openURL, store, statuses } = await setupSettled();
+      await waitFor(() => expect(deps.onOpenURL).toHaveBeenCalled());
+      const cores = Object.keys(store.getState()[Session.Core.SLICE_NAME].cores);
+      const link = PlatformCore.createInviteLinks(
+        { host: "invited.example.com", port: 9443, secure: true },
+        CODE,
+      ).desktop;
+      openURL([link]);
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            message: "Failed to open invite link",
+            description: expect.stringContaining("invited.example.com:9443"),
+          }),
+        ),
+      );
+      expect(store.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
+      expect(Object.keys(store.getState()[Session.Core.SLICE_NAME].cores)).toEqual(
+        cores,
+      );
+    });
+
+    it("should fill in the code for the saved Core at its address", async () => {
+      const { deps, openURL, store } = await setupSettled();
+      await waitFor(() => expect(deps.onOpenURL).toHaveBeenCalled());
+      const cores = Object.keys(store.getState()[Session.Core.SLICE_NAME].cores);
+      openURL([
+        PlatformCore.createInviteLinks({ ...testCoreAddress(), secure: false }, CODE)
+          .desktop,
+      ]);
+      await waitFor(() =>
+        expect(store.getState()[Session.Link.SLICE_NAME].invite).toEqual({
+          core: CORE_KEY,
+          code: CODE,
+        }),
+      );
+      expect(Object.keys(store.getState()[Session.Core.SLICE_NAME].cores)).toEqual(
+        cores,
+      );
+    });
+
+    it("should report a link without a code and never name the link", async () => {
+      const { deps, openURL, store, statuses } = await setupSettled();
+      await waitFor(() => expect(deps.onOpenURL).toHaveBeenCalled());
+      openURL(["synnax://invite?host=a&port=1#secret"]);
+      await waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            message: "Failed to open invite link",
+            name: "",
+          }),
+        ),
+      );
+      expect(store.getState()[Session.Link.SLICE_NAME].invite).toBeNull();
+    });
   });
 
   it("should not route a malformed link", async () => {

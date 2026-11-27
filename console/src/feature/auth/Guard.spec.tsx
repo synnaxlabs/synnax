@@ -570,6 +570,70 @@ describe("auth guard", () => {
     });
   });
 
+  it.each([
+    ["shows the session without an invite", null, true],
+    ["shows the login surface over the session for an invite", "syi_code", false],
+  ])("should %s", async (_, code, sessionShown) => {
+    // a Core with a password has a login, so only the invite can hide the session
+    const loggedIn = { ...LOCAL, username: "synnax", password: "seldon" };
+    await renderWithConsole(
+      <Auth.Guard>
+        <span>authenticated content</span>
+      </Auth.Guard>,
+      {
+        preloadedState: {
+          [Session.Core.SLICE_NAME]: {
+            ...Session.Core.ZERO_SLICE_STATE,
+            cores: { [CORE_KEY]: loggedIn },
+            selected: CORE_KEY,
+          },
+          [Session.Link.SLICE_NAME]: {
+            ...Session.Link.ZERO_SLICE_STATE,
+            invite: code == null ? null : { core: CORE_KEY, code },
+          },
+        },
+      },
+    );
+    if (sessionShown)
+      expect(await screen.findByText("authenticated content")).toBeTruthy();
+    else {
+      expect(await screen.findByPlaceholderText("synnax")).toBeTruthy();
+      expect(screen.queryByText("authenticated content")).toBeNull();
+    }
+  });
+
+  it.each([
+    ["main", false],
+    ["panel", true],
+  ])(
+    "should give the %s desktop window's session to an invite: %s",
+    async (label, kept) => {
+      mocks.engine = "tauri";
+      mockWindows(label);
+      mockIPC((cmd) => (cmd === "plugin:app|version" ? "0.0.0" : undefined));
+      onTestFinished(clearMocks);
+      await renderWithConsole(
+        <Auth.Guard>
+          <span>authenticated content</span>
+        </Auth.Guard>,
+        {
+          preloadedState: {
+            [Session.Core.SLICE_NAME]: { ...CoreState(), selected: CORE_KEY },
+            [Session.Link.SLICE_NAME]: {
+              ...Session.Link.ZERO_SLICE_STATE,
+              invite: { core: CORE_KEY, code: "syi_code" },
+            },
+          },
+        },
+      );
+      if (kept) expect(await screen.findByText("authenticated content")).toBeTruthy();
+      else {
+        expect(await screen.findByPlaceholderText("synnax")).toBeTruthy();
+        expect(screen.queryByText("authenticated content")).toBeNull();
+      }
+    },
+  );
+
   it("should render the login screen when no Core is selected", async () => {
     await renderGuard();
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);

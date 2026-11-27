@@ -9,6 +9,7 @@
 
 export * from "@/platform/core/CopyLinkToolbarButton";
 export * from "@/platform/core/detectConnection";
+export * from "@/platform/core/invite";
 export * from "@/platform/core/list";
 export * from "@/platform/core/oidc";
 export * from "@/platform/core/TokenKeeper";
@@ -18,5 +19,6 @@ export * from "@/platform/core/useConnParams";
 export * from "@/platform/core/useCopyLinkToClipboard";
 export * from "@/platform/core/useLogout";
 export * from "@/platform/core/useProviders";
+export * from "@/platform/core/useReceiveInvite";
 export * from "@/platform/core/useReportUnfinished";
 export * from "@/platform/core/useSetUsername";

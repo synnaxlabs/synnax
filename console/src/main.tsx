@@ -12,8 +12,12 @@ import "zod/compile";
 import { createRoot } from "react-dom/client";
 
 import { App } from "@/app";
+import { Core } from "@/platform/core";
 import workerURL from "@/worker?worker&url";
 
 const rootEl = document.getElementById("root") as HTMLElement;
 
-createRoot(rootEl).render(<App.App workerURL={workerURL} />);
+// the fragment leaves the address bar before anything can record it
+const invite = Core.takeBrowserInvite();
+
+createRoot(rootEl).render(<App.App workerURL={workerURL} invite={invite} />);

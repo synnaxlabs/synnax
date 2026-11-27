@@ -14,6 +14,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { strings, sync, TimeSpan } from "@synnaxlabs/x";
 import { useLayoutEffect, useRef } from "react";
 
+import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
@@ -78,7 +79,14 @@ export const useDeep = (
   // Synced refs resolve both at invoke time.
   const handlersRef = useSyncedRef(handlers);
   const clientRef = useSyncedRef(Synnax.use());
-  const urlHandler = async (urls: string[]) =>
+  const receiveInvite = Core.useReceiveDesktopInvite();
+  const urlHandler = async (urls: string[]) => {
+    // An invite link carries a secret, so no status names it.
+    if (urls.length > 0 && urls[0].startsWith(Core.DESKTOP_INVITE_PREFIX))
+      return await handleError(async () => {
+        dispatch(Drift.focusWindow({}));
+        receiveInvite(urls[0]);
+      }, "Failed to open invite link");
     await handleError(
       async () => {
         dispatch(Drift.focusWindow({}));
@@ -117,6 +125,7 @@ export const useDeep = (
         name: strings.naturalLanguageJoin(urls),
       },
     );
+  };
 
   Link.useReceive(urlHandler, deps);
 };

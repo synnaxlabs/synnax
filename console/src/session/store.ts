@@ -255,6 +255,8 @@ export interface CreateStoreOptions extends Partial<
    * Receives each storage failure persistence recovers from. Defaults to console.error.
    */
   onPersistError?: (error: Error) => void;
+  /** An invite code the page's address brought, which the login surface fills in. */
+  invite?: Link.Invite | null;
 }
 
 export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
@@ -265,6 +267,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
     enablePersistence = true,
     openKV,
     onPersistError,
+    invite,
   } = opts;
   let { preloadedState } = opts;
   const middleware: Middleware[] = [...BASE_MIDDLEWARE];
@@ -283,7 +286,7 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
     preloadedState ??= persist.initialState;
     middleware.push(persist.middleware);
   }
-  return await Drift.configureStore<State, Action>({
+  const store = await Drift.configureStore<State, Action>({
     runtime,
     preloadedState,
     // The checks run only in dev, where their timing warnings only track machine load.
@@ -300,6 +303,8 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
     debug,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
+  if (invite != null) store.dispatch(Link.receiveInvite(invite));
+  return store;
 };
 
 export const useStore = useReduxStore.withTypes<Store>();

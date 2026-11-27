@@ -28,7 +28,8 @@ import { Portal } from "@/platform/portal";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-export interface AppProps extends Pick<Pluto.ContextProps, "workerURL"> {}
+export interface AppProps
+  extends Pick<Pluto.ContextProps, "workerURL">, Pick<Session.ContextProps, "invite"> {}
 
 const SideEffect = (): null => {
   Haul.useBlockDefaultDropBehavior();
@@ -49,13 +50,13 @@ const PORTAL = new Portal.Client({
   fetch: async (input, init) => await fetch(input, init),
 });
 
-export const App = ({ workerURL }: AppProps): ReactElement => (
+export const App = ({ workerURL, invite }: AppProps): ReactElement => (
   <>
     <SideEffect />
     <Portal.Provider client={PORTAL}>
       <Errors.OverlayWithoutStore>
         <BuildContext>
-          <Session.Context beforeClose={BEFORE_CLOSE}>
+          <Session.Context beforeClose={BEFORE_CLOSE} invite={invite}>
             <AnalyticsProvider>
               <Pluto.Context workerURL={workerURL}>
                 {DESKTOP ? <Analytics.Watch /> : <Core.TokenKeeper />}

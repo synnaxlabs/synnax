@@ -15,7 +15,9 @@ import { Credential } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Code } from "@/platform/code";
+import { Core } from "@/platform/core";
 import { Modals } from "@/platform/modals";
+import { Session } from "@/session";
 
 /** What the caller may do with the user's invite. */
 export interface Grants {
@@ -86,6 +88,19 @@ const Live = ({
   );
 };
 
+const CopyLinks = ({ links }: { links: Core.InviteLinks }): ReactElement => (
+  <Flex.Box x gap="small">
+    <Button.Copy text={links.browser} variant="text" size="small">
+      Copy browser link
+    </Button.Copy>
+    {!Session.Runtime.LINKS_DISABLED && (
+      <Button.Copy text={links.desktop} variant="text" size="small">
+        Copy desktop link
+      </Button.Copy>
+    )}
+  </Flex.Box>
+);
+
 export interface InviteProps {
   /** The user to invite. */
   subject: resource.ID;
@@ -102,6 +117,7 @@ export const Invite = ({ subject, grants, onMessage }: InviteProps): ReactElemen
   const query = { subject };
   const invalidate = Credential.OIDC.Invite.useInvalidate();
   const refresh = Credential.OIDC.Invite.useRefresh();
+  const core = Session.Core.useSelectSelected();
   const [token, setToken] = useState<string | null>(null);
   // This read has no live updates, so a change made here fetches it again.
   const handleChange = (message: string) => {
@@ -148,6 +164,7 @@ export const Invite = ({ subject, grants, onMessage }: InviteProps): ReactElemen
             Copy this invite code now. You won't see it again.
           </Text.Text>
           <Code.Snippet label="Invite code" code={[[token]]} />
+          {core != null && <CopyLinks links={Core.createInviteLinks(core, token)} />}
         </Flex.Box>
       )}
     </Flex.Box>

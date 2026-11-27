@@ -23,6 +23,7 @@ import {
   createTestUser,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -44,6 +45,7 @@ vi.mock("@/session/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, runtime);
 });
 
+import { Core } from "@/platform/core";
 import {
   createHold,
   LOCAL_SUBJECT,
@@ -245,6 +247,20 @@ describe("OIDC section", () => {
       await renderLocal(client, OTHER_USER);
       await screen.findByText(REPLACE);
       expect(screen.queryByText(token)).toBeNull();
+    });
+
+    it("should copy links that carry the new code", async () => {
+      const writeText = stubClipboardWriteText();
+      const { client, server } = await open({ userActions: ALL });
+      await renderLocal(client, OTHER_USER);
+      fireEvent.click(await screen.findByText(CREATE));
+      await waitFor(() => expect(server.invites).toHaveLength(1));
+      const token = `syi_${server.invites[0].key}`;
+      const links = Core.createInviteLinks(CORE, token);
+      fireEvent.click(await screen.findByText("Copy browser link"));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(links.browser));
+      fireEvent.click(screen.getByText("Copy desktop link"));
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith(links.desktop));
     });
 
     it("should revoke a live invite and hide its code", async () => {

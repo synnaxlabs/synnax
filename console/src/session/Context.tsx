@@ -31,17 +31,26 @@ import { Range } from "@/session/range";
 import { Runtime } from "@/session/runtime";
 import { Schematic } from "@/session/schematic";
 import { Status } from "@/session/status";
-import { type Action, createStore, type State } from "@/session/store";
+import {
+  type Action,
+  createStore,
+  type CreateStoreOptions,
+  type State,
+} from "@/session/store";
 import { Synchronizer } from "@/session/synchronizer";
 import { Table } from "@/session/table";
 
-export interface ContextProps extends Runtime.CreateDriftProps {
+export interface ContextProps
+  extends Runtime.CreateDriftProps, Pick<CreateStoreOptions, "invite"> {
   children: ReactNode;
 }
 
-export const Context = ({ children, beforeClose }: ContextProps) => {
+export const Context = ({ children, beforeClose, invite }: ContextProps) => {
   const [store] = useState(() =>
-    createStore({ runtime: Runtime.createDrift<State, Action>({ beforeClose }) }),
+    createStore({
+      runtime: Runtime.createDrift<State, Action>({ beforeClose }),
+      invite,
+    }),
   );
   return (
     <Modals.Context>
