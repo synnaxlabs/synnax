@@ -1524,6 +1524,42 @@ describe("MQTT read form", () => {
       expect(screen.queryByRole("button", { name: "Open in editor" })).toBeNull();
     });
 
+    it.each([
+      { item: "topic", name: /JSON.*plant\/oven/ },
+      { item: "message", name: /^Message not found/ },
+    ])(
+      "should tell the user to remove a later message that is gone from the $item",
+      async ({ name }) => {
+        const entry = await createEntry({
+          fields: [createField("temperature", "float")],
+        });
+        const status = await addMessage(
+          entry,
+          "status",
+          [createField("mode", "string")],
+          KIND_MATCH,
+        );
+        await renderRead({
+          entries: [entry],
+          beforeRender: () =>
+            client.icds.dispatch(
+              entry.icd,
+              icd.remove({ path: ["messages"], key: status.key }),
+            ),
+        });
+        const removeIt =
+          "The ICD no longer has this message. Remove it from the topic.";
+        fireEvent.click(
+          await screen.findByRole("treeitem", { name: /^Message not found/ }),
+        );
+        await screen.findByText(removeIt);
+        const item = screen.getByRole("treeitem", { name });
+        const mark = within(item).getByRole("img", { name: "Message not found" });
+        fireEvent.pointerOver(mark, { pointerType: "mouse" });
+        expect((await screen.findByRole("tooltip")).textContent).toContain(removeIt);
+      },
+    );
+
     it("should open the editor at a message that is not JSON", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],

@@ -129,7 +129,7 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
       <ICD.MessageMark
         icdKey={icdKey}
         messages={[message]}
-        missingDescription={ICD.Write.MISSING_DESCRIPTION}
+        missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
       />
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>

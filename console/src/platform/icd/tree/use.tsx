@@ -172,7 +172,7 @@ const MessageItem = ({
       <MessageMark
         icdKey={icdKey}
         messages={[message]}
-        missingDescription={missingDescription}
+        missingDescription={() => missingDescription}
       />
     </Task.Views.TreeGroupItem>
   );
@@ -252,8 +252,8 @@ interface BaseArgs<S extends Source> {
   pathOf: (key: string) => deep.Path<ReadSource>;
   /** Renders the tree item of a source. */
   SourceItem: FC<Tree.ItemRenderProps<string>>;
-  /** Says why the ICD has no message that a source reads, and what to do now. */
-  missingDescription: string;
+  /** @returns why the ICD lacks the message of a read, and what to do now. */
+  missingDescription: (read: number) => string;
   /** @returns the binding of a field that the task starts to read. */
   bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
   /** Disables each control that binds a field to a channel. */
@@ -739,7 +739,7 @@ export const use = <
           {...p}
           path={pathOf(node.source)}
           read={node.read}
-          missingDescription={missingDescription}
+          missingDescription={missingDescription(node.read)}
         />
       );
     return <SourceItem key={key} {...p} />;

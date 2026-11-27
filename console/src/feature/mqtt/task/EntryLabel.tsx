@@ -124,9 +124,11 @@ export const EntryLabel = ({ path }: EntryLabelProps) => {
   );
 };
 
-/** Says why the ICD has no message for a read topic, and what to do now. */
-export const TOPIC_MISSING_DESCRIPTION =
-  "The ICD has no message for this topic. Add data to make one.";
+/** @returns why the ICD has no message at the read of a topic, and what to do now. */
+export const describeMissing = (read: number): string =>
+  read === 0
+    ? "The ICD has no message for this topic. Add data to make one."
+    : "The ICD no longer has this message. Remove it from the topic.";
 
 /** Marks a plain entry whose message has a problem. */
 const PlainMark = ({ path }: { path: deep.Path<PlainEntry> }) => {
@@ -140,7 +142,7 @@ const PlainMark = ({ path }: { path: deep.Path<PlainEntry> }) => {
       <ICD.MessageMark
         icdKey={icdKey}
         messages={read.map(({ message }) => message)}
-        missingDescription={TOPIC_MISSING_DESCRIPTION}
+        missingDescription={describeMissing}
       />
     );
   if (written == null) return null;
@@ -148,7 +150,7 @@ const PlainMark = ({ path }: { path: deep.Path<PlainEntry> }) => {
     <ICD.MessageMark
       icdKey={icdKey}
       messages={[written]}
-      missingDescription={ICD.Write.MISSING_DESCRIPTION}
+      missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
     />
   );
 };

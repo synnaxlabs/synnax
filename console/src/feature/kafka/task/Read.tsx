@@ -213,7 +213,7 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
         <ICD.MessageMark
           icdKey={icdKey}
           messages={messages.map(({ message }) => message)}
-          missingDescription={MISSING_DESCRIPTION}
+          missingDescription={() => MISSING_DESCRIPTION}
         />
       )}
       <Task.EnabledCheckbox path={path.disabled} />
@@ -442,7 +442,7 @@ const Records: FC<RecordsProps> = ({
     sourceOf: (r) => r,
     pathOf,
     SourceItem: RecordItem,
-    missingDescription: MISSING_DESCRIPTION,
+    missingDescription: () => MISSING_DESCRIPTION,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an enabled record reads it. A record that reads one message also reuses
     // the channels of its earlier messages, so a new message format keeps its channels.

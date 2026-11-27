@@ -325,13 +325,12 @@ const warningOf = (props: MessageWarningProps): ReactElement | null => {
 export const MessageWarning = (props: MessageWarningProps): ReactElement | null =>
   warningOf(props);
 
-export interface MessageMarkProps extends Pick<
-  MessageWarningProps,
-  "missingDescription"
-> {
+export interface MessageMarkProps {
   icdKey: icd.Key;
   /** The messages of the item. The mark shows the problem of the first bad one. */
   messages: icd.MessageKey[];
+  /** @returns why the ICD lacks the message at the index, and what to do now. */
+  missingDescription: (index: number) => string;
 }
 
 /**
@@ -349,10 +348,10 @@ export const MessageMark = ({
   });
   const problem =
     messages
-      .map((key) =>
+      .map((key, i) =>
         problemOf({
           message: held?.find((m) => m.key === key) ?? null,
-          missingDescription,
+          missingDescription: missingDescription(i),
         }),
       )
       .find((p) => p != null) ?? null;

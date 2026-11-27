@@ -281,7 +281,7 @@ const MessageMark = ({ itemKey }: { itemKey: string }) => {
     <ICD.MessageMark
       icdKey={icdKey}
       messages={messages.map(({ message }) => message)}
-      missingDescription={MISSING_DESCRIPTION}
+      missingDescription={() => MISSING_DESCRIPTION}
     />
   );
 };
@@ -478,7 +478,7 @@ const Endpoints: FC<EndpointsProps> = ({
     sourceOf: (ep) => (readsICD(ep) ? ep : null),
     pathOf: icdPath,
     SourceItem,
-    missingDescription: MISSING_DESCRIPTION,
+    missingDescription: () => MISSING_DESCRIPTION,
     tareable: true,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an endpoint reads it, another endpoint owns its message, or it no longer
