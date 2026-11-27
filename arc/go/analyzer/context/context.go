@@ -223,12 +223,7 @@ func (c Context[AST]) FloatConstant(node antlr.Tree) (float64, bool) {
 	if primary == nil || primary.QualifiedIdentifier() == nil {
 		return 0, false
 	}
-	head, tail := parser.QualifiedNameParts(primary.QualifiedIdentifier())
-	headSym, err := c.Scope.Resolve(c, head)
-	if err != nil {
-		return 0, false
-	}
-	sym, err := headSym.Resolve(c, tail)
+	sym, err := c.Scope.ResolveName(c, parser.PrimaryName(primary))
 	if err != nil || sym.Kind != symbol.KindConstant {
 		return 0, false
 	}
