@@ -320,8 +320,8 @@ const formatNumber = (
   return notation.stringifyNumber(number, precision, valueNotation);
 };
 
-/** Returns the time at progress through the range, from 0 at its start to 1. */
-export const timeAt = (range: TimeRange, progress: number): TimeStamp => {
+// Returns the time at progress through the range, from 0 at its start to 1.
+const timeAt = (range: TimeRange, progress: number): TimeStamp => {
   const start = range.start.valueOf();
   const span = range.end.valueOf() - start;
   const scale = 1_000_000;

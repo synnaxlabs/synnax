@@ -1703,17 +1703,6 @@ describe("log/aether/Log", () => {
       return handle;
     };
 
-    it("should map progress down the track to a time in the range", () => {
-      expect(log.timeAt(RANGE, 0).valueOf()).toBe(RANGE.start.valueOf());
-      expect(log.timeAt(RANGE, 1).valueOf()).toBe(RANGE.end.valueOf());
-      expect(log.timeAt(RANGE, 0.5).valueOf()).toBe(TimeStamp.seconds(99.5).valueOf());
-    });
-
-    it("should clamp progress off the track to the ends of the range", () => {
-      expect(log.timeAt(RANGE, -1).valueOf()).toBe(RANGE.start.valueOf());
-      expect(log.timeAt(RANGE, 2).valueOf()).toBe(RANGE.end.valueOf());
-    });
-
     it("should report the thumb of a paused view", () => {
       const { leaf: log } = paused();
       assert(log.state.thumb != null);
