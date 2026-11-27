@@ -843,22 +843,63 @@ describe("resolveParams with SYNNAX_CLIENT_CA_CERT", () => {
     });
   });
 
+  it.each<[string, string, env.Env]>([
+    ["SYNNAX_CLIENT_INSECURE", "~/ca.pem", { SYNNAX_CLIENT_INSECURE: "true" }],
+    ["SYNNAX_SECURE", "~/ca.pem", { SYNNAX_SECURE: "false" }],
+    ["SYNNAX_CLIENT_INSECURE", "/missing.pem", { SYNNAX_CLIENT_INSECURE: "true" }],
+  ])("should ignore SYNNAX_CA_CERT when %s is insecure, for %s", (_, path, vars) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
+    const resolved = env.resolveParams(
+      { host: "rig" },
+      { ...vars, SYNNAX_CA_CERT: path },
+      system,
+    );
+    expect(resolved.insecure).toBe(true);
+    expect(resolved.caCert).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      "SYNNAX_CA_CERT is deprecated and goes in 0.64. Use SYNNAX_CLIENT_CA_CERT. The " +
+        "client is insecure, so it ignores SYNNAX_CA_CERT.",
+    );
+  });
+
+  it("should ignore SYNNAX_CA_CERT when Synnax Desktop is insecure", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
+    const desktop: env.System = {
+      platform: "linux",
+      modified: () => 0,
+      readFile: () => JSON.stringify({ ...DESKTOP_FILE, insecure: true }),
+      run: async () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
+    };
+    const resolved = env.resolveParams({}, { SYNNAX_CA_CERT: "ca.crt" }, desktop);
+    expect(resolved.insecure).toBe(true);
+    expect(resolved.caCert).toBeUndefined();
+  });
+
+  it("should keep caCert in the params with insecure true", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    const vars = { SYNNAX_CA_CERT: "~/ca.pem" };
+    const params = { host: "rig", insecure: true, caCert: "pem" };
+    expect(env.resolveParams(params, vars, system)).toMatchObject({
+      insecure: true,
+      caCert: "pem",
+    });
+  });
+
   it.each<[string, env.Env, string]>([
     [
       "the new names",
       { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CLIENT_CA_CERT: "~/ca.pem" },
       "SYNNAX_CLIENT_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out or set it " +
         "to false",
-    ],
-    [
-      "the old names",
-      { SYNNAX_SECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" },
-      "SYNNAX_CA_CERT requires TLS; leave SYNNAX_SECURE out or set it to true",
-    ],
-    [
-      "a new insecure name and an old CA name",
-      { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" },
-      "SYNNAX_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out or set it to false",
     ],
     [
       "an old insecure name and a new CA name",

@@ -257,6 +257,15 @@ describe("constructor with caCert", () => {
     ).toThrow("caCert requires TLS; leave insecure out or set it to false");
   });
 
+  it("should reject a CA certificate with insecure true beside SYNNAX_CA_CERT", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("SYNNAX_CA_CERT", "ca.crt");
+    expect(
+      () => new Synnax({ host: "localhost", port: 9090, insecure: true, caCert: PEM }),
+    ).toThrow("caCert requires TLS; leave insecure out or set it to false");
+    vi.restoreAllMocks();
+  });
+
   it("should use TLS when nothing gives insecure", async () => {
     const client = new Synnax({ host: "localhost", port: 9090 });
     expect(client.params.insecure).toBe(false);

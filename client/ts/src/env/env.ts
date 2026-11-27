@@ -196,14 +196,15 @@ interface Renamed<T> {
 const readRenamed = <T>(
   env: Env,
   { name, deprecated, parse, convert = (v) => v, replacement }: Renamed<T>,
+  ignored: boolean = false,
 ): Variable<T> | undefined => {
   const value = parse(env, name);
   if (value != null) return { name, value };
   const old = parse(env, deprecated);
   if (old == null) return undefined;
-  console.warn(
-    `${deprecated} is deprecated and goes in 0.64. ${replacement ?? `Use ${name}`}.`,
-  );
+  const note = ignored ? ` The client is insecure, so it ignores ${deprecated}.` : "";
+  const use = replacement ?? `Use ${name}`;
+  console.warn(`${deprecated} is deprecated and goes in 0.64. ${use}.${note}`);
   return { name: deprecated, value: convert(old) };
 };
 
@@ -245,9 +246,9 @@ const isAbsolute = (path: string, platform: string): boolean =>
 // Returns desktop.json in the OS config folder, then in ~/.synnax, which every Synnax
 // Desktop writes.
 const desktopFiles = (env: Env, platform: string): string[] => {
-  const dir = (name: string, fallback: string): string => {
+  const dir = (name: string, inherited: string): string => {
     const value = read(env, name);
-    return isAbsolute(value, platform) ? value : fallback;
+    return isAbsolute(value, platform) ? value : inherited;
   };
   if (platform === "win32")
     return [
@@ -326,9 +327,11 @@ const resolveTLS = (
   if (insecure != null || params.caCert != null)
     return { insecure: insecure ?? false, caCert: params.caCert };
   const envInsecure = readRenamed(env, INSECURE);
-  const path = readRenamed(env, CA_CERT);
-  if (path == null)
-    return { insecure: envInsecure?.value ?? desktop?.insecure ?? false };
+  const inherited = envInsecure?.value ?? desktop?.insecure ?? false;
+  const path = readRenamed(env, CA_CERT, inherited);
+  if (path == null) return { insecure: inherited };
+  // A shell can hold SYNNAX_CA_CERT for the Core, so it does not conflict.
+  if (path.name === CA_CERT.deprecated && inherited) return { insecure: true };
   if (envInsecure?.value === true) {
     const tls = envInsecure.name === INSECURE.deprecated ? "true" : "false";
     throw new ValidationError(
@@ -478,11 +481,11 @@ export const nodeSystem = (
  * secure gives the opposite of insecure and logs a warning. Secure throws when insecure
  * disagrees. Each variable also reads its deprecated name (SYNNAX_HOST, SYNNAX_PORT,
  * SYNNAX_API_KEY, SYNNAX_CA_CERT, and SYNNAX_SECURE as the inverse of
- * SYNNAX_CLIENT_INSECURE), with a warning, only when the new name is unset. When
- * system.caCertUnsupported is true, SYNNAX_CLIENT_CA_CERT turns TLS on but its file is
- * not read. Reads only the variables of missing fields. Variable values are trimmed,
- * and an empty value is unset. In Deno, a variable the script has no permission to read
- * is unset.
+ * SYNNAX_CLIENT_INSECURE), with a warning, only when the new name is unset. An insecure
+ * client ignores SYNNAX_CA_CERT. When system.caCertUnsupported is true,
+ * SYNNAX_CLIENT_CA_CERT turns TLS on but its file is not read. Reads only the variables
+ * of missing fields. Variable values are trimmed, and an empty value is unset. In Deno,
+ * a variable the script has no permission to read is unset.
  * @param system - Finds Synnax Desktop and reads the SYNNAX_CLIENT_CA_CERT file.
  * Undefined in a runtime that cannot.
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
