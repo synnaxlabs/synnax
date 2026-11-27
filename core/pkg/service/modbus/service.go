@@ -35,6 +35,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Signals publishes server changes.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	alamos.Instrumentation
