@@ -68,7 +68,7 @@ void assert_refuses(
 ) {
     const auto err = create_error(f, dt);
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "message frame: field " + icd::base(f).name + ": " + text);
+    EXPECT_EQ(err.data(), "message frame: field " + icd::base(f).name + ": " + text);
 }
 
 /// @brief returns a message named frame with fields, which binds the fields of keys to
@@ -90,7 +90,7 @@ void assert_refuses_all(
 ) {
     const auto [dec, err] = Binary::create(messages);
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 
 /// @brief asserts that creating a decoder for m fails with text.
@@ -226,7 +226,7 @@ TEST(Binary, RejectShortPayload) {
     const std::vector<std::uint8_t> bytes = {0x01, 0x02};
     const auto [message, err] = dec.decode(bytes);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "field rpm: the payload has 2 bytes and the field needs 3");
+    EXPECT_EQ(err.data(), "field rpm: the payload has 2 bytes and the field needs 3");
     EXPECT_EQ(message, std::size_t{0});
 }
 
@@ -240,7 +240,7 @@ TEST(Binary, RejectFloat32Overflow) {
     bytes.insert(bytes.end(), high.begin(), high.end());
     const auto [message, err] = dec.decode(bytes);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "field v: 1e+300 overflows float32");
+    EXPECT_EQ(err.data(), "field v: 1e+300 overflows float32");
 }
 
 /// @brief it should refuse a float field that is not 32 or 64 bits.
@@ -392,7 +392,7 @@ TEST(Binary, RejectShortForMultiplexors) {
     );
     const auto [message, err] = dec.decode(std::vector<std::uint8_t>{1, 0});
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "field mode: the payload has 2 bytes and the field needs 3");
+    EXPECT_EQ(err.data(), "field mode: the payload has 2 bytes and the field needs 3");
 }
 
 /// @brief it should refuse a multiplexor that is not a field of the message.
@@ -456,7 +456,7 @@ TEST(Binary, RefuseFieldPastLength) {
     const auto [dec, err] = Binary::create({m});
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "message frame: field v: the field ends past the 1-byte payload"
     );
 }
@@ -468,7 +468,10 @@ TEST(Binary, RefuseUnknownField) {
     m.bindings[0].field = key;
     const auto [dec, err] = Binary::create({m});
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "message frame: field " + key.to_string() + " does not exist");
+    EXPECT_EQ(
+        err.data(),
+        "message frame: field " + key.to_string() + " does not exist"
+    );
 }
 
 /// @brief it should refuse two messages that both have no identifier.
@@ -478,7 +481,7 @@ TEST(Binary, RefuseTwoFallbacks) {
     b.name = "other";
     const auto [dec, err] = Binary::create({a, b});
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "messages frame and other both have no identifier");
+    EXPECT_EQ(err.data(), "messages frame and other both have no identifier");
 }
 
 /// @brief it should decode a frame without allocating once a first decode is done.
@@ -557,7 +560,7 @@ TEST(Binary, RejectShortCANPayload) {
     auto dec = ASSERT_NIL_P(Binary::create({identified("a", can(0x100))}));
     const auto [message, err] = dec.decode(0x100, false, std::vector<std::uint8_t>{1});
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "field v: the payload has 1 bytes and the field needs 2");
+    EXPECT_EQ(err.data(), "field v: the payload has 1 bytes and the field needs 2");
     EXPECT_EQ(message, std::size_t{0});
 }
 
@@ -639,7 +642,7 @@ TEST(Binary, RejectTwoFieldMatches) {
     );
     const auto [message, err] = dec.decode(PAYLOAD);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "frame matches messages a and b");
+    EXPECT_EQ(err.data(), "frame matches messages a and b");
     EXPECT_EQ(message, std::size_t{0});
 }
 
@@ -757,14 +760,14 @@ void assert_rejects_samples(
     Bytes payload;
     const auto err = enc.encode(samples, payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message " + m.name + ": " + text);
+    EXPECT_EQ(err.data(), "message " + m.name + ": " + text);
 }
 
 /// @brief asserts that creating an encoder for m fails with text.
 void assert_encoder_refuses(const BinaryMessage &m, const std::string &text) {
     const auto err = BinaryEncoder::create(m).second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 
 /// @brief returns the sample that a decoder reads back from the payload that an encoder
@@ -1156,7 +1159,7 @@ TEST(BinaryEncoder, CheckSample) {
     ASSERT_NIL(enc.check(1, x::telem::Series(std::uint8_t{16}), 0));
     const auto err = enc.check(0, x::telem::Series(std::uint8_t{16}), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message frame: field w: 16 is out of range for 4 bits");
+    EXPECT_EQ(err.data(), "message frame: field w: 16 is out of range for 4 bits");
 }
 
 /// @brief it should refuse a sample outside the min and max of its field, and accept a
@@ -1169,10 +1172,10 @@ TEST(BinaryEncoder, CheckSampleLimits) {
     ASSERT_NIL(enc.check(0, x::telem::Series(0.1F), 0));
     auto err = enc.check(0, x::telem::Series(0.5F), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message frame: field v: 0.5 is above the max 0.1");
+    EXPECT_EQ(err.data(), "message frame: field v: 0.5 is above the max 0.1");
     err = enc.check(0, x::telem::Series(-2.0F), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message frame: field v: -2 is below the min -1");
+    EXPECT_EQ(err.data(), "message frame: field v: -2 is below the min -1");
 }
 
 /// @brief it should check the value that a sample rounds to, so a sample under the max
@@ -1186,7 +1189,7 @@ TEST(BinaryEncoder, CheckSampleLimitsAfterRounding) {
     const auto err = enc.check(0, x::telem::Series(13.0), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "message frame: field v: 3 decodes to 15, which is above the max 13"
     );
 }
@@ -1201,7 +1204,7 @@ TEST(BinaryEncoder, CheckFloat32FieldLimits) {
     const auto err = enc.check(0, x::telem::Series(0.10000001), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "message frame: field v: 0.10000000894069672 is above the max 0.1"
     );
 }
@@ -1251,13 +1254,13 @@ TEST(BinaryEncoder, CheckNonFiniteSampleLimits) {
         constexpr double inf = std::numeric_limits<double>::infinity();
         auto err = enc.check(0, x::telem::Series(inf), 0);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "message frame: field v: Infinity is above the max 10");
+        EXPECT_EQ(err.data(), "message frame: field v: Infinity is above the max 10");
         err = enc.check(0, x::telem::Series(-inf), 0);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "message frame: field v: -Infinity is below the min -10");
+        EXPECT_EQ(err.data(), "message frame: field v: -Infinity is below the min -10");
         err = enc.check(0, x::telem::Series(std::nan("")), 0);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "message frame: field v: NaN is outside the limits");
+        EXPECT_EQ(err.data(), "message frame: field v: NaN is outside the limits");
     }
 }
 

@@ -39,7 +39,7 @@
 namespace driver::icd {
 namespace {
 common::Warning dropped(const x::errors::Error &err) {
-    return {.message = "Dropped invalid data", .description = err.data};
+    return {.message = "Dropped invalid data", .description = err.data()};
 }
 
 x::errors::Error refuse(const std::string &text) {
@@ -160,7 +160,7 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
                 if (auto err = check_shared(j, i, entries, *ic))
                     return {Receiver{}, err};
         auto [reader, err] = Reader::create(entries[i].messages, *ic, channels);
-        if (err) return {Receiver{}, x::errors::Error(err, context + err.data)};
+        if (err) return {Receiver{}, x::errors::Error(err, context + err.data())};
         const auto &messages = entries[i].messages;
         const bool reads_json = !messages.empty() &&
                                 std::holds_alternative<synnax::icd::JSONPayload>(
@@ -207,7 +207,9 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
         else if (const auto err = r.framer->encode(poll.query, p.query))
             return {
                 Receiver{},
-                refuse(context + "the framing cannot hold the poll query: " + err.data),
+                refuse(
+                    context + "the framing cannot hold the poll query: " + err.data()
+                ),
             };
         r.polls.push_back(std::move(p));
     }
@@ -235,7 +237,10 @@ void Receiver::dispatch(
         break;
     }
     if (read_err && warning.empty())
-        warning = {.message = "Failed to decode message", .description = read_err.data};
+        warning = {
+            .message = "Failed to decode message",
+            .description = read_err.data()
+        };
 }
 
 std::size_t

@@ -21,8 +21,8 @@ TEST(Port, FailsToOpenAMissingPort) {
     p.port = "/dev/synnax-missing-port";
     const auto [port, err] = Port::open(p);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
-    EXPECT_TRUE(err.data.starts_with("failed to open serial port " + p.port + ": "))
-        << err.data;
+    EXPECT_TRUE(err.data().starts_with("failed to open serial port " + p.port + ": "))
+        << err.data();
 }
 
 /// @brief it should refuse invalid settings before it opens the port.
@@ -32,13 +32,13 @@ TEST(Port, RefusesInvalidSettingsBeforeItOpensThePort) {
     p.data_bits = 9;
     const auto [port, err] = Port::open(p);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "data bits must be 5, 6, 7, or 8, got 9");
+    EXPECT_EQ(err.data(), "data bits must be 5, 6, 7, or 8, got 9");
 }
 
 /// @brief it should refuse an empty port path.
 TEST(Port, RejectsAnEmptyPath) {
     const auto [port, err] = Port::open(synnax::serial::Properties{});
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "serial port path is required");
+    EXPECT_EQ(err.data(), "serial port path is required");
 }
 }

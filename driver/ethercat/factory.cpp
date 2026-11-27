@@ -99,7 +99,7 @@ std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
             x::errors::Error(
                 dev_err,
                 "The Driver could not read the module settings for " + name +
-                    " from the Core: " + dev_err.data
+                    " from the Core: " + dev_err.data()
             )
         };
     std::vector<engine::SavedSlave> saved;

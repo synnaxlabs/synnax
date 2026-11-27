@@ -117,7 +117,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         if (err) {
             cfg.field_err(
                 "channels",
-                "failed to retrieve channels for task: " + err.data
+                "failed to retrieve channels for task: " + err.data()
             );
             return;
         }
@@ -128,7 +128,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (device_err) {
                 cfg.field_err(
                     "device",
-                    "failed to retrieve device for task: " + device_err.data
+                    "failed to retrieve device for task: " + device_err.data()
                 );
                 return;
             }
@@ -142,7 +142,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (dev_err) {
                 cfg.field_err(
                     "device",
-                    "failed to retrieve devices for task: " + dev_err.data
+                    "failed to retrieve devices for task: " + dev_err.data()
                 );
                 return;
             }

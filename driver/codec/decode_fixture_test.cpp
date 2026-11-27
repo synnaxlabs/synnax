@@ -104,9 +104,10 @@ void check_case(
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
         if (const auto syntax = expected.find(SYNTAX_PREFIX);
             syntax != std::string::npos) {
-            ASSERT_TRUE(err.data.starts_with(expected.substr(0, syntax))) << err.data;
+            ASSERT_TRUE(err.data().starts_with(expected.substr(0, syntax)))
+                << err.data();
         } else {
-            ASSERT_EQ(err.data, error_data(expected));
+            ASSERT_EQ(err.data(), error_data(expected));
         }
         return;
     }
@@ -139,7 +140,7 @@ void check_fixture(const std::filesystem::path &path) {
     auto [dec, err] = JSON::create(messages);
     if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-        ASSERT_EQ(err.data, error_data(expected));
+        ASSERT_EQ(err.data(), error_data(expected));
         return;
     }
     ASSERT_NIL(err);

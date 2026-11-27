@@ -337,7 +337,7 @@ TEST_F(EtherCATScanProbeTest, ScansAnEmptyInterfaceWithConfiguredDevicesOnEachSc
         );
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "No module answered on Ethernet. Check the cable and the power of the "
             "first module."
         );
@@ -382,7 +382,7 @@ TEST_F(EtherCATScanProbeTest, ScansABlockedInterfaceWithConfiguredDevicesOnEachS
                              ->scan({.count = i, .devices = &CONFIGURED_ON_ETH0})
                              .second;
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-        EXPECT_EQ(err.data, blocked.data);
+        EXPECT_EQ(err.data(), blocked.data());
     }
     EXPECT_EQ(this->master->call_count("scan"), 7);
     EXPECT_EQ(
@@ -402,7 +402,7 @@ TEST_F(EtherCATScanProbeTest, ShowsWhyAnInterfaceWithConfiguredDevicesHasNoLink)
     const auto err = this->scanner->scan({.count = 0, .devices = &CONFIGURED_ON_ETH0})
                          .second;
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-    EXPECT_EQ(err.data, no_link.data);
+    EXPECT_EQ(err.data(), no_link.data());
 }
 
 /// @brief it should report an interface whose replies a filter blocks on each scan, and
@@ -417,7 +417,7 @@ TEST_F(EtherCATScanProbeTest, ReportsAnInterfaceWhoseRepliesAreBlockedOnEachScan
     for (std::size_t i = 0; i < 7; ++i) {
         const auto [devices, err] = this->scanner->scan({.count = i});
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-        EXPECT_EQ(err.data, blocked.data);
+        EXPECT_EQ(err.data(), blocked.data());
         EXPECT_TRUE(devices.empty());
     }
     EXPECT_EQ(this->master->call_count("scan"), 2);
@@ -597,7 +597,7 @@ TEST_F(EtherCATScanFilterTest, ReportsWhyTheFilterIsStillOn) {
     const auto status = this->disable_filter();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to turn off the DewesoftX filter");
-    EXPECT_EQ(status.description, this->disable_err.data);
+    EXPECT_EQ(status.description, this->disable_err.data());
     EXPECT_EQ(status.details.data, this->scanner->status_data());
     EXPECT_NE(status.details.data, std::nullopt);
 }
@@ -621,7 +621,7 @@ TEST_F(EtherCATScanFilterTest, IgnoresTheFilterOfAnAdapterWithNoDevices) {
 TEST_F(EtherCATScanFilterTest, ReportsTheFilterOfAnAdapterThatHadDevices) {
     const auto [devices, err] = this->scanner->scan({.devices = &this->saved});
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-    EXPECT_EQ(err.data, this->blocked.data);
+    EXPECT_EQ(err.data(), this->blocked.data());
     EXPECT_EQ(devices.size(), 1);
 }
 
@@ -633,7 +633,7 @@ TEST_F(EtherCATScanProbeTest, ReturnsAnInterfaceItCannotScanAsAPartialScan) {
     );
     const auto [devices, err] = this->scanner->scan({});
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-    EXPECT_EQ(err.data, "Cannot open eth0.");
+    EXPECT_EQ(err.data(), "Cannot open eth0.");
     EXPECT_TRUE(devices.empty());
     this->master->inject_scan_error(x::errors::NIL);
     ASSERT_NIL_P(this->scanner->scan({.count = 1}));
@@ -890,7 +890,7 @@ TEST_F(EtherCATScanStatusTest, SkipsAndReportsASlaveWhoseSerialReadFails) {
         }
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "Module 1 on eth0 gave no serial number (failed to read 0x1018:04: no "
             "response). Restart its power."
         );
@@ -1124,7 +1124,7 @@ TEST_F(EtherCATScanStatusTest, SkipsASlaveWithNoIdentity) {
             continue;
         }
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-        EXPECT_EQ(err.data, "Module 2 on eth0 gives no identity. Restart its power.");
+        EXPECT_EQ(err.data(), "Module 2 on eth0 gives no identity. Restart its power.");
     }
     EXPECT_EQ(this->master->call_count("deactivate"), 3);
 }
@@ -1139,7 +1139,7 @@ TEST_F(EtherCATScanStatusTest, ReportsOnlyASlaveWithNoIdentityAtTwoRediscoveries
     for (size_t i = 12; i < 18; ++i) {
         const auto [devices, err] = this->scanner->scan({.count = i});
         ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
-        EXPECT_EQ(err.data, "Module 2 on eth0 gives no identity. Restart its power.");
+        EXPECT_EQ(err.data(), "Module 2 on eth0 gives no identity. Restart its power.");
     }
 }
 

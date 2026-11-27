@@ -223,7 +223,7 @@ void assert_refuses_command(
     });
     EXPECT_NIL(error);
     ASSERT_OCCURRED_AS(refused, x::errors::VALIDATION);
-    EXPECT_EQ(refused.data, text);
+    EXPECT_EQ(refused.data(), text);
     EXPECT_EQ(out, payloads);
 }
 
@@ -231,7 +231,7 @@ void assert_refuses_command(
 void assert_refuses(const Config &c, const std::string &text) {
     const auto err = c.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 }
 
@@ -370,7 +370,7 @@ TEST(Writer, StopOnSendError) {
         }
     );
     ASSERT_OCCURRED_AS(error, x::errors::VALIDATION);
-    EXPECT_EQ(error.data, "closed");
+    EXPECT_EQ(error.data(), "closed");
     EXPECT_NIL(refused);
     EXPECT_EQ(calls, 1);
     EXPECT_EQ(
@@ -391,7 +391,7 @@ TEST(Writer, KeepCommands) {
     ASSERT_NIL(w.keep(frame(2, x::telem::Series(std::vector<double>{1, 2}))));
     const auto refused = w.keep(frame(2, x::telem::Series(11.0)));
     ASSERT_OCCURRED_AS(refused, x::errors::VALIDATION);
-    EXPECT_EQ(refused.data, "message cmd: field a: 11 is above the max 10");
+    EXPECT_EQ(refused.data(), "message cmd: field a: 11 is above the max 10");
     EXPECT_EQ(
         sent(w, frame(3, x::telem::Series(5.0))),
         (std::vector<std::string>{"2,5"})
@@ -507,7 +507,7 @@ TEST(Writer, RefuseInvalidBindings) {
     open.add(at("c", 2));
     const auto err = open.create().second;
     ASSERT_OCCURRED_AS(err, codec::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "message cmd: field c: needs a channel or a default");
+    EXPECT_EQ(err.data(), "message cmd: field c: needs a channel or a default");
 }
 
 /// @brief it should send one JSON document for each row of commands, with the last
@@ -616,7 +616,7 @@ TEST(Writer, RefuseInvalidJSONValues) {
     invalid.fix(j.key, synnax::icd::JSONWriteValue{.value = "{"});
     const auto err = invalid.create().second;
     ASSERT_OCCURRED_AS(err, codec::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "message cmd: field j: default: must be valid JSON");
+    EXPECT_EQ(err.data(), "message cmd: field j: default: must be valid JSON");
 }
 
 /// @brief it should refuse a value of a number JSON field that decodes outside the min
@@ -783,7 +783,7 @@ TEST(Writer, DropRefusedBinaryCommands) {
     );
     EXPECT_NIL(error);
     ASSERT_OCCURRED_AS(refused, x::errors::VALIDATION);
-    EXPECT_EQ(refused.data, "message cmd: field a: -1 is out of range for 8 bits");
+    EXPECT_EQ(refused.data(), "message cmd: field a: -1 is out of range for 8 bits");
     EXPECT_TRUE(out.empty());
     EXPECT_EQ(
         decoded(c, sent(w, frame(3, x::telem::Series(2.0)))),

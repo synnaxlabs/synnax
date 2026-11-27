@@ -215,9 +215,9 @@ TEST(HTTPReadTask, ParseConfigEmptyEndpoints) {
     auto [_, err] = ReadTaskConfig::parse(create_task(x::json::json::array()));
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_NE(
-        err.data.find("at least one enabled endpoint is required"),
+        err.data().find("at least one enabled endpoint is required"),
         std::string::npos
-    ) << err.data;
+    ) << err.data();
 }
 
 /// @brief it should fail to parse config when device field is missing.
@@ -250,9 +250,9 @@ TEST(HTTPReadTask, ParseConfigAllEndpointsDisabled) {
     );
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_NE(
-        err.data.find("at least one enabled endpoint is required"),
+        err.data().find("at least one enabled endpoint is required"),
         std::string::npos
-    ) << err.data;
+    ) << err.data();
 }
 
 /// @brief it should fail when a query_params entry is missing the parameter field.
@@ -263,7 +263,7 @@ TEST(HTTPReadTask, ParseConfigQueryParamMissingParameterErrors) {
         {"query_params", {{{"value", "10"}}}},
     }}));
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_NE(err.data.find("parameter"), std::string::npos);
+    EXPECT_NE(err.data().find("parameter"), std::string::npos);
 }
 
 /// @brief a query_params entry may omit the value field; it defaults to an empty
@@ -293,7 +293,7 @@ TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
          }},
     }}));
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_NE(err.data.find("duplicate header"), std::string::npos);
+    EXPECT_NE(err.data().find("duplicate header"), std::string::npos);
 }
 
 /// @brief it should fail when duplicate query parameter names exist.
@@ -308,7 +308,7 @@ TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
          }},
     }}));
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_NE(err.data.find("duplicate query parameter"), std::string::npos);
+    EXPECT_NE(err.data().find("duplicate query parameter"), std::string::npos);
 }
 
 /// @brief it should parse an endpoint that omits query parameters, headers, and a
@@ -511,9 +511,12 @@ TEST(HTTPReadTask, AllEndpoints4xxBacksOff) {
     EXPECT_FALSE(res.error.matches(errors::UNREACHABLE_ERROR));
     EXPECT_FALSE(res.error.matches(errors::CRITICAL_ERROR));
     EXPECT_EQ(fr.size(), 0);
-    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
-    EXPECT_NE(res.error.data.find("/a returned 401: unauthorized"), std::string::npos);
-    EXPECT_NE(res.error.data.find("/b returned 403: forbidden"), std::string::npos);
+    EXPECT_NE(res.error.data().find("GET"), std::string::npos);
+    EXPECT_NE(
+        res.error.data().find("/a returned 401: unauthorized"),
+        std::string::npos
+    );
+    EXPECT_NE(res.error.data().find("/b returned 403: forbidden"), std::string::npos);
 }
 
 /// @brief every endpoint rejected with a 5xx status should return a temporary error,
@@ -538,8 +541,8 @@ TEST(HTTPReadTask, AllEndpoints5xxBacksOff) {
     ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
     EXPECT_FALSE(res.error.matches(errors::UNREACHABLE_ERROR));
     EXPECT_EQ(fr.size(), 0);
-    EXPECT_NE(res.error.data.find("/a returned 503"), std::string::npos);
-    EXPECT_NE(res.error.data.find("/b returned 503"), std::string::npos);
+    EXPECT_NE(res.error.data().find("/a returned 503"), std::string::npos);
+    EXPECT_NE(res.error.data().find("/b returned 503"), std::string::npos);
 }
 
 /// @brief a mix of 4xx and 5xx rejections on every endpoint should return a temporary
@@ -563,8 +566,8 @@ TEST(HTTPReadTask, MixedStatusFailuresBackOff) {
     );
     ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
     EXPECT_EQ(fr.size(), 0);
-    EXPECT_NE(res.error.data.find("401"), std::string::npos);
-    EXPECT_NE(res.error.data.find("503"), std::string::npos);
+    EXPECT_NE(res.error.data().find("401"), std::string::npos);
+    EXPECT_NE(res.error.data().find("503"), std::string::npos);
 }
 
 /// @brief a rejected endpoint beside a working one should stay a warning carrying the
@@ -625,10 +628,10 @@ TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneLine) {
     );
     ASSERT_OCCURRED_AS(res.error, errors::UNREACHABLE_ERROR);
     EXPECT_EQ(fr.size(), 0);
-    EXPECT_NE(res.error.data.find("/slow"), std::string::npos);
-    EXPECT_NE(res.error.data.find("did not send 2 requests"), std::string::npos);
-    EXPECT_EQ(res.error.data.find("/a"), std::string::npos);
-    EXPECT_EQ(res.error.data.find("at a time"), std::string::npos);
+    EXPECT_NE(res.error.data().find("/slow"), std::string::npos);
+    EXPECT_NE(res.error.data().find("did not send 2 requests"), std::string::npos);
+    EXPECT_EQ(res.error.data().find("/a"), std::string::npos);
+    EXPECT_EQ(res.error.data().find("at a time"), std::string::npos);
 }
 
 /// @brief more endpoints than slots overrunning the period should warn about the
@@ -804,9 +807,9 @@ TEST(HTTPReadTask, TransportErrorTimeoutUnreachable) {
         {{"timeout_ms", 100}}
     );
     ASSERT_OCCURRED_AS(res.error, errors::UNREACHABLE_ERROR);
-    EXPECT_NE(res.error.data.find("GET"), std::string::npos);
-    EXPECT_NE(res.error.data.find("/api/slow"), std::string::npos);
-    EXPECT_NE(res.error.data.find("failed"), std::string::npos);
+    EXPECT_NE(res.error.data().find("GET"), std::string::npos);
+    EXPECT_NE(res.error.data().find("/api/slow"), std::string::npos);
+    EXPECT_NE(res.error.data().find("failed"), std::string::npos);
     EXPECT_EQ(fr.size(), 0);
 }
 
@@ -1362,7 +1365,7 @@ TEST(HTTPReadTask, BuildReadersRejectsEndpointWithNoMessages) {
         const auto err = build_readers(client, {ep}).second;
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "endpoint GET /a reads no messages. Open the task and pick a message "
             "for it."
         );
@@ -1378,7 +1381,7 @@ TEST(HTTPReadTask, BuildReadersRejectsChannelOfTwoEndpoints) {
     const auto err = build_readers(client, {a.endpoint, b.endpoint}).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "endpoint GET /a and endpoint GET /b write to the same channel " +
             std::to_string(a.channels[0].key)
     );
@@ -1400,7 +1403,7 @@ TEST(HTTPReadTask, BuildReadersRejectsIndexOfTwoEndpoints) {
     const auto err = build_readers(client, {a.endpoint, b.endpoint}).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "endpoint GET /a and endpoint GET /b write to the same channel " +
             std::to_string(a.index.key)
     );
@@ -1416,7 +1419,7 @@ TEST(HTTPReadTask, BuildReadersRejectsMissingICD) {
     const auto err = build_readers(client, {ep}).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "endpoint GET /a: ICD " + ep.icd->to_string() + " does not exist"
     );
 }
@@ -1431,7 +1434,7 @@ TEST(HTTPReadTask, BuildReadersNamesEndpointOfMessageError) {
         const auto err = build_readers(client, {ep}).second;
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "endpoint GET /a: message Status: channel " + std::to_string(key) +
                 " does not exist"
         );
@@ -1473,7 +1476,7 @@ TEST(HTTPReadTask, ConfigureRejectsEndpointWithNoMessages) {
                              .second;
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "endpoint GET /a reads no messages. Open the task and pick a message for "
             "it."
         );

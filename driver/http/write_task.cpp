@@ -97,12 +97,12 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
         );
         if (result.refused)
             refused.push_back(
-                "Dropped a command for " + describe(base) + ": " + result.refused.data +
-                "."
+                "Dropped a command for " + describe(base) + ": " +
+                result.refused.data() + "."
             );
         if (result.error) {
-            if (first_error_type.empty()) first_error_type = result.error.type;
-            error_msgs.push_back(describe(base) + ": " + result.error.data);
+            if (first_error_type.empty()) first_error_type = result.error.type();
+            error_msgs.push_back(describe(base) + ": " + result.error.data());
         }
     }
 
@@ -138,10 +138,10 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             if (err.matches(errors::TEMPORARY_ERROR))
                 temporary = true;
             else if (first_error_type.empty())
-                first_error_type = err.type;
+                first_error_type = err.type();
             auto msg = describe(batch[j]);
             if (req_err)
-                msg += ": " + req_err.data;
+                msg += ": " + req_err.data();
             else {
                 msg += " returned " + std::to_string(resp.status_code);
                 if (!resp.body.empty()) msg += ": " + resp.body_excerpt();
@@ -152,7 +152,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
     }
     if (sent) this->set_state(frame);
     if (first_error_type.empty() && temporary)
-        first_error_type = errors::TEMPORARY_ERROR.type;
+        first_error_type = errors::TEMPORARY_ERROR.type();
 
     if (!refused.empty())
         this->warn({

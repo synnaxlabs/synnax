@@ -294,14 +294,14 @@ class ScanTask final : public task::Task, public pipeline::Base {
         const auto &[err, data] = res;
         if (err) {
             if (!replaced && this->status.variant == synnax::status::VARIANT_WARNING &&
-                this->status.description == err.data &&
+                this->status.description == err.data() &&
                 this->status.details.data == data)
                 return;
             LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
             this->send_status(
                 synnax::status::VARIANT_WARNING,
                 "Failed to scan for devices",
-                err.data,
+                err.data(),
                 data
             );
         } else if (replaced || this->status.variant != synnax::status::VARIANT_SUCCESS)
@@ -578,7 +578,7 @@ public:
             this->send_status(
                 synnax::status::VARIANT_ERROR,
                 "Failed to start scan task",
-                err.data
+                err.data()
             );
             return;
         }
@@ -587,7 +587,7 @@ public:
             this->send_status(
                 synnax::status::VARIANT_ERROR,
                 "Failed to start scan task",
-                err.data
+                err.data()
             );
             return;
         }
@@ -610,7 +610,7 @@ public:
             this->send_status(
                 synnax::status::VARIANT_ERROR,
                 "Failed to stop scan task",
-                err.data
+                err.data()
             );
         else
             this->send_status(synnax::status::VARIANT_SUCCESS, "Stopped scan task");
@@ -621,7 +621,7 @@ public:
         this->send_status(
             synnax::status::VARIANT_ERROR,
             "Failed to scan for devices",
-            err.data
+            err.data()
         );
     }
 
@@ -643,7 +643,7 @@ public:
                     err.matches(PARTIAL_SCAN_ERROR) ? synnax::status::VARIANT_WARNING
                                                     : synnax::status::VARIANT_ERROR,
                     "Failed to scan for devices",
-                    err.data,
+                    err.data(),
                     data
                 );
             else

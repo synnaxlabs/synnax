@@ -71,7 +71,7 @@ TextMessage message(
 void assert_refuses(const std::vector<TextMessage> &messages, const std::string &text) {
     const auto [dec, err] = Text::create(messages);
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 
 /// @brief asserts that line matches a message of dec and then fails to decode with
@@ -79,7 +79,7 @@ void assert_refuses(const std::vector<TextMessage> &messages, const std::string 
 void assert_rejects(Text &dec, const std::string_view line, const std::string &text) {
     const auto [message, err] = dec.decode(line);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
     EXPECT_TRUE(message.has_value());
 }
 
@@ -380,14 +380,14 @@ void assert_rejects_samples(
     std::vector<std::uint8_t> payload;
     const auto err = enc.encode(samples, payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 
 /// @brief asserts that creating an encoder for m fails with text.
 void assert_encoder_refuses(const TextMessage &m, const std::string &text) {
     const auto err = TextEncoder::create(m).second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 
 /// @brief asserts that a decoder of m reads values back from line.
@@ -676,7 +676,7 @@ TEST(TextEncoder, CheckSample) {
     ASSERT_NIL(enc.check(1, s, 0));
     const auto err = enc.check(1, s, 1);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message cmd: field b: NaN is not finite");
+    EXPECT_EQ(err.data(), "message cmd: field b: NaN is not finite");
 }
 
 /// @brief it should be ready when each field has a sample or a default.
@@ -698,7 +698,7 @@ void assert_check_refuses(
 ) {
     const auto err = enc.check(binding, s, 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 }
 

@@ -2300,7 +2300,7 @@ TEST(TestScanTask, PartialScanKeepsDevices) {
     );
     const auto err = scan_task.scan().err;
     ASSERT_OCCURRED_AS(err, PARTIAL_SCAN_ERROR);
-    EXPECT_EQ(err.data, "eth1: cannot open");
+    EXPECT_EQ(err.data(), "eth1: cannot open");
     ASSERT_EQ(created->size(), 1);
     EXPECT_EQ(created->at(0).key, "device1");
 }

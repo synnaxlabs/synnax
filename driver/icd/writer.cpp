@@ -44,7 +44,7 @@ std::optional<std::string> set_value(icd::TextField &f, const icd::WriteValue &v
     if (value == nullptr) return " of kind float needs a value of its kind";
     std::visit([&](auto &t) { t.default_ = value->value; }, f);
     if (const auto err = codec::check_raw_limits(icd::base(f), value->value.value))
-        return ": " + err.data;
+        return ": " + err.data();
     return std::nullopt;
 }
 
@@ -66,7 +66,7 @@ std::optional<std::string> set_value(icd::BinaryField &f, const icd::WriteValue 
                 field.default_ = value.value;
                 const auto raw = static_cast<double>(value.value.value);
                 if (const auto err = codec::check_raw_limits(field, raw))
-                    return ": " + err.data;
+                    return ": " + err.data();
                 return std::nullopt;
             } else
                 return " of kind " + field.kind + " needs a value of its kind";
@@ -114,7 +114,7 @@ std::optional<std::string> set_value(icd::JSONField &f, const icd::WriteValue &v
             ) {
                 const auto raw = static_cast<double>(field.default_.value().value);
                 if (const auto err = codec::check_raw_limits(field, raw))
-                    return ": " + err.data;
+                    return ": " + err.data();
             }
             return std::nullopt;
         },

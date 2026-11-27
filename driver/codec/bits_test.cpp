@@ -129,14 +129,14 @@ TEST(BitRange, Write64BitsAcrossNineBytes) {
 TEST(BitRange, RejectZeroLength) {
     const auto [r, err] = BitRange::create(field(0, 0, false));
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "bit length must be from 1 to 64, got 0");
+    EXPECT_EQ(err.data(), "bit length must be from 1 to 64, got 0");
 }
 
 /// @brief it should reject a bit length over 64.
 TEST(BitRange, RejectLengthOver64) {
     const auto [r, err] = BitRange::create(field(0, 65, false));
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "bit length must be from 1 to 64, got 65");
+    EXPECT_EQ(err.data(), "bit length must be from 1 to 64, got 65");
 }
 
 /// @brief it should reject an unknown byte order.
@@ -145,7 +145,7 @@ TEST(BitRange, RejectUnknownByteOrder) {
     f.byte_order = "middle_endian";
     const auto [r, err] = BitRange::create(f);
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "unknown byte order middle_endian");
+    EXPECT_EQ(err.data(), "unknown byte order middle_endian");
 }
 
 /// @brief it should read and write the same bits as a walk of the DBC rules, for any

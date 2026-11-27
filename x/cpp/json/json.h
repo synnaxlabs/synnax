@@ -529,7 +529,7 @@ public:
     /// @param path The JSON path to the field.
     /// @param err The error whose data will be used.
     void field_err(const std::string &path, const errors::Error &err) const {
-        this->field_err(path, err.data);
+        this->field_err(path, err.data());
     }
 
     /// @brief binds a new error to the field at the given path.

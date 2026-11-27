@@ -52,7 +52,7 @@ inline std::string dispatch_create(
         if (err) {
             report(
                 CREATE_FAILURE_MSG,
-                "The color \"" + color_hex + "\" is not valid: " + err.data
+                "The color \"" + color_hex + "\" is not valid: " + err.data()
             );
             return "";
         }
@@ -77,7 +77,7 @@ inline std::string dispatch_create(
         r.parent = uid;
     }
     if (const auto err = client->ranges.create(r)) {
-        report(CREATE_FAILURE_MSG, err.data);
+        report(CREATE_FAILURE_MSG, err.data());
         return "";
     }
     return r.key.to_string();
@@ -96,7 +96,7 @@ inline std::string dispatch_end(
         return "";
     }
     if (const auto err = client->ranges.set_end(uid, x::telem::TimeStamp::now())) {
-        report(END_FAILURE_MSG, err.data);
+        report(END_FAILURE_MSG, err.data());
         return "";
     }
     return uid.to_string();

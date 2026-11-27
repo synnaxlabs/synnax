@@ -436,7 +436,7 @@ Master::start(const std::function<void(const master::Image &)> &start_cycle) {
     for (const auto &[pos, failure]: session.startup_failures) {
         failures += (failures.empty() ? "" : "; ") + std::string("module ") +
                     std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
-                    failure.data;
+                    failure.data();
         if (!failure.matches(errors::STARTUP_PARAMETER_REJECTED))
             type = errors::STARTUP_PARAMETER_ERROR;
     }
@@ -507,7 +507,7 @@ void Master::deactivate() {
         this->request_state(EC_STATE_INIT, micros(this->cfg.init_timeout));
         // INIT leaves the DC activation as it is.
         if (const auto err = this->clear_dc_activation())
-            LOG(WARNING) << "[ethercat] " << err.data;
+            LOG(WARNING) << "[ethercat] " << err.data();
         this->session.reset();
     }
     if (this->initialized) {
@@ -663,7 +663,7 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &) {
         if (const auto it = session.startup_failures.find(i);
             it != session.startup_failures.end()) {
             h.faulted = true;
-            h.startup_error = it->second.data;
+            h.startup_error = it->second.data();
         }
     }
     return health;
@@ -685,7 +685,7 @@ x::errors::Error Master::write(
         return x::errors::Error(
             err,
             "Module " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
-                err.data + "."
+                err.data() + "."
         );
     if (this->session)
         this->session->plan.slaves[pos].add_startup_parameters(parameters);
@@ -745,7 +745,7 @@ void Master::recover_slave(const uint16_t pos, const x::breaker::Breaker &breake
                         s.dc_restore_errors.erase(pos);
                         return;
                     }
-                    s.dc_restore_errors[pos] = err.data;
+                    s.dc_restore_errors[pos] = err.data();
                     auto &retry = s.clock_retries[pos];
                     retry.failures++;
                     retry.at = this->cfg.clock.steady() +
@@ -822,7 +822,8 @@ void Master::read_serial(slave::DiscoveryResult &slave) {
     // Only a slave that refuses the read for good has no CoE serial number.
     if (failure.permanent()) return;
     slave.status
-        .serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, failure).data;
+        .serial_error = coe::read_error(IDENTITY_INDEX, SERIAL_SUB_INDEX, failure)
+                            .data();
 }
 
 void Master::read_settings(slave::DiscoveryResult &slave) {
@@ -838,7 +839,7 @@ void Master::read_settings(slave::DiscoveryResult &slave) {
             return this->read_sdo(pos, index, sub_index);
         }
     );
-    slave.status.settings_error = err.data;
+    slave.status.settings_error = err.data();
     props.settings = std::move(settings);
 }
 
@@ -1054,7 +1055,7 @@ void Master::discover_slave_pdos(
     // discovers the slave again.
     if (layout_err) {
         auto &msg = slave.status.pdo_discovery_error;
-        msg = "failed to read the PDO layout: " + layout_err.data;
+        msg = "failed to read the PDO layout: " + layout_err.data();
         if (read_coe)
             msg += ", so the Driver uses the PDOs it read";
         else if (found)
@@ -1224,7 +1225,7 @@ x::errors::Error Master::clear_dc_activation() {
         if (this->record(i).group != ENABLED_GROUP || !this->record(i).hasdc) continue;
         if (const auto err = this->clear_sync(i)) {
             if (!failed.empty()) failed += "; ";
-            failed += err.data;
+            failed += err.data();
         }
     }
     if (failed.empty()) return x::errors::NIL;
