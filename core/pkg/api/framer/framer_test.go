@@ -775,6 +775,15 @@ var _ = Describe("Framer", func() {
 				return w
 			}
 			stamps := func() telem.Series { return telem.NewSeriesSecondsTSV(1, 2) }
+			// committed writes fr through w and reports whether its commit held
+			// control.
+			committed := func(w *svcframer.Writer, fr frame.Frame) bool {
+				GinkgoHelper()
+				MustSucceed(w.Write(fr))
+				_, authorized, err := w.Commit()
+				Expect(err).ToNot(HaveOccurred())
+				return authorized
+			}
 
 			It("Should name the index of each group in the open response", func(
 				ctx SpecContext,
@@ -784,7 +793,11 @@ var _ = Describe("Framer", func() {
 			})
 
 			It("Should name an index that the open names once", func(ctx SpecContext) {
-				_, res := open(ctx, channel.Keys{index.Key(), data.Key(), pressure.Key()}, 100)
+				_, res := open(
+					ctx,
+					channel.Keys{index.Key(), data.Key(), pressure.Key()},
+					100,
+				)
 				Expect(res.Clocks).To(Equal(channel.Keys{index.Key()}))
 			})
 
@@ -806,7 +819,7 @@ var _ = Describe("Framer", func() {
 			) {
 				open(ctx, channel.Keys{pressure.Key()}, 100)
 				task := openTask(ctx, channel.Keys{index.Key(), data.Key()}, 100)
-				Expect(task.Write(frame.NewMulti(
+				Expect(committed(task, frame.NewMulti(
 					channel.Keys{index.Key(), data.Key()},
 					[]telem.Series{stamps(), telem.NewSeriesV[float32](1, 2)},
 				))).To(BeTrue())
@@ -817,7 +830,9 @@ var _ = Describe("Framer", func() {
 			) {
 				task := openTask(ctx, channel.Keys{index.Key()}, 50)
 				client, _ := open(ctx, channel.Keys{data.Key()}, 100)
-				Expect(task.Write(frame.NewUnary(index.Key(), stamps()))).To(BeTrue())
+				Expect(
+					committed(task, frame.NewUnary(index.Key(), stamps())),
+				).To(BeTrue())
 				Expect(client.Send(apiframer.WriterRequest{
 					Command: apiframer.WriterCommandWrite,
 					Frame: frame.NewMulti(
@@ -835,19 +850,56 @@ var _ = Describe("Framer", func() {
 					HaveField("Command", apiframer.WriterCommandCommit),
 					HaveField("Authorized", BeTrue()),
 				))
-				Expect(task.Write(frame.NewUnary(
+				Expect(committed(task, frame.NewUnary(
 					index.Key(),
 					telem.NewSeriesSecondsTSV(5, 6),
 				))).To(BeFalse())
 			})
 
-			It("Should keep an index at authority 0 from a writer that opens at 0", func(
-				ctx SpecContext,
-			) {
-				open(ctx, channel.Keys{pressure.Key()}, 100)
-				other := openTask(ctx, channel.Keys{index.Key()}, 0)
-				Expect(other.Write(frame.NewUnary(index.Key(), stamps()))).To(BeFalse())
-			})
+			It(
+				"Should answer the client's own authority changes",
+				func(ctx SpecContext) {
+					client, _ := open(ctx, channel.Keys{data.Key()}, 100)
+					Expect(client.Send(apiframer.WriterRequest{
+						Command: apiframer.WriterCommandSetAuthority,
+						Config:  apiframer.WriterConfig{Authorities: []uint32{120}},
+					})).To(Succeed())
+					Expect(client.Send(apiframer.WriterRequest{
+						Command: apiframer.WriterCommandWrite,
+						Frame: frame.NewMulti(
+							channel.Keys{index.Key(), data.Key()},
+							[]telem.Series{stamps(), telem.NewSeriesV[float32](1, 2)},
+						),
+					})).To(Succeed())
+					Expect(client.Send(apiframer.WriterRequest{
+						Command: apiframer.WriterCommandSetAuthority,
+						Config:  apiframer.WriterConfig{Authorities: []uint32{130}},
+					})).To(Succeed())
+					Expect(client.Send(apiframer.WriterRequest{
+						Command: apiframer.WriterCommandCommit,
+					})).To(Succeed())
+					for _, command := range []apiframer.WriterCommand{
+						apiframer.WriterCommandSetAuthority,
+						apiframer.WriterCommandSetAuthority,
+						apiframer.WriterCommandCommit,
+					} {
+						Expect(client.Receive()).To(HaveField("Command", command))
+					}
+				},
+			)
+
+			It(
+				"Should keep an index at authority 0 from a writer that opens at 0",
+				func(
+					ctx SpecContext,
+				) {
+					open(ctx, channel.Keys{pressure.Key()}, 100)
+					other := openTask(ctx, channel.Keys{index.Key()}, 0)
+					Expect(
+						committed(other, frame.NewUnary(index.Key(), stamps())),
+					).To(BeFalse())
+				},
+			)
 		})
 	})
 
