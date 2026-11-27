@@ -27,9 +27,9 @@ _CORE_TIMEOUT_S = 5
 
 
 class EnumerationClient(ResourceClient):
-    """Console client for the Enumerations page of Settings. The Console sends an edit
-    a short time after it is made, so a method that takes the name of the enumeration
-    waits until the Core holds the edit."""
+    """Console client for the Enumerations page of the Library. The Console sends an
+    edit a short time after it is made, so a method that takes the name of the
+    enumeration waits until the Core holds the edit."""
 
     def __init__(self, *, layout: LayoutClient, client: sy.Synnax) -> None:
         super().__init__(layout)
@@ -222,8 +222,8 @@ class EnumerationClient(ResourceClient):
         cell.blur()
 
     def _show_page(self) -> None:
-        """Show the Enumerations page of Settings."""
-        nav = self.layout.open_settings()
+        """Show the Enumerations page of the Library."""
+        nav = self.layout.open_library()
         nav.get_by_role("menuitem", name="Enumerations", exact=True).click()
         self.page.get_by_placeholder(_SEARCH_PLACEHOLDER, exact=True).wait_for(
             state="visible", timeout=5000

@@ -33,7 +33,6 @@ import {
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -49,7 +48,11 @@ const HAUL_DRAG_PROPS: Haul.UseDragProps = {
 export interface SymbolsChangeProps {
   /** The symbol that every symbol to change draws, if they all draw the same one. */
   value?: string;
-  onChange: <V extends Schematic.Node.Variant>(input: Schematic.Node.Input<V>) => void;
+  /** Takes the picked symbol, with its spec when it draws as a symbol node. */
+  onChange: <V extends Schematic.Node.Variant>(
+    input: Schematic.Node.Input<V>,
+    spec?: schematic.symbol.Spec,
+  ) => void;
 }
 
 const ChangeContext = createContext<SymbolsChangeProps | undefined>(undefined);
@@ -63,26 +66,67 @@ const createSymbolParams = (
   config: { variant: "symbol", spec: ref, label: { label } },
 });
 
+/** A symbol of the toolbar that the Console holds: a built-in or another element. */
+interface StaticItem {
+  key: string;
+  name: string;
+  label: string;
+}
+
+const createStaticItem = (key: string): StaticItem => {
+  const name = Schematic.Node.builtInName(key);
+  const label = Schematic.Node.builtInLabel(key);
+  if (name != null && label != null) return { key, name, label };
+  const spec = Schematic.Node.resolveSpec(key);
+  return { key, name: spec.name, label: spec.label ?? spec.name };
+};
+
+const STATIC_ITEMS: StaticItem[] = [
+  ...new Set(Schematic.Node.GROUPS.flatMap((g) => g.symbols)),
+].map(createStaticItem);
+
+const SymbolPreview = Schematic.Node.REGISTRY.symbol.Preview;
+
+const createSymbolPreviewConfig = (ref: schematic.symbol.Ref) =>
+  Schematic.Node.createConfig({ variant: "symbol", spec: ref });
+
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
   const variant = itemKey as Schematic.Node.Variant;
-  const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
+  const item = List.useItem<string, StaticItem>(itemKey);
   const change = use(ChangeContext);
-  const config = spec == null ? null : Schematic.Node.createConfig({ variant });
-  if (spec == null || config == null) return null;
-  const { name, Preview } = spec;
+  const builtIn = Schematic.Node.BUILT_INS.get(itemKey);
+  const paints = Schematic.Node.Custom.usePaints(builtIn, 0, { builtIn: true });
+  if (item == null) return null;
+  const ref: schematic.symbol.Ref = { type: "builtin", name: itemKey };
+  let preview: ReactElement;
+  let dragPreview: ReactElement;
+  if (builtIn != null) {
+    preview = <SymbolPreview {...createSymbolPreviewConfig(ref)} scale={0.75} />;
+    // The drag preview renders once, so it draws the spec with no symbol node.
+    dragPreview = (
+      <Schematic.Node.Primitive.Div orientation="left">
+        <Schematic.Node.Custom.Drawing spec={builtIn} paints={paints} builtIn />
+      </Schematic.Node.Primitive.Div>
+    );
+  } else {
+    const { Preview } = Schematic.Node.resolveSpec(variant);
+    const config = Schematic.Node.createConfig({ variant });
+    preview = <Preview {...config} scale={0.75} />;
+    dragPreview = <Preview {...config} scale={1} />;
+  }
   const createParams = (): Schematic.AddNodeProps<"symbol"> | Schematic.AddNodeProps =>
-    FLAGS.symbolNodes && Schematic.Node.BUILT_INS.has(variant)
-      ? createSymbolParams({ type: "builtin", name: variant }, spec.label ?? name)
+    builtIn != null
+      ? createSymbolParams(ref, item.label)
       : { key: id.create(), config: { variant } };
   const handleAddNode = () => addNode(createParams());
   const handleDragStart = (event: DragEvent<HTMLElement>) =>
     startDrag({
       event,
       items: [Schematic.createHaulItem(createParams())],
-      preview: <Preview {...config} scale={1} />,
+      preview: dragPreview,
       anchor: "corner",
     });
   return (
@@ -94,13 +138,17 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
       selected={change?.value === variant}
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
-      onClick={change == null ? handleAddNode : () => change.onChange({ variant })}
+      onClick={
+        change == null
+          ? handleAddNode
+          : () => change.onChange(createParams().config, builtIn)
+      }
       y
       {...props}
     >
-      <Text.Text level="small">{name}</Text.Text>
+      <Text.Text level="small">{item.name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <Preview {...config} scale={0.75} />
+        {preview}
       </Flex.Box>
     </List.Item>
   );
@@ -209,7 +257,7 @@ const StaticSymbolListContextMenu = ({
   onSelectGroup,
 }: StaticSymbolListContextMenuProps): ReactElement => {
   const variant = keys[0];
-  const item = List.useItem<string, Schematic.Node.Spec>(variant);
+  const item = List.useItem<string, StaticItem>(variant);
   const spec = Schematic.Node.BUILT_INS.get(variant);
   const canCreate = Access.useCreateGranted(schematic.symbol.TYPE_RESOURCE_ID);
   return (
@@ -232,13 +280,11 @@ const StaticSymbolList = ({
   onSelectGroup,
 }: StaticSymbolListProps): ReactElement => {
   const g = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
-  const symbols = Schematic.Node.STATIC_SPECS.filter((s) => g?.symbols.includes(s.key));
-  const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
-    data: symbols,
-  });
+  const symbols = STATIC_ITEMS.filter((s) => g?.symbols.includes(s.key));
+  const { data, getItem } = List.useStaticData<string, StaticItem>({ data: symbols });
   const menuProps = Menu.useContextMenu();
   return (
-    <List.Frame<string, Schematic.Node.Spec> data={data} getItem={getItem}>
+    <List.Frame<string, StaticItem> data={data} getItem={getItem}>
       <Menu.ContextMenu
         {...menuProps}
         menu={(props) => (
@@ -264,12 +310,6 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
   const paints = Schematic.Node.Custom.usePaints(symbol?.data, 0);
-  const variant: Schematic.Node.CustomVariant =
-    symbol == null ? "custom_actuator" : Schematic.Node.customVariant(symbol);
-  const Preview = Schematic.Node.REGISTRY[variant].Preview as React.FC<{
-    specKey: string;
-    scale?: number;
-  }>;
   const addNode = Schematic.useAddNode();
   const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
@@ -279,12 +319,9 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const handleRename = (name: string) => rename({ key: itemKey, name });
 
   if (symbol == null) return null;
-  const createParams = ():
-    | Schematic.AddNodeProps<"symbol">
-    | Schematic.AddNodeProps<Schematic.Node.CustomVariant> =>
-    FLAGS.symbolNodes
-      ? createSymbolParams({ type: "custom", key: itemKey }, symbol.name)
-      : { key: id.create(), config: { variant, specKey: itemKey } };
+  const ref: schematic.symbol.Ref = { type: "custom", key: itemKey };
+  const createParams = (): Schematic.AddNodeProps<"symbol"> =>
+    createSymbolParams(ref, symbol.name);
   const handleAddNode = () => addNode(createParams());
   // The node's own drawing reads the symbol through a hook, which a preview cannot.
   const handleDragStart = (event: DragEvent<HTMLElement>) =>
@@ -311,7 +348,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       onClick={
         change == null
           ? handleAddNode
-          : () => change.onChange({ variant, specKey: itemKey })
+          : () => change.onChange(createParams().config, symbol.data)
       }
       y
       {...props}
@@ -324,7 +361,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
         onChange={canRename ? handleRename : undefined}
       />
       <Flex.Box align="center" justify="center" grow>
-        <Preview specKey={itemKey} scale={0.75} />
+        <SymbolPreview {...createSymbolPreviewConfig(ref)} scale={0.75} />
       </Flex.Box>
     </Select.Item>
   );
@@ -607,13 +644,16 @@ const GroupList = ({ value, onChange }: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Group>({
     data: Schematic.Node.GROUPS,
   });
-  // A tab strip cannot page, so it reads every group at once.
   const remoteData = Flux.useList((client) => client.groups, {
     name: "symbol groups",
     query: Schematic.Symbol.GROUP_QUERY,
     pageSize: 1000,
+    eager: true,
   });
-  useEffect(() => remoteData.more(), []);
+  // A tab strip cannot page, so it reads on until it holds every group.
+  useEffect(() => {
+    if (remoteData.variant === "success" && !remoteData.complete) remoteData.more();
+  }, [remoteData.variant, remoteData.complete]);
   const listProps = List.useCombinedData<group.Key, group.Group>({
     first: staticData,
     second: remoteData,
@@ -655,9 +695,7 @@ const SearchSymbolListContextMenu = (
 
 const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
-  const item = List.useItem<string, Schematic.Node.Spec | schematic.symbol.Symbol>(
-    itemKey,
-  );
+  const item = List.useItem<string, StaticItem | schematic.symbol.Symbol>(itemKey);
   if (item == null) return null;
   const isRemote = z.validate(schematic.symbol.keyZ, itemKey);
   if (isRemote) return <RemoteListItem {...props} />;
@@ -671,12 +709,10 @@ const SearchSymbolList = ({
   onSelectGroup,
 }: SearchSymbolListProps): ReactElement => {
   const remote = Schematic.Symbol.useList();
-  const staticData = List.useStaticData<string, Schematic.Node.Spec>({
-    data: Schematic.Node.STATIC_SPECS,
-  });
+  const staticData = List.useStaticData<string, StaticItem>({ data: STATIC_ITEMS });
   const { data, getItem, subscribe } = List.useCombinedData<
     string,
-    Schematic.Node.Spec | schematic.symbol.Symbol
+    StaticItem | schematic.symbol.Symbol
   >({ first: staticData, second: remote });
   const { search: searchRemote } = remote;
   const { search: searchStatic } = staticData;
@@ -686,7 +722,7 @@ const SearchSymbolList = ({
   }, [searchRemote, searchStatic, searchTerm]);
   const menuProps = Menu.useContextMenu();
   return (
-    <List.Frame<string, Schematic.Node.Spec | schematic.symbol.Symbol>
+    <List.Frame<string, StaticItem | schematic.symbol.Symbol>
       data={data}
       getItem={getItem}
       subscribe={subscribe}

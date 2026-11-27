@@ -8,14 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { kafka, type task } from "@synnaxlabs/client";
-import { type CrudeDataType, DataType, json, type payload } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
 
 export const PREFIX = "kafka";
-
-export type TimeFormat = payload.TimeFormat;
 
 const topicZ = z.string().min(1, "Topic is required");
 
@@ -99,32 +96,7 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface WriteChannel extends kafka.WriteChannel {}
-
-export type RecordKey = kafka.RecordKey;
-
 const writeConfigZ = kafka.writeConfigZ;
-
-const deployWriteChannelZ = kafka.writeChannelZ.refine(
-  ({ disabled, channel }) => disabled || channel !== 0,
-  { message: "Channel is required", path: ["channel"] },
-);
-
-export const deployWriteConfigZ = kafka.writeConfigZ.extend({
-  device: Task.deviceKeyZ,
-  topic: topicZ,
-  record: kafka.recordZ
-    .extend({
-      valuePointer: json.pointerZ.min(1, "Value pointer is required").default("/value"),
-    })
-    .prefault({}),
-  channels: deployWriteChannelZ
-    .array()
-    .check(Task.validateChannels)
-    .refine((channels) => channels.some(({ disabled }) => !disabled), {
-      message: "At least one channel must be enabled",
-    }),
-});
 
 export interface WriteTarget extends kafka.WriteTarget {}
 
@@ -150,7 +122,7 @@ const validateTargets = (ctx: z.core.ParsePayload<WriteTarget[]>) => {
   });
 };
 
-export const deployICDWriteConfigZ = kafka.writeConfigZ.extend({
+export const deployWriteConfigZ = kafka.writeConfigZ.extend({
   device: Task.deviceKeyZ,
   targets: kafka.writeTargetZ.array().check(validateTargets),
 });
@@ -162,9 +134,3 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-/** Whether a value of the data type travels as a JSON string. */
-export const isString = (dataType: CrudeDataType): boolean => {
-  const dt = new DataType(dataType);
-  return dt.isVariable || dt.equals(DataType.UUID);
-};

@@ -13,12 +13,10 @@
 #include <map>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <nlohmann/json.hpp>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 namespace x::json {
@@ -44,13 +42,8 @@ enum class TimeFormat {
 /// string is unknown.
 std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str);
 
-/// @brief maps enum labels to the samples they stand for (read direction: JSON string
-/// → sample).
+/// @brief maps enum labels to the samples they stand for.
 using EnumMap = std::map<std::string, telem::SampleValue>;
-
-/// @brief pairs samples with enum labels (write direction: sample → JSON string). A
-/// sample takes the label of the first entry it matches.
-using ReverseEnumMap = std::vector<std::pair<telem::SampleValue, std::string>>;
 
 /// @brief converts a JSON value to a SampleValue of the given target DataType.
 /// Inspects the JSON value's type at runtime to determine the conversion path.
@@ -76,67 +69,13 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const EnumMap *enum_values = nullptr
 );
 
-/// @brief returns true if a JSON value can at least sometimes be converted to the given
-/// DataType.
-/// @param target the Synnax DataType to check.
-/// @returns true if the DataType can be converted to the given JSON Type, false
-/// otherwise.
-bool check_to_sample_value(const telem::DataType &target);
-
 /// @brief JSON value type.
 enum class Type { Number, String, Boolean };
-
-/// @brief converts a SampleValue to a JSON value of the given target type.
-/// @param value the SampleValue to convert.
-/// @param target the JSON type to convert to.
-/// @param enum_values optional reverse enum mapping. When non-null, the value takes the
-/// label of the first entry it matches, whatever the target. Integers, strings, and
-/// timestamps match by exact value. Floats match by value in the type of the sample,
-/// and a NaN entry matches any NaN. Otherwise normal conversion applies, and a String
-/// target writes NaN and the infinities as "NaN", "Infinity", and "-Infinity".
-/// @returns the JSON value and nil, or an empty JSON value and CONVERSION_ERROR if
-/// unsupported. NaN and infinity have no JSON number, and NaN has no JSON boolean.
-std::pair<nlohmann::json, errors::Error> from_sample_value(
-    const telem::SampleValue &value,
-    Type target,
-    const ReverseEnumMap *enum_values = nullptr
-);
-
-/// @brief checks at config time whether a DataType can be converted to the given JSON
-/// Type.
-/// @param type the Synnax DataType to check.
-/// @param target the JSON type to convert to.
-/// @returns nil if supported, CONVERSION_ERROR otherwise.
-errors::Error check_from_sample_value(const telem::DataType &type, Type target);
-
-/// @brief converts the sample at index of a JSON, UUID, or bytes series to JSON. A JSON
-/// sample becomes the value that its text holds, a UUID its text, and bytes padded
-/// base64 text.
-/// @param series the series that holds the sample.
-/// @param index the index of the sample. A negative index counts from the end.
-/// @returns the JSON value and nil, or CONVERSION_ERROR if the series has another
-/// data type or a JSON sample is not valid JSON.
-/// @throws std::runtime_error if the index is out of bounds.
-std::pair<nlohmann::json, errors::Error>
-from_series(const telem::Series &series, int index);
 
 /// @brief splits ts into a whole count of the units of format, a Unix format, and the
 /// nanoseconds left over, both with the sign of ts. UnixMillisecond and UnixMicrosecond
 /// round the count toward negative infinity and leave nothing over.
 std::pair<std::int64_t, std::int64_t>
 split_unix(telem::TimeStamp ts, TimeFormat format);
-
-/// @brief converts a TimeStamp to a JSON value using the given TimeFormat.
-/// @param ts the timestamp to convert.
-/// @param format the output format.
-/// @returns the JSON representation of the timestamp, with the count of split_unix for
-/// a Unix format. It is an exact integer when nothing is left over, and otherwise the
-/// double nearest the exact decimal value.
-nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format);
-
-/// @brief returns the zero value for a JSON Type.
-/// @param format the JSON type (Number → 0, String → "", Boolean → false).
-/// @returns the zero JSON value.
-nlohmann::json zero_value(Type format);
 
 }

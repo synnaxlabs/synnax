@@ -15,10 +15,16 @@ import { Core } from "@/platform/core";
 import { renderCoreUI } from "@/platform/core/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { getBySelector } from "@/testutil";
+import { dragOnto, getBySelector, HaulProvider } from "@/testutil";
 
 const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
 const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });
+
+const names = (container: HTMLElement): string[] =>
+  Array.from(
+    container.querySelectorAll<HTMLElement>(".console-core-list-item__name"),
+    (el) => el.textContent,
+  );
 
 describe("Core List", () => {
   it("should call onChange with the clicked Core's key", async () => {
@@ -145,6 +151,62 @@ describe("Core List", () => {
     await waitFor(() =>
       expect(Session.Core.selectState(store.getState(), ALPHA.key)?.name).toBe("Beta"),
     );
+  });
+
+  it("should show Cores in the order the user added them", async () => {
+    const { container } = await renderCoreUI(
+      <Core.List value={undefined} onChange={vi.fn()} />,
+      createCoreState([BRAVO, ALPHA]),
+    );
+    await screen.findByText("Alpha");
+    expect(names(container)).toEqual(["Bravo", "Alpha"]);
+  });
+
+  it("should keep a renamed Core in its place", async () => {
+    const { container } = await renderCoreUI(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA, BRAVO], ALPHA.key),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByText("Rename"));
+    const editable = screen.getByText("Alpha");
+    await waitFor(() => expect(editable.getAttribute("contenteditable")).toBe("true"));
+    editable.innerText = "Zulu";
+    fireEvent.keyDown(editable, { key: "Enter" });
+    await waitFor(() => expect(names(container)).toEqual(["Zulu", "Bravo"]));
+  });
+
+  it("should move a dragged Core to the place of the one it drops on", async () => {
+    const CHARLIE = createCore("Charlie");
+    const { container, store } = await renderCoreUI(
+      <HaulProvider>
+        <Core.List value={undefined} onChange={vi.fn()} />
+      </HaulProvider>,
+      createCoreState([ALPHA, BRAVO, CHARLIE]),
+    );
+    dragOnto(await screen.findByText("Alpha"), await screen.findByText("Charlie"));
+    await waitFor(() =>
+      expect(names(container)).toEqual(["Bravo", "Charlie", "Alpha"]),
+    );
+    expect(store.getState()[Session.Core.SLICE_NAME].order).toEqual([
+      BRAVO.key,
+      CHARLIE.key,
+      ALPHA.key,
+    ]);
+  });
+
+  it("should show the user of each Core at one address", async () => {
+    const pat = createCore("Core", { user: "Pat" });
+    const sam = createCore("Core A", { user: "Sam" });
+    const fresh = createCore("Core B");
+    await renderCoreUI(
+      <Core.List value={undefined} onChange={vi.fn()} />,
+      createCoreState([pat, sam, fresh]),
+    );
+    const address = `${pat.host}:${pat.port}`;
+    expect(await screen.findByText(`${address} · Pat`)).toBeTruthy();
+    expect(screen.getByText(`${address} · Sam`)).toBeTruthy();
+    expect(screen.getByText(address)).toBeTruthy();
   });
 
   // A name is a label, not an identity, so two Cores may share one.

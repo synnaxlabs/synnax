@@ -37,17 +37,39 @@ export const kindName = (name: string, present?: string): string =>
   present == null ? name : `${name} ${kindOf(present)}`;
 
 /**
- * @returns a JSON message of fields named name, or `Untitled` when name is empty. A
- * name that a message in taken holds gets a number, such as `plant/oven 2`.
+ * @returns name, or name with a number when a message in taken holds it, such as
+ * `plant/oven 2`.
  */
+export const availableName = (name: string, taken: icd.Message[]): string => {
+  const names = new Set(taken.map((m) => m.name));
+  let next = name;
+  for (let n = 2; names.has(next); n++) next = `${name} ${n}`;
+  return next;
+};
+
+const baseName = (name: string): string => (name === "" ? "Untitled" : name);
+
+/**
+ * @returns name for a new message, or `Untitled` when name is empty. A name that a
+ * message in taken holds gets a number, as availableName gives.
+ */
+export const messageName = (name: string, taken: icd.Message[]): string =>
+  availableName(baseName(name), taken);
+
+/** @returns whether messageName can give name for base, with or without a number. */
+export const namedBy = (name: string, base: string): boolean => {
+  const given = baseName(base);
+  if (name === given) return true;
+  return name.startsWith(`${given} `) && /^\d+$/.test(name.slice(given.length + 1));
+};
+
+/** @returns a JSON message of fields, named as messageName gives. */
 export const createMessage = (
   name: string,
   fields: icd.JSONField[],
   taken: icd.Message[],
-): icd.Message => {
-  const names = new Set(taken.map((m) => m.name));
-  const base = name === "" ? "Untitled" : name;
-  let next = base;
-  for (let n = 2; names.has(next); n++) next = `${base} ${n}`;
-  return { key: uuid.create(), name: next, payload: { format: "json", fields } };
-};
+): icd.Message => ({
+  key: uuid.create(),
+  name: messageName(name, taken),
+  payload: { format: "json", fields },
+});

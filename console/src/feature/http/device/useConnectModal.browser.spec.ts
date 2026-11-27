@@ -9,7 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
@@ -174,6 +174,32 @@ describe("useConnectModal", () => {
     pressSaveTrigger();
     expect(await screen.findByText("Key is required")).toBeTruthy();
     expect(screen.getByText("Header is required")).toBeTruthy();
+  });
+
+  it("should stay on the open tab while it holds an error", async () => {
+    const rack = await createRunningRack(client, "http");
+    await renderModalOpener(HTTP.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    fireEvent.change(screen.getByPlaceholderText("www.example.com"), {
+      target: { value: "localhost:8080" },
+    });
+    clickTab("Health check");
+    fireEvent.click(getSwitchInput("Validate body"));
+    fireEvent.change(await screen.findByPlaceholderText("/status"), {
+      target: { value: "status" },
+    });
+    // The error on the health check comes before the errors on the open tab.
+    await screen.findByText(/valid JSON pointer/);
+    clickTab("Authentication");
+    clickButton("API key");
+    pressSaveTrigger();
+    expect(await screen.findByText("Key is required")).toBeTruthy();
+    // The form asks a part to take focus after it shows the errors.
+    await act(async () => {});
+    expect(
+      screen.getByRole("tab", { name: "Authentication" }).getAttribute("aria-selected"),
+    ).toBe("true");
   });
 
   it("should resolve with the device it connected", async () => {

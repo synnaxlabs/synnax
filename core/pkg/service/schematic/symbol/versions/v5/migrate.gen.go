@@ -19,7 +19,6 @@ import (
 
 func autoMigrateSpec(_ context.Context, old v4.Spec) (Spec, error) {
 	return Spec{
-		Variant:         old.Variant,
 		Handles:         old.Handles,
 		Scale:           old.Scale,
 		StrokeScaled:    old.StrokeScaled,

@@ -47,6 +47,12 @@ class CustomSymbol(Symbol):
         if self.command_channel is not None:
             self.set_properties(channel_name=self.command_channel)
 
+    def click(self) -> None:
+        """Click the symbol to select it. A click at the center of the node can miss
+        shapes with no fill.
+        """
+        self.locator.locator("div").first.click()
+
     def set_label(self, label: str) -> None:
         """Custom symbols don't have a standard label field in properties."""
         self.label = label
@@ -56,34 +62,15 @@ class CustomSymbol(Symbol):
         *,
         channel_name: str | None = None,
     ) -> None:
-        """Set custom symbol properties including command channel for actuator control.
+        """Bind the symbol's Active state to a channel for actuator control.
 
         :param channel_name: Command channel name for actuator control (also used as
             state)
         """
-
-        self.locator.wait_for(state="visible", timeout=2000)
-
-        inner_div = self.locator.locator("div").first
-        inner_div.click()
-        self.page.locator(".react-flow__node.selected").wait_for(
-            state="visible", timeout=2000
-        )
-        self.layout.show_visualization_toolbar()
-
-        self.open_properties_tab()
-        # Two "control" tabs exist: the toolbar's own and the symbol form's, which
-        # renders after it. Tab DOM ids are namespaced per Tabs.Frame, so match on the
-        # stable key attribute.
-        control_tab = self.page.locator("[data-tab-key='control']").last
-        control_tab.wait_for(state="visible", timeout=5000)
-        control_tab.click()
-
         if channel_name is not None:
-            self.set_channel(section="Command", channel_name=channel_name)
-            self.set_channel(section="State", channel_name=channel_name)
+            self.bind_state("Active", channel=channel_name, command=channel_name)
 
     def press(self) -> None:
         """Press the custom symbol to actuate it."""
         self._disable_edit_mode()
-        self.click()
+        self.layout.click(self.locator.locator(".pluto-symbol").first)

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type group, schematic } from "@synnaxlabs/client";
+import { DataType, enumeration, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
@@ -18,20 +18,6 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { createElement, type ReactElement } from "react";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { page, server, userEvent } from "vitest/browser";
-
-const mocks = vi.hoisted(() => ({ symbolNodes: true }));
-
-vi.mock("@/flags", async (importOriginal) => {
-  const original = await importOriginal<{ FLAGS: typeof FLAGS }>();
-  return {
-    FLAGS: {
-      ...original.FLAGS,
-      get symbolNodes() {
-        return mocks.symbolNodes;
-      },
-    },
-  };
-});
 
 import { Schematic } from "@/feature/schematic";
 import {
@@ -46,7 +32,6 @@ import {
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
 } from "@/feature/schematic/testutil";
-import type { FLAGS } from "@/flags";
 import {
   findButton,
   findLastButton,
@@ -65,7 +50,6 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  mocks.symbolNodes = true;
 });
 
 // A shapeless SVG exercises the production load path.
@@ -122,6 +106,26 @@ const loadSVG = async (
 
 const findNameInput = (): HTMLInputElement =>
   screen.getByPlaceholderText<HTMLInputElement>("Symbol name");
+
+// openSelect opens the select whose name starts with label, and returns its options.
+const openSelect = async (label: string) => {
+  await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+  fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^${label}`) }));
+  return within(await screen.findByRole("listbox"));
+};
+
+const pick = async (label: string, option: string): Promise<void> => {
+  fireEvent.click((await openSelect(label)).getByRole("option", { name: option }));
+};
+
+const closeSelect = (): void => pressKey("Escape");
+
+// names returns the names of the options in an open select, in order.
+const names = (options: ReturnType<typeof within>): Array<string | null> =>
+  options.getAllByRole("option").map((o: HTMLElement) => o.textContent);
+
+const disabled = (option: HTMLElement): boolean =>
+  option.getAttribute("aria-disabled") === "true";
 
 describe("Schematic.Symbol.Edit.useModal", () => {
   describe("create mode", () => {
@@ -249,38 +253,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         const created = await client.schematics.symbols.retrieve(createKey);
         expect(created.data.looks).toEqual([
           { key: expect.any(String), fill: { type: "node" } },
-        ]);
-      });
-    });
-
-    it("saves a fill for one state of an actuator", async () => {
-      mocks.symbolNodes = false;
-      const createKey = uuid.create();
-      const { picker } = await openCreateModal({ createKey });
-      await loadSVG(picker);
-      fireEvent.click(await screen.findByText("Actuator"));
-      fireEvent.click(getEditSectionHeaderButton("Parts"));
-      await screen.findByRole("heading", { name: "Part 1" });
-      const toggle = screen.getByLabelText("Fill by state");
-      expect(toggle.getAttribute("aria-pressed")).toBe("false");
-      fireEvent.click(toggle);
-      expect(toggle.getAttribute("aria-pressed")).toBe("true");
-      fireEvent.click(await screen.findByLabelText("Fill while Active"));
-      fireEvent.click(screen.getByText("Node color"));
-      fireEvent.change(findNameInput(), {
-        target: { value: uniqueName("by_state_symbol") },
-      });
-      fireEvent.click(findButton("Create"));
-      await waitFor(async () => {
-        const created = await client.schematics.symbols.retrieve(createKey);
-        const part = created.data.parts[0].key;
-        expect(created.data.looks.filter((l) => l.part === part)).toEqual([
-          {
-            key: expect.any(String),
-            part,
-            when: { type: "equals", state: "active", values: [1] },
-            fill: { type: "node" },
-          },
         ]);
       });
     });
@@ -446,15 +418,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(() =>
         expect(getOverlayHandles(handle.baseElement, "right")).toHaveLength(1),
       );
-    });
-
-    it("adds an active state when the variant switches to actuator", async () => {
-      mocks.symbolNodes = false;
-      const { picker } = await openCreateModal();
-      await loadSVG(picker);
-      fireEvent.click(await screen.findByText("Actuator"));
-      expect(await screen.findByText("Base")).toBeDefined();
-      expect(screen.getByText("Active")).toBeDefined();
     });
 
     it("closes at once with no drawing", async () => {
@@ -687,9 +650,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("asks before a save removes bindings from a schematic that uses the symbol", async () => {
-      mocks.symbolNodes = false;
       const { used, unbound } = await openUsedSymbol();
-      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(screen.getByLabelText("Remove Vent"));
       fireEvent.click(findButton("Save"));
       await screen.findByText(used.name);
       await screen.findByText("Vessel 1 loses the Vent binding.");
@@ -703,9 +665,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("keeps the symbol and its bindings when the save confirm is canceled", async () => {
-      mocks.symbolNodes = false;
       const { symbol, used } = await openUsedSymbol();
-      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(screen.getByLabelText("Remove Vent"));
       fireEvent.click(findButton("Save"));
       await screen.findByText("Vessel 1 loses the Vent binding.");
       fireEvent.click(findButton("Cancel"));
@@ -713,7 +674,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         expect(screen.queryByText("Vessel 1 loses the Vent binding.")).toBeNull(),
       );
       expect(findNameInput().value).toBe(symbol.name);
-      expect((await retrieveStored(symbol.key)).data.variant).toBe("static");
+      expect((await retrieveStored(symbol.key)).data.commands).toHaveLength(1);
       const commands = await retrieveStoredCommands(used.key);
       expect(commands.map((c) => c?.length)).toEqual([1, 1]);
     });
@@ -883,7 +844,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, group: grp.key }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      fireEvent.click(await screen.findByText("Body"));
+      fireEvent.click(await waitFor(() => getPartListItem("Body")));
       await screen.findByRole("heading", { name: "Body" });
       return symbol;
     };
@@ -915,7 +876,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("gives an overriding part the paint of the whole drawing back", async () => {
-      mocks.symbolNodes = false;
       const node: schematic.symbol.Look = { key: "node", fill: { type: "node" } };
       const symbol = await openPainted({
         states: [createState()],
@@ -932,7 +892,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(screen.getByLabelText("Fill"));
+      fireEvent.click(screen.getByLabelText("Fill while Base"));
       const dialog = await waitFor(() => {
         const el = document.querySelector<HTMLElement>(
           ".console-schematic-paint-dialog",
@@ -945,21 +905,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([node]),
       );
-    });
-
-    it("hides Node color on a static symbol while symbol nodes are off", async () => {
-      mocks.symbolNodes = false;
-      await openPainted({});
-      fireEvent.click(screen.getByLabelText("Fill"));
-      await screen.findByText("Contrast");
-      expect(screen.queryByText("Node color")).toBeNull();
-    });
-
-    it("offers Node color on an actuator while symbol nodes are off", async () => {
-      mocks.symbolNodes = false;
-      await openPainted({ variant: "actuator", states: [createState()] });
-      fireEvent.click(screen.getByLabelText("Fill"));
-      expect(await screen.findByText("Node color")).toBeDefined();
     });
 
     it("draws a node color paint in a sample color in the preview", async () => {
@@ -981,13 +926,19 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves the state color and shows the default entry where no entry matches", async () => {
-      mocks.symbolNodes = false;
       const enumeration = await createEnumeration();
+      // A look on 1 lists that value, which has no entry, in the preview.
+      const shown: schematic.symbol.Look = {
+        key: "shown",
+        part: "body",
+        when: { type: "equals", state: "active", values: [1] },
+        hidden: false,
+      };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState(enumeration.key)],
+        looks: [shown],
       });
-      fireEvent.click(await within(getValueBar()).findByText("Active"));
+      await pick("Preview value", "1");
       const fill = screen.getByLabelText("Fill");
       fireEvent.click(fill);
       fireEvent.click(await screen.findByText("State color"));
@@ -997,13 +948,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
-        expect(saved.data.looks).toEqual([
-          {
-            key: expect.any(String),
-            part: "body",
-            fill: { type: "entry", state: "active" },
-          },
-        ]);
+        expect(saved.data.looks).toHaveLength(2);
+        expect(saved.data.looks).toContainEqual({
+          key: expect.any(String),
+          part: "body",
+          fill: { type: "entry", state: "active" },
+        });
       });
     });
 
@@ -1017,7 +967,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
       await openPainted({
-        variant: "actuator",
         states: [
           createState(active.key),
           { ...createState(faults.key), key: "fault", name: "Fault" },
@@ -1026,17 +975,222 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
         ],
       });
-      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      await pick("Preview state", "Fault");
       const fill = await screen.findByLabelText("Fill");
       await waitFor(() =>
         expect(fill.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(GREEN)),
       );
     });
 
+    const RED = color.construct("#ff0000");
+
+    // PAINTED gives Body the entry color of Active, and a red stroke at Active 0.
+    const PAINTED: schematic.symbol.Look[] = [
+      { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+      {
+        key: "base",
+        part: "body",
+        when: { type: "equals", state: "active", values: [0] },
+        stroke: { type: "color", value: { type: "fixed", value: RED } },
+      },
+    ];
+
+    // previewFault opens a symbol with looks, then previews Fault at Trip (2). Active
+    // also has an entry at 2, which a preview that gave 2 to every state would draw.
+    const previewFault = async (
+      faultEntries: { key: string; value: number; name: string }[] = [
+        { key: "ok", value: 0, name: "OK" },
+        { key: "trip", value: 2, name: "Trip" },
+      ],
+      looks: schematic.symbol.Look[] = PAINTED,
+    ) => {
+      const active = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+          {
+            key: "jammed",
+            value: 2,
+            name: "Jammed",
+            color: { type: "fixed", value: color.construct("#3366ff") },
+          },
+        ],
+      });
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: faultEntries,
+      });
+      await openPainted({
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        states: [
+          createState(active.key),
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: faults.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+        looks,
+      });
+      await pick("Preview state", "Fault");
+      await within(getValueBar()).findByRole("button", { name: "Preview value Trip" });
+    };
+
+    it("draws every other state at its default while it previews a state", async () => {
+      await previewFault();
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        expect(getComputedStyle(shape).fill).toBe("rgb(47, 179, 107)");
+        expect(getComputedStyle(shape).stroke).toBe("rgb(255, 0, 0)");
+      });
+      expect(screen.getByLabelText("Fill").style.getPropertyValue("--pluto-bg")).toBe(
+        color.cssString(GREEN),
+      );
+    });
+
+    it("locks a control for every value on a look of another state", async () => {
+      await previewFault();
+      const stroke = screen.getByLabelText("Stroke");
+      await waitFor(() =>
+        expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
+      );
+      expect(stroke.getAttribute("aria-disabled")).toBe("true");
+      fireEvent.pointerEnter(stroke);
+      expect((await screen.findByRole("tooltip")).textContent).toBe(
+        "Active gives this. Change it there, or set it by state.",
+      );
+    });
+
+    const hiddenAtActive = (part?: string): schematic.symbol.Look[] => [
+      {
+        key: "hide",
+        part,
+        when: { type: "equals", state: "active", values: [0] },
+        hidden: true,
+      },
+    ];
+
+    const bodyDisplay = (): string => {
+      const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+      assertDefined(shape);
+      return getComputedStyle(shape).display;
+    };
+
+    it("shows a part on a state with one value over a look that hides it", async () => {
+      await previewFault(
+        [{ key: "trip", value: 2, name: "Trip" }],
+        hiddenAtActive("body"),
+      );
+      await waitFor(() => expect(bodyDisplay()).toBe("none"));
+      fireEvent.click(screen.getByLabelText("Visible"));
+      await waitFor(() => expect(bodyDisplay()).not.toBe("none"));
+    });
+
+    it("shows the drawing on a state with one value over a look that hides it", async () => {
+      await previewFault([{ key: "trip", value: 2, name: "Trip" }], hiddenAtActive());
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      await waitFor(() => expect(bodyDisplay()).toBe("none"));
+      fireEvent.click(screen.getByLabelText("Visible"));
+      await waitFor(() => expect(bodyDisplay()).not.toBe("none"));
+    });
+
+    it("locks Blink on a state with one value under a blink of another state", async () => {
+      await previewFault(
+        [{ key: "trip", value: 2, name: "Trip" }],
+        [
+          {
+            key: "blink",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            blink: { period: 1e9 },
+          },
+        ],
+      );
+      const blink = screen.getByLabelText<HTMLInputElement>("Blink");
+      await waitFor(() => expect(blink.checked).toBe(true));
+      expect(blink.disabled).toBe(true);
+    });
+
+    it("edits a state with one value over a look of another state", async () => {
+      await previewFault([{ key: "trip", value: 2, name: "Trip" }]);
+      const stroke = screen.getByLabelText("Stroke");
+      await waitFor(() =>
+        expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
+      );
+      expect(stroke.getAttribute("aria-disabled")).toBeNull();
+      fireEvent.click(stroke);
+      fireEvent.click(await screen.findByText("Node color"));
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        const drawn = color.construct(getComputedStyle(shape).stroke);
+        expect(color.hex(drawn)).toBe(color.hex(primary.z));
+      });
+    });
+
+    it("draws an edit by state over a look of another state", async () => {
+      await previewFault();
+      fireEvent.click(screen.getByLabelText("Stroke by state"));
+      fireEvent.click(await screen.findByLabelText("Stroke while Trip"));
+      fireEvent.click(await screen.findByText("Node color"));
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        const stroke = color.construct(getComputedStyle(shape).stroke);
+        expect(color.hex(stroke)).toBe(color.hex(primary.z));
+      });
+    });
+
+    it("previews the first state of a symbol with no Active state at its default", async () => {
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: RED } },
+          {
+            key: "trip",
+            value: 2,
+            name: "Trip",
+            color: { type: "fixed", value: GREEN },
+          },
+        ],
+      });
+      await openPainted({
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        states: [
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: faults.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+        looks: [{ key: "fill", part: "body", fill: { type: "entry", state: "fault" } }],
+      });
+      await within(getValueBar()).findByRole("button", { name: "Preview value Trip" });
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        expect(getComputedStyle(shape).fill).toBe("rgb(47, 179, 107)");
+      });
+    });
+
     it("saves a contrast paint on the state", async () => {
       const enumeration = await createEnumeration();
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState(enumeration.key)],
       });
       fireEvent.click(screen.getByLabelText("Fill"));
@@ -1062,7 +1216,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("shows a part that the whole drawing hides", async () => {
-      mocks.symbolNodes = false;
       const symbol = await openPainted({ looks: [{ key: "hide", hidden: true }] });
       const visible = screen.getByLabelText<HTMLInputElement>("Visible");
       expect(visible.checked).toBe(false);
@@ -1140,7 +1293,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("keeps a part shown at every value where the drawing hides it", async () => {
       const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [hide],
       });
@@ -1161,7 +1313,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("shows and hides a part at each value of a state", async () => {
       const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [hide],
       });
@@ -1190,10 +1341,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("hides a part at a value of the state picked in the preview bar", async () => {
       const fault = { ...createState(), key: "fault", name: "Fault" };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState(), fault],
       });
-      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      await pick("Preview state", "Fault");
       byState("Visible");
       fireEvent.click(await screen.findByLabelText("Visible while Active"));
       fireEvent.click(findButton("Save"));
@@ -1211,7 +1361,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("edits the first enumeration state of a symbol with no active state", async () => {
       const fault = { ...createState(), key: "fault", name: "Fault" };
-      const symbol = await openPainted({ variant: "static", states: [fault] });
+      const symbol = await openPainted({ states: [fault] });
       byState("Visible");
       fireEvent.click(await screen.findByLabelText("Visible while Active"));
       fireEvent.click(findButton("Save"));
@@ -1238,7 +1388,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
       await openPainted({
-        variant: "actuator",
         states: [
           createState(),
           {
@@ -1251,23 +1400,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(within(getValueBar()).getByText("Fault"));
-      await waitFor(() =>
-        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
-      );
-      expect(findButton("OK").classList.contains("lyra--selected")).toBe(false);
+      await pick("Preview state", "Fault");
+      expect(
+        await within(getValueBar()).findByRole("button", {
+          name: "Preview value Trip",
+        }),
+      ).toBeDefined();
     });
 
     it("turns By state off when the preview picks another state", async () => {
       await openPainted({
-        variant: "actuator",
         states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
       });
       byState("Fill");
       expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
         "true",
       );
-      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      await pick("Preview state", "Fault");
       expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
         "false",
       );
@@ -1284,7 +1433,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
       await openPainted({
-        variant: "actuator",
         states: [createState(), fault],
         looks: [
           {
@@ -1295,7 +1443,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      await pick("Preview state", "Fault");
       expect(await screen.findByLabelText("Visible while Trip")).toBeDefined();
       expect(screen.getByLabelText("Visible while Warn")).toBeDefined();
       expect(screen.getByLabelText<HTMLInputElement>("Visible while 5").checked).toBe(
@@ -1304,16 +1452,37 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("adds a state that the preview bar can pick", async () => {
-      await openPainted({ variant: "actuator", states: [createState()] });
+      await openPainted({ states: [createState()] });
       fireEvent.click(getEditSectionHeaderButton("States"));
-      expect(await within(getValueBar()).findByText("State 2")).toBeDefined();
+      await pick("Preview state", "State 2");
+      expect(
+        await within(getValueBar()).findByRole("button", {
+          name: "Preview state State 2",
+        }),
+      ).toBeDefined();
+    });
+
+    it("lists many states in order in the preview bar", async () => {
+      const names = ["Active", "B", "C", "D", "E", "F", "G", "H"];
+      await openPainted({
+        states: names.map((name, i) => ({
+          ...createState(),
+          key: i === 0 ? "active" : name.toLowerCase(),
+          name,
+        })),
+      });
+      const states = await openSelect("Preview state");
+      expect(states.getAllByRole("option").map((o) => o.textContent)).toEqual(names);
+      fireEvent.click(states.getByRole("option", { name: "H" }));
+      expect(
+        await within(getValueBar()).findByRole("button", { name: "Preview state H" }),
+      ).toBeDefined();
     });
 
     // openFaulted opens a symbol with a Fault state, which one look hides Body on, one
     // command sets, and one click on Body sends that command.
     const openFaulted = async () =>
       await openPainted({
-        variant: "actuator",
         states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
         looks: [
           {
@@ -1353,7 +1522,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("removes a state with no uses at once", async () => {
       const fault = { ...createState(), key: "fault", name: "Fault" };
-      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      await openPainted({ states: [createState(), fault] });
       fireEvent.click(screen.getByLabelText("Remove Fault"));
       await waitFor(() => expect(screen.queryByText("Fault")).toBeNull());
       expect(screen.queryByText(/Its uses go with it/)).toBeNull();
@@ -1361,7 +1530,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("opens the name of a new state for edit, and a rename keeps its key", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
       });
       fireEvent.click(getEditSectionHeaderButton("States"));
@@ -1390,7 +1558,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("moves the preview to a state left when its state goes", async () => {
       const fault = { ...createState(), key: "fault", name: "Fault" };
-      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      await openPainted({ states: [createState(), fault] });
       byState("Fill");
       expect(screen.getByLabelText("Fill while Base")).toBeDefined();
       fireEvent.click(screen.getByLabelText("Remove Active"));
@@ -1399,22 +1567,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("saves a symbol with a click as an actuator", async () => {
-      const symbol = await openPainted({
-        states: [createState()],
-        commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
-        interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
-      });
-      fireEvent.click(findButton("Save"));
-      await waitFor(async () => {
-        const saved = await retrieveStored(symbol.key);
-        expect(saved.data.variant).toBe("actuator");
-      });
-    });
-
     it("adds a command that sends 0 and opens its name for edit", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
       });
       fireEvent.click(getEditSectionHeaderButton("Commands"));
@@ -1433,7 +1587,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("removes a command and its click after a confirm", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
         interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
@@ -1449,21 +1602,673 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
-    it("saves a symbol with no click as static", async () => {
-      const symbol = await openPainted({
-        variant: "actuator",
-        states: [createState()],
+    const GO: schematic.symbol.Command = {
+      key: "go",
+      name: "Go",
+      value: { type: "fixed", value: 0 },
+    };
+
+    // openFault opens a symbol with a Fault state on OK and Trip, and the command Go.
+    const openFault = async (go: schematic.symbol.Command = GO) => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
       });
+      const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
+      return await openPainted({ states: [createState(), fault], commands: [go] });
+    };
+
+    it("edits the state and the entry that a selected command sends", async () => {
+      const symbol = await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      await pick("State", "Fault");
+      await pick("Fixed value", "Trip");
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
-        const saved = await retrieveStored(symbol.key);
-        expect(saved.data.variant).toBe("static");
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([
+          { ...GO, state: "fault", value: { type: "fixed", value: 2 } },
+        ]);
       });
+    });
+
+    it("keeps No state under the states of a command during a search", async () => {
+      await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      const states = await openSelect("State");
+      fireEvent.change(screen.getByPlaceholderText("Search states..."), {
+        target: { value: "Fa" },
+      });
+      await waitFor(() =>
+        expect(states.queryByRole("option", { name: "Active" })).toBeNull(),
+      );
+      expect(screen.getByRole("option", { name: "No state" })).toBeDefined();
+    });
+
+    it("sends 0 when the state of an ask command goes", async () => {
+      const symbol = await openFault({ ...GO, state: "fault", value: { type: "ask" } });
+      fireEvent.click(screen.getByText("Go"));
+      // The footer of a select pins No state outside its list box.
+      await openSelect("State");
+      fireEvent.click(screen.getByRole("option", { name: "No state" }));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([GO]);
+      });
+    });
+
+    it("shows the part again on a click of the part after a command", async () => {
+      await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      fireEvent.click(getPartListItem("Body"));
+      expect(await screen.findByRole("heading", { name: "Body" })).toBeDefined();
+    });
+
+    it("previews a state that the state list picks", async () => {
+      await openFault();
+      // The state list comes before the preview bar, which also names Fault.
+      fireEvent.click(screen.getAllByText("Fault")[0]);
+      byState("Fill");
+      expect(await screen.findByLabelText("Fill while Trip")).toBeDefined();
+    });
+
+    it("names the entry that a command sends on an enumeration state", async () => {
+      await openFault({ ...GO, state: "fault", value: { type: "fixed", value: 2 } });
+      expect(await screen.findByText("Sends Trip")).toBeDefined();
+    });
+
+    it("moves the selection of a list with the arrow keys", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO, { ...GO, key: "stop", name: "Stop" }],
+      });
+      await userEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      await userEvent.keyboard("{ArrowDown}");
+      expect(await screen.findByRole("heading", { name: "Stop" })).toBeDefined();
+      await userEvent.click(getPartListItem("Body"));
+      await screen.findByRole("heading", { name: "Body" });
+      await userEvent.keyboard("{ArrowUp}");
+      expect(
+        await screen.findByRole("heading", { name: "Whole drawing" }),
+      ).toBeDefined();
+    });
+
+    it("rings the selected item of a focused list, or the list with none", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO, { ...GO, key: "stop", name: "Stop" }],
+      });
+      await userEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      await userEvent.keyboard("{ArrowDown}");
+      await screen.findByRole("heading", { name: "Stop" });
+      const listOf = (option: RegExp): HTMLElement => {
+        const list = screen
+          .getByRole("option", { name: option })
+          .closest<HTMLElement>(".console-schematic__list");
+        assertDefined(list);
+        return list;
+      };
+      const commands = listOf(/^Stop/);
+      expect(document.activeElement).toBe(commands);
+      expect(getComputedStyle(commands).outlineStyle).toBe("none");
+      const selected = within(commands).getByRole("option", { selected: true });
+      const ring = getComputedStyle(selected, "::before");
+      expect([ring.borderTopStyle, ring.borderTopWidth]).toEqual(["solid", "1px"]);
+      const states = listOf(/^Active/);
+      // A focus by script after a key press matches :focus-visible.
+      states.focus();
+      const outline = getComputedStyle(states);
+      expect([outline.outlineStyle, outline.outlineWidth]).toEqual(["solid", "1px"]);
+    });
+
+    it("lights only the item that the inspector shows", async () => {
+      await openPainted({
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      const lit = () =>
+        screen
+          .getAllByRole("option")
+          .filter(
+            (o) =>
+              o.getAttribute("aria-selected") === "true" ||
+              o.className.includes("lyra--hovered"),
+          )
+          .map((o) => o.textContent);
+      // The pointer moves to each item, as a hover can outlast it. A state moves the
+      // preview, and the inspector keeps the part.
+      await userEvent.click(screen.getByText("Fault"));
+      await within(getValueBar()).findByRole("button", { name: "Preview state Fault" });
+      expect(lit()).toEqual([expect.stringMatching(/^Body/)]);
+      await userEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      expect(lit()).toEqual([expect.stringMatching(/^Go/)]);
+      await userEvent.click(screen.getByText("Sends Go"));
+      await screen.findByRole("heading", { name: "Click on the whole drawing" });
+      expect(lit()).toEqual([expect.stringMatching(/Sends Go$/)]);
+      await userEvent.click(getPartListItem("Body"));
+      await screen.findByRole("heading", { name: "Body" });
+      expect(lit()).toEqual([expect.stringMatching(/^Body/)]);
+    });
+
+    const on = (key: string, value: number): schematic.symbol.Command => ({
+      key,
+      name: key,
+      state: "active",
+      value: { type: "fixed", value },
+    });
+
+    it("keeps a command that a toggle sends fixed on its state", async () => {
+      await openPainted({
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("on"));
+      await screen.findByRole("heading", { name: "on" });
+      expect(disabled(findButton("Ask"))).toBe(true);
+      const states = await openSelect("State");
+      expect(names(states)).toEqual(["Active"]);
+      expect(screen.queryByRole("option", { name: "No state" })).toBeNull();
+      closeSelect();
+      // Off sends Base, so On cannot.
+      expect(names(await openSelect("Fixed value"))).toEqual(["Active"]);
+    });
+
+    it("leaves out an entry that matches the value of the other command", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          { key: "closed", value: 0, name: "Closed" },
+          { key: "open", value: 1, name: "Open" },
+          { key: "wide", value: 2, name: "Wide" },
+        ],
+      });
+      const send = (key: string, value: number): schematic.symbol.Command => ({
+        key,
+        name: key,
+        state: "active",
+        value: { type: "fixed", value },
+      });
+      await openPainted({
+        states: [
+          {
+            type: "enumeration",
+            key: "active",
+            name: "Active",
+            enumeration: enumeration.key,
+            match: { type: "within", bounds: { lower: 1, upper: 3 } },
+            default: 0,
+          },
+        ],
+        commands: [send("close", 0), send("open", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["close", "open"] }],
+      });
+      fireEvent.click(screen.getByText("close"));
+      await screen.findByRole("heading", { name: "close" });
+      // Open and Wide both read as 1 on the state, and Open sends 1.
+      expect(names(await openSelect("Fixed value"))).toEqual(["Closed"]);
+    });
+
+    it("keeps a taken value that the command sends in its select", async () => {
+      // With no entries, Off has a number field until an edit adds the entries.
+      const valve = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [],
+      });
+      await openPainted({
+        states: [createState(valve.key)],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("off"));
+      await screen.findByRole("heading", { name: "off" });
+      const input = within(getInspector()).getByRole<HTMLInputElement>("textbox");
+      fireEvent.change(input, { target: { value: "1" } });
+      fireEvent.blur(input);
+      await client.enumerations.dispatch(
+        valve.key,
+        enumeration.set({
+          path: ["entries"],
+          value: [
+            { key: "closed", value: 0, name: "Closed", abnormal: false },
+            { key: "open", value: 1, name: "Open", abnormal: false },
+          ],
+        }),
+      );
+      expect(
+        await within(getInspector()).findByRole("button", { name: "Fixed value Open" }),
+      ).toBeDefined();
+      expect(
+        within(getInspector()).getByText(
+          "The other command of its toggle sends this value.",
+        ),
+      ).toBeDefined();
+      expect(names(await openSelect("Fixed value"))).toEqual(["Closed", "Open"]);
+    });
+
+    it("shows an error for a number that the other command sends", async () => {
+      const send = (key: string, value: number): schematic.symbol.Command => ({
+        key,
+        name: key,
+        state: "tank",
+        value: { type: "fixed", value },
+      });
+      await openPainted({
+        states: [
+          createState(),
+          {
+            type: "number",
+            key: "tank",
+            name: "Tank",
+            bounds: { lower: 0, upper: 100 },
+          },
+        ],
+        commands: [send("drain", 0), send("fill", 40)],
+        interactions: [{ type: "next", key: "c", commands: ["drain", "fill"] }],
+      });
+      fireEvent.click(screen.getByText("drain"));
+      await screen.findByRole("heading", { name: "drain" });
+      const input = within(getInspector()).getByRole<HTMLInputElement>("textbox");
+      fireEvent.change(input, { target: { value: "40" } });
+      fireEvent.blur(input);
+      expect(
+        await within(getInspector()).findByText(
+          "The other command of its toggle sends this value.",
+        ),
+      ).toBeDefined();
+      expect(input.value).toBe("40");
+    });
+
+    it("saves a command that asks for a value", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [
+          {
+            key: "set",
+            name: "Set",
+            state: "active",
+            value: { type: "fixed", value: 0 },
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Set"));
+      await screen.findByRole("heading", { name: "Set" });
+      fireEvent.click(within(getInspector()).getByRole("button", { name: "Ask" }));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.commands).toEqual([
+          { key: "set", name: "Set", state: "active", value: { type: "ask" } },
+        ]),
+      );
+    });
+
+    it("saves the number that a command sends on a number state", async () => {
+      const symbol = await openPainted({
+        states: [
+          createState(),
+          {
+            type: "number",
+            key: "tank",
+            name: "Tank",
+            bounds: { lower: 0, upper: 100 },
+          },
+        ],
+        commands: [
+          {
+            key: "top",
+            name: "Top up",
+            state: "tank",
+            value: { type: "fixed", value: 0 },
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Top up"));
+      await screen.findByRole("heading", { name: "Top up" });
+      const input = within(getInspector()).getByRole("textbox");
+      fireEvent.change(input, { target: { value: "40" } });
+      fireEvent.blur(input);
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.commands).toEqual([
+          {
+            key: "top",
+            name: "Top up",
+            state: "tank",
+            value: { type: "fixed", value: 40 },
+          },
+        ]),
+      );
+    });
+
+    it("drops the selection of a removed command", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [
+          { key: "command-1", name: "Command 1", value: { type: "fixed", value: 0 } },
+        ],
+      });
+      fireEvent.click(screen.getByText("Command 1"));
+      await screen.findByRole("heading", { name: "Command 1" });
+      fireEvent.click(screen.getByLabelText("Remove Command 1"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(getEditSectionHeaderButton("Commands"));
+      await awaitTextEditingElement();
+      const inspector = within(getInspector());
+      expect(inspector.queryByRole("heading", { name: "Command 1" })).toBeNull();
+      expect(inspector.getByRole("heading", { name: "Whole drawing" })).toBeDefined();
+    });
+
+    it("starts a fixed value at the default of a new state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("mode"),
+        entries: [
+          { key: "one", value: 1, name: "One" },
+          { key: "two", value: 2, name: "Two" },
+        ],
+      });
+      const mode = {
+        ...createState(enumeration.key),
+        key: "mode",
+        name: "Mode",
+        default: 2,
+      };
+      const symbol = await openPainted({
+        states: [createState(), mode],
+        commands: [GO],
+      });
+      fireEvent.click(screen.getByText("Go"));
+      await pick("State", "Mode");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([
+          { ...GO, state: "mode", value: { type: "fixed", value: 2 } },
+        ]);
+      });
+    });
+
+    it("shows the whole drawing again on a click of it after a command", async () => {
+      await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      fireEvent.click(getPartListItem("Whole drawing"));
+      expect(
+        await screen.findByRole("heading", { name: "Whole drawing" }),
+      ).toBeDefined();
+    });
+
+    it("adds a click that sends the first command, and opens it", async () => {
+      const symbol = await openPainted({ states: [createState()], commands: [GO] });
+      fireEvent.click(getEditSectionHeaderButton("Clicks"));
+      expect(await within(getInspector()).findByText("Command")).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "fire", key: expect.any(String), command: "go" },
+        ]);
+      });
+    });
+
+    it("moves a click to a part with no click", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      fireEvent.click(screen.getByText("Sends Go"));
+      await pick("Target", "Body");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "fire", key: "c", part: "body", command: "go" },
+        ]);
+      });
+    });
+
+    it("lists the free targets in order, the same after a pick", async () => {
+      const stop = { ...GO, key: "stop", name: "Stop" };
+      await openPainted({
+        parts: [
+          BODY,
+          { key: "lamp", name: "Lamp", selectors: [] },
+          { key: "tank", name: "Tank", selectors: [] },
+        ],
+        states: [createState()],
+        commands: [GO, stop],
+        interactions: [
+          { type: "fire", key: "c", part: "tank", command: "stop" },
+          { type: "fire", key: "d", part: "body", command: "go" },
+        ],
+      });
+      fireEvent.click(screen.getByText("Sends Stop"));
+      // Go holds Body.
+      expect(names(await openSelect("Target"))).toEqual([
+        "Whole drawing",
+        "Lamp",
+        "Tank",
+      ]);
+      closeSelect();
+      await pick("Target", "Lamp");
+      await within(getInspector()).findByRole("button", { name: "Target Lamp" });
+      expect(names(await openSelect("Target"))).toEqual([
+        "Whole drawing",
+        "Lamp",
+        "Tank",
+      ]);
+    });
+
+    it("sends another command from a click that the inspector picks", async () => {
+      const stop = { ...GO, key: "stop", name: "Stop" };
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [GO, stop],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      fireEvent.click(screen.getByText("Sends Go"));
+      await pick("Command", "Stop");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "fire", key: "c", command: "stop" },
+        ]);
+      });
+    });
+
+    it("names both commands of a toggle click in the list", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      expect(await screen.findByText("Toggles off and on")).toBeDefined();
+    });
+
+    it("removes a click at once", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      fireEvent.click(screen.getByLabelText("Remove the click on the whole drawing"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
+    it("names the click on a part in its heading and its remove button", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "go" }],
+      });
+      fireEvent.click(screen.getByText("Sends Go"));
+      expect(
+        await screen.findByRole("heading", { name: "Click on Body" }),
+      ).toBeDefined();
+      expect(screen.getByLabelText("Remove the click on Body")).toBeDefined();
+    });
+
+    it("removes the click on a part with the part", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "go" }],
+      });
+      fireEvent.click(within(getPartListItem("Body")).getByRole("button"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
+    it("turns off the add of a click when every target has one", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [
+          { type: "fire", key: "a", command: "go" },
+          { type: "fire", key: "b", part: "body", command: "go" },
+        ],
+      });
+      expect(getEditSectionHeaderButton("Clicks").getAttribute("aria-disabled")).toBe(
+        "true",
+      );
+    });
+
+    it("toggles a click between two commands on one state", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "off" }],
+      });
+      fireEvent.click(screen.getByText("Sends off"));
+      fireEvent.click(await within(getInspector()).findByText("Toggle"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", part: "body", commands: ["off", "on"] },
+        ]);
+      });
+    });
+
+    it("pairs a new first command with its first partner", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), on("full", 2)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      await pick("First command", "on");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", commands: ["on", "off"] },
+        ]);
+      });
+    });
+
+    it("keeps the second command when it pairs with a new first command", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), on("full", 2)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "full"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and full"));
+      await pick("First command", "on");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", commands: ["on", "full"] },
+        ]);
+      });
+    });
+
+    it("toggles to the second command that the inspector picks", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), on("full", 2)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      await pick("Second command", "full");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", commands: ["off", "full"] },
+        ]);
+      });
+    });
+
+    it("sends one command again from a toggle click", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      fireEvent.click(await within(getInspector()).findByText("Send"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "fire", key: "c", command: "off" },
+        ]);
+      });
+    });
+
+    it("turns off a toggle for a command with no partner", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      fireEvent.click(screen.getByText("Sends Go"));
+      await within(getInspector()).findByText("Toggle");
+      expect(findButton("Toggle").getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("lists only the commands that pair in a toggle", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), GO],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      expect(names(await openSelect("First command"))).toEqual(["off", "on"]);
+      closeSelect();
+      // The second command takes only the partner of Off.
+      expect(names(await openSelect("Second command"))).toEqual(["on"]);
+    });
+
+    it("turns off the add of a click with no command", async () => {
+      await openPainted({ states: [createState()] });
+      expect(getEditSectionHeaderButton("Clicks").getAttribute("aria-disabled")).toBe(
+        "true",
+      );
     });
 
     it("clears the hide of a part at a value and keeps the values shown", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [{ key: "hide", part: "body", when: atBase, hidden: true }],
       });
@@ -1485,7 +2290,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         blink: { period: 1e9 },
       };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [all],
       });
@@ -1516,7 +2320,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("fits the motion picker and its By state button in the inspector", async () => {
-      await openPainted({ variant: "actuator", states: [createState()] });
+      await openPainted({ states: [createState()] });
       const right = getInspector().getBoundingClientRect().right;
       for (const el of [screen.getByLabelText("Motion by state"), findButton("Flow")])
         expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(right);
@@ -1545,35 +2349,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("edits the paint at Base of a static symbol with one control", async () => {
-      mocks.symbolNodes = false;
-      const symbol = await openPainted({
-        states: [createState()],
-        looks: [
-          {
-            key: "red",
-            part: "body",
-            when: { type: "equals", state: "active", values: [0] },
-            fill: {
-              type: "color",
-              value: { type: "fixed", value: color.construct("#ff0000") },
-            },
-          },
-        ],
-      });
-      expect(screen.queryByText("By state")).toBeNull();
-      fireEvent.click(screen.getByLabelText("Fill"));
-      fireEvent.click(await screen.findByText("Drawing"));
-      fireEvent.click(findButton("Save"));
-      await waitFor(async () => {
-        const saved = await retrieveStored(symbol.key);
-        expect(saved.data.looks).toEqual([]);
-      });
-    });
-
     it("keeps By state when the last paint of a part at a value is cleared", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [
           {
@@ -1596,35 +2373,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("leaves By state when the symbol turns static", async () => {
-      mocks.symbolNodes = false;
-      await openPainted({ variant: "actuator", states: [createState()] });
-      byState("Fill");
-      expect(screen.getByLabelText("Fill while Base")).toBeDefined();
-      fireEvent.click(screen.getByText("Static"));
-      await waitFor(() =>
-        expect(screen.queryByLabelText("Fill while Base")).toBeNull(),
-      );
-      expect(screen.getByLabelText("Fill")).toBeDefined();
-    });
-
-    it("stays out of By state when the symbol turns static and back", async () => {
-      mocks.symbolNodes = false;
-      await openPainted({ variant: "actuator", states: [createState()] });
-      byState("Fill");
-      fireEvent.click(screen.getByText("Static"));
-      await waitFor(() =>
-        expect(screen.queryByLabelText("Fill while Base")).toBeNull(),
-      );
-      fireEvent.click(screen.getByText("Actuator"));
-      await screen.findAllByText("Active");
-      expect(screen.queryByLabelText("Fill while Base")).toBeNull();
-      expect(screen.getByLabelText("Fill")).toBeDefined();
-    });
-
     it("shows the paint of the whole drawing at the preview value", async () => {
       await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [{ key: "node", when: atBase, fill: { type: "node" } }],
       });
@@ -1689,7 +2439,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("selects the part before it asks to save a symbol in use", async () => {
-      mocks.symbolNodes = false;
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("tank"));
       const symbol = await client.schematics.symbols.create({
@@ -1721,7 +2470,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       await waitFor(() => expect(findButton("Save").disabled).toBe(false));
       await screen.findByRole("heading", { name: "Whole drawing" });
-      fireEvent.click(screen.getByText("Actuator"));
+      fireEvent.click(getEditSectionHeaderButton("Commands"));
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
       expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();

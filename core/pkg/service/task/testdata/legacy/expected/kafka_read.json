@@ -1,0 +1,39 @@
+{
+  "auto_start": false,
+  "data_saving_disabled": false,
+  "device": "kafka-plant",
+  "group": "synnax",
+  "start_offset": "latest",
+  "topics": [
+    {
+      "key": "plant.timed",
+      "name": "plant.timed",
+      "records": [
+        {
+          "disabled": false,
+          "icd": "kafka_read",
+          "key": "276cb8e6-4f1e-4569-9783-6a924ca74b14",
+          "messages": [
+            {
+              "bindings": [
+                {
+                  "channel": 1048583,
+                  "data_type": "",
+                  "field": "kafka_timed_time"
+                },
+                {
+                  "channel": 1048584,
+                  "data_type": "",
+                  "field": "kafka_timed_value"
+                }
+              ],
+              "index": "kafka_timed_time",
+              "message": "Any key"
+            }
+          ],
+          "record_key": ""
+        }
+      ]
+    }
+  ]
+}

@@ -38,7 +38,6 @@ var _ = Describe("Service", func() {
 				Group:         testGroup,
 				ImEx:          imex.NewService(),
 				Enumeration:   openEnumerations(ctx, testDB),
-				Actuators:     noActuators,
 				RemoveOrphans: noOrphans,
 			}))
 			Expect(testSvc).ToNot(BeNil())
@@ -56,18 +55,11 @@ var _ = Describe("Service", func() {
 				Group: &group.Service{},
 				ImEx:  &imex.Service{},
 			}, "enumeration"),
-			Entry("no actuators", symbol.ServiceConfig{
-				DB:          &gorp.DB{},
-				Group:       &group.Service{},
-				ImEx:        &imex.Service{},
-				Enumeration: &enumeration.Service{},
-			}, "actuators"),
 			Entry("no remove orphans", symbol.ServiceConfig{
 				DB:          &gorp.DB{},
 				Group:       &group.Service{},
 				ImEx:        &imex.Service{},
 				Enumeration: &enumeration.Service{},
-				Actuators:   noActuators,
 			}, "remove_orphans"),
 		)
 
@@ -83,7 +75,6 @@ var _ = Describe("Service", func() {
 				Group:         testGroup,
 				ImEx:          imex.NewService(),
 				Enumeration:   openEnumerations(ctx, testDB),
-				Actuators:     noActuators,
 				RemoveOrphans: noOrphans,
 			}
 			cfg2 := symbol.ServiceConfig{DB: testDB}
@@ -119,7 +110,6 @@ var _ = Describe("Service", func() {
 				Group:         testGroup,
 				ImEx:          imex.NewService(),
 				Enumeration:   openEnumerations(ctx, testDB),
-				Actuators:     noActuators,
 				RemoveOrphans: noOrphans,
 			}))
 
@@ -141,7 +131,6 @@ var _ = Describe("Service", func() {
 						Name: "concurrent-write",
 						Data: symbol.Spec{
 							Drawing: svg("<svg>...</svg>"),
-							Variant: "valve",
 						},
 					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

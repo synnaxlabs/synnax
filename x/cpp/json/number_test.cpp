@@ -202,6 +202,28 @@ TEST(Number, KeepsNegativeZero) {
     ASSERT_TRUE(std::signbit(n.to_float64()));
 }
 
+/// @brief it should multiply an integer by a factor.
+TEST(Number, MultipliesIntegerToInt64) {
+    ASSERT_EQ(Number(std::int64_t{-3}).to_int64_times(1000), -3000);
+}
+
+/// @brief it should refuse a product of an integer that an int64 does not hold.
+TEST(Number, RefusesProductPastInt64) {
+    ASSERT_FALSE(Number(std::int64_t{1} << 62).to_int64_times(2).has_value());
+}
+
+/// @brief it should truncate the product of a float toward zero.
+TEST(Number, TruncatesFloatProductToInt64) {
+    ASSERT_EQ(Number(-1.25).to_int64_times(2), -2);
+}
+
+/// @brief it should refuse an integer that 64 bits do not hold, though a double rounds
+/// it into range.
+TEST(Number, RefusesProductOfIntegerBelowInt64) {
+    const auto n = ASSERT_NIL_P(Number::parse("-9223372036854775809"));
+    ASSERT_FALSE(n.to_int64_times(1).has_value());
+}
+
 /// @brief it should convert a whole double to an exact integer.
 TEST(Number, ConvertsWholeDoubleToInteger) {
     const Number n(3.0);
@@ -232,11 +254,53 @@ TEST(Number, ParsesUnderflowAsZero) {
     expect_number("1e-400", std::nullopt, std::nullopt, 0.0);
 }
 
+/// @brief it should read a number at the smallest exponent.
+TEST(Number, ParsesSmallestExponent) {
+    expect_number("1e-1048576", std::nullopt, std::nullopt, 0.0);
+}
+
+/// @brief it should hold an integer negative zero as the integer zero.
+TEST(Number, ParsesIntegerNegativeZero) {
+    expect_number("-0", 0, 0, 0.0);
+}
+
+/// @brief it should read a decimal of several digits as the nearest double.
+TEST(Number, ParsesDecimalOfSeveralDigits) {
+    expect_number("1234.5678", std::nullopt, std::nullopt, 1234.5678);
+}
+
+/// @brief it should read a whole number with a negative exponent as a fraction.
+TEST(Number, ParsesWholeNumberWithNegativeExponent) {
+    expect_number("25e-1", std::nullopt, std::nullopt, 2.5);
+}
+
+/// @brief it should read powers of ten at and past the exact ones as the nearest
+/// double.
+TEST(Number, ParsesPowersOfTenPastExactOnes) {
+    expect_number("1e22", std::nullopt, std::nullopt, 1e22);
+    expect_number("1e23", std::nullopt, std::nullopt, 1e23);
+    expect_number("1e-23", std::nullopt, std::nullopt, 1e-23);
+}
+
+/// @brief it should read more digits than a double holds as the nearest double.
+TEST(Number, ParsesMoreDigitsThanDoubleHolds) {
+    expect_number("0.30000000000000000001", std::nullopt, std::nullopt, 0.3);
+}
+
 /// @brief it should reject text that is not a number.
 TEST(Number, RejectsWord) {
     const auto [n, err] = Number::parse("x");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, R"(invalid number "x")");
+}
+
+/// @brief it should reject text that is not a decimal number.
+TEST(Number, RejectsMalformedDecimal) {
+    for (const std::string text: {"-", ".", "1.2.3", "1e", "1e-1048577", "0e1048577"}) {
+        const auto [n, err] = Number::parse(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(err.data, "invalid number \"" + text + "\"");
+    }
 }
 
 /// @brief it should reject a sign that another sign follows.
@@ -382,6 +446,15 @@ TEST(ParseFloat64, Parses) {
 /// double.
 TEST(ParseFloat64, Rejects) {
     for (const auto *text: {"", "nan", "inf", "0x10", "1e999", "1.2.3", " 1"}) {
+        const auto [v, err] = parse_float64(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, "invalid number " + quote(text));
+    }
+}
+
+/// @brief it should reject a number whose exponent is past ±2^20.
+TEST(ParseFloat64, RejectsExponentPastBound) {
+    for (const auto *text: {"1e-1048577", "0e1048577"}) {
         const auto [v, err] = parse_float64(text);
         ASSERT_OCCURRED_AS(err, errors::VALIDATION);
         EXPECT_EQ(err.data, "invalid number " + quote(text));

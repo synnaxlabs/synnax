@@ -35,7 +35,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/defaults"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -112,7 +111,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
 			DB: db,
 		})),
-		Actuators:     noActuators,
 		RemoveOrphans: noOrphans,
 	}))
 	apiSvc = MustSucceed(apisymbol.NewService(apisymbol.ServiceConfig{
@@ -166,7 +164,6 @@ func newSymbol(name string) symbol.Symbol {
 			Name: name,
 			Data: symbol.Spec{
 				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
-				Variant: "valve",
 			},
 		},
 	)
@@ -225,10 +222,6 @@ func grantUpdateOn(ctx SpecContext, subject resource.ID, objects ...resource.ID)
 func grantDeleteOn(ctx SpecContext, subject resource.ID, objects ...resource.ID) {
 	GinkgoHelper()
 	grantOn(ctx, subject, access.ActionDelete, objects...)
-}
-
-func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
-	return nil, nil
 }
 
 func noOrphans(context.Context, gorp.Tx, symbol.Symbol) error { return nil }

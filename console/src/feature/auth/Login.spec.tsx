@@ -148,6 +148,7 @@ const renderLogin = async (
       [Session.Core.SLICE_NAME]: {
         ...Session.Core.ZERO_SLICE_STATE,
         cores: { [alpha.key]: alpha, [BETA.key]: BETA },
+        order: [alpha.key, BETA.key],
         selected: undefined,
       },
     },
@@ -253,7 +254,11 @@ describe("Auth login", () => {
 
   it("should drop the methods the client does not know", async () => {
     const { port } = await serveAuth(["api_key", "carrier_pigeon"]);
-    const client = auth.createTokenlessClient({ host: "127.0.0.1", port });
+    const client = auth.createTokenlessClient({
+      host: "127.0.0.1",
+      port,
+      secure: false,
+    });
     expect(await auth.retrieveMethods(client)).toEqual(["api_key"]);
   });
 
@@ -412,6 +417,7 @@ describe("Auth login", () => {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
           cores: { [ALPHA.key]: ALPHA },
+          order: [ALPHA.key],
           selected: ALPHA.key,
         },
       },
@@ -471,6 +477,7 @@ describe("Auth login", () => {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
           cores: { [core.key]: core },
+          order: [core.key],
           selected: core.key,
         },
       },

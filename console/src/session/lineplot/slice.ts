@@ -198,20 +198,20 @@ export const { actions, reducer } = createSlice({
     create: initializeDocument<CreatePayload, SliceState>,
     setViewport: withSelectedState<SetViewportPayload, SliceState>(
       (state, { payload }) => {
-        const { key: _key, ...rest } = payload;
+        const { key: _key, windowKey: _windowKey, ...rest } = payload;
         resetView(state, rest);
       },
     ),
     storeViewport: withSelectedState<StoreViewportPayload, SliceState>(
       (state, { payload }) => {
-        const { key: _key, ...rest } = payload;
+        const { key: _key, windowKey: _windowKey, ...rest } = payload;
         state.viewport = { ...state.viewport, ...rest };
         state.selection = deep.copy(ZERO_STATE.selection);
       },
     ),
     setSelection: withSelectedState<SetSelectionPayload, SliceState>(
       (state, { payload }) => {
-        const { key: _key, ...rest } = payload;
+        const { key: _key, windowKey: _windowKey, ...rest } = payload;
         state.selection = { ...state.selection, ...rest };
       },
     ),

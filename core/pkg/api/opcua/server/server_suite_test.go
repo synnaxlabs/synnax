@@ -43,6 +43,9 @@ var (
 	svc    *service.Layer
 	apiSvc *apiserver.Service
 	// These handlers run their routes as the API layer binds them.
+	create   freighter.UnaryHandler[apiserver.CreateRequest, apiserver.CreateResponse]
+	update   freighter.UnaryHandler[apiserver.UpdateRequest, struct{}]
+	del      freighter.UnaryHandler[apiserver.DeleteRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apiserver.RetrieveRequest,
 		apiserver.RetrieveResponse,
@@ -63,6 +66,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: svc.RBAC,
 		Held: apiauth.HeldTables(),
 	}))
+	create = bind.Write(binder, apiSvc.Create)
+	update = bind.Write(binder, apiSvc.Update)
+	del = bind.Write(binder, apiSvc.Delete)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

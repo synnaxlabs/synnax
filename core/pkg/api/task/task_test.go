@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
@@ -37,6 +38,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -44,7 +47,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -503,6 +505,57 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Key).To(Equal(tsk.Key))
 	})
 
+	It("Should keep only the tasks whose config uses the given ICDs", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		grant(ctx, access.ActionRetrieve, u.ResourceID(), resource.ID{
+			Type: resource.TypeTask,
+		})
+		createUsing := func(ic icd.ICD, r rack.Key) task.Task {
+			GinkgoHelper()
+			t := task.Task{
+				Type: kafka.WriteTaskType,
+				Rack: r,
+				Name: "Setpoints",
+				Config: msgpack.EncodedJSON{"targets": []any{map[string]any{
+					"key":     "plant",
+					"topic":   "plant",
+					"icd":     ic.Key.String(),
+					"message": map[string]any{"message": ic.Messages[0].Key.String()},
+				}}},
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Task.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
+			return t
+		}
+		createICD := func() icd.ICD {
+			GinkgoHelper()
+			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{{
+				Key:     uuid.New(),
+				Name:    "Setpoint",
+				Payload: icd.Payload{Variant: icd.JSONPayload{}},
+			}}}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.ICD.NewWriter(tx).Create(ctx, &ic)
+			})).To(Succeed())
+			return ic
+		}
+		used := createICD()
+		saved := createUsing(used, svc.Rack.EmbeddedKey)
+		draft := createUsing(used, 0)
+		createUsing(createICD(), svc.Rack.EmbeddedKey)
+		createTask(ctx)
+		res := MustSucceed(retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Where: &task.Where{ICDs: []uuid.UUID{used.Key}},
+		}))
+		Expect(res.Tasks).To(ConsistOf(
+			HaveField("Key", saved.Key),
+			HaveField("Key", draft.Key),
+		))
+	})
+
 	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
 		u := createUser(ctx)
 		t := createTask(ctx)
@@ -661,12 +714,12 @@ func stallWrites(ctx SpecContext) {
 	shutdown := signal.NewHardShutdown(sCtx, cancel)
 	const streamerCount = 16
 	var (
-		requests  = make([]confluence.Inlet[ts.StreamerRequest], streamerCount)
-		responses = make([]confluence.Outlet[ts.StreamerResponse], streamerCount)
+		requests  = make([]confluence.Inlet[cesium.StreamerRequest], streamerCount)
+		responses = make([]confluence.Outlet[cesium.StreamerResponse], streamerCount)
 	)
 	for i := range streamerCount {
-		streamer := MustSucceed(node.Storage.TS.NewStreamer(ts.StreamerConfig{
-			Channels: []ts.ChannelKey{ch.Key().StorageKey()},
+		streamer := MustSucceed(node.Storage.TS.NewStreamer(cesium.StreamerConfig{
+			Channels: []cesium.ChannelKey{uint32(ch.Key())},
 		}))
 		requests[i], responses[i] = confluence.Attach(streamer, 1)
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())

@@ -44,7 +44,6 @@ const spec = (
   commands: [],
   looks,
   interactions: [],
-  variant: "static",
   scale: 2.5,
   strokeScaled: false,
 });

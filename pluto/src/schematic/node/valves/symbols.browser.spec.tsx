@@ -28,6 +28,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
 import { Node } from "@/schematic/node";
+import { createSynnaxWrapper } from "@/testutil";
+import { symbolNode } from "@/vis/symbolNode/aether";
 
 const ORIENTATIONS: location.Outer[] = ["left", "right"];
 const SCALES = [1, 2];
@@ -35,6 +37,10 @@ const TOLERANCE = 0.1;
 const TOP_HANDLE = "3";
 const STEM_X = 44.5;
 const NOOP = (): void => {};
+const SynnaxWrapper = createSynnaxWrapper({
+  client: null,
+  additionalRegistry: symbolNode.REGISTRY,
+});
 
 const Target = (): ReactElement => (
   <div>
@@ -53,8 +59,13 @@ const renderRegulator = async ({ orientation, scale }: RenderProps) => {
     end = { x: sourceX, y: sourceY };
     return null;
   };
-  const Regulator = Node.resolveSpec("regulator").Node;
-  const config = { ...Node.createConfig({ variant: "regulator" }), orientation, scale };
+  const Regulator = Node.REGISTRY.symbol.Node;
+  const config = Node.createConfig({
+    variant: "symbol",
+    spec: { type: "builtin", name: "regulator" },
+    orientation,
+    scale,
+  });
   const nodeTypes: NodeTypes = {
     symbol: ({ id }) => (
       <Regulator nodeKey={id} selected={false} config={config} onConfigChange={NOOP} />
@@ -76,20 +87,22 @@ const renderRegulator = async ({ orientation, scale }: RenderProps) => {
     },
   ];
   const { container } = await renderThemed(
-    <div style={{ width: 800, height: 800 }}>
-      <Haul.Provider>
-        <ReactFlowProvider>
-          <ReactFlow
-            className={CSS.B("schematic")}
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={{ recorder: Recorder }}
-            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-          />
-        </ReactFlowProvider>
-      </Haul.Provider>
-    </div>,
+    <SynnaxWrapper>
+      <div style={{ width: 800, height: 800 }}>
+        <Haul.Provider>
+          <ReactFlowProvider>
+            <ReactFlow
+              className={CSS.B("schematic")}
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              edgeTypes={{ recorder: Recorder }}
+              defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            />
+          </ReactFlowProvider>
+        </Haul.Provider>
+      </div>
+    </SynnaxWrapper>,
   );
   await vi.waitFor(() => expect(end).not.toBeNull());
   const flow = container.querySelector(".react-flow");

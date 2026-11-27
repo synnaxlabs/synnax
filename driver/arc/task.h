@@ -98,6 +98,13 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
     std::shared_ptr<::arc::runtime::Runtime> runtime;
+    /// @brief allocates the RT core of each run. Null for a loop that runs unpinned.
+    std::shared_ptr<x::thread::rt::Manager> rt_manager;
+    x::thread::rt::Config rt_config;
+    /// @brief the RT core of the run. The loop holds the handle from load, and the task
+    /// fills it at each start and releases it at each stop, so a task built beside a
+    /// running one takes no core.
+    std::shared_ptr<x::thread::rt::Handle> rt_handle;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
     /// @brief guards state, opening, and pending_starts, which the command, pipeline,
@@ -193,6 +200,9 @@ class Task final : public task::Task {
     /// @brief starts the runtime and the pipeline that writes its outputs.
     /// @returns false if the runtime already runs.
     bool start_runtime() {
+        if (this->runtime->running()) return false;
+        if (this->rt_manager != nullptr)
+            *this->rt_handle = this->rt_manager->allocate(this->rt_config);
         if (!this->runtime->start()) return false;
         return !this->acquisition || this->acquisition->start();
     }
@@ -208,13 +218,14 @@ public:
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
-        std::shared_ptr<x::thread::rt::Handle> rt_handle;
         if (rt_manager != nullptr) {
-            x::thread::rt::Config base_rt;
-            base_rt.enabled = true;
-            base_rt.priority = ::arc::runtime::loop::DEFAULT_RT_PRIORITY;
-            rt_handle = std::make_shared<x::thread::rt::Handle>(
-                rt_manager->allocate(base_rt)
+            task->rt_manager = rt_manager;
+            task->rt_config.enabled = true;
+            task->rt_config.priority = ::arc::runtime::loop::DEFAULT_RT_PRIORITY;
+            task->rt_handle = std::make_shared<x::thread::rt::Handle>(
+                x::thread::rt::CPU_AFFINITY_NONE,
+                task->rt_config,
+                nullptr
             );
         }
 
@@ -258,7 +269,7 @@ public:
                         }
                     ),
                 },
-            .rt_handle = rt_handle,
+            .rt_handle = task->rt_handle,
             .report =
                 [task_ptr = task.get()](
                     const std::string &message,
@@ -387,6 +398,7 @@ public:
         auto acq_stopped = true;
         if (this->acquisition) acq_stopped = this->acquisition->stop();
         const auto runtime_stopped = this->runtime->stop();
+        if (this->rt_handle != nullptr) this->rt_handle->release();
         std::lock_guard lock(this->state_mu);
         // A start the streamer never answered still needs its reply.
         for (const auto &key: this->pending_starts)

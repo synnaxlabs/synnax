@@ -34,9 +34,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
@@ -76,22 +76,27 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/secret/grant"
+	"github.com/synnaxlabs/synnax/pkg/service/serial"
 	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/synnax/pkg/service/tcp"
+	"github.com/synnaxlabs/synnax/pkg/service/udp"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // LayerConfig is the configuration for opening the service layer. See fields for
@@ -115,7 +120,8 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Distribution *distribution.Layer
-	// Storage is the storage layer used for disk usage metrics.
+	// Storage is the storage layer. The channel service stores channels in its
+	// time-series database, and the metrics report its disk usage.
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
@@ -212,6 +218,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	v.NotNil("distribution", c.Distribution)
+	v.NotNil("storage", c.Storage)
 	v.NotNil("security", c.Security)
 	v.Ternary("secrets_key", c.SecretsKey == secret.EncryptionKey{}, "required")
 	for _, m := range c.AuthMethods {
@@ -284,6 +291,12 @@ type Layer struct {
 	HTTP *http.Service
 	// Kafka owns the stored configuration records of the Kafka task types.
 	Kafka *kafka.Service
+	// Serial owns the stored configuration records of the serial task types.
+	Serial *serial.Service
+	// TCP owns the stored configuration records of the TCP task types.
+	TCP *tcp.Service
+	// UDP owns the stored configuration records of the UDP task types.
+	UDP *udp.Service
 	// TaskStopper stops running tasks ahead of a delete.
 	TaskStopper *task.Stopper
 	// ArcTask owns the stored configuration records of the arc task type.
@@ -337,10 +350,34 @@ type Layer struct {
 	Signals *signals.Provider
 	// closer is for properly shutting down the service layer.
 	closer io.MultiCloser
+	// guard orders Run against Close.
+	guard lifetime.Guard
 }
 
-// Close shuts down the service layer, returning any error encountered.
-func (l *Layer) Close() error { return l.closer.Close() }
+// Run runs the goroutines of the services in the Layer until ctx ends or one of them
+// fails, then waits for all of them to stop and returns the first error. A second Run,
+// or a Run after Close, returns an error.
+func (l *Layer) Run(ctx context.Context) error {
+	if err := l.guard.Begin(); err != nil {
+		return err
+	}
+	defer l.guard.End()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return l.Auth.Run(ctx) })
+	g.Go(func() error { return l.License.Run(ctx) })
+	g.Go(func() error { return l.Certificate.Run(ctx) })
+	g.Go(func() error { return l.Rack.Run(ctx) })
+	return g.Wait()
+}
+
+// Close shuts down the service layer, returning any error encountered. Call it after
+// Run returns: while Run runs, Close returns an error and closes nothing.
+func (l *Layer) Close() error {
+	if first, err := l.guard.Close(); !first || err != nil {
+		return err
+	}
+	return l.closer.Close()
+}
 
 func revokePasswordSessions(
 	ctx context.Context,
@@ -458,6 +495,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		Channel:         cfg.Distribution.Channel,
+		TS:              cfg.Storage.TS,
 		DB:              cfg.Distribution.DB,
 		HostKey:         cfg.Distribution.Identity.HostKey,
 		Limit:           l.License.CheckChannelLimit,
@@ -946,6 +984,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.OPCUA, err = opcua.OpenService(ctx, opcua.ServiceConfig{
 		Instrumentation: cfg.Child("opcua"),
 		DB:              cfg.Distribution.DB,
+		Status:          l.Status,
+		Secret:          l.Secret,
+		Certificate:     l.Certificate,
 		Signals:         l.Signals,
 	}); !ok(err, l.OPCUA) {
 		return nil, err
@@ -983,6 +1024,30 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Channel:         l.Channel,
 		ICD:             l.ICD,
 	}); !ok(err, l.Kafka) {
+		return nil, err
+	}
+	if l.Serial, err = serial.OpenService(ctx, serial.ServiceConfig{
+		Instrumentation: cfg.Child("serial"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		ICD:             l.ICD,
+	}); !ok(err, l.Serial) {
+		return nil, err
+	}
+	if l.TCP, err = tcp.OpenService(ctx, tcp.ServiceConfig{
+		Instrumentation: cfg.Child("tcp"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		ICD:             l.ICD,
+	}); !ok(err, l.TCP) {
+		return nil, err
+	}
+	if l.UDP, err = udp.OpenService(ctx, udp.ServiceConfig{
+		Instrumentation: cfg.Child("udp"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		ICD:             l.ICD,
+	}); !ok(err, l.UDP) {
 		return nil, err
 	}
 	// Arc task configs reference Arcs, and the task migrations write them.
@@ -1040,7 +1105,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
-		l.File.Stores(),
+		l.File.Stores(), l.Serial.Stores(), l.TCP.Stores(), l.UDP.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {
@@ -1056,6 +1121,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ImEx:            l.ImEx,
 		Configs:         taskConfigs,
 		MatchArcs:       l.ArcTask.MatchArcs,
+		ICDUses:         l.ICD.Uses,
 		// An Arc task holds a key and hash pointing at an Arc document, so it has no
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
@@ -1174,6 +1240,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Kafka.ICDMigration(taskNames(l.Task)),
 			l.Kafka.WriteICDMigration(taskNames(l.Task)),
 			l.HTTP.ICDMigration(taskNames(l.Task)),
+			l.HTTP.WriteICDMigration(taskNames(l.Task)),
 			l.MQTT.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
