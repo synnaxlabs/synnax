@@ -12,6 +12,7 @@ package mqtt
 import (
 	"context"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 
@@ -337,9 +338,10 @@ func (f *Factory) retrieveChannels(
 		if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 			return f.cfg.Channel.NewRetrieve().
 				Where(channel.MatchKeys(keys...)).
+				SkipMissingKeys().
 				Entries(&channels).
 				Exec(ctx, snap)
-		}); err != nil && !errors.Is(err, query.ErrNotFound) {
+		}); err != nil {
 			return nil, err
 		}
 	}
@@ -378,27 +380,6 @@ func (f *Factory) configureRead(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	enabled, keys, icdKeys, err := enabledReadEntries(cfg.Entries)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	channels, err := f.retrieveChannels(ctx, keys)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	icds, err := f.retrieveICDs(ctx, icdKeys)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		c, err := check(ctx, snap, f.reads, &cfg, icds)
-		if err != nil {
-			return err
-		}
-		return claimIndexes(c, &cfg)
-	}); err != nil {
-		return nil, cfg.AutoStart, err
-	}
 	src := &readSource{
 		pool:       f.pool,
 		broker:     dev.Key,
@@ -411,11 +392,17 @@ func (f *Factory) configureRead(
 		subject:    control.Subject{Key: t.Key.String(), Name: t.Name},
 		ins:        f.cfg.Child(t.Key.String()),
 	}
-	writerKeys, indexes, err := src.addEntries(enabled, icds, channels)
-	if err != nil {
+	var w writers
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := check(ctx, snap, f.reads, &cfg, nil)
+		if err != nil {
+			return err
+		}
+		return src.addEntries(c, cfg.Entries, &w)
+	}); err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	rt, err := f.openRead(t, src, writerKeys, indexes, cfg.DataSavingDisabled)
+	rt, err := f.openRead(t, src, w.keys, w.indexes, cfg.DataSavingDisabled)
 	return rt, cfg.AutoStart, err
 }
 
@@ -445,50 +432,6 @@ func (f *Factory) openRead(
 		return nil, err
 	}
 	return rt, nil
-}
-
-// enabledReadEntries returns the enabled entries, the channels that they name, and the
-// ICDs that their messages belong to.
-func enabledReadEntries(
-	entries []ReadEntry,
-) ([]ReadEntryVariant, channel.Keys, []icd.Key, error) {
-	var (
-		enabled []ReadEntryVariant
-		keys    channel.Keys
-		icds    []icd.Key
-	)
-	for _, e := range entries {
-		switch entry := e.Variant.(type) {
-		case PlainReadEntry:
-			if entry.Disabled {
-				continue
-			}
-			icds = append(icds, entry.ICD)
-			for _, m := range entry.Messages {
-				for _, b := range m.Bindings {
-					keys = append(keys, b.Channel)
-				}
-			}
-		case SparkplugReadEntry:
-			if entry.Disabled {
-				continue
-			}
-			keys = append(keys, entry.Channel)
-		case nil:
-			return nil, nil, nil, errors.Wrap(
-				validate.ErrValidation, "entries: an entry is null",
-			)
-		default:
-			panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
-		}
-		enabled = append(enabled, e.Variant)
-	}
-	if len(enabled) == 0 {
-		return nil, nil, nil, errors.Wrap(
-			validate.ErrValidation, "entries: the task has no enabled entries",
-		)
-	}
-	return enabled, keys, icds, nil
 }
 
 // retrieveICDs returns the ICDs of keys, by key.
@@ -524,32 +467,40 @@ func (w *writers) add(keys channel.Keys, index channel.Key) {
 	}
 }
 
-// addEntries adds the topics and tags of enabled to s. icds holds the ICD of each plain
-// entry. It returns the channels that the entries write to and their index channels.
-func (s *readSource) addEntries(
-	enabled []ReadEntryVariant,
-	icds map[icd.Key]icd.ICD,
-	channels map[channel.Key]channel.Channel,
-) (writerKeys, indexes channel.Keys, err error) {
-	var w writers
-	for _, variant := range enabled {
-		if err = s.addEntry(variant, icds, channels, &w); err != nil {
-			return nil, nil, err
+// addEntries adds the topics and tags of the enabled entries to s, and their channels
+// to w. c is the Checker that check returned for the config of entries. It returns a
+// validation error when an entry is null or no entry is enabled.
+func (s *readSource) addEntries(c read.Checker, entries []ReadEntry, w *writers) error {
+	for i, e := range entries {
+		if err := s.addEntry(c, i, e.Variant, w); err != nil {
+			return err
 		}
 	}
-	return w.keys, w.indexes, nil
+	if len(s.topics) == 0 && len(s.tags) == 0 {
+		return errors.Wrap(
+			validate.ErrValidation, "entries: the task has no enabled entries",
+		)
+	}
+	return nil
 }
 
-// addEntry adds the topic or tag of variant to s, and its channels to w.
+// addEntry adds the topic or tag of variant, entry i, to s, and its channels to w.
 func (s *readSource) addEntry(
+	c read.Checker,
+	i int,
 	variant ReadEntryVariant,
-	icds map[icd.Key]icd.ICD,
-	channels map[channel.Key]channel.Channel,
 	w *writers,
 ) error {
 	switch entry := variant.(type) {
 	case PlainReadEntry:
-		topic, err := newReadTopic(entry, icds[entry.ICD], channels)
+		if entry.Disabled {
+			return nil
+		}
+		source, err := c.Bind(readOf(i, entry))
+		if err != nil {
+			return err
+		}
+		topic, err := newReadTopic(entry, source)
 		if err != nil {
 			return err
 		}
@@ -565,7 +516,15 @@ func (s *readSource) addEntry(
 		}
 		return nil
 	case SparkplugReadEntry:
-		tag, err := newReadTag(entry, channels)
+		if entry.Disabled {
+			return nil
+		}
+		path := []string{"entries", strconv.Itoa(i), "channel"}
+		ch, err := c.BindTag(entry.Channel, path)
+		if err != nil {
+			return err
+		}
+		tag, err := newReadTag(entry, ch.IndexKey, ch.DataType)
 		if err != nil {
 			return err
 		}
@@ -577,6 +536,8 @@ func (s *readSource) addEntry(
 		s.tags[tag.tagID] = tag
 		w.add(tag.keys(), tag.index)
 		return nil
+	case nil:
+		return errors.Wrap(validate.ErrValidation, "entries: an entry is null")
 	default:
 		panic(errors.Newf("mqtt: unknown read entry variant %T", entry))
 	}
