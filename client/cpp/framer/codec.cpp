@@ -645,9 +645,11 @@ Codec::decode(const uint8_t *data, const size_t size) {
                 };
             const std::uint32_t len = flags.equal_lens ? shared_len : r.u32();
             const bool packed = dt == x::telem::BOOLEAN_T;
-            const std::size_t n = packed           ? bit_packed_byte_count(len)
-                                : dt.is_variable() ? len
-                                                   : len * dt.density();
+            std::size_t n = len;
+            if (packed)
+                n = bit_packed_byte_count(len);
+            else if (!dt.is_variable())
+                n = len * dt.density();
             const auto *body = r.bytes(n);
             auto s = x::telem::Series(dt, len);
             if (packed) {
