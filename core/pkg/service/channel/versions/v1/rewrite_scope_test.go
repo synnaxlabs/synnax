@@ -36,7 +36,7 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var _ = Describe("Rewriter check", func() {
+var _ = Describe("Rewriter", func() {
 	// Each channel of renamed held its key before the upgrade, which renamed it to the
 	// key with "_2". The channel "log" holds strings and keeps its name.
 	renamed := map[string]telem.DataType{

@@ -85,7 +85,7 @@ func keptStatuses(ctx context.Context, n testutil.Node) []status.Status[any] {
 	return statuses
 }
 
-var _ = Describe("Text upgrade check", func() {
+var _ = Describe("Text upgrade", func() {
 	// storeMetrics stores a v0.62 channel named Metrics beside the Metrics folder, so
 	// the upgrade renames it to Metrics_2.
 	storeMetrics := func(ctx context.Context, n testutil.Node) {
