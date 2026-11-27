@@ -15,11 +15,13 @@
 #include <set>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include "client/cpp/http/json.gen.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/strings/strings.h"
 
 #include "driver/errors/errors.h"
@@ -31,6 +33,13 @@
 
 namespace driver::http {
 namespace {
+/// @brief the content type of a request body in each message format.
+const std::unordered_map<std::string, std::string> CONTENT_TYPES = {
+    {x::payload::FORMAT_JSON, "application/json"},
+    {x::payload::FORMAT_TEXT, "text/plain"},
+    {x::payload::FORMAT_BINARY, "application/octet-stream"},
+};
+
 /// @returns the command channels of the enabled endpoints.
 std::set<synnax::channel::Key>
 command_keys(const std::vector<::synnax::http::WriteEndpoint> &endpoints) {
@@ -181,14 +190,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     );
     if (conn_err) return {common::ConfigureResult{}, conn_err};
 
-    std::vector<Request> requests;
-    for (const auto &ep: cfg.endpoints) {
-        if (ep.disabled) continue;
-        auto req_cfg = request_config(ep);
-        req_cfg.request_content_type = "application/json";
-        requests.push_back(device::build_request(conn, req_cfg));
-    }
-
+    auto requests = build_requests(conn, cfg.endpoints, writers);
     const auto keys = command_keys(cfg.endpoints);
     auto sink = std::make_unique<WriteTaskSink>(
         std::vector(keys.begin(), keys.end()),
@@ -261,5 +263,23 @@ std::pair<std::vector<driver::icd::Writer>, x::errors::Error> build_writers(
         writers.push_back(std::move(writer));
     }
     return {std::move(writers), x::errors::NIL};
+}
+
+std::vector<Request> build_requests(
+    const device::ConnectionConfig &conn,
+    const std::vector<::synnax::http::WriteEndpoint> &endpoints,
+    const std::vector<driver::icd::Writer> &writers
+) {
+    std::vector<Request> requests;
+    requests.reserve(writers.size());
+    for (const auto &ep: endpoints) {
+        if (ep.disabled) continue;
+        auto req_cfg = request_config(ep);
+        req_cfg.request_content_type = CONTENT_TYPES.at(
+            writers.at(requests.size()).format()
+        );
+        requests.push_back(device::build_request(conn, req_cfg));
+    }
+    return requests;
 }
 }

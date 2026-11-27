@@ -259,6 +259,7 @@ knip:
   - *arc_ts
   - *console
   - *ts
+  - oracle/format/typescript.mjs
   - oracle/lsp/extensions/vscode/**
   - scripts/check_exports_ts.py
   - site/common/**

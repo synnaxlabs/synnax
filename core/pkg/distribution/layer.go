@@ -11,7 +11,6 @@ package distribution
 
 import (
 	"context"
-	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -23,8 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -89,13 +88,8 @@ type Layer struct {
 	// Control is for reading and observing the control state of channels.
 	Control *control.Service
 	closer  io.MultiCloser
-	// lifecycle orders Run against Close.
-	lifecycle struct {
-		sync.Mutex
-		running bool
-		ran     bool
-		closed  bool
-	}
+	// guard orders Run against Close.
+	guard lifetime.Guard
 }
 
 // OpenLayer opens the distribution Layer using the provided configuration(s). Later
@@ -155,22 +149,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 // returns once the goroutines exit. Streamers wait for Run to start and fail after it
 // returns. A second Run, or a Run after Close, returns an error.
 func (l *Layer) Run(ctx context.Context) error {
-	l.lifecycle.Lock()
-	if l.lifecycle.closed {
-		l.lifecycle.Unlock()
-		return errors.New("run called after close")
+	if err := l.guard.Begin(); err != nil {
+		return err
 	}
-	if l.lifecycle.ran {
-		l.lifecycle.Unlock()
-		return errors.New("run called twice")
-	}
-	l.lifecycle.ran, l.lifecycle.running = true, true
-	l.lifecycle.Unlock()
-	defer func() {
-		l.lifecycle.Lock()
-		l.lifecycle.running = false
-		l.lifecycle.Unlock()
-	}()
+	defer l.guard.End()
 	return l.Framer.Run(ctx)
 }
 
@@ -178,14 +160,8 @@ func (l *Layer) Run(ctx context.Context) error {
 // an error and closes nothing. It is the caller's responsibility to ensure that all
 // routines interacting with the Layer have finished before calling Close.
 func (l *Layer) Close() error {
-	l.lifecycle.Lock()
-	defer l.lifecycle.Unlock()
-	if l.lifecycle.running {
-		return errors.New("close called while Run runs")
+	if first, err := l.guard.Close(); !first || err != nil {
+		return err
 	}
-	if l.lifecycle.closed {
-		return nil
-	}
-	l.lifecycle.closed = true
 	return l.closer.Close()
 }
