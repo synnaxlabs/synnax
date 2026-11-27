@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package invite stores one-time tokens that let a provider account link to a user
-// without a session. A token is shown once, and only its hash is stored.
+// Package invite stores one-time tokens that let a user link a provider account or set
+// a first password without a session. A token is shown once, and only its hash is
+// stored.
 package invite
 
 import (
