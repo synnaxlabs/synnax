@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -21,49 +22,66 @@ namespace x::errors {
 const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
 
-/// @brief a network transportable error with a type and string encoded data.
+/// @brief a network transportable error with a type and string encoded data. Copies
+/// share one immutable payload. A nil error has empty data.
 class Error {
     struct Payload {
         std::string type;
         std::string data;
     };
-    Payload payload;
+    /// @brief null for a nil error.
+    std::shared_ptr<const Payload> payload;
+
+    static std::shared_ptr<const Payload> make(std::string type, std::string data) {
+        if (type == TYPE_NIL) return nullptr;
+        return std::make_shared<const Payload>(
+            Payload{.type = std::move(type), .data = std::move(data)}
+        );
+    }
 
 public:
     /// @brief constructs the default version fo the error with TYPE_NIL.
-    Error(): payload{.type = TYPE_NIL, .data = {}} {}
+    Error() = default;
 
     /// @brief constructs the error from a particular string data and data.
     Error(std::string type, std::string data):
-        payload{.type = std::move(type), .data = std::move(data)} {}
+        payload(make(std::move(type), std::move(data))) {}
 
     /// @brief constructs the error from a particular string freighter:Error and
     /// data.
     Error(const Error &err, std::string data):
-        payload{.type = err.type(), .data = std::move(data)} {}
+        payload(make(err.type(), std::move(data))) {}
 
     /// @brief constructs the provided error from a string. If the string is of the
     /// form "type---data", the type and data will be extracted from the string.
     /// Otherwise, the string is assumed to be the type.
-    explicit Error(const std::string &err_or_type):
-        payload{.type = err_or_type, .data = {}} {
+    explicit Error(const std::string &err_or_type) {
         const size_t pos = err_or_type.find("---");
-        if (pos == std::string::npos) return;
-        this->payload.type = err_or_type.substr(0, pos);
-        this->payload.data = err_or_type.substr(pos + 3);
+        if (pos == std::string::npos)
+            this->payload = make(err_or_type, "");
+        else
+            this->payload = make(
+                err_or_type.substr(0, pos),
+                err_or_type.substr(pos + 3)
+            );
     }
 
     /// @brief constructs the error from its protobuf representation.
     explicit Error(const ::errors::PBPayload &err):
-        payload{.type = err.type(), .data = err.data()} {}
+        payload(make(err.type(), err.data())) {}
 
     /// @brief returns the general class that the error belongs to, which handling
     /// logic branches on, especially for errors sent over the network.
-    [[nodiscard]] const std::string &type() const { return this->payload.type; }
+    [[nodiscard]] const std::string &type() const {
+        return this->payload ? this->payload->type : TYPE_NIL;
+    }
 
     /// @brief returns data about the error: a message, or sometimes a serialized
     /// object.
-    [[nodiscard]] const std::string &data() const { return this->payload.data; }
+    [[nodiscard]] const std::string &data() const {
+        static const std::string empty;
+        return this->payload ? this->payload->data : empty;
+    }
 
     [[nodiscard]] Error sub(const std::string &type_extension) const {
         return Error(this->type() + "." + type_extension);
@@ -86,7 +104,7 @@ public:
     Error(const Error &other) = default;
 
     /// @returns true if the error if of TYPE_NIL, and false otherwise.
-    [[nodiscard]] bool ok() const { return this->type() == TYPE_NIL; }
+    [[nodiscard]] bool ok() const { return this->payload == nullptr; }
 
     /// @returns a string formatted error message.
     [[nodiscard]] std::string message() const {
@@ -132,21 +150,21 @@ public:
     /// @brief if the error matches the provided error, 'skips' the error by
     /// returning nil, otherwise returns the error.
     [[nodiscard]] Error skip(const Error &ignore) const {
-        if (this->matches(ignore)) return {TYPE_NIL, ""};
+        if (this->matches(ignore)) return {};
         return *this;
     }
 
     /// @brief if the error matches any the provided errors, 'skips' the error by
     /// returning nil, otherwise returns the error.
     [[nodiscard]] Error skip(const std::vector<Error> &ignore) const {
-        if (this->matches(ignore)) return {TYPE_NIL, ""};
+        if (this->matches(ignore)) return {};
         return *this;
     }
 
     /// @brief if the error matches the provided type, 'skips' the error by
     /// returning nil, otherwise returns the error.
     [[nodiscard]] Error skip(const std::string &other) const {
-        if (this->matches(other)) return {TYPE_NIL, ""};
+        if (this->matches(other)) return {};
         return *this;
     }
 
