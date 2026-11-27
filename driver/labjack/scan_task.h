@@ -185,7 +185,10 @@ class Scanner final : public common::Scanner {
         }
         for (const auto &dev: this->tcp_devices)
             if (!contains(found, dev.serial)) found.push_back(dev);
-        return {{}, this->devices.sync(std::move(found))};
+        // LJM finished the scan, so a failed write keeps the scan count moving.
+        if (const auto sync_err = this->devices.sync(std::move(found)))
+            return {{}, x::errors::Error(common::PARTIAL_SCAN_ERROR, sync_err.data())};
+        return {{}, x::errors::NIL};
     }
 
     void on_signal(
@@ -218,7 +221,7 @@ public:
         std::unique_ptr<common::Store<Device>> store
     ):
         task(std::move(task)),
-        cfg(std::move(cfg)),
+        cfg(cfg),
         device_manager(std::move(device_manager)),
         devices(std::move(store), this->task.rack, SCAN_LOG_PREFIX) {}
 };

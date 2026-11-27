@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <memory>
-#include <random>
 #include <utility>
 #include <vector>
 
@@ -35,14 +34,14 @@ protected:
     std::shared_ptr<device::MockManager>
         manager = std::make_shared<device::MockManager>();
     std::unique_ptr<Scanner> scanner;
-    /// @brief a serial number that no other test device has. A test adds to it for
-    /// more devices.
+    /// @brief a serial number that no other test device has. A test adds up to 9 to
+    /// it for more devices.
     int serial = 0;
 
     void SetUp() override {
         ASSERT_NIL(this->client->racks.create(this->rack));
-        static std::mt19937 gen{std::random_device{}()};
-        this->serial = std::uniform_int_distribution{1'000'000, 2'000'000'000}(gen);
+        // Rack keys are unique on a Core, so the serial numbers of each test are too.
+        this->serial = static_cast<int>(this->rack.key % 100'000'000) * 10 + 1'000'000;
         this->create(10);
     }
 
@@ -172,6 +171,68 @@ TEST_F(ScannerTest, KeepsTheNameAUserSets) {
     ));
     this->scan(1);
     EXPECT_EQ(this->stored(this->serial).name, "Bench T7");
+}
+
+/// @brief it should parse set and delete signals, skip a set sample that does not
+/// parse, and keep the stored device on the next scan.
+TEST_F(ScannerTest, HandlesDeviceSignals) {
+    this->manager->listed = {
+        {.device_type = LJM_dtT7, .serial_number = this->serial},
+    };
+    this->scan();
+    const auto dev = this->stored(this->serial);
+    common::Scanner &base = *this->scanner;
+    synnax::channel::Channel set_ch{.name = lj::SET_CHANNEL};
+    ASSERT_NO_THROW(base.on_signal(set_ch, x::telem::Series(dev.to_json().dump())));
+    ASSERT_NO_THROW(base.on_signal(set_ch, x::telem::Series(std::string("{}"))));
+    synnax::channel::Channel delete_ch{.name = lj::DELETE_CHANNEL};
+    x::telem::Series keys(x::telem::UUID_T, 1);
+    keys.write(dev.key.data(), 1);
+    ASSERT_NO_THROW(base.on_signal(delete_ch, keys));
+    this->scan(1);
+    EXPECT_EQ(this->stored(this->serial).key, dev.key);
+}
+
+/// @brief it should refuse a channel that is not a LabJack signal.
+TEST_F(ScannerTest, RefusesUnknownSignal) {
+    common::Scanner &base = *this->scanner;
+    synnax::channel::Channel ch{.name = "sy_ni_device_set"};
+    ASSERT_THROW(
+        base.on_signal(ch, x::telem::Series(std::string("{}"))),
+        std::invalid_argument
+    );
+}
+
+/// @brief it should report a failed write as a partial scan, so the scan count moves.
+TEST_F(ScannerTest, ReportsAFailedWriteAsPartial) {
+    this->manager->listed = {
+        {.device_type = LJM_dtT7, .serial_number = this->serial},
+    };
+    // The Core refuses a device on a rack that does not exist.
+    auto parser = x::json::Parser(x::json::json{{"tcp_scan_multiplier", 10}});
+    this->scanner = std::make_unique<Scanner>(
+        synnax::task::Task{.rack = 999'999'999},
+        ScanTaskConfig(parser),
+        std::make_shared<x::lib::Lazy<device::Manager>>(
+            [this]() -> std::pair<std::shared_ptr<device::Manager>, x::errors::Error> {
+                return {this->manager, x::errors::NIL};
+            }
+        ),
+        std::make_unique<Store>(this->client)
+    );
+    common::Scanner &base = *this->scanner;
+    ASSERT_OCCURRED_AS_P(
+        base.scan(common::ScannerContext{}),
+        common::PARTIAL_SCAN_ERROR
+    );
+}
+
+/// @brief it should map only the LJM connection types that a scan reports.
+TEST(TypedConnection, MapsScanConnectionTypes) {
+    EXPECT_EQ(typed_connection(LJM_ctUSB), lj::CONNECTION_USB);
+    EXPECT_EQ(typed_connection(LJM_ctETHERNET), lj::CONNECTION_ETHERNET);
+    EXPECT_EQ(typed_connection(LJM_ctWIFI), lj::CONNECTION_WIFI);
+    EXPECT_EQ(typed_connection(LJM_ctNETWORK_UDP), std::nullopt);
 }
 
 /// @brief it should reject a TCP scan multiplier that is not positive.
