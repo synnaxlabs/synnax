@@ -28,7 +28,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const logSize = 4 << 20
+const logSize = 8 << 20
 
 // goExec runs each step of a log owner on a new goroutine, as production does.
 func goExec(f func()) { go f() }
@@ -321,7 +321,7 @@ var _ = Describe("Log", func() {
 						MatchError(ContainSubstring("is not a whole number of blocks")),
 					))
 				},
-				Entry("too small", int64(4*log.DeleteReserve-log.BlockSize)),
+				Entry("too small", int64(8*log.DeleteReserve-log.BlockSize)),
 				Entry("not whole blocks", int64(logSize+100)),
 			)
 
