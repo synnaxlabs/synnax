@@ -71,11 +71,11 @@ var _ = Describe("Device", func() {
 		d.Ports = v0.Ports{Variant: v0.T7Ports{
 			AnalogInput: map[v0.T7AnalogInputPort]channel.Key{"AIN127": 1},
 			AnalogOutput: map[v0.AnalogOutputPort]v0.CommandStatePair{
-				"DAC1": {Command: 2, State: 3},
+				"DAC1": {Command: 2, State: new(channel.Key(3))},
 			},
 			DigitalInput: map[v0.T7DigitalPort]channel.Key{"DIO0": 4},
 			DigitalOutput: map[v0.T7DigitalPort]v0.CommandStatePair{
-				"DIO22": {Command: 5, State: 6},
+				"DIO22": {Command: 5, State: new(channel.Key(6))},
 			},
 		}}
 		Expect(d.Validate()).To(Succeed())
@@ -108,14 +108,14 @@ var _ = Describe("Device", func() {
 		Entry(
 			"a T7 analog output",
 			v0.T7Ports{AnalogOutput: map[v0.AnalogOutputPort]v0.CommandStatePair{
-				"DAC2": {Command: 1, State: 2},
+				"DAC2": {Command: 1, State: new(channel.Key(2))},
 			}},
 			"invalid analog_output key: DAC2",
 		),
 		Entry(
 			"a T8 digital output",
 			v0.T8Ports{DigitalOutput: map[v0.T8DigitalPort]v0.CommandStatePair{
-				"DIO20": {Command: 1, State: 2},
+				"DIO20": {Command: 1, State: new(channel.Key(2))},
 			}},
 			"invalid digital_output key: DIO20",
 		),

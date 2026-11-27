@@ -86,9 +86,6 @@ const (
 	T4DigitalPortDio17 T4DigitalPort = v0.T4DigitalPortDio17
 	T4DigitalPortDio18 T4DigitalPort = v0.T4DigitalPortDio18
 	T4DigitalPortDio19 T4DigitalPort = v0.T4DigitalPortDio19
-	T4DigitalPortDio20 T4DigitalPort = v0.T4DigitalPortDio20
-	T4DigitalPortDio21 T4DigitalPort = v0.T4DigitalPortDio21
-	T4DigitalPortDio22 T4DigitalPort = v0.T4DigitalPortDio22
 )
 
 // T7AnalogInputPort is an analog input port of a T7. AIN48 and up need a Mux80.

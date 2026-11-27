@@ -21,7 +21,12 @@ import (
 // EncodeOrc writes the value to w in the Orc binary format.
 func (csp CommandStatePair) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(csp.Command))
-	w.Uint32(uint32(csp.State))
+	if csp.State != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*csp.State))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -35,11 +40,21 @@ func (csp *CommandStatePair) DecodeOrc(r *orc.Reader) error {
 		csp.Command = channel.Key(rawV)
 	}
 	{
-		rawV, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		csp.State = channel.Key(rawV)
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			csp.State = &hv
+		}
 	}
 	return nil
 }

@@ -143,16 +143,13 @@ const (
 	T4DigitalPortDio17 T4DigitalPort = "DIO17"
 	T4DigitalPortDio18 T4DigitalPort = "DIO18"
 	T4DigitalPortDio19 T4DigitalPort = "DIO19"
-	T4DigitalPortDio20 T4DigitalPort = "DIO20"
-	T4DigitalPortDio21 T4DigitalPort = "DIO21"
-	T4DigitalPortDio22 T4DigitalPort = "DIO22"
 )
 
 // IsValid reports whether t is one of the defined T4DigitalPort
 // values.
 func (t T4DigitalPort) IsValid() bool {
 	switch t {
-	case T4DigitalPortDio4, T4DigitalPortDio5, T4DigitalPortDio6, T4DigitalPortDio7, T4DigitalPortDio8, T4DigitalPortDio9, T4DigitalPortDio10, T4DigitalPortDio11, T4DigitalPortDio12, T4DigitalPortDio13, T4DigitalPortDio14, T4DigitalPortDio15, T4DigitalPortDio16, T4DigitalPortDio17, T4DigitalPortDio18, T4DigitalPortDio19, T4DigitalPortDio20, T4DigitalPortDio21, T4DigitalPortDio22:
+	case T4DigitalPortDio4, T4DigitalPortDio5, T4DigitalPortDio6, T4DigitalPortDio7, T4DigitalPortDio8, T4DigitalPortDio9, T4DigitalPortDio10, T4DigitalPortDio11, T4DigitalPortDio12, T4DigitalPortDio13, T4DigitalPortDio14, T4DigitalPortDio15, T4DigitalPortDio16, T4DigitalPortDio17, T4DigitalPortDio18, T4DigitalPortDio19:
 		return true
 	default:
 		return false
@@ -377,7 +374,7 @@ type CommandStatePair struct {
 	// Command is the channel that commands the port.
 	Command channel.Key `json:"command" msgpack:"command"`
 	// State is the channel that holds the state of the port.
-	State channel.Key `json:"state" msgpack:"state"`
+	State *channel.Key `json:"state,omitzero" msgpack:"state,omitempty"`
 }
 
 // StatusDetails identifies the device and rack that a status pertains to.

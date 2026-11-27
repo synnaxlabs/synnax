@@ -13,6 +13,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -36,11 +37,17 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	serial          *gorp.LookupIndex[Key, Device, uint32]
-	rack            *gorp.KeyReference[Key, Device, rack.Key]
-	readIndex       *gorp.KeyReference[Key, Device, channel.Key]
-	writeStateIndex *gorp.KeyReference[Key, Device, channel.Key]
-	search          *gorp.SearchIndex[Key, Device]
+	serial                    *gorp.LookupIndex[Key, Device, uint32]
+	rack                      *gorp.KeyReference[Key, Device, rack.Key]
+	readIndex                 *gorp.KeyReference[Key, Device, channel.Key]
+	writeStateIndex           *gorp.KeyReference[Key, Device, channel.Key]
+	portsAnalogInput          *gorp.KeyReference[Key, Device, channel.Key]
+	portsAnalogOutputCommand  *gorp.KeyReference[Key, Device, channel.Key]
+	portsAnalogOutputState    *gorp.KeyReference[Key, Device, channel.Key]
+	portsDigitalInput         *gorp.KeyReference[Key, Device, channel.Key]
+	portsDigitalOutputCommand *gorp.KeyReference[Key, Device, channel.Key]
+	portsDigitalOutputState   *gorp.KeyReference[Key, Device, channel.Key]
+	search                    *gorp.SearchIndex[Key, Device]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -104,6 +111,574 @@ func newIndexes() indexes {
 				}
 			},
 		}),
+		portsAnalogInput: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "ports.analog_input",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				switch v1 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for _, k2 := range v1.AnalogInput {
+						targets = append(targets, k2)
+					}
+				case T7Ports:
+					for _, k3 := range v1.AnalogInput {
+						targets = append(targets, k3)
+					}
+				case T8Ports:
+					for _, k4 := range v1.AnalogInput {
+						targets = append(targets, k4)
+					}
+				}
+				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				switch v19 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k20, v21 := range v19.AnalogInput {
+						if v21 == t {
+							return []string{"ports", "analog_input", fmt.Sprint(k20)}
+						}
+					}
+				case T7Ports:
+					for k22, v23 := range v19.AnalogInput {
+						if v23 == t {
+							return []string{"ports", "analog_input", fmt.Sprint(k22)}
+						}
+					}
+				case T8Ports:
+					for k24, v25 := range v19.AnalogInput {
+						if v25 == t {
+							return []string{"ports", "analog_input", fmt.Sprint(k24)}
+						}
+					}
+				}
+				return nil
+			},
+			Detach: func(e *Device, t channel.Key) {
+				switch v5 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k6, v7 := range v5.AnalogInput {
+						if v7 == t {
+							delete(v5.AnalogInput, k6)
+						}
+					}
+					e.Ports.Variant = v5
+				case T7Ports:
+					for k8, v9 := range v5.AnalogInput {
+						if v9 == t {
+							delete(v5.AnalogInput, k8)
+						}
+					}
+					e.Ports.Variant = v5
+				case T8Ports:
+					for k10, v11 := range v5.AnalogInput {
+						if v11 == t {
+							delete(v5.AnalogInput, k10)
+						}
+					}
+					e.Ports.Variant = v5
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				switch v12 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k13, v14 := range v12.AnalogInput {
+						if v14 == from {
+							v14 = to
+							v12.AnalogInput[k13] = v14
+						}
+					}
+					e.Ports.Variant = v12
+				case T7Ports:
+					for k15, v16 := range v12.AnalogInput {
+						if v16 == from {
+							v16 = to
+							v12.AnalogInput[k15] = v16
+						}
+					}
+					e.Ports.Variant = v12
+				case T8Ports:
+					for k17, v18 := range v12.AnalogInput {
+						if v18 == from {
+							v18 = to
+							v12.AnalogInput[k17] = v18
+						}
+					}
+					e.Ports.Variant = v12
+				}
+			},
+		}),
+		portsAnalogOutputCommand: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "ports.analog_output.command",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				switch v1 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for _, v2 := range v1.AnalogOutput {
+						targets = append(targets, v2.Command)
+					}
+				case T7Ports:
+					for _, v3 := range v1.AnalogOutput {
+						targets = append(targets, v3.Command)
+					}
+				case T8Ports:
+					for _, v4 := range v1.AnalogOutput {
+						targets = append(targets, v4.Command)
+					}
+				}
+				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				switch v12 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k13, v14 := range v12.AnalogOutput {
+						if v14.Command == t {
+							return []string{"ports", "analog_output", fmt.Sprint(k13), "command"}
+						}
+					}
+				case T7Ports:
+					for k15, v16 := range v12.AnalogOutput {
+						if v16.Command == t {
+							return []string{"ports", "analog_output", fmt.Sprint(k15), "command"}
+						}
+					}
+				case T8Ports:
+					for k17, v18 := range v12.AnalogOutput {
+						if v18.Command == t {
+							return []string{"ports", "analog_output", fmt.Sprint(k17), "command"}
+						}
+					}
+				}
+				return nil
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				switch v5 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k7, v6 := range v5.AnalogOutput {
+						if v6.Command == from {
+							v6.Command = to
+						}
+						v5.AnalogOutput[k7] = v6
+					}
+					e.Ports.Variant = v5
+				case T7Ports:
+					for k9, v8 := range v5.AnalogOutput {
+						if v8.Command == from {
+							v8.Command = to
+						}
+						v5.AnalogOutput[k9] = v8
+					}
+					e.Ports.Variant = v5
+				case T8Ports:
+					for k11, v10 := range v5.AnalogOutput {
+						if v10.Command == from {
+							v10.Command = to
+						}
+						v5.AnalogOutput[k11] = v10
+					}
+					e.Ports.Variant = v5
+				}
+			},
+		}),
+		portsAnalogOutputState: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "ports.analog_output.state",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				switch v1 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for _, v2 := range v1.AnalogOutput {
+						if v2.State != nil {
+							targets = append(targets, *v2.State)
+						}
+					}
+				case T7Ports:
+					for _, v3 := range v1.AnalogOutput {
+						if v3.State != nil {
+							targets = append(targets, *v3.State)
+						}
+					}
+				case T8Ports:
+					for _, v4 := range v1.AnalogOutput {
+						if v4.State != nil {
+							targets = append(targets, *v4.State)
+						}
+					}
+				}
+				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				switch v19 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k20, v21 := range v19.AnalogOutput {
+						if v21.State != nil && *v21.State == t {
+							return []string{"ports", "analog_output", fmt.Sprint(k20), "state"}
+						}
+					}
+				case T7Ports:
+					for k22, v23 := range v19.AnalogOutput {
+						if v23.State != nil && *v23.State == t {
+							return []string{"ports", "analog_output", fmt.Sprint(k22), "state"}
+						}
+					}
+				case T8Ports:
+					for k24, v25 := range v19.AnalogOutput {
+						if v25.State != nil && *v25.State == t {
+							return []string{"ports", "analog_output", fmt.Sprint(k24), "state"}
+						}
+					}
+				}
+				return nil
+			},
+			Detach: func(e *Device, t channel.Key) {
+				switch v5 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k7, v6 := range v5.AnalogOutput {
+						if v6.State != nil && *v6.State == t {
+							v6.State = nil
+						}
+						v5.AnalogOutput[k7] = v6
+					}
+					e.Ports.Variant = v5
+				case T7Ports:
+					for k9, v8 := range v5.AnalogOutput {
+						if v8.State != nil && *v8.State == t {
+							v8.State = nil
+						}
+						v5.AnalogOutput[k9] = v8
+					}
+					e.Ports.Variant = v5
+				case T8Ports:
+					for k11, v10 := range v5.AnalogOutput {
+						if v10.State != nil && *v10.State == t {
+							v10.State = nil
+						}
+						v5.AnalogOutput[k11] = v10
+					}
+					e.Ports.Variant = v5
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				switch v12 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k14, v13 := range v12.AnalogOutput {
+						if v13.State != nil && *v13.State == from {
+							*v13.State = to
+						}
+						v12.AnalogOutput[k14] = v13
+					}
+					e.Ports.Variant = v12
+				case T7Ports:
+					for k16, v15 := range v12.AnalogOutput {
+						if v15.State != nil && *v15.State == from {
+							*v15.State = to
+						}
+						v12.AnalogOutput[k16] = v15
+					}
+					e.Ports.Variant = v12
+				case T8Ports:
+					for k18, v17 := range v12.AnalogOutput {
+						if v17.State != nil && *v17.State == from {
+							*v17.State = to
+						}
+						v12.AnalogOutput[k18] = v17
+					}
+					e.Ports.Variant = v12
+				}
+			},
+		}),
+		portsDigitalInput: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "ports.digital_input",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				switch v1 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for _, k2 := range v1.DigitalInput {
+						targets = append(targets, k2)
+					}
+				case T7Ports:
+					for _, k3 := range v1.DigitalInput {
+						targets = append(targets, k3)
+					}
+				case T8Ports:
+					for _, k4 := range v1.DigitalInput {
+						targets = append(targets, k4)
+					}
+				}
+				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				switch v19 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k20, v21 := range v19.DigitalInput {
+						if v21 == t {
+							return []string{"ports", "digital_input", fmt.Sprint(k20)}
+						}
+					}
+				case T7Ports:
+					for k22, v23 := range v19.DigitalInput {
+						if v23 == t {
+							return []string{"ports", "digital_input", fmt.Sprint(k22)}
+						}
+					}
+				case T8Ports:
+					for k24, v25 := range v19.DigitalInput {
+						if v25 == t {
+							return []string{"ports", "digital_input", fmt.Sprint(k24)}
+						}
+					}
+				}
+				return nil
+			},
+			Detach: func(e *Device, t channel.Key) {
+				switch v5 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k6, v7 := range v5.DigitalInput {
+						if v7 == t {
+							delete(v5.DigitalInput, k6)
+						}
+					}
+					e.Ports.Variant = v5
+				case T7Ports:
+					for k8, v9 := range v5.DigitalInput {
+						if v9 == t {
+							delete(v5.DigitalInput, k8)
+						}
+					}
+					e.Ports.Variant = v5
+				case T8Ports:
+					for k10, v11 := range v5.DigitalInput {
+						if v11 == t {
+							delete(v5.DigitalInput, k10)
+						}
+					}
+					e.Ports.Variant = v5
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				switch v12 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k13, v14 := range v12.DigitalInput {
+						if v14 == from {
+							v14 = to
+							v12.DigitalInput[k13] = v14
+						}
+					}
+					e.Ports.Variant = v12
+				case T7Ports:
+					for k15, v16 := range v12.DigitalInput {
+						if v16 == from {
+							v16 = to
+							v12.DigitalInput[k15] = v16
+						}
+					}
+					e.Ports.Variant = v12
+				case T8Ports:
+					for k17, v18 := range v12.DigitalInput {
+						if v18 == from {
+							v18 = to
+							v12.DigitalInput[k17] = v18
+						}
+					}
+					e.Ports.Variant = v12
+				}
+			},
+		}),
+		portsDigitalOutputCommand: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "ports.digital_output.command",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				switch v1 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for _, v2 := range v1.DigitalOutput {
+						targets = append(targets, v2.Command)
+					}
+				case T7Ports:
+					for _, v3 := range v1.DigitalOutput {
+						targets = append(targets, v3.Command)
+					}
+				case T8Ports:
+					for _, v4 := range v1.DigitalOutput {
+						targets = append(targets, v4.Command)
+					}
+				}
+				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				switch v12 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k13, v14 := range v12.DigitalOutput {
+						if v14.Command == t {
+							return []string{"ports", "digital_output", fmt.Sprint(k13), "command"}
+						}
+					}
+				case T7Ports:
+					for k15, v16 := range v12.DigitalOutput {
+						if v16.Command == t {
+							return []string{"ports", "digital_output", fmt.Sprint(k15), "command"}
+						}
+					}
+				case T8Ports:
+					for k17, v18 := range v12.DigitalOutput {
+						if v18.Command == t {
+							return []string{"ports", "digital_output", fmt.Sprint(k17), "command"}
+						}
+					}
+				}
+				return nil
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				switch v5 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k7, v6 := range v5.DigitalOutput {
+						if v6.Command == from {
+							v6.Command = to
+						}
+						v5.DigitalOutput[k7] = v6
+					}
+					e.Ports.Variant = v5
+				case T7Ports:
+					for k9, v8 := range v5.DigitalOutput {
+						if v8.Command == from {
+							v8.Command = to
+						}
+						v5.DigitalOutput[k9] = v8
+					}
+					e.Ports.Variant = v5
+				case T8Ports:
+					for k11, v10 := range v5.DigitalOutput {
+						if v10.Command == from {
+							v10.Command = to
+						}
+						v5.DigitalOutput[k11] = v10
+					}
+					e.Ports.Variant = v5
+				}
+			},
+		}),
+		portsDigitalOutputState: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "ports.digital_output.state",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				var targets []channel.Key
+				switch v1 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for _, v2 := range v1.DigitalOutput {
+						if v2.State != nil {
+							targets = append(targets, *v2.State)
+						}
+					}
+				case T7Ports:
+					for _, v3 := range v1.DigitalOutput {
+						if v3.State != nil {
+							targets = append(targets, *v3.State)
+						}
+					}
+				case T8Ports:
+					for _, v4 := range v1.DigitalOutput {
+						if v4.State != nil {
+							targets = append(targets, *v4.State)
+						}
+					}
+				}
+				return targets
+			},
+			Locate: func(e *Device, t channel.Key) []string {
+				switch v19 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k20, v21 := range v19.DigitalOutput {
+						if v21.State != nil && *v21.State == t {
+							return []string{"ports", "digital_output", fmt.Sprint(k20), "state"}
+						}
+					}
+				case T7Ports:
+					for k22, v23 := range v19.DigitalOutput {
+						if v23.State != nil && *v23.State == t {
+							return []string{"ports", "digital_output", fmt.Sprint(k22), "state"}
+						}
+					}
+				case T8Ports:
+					for k24, v25 := range v19.DigitalOutput {
+						if v25.State != nil && *v25.State == t {
+							return []string{"ports", "digital_output", fmt.Sprint(k24), "state"}
+						}
+					}
+				}
+				return nil
+			},
+			Detach: func(e *Device, t channel.Key) {
+				switch v5 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k7, v6 := range v5.DigitalOutput {
+						if v6.State != nil && *v6.State == t {
+							v6.State = nil
+						}
+						v5.DigitalOutput[k7] = v6
+					}
+					e.Ports.Variant = v5
+				case T7Ports:
+					for k9, v8 := range v5.DigitalOutput {
+						if v8.State != nil && *v8.State == t {
+							v8.State = nil
+						}
+						v5.DigitalOutput[k9] = v8
+					}
+					e.Ports.Variant = v5
+				case T8Ports:
+					for k11, v10 := range v5.DigitalOutput {
+						if v10.State != nil && *v10.State == t {
+							v10.State = nil
+						}
+						v5.DigitalOutput[k11] = v10
+					}
+					e.Ports.Variant = v5
+				}
+			},
+			Retarget: func(e *Device, from, to channel.Key) {
+				switch v12 := e.Ports.Variant.(type) {
+				case T4Ports:
+					for k14, v13 := range v12.DigitalOutput {
+						if v13.State != nil && *v13.State == from {
+							*v13.State = to
+						}
+						v12.DigitalOutput[k14] = v13
+					}
+					e.Ports.Variant = v12
+				case T7Ports:
+					for k16, v15 := range v12.DigitalOutput {
+						if v15.State != nil && *v15.State == from {
+							*v15.State = to
+						}
+						v12.DigitalOutput[k16] = v15
+					}
+					e.Ports.Variant = v12
+				case T8Ports:
+					for k18, v17 := range v12.DigitalOutput {
+						if v17.State != nil && *v17.State == from {
+							*v17.State = to
+						}
+						v12.DigitalOutput[k18] = v17
+					}
+					e.Ports.Variant = v12
+				}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Device](
 			"search",
 			func(e *Device) []string {
@@ -129,6 +704,12 @@ func (i indexes) references() []gorp.Reference[Key, Device] {
 		i.rack,
 		i.readIndex,
 		i.writeStateIndex,
+		i.portsAnalogInput,
+		i.portsAnalogOutputCommand,
+		i.portsAnalogOutputState,
+		i.portsDigitalInput,
+		i.portsDigitalOutputCommand,
+		i.portsDigitalOutputState,
 	}
 }
 

@@ -88,6 +88,19 @@ var _ = Describe("Service", func() {
 			Ports:      device.Ports{Variant: ports},
 		}
 	}
+	createChannels := func(ctx context.Context, count int) []channel.Key {
+		GinkgoHelper()
+		channels := make([]channel.Channel, count)
+		for i := range channels {
+			channels[i] = channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+		}
+		Expect(channelSvc.NewWriter(tx).CreateMany(ctx, &channels)).To(Succeed())
+		return channel.KeysFromChannels(channels)
+	}
 	create := func(ctx context.Context) device.Device {
 		GinkgoHelper()
 		d := device.Device{
@@ -185,20 +198,21 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should store the port maps of a device", func(ctx SpecContext) {
+			ch := createChannels(ctx, 7)
 			d := newModel(device.ModelT7, device.T7Ports{
 				Mux80Attached: true,
 				AnalogInput: map[device.T7AnalogInputPort]channel.Key{
-					device.T7AnalogInputPortAin0:  1,
-					device.T7AnalogInputPortAin48: 2,
+					device.T7AnalogInputPortAin0:  ch[0],
+					device.T7AnalogInputPortAin48: ch[1],
 				},
 				AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
-					device.AnalogOutputPortDac1: {Command: 3, State: 4},
+					device.AnalogOutputPortDac1: {Command: ch[2], State: new(ch[3])},
 				},
 				DigitalInput: map[device.T7DigitalPort]channel.Key{
-					device.T7DigitalPortDio0: 5,
+					device.T7DigitalPortDio0: ch[4],
 				},
 				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
-					device.T7DigitalPortDio22: {Command: 6, State: 7},
+					device.T7DigitalPortDio22: {Command: ch[5], State: new(ch[6])},
 				},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
@@ -217,11 +231,12 @@ var _ = Describe("Service", func() {
 
 		DescribeTable("Should allow a Mux80 port only with a Mux80 attached",
 			func(ctx SpecContext, attached bool, matcher OmegaMatcher) {
+				ch := createChannels(ctx, 2)
 				d := newModel(device.ModelT7, device.T7Ports{
 					Mux80Attached: attached,
 					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
-						device.T7AnalogInputPortAin13: 4,
-						device.T7AnalogInputPortAin48: 5,
+						device.T7AnalogInputPortAin13: ch[0],
+						device.T7AnalogInputPortAin48: ch[1],
 					},
 				})
 				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(matcher)
@@ -431,7 +446,12 @@ var _ = Describe("Service", func() {
 		})
 
 		DescribeTable("Should write the port maps of each model",
-			func(ctx SpecContext, model device.Model, ports device.PortsVariant) {
+			func(
+				ctx SpecContext,
+				model device.Model,
+				bindPorts func(ch []channel.Key) device.PortsVariant,
+			) {
+				ports := bindPorts(createChannels(ctx, 2))
 				d := newModel(model, nil)
 				d.Ports = device.Ports{Variant: ports}
 				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
@@ -440,31 +460,79 @@ var _ = Describe("Service", func() {
 				Expect(retrieve(ctx, d.Key).Ports).
 					To(Equal(device.Ports{Variant: ports}))
 			},
-			Entry("T4", device.ModelT4, device.T4Ports{
-				AnalogInput:  map[device.T4AnalogInputPort]channel.Key{},
-				AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{},
-				DigitalInput: map[device.T4DigitalPort]channel.Key{},
-				DigitalOutput: map[device.T4DigitalPort]device.CommandStatePair{
-					device.T4DigitalPortDio4: {Command: 1, State: 2},
-				},
+			Entry("T4", device.ModelT4, func(ch []channel.Key) device.PortsVariant {
+				return device.T4Ports{
+					AnalogInput:  map[device.T4AnalogInputPort]channel.Key{},
+					AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{},
+					DigitalInput: map[device.T4DigitalPort]channel.Key{},
+					DigitalOutput: map[device.T4DigitalPort]device.CommandStatePair{
+						device.T4DigitalPortDio4: {Command: ch[0], State: new(ch[1])},
+					},
+				}
 			}),
-			Entry("T7", device.ModelT7, device.T7Ports{
-				AnalogInput: map[device.T7AnalogInputPort]channel.Key{
-					device.T7AnalogInputPortAin0: 3,
-				},
-				AnalogOutput:  map[device.AnalogOutputPort]device.CommandStatePair{},
-				DigitalInput:  map[device.T7DigitalPort]channel.Key{},
-				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{},
+			Entry("T7", device.ModelT7, func(ch []channel.Key) device.PortsVariant {
+				return device.T7Ports{
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin0: ch[0],
+					},
+					AnalogOutput:  map[device.AnalogOutputPort]device.CommandStatePair{},
+					DigitalInput:  map[device.T7DigitalPort]channel.Key{},
+					DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{},
+				}
 			}),
-			Entry("T8", device.ModelT8, device.T8Ports{
-				AnalogInput: map[device.T8AnalogInputPort]channel.Key{
-					device.T8AnalogInputPortAin7: 3,
-				},
-				AnalogOutput:  map[device.AnalogOutputPort]device.CommandStatePair{},
-				DigitalInput:  map[device.T8DigitalPort]channel.Key{},
-				DigitalOutput: map[device.T8DigitalPort]device.CommandStatePair{},
+			Entry("T8", device.ModelT8, func(ch []channel.Key) device.PortsVariant {
+				return device.T8Ports{
+					AnalogInput: map[device.T8AnalogInputPort]channel.Key{
+						device.T8AnalogInputPortAin7: ch[0],
+					},
+					AnalogOutput:  map[device.AnalogOutputPort]device.CommandStatePair{},
+					DigitalInput:  map[device.T8DigitalPort]channel.Key{},
+					DigitalOutput: map[device.T8DigitalPort]device.CommandStatePair{},
+				}
 			}),
 		)
+
+		DescribeTable(
+			"Should refuse a pin with two roles",
+			func(ctx SpecContext, ports device.PortsVariant, model device.Model, message string) {
+				d := newModel(model, ports)
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry("a T4 analog input on a mapped digital pin", device.T4Ports{
+				AnalogInput: map[device.T4AnalogInputPort]channel.Key{
+					device.T4AnalogInputPortAin4: 1,
+				},
+				DigitalInput: map[device.T4DigitalPort]channel.Key{
+					device.T4DigitalPortDio4: 2,
+				},
+			}, device.ModelT4, "ports.analog_input: AIN4 shares its pin with DIO4"),
+			Entry("a T7 digital port that is an input and an output", device.T7Ports{
+				DigitalInput: map[device.T7DigitalPort]channel.Key{
+					device.T7DigitalPortDio0: 1,
+				},
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio0: {Command: 2},
+				},
+			}, device.ModelT7, "ports.digital_output: DIO0 is also a digital input"),
+		)
+
+		It("Should accept a T4 analog input on a pin with no digital role", func(
+			ctx SpecContext,
+		) {
+			ch := createChannels(ctx, 2)
+			d := newModel(device.ModelT4, device.T4Ports{
+				AnalogInput: map[device.T4AnalogInputPort]channel.Key{
+					device.T4AnalogInputPortAin4: ch[0],
+				},
+				DigitalInput: map[device.T4DigitalPort]channel.Key{
+					device.T4DigitalPortDio5: ch[1],
+				},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+		})
 
 		It("Should reject a port the model does not have in a configuration", func(
 			ctx SpecContext,

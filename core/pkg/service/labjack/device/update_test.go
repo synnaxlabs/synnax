@@ -42,13 +42,16 @@ var _ = Describe("Update", func() {
 					device.T7AnalogInputPortAin48: 3,
 				},
 				AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
-					device.AnalogOutputPortDac0: {Command: 4, State: 5},
+					device.AnalogOutputPortDac0: {
+						Command: 4,
+						State:   new(channel.Key(5)),
+					},
 				},
 				DigitalInput: map[device.T7DigitalPort]channel.Key{
 					device.T7DigitalPortDio0: 6,
 				},
 				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
-					device.T7DigitalPortDio1: {Command: 7, State: 8},
+					device.T7DigitalPortDio1: {Command: 7, State: new(channel.Key(8))},
 				},
 			}},
 		},

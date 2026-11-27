@@ -36,8 +36,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.CommandStatePair{Command: channel.Key(2), State: channel.Key(3)}),
-			Entry("zero values", v0.CommandStatePair{Command: channel.Key(0), State: channel.Key(0)}),
+			Entry("fully populated", v0.CommandStatePair{Command: channel.Key(2), State: new(channel.Key(3))}),
+			Entry("zero values", v0.CommandStatePair{Command: channel.Key(0), State: nil}),
 		)
 	})
 	Describe("Device", func() {
@@ -63,9 +63,9 @@ var _ = Describe("Codec", func() {
 				Model:           v0.Model("t4"),
 				Ports: v0.Ports{Variant: v0.T4Ports{
 					AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(12)},
-					AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(14), State: channel.Key(15)}},
+					AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(14), State: new(channel.Key(15))}},
 					DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(16)},
-					DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(18), State: channel.Key(19)}},
+					DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(18), State: new(channel.Key(19))}},
 				}},
 			}),
 			Entry("zero values", v0.Device{
@@ -100,29 +100,29 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("t4 variant", v0.Ports{Variant: v0.T4Ports{
 				AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(2)},
-				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: new(channel.Key(5))}},
 				DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(6)},
-				DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: channel.Key(9)}},
+				DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: new(channel.Key(9))}},
 			}}),
 			Entry("t7 variant", v0.Ports{Variant: v0.T7Ports{
 				Mux80Attached: true,
 				AnalogInput:   map[v0.T7AnalogInputPort]channel.Key{v0.T7AnalogInputPort("AIN0"): channel.Key(3)},
-				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(5), State: channel.Key(6)}},
+				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(5), State: new(channel.Key(6))}},
 				DigitalInput:  map[v0.T7DigitalPort]channel.Key{v0.T7DigitalPort("DIO0"): channel.Key(7)},
-				DigitalOutput: map[v0.T7DigitalPort]v0.CommandStatePair{v0.T7DigitalPort("DIO0"): {Command: channel.Key(9), State: channel.Key(10)}},
+				DigitalOutput: map[v0.T7DigitalPort]v0.CommandStatePair{v0.T7DigitalPort("DIO0"): {Command: channel.Key(9), State: new(channel.Key(10))}},
 			}}),
 			Entry("t8 variant", v0.Ports{Variant: v0.T8Ports{
 				AnalogInput:   map[v0.T8AnalogInputPort]channel.Key{v0.T8AnalogInputPort("AIN0"): channel.Key(2)},
-				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: new(channel.Key(5))}},
 				DigitalInput:  map[v0.T8DigitalPort]channel.Key{v0.T8DigitalPort("DIO0"): channel.Key(6)},
-				DigitalOutput: map[v0.T8DigitalPort]v0.CommandStatePair{v0.T8DigitalPort("DIO0"): {Command: channel.Key(8), State: channel.Key(9)}},
+				DigitalOutput: map[v0.T8DigitalPort]v0.CommandStatePair{v0.T8DigitalPort("DIO0"): {Command: channel.Key(8), State: new(channel.Key(9))}},
 			}}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeCommandStatePair(b *testing.B) {
-	seed := v0.CommandStatePair{Command: channel.Key(2), State: channel.Key(3)}
+	seed := v0.CommandStatePair{Command: channel.Key(2), State: new(channel.Key(3))}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -151,9 +151,9 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 		Model:           v0.Model("t4"),
 		Ports: v0.Ports{Variant: v0.T4Ports{
 			AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(12)},
-			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(14), State: channel.Key(15)}},
+			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(14), State: new(channel.Key(15))}},
 			DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(16)},
-			DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(18), State: channel.Key(19)}},
+			DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(18), State: new(channel.Key(19))}},
 		}},
 	}
 	w := orc.NewWriter(0)
@@ -174,9 +174,9 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 func BenchmarkEncodeDecodePorts(b *testing.B) {
 	seed := v0.Ports{Variant: v0.T4Ports{
 		AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(2)},
-		AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+		AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: new(channel.Key(5))}},
 		DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(6)},
-		DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: channel.Key(9)}},
+		DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: new(channel.Key(9))}},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -195,7 +195,7 @@ func BenchmarkEncodeDecodePorts(b *testing.B) {
 
 func FuzzDecodeCommandStatePair(f *testing.F) {
 	{
-		seed := v0.CommandStatePair{Command: channel.Key(2), State: channel.Key(3)}
+		seed := v0.CommandStatePair{Command: channel.Key(2), State: new(channel.Key(3))}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -203,7 +203,7 @@ func FuzzDecodeCommandStatePair(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.CommandStatePair{Command: channel.Key(0), State: channel.Key(0)}
+		seed := v0.CommandStatePair{Command: channel.Key(0), State: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -246,9 +246,9 @@ func FuzzDecodeDevice(f *testing.F) {
 			Model:           v0.Model("t4"),
 			Ports: v0.Ports{Variant: v0.T4Ports{
 				AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(12)},
-				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(14), State: channel.Key(15)}},
+				AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(14), State: new(channel.Key(15))}},
 				DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(16)},
-				DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(18), State: channel.Key(19)}},
+				DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(18), State: new(channel.Key(19))}},
 			}},
 		}
 		w := orc.NewWriter(0)
@@ -307,9 +307,9 @@ func FuzzDecodePorts(f *testing.F) {
 	{
 		seed := v0.Ports{Variant: v0.T4Ports{
 			AnalogInput:   map[v0.T4AnalogInputPort]channel.Key{v0.T4AnalogInputPort("AIN0"): channel.Key(2)},
-			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: new(channel.Key(5))}},
 			DigitalInput:  map[v0.T4DigitalPort]channel.Key{v0.T4DigitalPort("DIO4"): channel.Key(6)},
-			DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: channel.Key(9)}},
+			DigitalOutput: map[v0.T4DigitalPort]v0.CommandStatePair{v0.T4DigitalPort("DIO4"): {Command: channel.Key(8), State: new(channel.Key(9))}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -321,9 +321,9 @@ func FuzzDecodePorts(f *testing.F) {
 		seed := v0.Ports{Variant: v0.T7Ports{
 			Mux80Attached: true,
 			AnalogInput:   map[v0.T7AnalogInputPort]channel.Key{v0.T7AnalogInputPort("AIN0"): channel.Key(3)},
-			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(5), State: channel.Key(6)}},
+			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(5), State: new(channel.Key(6))}},
 			DigitalInput:  map[v0.T7DigitalPort]channel.Key{v0.T7DigitalPort("DIO0"): channel.Key(7)},
-			DigitalOutput: map[v0.T7DigitalPort]v0.CommandStatePair{v0.T7DigitalPort("DIO0"): {Command: channel.Key(9), State: channel.Key(10)}},
+			DigitalOutput: map[v0.T7DigitalPort]v0.CommandStatePair{v0.T7DigitalPort("DIO0"): {Command: channel.Key(9), State: new(channel.Key(10))}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -334,9 +334,9 @@ func FuzzDecodePorts(f *testing.F) {
 	{
 		seed := v0.Ports{Variant: v0.T8Ports{
 			AnalogInput:   map[v0.T8AnalogInputPort]channel.Key{v0.T8AnalogInputPort("AIN0"): channel.Key(2)},
-			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: channel.Key(5)}},
+			AnalogOutput:  map[v0.AnalogOutputPort]v0.CommandStatePair{v0.AnalogOutputPort("DAC0"): {Command: channel.Key(4), State: new(channel.Key(5))}},
 			DigitalInput:  map[v0.T8DigitalPort]channel.Key{v0.T8DigitalPort("DIO0"): channel.Key(6)},
-			DigitalOutput: map[v0.T8DigitalPort]v0.CommandStatePair{v0.T8DigitalPort("DIO0"): {Command: channel.Key(8), State: channel.Key(9)}},
+			DigitalOutput: map[v0.T8DigitalPort]v0.CommandStatePair{v0.T8DigitalPort("DIO0"): {Command: channel.Key(8), State: new(channel.Key(9))}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

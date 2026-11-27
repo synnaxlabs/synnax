@@ -86,9 +86,6 @@ T4DigitalPort enum {
     dio17 = "DIO17"
     dio18 = "DIO18"
     dio19 = "DIO19"
-    dio20 = "DIO20"
-    dio21 = "DIO21"
-    dio22 = "DIO22"
 
     @doc value "is a digital port of a T4."
 }
@@ -259,10 +256,10 @@ T8DigitalPort enum {
 }
 
 CommandStatePair struct {
-    command channel.Key = 0 {
+    command channel.Key  {
         @doc value "is the channel that commands the port."
     }
-    state   channel.Key = 0 {
+    state   channel.Key? {
         @doc value "is the channel that holds the state of the port."
     }
 

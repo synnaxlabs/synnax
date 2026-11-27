@@ -59,8 +59,43 @@ func (w Writer) setStatus(ctx context.Context, d Device) error {
 // firstMux80Port is the lowest analog input port that a Mux80 adds to a T7.
 const firstMux80Port = 48
 
-// validateDevice rejects an invalid device, one whose ports are for another model, and
-// a T7 that maps a Mux80 port while no Mux80 is attached.
+// keys returns the port names of m in order.
+func keys[K ~string, V any](m map[K]V) []string {
+	names := make([]string, 0, len(m))
+	for k := range m {
+		names = append(names, string(k))
+	}
+	slices.Sort(names)
+	return names
+}
+
+// refuseSharedPins rejects a digital port that is both an input and an output, and on a
+// T4 an analog input whose pin is also mapped as a digital port. The T4's AIN4 to
+// AIN11 are the pins of DIO4 to DIO11.
+func refuseSharedPins(v *validate.Validator, analog, input, output []string) {
+	for _, port := range output {
+		v.Ternaryf(
+			"ports.digital_output",
+			slices.Contains(input, port),
+			"%s is also a digital input",
+			port,
+		)
+	}
+	for _, port := range analog {
+		dio := "DIO" + strings.TrimPrefix(port, "AIN")
+		v.Ternaryf(
+			"ports.analog_input",
+			slices.Contains(input, dio) || slices.Contains(output, dio),
+			"%s shares its pin with %s",
+			port,
+			dio,
+		)
+	}
+}
+
+// validateDevice rejects an invalid device, one whose ports are for another model, one
+// that gives a pin two roles, and a T7 that maps a Mux80 port while no Mux80 is
+// attached.
 func validateDevice(d Device) error {
 	if err := d.Validate(); err != nil {
 		return err
@@ -69,6 +104,19 @@ func validateDevice(d Device) error {
 		return err
 	}
 	v := validate.New("device")
+	switch p := d.Ports.Variant.(type) {
+	case T4Ports:
+		refuseSharedPins(
+			v,
+			keys(p.AnalogInput),
+			keys(p.DigitalInput),
+			keys(p.DigitalOutput),
+		)
+	case T7Ports:
+		refuseSharedPins(v, nil, keys(p.DigitalInput), keys(p.DigitalOutput))
+	case T8Ports:
+		refuseSharedPins(v, nil, keys(p.DigitalInput), keys(p.DigitalOutput))
+	}
 	if t7, ok := d.Ports.Variant.(T7Ports); ok && !t7.Mux80Attached {
 		for _, port := range slices.Sorted(maps.Keys(t7.AnalogInput)) {
 			n, err := strconv.Atoi(strings.TrimPrefix(string(port), "AIN"))

@@ -117,12 +117,6 @@ T_4_DIGITAL_PORT_DIO18: Literal["DIO18"] = "DIO18"
 
 T_4_DIGITAL_PORT_DIO19: Literal["DIO19"] = "DIO19"
 
-T_4_DIGITAL_PORT_DIO20: Literal["DIO20"] = "DIO20"
-
-T_4_DIGITAL_PORT_DIO21: Literal["DIO21"] = "DIO21"
-
-T_4_DIGITAL_PORT_DIO22: Literal["DIO22"] = "DIO22"
-
 
 T4DigitalPort = Literal[
     "DIO4",
@@ -141,9 +135,6 @@ T4DigitalPort = Literal[
     "DIO17",
     "DIO18",
     "DIO19",
-    "DIO20",
-    "DIO21",
-    "DIO22",
 ]
 
 T_7_ANALOG_INPUT_PORT_AIN0: Literal["AIN0"] = "AIN0"
@@ -601,8 +592,8 @@ class CommandStatePair(BaseModel):
         state: Is the channel that holds the state of the port.
     """
 
-    command: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    state: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    command: channel.Key = Field(ge=0, le=4294967295)
+    state: channel.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
 class Identity(BaseModel):

@@ -81,9 +81,6 @@ constexpr const char *T_4_DIGITAL_PORT_DIO_16 = "DIO16";
 constexpr const char *T_4_DIGITAL_PORT_DIO_17 = "DIO17";
 constexpr const char *T_4_DIGITAL_PORT_DIO_18 = "DIO18";
 constexpr const char *T_4_DIGITAL_PORT_DIO_19 = "DIO19";
-constexpr const char *T_4_DIGITAL_PORT_DIO_20 = "DIO20";
-constexpr const char *T_4_DIGITAL_PORT_DIO_21 = "DIO21";
-constexpr const char *T_4_DIGITAL_PORT_DIO_22 = "DIO22";
 
 constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_0 = "AIN0";
 constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_1 = "AIN1";
@@ -239,9 +236,9 @@ using Key = x::uuid::UUID;
 /// @brief CommandStatePair is the pair of channels that writes to one port.
 struct CommandStatePair {
     /// @brief command is the channel that commands the port.
-    ::synnax::channel::Key command = ::synnax::channel::Key(0);
+    ::synnax::channel::Key command = 0;
     /// @brief state is the channel that holds the state of the port.
-    ::synnax::channel::Key state = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state;
 
     static CommandStatePair parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -28,19 +28,15 @@ namespace synnax::labjack::device {
 
 inline CommandStatePair CommandStatePair::parse(x::json::Parser parser) {
     return CommandStatePair{
-        .command = parser.field<::synnax::channel::Key>(
-            "command",
-            ::synnax::channel::Key(0)
-        ),
-        .state = parser
-                     .field<::synnax::channel::Key>("state", ::synnax::channel::Key(0)),
+        .command = parser.field<::synnax::channel::Key>("command"),
+        .state = parser.field<std::optional<::synnax::channel::Key>>("state"),
     };
 }
 
 inline x::json::json CommandStatePair::to_json() const {
     x::json::json j = x::json::json::object();
     j["command"] = this->command;
-    j["state"] = this->state;
+    if (this->state.has_value()) j["state"] = *this->state;
     return j;
 }
 

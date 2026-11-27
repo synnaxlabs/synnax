@@ -63,9 +63,6 @@ export const T_4_DIGITAL_PORTS = [
   "DIO17",
   "DIO18",
   "DIO19",
-  "DIO20",
-  "DIO21",
-  "DIO22",
 ] as const;
 export const t4DigitalPortZ = z.enum(T_4_DIGITAL_PORTS);
 export type T4DigitalPort = z.infer<typeof t4DigitalPortZ>;
@@ -238,9 +235,9 @@ export type T8DigitalPort = z.infer<typeof t8DigitalPortZ>;
 /** CommandStatePair is the pair of channels that writes to one port. */
 export const commandStatePairZ = z.object({
   /** command is the channel that commands the port. */
-  command: channel.keyZ.default(0),
+  command: channel.keyZ,
   /** state is the channel that holds the state of the port. */
-  state: channel.keyZ.default(0),
+  state: channel.keyZ.optional(),
 });
 export interface CommandStatePair extends z.infer<typeof commandStatePairZ> {}
 
