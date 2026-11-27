@@ -144,7 +144,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 msg += ": " + req_err.data;
             else {
                 msg += " returned " + std::to_string(resp.status_code);
-                if (!resp.body.empty()) msg += ": " + resp.body;
+                if (!resp.body.empty()) msg += ": " + resp.body_excerpt();
             }
             error_msgs.push_back(std::move(msg));
             queue.clear();
@@ -257,11 +257,7 @@ std::pair<std::vector<driver::icd::Writer>, x::errors::Error> build_writers(
             *ic,
             resources.channels
         );
-        if (err)
-            return {
-                std::vector<driver::icd::Writer>(),
-                x::errors::Error(err, name + ": " + err.data)
-            };
+        if (err) return {std::vector<driver::icd::Writer>(), err.wrap(name)};
         writers.push_back(std::move(writer));
     }
     return {std::move(writers), x::errors::NIL};

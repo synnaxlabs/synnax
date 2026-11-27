@@ -83,7 +83,7 @@ injection via constructor parameters.
 ## Errors
 
 ```cpp
-#include "x/cpp/xerrors/xerrors.h"
+#include "x/cpp/errors/errors.h"
 
 auto [result, err] = operation();
 if (err) return {nullptr, err.wrap("failed to perform operation")};

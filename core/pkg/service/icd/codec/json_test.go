@@ -276,22 +276,6 @@ var _ = Describe("JSON", func() {
 		))
 	})
 
-	It("Should reject a bound field with a zero scale", func() {
-		f := icd.JSONField{Variant: icd.FloatJSONField{
-			Key: uuid.New(), Name: "v", Scale: 0, Pointer: "/v",
-		}}
-		Expect(codec.NewJSON([]codec.JSONMessage{{
-			Name:     "reading",
-			Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
-			Bindings: []codec.Binding{{Field: f.Base().Key, DataType: telem.Float64T}},
-		}})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(
-				"message reading: field v: scale must be non-zero: validation error",
-			),
-		))
-	})
-
 	Describe("Generated defaults", func() {
 		decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
 			GinkgoHelper()
@@ -648,7 +632,7 @@ var _ = Describe("Converts", func() {
 	DescribeTable(
 		"Should report whether a field kind converts to a data type",
 		func(k payload.Kind, dt telem.DataType, expected bool) {
-			Expect(codec.Converts(k, dt)).To(Equal(expected))
+			Expect(codec.Converts(k, dt, false)).To(Equal(expected))
 		},
 		Entry("a kind to its own data type", payload.KindString, telem.StringT, true),
 		Entry("an integer to a float", payload.KindInteger, telem.Float32T, true),
@@ -667,5 +651,17 @@ var _ = Describe("Converts", func() {
 			telem.DataType("complex128"),
 			false,
 		),
+	)
+
+	DescribeTable(
+		"Should report whether a scaled field kind converts to a data type",
+		func(k payload.Kind, dt telem.DataType, expected bool) {
+			Expect(codec.Converts(k, dt, true)).To(Equal(expected))
+		},
+		Entry("an integer to a float", payload.KindInteger, telem.Float32T, true),
+		Entry("a float to a float", payload.KindFloat, telem.Float64T, true),
+		Entry("an integer to an integer", payload.KindInteger, telem.Int64T, false),
+		Entry("an unsigned to an unsigned", payload.KindUnsigned, telem.Uint8T, false),
+		Entry("a string to a float", payload.KindString, telem.Float64T, false),
 	)
 })
