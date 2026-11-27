@@ -18,7 +18,9 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
+import { createScriptClient } from "@/feature/embedded/testutil";
 import { User } from "@/feature/user";
+import { answerMethods } from "@/platform/core/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createCore, createCoreState } from "@/session/core/testutil";
@@ -112,10 +114,37 @@ describe("User.ProfileSettings", () => {
     await act(async () => {
       fireEvent.click(findButton("Set password"));
     });
-    expect(await screen.findByText("Changed password")).toBeTruthy();
+    expect(await screen.findByText("Successfully changed password")).toBeTruthy();
     await expect(
       createTestClientAs(username, next).auth.sessions.retrieve(),
     ).resolves.toBeDefined();
+  });
+
+  it("should hide the password card when the Core refuses passwords", async () => {
+    answerMethods(["api_key"]);
+    const { as } = await loginAs("Engineer");
+    await renderAs(as, <User.ProfileSettings />);
+    await screen.findByText("Name");
+    await waitFor(() => expect(screen.queryByText("Password")).toBeNull());
+  });
+
+  it("should offer a user with no password to create one", async () => {
+    // the page streams live updates, which needs the reads of a built-in role
+    const roles = await client.access.roles.retrieve({});
+    const role = roles.find((r) => r.name === "Engineer");
+    if (role == null) throw new Error("no role named Engineer");
+    const created = await client.users.create({
+      name: uniqueName("user"),
+      role: role.key,
+    });
+    const { token } = await client.auth.apiKeys.create({
+      subject: user.resourceID(created.key),
+      name: uniqueName("key"),
+    });
+    const as = createScriptClient(token);
+    await renderAs(as, <User.ProfileSettings />);
+    expect(await screen.findByText("Create password")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Current password")).toBeNull();
   });
 });
 

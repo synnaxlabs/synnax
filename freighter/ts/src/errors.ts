@@ -74,6 +74,9 @@ export class Unreachable extends FreighterError.sub("unreachable") {
 /** Thrown when the runtime does not trust the certificate of a target. */
 export class UntrustedCertificate extends FreighterError.sub("untrusted_certificate") {}
 
+/** Thrown when a client that uses TLS reaches a target that does not. */
+export class NoTLS extends FreighterError.sub("no_tls") {}
+
 // Node and Bun give an OpenSSL code. Deno gives only a message.
 const UNTRUSTED_CODES = new Set([
   "CERT_UNTRUSTED",
@@ -84,35 +87,50 @@ const UNTRUSTED_CODES = new Set([
   "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
 ]);
 const UNTRUSTED_MESSAGE = "invalid peer certificate: UnknownIssuer";
+// OpenSSL codes for a TLS client that reads plain bytes as a TLS record. Node 22.22
+// reports an HTTP/1.1 response as a record that is too long.
+const NO_TLS_CODES = new Set([
+  "ERR_SSL_WRONG_VERSION_NUMBER",
+  "ERR_SSL_PACKET_LENGTH_TOO_LONG",
+]);
 
-const isUntrusted = (err: unknown): boolean => {
+const causedBy = (err: unknown, matches: (err: object) => boolean): boolean => {
   if (typeof err !== "object" || err === null) return false;
-  if ("code" in err && typeof err.code === "string" && UNTRUSTED_CODES.has(err.code))
-    return true;
-  if (
-    "message" in err &&
-    typeof err.message === "string" &&
-    err.message.includes(UNTRUSTED_MESSAGE)
-  )
-    return true;
-  return "cause" in err && isUntrusted(err.cause);
+  return matches(err) || ("cause" in err && causedBy(err.cause, matches));
 };
+
+const isUntrusted = (err: object): boolean =>
+  ("code" in err && typeof err.code === "string" && UNTRUSTED_CODES.has(err.code)) ||
+  ("message" in err &&
+    typeof err.message === "string" &&
+    err.message.includes(UNTRUSTED_MESSAGE));
+
+const isNoTLS = (err: object): boolean =>
+  "code" in err && typeof err.code === "string" && NO_TLS_CODES.has(err.code);
 
 /**
  * @returns an UntrustedCertificate for the target when the error, or a cause of it, is
- * a certificate that the runtime does not trust. Otherwise null.
+ * a certificate that the runtime does not trust, or a NoTLS when it is a target that
+ * does not use TLS. Otherwise null.
  */
-export const asUntrustedCertificate = (
+export const asTLSFailure = (
   err: unknown,
   target: url.URL,
-): UntrustedCertificate | null =>
-  isUntrusted(err)
-    ? new UntrustedCertificate(
-        `The certificate of ${target.toString()} is not trusted. Set caCert to the ` +
-          "CA certificate that signed it.",
-        { cause: err },
-      )
-    : null;
+): UntrustedCertificate | NoTLS | null => {
+  if (causedBy(err, isUntrusted))
+    return new UntrustedCertificate(
+      `The certificate of ${target.toString()} is not trusted. Set caCert to the ` +
+        "CA certificate that signed it.",
+      { cause: err },
+    );
+  if (causedBy(err, isNoTLS))
+    return new NoTLS(
+      `The Core at ${target.host}:${target.port} does not use TLS. If it runs with ` +
+        "--insecure, set secure: false or SYNNAX_SECURE=false.",
+      { cause: err },
+    );
+  return null;
+};
 
 const freighterErrorEncoder: errors.Encoder = (error: errors.Typed) => {
   if (!error.type.startsWith(FreighterError.TYPE)) return null;
@@ -123,6 +141,7 @@ const freighterErrorEncoder: errors.Encoder = (error: errors.Typed) => {
     return { type: Unreachable.TYPE, data: "Unreachable" };
   if (UntrustedCertificate.matches(error))
     return { type: UntrustedCertificate.TYPE, data: error.message };
+  if (NoTLS.matches(error)) return { type: NoTLS.TYPE, data: error.message };
   if (ReceiveOverflow.matches(error))
     return { type: ReceiveOverflow.TYPE, data: error.message };
   if (Timeout.matches(error)) return { type: Timeout.TYPE, data: error.message };
@@ -140,6 +159,8 @@ const freighterErrorDecoder: errors.Decoder = (encoded: errors.Payload) => {
       return new Unreachable();
     case UntrustedCertificate.TYPE:
       return new UntrustedCertificate(encoded.data);
+    case NoTLS.TYPE:
+      return new NoTLS(encoded.data);
     case ReceiveOverflow.TYPE:
       return new ReceiveOverflow(encoded.data);
     case Timeout.TYPE:

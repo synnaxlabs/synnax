@@ -43,6 +43,12 @@
       "caller": "https://github.com/synnaxlabs/synnax/pull/8019"
     },
     {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/query",
+      "name": "NotFound",
+      "caller": "sy-6599-name-every-path-describe-and-refuse-ambiguous-names"
+    },
+    {
       "module": "core",
       "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
       "name": "TextMessage",
