@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <cstring>
+#include <stdexcept>
+#include <string>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -16,12 +18,23 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
+namespace {
+/// @brief returns the data type of the series that a value slot of type t holds. A
+/// channel slot holds channel keys.
+x::telem::DataType slot_data_type(const types::Type &t) {
+    if (t.kind == types::Kind::Chan) return x::telem::UINT32_T;
+    const auto data_type = t.telem();
+    if (!data_type.has_value())
+        throw std::runtime_error("arc: type " + t.to_string() + " has no data type");
+    return *data_type;
+}
+}
 
 Series parse_default_value(
     const std::optional<x::telem::SampleValue> &value,
     const types::Type &type
 ) {
-    auto data_type = type.telem();
+    const auto data_type = slot_data_type(type);
     if (value.has_value()) {
         if (type.kind == types::Kind::Bool)
             return x::mem::make_local_shared<x::telem::Series>(
@@ -99,7 +112,10 @@ State::State(
             this->value_index[handle] = this->values.size();
             this->values.emplace_back(
                 Value{
-                    x::mem::local_shared<x::telem::Series>(output.type.telem(), 0),
+                    x::mem::local_shared<x::telem::Series>(
+                        slot_data_type(output.type),
+                        0
+                    ),
                     x::mem::local_shared<x::telem::Series>(x::telem::TIMESTAMP_T, 0)
                 }
             );

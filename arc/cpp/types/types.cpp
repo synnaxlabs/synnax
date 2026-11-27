@@ -197,7 +197,7 @@ std::string Type::to_string() const {
     return base;
 }
 
-x::telem::DataType Type::telem() const {
+std::optional<x::telem::DataType> Type::telem() const {
     switch (kind) {
         case Kind::U8:
             return x::telem::UINT8_T;
@@ -225,7 +225,7 @@ x::telem::DataType Type::telem() const {
         case Kind::String:
             return x::telem::STRING_T;
         default:
-            return x::telem::UNKNOWN_T;
+            return std::nullopt;
     }
 }
 

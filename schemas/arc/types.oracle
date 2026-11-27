@@ -149,8 +149,8 @@ Type struct extends FunctionProperties {
     }
 
     @cpp includes        "x/cpp/telem/telem.h"
-    @cpp methods         "[[nodiscard]] size_t density() const" "[[nodiscard]] bool is_valid() const" "[[nodiscard]] bool is_timestamp() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] x::telem::DataType telem() const" "friend std::ostream& operator<<(std::ostream& os, const Type& t)"
-    @cpp system_includes "ostream"
+    @cpp methods         "[[nodiscard]] size_t density() const" "[[nodiscard]] bool is_valid() const" "[[nodiscard]] bool is_timestamp() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::optional<x::telem::DataType> telem() const" "friend std::ostream& operator<<(std::ostream& os, const Type& t)"
+    @cpp system_includes "optional" "ostream"
     @doc value           """
         is a type in Arc's type system with optional element type for compounds,
         physical units, and constraints.

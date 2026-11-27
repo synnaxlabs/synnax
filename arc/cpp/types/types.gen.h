@@ -246,7 +246,7 @@ struct Type : public FunctionProperties {
     [[nodiscard]] bool is_valid() const;
     [[nodiscard]] bool is_timestamp() const;
     [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] x::telem::DataType telem() const;
+    [[nodiscard]] std::optional<x::telem::DataType> telem() const;
     friend std::ostream &operator<<(std::ostream &os, const Type &t);
 };
 

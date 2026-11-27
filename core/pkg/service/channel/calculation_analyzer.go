@@ -140,7 +140,8 @@ func (a *CalculationAnalyzer) Analyze(
 			Unresolved: a.resolver.unresolved.Slice(),
 		}, aCtx.Diagnostics
 	}
-	if dataType.ToTelem() == telem.UnknownT {
+	inferredDataType, ok := dataType.ToTelem()
+	if !ok {
 		aCtx.Diagnostics.Add(diagnostics.Errorf(
 			t, "the expression of calculated channel %q returns no value", ch.Name,
 		))
@@ -165,7 +166,6 @@ func (a *CalculationAnalyzer) Analyze(
 			deps = append(deps, Key(k))
 		}
 	}
-	inferredDataType := dataType.ToTelem()
 	if lo.ContainsBy(ch.Operations, func(op Operation) bool {
 		return op.Type == OperationTypeDerivative
 	}) {

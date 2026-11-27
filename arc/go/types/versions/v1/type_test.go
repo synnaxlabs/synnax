@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Type", func() {
@@ -556,7 +557,10 @@ var _ = Describe("Type", func() {
 			Entry("IsFloat", func(t types.Type) any { return t.IsFloat() }),
 			Entry("Is64Bit", func(t types.Type) any { return t.Is64Bit() }),
 			Entry("IsFixedWidth", func(t types.Type) any { return t.IsFixedWidth() }),
-			Entry("ToTelem", func(t types.Type) any { return t.ToTelem() }),
+			Entry("ToTelem", func(t types.Type) any {
+				dt, _ := t.ToTelem()
+				return dt
+			}),
 		)
 
 		It("Should print the kind's number", func() {
@@ -716,7 +720,7 @@ var _ = Describe("Type", func() {
 	Describe("ToTelem", func() {
 		DescribeTable("ToTelem should convert arc types to telem types",
 			func(arcType types.Type, expected telem.DataType) {
-				Expect(arcType.ToTelem()).To(Equal(expected))
+				Expect(MustBeOk(arcType.ToTelem())).To(Equal(expected))
 			},
 			Entry("U8", types.U8(), telem.Uint8T),
 			Entry("U16", types.U16(), telem.Uint16T),
@@ -734,19 +738,22 @@ var _ = Describe("Type", func() {
 			Entry("TimeSpan", types.TimeSpan(), telem.TimestampT),
 		)
 
-		It("Should return UnknownT for types that don't map to telem", func() {
-			chanType := types.Chan(types.I32())
-			Expect(chanType.ToTelem()).To(Equal(telem.UnknownT))
-
-			fnType := types.Function(types.FunctionProperties{})
-			Expect(fnType.ToTelem()).To(Equal(telem.UnknownT))
-		})
+		DescribeTable("Should return false for types that don't map to telem",
+			func(t types.Type) {
+				_, ok := t.ToTelem()
+				Expect(ok).To(BeFalse())
+			},
+			Entry("Chan", types.Chan(types.I32())),
+			Entry("Series", types.Series(types.F64())),
+			Entry("Function", types.Function(types.FunctionProperties{})),
+			Entry("Invalid", types.Type{Kind: types.KindInvalid}),
+		)
 
 		// The value type mirrors what literal.Parse emits per kind, so a missing
 		// cast case in NewSeriesFromAny (the TimeSpan regression) is caught here.
 		DescribeTable("ToTelem output must seed a series via NewSeriesFromAny",
 			func(arcType types.Type, value any) {
-				dt := arcType.ToTelem()
+				dt := MustBeOk(arcType.ToTelem())
 				s := telem.NewSeriesFromAny(value, dt)
 				Expect(s.DataType).To(Equal(dt))
 				Expect(s.Len()).To(Equal(int64(1)))

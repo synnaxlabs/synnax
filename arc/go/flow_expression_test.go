@@ -17,12 +17,13 @@ import (
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Literal expressions in flows", func() {
 	DescribeTable("Should write a literal expression at the sink's type",
 		func(ctx SpecContext, source string, dt types.Type, expected float64) {
-			dataType := dt.ToTelem()
+			dataType := MustBeOk(dt.ToTelem())
 			h := newRuntimeHarness(ctx, source, channelSymbols(map[string]channelDef{
 				"x":   {types.U8(), 100},
 				"out": {dt, 200},
@@ -56,7 +57,7 @@ var _ = Describe("Literal expressions in flows", func() {
 
 	DescribeTable("Should write a stage reassignment at the variable's type",
 		func(ctx SpecContext, decl, value string, dt types.Type, expected float64) {
-			dataType := dt.ToTelem()
+			dataType := MustBeOk(dt.ToTelem())
 			h := newRuntimeHarness(ctx, "sequence main {\n "+decl+"\n stage a {\n v = "+
 				value+"\n v -> out\n }\n}\ngo => main",
 				channelSymbols(map[string]channelDef{
@@ -86,7 +87,7 @@ var _ = Describe("Literal expressions in flows", func() {
 
 	DescribeTable("Should write a computed value at its declared type",
 		func(ctx SpecContext, source string, dt types.Type, expected float64) {
-			dataType := dt.ToTelem()
+			dataType := MustBeOk(dt.ToTelem())
 			h := newRuntimeHarness(ctx, strings.ReplaceAll(source, "T", dt.String()),
 				channelSymbols(map[string]channelDef{
 					"go":  {types.Bool(), 100},

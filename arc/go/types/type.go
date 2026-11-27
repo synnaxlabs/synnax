@@ -62,7 +62,7 @@
 // Converting to/from telemetry types:
 //
 //	arcType := types.FromTelem(telem.Float64T)
-//	telemType := types.F64().ToTelem()
+//	telemType, ok := types.F64().ToTelem()
 package types
 
 import (

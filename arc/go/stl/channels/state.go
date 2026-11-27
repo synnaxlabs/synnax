@@ -203,7 +203,7 @@ func (ps *ProgramState) appendBody(data telem.Series, key uint32) telem.Series {
 	if len(body.Data) == 0 {
 		return data
 	}
-	if data.DataType == telem.UnknownT {
+	if len(data.Data) == 0 {
 		data.DataType = body.DataType
 		data.Alignment = body.Alignment
 		data.TimeRange = body.TimeRange
@@ -355,14 +355,9 @@ func appendFixedWriteSample[T telem.FixedSample](
 ) {
 	dt := telem.InferDataType[T]()
 	buf := ps.bodyWrites(key)
-	acc, exists := buf[key]
+	acc := buf[key]
 	if len(acc.Data) == 0 {
 		ps.activate(key)
-	}
-	if !exists {
-		acc = telem.Series{DataType: dt}
-	}
-	if acc.DataType == telem.UnknownT {
 		acc.DataType = dt
 	}
 	if acc.DataType != dt && len(acc.Data) > 0 {
@@ -428,14 +423,9 @@ func (ps *ProgramState) appendWriteSeries(
 	key uint32,
 	source telem.Series,
 ) {
-	acc, exists := buf[key]
+	acc := buf[key]
 	if len(acc.Data) == 0 {
 		ps.activate(key)
-	}
-	if !exists {
-		acc = telem.Series{DataType: source.DataType}
-	}
-	if acc.DataType == telem.UnknownT {
 		acc.DataType = source.DataType
 	}
 	if len(source.Data) == 0 {
