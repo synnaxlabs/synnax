@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -146,5 +147,44 @@ var _ = Describe("Signals", Ordered, func() {
 			removed = append(removed, uuid.UUID(sample))
 		}
 		Expect(removed).To(ContainElement(d.Key))
+	})
+
+	It("Should broadcast the create action and each dispatch", func(ctx SpecContext) {
+		acts := openStreamer(ctx, "sy_ni_device_action_set")
+		d := device.Device{
+			Rack:         rackSvc.EmbeddedKey,
+			Name:         "PXI-6255",
+			ResourceName: "Mod2",
+			Model:        "PXI-6255",
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &d)
+		})).To(Succeed())
+		next := func() actions.Scoped[device.Key, device.Action] {
+			GinkgoHelper()
+			var res framer.StreamerResponse
+			Eventually(acts.Outlet(), 5*time.Second).Should(Receive(&res))
+			var scoped actions.Scoped[device.Key, device.Action]
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				Expect(json.Unmarshal(sample, &scoped)).To(Succeed())
+			}
+			return scoped
+		}
+		created := next()
+		Expect(created.Key).To(Equal(d.Key))
+		Expect(created.Actions).To(HaveLen(1))
+		Expect(created.Actions[0].Create.Device.Name).To(Equal("PXI-6255"))
+		rename := device.NewSetAction(device.SetPayload{
+			Path:  []string{"name"},
+			Value: "Thermocouples",
+		})
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).WithDispatchKey("dk").Apply(ctx, d.Key, rename)
+		})).To(Succeed())
+		dispatched := next()
+		Expect(dispatched.Key).To(Equal(d.Key))
+		Expect(dispatched.DispatchKey).To(Equal("dk"))
+		Expect(dispatched.Actions).To(HaveLen(1))
+		Expect(dispatched.Actions[0].Set.Path).To(Equal([]string{"name"}))
 	})
 })
