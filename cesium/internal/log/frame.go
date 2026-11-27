@@ -67,7 +67,7 @@ func (h Header) Encode(offset uint64) []byte {
 	binary.LittleEndian.PutUint64(b[32:], h.Sequence)
 	binary.LittleEndian.PutUint64(b[40:], h.Size)
 	binary.LittleEndian.PutUint32(b[48:], h.PrevCRC)
-	crc := place.Log(h.DB, h.Generation, offset).Sum(b[:60])
+	crc := place.Log(h.DB, h.Generation, offset, headerVersion).Sum(b[:60])
 	binary.LittleEndian.PutUint32(b[60:], crc)
 	return b
 }
@@ -85,7 +85,8 @@ func DecodeHeader(b []byte, db, generation, offset uint64) (Header, error) {
 		)
 	}
 	b = b[:HeaderSize]
-	want := place.Log(db, generation, offset).Sum(b[:60])
+	version := binary.LittleEndian.Uint16(b[8:])
+	want := place.Log(db, generation, offset, version).Sum(b[:60])
 	if !bytes.Equal(b[:8], fileMagic) || binary.LittleEndian.Uint32(b[60:]) != want {
 		return Header{}, errors.Wrapf(
 			place.ErrCorrupt,
@@ -110,8 +111,8 @@ func DecodeHeader(b []byte, db, generation, offset uint64) (Header, error) {
 			h.Generation,
 		)
 	}
-	if v := binary.LittleEndian.Uint16(b[8:]); v != headerVersion {
-		return Header{}, errors.Wrapf(ErrUnknown, "log format version %d", v)
+	if version != headerVersion {
+		return Header{}, errors.Wrapf(ErrUnknown, "log format version %d", version)
 	}
 	if !allZero(b[10:16]) || !allZero(b[52:60]) {
 		return Header{}, errors.Wrapf(
@@ -160,7 +161,7 @@ func (f *Frame) Append(dst []byte, db, generation, offset uint64) []byte {
 	}
 	dst = binary.LittleEndian.AppendUint32(dst, flags)
 	dst = append(dst, f.Entries...)
-	f.CRC = place.Log(db, generation, offset).Sum(dst[start+8:])
+	f.CRC = place.Log(db, generation, offset, headerVersion).Sum(dst[start+8:])
 	binary.LittleEndian.PutUint32(dst[start+4:], f.CRC)
 	return dst
 }
@@ -191,7 +192,7 @@ func DecodeFrame(b []byte, db, generation, offset uint64) (Frame, error) {
 	}
 	end := FrameHeaderSize + int(size)
 	crc := binary.LittleEndian.Uint32(b[4:])
-	if place.Log(db, generation, offset).Sum(b[8:end]) != crc {
+	if place.Log(db, generation, offset, headerVersion).Sum(b[8:end]) != crc {
 		return Frame{}, errors.Wrapf(
 			place.ErrCorrupt,
 			"frame at %d fails its check",

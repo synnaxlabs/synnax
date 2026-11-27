@@ -16,6 +16,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -539,6 +540,46 @@ var _ = Describe("Log", func() {
 					To(MatchError("log is closed"))
 				Expect(hook.refusals()).
 					To(HaveExactElements(MatchError("log is closed")))
+			})
+
+			It("Should refuse the first Commit that does not fit and each later one, "+
+				"after the acks of the entries ahead of each", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				release := fs.Hold()
+				// A failed check must not leave a sync held for closeLog.
+				DeferCleanup(func() {
+					fs.Unhold()
+					close(release)
+					select {
+					case <-fs.held:
+					case <-time.After(time.Second):
+					}
+				})
+				first := l.Append(of(&log.Drop{Key: 1}))
+				Eventually(fs.held).Should(Receive())
+				small := l.Append(commitEntry(64))
+				big := l.Append(
+					commitEntry(logSize - log.DeleteReserve - log.FramesStart),
+				)
+				later := l.Append(commitEntry(64))
+				refused := make(chan error, 1)
+				go func() {
+					_, err := big.Wait()
+					refused <- err
+				}()
+				release <- struct{}{}
+				Expect(first.Wait()).To(Equal(uint64(5)))
+				Eventually(fs.held).Should(Receive())
+				Consistently(refused).ShouldNot(Receive())
+				fs.Unhold()
+				release <- struct{}{}
+				Expect(small.Wait()).To(Equal(uint64(6)))
+				Eventually(refused).Should(Receive(
+					MatchError(ContainSubstring("log file is full")),
+				))
+				Expect(later.Wait()).Error().
+					To(MatchError(ContainSubstring("log file is full")))
 			})
 
 			It("Should stop an entry with no Commit two blocks before the end, so "+
