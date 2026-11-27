@@ -118,7 +118,7 @@ x::telem::TimeSpan Sink::send() {
     return wait;
 }
 
-std::pair<common::ConfigureResult, x::errors::Error> configure_write(
+std::pair<common::ConfigureResult, x::errors::Error> configure_targets(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const synnax::task::StartConfig &cfg,

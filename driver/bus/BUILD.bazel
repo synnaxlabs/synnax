@@ -71,6 +71,7 @@ cc_library(
     hdrs = ["tasks.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":device",
         ":holders",
         "//client/cpp/channel",
         "//client/cpp/framer",
@@ -84,6 +85,7 @@ cc_library(
         "//driver/transport",
         "//x/cpp/breaker",
         "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/telem",
     ],
 )

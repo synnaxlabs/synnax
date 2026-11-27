@@ -25,9 +25,11 @@
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/bus/device.h"
 #include "driver/bus/holders.h"
 #include "driver/common/common.h"
 #include "driver/common/read_task.h"
@@ -160,7 +162,7 @@ public:
 /// @param readers holds the device for the task.
 /// @returns the error of the retrieve of the ICDs of entries or their channels, the
 /// error of icd::Receiver::create, and the error of Readers::claim.
-std::pair<common::ConfigureResult, x::errors::Error> configure_read(
+std::pair<common::ConfigureResult, x::errors::Error> configure_entries(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const synnax::task::PersistConfig &cfg,
@@ -175,11 +177,65 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
 /// @param cfg the options of the task.
 /// @returns the error of the retrieve of the ICDs of targets or their channels, and the
 /// error of icd::Sender::create.
-std::pair<common::ConfigureResult, x::errors::Error> configure_write(
+std::pair<common::ConfigureResult, x::errors::Error> configure_targets(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const synnax::task::StartConfig &cfg,
     const std::vector<synnax::icd::WriteTarget> &targets,
     Acquire acquire
 );
+
+/// @brief configures a read task whose config is a Config, on a device whose properties
+/// are Properties.
+/// @param readers holds the device for the task.
+/// @param acquire gives the Acquire of the connection to the device.
+/// @returns VALIDATION when the config names no device or no entry, the error of the
+/// retrieve of the device, and the error of configure_entries.
+template<typename Config, typename Properties>
+std::pair<common::ConfigureResult, x::errors::Error> configure_read(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::task::Task &task,
+    Readers &readers,
+    const std::function<Acquire(const Device<Properties> &)> &acquire
+) {
+    x::json::Parser parser(task.config);
+    const auto cfg = Config::parse(parser);
+    if (cfg.device.empty()) parser.field_err("device", "this field is required");
+    if (cfg.entries.empty())
+        parser.field_err("entries", "at least one entry is required");
+    if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
+    auto [dev, err] = retrieve_device<Properties>(ctx->client->devices, cfg.device);
+    if (err) return {common::ConfigureResult{}, err};
+    return configure_entries(
+        ctx,
+        task,
+        cfg,
+        cfg.entries,
+        dev.key,
+        acquire(dev),
+        readers
+    );
+}
+
+/// @brief configures a write task whose config is a Config, on a device whose
+/// properties are Properties.
+/// @param acquire gives the Acquire of the connection to the device.
+/// @returns VALIDATION when the config names no device or no target, the error of the
+/// retrieve of the device, and the error of configure_targets.
+template<typename Config, typename Properties>
+std::pair<common::ConfigureResult, x::errors::Error> configure_write(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::task::Task &task,
+    const std::function<Acquire(const Device<Properties> &)> &acquire
+) {
+    x::json::Parser parser(task.config);
+    const auto cfg = Config::parse(parser);
+    if (cfg.device.empty()) parser.field_err("device", "this field is required");
+    if (cfg.targets.empty())
+        parser.field_err("targets", "at least one target is required");
+    if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
+    auto [dev, err] = retrieve_device<Properties>(ctx->client->devices, cfg.device);
+    if (err) return {common::ConfigureResult{}, err};
+    return configure_targets(ctx, task, cfg, cfg.targets, acquire(dev));
+}
 }

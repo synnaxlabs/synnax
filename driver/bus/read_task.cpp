@@ -66,7 +66,7 @@ common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
     return res;
 }
 
-std::pair<common::ConfigureResult, x::errors::Error> configure_read(
+std::pair<common::ConfigureResult, x::errors::Error> configure_entries(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const synnax::task::PersistConfig &cfg,
