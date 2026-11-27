@@ -32,20 +32,6 @@
       "module": "gorp",
       "package": "github.com/synnaxlabs/gorp",
       "receiver": "UniqueIndex",
-      "name": "Holder",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/8019"
-    },
-    {
-      "module": "gorp",
-      "package": "github.com/synnaxlabs/gorp",
-      "receiver": "UniqueIndex",
-      "name": "FilterFunc",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/8019"
-    },
-    {
-      "module": "gorp",
-      "package": "github.com/synnaxlabs/gorp",
-      "receiver": "UniqueIndex",
       "name": "Filter",
       "caller": "https://linear.app/synnax/issue/SY-6524"
     },
