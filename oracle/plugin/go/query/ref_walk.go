@@ -658,7 +658,12 @@ func (rd *renderer) targetsBody(ref *walkedRef) string {
 		func(b *strings.Builder, expr string, _ []string) {
 			switch mode {
 			case leafRequired:
-				fmt.Fprintf(b, "%stargets = append(targets, %s)\n", grow, rd.target(expr))
+				fmt.Fprintf(
+					b,
+					"%stargets = append(targets, %s)\n",
+					grow,
+					rd.target(expr),
+				)
 			case leafZero:
 				fmt.Fprintf(
 					b,
