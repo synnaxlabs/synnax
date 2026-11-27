@@ -51,6 +51,33 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "store",
+    hdrs = ["store.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//client/cpp/labjack/device",
+        "//driver/common",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "store_test",
+    srcs = ["store_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":store",
+        "//client/cpp/testutil",
+        "//driver/common",
+        "//x/cpp/filter",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "labjack_test",
     srcs = [
