@@ -360,15 +360,22 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   name one clock; an XY plot across clocks pairs by time (§4.7).
 - **Order**: A reader orders the stretches of a channel by time and uses alignment only
   inside one, since from RFC 0121 Phase 8 a backfill takes a higher number than later
-  data. Three readers compare numbers across stretches today and change: the floor walk
-  of the TypeScript cache (`client/ts/src/framer/cache/store/store.ts:585-607`) goes to
-  time at Phase 14; the Python frame, which sorts the shared alignments of a channel
-  that skipped a session (`client/py/synnax/framer/frame.py:339-353`), pairs each data
-  series with its own time series in the data's order at Phase 9; and the CSV and TDMS
-  walks (`core/pkg/transport/http/framer/csv.go:144-147`, `tdms.go:463-466`) compare
-  numbers only inside one stretch at Phase 19. Each of those phases has a spec that
-  reads across a backfill with a higher number and a channel that skipped a session, and
-  RFC 0121 Phase 8 waits for all three.
+  data, and a stream-only session, a refusal window, or a clock move can step a stream's
+  number down. Four readers compare numbers across stretches today and change: the floor
+  walk of the TypeScript cache (`client/ts/src/framer/cache/store/store.ts:585-607`)
+  goes to time at Phase 14; the Python frame, which sorts the shared alignments of a
+  channel that skipped a session (`client/py/synnax/framer/frame.py:339-353`), pairs
+  each data series with its own time series in the data's order at Phase 9; the CSV and
+  TDMS walks (`core/pkg/transport/http/framer/csv.go:144-147`, `tdms.go:463-466`)
+  compare numbers only inside one stretch at Phase 19; and the Arc `on` nodes, Go at
+  Phase 7 and C++ at Phase 9 (`arc/go/stl/channels/channels.go:273`,
+  `arc/cpp/stl/channels/channels.h:129`), compare their mark only inside one stretch, by
+  the high 32 bits of the alignment, as Sift does, and take a series of any other
+  stretch, while the entry stamp still drops samples from before a stage's entry
+  (`channels.go:196-198`). Phase 41 keeps that rule per clock. Each of those phases has
+  a spec that reads across a backfill with a higher number and a channel that skipped a
+  session; the `on` node specs stream an `Unstored` session, then a stored one, and a
+  refusal window, and fire on each later sample. RFC 0121 Phase 8 waits for all four.
 - **Reader API**: `frame.time(channel)` gives one time series per data series of the
   channel, with the same lengths, and `frame.time(series)` the times of one series: the
   time series under `series.clock` whose alignments hold the data's. Each fails when the
