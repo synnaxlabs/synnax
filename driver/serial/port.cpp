@@ -31,6 +31,18 @@ void cancel(asio::serial_port &device) {
     // NOLINTNEXTLINE(bugprone-unused-return-value): it fails only when closed.
     device.cancel(ignored);
 }
+
+/// @returns true when the output written to handle leaves within DRAIN_TIMEOUT.
+bool drain(const native::Handle handle) {
+    const x::telem::Stopwatch sw;
+    while (sw.elapsed() < DRAIN_TIMEOUT) {
+        const auto [queued, ec] = native::queued_output(handle);
+        if (ec) return false;
+        if (queued == 0) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return false;
+}
 }
 
 native::Handle Port::handle() {
@@ -55,16 +67,14 @@ Port::open(const synnax::serial::Properties &props) {
 }
 
 void Port::close() {
-    if (this->locked) {
-        native::discard_output(this->handle());
-        native::unlock(this->handle());
-    }
+    if (this->locked) native::unlock(this->handle());
     std::error_code ignored;
     // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
     this->device.close(ignored);
 }
 
 x::errors::Error Port::fail(const x::errors::Error &err) {
+    native::discard_output(this->handle());
     this->close();
     this->failure = err;
     return this->failure;
@@ -72,13 +82,8 @@ x::errors::Error Port::fail(const x::errors::Error &err) {
 
 Port::~Port() {
     if (!this->device.is_open()) return;
-    // close discards the output that has not left, so the port waits for it first.
-    const x::telem::Stopwatch sw;
-    while (this->locked && sw.elapsed() < DRAIN_TIMEOUT) {
-        const auto [queued, ec] = native::queued_output(this->handle());
-        if (ec || queued == 0) break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    // The last close of a tty waits up to 30 seconds for output that has not left.
+    if (this->locked && !drain(this->handle())) native::discard_output(this->handle());
     this->close();
 }
 
