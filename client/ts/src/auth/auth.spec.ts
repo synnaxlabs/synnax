@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Context, UnaryClient } from "@synnaxlabs/freighter";
-import { errors, id, url, uuid } from "@synnaxlabs/x";
+import { errors, id, TimeSpan, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, test, vi } from "vitest";
 
 import { auth } from "@/auth";
@@ -173,6 +173,34 @@ describe("auth", () => {
   describe("retrieveAPIKeyMaxLifetime", () => {
     it("should return null when the Core sets no limit", async () => {
       expect(await createTestClient().auth.retrieveAPIKeyMaxLifetime()).toBeNull();
+    });
+
+    // answers the methods request as a Core with the given limit does
+    const createLimitedClient = (maxLifetime: TimeSpan): auth.Client =>
+      new auth.Client(
+        {
+          use: () => {},
+          send: async (_, __, ___, resSchema) =>
+            resSchema.parse({
+              methods: ["api_key"],
+              providers: [],
+              apiKeyMaxLifetime: Number(maxLifetime.valueOf()),
+            }),
+        },
+        {},
+      );
+
+    it("should return the limit that the Core sets", async () => {
+      const lifetime = await createLimitedClient(
+        TimeSpan.days(30),
+      ).retrieveAPIKeyMaxLifetime();
+      expect(lifetime?.equals(TimeSpan.days(30))).toBe(true);
+    });
+
+    it("should return null for a zero limit", async () => {
+      expect(
+        await createLimitedClient(TimeSpan.ZERO).retrieveAPIKeyMaxLifetime(),
+      ).toBeNull();
     });
   });
 

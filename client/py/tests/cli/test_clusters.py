@@ -15,6 +15,7 @@ import pytest
 from keyring.errors import KeyringError
 
 import synnax as sy
+from synnax.auth.client import Client as AuthClient
 from synnax.cli import connect
 from synnax.config import KEYCHAIN_UNAVAILABLE_MSG, Cluster, Clusters, File
 from synnax.exceptions import ConfigurationError
@@ -239,6 +240,51 @@ class TestLogin:
         assert saved.options.api_key.startswith("syk_")
         assert saved.options.username == ""
         assert ("synnax", "default") not in keyring.values
+        delete_new_keys(client, before)
+
+    def test_key_never_expires_without_a_limit(
+        self,
+        clusters: Clusters,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+    ) -> None:
+        """Should save a key that never expires when the Core sets no limit."""
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.api_keys.retrieve()}
+        assert connect.login(
+            Scripted(host, port, username, password, "n").prompt, clusters
+        )
+        saved = clusters.get()
+        assert saved is not None
+        key = sy.auth.api_key_id(saved.options.api_key)
+        [record] = [k for k in client.auth.api_keys.retrieve() if k.key == key]
+        assert record.expires == sy.TimeStamp.MAX
+        delete_new_keys(client, before)
+
+    def test_key_lives_as_long_as_the_core_allows(
+        self,
+        clusters: Clusters,
+        login_info: tuple[str, int, str, str],
+        client: sy.Synnax,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Should save a key that expires at the Core's maximum key lifetime."""
+        monkeypatch.setattr(
+            AuthClient,
+            "retrieve_api_key_max_lifetime",
+            lambda _: sy.TimeSpan.DAY * 7,
+        )
+        host, port, username, password = login_info
+        before = {k.key for k in client.auth.api_keys.retrieve()}
+        start = sy.TimeStamp.now()
+        assert connect.login(
+            Scripted(host, port, username, password, "n").prompt, clusters
+        )
+        saved = clusters.get()
+        assert saved is not None
+        key = sy.auth.api_key_id(saved.options.api_key)
+        [record] = [k for k in client.auth.api_keys.retrieve() if k.key == key]
+        assert round(sy.TimeSpan(record.expires - start).days) == 7
         delete_new_keys(client, before)
 
     def test_replaces_previous_key(

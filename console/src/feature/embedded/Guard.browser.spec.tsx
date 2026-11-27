@@ -11,7 +11,7 @@ import { auth, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { testClientParams } from "@synnaxlabs/client/testutil";
 import { scheduler, sleep } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Embedded } from "@/feature/embedded";
 import {
@@ -234,9 +234,9 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should save a key that lives as long as the Core allows", async () => {
     await deleteKeysCreatedByTest(client);
-    vi.spyOn(auth.Client.prototype, "retrieveAPIKeyMaxLifetime").mockResolvedValue(
-      TimeSpan.days(7),
-    );
+    const limit = vi.spyOn(auth.Client.prototype, "retrieveAPIKeyMaxLifetime");
+    onTestFinished(() => limit.mockRestore());
+    limit.mockResolvedValue(TimeSpan.days(7));
     const { file, handlers } = createDiscoveryFile();
     mockSupervisor(() => live, handlers);
     const before = TimeStamp.now();
@@ -253,9 +253,9 @@ describe("Embedded.Guard API key for scripts", () => {
 
   it("should save a new key when the saved one expires", async () => {
     await deleteKeysCreatedByTest(client);
-    vi.spyOn(auth.Client.prototype, "retrieveAPIKeyMaxLifetime").mockResolvedValue(
-      TimeSpan.seconds(2),
-    );
+    const limit = vi.spyOn(auth.Client.prototype, "retrieveAPIKeyMaxLifetime");
+    onTestFinished(() => limit.mockRestore());
+    limit.mockResolvedValue(TimeSpan.seconds(2));
     const { file, handlers } = createDiscoveryFile();
     mockSupervisor(() => live, handlers);
     await renderGuard();

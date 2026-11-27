@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, status } from "@synnaxlabs/client";
+import { rack, status, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -335,7 +335,26 @@ describe("queries", () => {
       const created = await client.racks.retrieve({ name });
       const keys = await client.auth.apiKeys.retrieve([rack.resourceID(created.key)]);
       expect(keys).toHaveLength(1);
+      expect(keys[0].expires.equals(TimeStamp.MAX)).toBe(true);
       expect(token?.startsWith("syk_")).toBe(true);
+    });
+
+    it("should give the key the longest lifetime the Core allows", async () => {
+      const limited = createTestClient();
+      vi.spyOn(limited.auth, "retrieveAPIKeyMaxLifetime").mockResolvedValue(
+        TimeSpan.days(7),
+      );
+      const name = `rack-${id.create()}`;
+      const { result } = renderHook(() => Rack.useCreate(), {
+        wrapper: await createAsyncSynnaxWrapper({ client: limited }),
+      });
+      const before = TimeStamp.now();
+      await act(async () => {
+        expect(await result.current.updateAsync({ name })).toBe(true);
+      });
+      const created = await client.racks.retrieve({ name });
+      const [key] = await client.auth.apiKeys.retrieve([rack.resourceID(created.key)]);
+      expect(Math.round(before.span(key.expires).days)).toBe(7);
     });
 
     it("should delete the rack when its key cannot be created", async () => {
