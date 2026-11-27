@@ -92,7 +92,8 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
   spec per message: a stored channel has a data type, a data channel names an index, an
   index channel is of type timestamp and names no other index, and the named index
   exists and is an index. The existence check runs under the lock of §4.1 step 2. RFC
-  0120 Phase 44 drops the first check, and Phase 50 drops the rest.
+  0120 Phase 44 drops the check that a data channel names an index, and Phase 50 drops
+  the three index checks; the data type check stays.
 - **Channel lookup**: The framer reads channels from Cesium today. It gains a lookup
   that the channel service provides: for a key, the declared type (RFC 0120), the
   live-only flag, and the index key until RFC 0120 Phase 50 retires it. The framer opens
@@ -1263,27 +1264,30 @@ passes it to `Open`. A root that holds a head refuses the open when the caller h
 identity (`WithIdentity(0)`) or another one, so a lost record or a restored metadata
 backup never hides acked samples. The error names two ways on, each run with the Core
 stopped: `synnax repair --convert` after a real undo, and `synnax repair --adopt` after
-a lost or restored record. While a converting update has not committed, the Core runs
+a lost or restored record. A converting update is one whose From version is older than
+the first release that writes segments. While one has not committed, the Core runs
 `--convert` itself and raises a warning status, since it served nothing from the new
-layout, so `--convert` loses nothing (D-518); a crash between the commit point and the
-identity write is such a case. Each way on says what the other would keep and asks, and
-`--yes` skips the question. `--adopt` writes the newest head's identity to the metadata
-store. `--convert` renames every `.seg`, `.chk`, and `<key>/channel` file, then the root
-logs and parts, then the heads, to `<name>.<identity>.undone` inside its directory, with
-the identity of the undone database, so a second undo keeps the files of the first and a
-crash in the middle renames again. It syncs each directory, and the next start converts
-from the old files as they are now. A refused start of an update has already undone the
-update (RFC 0102), and neither way on is part of an update, so `synnax update retry`
-then goes on. A drop removes every file of its key's directory but the `.undone` files,
-so a channel that reuses an undone channel's key never deletes that telemetry. Telemetry
-that the new binary wrote is lost, so the new binary's `synnax update undo` across the
-conversion warns and asks before it runs; `--yes` skips the question, and with no answer
-or no terminal the undo refuses. The old binary's undo cannot ask: `Open` reports that
-it converted (`DB.Identity`), and once its status service opens the Core raises a
-warning status that names the cost of an undo. The release notes say it too. An update
-that keeps the Cesium formats backs up and restores no Cesium file: from Phase 8, a
-restore accepts a backup with no Cesium files and runs no `RestoreMeta` for it, and it
-still runs `RestoreMeta` for a backup from a release older than the first that writes
+layout, so `--convert` loses nothing (D-518). A crash between the commit point and the
+identity write is such a case: RFC 0102 undoes the update and waits for
+`synnax update retry` (`core/pkg/storage/update.go:124-143`), and the retried start runs
+`--convert`. Each way on says what the other would keep and asks, and `--yes` skips the
+question. `--adopt` writes the newest head's identity to the metadata store. `--convert`
+renames every `.seg`, `.chk`, and `<key>/channel` file, then the root logs and parts,
+then the heads, to `<name>.<identity>.undone` inside its directory, with the identity of
+the undone database, so a second undo keeps the files of the first and a crash in the
+middle renames again. It syncs each directory, and the next start converts from the old
+files as they are now. A refused start of an update has already undone the update (RFC
+0102), and neither way on is part of an update, so `synnax update retry` then goes on. A
+drop removes every file of its key's directory but the `.undone` files, so a channel
+that reuses an undone channel's key never deletes that telemetry. Telemetry that the new
+binary wrote is lost, so the new binary's `synnax update undo` across the conversion
+warns and asks before it runs; `--yes` skips the question, and with no answer or no
+terminal the undo refuses. The old binary's undo cannot ask: `Open` reports that it
+converted (`DB.Identity`), and once its status service opens the Core raises a warning
+status that names the cost of an undo. The release notes say it too. An update that
+keeps the Cesium formats backs up and restores no Cesium file: from Phase 8, a restore
+accepts a backup with no Cesium files and runs no `RestoreMeta` for it, and it still
+runs `RestoreMeta` for a backup from a release older than the first that writes
 segments. Its undo leaves the live state, and the start check of §4.1 handles the keys
 that the restored channel table does not hold. No background work rewrites or unlinks a
 version 0 file while a backup from a release older than the first that writes segments
@@ -1466,9 +1470,9 @@ layout, so each piece merges alone and leaves `main` green. Every other phase is
     delegation of D-518, each takes the most robust option, which keeps the Core
     operational (D-425). A clock with a record raises an error status, and no write
     reaches it (principle 5). An uncommitted conversion runs `--convert` with no step by
-    hand. D-419 stays the one refusal, since its two ways on keep different data.
-    Rejected: a refused start for each, which stops the Core for a fault that loses no
-    data once the framer refuses that channel.
+    hand beyond RFC 0102's `synnax update retry`. D-419 stays the one refusal, since its
+    two ways on keep different data. Rejected: a refused start for each, which stops the
+    Core for a fault that loses no data once the framer refuses that channel.
 
 ## 14 Open questions
 
