@@ -10,6 +10,7 @@
 import {
   access,
   channel as channelClient,
+  color,
   DataType,
   lineplot,
   log,
@@ -196,6 +197,7 @@ describe("channel/search", () => {
         name: uniqueName("policy"),
         objects: [
           channelClient.TYPE_RESOURCE_ID,
+          color.TYPE_RESOURCE_ID,
           log.TYPE_RESOURCE_ID,
           user.TYPE_RESOURCE_ID,
           access.role.TYPE_RESOURCE_ID,
