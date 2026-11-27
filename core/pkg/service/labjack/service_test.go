@@ -54,7 +54,8 @@ var _ = Describe("Service", func() {
 		for i := range models {
 			models[i].Key = uuid.New().String()
 			deviceKeys[models[i].Name] = models[i].Key
-			models[i].Rack, models[i].Make, models[i].Location = rackSvc.EmbeddedKey, "LabJack", "usb"
+			models[i].Rack = rackSvc.EmbeddedKey
+			models[i].Make, models[i].Location = "LabJack", "usb"
 		}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return devices.NewWriter(tx).CreateMany(ctx, &models)
