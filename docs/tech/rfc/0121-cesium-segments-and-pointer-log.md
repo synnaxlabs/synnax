@@ -129,7 +129,7 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    next open removes the files.
 5. At start, before a writer opens, the Core calls `Delete` for each note and clears it.
    It then reads `DB.Keys`: each key that Cesium holds data for, whether its intent is
-   live, and whether a kept segment of another key names it as its clock. Before any
+   live, and the other keys whose kept segments name it as their clock. Before any
    create, the channel service raises each key counter above the highest key of its own
    range that `Keys` returns: the channel counter over the local keys of the host's
    lease, and the clock counter over the clock range (RFC 0120 §4.0). So an undo to a
