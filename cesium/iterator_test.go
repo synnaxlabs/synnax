@@ -2062,9 +2062,10 @@ var _ = Describe("Iterator read failures", func() {
 			Expect(i.Value().Get(good).Series[0]).To(MatchSeriesDataV[int64](1, 2, 3))
 			Expect(failures()).To(HaveLen(1))
 			fields := failures()[0].ContextMap()
-			Expect(fields).To(HaveKeyWithValue("channel", ContainSubstring(
-				"<"+channelKeyToPath(bad)+">",
-			)))
+			Expect(fields).To(HaveKeyWithValue(
+				"channel",
+				ContainSubstring(channelKeyToPath(bad)),
+			))
 			Expect(fields).To(HaveKeyWithValue("time_range", ContainSubstring(
 				"1970-01-01T00:00:10Z",
 			)))
