@@ -1,0 +1,55 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package grpc.labjack_device;
+
+import "core/pkg/api/labjack/device/pb/labjack_device.proto";
+import "core/pkg/service/labjack/device/pb/labjack_device.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/labjack/device";
+
+service LabJackDeviceCreateService {
+  rpc Exec(CreateRequest) returns (CreateResponse);
+}
+
+service LabJackDeviceRetrieveService {
+  rpc Exec(api.labjack_device.pb.RetrieveRequest) returns (api.labjack_device.pb.RetrieveResponse);
+}
+
+service LabJackDeviceDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
+}
+
+service LabJackDeviceDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty);
+}
+
+message CreateRequest {
+  repeated service.labjack_device.pb.Device devices = 1;
+}
+
+message CreateResponse {
+  repeated service.labjack_device.pb.Device devices = 1;
+}
+
+message DeleteRequest {
+  repeated string keys = 1;
+}
+
+// DispatchRequest applies actions to one device.
+message DispatchRequest {
+  string key = 1;
+  string dispatch_key = 2;
+  // actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+  // route takes, such as {"type": "set", "set": {...}}.
+  repeated bytes actions = 3;
+}
