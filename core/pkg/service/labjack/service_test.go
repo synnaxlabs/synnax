@@ -16,11 +16,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -267,9 +271,39 @@ var _ = Describe("Service", func() {
 
 		It("Should lower a stored range above the largest range of the model on open",
 			func(ctx SpecContext) {
+				fresh := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(fresh.Run)
+				freshStatus := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+					DB: fresh,
+				}))
+				roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: fresh}))
+				racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+					DB:      fresh,
+					HostKey: 1,
+					Status:  freshStatus,
+					DriverRole: MustSucceed(
+						racktestutil.CreateDriverRole(ctx, fresh, roles),
+					),
+				}))
+				freshDevices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+					DB:     fresh,
+					Status: freshStatus,
+					Rack:   racks,
+				}))
+				t7 := device.Device{
+					Key:      uuid.New().String(),
+					Name:     "T7",
+					Model:    "LJM_dtT7",
+					Make:     "LabJack",
+					Location: "usb",
+					Rack:     racks.EmbeddedKey,
+				}
+				Expect(fresh.WithTx(ctx, func(tx gorp.Tx) error {
+					return freshDevices.NewWriter(tx).Create(ctx, &t7)
+				})).To(Succeed())
 				stored := v2.ReadConfig{
 					Key:    uuid.New(),
-					Device: deviceKeys["T7"],
+					Device: t7.Key,
 					Channels: []v2.ReadChannel{{
 						Variant: v2.AnalogReadChannel{
 							BaseReadChannel: v2.BaseReadChannel{
@@ -282,19 +316,11 @@ var _ = Describe("Service", func() {
 						},
 					}},
 				}
-				fresh := DeferClose(gorp.Wrap(memkv.New()))
-				StartRun(fresh.Run)
 				Expect(gorp.NewCreate[uuid.UUID, v2.ReadConfig]().
 					Entry(&stored).Exec(ctx, fresh)).To(Succeed())
-				var t7 device.Device
-				Expect(devices.NewRetrieve().
-					Where(device.MatchKeys(deviceKeys["T7"])).
-					Entry(&t7).Exec(ctx, db)).To(Succeed())
-				Expect(gorp.NewCreate[device.Key, device.Device]().
-					Entry(&t7).Exec(ctx, fresh)).To(Succeed())
 				MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 					DB:     fresh,
-					Device: devices,
+					Device: freshDevices,
 				}))
 				var got labjack.ReadConfig
 				Expect(gorp.NewRetrieve[uuid.UUID, labjack.ReadConfig]().
