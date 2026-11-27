@@ -48,6 +48,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 var (
@@ -62,7 +63,13 @@ var (
 	mqttSvc    *mqtt.Service
 	// host is the key of the Core that the services run on.
 	host node.Key
+	// limited makes channelSvc refuse each external channel that it retrieves, as past
+	// the channel limit.
+	limited atomic.Bool
 )
+
+// errChannelLimit is the error of a channel that limited refuses.
+var errChannelLimit = errors.New("channel limit exceeded")
 
 func TestMQTT(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -104,6 +111,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:      db,
 		HostKey: core.Identity.HostKey,
 		Status:  statusSvc,
+		Limit: func(types.Uint20) error {
+			if limited.Load() {
+				return errChannelLimit
+			}
+			return nil
+		},
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,
@@ -204,6 +217,24 @@ func (h *openHook) OnConnectAuthenticate(*mochi.Client, packets.Packet) bool {
 
 func (h *openHook) OnACLCheck(_ *mochi.Client, topic string, write bool) bool {
 	return write || !slices.Contains(h.refused, topic)
+}
+
+// refusingHook answers each connect with reason and closes the connection.
+type refusingHook struct {
+	mochi.HookBase
+	broker *testBroker
+	reason packets.Code
+}
+
+func (h *refusingHook) ID() string { return "refusing" }
+
+func (h *refusingHook) Provides(b byte) bool { return b == mochi.OnConnect }
+
+func (h *refusingHook) OnConnect(cl *mochi.Client, _ packets.Packet) error {
+	if err := h.broker.server.SendConnack(cl, h.reason, false, nil); err != nil {
+		return err
+	}
+	return h.reason
 }
 
 // unackedHook leaves the publishes on topic unanswered, so that each stays in flight,
@@ -347,6 +378,8 @@ type brokerOptions struct {
 	username, password string
 	// refused holds the topic filters that an open broker refuses to subscribe to.
 	refused []string
+	// refusal, when set, is the reason with which the broker refuses each connect.
+	refusal packets.Code
 	port    int
 }
 
@@ -374,6 +407,11 @@ func startBrokerWith(opts brokerOptions) *testBroker {
 				Allow:    true,
 			}}},
 		})).To(Succeed())
+	}
+	if opts.refusal != (packets.Code{}) {
+		Expect(b.server.AddHook(
+			&refusingHook{broker: b, reason: opts.refusal}, nil,
+		)).To(Succeed())
 	}
 	Expect(b.server.AddHook(&connectHook{broker: b}, nil)).To(Succeed())
 	tcp := newTCPListener(listeners.Config{

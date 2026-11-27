@@ -101,7 +101,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{resolver: readResolver{
 		icds:     cfg.ICD,
 		channels: channels,
-		create:   createICD(cfg.ICD),
 		reads:    read.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}}
@@ -125,17 +124,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Instrumentation: cfg.Instrumentation,
 			Type:            WriteTaskType,
 			Ladder:          versions.WriteConfigLadder,
-			Migrations: []gorp.Migration{
-				v1.WriteMigration,
-				v1.WriteStageMigration,
-			},
-			SetEntryKey:    (*WriteConfig).SetKey,
-			PatchEntry:     (*WriteConfig).Patch,
-			HashEntry:      (*WriteConfig).HashContent,
-			HashReferences: s.writes.hash,
-			HashedTables:   []string{"icd"},
-			ResolveEntry:   s.writes.resolve,
-			ValidateEntry:  (*WriteConfig).Validate,
+			Migrations:      []gorp.Migration{v1.WriteMigration},
+			SetEntryKey:     (*WriteConfig).SetKey,
+			PatchEntry:      (*WriteConfig).Patch,
+			HashEntry:       (*WriteConfig).HashContent,
+			HashReferences:  s.writes.hash,
+			HashedTables:    []string{"icd"},
+			ResolveEntry:    s.writes.resolve,
+			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

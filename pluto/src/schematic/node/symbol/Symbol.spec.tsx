@@ -48,6 +48,12 @@ const createCoreWrapper = (core: SyntheticCore): FC<PropsWithChildren> =>
 // The light theme of the wrapper shows #abcdef as #a0c2e3.
 const COLOR = { type: "fixed" as const, value: "#abcdef" };
 const FILLED = "[fill='#a0c2e3']";
+const FILLED_SOLID = `.pluto--solid${FILLED}`;
+const STROKED = "rgb(160, 194, 227)";
+const RED_PAINT = {
+  type: "color",
+  value: { type: "fixed", value: "#ff0000" },
+} as const;
 
 // Every sample of the synthetic Core reads as 1 through this match.
 const WITHIN = { type: "within" as const, bounds: { lower: -2, upper: 2 } };
@@ -80,7 +86,7 @@ const createCustomSymbol = async (
   const client = createTestClient();
   const { key } = await client.schematics.symbols.create({
     name: "Custom",
-    data: { drawing: { type: "svg", markup }, variant: "static", ...data },
+    data: { drawing: { type: "svg", markup }, ...data },
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
@@ -199,7 +205,6 @@ describe("Symbol node", () => {
       name: "Pair",
       data: {
         drawing: { type: "svg", markup: MARKUP },
-        variant: "static",
         states: [state("a"), state("b")],
         commands: [open("openA", "a"), open("openB", "b"), open("vent")],
       },
@@ -497,6 +502,142 @@ describe("Symbol node", () => {
       expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(0));
       expect(right.classList).not.toContain(PRESSED);
     });
+  });
+
+  it.each(["filter", "light", "thruster"])(
+    "should stroke the built-in %s in the node color",
+    async (name) => {
+      const { container } = renderNode({
+        spec: { type: "builtin", name },
+        color: COLOR,
+      });
+      await vi.waitFor(() =>
+        expect(container.querySelector<SVGElement>("path, circle")?.style.stroke).toBe(
+          STROKED,
+        ),
+      );
+    },
+  );
+
+  it.each([
+    ["t_junction", "path.pluto--solid"],
+    ["flowmeter_orifice", "text"],
+  ])(
+    "should not stroke a shape of %s with no stroke of its own in a colored node",
+    async (name, selector) => {
+      const { container } = renderNode({
+        spec: { type: "builtin", name },
+        color: COLOR,
+      });
+      await vi.waitFor(() =>
+        expect(container.querySelector(FILLED_SOLID)).not.toBeNull(),
+      );
+      expect(container.querySelector<SVGElement>(selector)?.style.stroke).toBe("");
+    },
+  );
+
+  it("should keep the contrast detail lines of a running pump in a colored node", async () => {
+    const { container } = renderNode({
+      spec: { type: "builtin", name: "pump" },
+      color: COLOR,
+      states: [{ key: "active", source: { type: "local", value: 1 } }],
+    });
+    await vi.waitFor(() => {
+      const details = container.querySelectorAll<SVGElement>(".pluto--detail");
+      expect(details.length).toBeGreaterThan(0);
+      details.forEach((el) =>
+        expect(el.style.stroke).not.toMatch(/^$|^rgb\(160, 194, 227\)$/),
+      );
+    });
+  });
+
+  it("should stroke a valve in the color of its entry in a colored node", async () => {
+    const client = createTestClient();
+    const { key: enumeration } = await client.enumerations.create({
+      name: "Colored valve",
+      entries: [
+        { key: "closed", value: 0, name: "Closed" },
+        {
+          key: "open",
+          value: 1,
+          name: "Open",
+          color: { type: "fixed", value: "#00ff00" },
+        },
+      ],
+    });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const { container } = renderNode(
+      {
+        spec: { type: "builtin", name: "valve" },
+        color: COLOR,
+        states: [{ key: "active", source: { type: "local", value: 1 }, enumeration }],
+      },
+      Wrapper,
+    );
+    // The light theme shows #00ff00 as #00e800.
+    await vi.waitFor(() =>
+      expect(container.querySelector<SVGElement>("path")?.style.stroke).toBe(
+        "rgb(0, 232, 0)",
+      ),
+    );
+  });
+
+  it("should keep the look strokes of a custom symbol in a colored node", async () => {
+    const { key, Wrapper } = await createCustomSymbol(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect class="body" /></svg>',
+      {
+        parts: [{ key: "body", name: "Body", selectors: [".body"] }],
+        looks: [
+          {
+            key: "red",
+            part: "body",
+            stroke: RED_PAINT,
+          },
+        ],
+      },
+    );
+    const { container } = renderNode(
+      { spec: { type: "custom", key }, color: COLOR },
+      Wrapper,
+    );
+    await vi.waitFor(() =>
+      expect(container.querySelector<SVGElement>("rect.body")?.style.stroke).not.toBe(
+        "",
+      ),
+    );
+    expect(container.querySelector("svg")?.getAttribute("style")).not.toContain(
+      "--pluto-symbol-color",
+    );
+  });
+
+  it.each<[string, Partial<z.input<typeof schematic.symbol.specZ>>, string]>([
+    [
+      "should not stroke a shape with stroke none from a whole-drawing look",
+      { parts: [], looks: [{ key: "stroke", stroke: RED_PAINT }] },
+      ".line",
+    ],
+    [
+      "should stroke a shape with stroke none from a look on its part",
+      {
+        parts: [{ key: "body", name: "Body", selectors: [".body"] }],
+        looks: [{ key: "body", part: "body", stroke: RED_PAINT }],
+      },
+      ".body",
+    ],
+  ])("%s", async (_, data, stroked) => {
+    const { key, Wrapper } = await createCustomSymbol(
+      '<svg xmlns="http://www.w3.org/2000/svg"><rect class="body" stroke="none" />' +
+        '<path class="line" d="M0 0L1 1" /></svg>',
+      data,
+    );
+    const { container } = renderNode({ spec: { type: "custom", key } }, Wrapper);
+    const stroke = (selector: string) =>
+      container.querySelector<SVGElement>(selector)?.style.stroke;
+    await vi.waitFor(() => expect(stroke(stroked)).not.toBe(""));
+    expect(stroke(stroked === ".line" ? ".body" : ".line")).toBe("");
   });
 
   it("should draw a state with no source at its default", async () => {

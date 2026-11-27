@@ -108,21 +108,17 @@ var _ = Describe("MigrateReadConfig", func() {
 })
 
 var _ = Describe("MigrateReadEndpoint", func() {
-	It("Should keep the request and fields of an endpoint, with no ICD",
-		func(ctx SpecContext) {
-			old := storedConfig().Endpoints[0]
-			ep := MustSucceed(v5.MigrateReadEndpoint(ctx, old))
-			Expect(ep.Key).To(Equal("ep1"))
-			Expect(ep.Method).To(Equal(v4.MethodPost))
-			Expect(ep.Path).To(Equal("/values"))
-			Expect(ep.Headers).To(Equal(old.Headers))
-			Expect(ep.Body).To(Equal(`{"all":true}`))
-			Expect(ep.Fields).To(Equal(old.Fields))
-			Expect(ep.Index).To(Equal("t"))
-			Expect(ep.ICD).To(BeNil())
-			Expect(ep.Messages).To(BeEmpty())
-		},
-	)
+	It("Should keep the request of an endpoint, with no ICD", func(ctx SpecContext) {
+		old := storedConfig().Endpoints[0]
+		ep := MustSucceed(v5.MigrateReadEndpoint(ctx, old))
+		Expect(ep.Key).To(Equal("ep1"))
+		Expect(ep.Method).To(Equal(v4.MethodPost))
+		Expect(ep.Path).To(Equal("/values"))
+		Expect(ep.Headers).To(Equal(old.Headers))
+		Expect(ep.Body).To(Equal(`{"all":true}`))
+		Expect(ep.ICD).To(BeNil())
+		Expect(ep.Messages).To(BeEmpty())
+	})
 })
 
 var _ = Describe("StagedFieldsKVKey", func() {
@@ -271,8 +267,6 @@ var _ = Describe("MigrateWriteConfig", func() {
 			Expect(ep.Method).To(Equal(v4.MethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
 			Expect(ep.Headers).To(Equal(old.Endpoints[0].Headers))
-			Expect(ep.Channel).To(Equal(old.Endpoints[0].Channel))
-			Expect(ep.Fields).To(Equal(old.Endpoints[0].Fields))
 			Expect(ep.ICD).To(BeNil())
 			Expect(ep.Message).To(BeNil())
 			Expect(cfg.Endpoints[1].Disabled).To(BeTrue())
@@ -287,7 +281,7 @@ var _ = Describe("MigrateWriteConfig", func() {
 })
 
 var _ = Describe("MigrateWriteEndpoint", func() {
-	It("Should keep the request, channel, and fields of an endpoint, with no ICD",
+	It("Should keep the request of an endpoint, with no ICD",
 		func(ctx SpecContext) {
 			old := storedWriteConfig().Endpoints[0]
 			ep := MustSucceed(v5.MigrateWriteEndpoint(ctx, old))
@@ -295,8 +289,6 @@ var _ = Describe("MigrateWriteEndpoint", func() {
 			Expect(ep.Method).To(Equal(v4.MethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
 			Expect(ep.Headers).To(Equal(old.Headers))
-			Expect(ep.Channel).To(Equal(old.Channel))
-			Expect(ep.Fields).To(Equal(old.Fields))
 			Expect(ep.Disabled).To(BeFalse())
 			Expect(ep.ICD).To(BeNil())
 			Expect(ep.Message).To(BeNil())

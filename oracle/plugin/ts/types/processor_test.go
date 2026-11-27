@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("FieldProcessor", func() {
@@ -93,7 +94,6 @@ var _ = Describe("FieldProcessor", func() {
 				fp := &types.FieldProcessor{
 					Imports:    mgr,
 					Namespace:  "schema",
-					FilePath:   board.FilePath,
 					OutputPath: "client/ts/src/schema",
 					Request:    req,
 				}
@@ -109,6 +109,42 @@ var _ = Describe("FieldProcessor", func() {
 	})
 
 	Describe("CollectTypeImports", func() {
+		It("Should import a type of another schema on its output from the types file",
+			func() {
+				loader.Add("schemas/thing", `
+					@ts output "client/ts/src/thing"
+
+					Tile struct {
+						key string
+					}
+				`)
+				req := MustGenerateRequest(`
+					import "schemas/thing"
+
+					@ts output "client/ts/src/thing"
+
+					Board struct {
+						tile thing.Tile
+					}
+				`, "board", loader)
+				board := req.Resolutions.MustGet("board.Board")
+				tile := MustBeOk(
+					resolution.MustForm[resolution.StructForm](board).Field("tile"),
+				)
+				fp := &types.FieldProcessor{
+					Imports:    mgr,
+					Namespace:  "board",
+					OutputPath: "client/ts/src/thing",
+					Request:    req,
+				}
+				Expect(fp.ProcessField(tile, board).ZodType).To(Equal("tileZ"))
+				fp.CollectTypeImports(&tile.Type)
+				internal := mgr.InternalNamedImports()
+				Expect(internal).To(HaveLen(1))
+				Expect(internal[0].Names).To(ConsistOf("tileZ"))
+			},
+		)
+
 		It("Should be a no-op for type parameters", func() {
 			fp := &types.FieldProcessor{
 				Imports:    mgr,
@@ -145,7 +181,6 @@ var _ = Describe("FieldProcessor", func() {
 			fp := &types.FieldProcessor{
 				Imports:    mgr,
 				Namespace:  "schema",
-				FilePath:   board.FilePath,
 				OutputPath: "client/ts/src/schema",
 				Request:    req,
 			}

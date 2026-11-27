@@ -25,7 +25,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, map, primitive, unique } from "@synnaxlabs/x";
+import { DataType, deep, map, primitive } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -40,7 +40,6 @@ import {
 } from "react";
 
 import { Device } from "@/feature/mqtt/device";
-import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import {
@@ -49,7 +48,7 @@ import {
   type TopicPick,
 } from "@/feature/mqtt/task/discover/Topics";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
-import { EntryItem, EntryLabel } from "@/feature/mqtt/task/EntryLabel";
+import { describeMissing, EntryItem, EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -132,7 +131,7 @@ const createDraft = (
   index?: string,
   present?: string,
 ): Draft => {
-  const fields = ICD.createFields(leaves);
+  const fields = ICD.createReadFields(leaves);
   return {
     type: "plain",
     topic,
@@ -157,7 +156,7 @@ const draftsOf = (topic: string, pick: TopicPick): Draft[] => {
     createDraft(topic, pickedLeaves(p), p.index, p.shape.present),
   );
   for (const [read, picks] of extended) {
-    const leaves = unique.by(picks.flatMap(pickedLeaves), ({ pointer }) => pointer);
+    const leaves = ICD.mergeFields(picks.flatMap(pickedLeaves));
     const index = picks.find((p) => p.index != null)?.index;
     drafts.push({ ...createDraft(topic, leaves, index), read });
   }
@@ -228,34 +227,6 @@ const splitStored = (
       .map((entry) => ({ ...storedSource(entry), disabled: entry.disabled })),
   );
 
-/** Inserts entries into the lists of one ICD. */
-type Inserter = Pick<ICD.FormatForm, "insert">;
-
-/**
- * Appends each field whose pointer the message lacks.
- * @returns the fields it appends.
- */
-const appendFields = (
-  to: Inserter,
-  message: icd.Message,
-  fields: icd.JSONField[],
-): icd.JSONField[] => {
-  const held = ICD.jsonFields(message);
-  const pointers = new Set(held.map(({ pointer }) => pointer));
-  const added = fields.filter(({ pointer }) => !pointers.has(pointer));
-  const names = ICD.fieldNames(
-    added.map(({ pointer }) => pointer),
-    held.map(({ name }) => name),
-  );
-  const appended = added.map((field, i) => ({ ...field, name: names[i] }));
-  let after = held.at(-1)?.key;
-  for (const field of appended) {
-    to.insert(ICD.fieldsPath(message.key), field, after);
-    after = field.key;
-  }
-  return appended;
-};
-
 /** @returns a message for the fields of a draft, named after its topic and kind. */
 const createMessage = (
   { topic, fields, present }: Draft,
@@ -306,10 +277,6 @@ type Bind = (
   message: icd.MessageKey,
 ) => icd.ReadBinding[];
 
-/** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string =>
-  name.trim() === "" ? DEFAULT_READ_NAME : name;
-
 /** Creates an ICD with a message for each draft, and the entries that read them. */
 const createICD = async (
   client: Synnax,
@@ -358,7 +325,7 @@ const addTopics = async ({
 }: AddTopicsParams): Promise<AddTopicsResult> => {
   const messages = await readMessages(client, format, entries);
   const actions = new Map<icd.Key, icd.Action[]>();
-  const inserterOf = (key: icd.Key): Inserter => {
+  const inserterOf = (key: icd.Key): ICD.Inserter => {
     if (key === format.key) return format.form;
     const pending = map.getOrInsert(actions, key, () => []);
     return {
@@ -378,7 +345,7 @@ const addTopics = async ({
           ? undefined
           : ICD.messageOf(messages, entry, read);
       if (entry != null && message != null) {
-        const appended = appendFields(inserterOf(key), message, draft.fields);
+        const appended = ICD.appendFields(inserterOf(key), message, draft.fields);
         result.held.push({
           key: entry.key,
           read,
@@ -437,10 +404,7 @@ const useMessageProps = (
         read,
       )?.index ?? 0,
     sourceLabel: "Arrival time",
-    missingDescription:
-      read === 0
-        ? "The ICD has no message for this topic. Add data to make one."
-        : "The ICD no longer has this message. Remove it from the topic.",
+    missingDescription: describeMissing(read),
   };
 };
 
@@ -682,6 +646,7 @@ const Entries: FC<EntriesProps> = ({
     sourceOf: (e) => (isPlain(e) ? e : null),
     pathOf: plainPath,
     SourceItem,
+    missingDescription: describeMissing,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless another field reads it. A topic that reads one message also reuses the
     // channels of its earlier messages, so a new message format keeps its channels.
@@ -744,7 +709,7 @@ const Entries: FC<EntriesProps> = ({
       drafts.length === 0
         ? { added: [], held: [] }
         : home == null || format == null
-          ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
+          ? await createICD(client, device.name, drafts, bind)
           : await addTopics({
               client,
               format: { key: home, form: format },
@@ -939,8 +904,8 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
       props: device.properties.read[sparkplugPropertiesKey(entry)],
     })),
   ];
-  const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
-    const plan = await planRead(client, device, bound, tags, entries, signal);
+  const plans = Task.useChannelPlans<SourcePlan>(sources, (planner) => {
+    const plan = planRead(planner, device, bound, tags, entries);
     return [
       ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
       ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
@@ -1024,28 +989,24 @@ interface ReadPlan {
 
 /**
  * Plans the channels of each message and then each tag, in deploy order with one
- * namer. A message plans with the channels that entries bind and that earlier messages
- * keep, so it leaves a stored channel that another binding writes. Reads from the Core
- * alone, and changes no argument. Throws between sources once signal aborts.
+ * planner. A message plans with the channels that entries bind and that earlier
+ * messages keep, so it leaves a stored channel that another binding writes. Changes no
+ * argument.
  */
-const planRead = async (
-  client: Synnax,
+const planRead = (
+  planner: Task.Planner,
   dev: Pick<Device.Device, "name" | "properties">,
   bound: ICD.BoundMessage<PlainReadEntry>[],
   tags: SparkplugReadEntry[],
   entries: ReadEntry[],
-  signal?: AbortSignal,
-): Promise<ReadPlan> => {
-  const namer = Task.createNamer(client);
+): ReadPlan => {
   const kept = writtenChannels(entries);
   const stored = splitStored(dev.properties.read, entries);
   const messages: ICD.MessagePlan[] = [];
   for (const b of bound) {
-    signal?.throwIfAborted();
     const { source: entry, read: r } = b;
-    const plan = await ICD.planMessage(
-      client,
-      namer,
+    const plan = ICD.planMessage(
+      planner,
       b,
       namePrefix(dev.name, entry.topic),
       ICD.Stored.of(stored, storedSource(entry), r),
@@ -1055,21 +1016,16 @@ const planRead = async (
     ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
     messages.push(plan);
   }
-  const plans: Task.ReadChannelPlan[] = [];
-  for (const entry of tags) {
-    signal?.throwIfAborted();
+  const plans = tags.map((entry) => {
     const field = tagField(dev.name, entry);
-    plans.push(
-      await Task.planReadChannels({
-        client,
-        namer,
-        props: dev.properties.read[sparkplugPropertiesKey(entry)],
-        fields: [field],
-        namePrefix: field.name,
-        indexKey: "",
-      }),
-    );
-  }
+    return Task.planReadChannels({
+      planner,
+      props: dev.properties.read[sparkplugPropertiesKey(entry)],
+      fields: [field],
+      namePrefix: field.name,
+      indexKey: "",
+    });
+  });
   return { messages, tags: plans };
 };
 
@@ -1129,7 +1085,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     // disabled or a create below fails.
     dev.properties.read = splitStored(dev.properties.read, config.entries);
     const tags = enabled.filter((e) => e.type === "sparkplug");
-    const plan = await planRead(client, dev, bound, tags, config.entries);
+    const plan = await Task.planChannels(client, (planner) =>
+      planRead(planner, dev, bound, tags, config.entries),
+    );
     for (const [i, message] of bound.entries())
       await applyMessage(client, dev, message, plan.messages[i]);
     for (const [i, entry] of tags.entries())

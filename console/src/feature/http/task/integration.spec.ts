@@ -9,17 +9,11 @@
 
 import { uuid } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import type { FLAGS } from "@/flags";
 
-vi.mock("@/flags/flags", async (importOriginal) => ({
-  ...(await importOriginal<typeof FLAGS>()),
-  icds: false,
-}));
-
-describe("plotChannels with the ICD flag off", () => {
+describe("plotChannels", () => {
   it("should find the bound channels of the messages of each enabled endpoint", () => {
     const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");

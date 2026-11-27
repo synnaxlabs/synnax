@@ -12,6 +12,7 @@
 package modbus
 
 import (
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -89,6 +90,45 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case CoilReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case DiscreteInputReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case HoldingRegisterReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case InputRegisterReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case HoldingRegisterStringReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case InputRegisterStringReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case HoldingRegisterBitReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case InputRegisterBitReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i3 := range e.Channels {
@@ -236,6 +276,25 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case CoilWriteChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case HoldingRegisterWriteChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case HoldingRegisterBitWriteChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Channels {

@@ -21,9 +21,11 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -56,6 +58,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to 50.
 	DemandBufferSize int
+	// RestartInterval is how long the relay waits before it restarts a goroutine that
+	// panicked.
+	//
+	// [OPTIONAL] - Defaults to 1 second.
+	RestartInterval telem.TimeSpan
 }
 
 var (
@@ -68,6 +75,7 @@ var (
 		// 72 B * 1000 = 72 kB
 		ResponseBufferSize: 1000,
 		DemandBufferSize:   50,
+		RestartInterval:    telem.Second,
 	}
 )
 
@@ -84,6 +92,7 @@ func (c Config) Override(other Config) Config {
 		other.ResponseBufferSize,
 	)
 	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
+	c.RestartInterval = override.Numeric(c.RestartInterval, other.RestartInterval)
 	return c
 }
 
@@ -94,6 +103,7 @@ func (c Config) Validate() error {
 	v.Positive("streamer_buffer_size", c.StreamerBufferSize)
 	v.Positive("response_buffer_size", c.ResponseBufferSize)
 	v.Positive("demand_buffer_size", c.DemandBufferSize)
+	v.Positive("restart_interval", c.RestartInterval)
 	return v.Error()
 }
 
@@ -106,22 +116,11 @@ type Relay struct {
 	tapper  confluence.Segment[demand, Response]
 	delta   *delta
 	// stopped closes when Run returns, or on a Close without a Run.
-	stopped   chan struct{}
-	lifecycle struct {
-		sync.Mutex
-		state runState
-	}
-	cfg Config
+	stopped chan struct{}
+	stop    func()
+	guard   lifetime.Guard
+	cfg     Config
 }
-
-type runState uint8
-
-const (
-	runIdle runState = iota
-	runRunning
-	runStopped
-	runClosed
-)
 
 // Open opens a Relay. It starts no goroutines: streamers wait for Run to start.
 func Open(configs ...Config) (*Relay, error) {
@@ -136,6 +135,7 @@ func Open(configs ...Config) (*Relay, error) {
 		delta:   newDelta(cfg.Instrumentation),
 		stopped: make(chan struct{}),
 	}
+	r.stop = sync.OnceFunc(func() { close(r.stopped) })
 	demands := confluence.NewStream[demand](cfg.DemandBufferSize)
 	demands.SetOutletAddress("demands")
 	r.tapper.InFrom(demands)
@@ -152,23 +152,11 @@ func Open(configs ...Config) (*Relay, error) {
 // and free writes, drops every streamer, and returns. A streamer that runs after Run
 // returns fails. A second Run, or a Run after Close, returns an error.
 func (r *Relay) Run(ctx context.Context) error {
-	r.lifecycle.Lock()
-	if r.lifecycle.state == runClosed {
-		r.lifecycle.Unlock()
-		return errors.New("run called after close")
+	if err := r.guard.Begin(); err != nil {
+		return err
 	}
-	if r.lifecycle.state != runIdle {
-		r.lifecycle.Unlock()
-		return errors.New("run called twice")
-	}
-	r.lifecycle.state = runRunning
-	r.lifecycle.Unlock()
-	defer func() {
-		r.lifecycle.Lock()
-		r.lifecycle.state = runStopped
-		close(r.stopped)
-		r.lifecycle.Unlock()
-	}()
+	defer r.guard.End()
+	defer r.stop()
 	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(r.ins))
 	defer cancel()
 	r.delta.Flow(
@@ -176,6 +164,7 @@ func (r *Relay) Run(ctx context.Context) error {
 		confluence.WithAddress("delta"),
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
+		confluence.WithBaseRetryInterval(r.cfg.RestartInterval.Duration()),
 	)
 	r.tapper.Flow(
 		sCtx,
@@ -183,6 +172,7 @@ func (r *Relay) Run(ctx context.Context) error {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 		confluence.WithRetryOnPanic(),
+		confluence.WithBaseRetryInterval(r.cfg.RestartInterval.Duration()),
 	)
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
@@ -194,15 +184,10 @@ func (r *Relay) Stopped() <-chan struct{} { return r.stopped }
 
 // nothing.
 func (r *Relay) Close() error {
-	r.lifecycle.Lock()
-	defer r.lifecycle.Unlock()
-	if r.lifecycle.state == runRunning {
-		return errors.New("close called while Run runs")
+	if _, err := r.guard.Close(); err != nil {
+		return err
 	}
-	if r.lifecycle.state == runIdle {
-		r.lifecycle.state = runClosed
-		close(r.stopped)
-	}
+	r.stop()
 	return nil
 }
 

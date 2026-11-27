@@ -16,9 +16,18 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { compare, id, json, search, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
+import {
+  compare,
+  id,
+  json,
+  type payload,
+  search,
+  TimeSpan,
+  TimeStamp,
+  unique,
+} from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { Device } from "@/feature/kafka/device";
 import {
@@ -276,16 +285,20 @@ const rebase = (
   return withTopic(picks, topic, shapes, kept);
 };
 
-/** @returns the value that a pane shows for a field of a shape. */
+/**
+ * @returns the value that a pane shows for a field of a shape, as a field of the given
+ * kind.
+ */
 const valueOf = (
   key: string,
   field: json.InferredField,
+  kind: payload.Kind,
   newest: unknown[],
 ): ICD.Picker.Value => ({
   key,
   name: field.pointer === "" ? "Whole value" : field.pointer,
   sample: show(newestValue(newest, field.pointer)),
-  dataType: ICD.DEFAULT_DATA_TYPES[field.kind],
+  dataType: ICD.VALUE_TYPES[kind],
 });
 
 /**
@@ -355,7 +368,7 @@ const TopicValues = ({
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;
-        return { ...valueOf(key, f, newest), lock };
+        return { ...valueOf(key, f, ICD.readKind(f), newest), lock };
       }),
     };
   });
@@ -414,7 +427,7 @@ const WholeValues = ({
   label,
 }: WholeValuesProps) => {
   const newest = newestFirst(sample, shape);
-  const values = shape.fields.map((f) => valueOf(f.pointer, f, newest));
+  const values = shape.fields.map((f) => valueOf(f.pointer, f, f.kind, newest));
   return (
     <>
       <ICD.Picker.PaneHeader title={name} note={note} />
@@ -460,11 +473,13 @@ const Content = ({
   const [picks, setPicks] = useState<Map<string, TopicPick>>(() => new Map());
   const [wholePicks, setWholePicks] = useState<WholePicks>(() => new Map());
   const [format, setFormat] = useState<Format | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const { result, listen, follow, reads } = ICD.Picker.useListen<Listing, Sample>(
     async (client) => {
       const answer = await browseTopics(client, device);
       return { ...answer, key: id.create(), listedAt: TimeStamp.now() };
     },
+    { message: "Failed to list topics", name: device.name },
     [device.key],
   );
   const listing = result.data;
@@ -525,6 +540,9 @@ const Content = ({
 
   const trimmed = term.trim();
   const visible = entries.filter(({ name }) => search.matches(name, trimmed));
+  // The pane shows the active topic only while the list shows it.
+  const shown =
+    activeEntry != null && visible.includes(activeEntry) ? activeEntry : null;
   const items = visible.map((entry): ICD.Picker.TreeItem => {
     const { name, listed: topic } = entry;
     const sample = reads.get(name);
@@ -607,8 +625,13 @@ const Content = ({
   let emptyMessage = "The cluster has no topics.";
   if (trimmed !== "") emptyMessage = `No topic matches “${trimmed}”.`;
   else if (listing == null) emptyMessage = "Search for a topic to read it by name.";
+  const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
+  const addTerm = `${kind.verb} “${trimmed}”`;
+  // The tree shows its empty content once a browse answers.
+  const answered = listing != null || browseFailed;
+  const termInEmpty = unknownTerm && answered && visible.length === 0;
   let tree: ReactNode;
-  if (listing != null || browseFailed)
+  if (answered)
     tree = (
       <ICD.Picker.Tree
         key={listing?.key ?? "unlisted"}
@@ -617,19 +640,25 @@ const Content = ({
         active={active}
         onActivate={setSelected}
         onPick={(topic) => void handlePick(topic)}
-        emptyContent={<ICD.Picker.Notice message={emptyMessage} />}
+        emptyContent={
+          <ICD.Picker.Notice
+            message={emptyMessage}
+            action={termInEmpty ? addTerm : undefined}
+            onClick={handleTerm}
+          />
+        }
       />
     );
   else tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
 
-  const activeTopic = activeEntry?.listed ?? null;
+  const activeTopic = shown?.listed ?? null;
   const fill = whole ? NO_FIELDS : ADD_EMPTY;
   let pane: ReactNode;
-  if (activeEntry == null && browseFailed)
+  if (shown == null && browseFailed)
     pane = <Status.Summary center status={result.status} />;
-  else if (activeEntry == null && listing == null)
+  else if (shown == null && listing == null)
     pane = <ICD.Picker.PaneSkeleton noun="Field" />;
-  else if (activeEntry == null)
+  else if (shown == null)
     pane = <ICD.Picker.Notice message="Select a topic to see its records." />;
   else if (whole && format != null)
     pane = (
@@ -642,9 +671,9 @@ const Content = ({
   else if (activeTopic != null && !holdsRecords(activeTopic))
     pane = <ICD.Picker.Notice message={`${NO_RECORDS} ${fill}`} />;
   else if (activeSample == null || activeSample.variant === "loading")
-    pane = <ICD.Picker.PaneSkeleton noun="Field" title={activeEntry.name} />;
+    pane = <ICD.Picker.PaneSkeleton noun="Field" title={shown.name} />;
   else if (activeSample.variant === "error" && whole) {
-    const topic = activeEntry.name;
+    const topic = shown.name;
     pane = (
       <Flex.Box center>
         <Flex.Box y align="start" gap="medium">
@@ -659,7 +688,7 @@ const Content = ({
   } else if (activeSample.variant === "error")
     pane = <Status.Summary center status={activeSample.status} />;
   else if (activeSample.data.shapes.length > 0) {
-    const topic = activeEntry.name;
+    const topic = shown.name;
     const { data } = activeSample;
     const warning = [
       activeTopic == null || activeTopic.error === ""
@@ -725,7 +754,6 @@ const Content = ({
   const count = whole
     ? wholePicks.size
     : [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
-  const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
   const finish = (record: string | null) =>
     close({
       topics: [...picks.values()].sort(compare.by(({ topic }) => topic)),
@@ -736,20 +764,15 @@ const Content = ({
       format,
     });
 
-  let sideAction: ReactNode = null;
-  if (unknownTerm)
-    sideAction = (
-      <ICD.Picker.SideAction onClick={handleTerm}>
-        {`${kind.verb} “${trimmed}”`}
-      </ICD.Picker.SideAction>
-    );
-  else if (
+  let emptyRecord: ReactNode = null;
+  if (
+    !unknownTerm &&
     !whole &&
-    activeEntry != null &&
+    shown != null &&
     (activeTopic == null || activeTopic.readable)
   )
-    sideAction = (
-      <ICD.Picker.SideAction onClick={() => finish(activeEntry.name)}>
+    emptyRecord = (
+      <ICD.Picker.SideAction onClick={() => finish(shown.name)}>
         Add an empty record
       </ICD.Picker.SideAction>
     );
@@ -766,12 +789,20 @@ const Content = ({
         />
         <ICD.Picker.Side>
           <ICD.Picker.Search
+            ref={searchRef}
             value={term}
             onChange={setTerm}
             placeholder="Search topics"
           />
           <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
-          {sideAction}
+          {!termInEmpty && (
+            <ICD.Picker.SideAction
+              onClick={unknownTerm ? handleTerm : () => searchRef.current?.focus()}
+            >
+              {unknownTerm ? addTerm : `${kind.verb} a topic by name`}
+            </ICD.Picker.SideAction>
+          )}
+          {emptyRecord}
           {whole && (
             <Flex.Box y empty className={CSS.BE("kafka-discover", "format")}>
               <ICD.MessageFormatField

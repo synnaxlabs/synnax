@@ -35,14 +35,18 @@ type options struct {
 	gcCfg     GCConfig
 	fileSize  telem.Size
 	chunkSize int64
+	// restartInterval is how long the garbage collector waits before it restarts after
+	// a panic.
+	restartInterval time.Duration
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
 
 func newOptions(dirname string, opts ...Option) (*options, error) {
 	o := &options{
-		dirname:   dirname,
-		chunkSize: defaultChunkSize,
+		dirname:         dirname,
+		chunkSize:       defaultChunkSize,
+		restartInterval: time.Second,
 	}
 	for _, opt := range opts {
 		opt(o)

@@ -136,7 +136,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         auto [synnax_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            cfg.field_err("channels", ch_err.data);
+            cfg.field_err("channels", ch_err.data());
             return;
         }
 
@@ -220,13 +220,14 @@ class ReadTaskSource final : public common::Source {
                     c.index,
                     sub_indexes[i]
                 );
-                if (err) {
-                    err.data = errors::sentence(
-                        "Failed to read the calibration of channel " + ch->ch.name +
-                        ": " + err.data
-                    );
-                    return err;
-                }
+                if (err)
+                    return {
+                        err,
+                        errors::sentence(
+                            "Failed to read the calibration of channel " + ch->ch.name +
+                            ": " + err.data()
+                        ),
+                    };
                 values[i] = std::bit_cast<float>(bits);
             }
             const auto [slope, offset] = c.line(values[0], values[1]);

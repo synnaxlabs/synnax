@@ -22,12 +22,17 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { Region } from "@/schematic/node/common/region";
 
+/**
+ * DRAWING_CLASS is the class of the root of a symbol drawing. A shape in it fills only
+ * when it sets a fill.
+ */
+export const DRAWING_CLASS = CSS.BE("symbol", "drawing");
+
 export interface DrawingProps extends Primitive.SVGBasedProps {
   spec: schematic.symbol.Spec;
   /**
-   * Marks a drawing that ships with Pluto. Its markup mounts without the sanitizer.
-   * Shapes with no stroke of their own take the symbol color, so the hover and pressed
-   * colors of a toggle reach them.
+   * Marks a drawing that ships with Pluto. Its markup mounts without the sanitizer, and
+   * shapes with no stroke of their own take the symbol color.
    */
   builtIn?: boolean;
   /** paints are the paints of the spec's looks, from usePaints. */
@@ -93,10 +98,7 @@ export const Drawing = ({
         orientation={orientation}
         scale={svgScale}
         strokeColor={strokeColor}
-        className={CSS.cls(
-          CSS.BE("symbol", "drawing"),
-          !builtIn && CSS.B("custom-drawing"),
-        )}
+        className={CSS.cls(DRAWING_CLASS, !builtIn && CSS.B("custom-drawing"))}
       >
         <g ref={hostRef} {...parts} />
       </Primitive.SVG>

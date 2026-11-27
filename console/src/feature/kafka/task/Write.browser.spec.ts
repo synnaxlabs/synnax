@@ -53,7 +53,7 @@ preloadForms(Kafka.Task.FORMS);
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<Kafka.Task.WriteSchemas> = {
-  name: Kafka.Task.DEFAULT_WRITE_NAME,
+  name: "Kafka write task",
   type: Kafka.Task.WRITE_TYPE,
   config: Kafka.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -142,7 +142,7 @@ const MISSING: kafka.SampledTopic = {
 /** @returns a shape of count records that hold the fields, sent by the keys. */
 const createShape = (sources: string[], count: number, ...pointers: string[]) => ({
   sources,
-  fields: pointers.map((p) => createInferredField(p, "float64", "number")),
+  fields: pointers.map((p) => createInferredField(p, "float", "number")),
   index: -1,
   count,
   present: -1,
@@ -216,7 +216,7 @@ describe("Kafka Write form", () => {
     ]);
     expect(target).toMatchObject({ topic: TOPIC, recordKey: "pump-2" });
     const [ic] = await client.icds.retrieve([target.icd]);
-    expect(ic.name).toBe(Kafka.Task.DEFAULT_WRITE_NAME);
+    expect(ic.name).toBe(dev.name);
     expect(ic.messages).toMatchObject([
       {
         key: target.message.message,
@@ -275,6 +275,35 @@ describe("Kafka Write form", () => {
     await waitFor(async () =>
       expect(await retrieveTargets(draft.key)).toMatchObject([{ topic: TOPIC }]),
     );
+  });
+
+  it("should keep a string field with enum labels a string, in the preview and the target", async () => {
+    const { dev, draft } = await renderWrite();
+    const mode = {
+      ...createInferredField("/mode", "string", "string"),
+      enum: ["auto", "manual"],
+    };
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: {
+        data: sampleOfTopic(TOPIC, { ...createShape(["pump-1"], 2), fields: [mode] }),
+      },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    await dialog.findByText("/mode");
+    dialog.getByText("string");
+    expect(dialog.queryByText("int64")).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+    await waitFor(async () => {
+      const [target] = await retrieveTargets(draft.key);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      const message = ic.messages.find(({ key }) => key === target.message.message);
+      expect(ICD.jsonFields(message)).toMatchObject([
+        { pointer: "/mode", type: "string", enumValues: [] },
+      ]);
+    });
   });
 
   it("should add a target with an empty message for a topic that holds no records", async () => {
@@ -346,7 +375,7 @@ describe("Kafka Write form", () => {
       sample: failed,
     });
     const dialog = await clickAddTargets();
-    await dialog.findByText("Failed to list topics");
+    await dialog.findByText(/Failed to reach the cluster/);
     fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });
@@ -501,7 +530,9 @@ describe("Kafka Write form", () => {
   it("should show one Message section for a target whose message has no fields", async () => {
     const { target } = await createTarget([]);
     await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
+    const item = await screen.findByRole("treeitem", { name: /JSON.*No key/ });
+    within(item).getByRole("img", { name: "Message has no fields" });
+    fireEvent.click(item);
     await screen.findByText("Message has no fields");
     expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
   });
@@ -603,6 +634,56 @@ describe("Kafka Write form", () => {
     fireEvent.click(first);
     expect(await screen.findByDisplayValue(name)).toBeTruthy();
   });
+
+  it("should show the stored command channel that deploying keeps for a field with no channel, not a new one", async () => {
+    const setpoint = createField("setpoint", "float");
+    const { target } = await createTarget([setpoint]);
+    const stored = await client.channels.create({
+      name: uniqueName("kafka_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const key = `${target.topic}#${target.recordKey}#${setpoint.key}`;
+    const dev = await createKafkaDevice(client, {
+      properties: { write: { [key]: stored.key } },
+    });
+    await renderWrite([target], { dev });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^setpoint/ }));
+    expect(await screen.findByDisplayValue(stored.name)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it.each([
+    ["topic", "plant.pumps", "plant.valves", (to: string) => `${to}#pump-1`],
+    ["record key", "pump-1", "pump-2", (to: string) => `plant.pumps#${to}`],
+  ])(
+    "should give a deployed target new command channels when its %s changes, and leave the old ones to the old address",
+    async (_, from, to, addressOf) => {
+      const speed = createField("speed", "float");
+      const { target } = await createTarget([speed], { recordKey: "pump-1" });
+      const first = await renderWrite([target]);
+      const [stored] = boundChannels(
+        (await deployWrite(first.container, first.draft.key))[0],
+      );
+      expect(stored).not.toBe(0);
+      first.unmount();
+      const { container } = await renderTaskFormTab(
+        Kafka.Task.FORMS[Kafka.Task.WRITE_TYPE],
+        { client, taskKey: first.draft.key },
+      );
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*pump-1/ }));
+      fireEvent.change(await screen.findByDisplayValue(from), {
+        target: { value: to },
+      });
+      const [next] = boundChannels((await deployWrite(container, first.draft.key))[0]);
+      expect(next).not.toBe(0);
+      expect(next).not.toBe(stored);
+      expect(await retrieveWriteRecord(first.dev.key)).toEqual({
+        [`plant.pumps#pump-1#${speed.key}`]: stored,
+        [`${addressOf(to)}#${speed.key}`]: next,
+      });
+    },
+  );
 
   it("should show the planned command channel name of a field after a rename", async () => {
     const { target } = await createTarget([createField("speed", "float")], {

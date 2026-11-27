@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/status/Summary.css";
+
 import { primitive } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
@@ -39,6 +41,7 @@ export const Summary = ({
   className,
   children,
   message,
+  center,
   ...rest
 }: SummaryProps): ReactElement => {
   let icon: Icon.ReactElement | undefined;
@@ -51,7 +54,7 @@ export const Summary = ({
       className={CSS.cls(className, !hasDescription && CSS.BE("status", "text"))}
       level={level}
       status={variant}
-      {...(hasDescription ? {} : rest)}
+      {...(hasDescription ? {} : { center, ...rest })}
     >
       {icon}
       {children}
@@ -59,12 +62,20 @@ export const Summary = ({
   );
   if (!hasDescription) return baseText;
   const descriptionText = (
-    <BaseText.Text level="small" color={9}>
+    <BaseText.Text level="small" color={9} className={CSS.BE("status", "description")}>
       {description}
     </BaseText.Text>
   );
+  const centered = center ?? true;
   return (
-    <Flex.Box y align="start" gap="small" center {...rest}>
+    <Flex.Box
+      y
+      align={centered ? "center" : "start"}
+      gap="small"
+      center={centered}
+      className={CSS.BE("status", "summary")}
+      {...rest}
+    >
       {baseText}
       {descriptionText}
     </Flex.Box>

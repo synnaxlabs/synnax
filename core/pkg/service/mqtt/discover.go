@@ -24,6 +24,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -80,11 +81,6 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if err != nil {
 		return err
 	}
-	u, err := url.Parse(cfg.url)
-	if err != nil {
-		return err
-	}
-	addr := u.Host
 	held, connected, inUse := s.pool.running(args.Device)
 	if inUse && held.equal(cfg) {
 		if !connected {
@@ -101,7 +97,7 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if props.ClientID == "" {
 		cfg.clientID = deriveClientID(uuid.New().String())
 	}
-	if err = dialBroker(ctx, addr, cfg); err != nil {
+	if err = dialBroker(ctx, cfg); err != nil {
 		return err
 	}
 	if inUse && held.clientID == cfg.clientID {
@@ -121,9 +117,14 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	return nil
 }
 
-// dialBroker dials addr and, when cfg uses TLS, completes a handshake. It returns a
-// driver.Failure when the broker is not reachable.
-func dialBroker(ctx context.Context, addr string, cfg clientConfig) error {
+// dialBroker dials the broker of cfg and, when cfg uses TLS, completes a handshake. It
+// returns a driver.Failure when the broker is not reachable.
+func dialBroker(ctx context.Context, cfg clientConfig) error {
+	u, err := url.Parse(cfg.url)
+	if err != nil {
+		return err
+	}
+	addr := u.Host
 	dialCtx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
 	conn, err := proxy.Dial(dialCtx, "tcp", addr)
@@ -144,6 +145,38 @@ func dialBroker(ctx context.Context, addr string, cfg clientConfig) error {
 		return cErr
 	}
 	return err
+}
+
+// connect dials the broker of cfg, as a connection test does, and then opens a client
+// with opts. It returns a driver.Failure when the broker is not reachable or refuses
+// the client, and the error of ctx when ctx ends first.
+func connect(
+	ctx context.Context,
+	ins alamos.Instrumentation,
+	cfg clientConfig,
+	opts *paho.ClientOptions,
+) (*session, func(), error) {
+	err := dialBroker(ctx, cfg)
+	if err == nil {
+		client, disconnect, oErr := open(ctx, ins, paho.NewClient, opts)
+		if oErr == nil {
+			return client, disconnect, nil
+		}
+		err = connectFailure(oErr)
+	}
+	if ctx.Err() != nil {
+		return nil, nil, ctx.Err()
+	}
+	return nil, nil, err
+}
+
+// settingsFailure returns the failure of a browse whose broker settings are not valid.
+func settingsFailure(err error) error {
+	return driver.Failure{
+		Message: "Invalid broker settings",
+		Description: errors.MessageWithout(err, validate.ErrValidation) +
+			". Edit the broker settings.",
+	}
 }
 
 func connectFailure(err error) error {
@@ -218,6 +251,7 @@ func newBrowsedShape(s xjson.SampledShape) browsedShape {
 			Sample:     s.Samples[i],
 			Kind:       f.Kind,
 			TimeFormat: f.TimeFormat,
+			Enum:       f.Enum,
 		}
 	}
 	if s.Index >= 0 {
@@ -274,8 +308,13 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			}
 			p := m.Payload()
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
-			t.Payload, t.Format = payloadSample(p), driver.FormatOf(p)
-			t.inferrer.Add(p, t.LastSeen)
+			t.Format, t.Payload = payload.FormatJSON, ""
+			if !t.inferrer.Add(p, t.LastSeen) {
+				t.Format = driver.FormatOf(p)
+			}
+			if t.Format != payload.FormatBinary {
+				t.Payload = driver.CutText(p, browsePayloadLimit)
+			}
 			return false
 		},
 	); err != nil {
@@ -421,8 +460,6 @@ func (h *hearing) hear(m paho.Message) bool {
 	}
 	h.held += len(payload)
 	msg := sampledMessage{Time: telem.Now(), Retained: m.Retained()}
-	msg.Format = driver.FormatOf(payload)
-	msg.Payload = driver.Display(payload, msg.Format, samplePayloadLimit)
 	h.by[m.Topic()] = append(
 		messages,
 		heardMessage{sampledMessage: msg, payload: payload},
@@ -457,21 +494,29 @@ func newSampleResult(by map[string][]heardMessage) (sampleResult, [][]sampledMes
 		sampled = make([][]sampledMessage, len(names))
 		docs    []xjson.Document
 	)
-	for i, name := range names {
+	for _, name := range names {
 		for _, m := range by[name] {
-			sampled[i] = append(sampled[i], m.sampledMessage)
 			docs = append(
 				docs,
 				xjson.Document{Source: name, Data: m.payload, Time: m.Time},
 			)
 		}
 	}
-	res := sampleResult{
-		Topics: make([]sampledTopic, len(names)),
-		Shapes: xjson.Infer(docs),
-	}
+	shapes, isJSON := xjson.Infer(docs)
+	res := sampleResult{Topics: make([]sampledTopic, len(names)), Shapes: shapes}
+	d := 0
 	for i, name := range names {
 		res.Topics[i].Topic = name
+		for _, m := range by[name] {
+			msg := m.sampledMessage
+			msg.Format = payload.FormatJSON
+			if !isJSON[d] {
+				msg.Format = driver.FormatOf(m.payload)
+			}
+			d++
+			msg.Payload = driver.Display(m.payload, msg.Format, samplePayloadLimit)
+			sampled[i] = append(sampled[i], msg)
+		}
 	}
 	return res, sampled
 }
@@ -499,7 +544,7 @@ func (s *scanner) listen(
 			once.Do(func() { close(stopped) })
 		}
 	})
-	client, disconnect, err := open(ctx, s.ins, paho.NewClient, opts)
+	client, disconnect, err := connect(ctx, s.ins, cfg, opts)
 	if err != nil {
 		return err
 	}

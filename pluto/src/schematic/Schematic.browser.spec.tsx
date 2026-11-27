@@ -25,9 +25,10 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";
+import { setpoint } from "@/vis/setpoint/aether";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
-import { toggle } from "@/vis/toggle/aether";
+import { value } from "@/vis/value/aether";
 
 const client = createTestClient();
 
@@ -55,11 +56,18 @@ const PUMP: schematic.New["nodes"] = [
 interface RenderOptions {
   editable?: boolean;
   registry?: aether.ComponentRegistry;
+  selected?: string[];
+  onSelectionChange?: (keys: string[]) => void;
 }
 
 const renderSchematic = async (
   nodes: schematic.New["nodes"] = PUMP,
-  { editable = true, registry = {} }: RenderOptions = {},
+  {
+    editable = true,
+    registry = {},
+    selected = [],
+    onSelectionChange = () => {},
+  }: RenderOptions = {},
 ): Promise<{
   key: string;
   utils: ReturnType<typeof render>;
@@ -91,8 +99,8 @@ const renderSchematic = async (
             setFitViewOnResize={() => {}}
             viewportMode="zoom"
             onViewportModeChange={() => {}}
-            selected={[]}
-            onSelectionChange={() => {}}
+            selected={selected}
+            onSelectionChange={onSelectionChange}
           />
         </Schematic.Suspended>
       </Errors.SuspenseBoundary>
@@ -105,7 +113,7 @@ const renderSchematic = async (
   return { key, utils };
 };
 
-// Stand in for the worker components of a toggle tooltip.
+// Stand in for the worker components of a setpoint readback and tooltip.
 const looseZ = z.object({}).loose();
 
 class StubLatestSample extends aether.Leaf<typeof looseZ> {
@@ -114,7 +122,8 @@ class StubLatestSample extends aether.Leaf<typeof looseZ> {
 }
 
 const STALE_REGISTRY: aether.ComponentRegistry = {
-  ...stalenessTest.createRegistry(toggle.Toggle.TYPE, toggle.toggleStateZ),
+  ...setpoint.REGISTRY,
+  ...stalenessTest.createRegistry(value.Value.TYPE, value.Value.z),
   ...controlTest.createRegistry(),
   [StubLatestSample.TYPE]: StubLatestSample,
 };
@@ -172,6 +181,79 @@ describe("Schematic", () => {
     );
   });
 
+  describe("canvas menu", () => {
+    const node = (utils: ReturnType<typeof render>): HTMLElement => {
+      const el = utils.container.querySelector<HTMLElement>(
+        ".react-flow__node[data-id='n1']",
+      );
+      if (el == null) throw new Error("the canvas drew no node n1");
+      return el;
+    };
+
+    const pane = (utils: ReturnType<typeof render>): HTMLElement => {
+      const el = utils.container.querySelector<HTMLElement>(".react-flow__pane");
+      if (el == null) throw new Error("the canvas drew no pane");
+      return el;
+    };
+
+    it("should delete the selected nodes", async () => {
+      const onSelectionChange = vi.fn();
+      const { key, utils } = await renderSchematic(PUMP, {
+        selected: ["n1"],
+        onSelectionChange,
+      });
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(node(utils));
+      fireEvent.click(
+        await utils.findByRole("menuitem", { name: /^Delete/, hidden: true }),
+      );
+      expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+      await waitFor(async () =>
+        expect((await client.schematics.retrieve({ key })).nodes).toEqual([]),
+      );
+    });
+
+    it("should show no Delete with nothing selected", async () => {
+      const { utils } = await renderSchematic();
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(pane(utils));
+      await utils.findAllByRole("menuitem", { hidden: true });
+      expect(
+        utils.queryByRole("menuitem", { name: /^Delete/, hidden: true }),
+      ).toBeNull();
+    });
+
+    it("should select a node outside the selection on a right click", async () => {
+      const onSelectionChange = vi.fn();
+      const { utils } = await renderSchematic(PUMP, { onSelectionChange });
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(node(utils));
+      expect(onSelectionChange).toHaveBeenCalledWith(["n1"]);
+    });
+
+    it("should keep the selection on a right click of a selected node", async () => {
+      const onSelectionChange = vi.fn();
+      const { utils } = await renderSchematic(PUMP, {
+        selected: ["n1"],
+        onSelectionChange,
+      });
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(node(utils));
+      expect(onSelectionChange).not.toHaveBeenCalled();
+    });
+
+    it("should clear the selection on a right click of the empty canvas", async () => {
+      const onSelectionChange = vi.fn();
+      const { utils } = await renderSchematic(PUMP, {
+        selected: ["n1"],
+        onSelectionChange,
+      });
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(pane(utils));
+      expect(onSelectionChange).toHaveBeenCalledWith([]);
+    });
+  });
+
   it("should size a group box from the nodes it holds", async () => {
     const { utils } = await renderSchematic([
       { key: "g1", position: { x: -20, y: -40 }, config: { variant: "group_box" } },
@@ -215,17 +297,23 @@ describe("Schematic", () => {
   });
 
   it("should keep the tooltip over the stale badge and close it over the chip", async () => {
-    const command = await client.channels.create({
-      name: id.create(),
-      dataType: DataType.UINT8,
-      virtual: true,
-    });
+    const [command, state] = await client.channels.create(
+      [id.create(), id.create()].map((name) => ({
+        name,
+        dataType: DataType.UINT8,
+        virtual: true,
+      })),
+    );
     const { utils } = await renderSchematic(
       [
         {
           key: "v1",
           position: xy.ZERO,
-          config: { variant: "valve", commandChannel: command.key },
+          config: {
+            variant: "setpoint",
+            commandChannel: command.key,
+            stateChannel: state.key,
+          },
         },
       ],
       { editable: false, registry: STALE_REGISTRY },
@@ -259,7 +347,6 @@ describe("Schematic", () => {
               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
               '<rect class="lamp" width="10" height="10" /></svg>',
           },
-          variant: "static",
           parts: [{ key: "lamp", name: "Lamp", selectors: [".lamp"] }],
           states: [{ type: "number", key: "level", name: "Level" }],
           commands: [

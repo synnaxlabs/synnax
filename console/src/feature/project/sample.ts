@@ -83,6 +83,10 @@ const VENT_HANDLE_Y = 14.78125;
 
 const VENT_VLV_POSITION = { x: 477, y: -35 };
 
+const VALVE: schematic.symbol.Ref = { type: "builtin", name: "valve" };
+// The key of the state that a built-in valve opens and closes on.
+const ACTIVE = "active";
+
 const createSchematic = (ch: Channels): schematic.New => ({
   key: KEYS.schematic,
   name: "Tank",
@@ -91,10 +95,19 @@ const createSchematic = (ch: Channels): schematic.New => ({
       key: "press_vlv",
       position: { x: 155, y: 180 },
       config: {
-        variant: "valve",
+        variant: "symbol",
+        spec: VALVE,
         label: { label: "Press valve" },
-        commandChannel: ch[PRESS_VLV_CMD],
-        stateChannel: ch[PRESS_VLV_STATE],
+        states: [
+          {
+            key: ACTIVE,
+            source: {
+              type: "channel",
+              key: ch[PRESS_VLV_STATE],
+              command: ch[PRESS_VLV_CMD],
+            },
+          },
+        ],
       },
     },
     {
@@ -111,10 +124,19 @@ const createSchematic = (ch: Channels): schematic.New => ({
       key: "vent_vlv",
       position: VENT_VLV_POSITION,
       config: {
-        variant: "valve",
+        variant: "symbol",
+        spec: VALVE,
         label: { label: "Vent valve" },
-        commandChannel: ch[VENT_VLV_CMD],
-        stateChannel: ch[VENT_VLV_STATE],
+        states: [
+          {
+            key: ACTIVE,
+            source: {
+              type: "channel",
+              key: ch[VENT_VLV_STATE],
+              command: ch[VENT_VLV_CMD],
+            },
+          },
+        ],
       },
     },
     {
@@ -123,7 +145,7 @@ const createSchematic = (ch: Channels): schematic.New => ({
         x: 590,
         y: VENT_VLV_POSITION.y + VALVE_HANDLE_Y - VENT_HANDLE_Y,
       },
-      config: { variant: "vent" },
+      config: { variant: "symbol", spec: { type: "builtin", name: "vent" } },
     },
     {
       key: "tank_pt",
