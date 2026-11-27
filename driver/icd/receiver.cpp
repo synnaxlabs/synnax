@@ -37,7 +37,7 @@
 namespace driver::icd {
 namespace {
 common::Warning dropped(const x::errors::Error &err) {
-    return {.message = "Dropped invalid data", .description = err.data};
+    return {.message = "Dropped invalid data", .description = err.data()};
 }
 
 /// @returns the warning about the line errors and overruns of chunk. It names only the
@@ -131,7 +131,9 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
         else if (const auto err = r.framer->encode(poll.query, p.query))
             return {
                 Receiver{},
-                refuse(context + "the framing cannot hold the poll query: " + err.data),
+                refuse(
+                    context + "the framing cannot hold the poll query: " + err.data()
+                ),
             };
         r.polls.push_back(std::move(p));
     }
@@ -151,7 +153,7 @@ void Receiver::parse(
     if (!err && !this->reader.failures().empty())
         err = this->reader.failures().front().error;
     if (err && warning.empty())
-        warning = {.message = "Failed to decode message", .description = err.data};
+        warning = {.message = "Failed to decode message", .description = err.data()};
 }
 
 std::size_t

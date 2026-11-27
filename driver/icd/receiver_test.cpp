@@ -655,7 +655,7 @@ TEST(Receiver, RejectsQueryThatFramingCannotHold) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "entry 0: the framing cannot hold the poll query: the frame has 3 bytes, not "
         "the fixed length of 2"
     );
@@ -677,7 +677,7 @@ TEST(Receiver, RejectsPollRateOutOfRange) {
         );
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         ASSERT_EQ(
-            err.data,
+            err.data(),
             "entry 0: the poll rate must be above 0 Hz and at most 1 GHz, not " + text
         );
     }
@@ -810,7 +810,7 @@ TEST(Receiver, RejectsEntriesWithOnePrefix) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         R"(messages frame of ICD first and frame of ICD second have the same prefix "T")"
     );
 }
@@ -827,7 +827,7 @@ TEST(Receiver, RejectsJSONAndTextEntries) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "messages frame of ICD first and frame of ICD second have different formats"
     );
 }
@@ -1043,7 +1043,7 @@ TEST(Receiver, RejectsEntriesThatReadOneMessage) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry(), cfg.entry()}, {cfg.ic}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message frame is read twice");
+    ASSERT_EQ(err.data(), "message frame is read twice");
 }
 
 /// @brief it should give an entry that reads a binary message with no identifier each
@@ -1161,7 +1161,7 @@ TEST(Receiver, RejectsJSONAndBinaryEntries) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "messages frame of ICD first and frame of ICD second have different formats"
     );
 }
@@ -1173,7 +1173,7 @@ TEST(Receiver, RejectsEntriesThatWriteOneChannel) {
     const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, a.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "messages frame of ICD first and frame of ICD second write to the same channel 1"
     );
 }
@@ -1183,7 +1183,7 @@ TEST(Receiver, RejectsStreamICDWithoutFraming) {
     const auto cfg = pairs(std::nullopt);
     const auto err = refused({cfg.entry()}, {cfg.ic}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "ICD device has no framing to split the stream with");
+    ASSERT_EQ(err.data(), "ICD device has no framing to split the stream with");
 }
 
 /// @brief it should refuse entries whose ICDs frame the stream differently.
@@ -1197,7 +1197,7 @@ TEST(Receiver, RejectsICDsWithDifferentFramings) {
         merged(a.channels, b.channels)
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "ICDs first and second frame the stream differently");
+    ASSERT_EQ(err.data(), "ICDs first and second frame the stream differently");
 }
 
 /// @brief it should refuse an entry whose ICD does not exist.
@@ -1205,7 +1205,7 @@ TEST(Receiver, RejectsMissingICD) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry()}, {}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "entry 0: ICD " + cfg.ic.key.to_string() + " does not exist");
+    ASSERT_EQ(err.data(), "entry 0: ICD " + cfg.ic.key.to_string() + " does not exist");
 }
 
 /// @brief it should name the ICD of a message whose reader fails to create, when the
@@ -1215,7 +1215,7 @@ TEST(Receiver, NamesICDOfMessageThatFails) {
     const auto b = lines("B", 3, 4, "second");
     const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, a.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message frame of ICD second: channel 3 does not exist");
+    ASSERT_EQ(err.data(), "message frame of ICD second: channel 3 does not exist");
 }
 
 /// @brief it should read each datagram with no framing as one message, and send the

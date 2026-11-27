@@ -169,7 +169,11 @@ func (s *Service) Check(
 }
 
 type ImportRequest struct {
-	Key    Key              `json:"key"    msgpack:"key"`
+	// Key is the ICD to import into. With Name, it is the key of the new ICD.
+	Key Key `json:"key" msgpack:"key"`
+	// Name, when not empty, creates an ICD with this name and imports into it in the
+	// same transaction, so a bad file leaves no ICD.
+	Name   string           `json:"name"   msgpack:"name"`
 	Format icd.ImportFormat `json:"format" msgpack:"format"`
 	Data   []byte           `json:"data"   msgpack:"data"`
 	// DispatchKey is stamped onto the create broadcast so the sender skips its echo.
@@ -181,15 +185,22 @@ type ImportResponse struct {
 }
 
 // Import replaces the messages of an ICD in tx with those parsed from a DBC file or a
-// field table.
+// field table. With a name, it creates the ICD that holds them.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	ic, err := s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Import(ctx, req.Key, req.Format, req.Data)
+	var (
+		w   = s.internal.NewWriter(tx).WithDispatchKey(req.DispatchKey)
+		ic  ICD
+		err error
+	)
+	if req.Name == "" {
+		ic, err = w.Import(ctx, req.Key, req.Format, req.Data)
+	} else {
+		ic, err = w.ImportNew(ctx, req.Key, req.Name, req.Format, req.Data)
+	}
 	if err != nil {
 		return ImportResponse{}, err
 	}

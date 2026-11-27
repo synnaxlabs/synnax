@@ -111,14 +111,14 @@ TEST(CertificateTest, RefreshRefusesOtherCaller) {
     const auto other_err = as_other.certificates.refresh(file.key, Details{});
     ASSERT_OCCURRED_AS(other_err, auth::ERR_ACCESS_DENIED);
     ASSERT_EQ(
-        other_err.data,
+        other_err.data(),
         "certificate \"" + file.name + "\" is read by rack:" + std::to_string(r.key) +
             ", not rack:" + std::to_string(other.key) + ": access denied: auth error"
     );
     const auto user_err = client.certificates.refresh(file.key, Details{});
     ASSERT_OCCURRED_AS(user_err, auth::ERR_ACCESS_DENIED);
     ASSERT_EQ(
-        user_err.data,
+        user_err.data(),
         "only a rack can refresh a certificate: access denied: auth error"
     );
 }
@@ -154,7 +154,7 @@ TEST(CertificateTest, DeleteRefusesOtherRack) {
     const auto err = as_other.certificates.del({file.key});
     ASSERT_OCCURRED_AS(err, auth::ERR_ACCESS_DENIED);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "rack:" + std::to_string(other.key) + " cannot delete certificate:" +
             file.key.to_string() + ": access denied: auth error"
     );

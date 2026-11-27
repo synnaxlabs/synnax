@@ -49,6 +49,6 @@ TEST(ActionsTests, testParseUnknownType) {
     parse_action(parser);
     const auto err = parser.error();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_NE(err.data.find("unknown Action type: explode"), std::string::npos);
+    ASSERT_NE(err.data().find("unknown Action type: explode"), std::string::npos);
 }
 }

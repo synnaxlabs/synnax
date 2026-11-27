@@ -124,7 +124,7 @@ TEST(Error, PrefixContext) {
     const auto ec = std::make_error_code(std::errc::no_such_file_or_directory);
     const auto err = error(UNREACHABLE_ERROR, "failed to open /dev/ttyUSB0", ec);
     ASSERT_OCCURRED_AS(err, UNREACHABLE_ERROR);
-    EXPECT_EQ(err.data, "failed to open /dev/ttyUSB0: " + ec.message());
+    EXPECT_EQ(err.data(), "failed to open /dev/ttyUSB0: " + ec.message());
 }
 
 /// @brief it should return the result of a call that finishes in time.
