@@ -30,7 +30,7 @@ from pydantic import ValidationError
 import synnax as sy
 from framework.test_case import Config, TestCase, param
 from framework.utils import create_virtual_channel
-from synnax.status import Variant
+from synnax.status import VARIANT_LOADING, Variant
 from tests.driver.sim_daq_case import SimDaqCase
 from tests.driver.task import run_and_expect_rejection
 from x import random_name
@@ -261,7 +261,12 @@ class ArcCase(SimDaqCase, TestCase):
                         status = sy.task.Status.model_validate(raw)
                     except ValidationError:
                         continue
-                    if status.owner != task.resource_id:
+                    # A loading status only acknowledges the command. One that starts a
+                    # running task with a new config still reports the old one running.
+                    if (
+                        status.owner != task.resource_id
+                        or status.variant == VARIANT_LOADING
+                    ):
                         continue
                     if status.variant == "error":
                         raise AssertionError(

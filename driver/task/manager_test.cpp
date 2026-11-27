@@ -243,6 +243,8 @@ struct TrackingTaskState {
     std::mutex cmd_order_mu;
     std::atomic<bool> stopped{false};
     std::atomic<bool> stop_will_reconfigure{false};
+    /// @brief the number of instances that were not stopped when this one started.
+    std::atomic<size_t> live_at_start{0};
 };
 
 class TrackingTask final : public Task {
@@ -1467,6 +1469,8 @@ class RunningTaskFactory final : public Factory {
         const std::shared_ptr<Context> ctx;
         const synnax::task::Task task;
         const std::shared_ptr<TrackingTaskState> state;
+        /// @brief the number of instances of the factory that were not stopped.
+        const std::shared_ptr<std::atomic<size_t>> live;
         bool running = false;
 
     public:
@@ -1474,9 +1478,14 @@ class RunningTaskFactory final : public Factory {
             std::shared_ptr<Context> ctx,
             synnax::task::Task task,
             std::shared_ptr<TrackingTaskState> state,
+            std::shared_ptr<std::atomic<size_t>> live,
             const bool auto_start
         ):
-            ctx(std::move(ctx)), task(std::move(task)), state(std::move(state)) {
+            ctx(std::move(ctx)),
+            task(std::move(task)),
+            state(std::move(state)),
+            live(std::move(live)) {
+            ++*this->live;
             if (!auto_start) return;
             this->running = true;
             report(
@@ -1492,7 +1501,10 @@ class RunningTaskFactory final : public Factory {
 
         void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
             ++this->state->exec_count;
-            if (cmd.type == synnax::task::START_CMD_TYPE) this->running = true;
+            if (cmd.type == synnax::task::START_CMD_TYPE) {
+                this->running = true;
+                this->state->live_at_start = this->live->load();
+            }
             if (cmd.type == synnax::task::STOP_CMD_TYPE) this->running = false;
             report(
                 this->ctx,
@@ -1507,11 +1519,13 @@ class RunningTaskFactory final : public Factory {
 
         void stop(const bool will_reconfigure) override {
             this->state->stop_will_reconfigure = will_reconfigure;
-            this->state->stopped = true;
+            if (!this->state->stopped.exchange(true)) --*this->live;
         }
     };
 
     const bool auto_start;
+    const std::shared_ptr<std::atomic<size_t>>
+        live = std::make_shared<std::atomic<size_t>>(0);
 
 public:
     /// @brief what one configure received.
@@ -1575,6 +1589,7 @@ public:
                 ctx,
                 task,
                 state,
+                this->live,
                 this->auto_start && cmd_key == NO_COMMAND
             ),
             true
@@ -1883,8 +1898,8 @@ TEST_F(TaskManagerTest, RunningTaskKeepsRunningWhenItsRedeployFails) {
 }
 
 /// @brief it should build a running task whose config changed before it stops the live
-/// instance, show the task running on its old config during the build, then start the
-/// new instance with the command.
+/// instance, show the task running on its old config during the build, then stop the
+/// live instance before the new one starts and answers the command.
 TEST_F(TaskManagerTest, StartOfAChangedTaskBuildsBeforeItStopsTheLiveInstance) {
     auto factory = std::make_unique<RunningTaskFactory>();
     auto *f = factory.get();
@@ -1916,9 +1931,20 @@ TEST_F(TaskManagerTest, StartOfAChangedTaskBuildsBeforeItStopsTheLiveInstance) {
     EXPECT_EQ(loading.message, "Starting task");
     EXPECT_TRUE(loading.details.running);
     EXPECT_EQ(loading.details.config_hash, deployed);
-    ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
+    const auto answer = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-2" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_TRUE(answer.details.running);
+    EXPECT_EQ(answer.details.config_hash, task.config_hash);
     const auto states = built(*f);
-    ASSERT_EVENTUALLY_EQ(states[1]->exec_count.load(), 1);
+    ASSERT_EQ(states.size(), 2);
+    EXPECT_EQ(states[1]->exec_count.load(), 1);
+    EXPECT_EQ(states[1]->live_at_start.load(), 1);
     EXPECT_TRUE(states[0]->stopped.load());
     EXPECT_TRUE(states[0]->stop_will_reconfigure.load());
     const auto replacement = builds(*f).at(1);
