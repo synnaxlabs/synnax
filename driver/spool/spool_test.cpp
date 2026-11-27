@@ -434,7 +434,7 @@ TEST_F(SpoolTest, RemovesSegmentOfFailedWrite) {
     const auto writer = spool->open_writer(header_of(1));
     std::filesystem::create_directory(this->dir / "0.seg");
     auto err = writer->write(frame_of(1));
-    ASSERT_MATCHES(err, journal::BASE_ERROR);
+    ASSERT_MATCHES(err, x::fs::FS_ERROR);
     const auto again = writer->write(frame_of(2));
     ASSERT_EQ(again.data, err.data);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
