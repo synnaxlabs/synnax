@@ -187,4 +187,33 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(dispatched.Actions).To(HaveLen(1))
 		Expect(dispatched.Actions[0].Set.Path).To(Equal([]string{"name"}))
 	})
+
+	It("Should broadcast a group update as set actions", func(ctx SpecContext) {
+		c := chassis.Chassis{
+			Rack:         rackSvc.EmbeddedKey,
+			Name:         "PXIe-1071",
+			ResourceName: "PXI3",
+			Model:        "PXIe-1071",
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &c)
+		})).To(Succeed())
+		acts := openStreamer(ctx, "sy_ni_chassis_action_set")
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).ApplyUpdate(ctx, c.Key, chassis.Update{
+				Variant: chassis.ConfigurationUpdate{
+					Configuration: chassis.Configuration{Name: "Bench"},
+				},
+			})
+		})).To(Succeed())
+		var res framer.StreamerResponse
+		Eventually(acts.Outlet(), 5*time.Second).Should(Receive(&res))
+		var scoped actions.Scoped[chassis.Key, chassis.Action]
+		for sample := range res.Frame.SeriesAt(0).Samples() {
+			Expect(json.Unmarshal(sample, &scoped)).To(Succeed())
+		}
+		Expect(scoped.Key).To(Equal(c.Key))
+		Expect(scoped.Actions).To(HaveLen(1))
+		Expect(scoped.Actions[0].Set.Path).To(Equal([]string{"name"}))
+	})
 })

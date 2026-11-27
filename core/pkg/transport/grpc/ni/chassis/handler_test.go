@@ -149,6 +149,25 @@ var _ = Describe("Handler", func() {
 		Expect(received.Actions[0].Set.Path).To(Equal([]string{"name"}))
 	})
 
+	It("Should reject a dispatch whose key is not a UUID", func(ctx SpecContext) {
+		Expect(grpcchassis.NewNIChassisDispatchServiceClient(conn).Exec(
+			ctx,
+			&grpcchassis.DispatchRequest{Key: "not-a-key"},
+		)).Error().To(MatchError(ContainSubstring(`"path":["key"]`)))
+	})
+
+	It("Should reject a dispatch with an action that does not decode", func(
+		ctx SpecContext,
+	) {
+		Expect(grpcchassis.NewNIChassisDispatchServiceClient(conn).Exec(
+			ctx,
+			&grpcchassis.DispatchRequest{
+				Key:     uuid.New().String(),
+				Actions: [][]byte{[]byte("{")},
+			},
+		)).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
+	})
+
 	It("Should delete chassis by key", func(ctx SpecContext) {
 		key := uuid.New()
 		var received chassis.DeleteRequest
