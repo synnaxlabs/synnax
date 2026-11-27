@@ -145,10 +145,8 @@ func (g *csvGroup) appendRow(dst []byte) ([]byte, error) {
 		if err = c.clockError(index); err != nil {
 			return nil, err
 		}
-		if a := c.alignment(); a > alignment {
+		if c.alignment() > alignment {
 			continue
-		} else if a < alignment {
-			return nil, c.unindexedError()
 		}
 		if dst, err = appendCSVSample(dst, c); err != nil {
 			return nil, err
