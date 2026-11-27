@@ -131,6 +131,22 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	return nil
 }
 
+// expectSample checks that data, the sample of the binding at index i with data type
+// dt,
+// is want. MatchJSON reads each number as a float64, so an integer compares as text.
+func expectSample(dt telem.DataType, data []byte, want json.RawMessage, i int) {
+	GinkgoHelper()
+	actual := MustSucceed(json.Marshal(sampleJSON(dt, data)))
+	switch dt {
+	case telem.Int8T, telem.Int16T, telem.Int32T, telem.Int64T, telem.Uint8T,
+		telem.Uint16T, telem.Uint32T, telem.Uint64T, telem.TimestampT:
+		Expect(string(actual)).To(Equal(string(want)), "binding %d", i)
+	case telem.Float64T, telem.Float32T, telem.BooleanT, telem.StringT, telem.JSONT,
+		telem.UUIDT, telem.BytesT, telem.UnknownT:
+		Expect(actual).To(MatchJSON(want), "binding %d", i)
+	}
+}
+
 // floatJSON returns f as the fixtures write it: a number, or a string for NaN,
 // Infinity, and -Infinity.
 func floatJSON(f float64) any {
@@ -245,10 +261,7 @@ var _ = Describe("JSON", func() {
 				bindings := messages[m].Bindings
 				Expect(c.Samples).To(HaveLen(len(bindings)))
 				for k, b := range bindings {
-					actual := MustSucceed(
-						json.Marshal(sampleJSON(b.DataType, samples[m][k])),
-					)
-					Expect(actual).To(MatchJSON(c.Samples[k]), "binding %d", k)
+					expectSample(b.DataType, samples[m][k], c.Samples[k], k)
 				}
 				for other := range samples {
 					if other != m {
@@ -276,16 +289,16 @@ var _ = Describe("JSON", func() {
 		))
 	})
 
-	Describe("Generated defaults", func() {
-		decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
-			GinkgoHelper()
-			return MustSucceed(codec.NewJSON([]codec.JSONMessage{{
-				Name:     "reading",
-				Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
-				Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
-			}}))
-		}
+	decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
+		GinkgoHelper()
+		return MustSucceed(codec.NewJSON([]codec.JSONMessage{{
+			Name:     "reading",
+			Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
+			Bindings: []codec.Binding{{Field: f.Base().Key, DataType: dt}},
+		}}))
+	}
 
+	Describe("Generated defaults", func() {
 		It("Should fill a missing timestamp with the time of the read", func() {
 			dec := decoder(icd.JSONField{Variant: icd.TimestampJSONField{
 				Key: uuid.New(), Name: "ts", Scale: 1, Pointer: "/ts",
@@ -371,6 +384,22 @@ var _ = Describe("JSON", func() {
 			}}, telem.UUIDT),
 		)
 	})
+
+	DescribeTable("Should write a JSON value as the document spells it, without spaces",
+		func(value, expected string) {
+			dec := decoder(icd.JSONField{Variant: icd.JSONJSONField{
+				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
+			}}, telem.JSONT)
+			samples := [][][]byte{make([][]byte, 1)}
+			_, ok := decode(dec, []byte(`{"v": `+value+`}`), samples)
+			Expect(ok).To(BeTrue())
+			Expect(string(samples[0][0][4:])).To(Equal(expected))
+		},
+		Entry("a fraction with a trailing zero", `1.0`, `1.0`),
+		Entry("a number past the range of a float", `1e999`, `1e999`),
+		Entry("members out of order", `{"z":1,"a":2}`, `{"z":1,"a":2}`),
+		Entry("spaces inside a value", `{ "a" : [ 1 , 2 ] }`, `{"a":[1,2]}`),
+	)
 
 	It("Should append to the samples of earlier documents", func() {
 		key := uuid.New()
