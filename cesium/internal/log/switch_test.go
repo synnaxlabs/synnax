@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"sync"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -150,6 +151,30 @@ var _ = Describe("Switch", func() {
 					Expect(switched).To(Equal([]uint64{4}))
 				},
 			)
+
+			It("Should take fenced entries again in the next log after one did "+
+				"not fit in the last", func() {
+				var asks atomic.Int32
+				// The spec answers each ask after the first, so the switch comes after
+				// the refusal.
+				asked := make(chan uint64, 4)
+				open(func(next uint64) {
+					if asks.Add(1) == 1 {
+						l.Prepared(next, errors.New("no space"))
+						return
+					}
+					asked <- next
+				})
+				fill()
+				Expect(l.Append(commitEntry(64)).Wait()).Error().
+					To(MatchError(ContainSubstring("log file is full")))
+				var next uint64
+				Eventually(asked).Should(Receive(&next))
+				ready(next)
+				MustSucceed(l.Append(commitEntry(64)).Wait())
+				_, switched := calls.get()
+				Expect(switched).To(Equal([]uint64{4}))
+			})
 
 			It("Should stay in the live log when the next file fails, and ask again",
 				func() {
