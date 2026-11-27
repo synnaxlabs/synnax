@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box } from "@synnaxlabs/x";
 import { type Mock, vi } from "vitest";
 
 /** The log state that the Aether mock reports until a test overrides it. */
 export const DEFAULT_STATE = {
-  region: { one: { x: 0, y: 0 }, two: { x: 400, y: 500 } },
+  region: box.construct({ x: 0, y: 0 }, { x: 400, y: 500 }),
   wheelPos: 0,
   scrolling: false,
   resumedAt: 0,
@@ -27,7 +28,6 @@ export const DEFAULT_STATE = {
   overshoot: { x: 0, y: 0 },
   selectionStart: -1,
   selectionEnd: -1,
-  visibleStart: 0,
   computedLineHeight: 16,
   rowEntries: [],
   searchedTo: "",
@@ -38,11 +38,12 @@ const LINES = [
   { text: "two", color: "#ff0000" },
 ];
 
-/** The `Aether.use` mock's log state, its setter, and the selection spy. */
+/** The `Aether.use` mock's log state, its setter, and the method spies. */
 export interface AetherSetup {
   setState: Mock;
   state: Record<string, unknown>;
   selection: Mock;
+  hit: Mock;
 }
 
 /**
@@ -55,8 +56,9 @@ export const createAetherSetup =
     const setState = vi.fn();
     const state = { ...DEFAULT_STATE, ...overrides };
     const selection = vi.fn(async () => ({ lines: LINES, partial }));
-    use.mockReturnValue(["test-key", state, setState, { selection }]);
-    return { setState, state, selection };
+    const hit = vi.fn(async (_: { x: number; y: number }) => ({ entry: 0, char: 0 }));
+    use.mockReturnValue(["test-key", state, setState, { selection, hit }]);
+    return { setState, state, selection, hit };
   };
 
 /** @returns the initial state of the first log that the `Aether.use` mock mounted. */

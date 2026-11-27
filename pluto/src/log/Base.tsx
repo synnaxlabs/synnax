@@ -17,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, strings, TimeStamp } from "@synnaxlabs/x";
+import { box, strings, TimeStamp, xy } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -43,6 +43,8 @@ const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
 // Pixels the log scrolls per frame for each pixel a selection drag is past its edge.
 const EDGE_SCROLL_RATE = 0.2;
+// A character past the end of any line.
+const LINE_END = Number.MAX_SAFE_INTEGER;
 
 const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
 
@@ -142,10 +144,20 @@ export const Base = ({
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
   const stateRef = useSyncedRef(state);
-  const pointerYRef = useRef(0);
+  const pointerRef = useRef<xy.XY>(xy.ZERO);
   const frameRef = useRef<number | null>(null);
   const detachDragRef = useRef<(() => void) | null>(null);
   useEffect(() => () => detachDragRef.current?.(), []);
+  // The character the pointer went down on, while it drags.
+  const downRef = useRef<log.Point | null>(null);
+  // Counts presses and releases, so a hit that resolves after its release starts no
+  // drag.
+  const gestureRef = useRef(0);
+  // Counts presses and moves, so only the hit of the last move ends a drag.
+  const moveRef = useRef(0);
+
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
 
   // The row of the view at the pointer, counted from the top.
   const rowAt = (clientY: number): number => {
@@ -157,40 +169,89 @@ export const Base = ({
     );
   };
 
-  const mouseYToEntryIndex = (clientY: number): number => {
-    const { rowEntries, visibleStart } = stateRef.current;
-    const row = rowAt(clientY);
-    if (rowEntries.length === 0) return visibleStart + row;
-    return rowEntries[Math.min(row, rowEntries.length - 1)];
+  // How far the pointer is above the view (negative) or below it (positive).
+  const pastEdge = (clientY: number): number => {
+    const { region } = stateRef.current;
+    return (
+      Math.min(0, clientY - box.top(region)) + Math.max(0, clientY - box.bottom(region))
+    );
   };
+
+  // Past an edge, a drag ends at the start of the row above the view or past the end of
+  // the row below it. The row follows the view as it scrolls.
+  const edgePoint = (clientY: number, past: number): log.Point => ({
+    entry: log.selectRow(rowAt(clientY)),
+    char: past < 0 ? 0 : LINE_END,
+  });
+
+  // Moves the end of the selection that a drag from down makes to point.
+  const extend = (down: log.Point, point: log.Point) =>
+    setState((s) => {
+      // The press selected its line, and the worker keeps that start on its entry as
+      // entries shift, so the drag reads the start from the state. A start the worker
+      // cleared ends the drag.
+      const start = s.selectionStart;
+      if (start < 0) {
+        if (downRef.current === down) downRef.current = null;
+        return s;
+      }
+      const startChar = s.selectionStartChar >= 0 ? s.selectionStartChar : down.char;
+      // A drag back to its start returns to the line the press selected.
+      if (point.entry === start && point.char === startChar)
+        return {
+          ...s,
+          selectionEnd: start,
+          selectionStartChar: -1,
+          selectionEndChar: -1,
+        };
+      return {
+        ...s,
+        selectionStart: start,
+        selectionStartChar: startChar,
+        selectionEnd: point.entry,
+        selectionEndChar: point.char,
+      };
+    });
 
   const scrollPastEdge = () => {
     frameRef.current = null;
-    const y = pointerYRef.current;
-    const { region, scrolling } = stateRef.current;
-    const past = Math.min(0, y - box.top(region)) + Math.max(0, y - box.bottom(region));
-    if (past === 0) return;
-    if (past < 0 && !scrolling) setHold(true);
-    setState((s) => ({
-      ...s,
-      wheelPos: s.wheelPos - past * EDGE_SCROLL_RATE,
-      selectionEnd: log.selectRow(rowAt(y)),
-    }));
+    const down = downRef.current;
+    const { y } = pointerRef.current;
+    const past = pastEdge(y);
+    if (past === 0 || down == null) return;
+    if (past < 0 && !stateRef.current.scrolling) setHold(true);
+    moveRef.current++;
+    setState((s) => ({ ...s, wheelPos: s.wheelPos - past * EDGE_SCROLL_RATE }));
+    extend(down, edgePoint(y, past));
     frameRef.current = requestAnimationFrame(scrollPastEdge);
   };
 
-  const startDrag = (clientY: number) => {
-    pointerYRef.current = clientY;
+  // A drag selects from the character it started on to the one under the pointer.
+  const startDrag = (pointer: xy.XY) => {
+    pointerRef.current = pointer;
     const handleMove = (e: MouseEvent) => {
       // A release outside the window sends no mouseup.
       if ((e.buttons & 1) === 0) {
         stop();
         return;
       }
-      pointerYRef.current = e.clientY;
-      setState((s) => ({ ...s, selectionEnd: log.selectRow(rowAt(e.clientY)) }));
-      if (frameRef.current == null)
-        frameRef.current = requestAnimationFrame(scrollPastEdge);
+      const { clientX: x, clientY: y } = e;
+      pointerRef.current = { x, y };
+      const down = downRef.current;
+      if (down == null) return;
+      const move = ++moveRef.current;
+      const past = pastEdge(y);
+      if (past !== 0) {
+        extend(down, edgePoint(y, past));
+        if (frameRef.current == null)
+          frameRef.current = requestAnimationFrame(scrollPastEdge);
+        return;
+      }
+      handleError(async () => {
+        const point = await methods.hit({ x, y });
+        // A move whose hit resolves after the release still ends the drag.
+        if (move === moveRef.current) extend(down, point);
+      }, "Failed to select log lines");
     };
     const detach = () => {
       window.removeEventListener("mousemove", handleMove);
@@ -202,6 +263,8 @@ export const Base = ({
     };
     const stop = () => {
       detach();
+      downRef.current = null;
+      gestureRef.current++;
       setState((s) => ({ ...s, selecting: false }));
     };
     detachDragRef.current?.();
@@ -212,21 +275,34 @@ export const Base = ({
     window.addEventListener("blur", stop);
   };
 
+  // A click selects its whole line, or clears it when it alone is selected. A
+  // shift-click extends the selection by whole lines. Neither a shift-click nor a click
+  // that clears starts a drag.
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    const idx = mouseYToEntryIndex(e.clientY);
-    startDrag(e.clientY);
-    if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
-    else
+    const { clientX: x, clientY: y, shiftKey } = e;
+    downRef.current = null;
+    moveRef.current++;
+    const gesture = ++gestureRef.current;
+    if (!shiftKey) startDrag({ x, y });
+    handleError(async () => {
+      const point = await methods.hit({ x, y });
+      const press = !shiftKey && gesture === gestureRef.current ? point : null;
+      if (press != null) downRef.current = press;
+      const { entry } = point;
       setState((s) => {
-        if (s.selectionStart === idx && s.selectionEnd === idx)
-          return { ...s, selectionStart: -1, selectionEnd: -1 };
-        return { ...s, selectionStart: idx, selectionEnd: idx };
+        const whole = { selectionStartChar: -1, selectionEndChar: -1 };
+        if (shiftKey) return { ...s, ...whole, selectionEnd: entry };
+        const alone =
+          s.selectionStart === entry &&
+          s.selectionEnd === entry &&
+          s.selectionStartChar < 0;
+        if (alone && press != null && downRef.current === press) downRef.current = null;
+        if (alone) return { ...s, ...whole, selectionStart: -1, selectionEnd: -1 };
+        return { ...s, ...whole, selectionStart: entry, selectionEnd: entry };
       });
+    }, "Failed to select log lines");
   };
-
-  const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
 
   // The worker formats the lines only now, so a large selection costs nothing until a
   // copy. The write must start inside the user gesture, so the item holds promises. An
@@ -264,6 +340,8 @@ export const Base = ({
           ...s,
           selectionStart: 0,
           selectionEnd: log.SELECT_ALL_END,
+          selectionStartChar: -1,
+          selectionEndChar: -1,
         }));
       else if (mode === "clearSelection")
         setState((s) => ({ ...s, selectionStart: -1, selectionEnd: -1 }));
