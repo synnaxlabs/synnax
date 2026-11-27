@@ -755,19 +755,21 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   index channel merge into that index's group. A channel with no index channel keeps its
   declared group, on a clock that storage picks. The framer names each index to Cesium
   in `Group.Index` (NEW), which skips continuation (RFC 0121 §4.2). From Phase 13 the
-  Core's writer open adds each group's index channel that the open does not name to the
-  session at authority 0 and names it in the open response (`clocks`), and a client maps
-  `"time"` to that key, so an open on `["temperature"]` alone takes `"time"` and no
-  client looks up an index. At the session's first write that holds an added index, the
-  Core raises it to the session's own authority through `SetAuthority`, then writes the
-  frame; a denied index skips its group whole, as today. So a session that never writes
-  `"time"` never contends for an index, as on `main`. One case differs from `main`: a
-  session at authority 0 that never writes `"time"` still holds an added index against
-  another session at authority 0, and until Phase 28 a writer of channels without their
-  index channel takes the stored kind, as today. From Phase 44 the Core makes a stored
-  channel with no index channel (§5). `is_index=`, `index=`, and index keys in a write
-  work on the Core until Phase 50, and in each client until its removal phase (46 to
-  49).
+  Core's writer open adds each group's index channel that the open does not name, and
+  that holds no data at or after the writer's start (one seek per index), to the session
+  at authority 0 and names it in the open response (`clocks`); a write of a data channel
+  onto stored stamps then takes the stored kind, as today, and a `"time"` write for that
+  group fails with an error that names it, and a client maps `"time"` to that key, so an
+  open on `["temperature"]` alone takes `"time"` and no client looks up an index. At the
+  session's first write that holds an added index, the Core raises it to the session's
+  own authority through `SetAuthority`, then writes the frame; a denied index skips its
+  group whole, as today. So a session that never writes `"time"` never contends for an
+  index, as on `main`. One case differs from `main`: a session at authority 0 that never
+  writes `"time"` still holds an added index against another session at authority 0, and
+  until Phase 28 a writer of channels without their index channel takes the stored kind,
+  as today. From Phase 44 the Core makes a stored channel with no index channel (§5).
+  `is_index=`, `index=`, and index keys in a write work on the Core until Phase 50, and
+  in each client until its removal phase (46 to 49).
 - **Other producers**: The metrics service and scripts give no groups. Driver common
   code builds one time series per group, where `generate_index_data` copies one per
   index channel today (`driver/common/sample_clock.h:222-244`). Phase 31 adds the group
