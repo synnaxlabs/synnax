@@ -133,7 +133,8 @@ public:
     );
 
     /// @brief acquires the connection to the device, and starts the targets with a
-    /// period.
+    /// period. Each start sends the defaults of the fields until the first commands, as
+    /// the first start does.
     x::errors::Error
     start(const std::string &cmd_key, x::breaker::Breaker &cancel) override;
 

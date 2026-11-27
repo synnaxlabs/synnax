@@ -49,6 +49,7 @@ x::errors::Error Sink::start(const std::string &, x::breaker::Breaker &) {
     auto [conn, err] = this->acquire();
     if (err) return err;
     this->conn = std::move(conn);
+    this->sender.reset();
     {
         std::lock_guard lock(this->held_mu);
         this->held = {};
