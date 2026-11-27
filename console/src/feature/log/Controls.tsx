@@ -24,11 +24,15 @@ import { Session } from "@/session";
 // Keeps a press or a copy in the search box from reaching the log around it.
 const stopPropagation = (e: React.SyntheticEvent): void => e.stopPropagation();
 
+const NEXT_TRIGGER: Triggers.Trigger = ["Enter"];
+const PREVIOUS_TRIGGER: Triggers.Trigger = ["Shift", "Enter"];
+
 // A button that opens a box to find and filter the lines of a log.
 const Search = (): ReactElement => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
   const search = Session.Log.useSelectSearch();
+  const { jump, status } = Base.useJump();
   // A stored search shows, so the lines it hides are never a surprise.
   const [open, setOpen] = useState(search.text !== "");
   const set = (change: Partial<Session.Log.SearchState>): void => {
@@ -73,8 +77,38 @@ const Search = (): ReactElement => {
           status={invalid ? "error" : undefined}
           onKeyDown={(e) => {
             if (e.key === "Escape") close();
+            else if (e.key === "Enter" && !e.nativeEvent.isComposing)
+              jump(e.shiftKey ? "previous" : "next");
           }}
         />
+        <Button.Button
+          size="small"
+          variant="text"
+          onClick={() => jump("previous")}
+          tooltip={
+            <Text.Text level="small" color={11}>
+              Previous match
+              <Triggers.Text trigger={PREVIOUS_TRIGGER} level="small" />
+            </Text.Text>
+          }
+          aria-label="Previous match"
+        >
+          <Icon.Caret.Up />
+        </Button.Button>
+        <Button.Button
+          size="small"
+          variant="text"
+          onClick={() => jump("next")}
+          tooltip={
+            <Text.Text level="small" color={11}>
+              Next match
+              <Triggers.Text trigger={NEXT_TRIGGER} level="small" />
+            </Text.Text>
+          }
+          aria-label="Next match"
+        >
+          <Icon.Caret.Down />
+        </Button.Button>
         <Button.Toggle
           value={search.mode === "regex"}
           onChange={(regex) => set({ mode: regex ? "regex" : "text" })}
@@ -109,6 +143,8 @@ const Search = (): ReactElement => {
         </Button.Button>
       </Flex.Box>
       {invalid && <Input.HelpText variant="error">Invalid regex</Input.HelpText>}
+      {status === "reading" && <Input.HelpText>Reading stored lines</Input.HelpText>}
+      {status === "none" && <Input.HelpText>No more matches</Input.HelpText>}
     </Flex.Box>
   );
 };

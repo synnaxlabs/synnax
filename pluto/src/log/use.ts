@@ -53,6 +53,8 @@ export interface UseProps
         | "channelColors"
         | "position"
         | "searchedTo"
+        | "jump"
+        | "jumpStatus"
       >,
       "visible"
     >,
