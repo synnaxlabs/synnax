@@ -239,6 +239,12 @@ public:
         return this->retries;
     }
 
+    /// @brief sets the number of times wait() retries before it returns false.
+    void set_max_retries(const int max_retries) {
+        std::lock_guard lock(this->mu);
+        this->config.max_retries = max_retries;
+    }
+
     /// @brief describes the next call to wait(), such as "retry 3/50 in 1.2 s". Returns
     /// an empty string when that call exceeds the maximum retry count.
     [[nodiscard]] std::string next_retry() const {

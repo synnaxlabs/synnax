@@ -68,7 +68,7 @@ bool Control::run_once() {
         this->streamer = std::move(s);
     }
     if (open_err) {
-        if (this->wait_for_core(open_err)) return true;
+        if (this->wait_for_core(open_err, true)) return true;
         this->sink->stopped_with_err(open_err);
         return false;
     }
@@ -88,7 +88,7 @@ bool Control::run_once() {
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (this->wait_for_core(close_err)) return true;
+    if (this->wait_for_core(close_err, true)) return true;
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
     else if (close_err)

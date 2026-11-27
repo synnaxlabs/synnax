@@ -23,11 +23,8 @@ bool Rack::should_exit(
     const bool reconnecting
 ) {
     if (!err) return false;
-    if (reconnecting && synnax::errors::is_unreachable(err)) {
-        if (this->breaker.wait_unlimited(err)) return false;
-    } else if (
-        synnax::errors::is_temporarily_unavailable(err) && this->breaker.wait(err)
-    )
+    if (waits_out(err, reconnecting) &&
+        (reconnecting ? this->breaker.wait_unlimited(err) : this->breaker.wait(err)))
         return false;
     // A stop came first, so the error did not stop the rack.
     if (!this->breaker.running()) return true;
@@ -55,6 +52,9 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg = std::move(loaded);
             break;
         }
+        // A failed load returns the settings it read before it failed, so the limit
+        // comes from them, or is the default.
+        this->breaker.set_max_retries(loaded.retry.startup_retries);
         if (this->should_exit(err, on_shutdown)) return;
     }
     VLOG(1) << "loaded config. starting task manager";

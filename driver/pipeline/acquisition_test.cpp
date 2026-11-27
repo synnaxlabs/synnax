@@ -1212,6 +1212,27 @@ TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
     ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
 }
 
+/// @brief it should open the writer again after a stream reset, past the retry limit
+/// of the breaker.
+TEST(AcquisitionPipeline, RetriesOpenAfterTransportError) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
+        freighter::TRANSPORT,
+        freighter::TRANSPORT,
+        x::errors::UNKNOWN,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(factory->opens.load(), 3);
+    pipeline.stop();
+    ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
+}
+
 /// @brief it should retry a hardware error right after the Core comes back from an
 /// outage longer than the retry limit of the breaker.
 TEST(AcquisitionPipeline, RetriesHardwareErrorAfterCoreOutage) {
@@ -1238,9 +1259,9 @@ TEST(AcquisitionPipeline, RetriesHardwareErrorAfterCoreOutage) {
     ASSERT_NIL(source->stopped_err);
 }
 
-/// @brief it should stop with the license error when the Core stays unlicensed past
-/// the retry limit of the breaker.
-TEST(AcquisitionPipeline, StopsOnLicenseErrorPastLimit) {
+/// @brief it should wait for an unlicensed Core past the retry limit of the breaker,
+/// and stop on the first error that is not transient.
+TEST(AcquisitionPipeline, WaitsForLicensePastLimit) {
     const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
         synnax::errors::LICENSE_MISSING,
         synnax::errors::LICENSE_MISSING,
@@ -1256,7 +1277,26 @@ TEST(AcquisitionPipeline, StopsOnLicenseErrorPastLimit) {
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_FALSE(pipeline.running());
     pipeline.stop();
-    ASSERT_EQ(factory->opens.load(), 2);
-    ASSERT_MATCHES(source->stopped_err, synnax::errors::LICENSE_MISSING);
+    ASSERT_EQ(factory->opens.load(), 3);
+    ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
+}
+
+/// @brief it should stop on an interrupted error, since a write is unsafe to resend.
+TEST(AcquisitionPipeline, StopsOnInterruptedError) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
+        synnax::errors::INTERRUPTED,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        fast_breaker(1)
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_FALSE(pipeline.running());
+    pipeline.stop();
+    ASSERT_EQ(factory->opens.load(), 1);
+    ASSERT_MATCHES(source->stopped_err, synnax::errors::INTERRUPTED);
 }
 }

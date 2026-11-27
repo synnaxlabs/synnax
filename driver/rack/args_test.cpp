@@ -13,6 +13,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/args/args.h"
+#include "x/cpp/env/env.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -74,5 +75,30 @@ TEST(ArgsTest, RejectBothIntegrationFlags) {
         err.data.find("cannot be used with --disable-integrations"),
         std::string::npos
     );
+}
+
+/// @brief it should read the startup retries from --startup-retries.
+TEST(ArgsTest, StartupRetriesFlag) {
+    x::errors::Error err;
+    const auto cfg = load({"--startup-retries", "3"}, err);
+    ASSERT_NIL(err);
+    EXPECT_EQ(cfg.retry.startup_retries, 3);
+}
+
+/// @brief it should reject negative startup retries.
+TEST(ArgsTest, RejectNegativeStartupRetries) {
+    x::errors::Error err;
+    load({"--startup-retries", "-1"}, err);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+}
+
+/// @brief it should read the startup retries from SYNNAX_DRIVER_STARTUP_RETRIES.
+TEST(ArgsTest, StartupRetriesEnv) {
+    x::env::set("SYNNAX_DRIVER_STARTUP_RETRIES", "4");
+    Config cfg;
+    const auto err = cfg.load_env();
+    x::env::unset("SYNNAX_DRIVER_STARTUP_RETRIES");
+    ASSERT_NIL(err);
+    EXPECT_EQ(cfg.retry.startup_retries, 4);
 }
 }

@@ -26,14 +26,22 @@
 #include "driver/pipeline/control.h"
 
 namespace driver::bypass::pipeline {
+/// @brief whether the Core half reopens after err. A stream only reads, so an
+/// interrupted open or read reopens too.
+inline bool reopens(const x::errors::Error &err) {
+    const auto kind = synnax::errors::classify(err);
+    return kind == synnax::errors::Kind::TRANSIENT ||
+           kind == synnax::errors::Kind::INTERRUPTED;
+}
+
 /// @brief a pipeline Streamer that merges local bus frames with Core frames. The Core
 /// half reads on a background thread, so bus frames never wait for the Core. No
 /// authority filtering is applied here; the bypass Writer filters unauthorized channels
 /// before it publishes to the bus.
 ///
-/// While the Core is unreachable, the Core half reopens with backoff and no retry
-/// limit, and read() keeps returning bus frames. Any other Core error ends read() with
-/// that error.
+/// After a Core error for which reopens() holds, the Core half reopens with backoff
+/// and no retry limit, and read() keeps returning bus frames. Any other Core
+/// error ends read() with that error.
 class Streamer final : public ::driver::pipeline::Streamer {
     std::shared_ptr<::driver::pipeline::StreamerFactory> factory;
     synnax::framer::StreamerConfig config;
@@ -57,8 +65,8 @@ class Streamer final : public ::driver::pipeline::Streamer {
     std::condition_variable notify_cv;
 
 public:
-    /// @param core the Core streamer, or nullptr if its first open failed because the
-    /// Core is unreachable.
+    /// @param core the Core streamer, or nullptr if its first open failed with a
+    /// transient error.
     /// @param open_err the error of the first open, or NIL.
     Streamer(
         std::shared_ptr<::driver::pipeline::StreamerFactory> factory,
@@ -131,12 +139,11 @@ public:
 private:
     void run_core(x::errors::Error err) {
         if (this->core != nullptr) err = this->read_core();
-        while (synnax::errors::is_unreachable(err) && this->breaker.running() &&
+        while (reopens(err) && this->breaker.running() &&
                this->breaker.wait_unlimited(err))
             err = this->stream_core();
         // A close_send() that ends the wait for the Core is not a Core failure.
-        if (!this->breaker.running() && synnax::errors::is_unreachable(err))
-            err = freighter::STREAM_CLOSED;
+        if (!this->breaker.running() && reopens(err)) err = freighter::STREAM_CLOSED;
         {
             std::lock_guard lock(this->server_mu);
             this->server_err = err;
@@ -203,18 +210,17 @@ public:
         subject(std::move(subject)),
         breaker_config(std::move(breaker_config)) {}
 
-    /// @brief opens the Core streamer and subscribes to the bus. If the Core is
-    /// unreachable, returns the streamer anyway, and the streamer reopens its Core half
-    /// in the background. Sink::opened() then means only that bus frames reach the
-    /// sink. Core frames reach it once the Core half opens.
-    /// @returns any Core open error other than an unreachable Core.
+    /// @brief opens the Core streamer and subscribes to the bus. If the open fails with
+    /// a transient error, returns the streamer anyway, and the streamer reopens its
+    /// Core half in the background. Sink::opened() then means only that bus frames
+    /// reach the sink. Core frames reach it once the Core half opens.
+    /// @returns any Core open error that is not transient.
     std::pair<std::unique_ptr<::driver::pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
         if (this->subject.group != 0)
             config.exclude_groups.push_back(this->subject.group);
         auto [core, open_err] = this->server->open_streamer(config);
-        if (open_err && !synnax::errors::is_unreachable(open_err))
-            return {nullptr, open_err};
+        if (open_err && !reopens(open_err)) return {nullptr, open_err};
         auto subscription = this->bus->subscribe(config.channels);
         VLOG(1) << "[bus.streamer_factory] opened streamer for "
                 << config.channels.size() << " channels, subject=" << this->subject.name

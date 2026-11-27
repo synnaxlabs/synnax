@@ -102,17 +102,6 @@ TEST(ErrorsTest, CheckOneMultipleFoundSearchTerm) {
     EXPECT_EQ(err.data, R"(Expected one range matching "press", but found 2)");
 }
 
-/// @brief it should match only the errors that clear without a restart.
-TEST(ErrorsTest, IsTemporarilyUnavailable) {
-    EXPECT_TRUE(is_temporarily_unavailable(freighter::UNREACHABLE));
-    EXPECT_TRUE(is_temporarily_unavailable(freighter::TIMEOUT));
-    EXPECT_TRUE(is_temporarily_unavailable(LICENSE_MISSING));
-    EXPECT_TRUE(is_temporarily_unavailable(LICENSE_EXPIRED));
-    EXPECT_FALSE(is_temporarily_unavailable(LICENSE));
-    EXPECT_FALSE(is_temporarily_unavailable(LICENSE.sub("invalid")));
-    EXPECT_FALSE(is_temporarily_unavailable(x::errors::UNKNOWN));
-}
-
 /// @brief it should classify each row of the table.
 TEST(ErrorsTest, ClassifyTable) {
     const std::vector<std::pair<x::errors::Error, Kind>> cases = {

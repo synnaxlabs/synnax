@@ -28,6 +28,7 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/auth/auth.h"
+#include "client/cpp/errors/errors.h"
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/thread/rt/rt.h"
@@ -85,6 +86,20 @@ struct RemoteInfo {
     }
 };
 
+/// @brief how the Driver retries a transient Core error.
+struct RetryConfig {
+    /// @brief the number of times the Driver retries a transient Core error before its
+    /// first run. It then exits. After the first run, it retries with no limit.
+    int startup_retries = 200;
+
+    template<typename Parser>
+    void override(Parser &p) {
+        this->startup_retries = p.field("startup_retries", this->startup_retries);
+        if (this->startup_retries < 0)
+            p.field_err("startup_retries", "must be zero or more");
+    }
+};
+
 /// @brief returns the integrations that this platform's build adds to the ones every
 /// build has. Each platform defines it in its own source.
 std::vector<std::string> platform_integrations();
@@ -128,6 +143,8 @@ struct Config {
     common::TimingConfig timing;
     /// @brief configuration for the task manager.
     task::ManagerConfig manager;
+    /// @brief how the Driver retries a transient Core error.
+    RetryConfig retry;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
     /// @brief the list of integrations enabled for the driver.
@@ -320,6 +337,15 @@ struct Config {
 /// @brief clears the persisted state file, removing all cached information.
 x::errors::Error clear_persisted_state();
 
+/// @returns whether the rack waits out err. A run only reopens the task manager stream,
+/// which is safe to send twice, so a reconnecting rack also waits out an interrupted
+/// error. An enrollment before the first run creates a rack, so it does not.
+inline bool waits_out(const x::errors::Error &err, const bool reconnecting) {
+    const auto kind = synnax::errors::classify(err);
+    return kind == synnax::errors::Kind::TRANSIENT ||
+           (reconnecting && kind == synnax::errors::Kind::INTERRUPTED);
+}
+
 /// @brief rack is the entry point for driver operation. It is responsible for
 /// communicating its identity to the Synnax cluster and managing the lifecycle
 /// of tasks that are assigned to it.
@@ -333,7 +359,8 @@ class Rack {
 
     /// @brief returns true if the error cannot be recovered from and the rack
     /// should stop operations and shut down. Calls on_shutdown unless a stop caused
-    /// the exit. While reconnecting, it waits for an unreachable Core with no limit.
+    /// the exit. Waits for a transient error within the retry limit of the breaker,
+    /// or with no limit while reconnecting.
     bool should_exit(
         const x::errors::Error &err,
         const std::function<void()> &on_shutdown,
@@ -344,15 +371,15 @@ class Rack {
     void run(x::args::Parser &args, const std::function<void()> &on_shutdown);
 
 public:
-    /// @brief creates a rack that backs off from Core errors with breaker_config. After
-    /// its first run, it waits for an unreachable Core with no retry limit. It waits
-    /// for any other temporarily unavailable error within max_retries.
+    /// @brief creates a rack that backs off from transient Core errors with
+    /// breaker_config. Before its first run, it waits within the startup_retries of its
+    /// config. After that, it waits with no retry limit.
     explicit Rack(
         const x::breaker::Config &breaker_config =
             {
                 .name = "driver",
                 .base_interval = x::telem::SECOND,
-                .max_retries = 200,
+                .max_retries = RetryConfig{}.startup_retries,
                 .scale = 1.1f,
                 .max_interval = x::telem::MINUTE,
             }

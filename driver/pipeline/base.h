@@ -58,14 +58,15 @@ protected:
         thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
     /// @brief backs off after a request to the Core fails with err. Waits with no
-    /// retry limit while the Core is unreachable, and within the limit for any other
-    /// temporarily unavailable error.
+    /// retry limit for a transient error, and for an interrupted one when resendable.
+    /// @param resendable whether the retry is safe to send twice. A streamer reopen is,
+    /// but an acquisition pipeline writes the failed frame again.
     /// @returns true if the pipeline should retry, false if it should stop.
-    bool wait_for_core(const x::errors::Error &err) {
-        if (synnax::errors::is_unreachable(err))
-            return this->breaker.wait_unlimited(err);
-        return synnax::errors::is_temporarily_unavailable(err) &&
-               this->breaker.wait(err);
+    bool wait_for_core(const x::errors::Error &err, const bool resendable = false) {
+        const auto kind = synnax::errors::classify(err);
+        const bool retries = kind == synnax::errors::Kind::TRANSIENT ||
+                             (resendable && kind == synnax::errors::Kind::INTERRUPTED);
+        return retries && this->breaker.wait_unlimited(err);
     }
 
     /// @brief unblocks a pipeline thread that waits in a call the breaker cannot wake,

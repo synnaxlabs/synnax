@@ -214,4 +214,15 @@ TEST(BreakerTest, testConcurrentRetryState) {
     EXPECT_TRUE(b.stop());
     t.join();
 }
+
+/// @brief it should stop waiting at a retry limit set after construction.
+TEST(BreakerTests, SetMaxRetriesChangesTheLimit) {
+    auto b = Breaker(Config{"limit", telem::MICROSECOND, 100, 1});
+    EXPECT_TRUE(b.start());
+    b.set_max_retries(2);
+    EXPECT_TRUE(b.wait("first"));
+    EXPECT_TRUE(b.wait("second"));
+    EXPECT_FALSE(b.wait("third"));
+    EXPECT_TRUE(b.stop());
+}
 }

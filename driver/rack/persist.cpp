@@ -158,14 +158,14 @@ x::errors::Error rack::Config::load_persisted_state(x::args::Parser &args) {
     // Load the connection config.
     std::string conn = "{}";
     const auto c_err = kv->get("conn_params", conn);
-    if (c_err && !x::errors::NOT_FOUND.matches(c_err)) return c_err;
+    if (c_err && !c_err.matches(x::errors::NOT_FOUND)) return c_err;
     auto conn_parser = x::json::Parser(conn);
     this->connection.override(conn_parser);
 
     // Load the cached remote info
     std::string remote_info = "{}";
     const auto r_err = kv->get("remote_info", remote_info);
-    if (r_err && !x::errors::NOT_FOUND.matches(r_err)) return r_err;
+    if (r_err && !r_err.matches(x::errors::NOT_FOUND)) return r_err;
     auto remote_parser = x::json::Parser(remote_info);
     this->remote_info.override(remote_parser);
 

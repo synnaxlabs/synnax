@@ -5163,7 +5163,7 @@ TEST_F(ScriptedControlTest, OutageAcrossARunRestartKeepsTheLastMirror) {
     st->route(bus_frame(1), OWNER, this->publish);
     st->route(bus_frame(2), OTHER, this->publish);
     // The next run cannot reach the Core either.
-    ASSERT_TRUE(synnax::errors::is_unreachable(manager->run()));
+    ASSERT_OCCURRED_AS(manager->run(), freighter::UNREACHABLE);
     st->route(bus_frame(3), OWNER, this->publish);
     st->route(bus_frame(4), OTHER, this->publish);
     const std::vector<double> want{1, 3};
