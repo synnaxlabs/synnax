@@ -9,6 +9,7 @@
 
 import type { channel } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { DataType } from "@synnaxlabs/x";
 
 export const HAUL_TYPE = "channel";
 
@@ -26,3 +27,16 @@ export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
   items.filter(isHaulItem);
 
 export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
+
+/**
+ * Returns whether a line plot can draw the channel: its samples are numbers, and it has
+ * a time axis, so it stores samples or is calculated.
+ */
+export const plottable = ({
+  dataType,
+  virtual,
+  expression,
+}: Pick<channel.Channel, "dataType" | "virtual" | "expression">): boolean =>
+  dataType.isNumeric &&
+  !dataType.equals(DataType.TIMESTAMP) &&
+  (!virtual || expression !== "");

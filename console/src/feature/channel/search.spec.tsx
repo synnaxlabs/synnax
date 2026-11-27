@@ -39,11 +39,26 @@ import { createConsoleWrapper, resolveFocusedTab, type TestStore } from "@/testu
 
 const client = createTestClient();
 
-const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
-  await client.channels.create({
-    name: uniqueName("ch"),
+// Creates a channel that stores samples against a new index.
+const createChannel = async (overrides: Partial<channelClient.New> = {}) => {
+  const index = await client.channels.create({
+    name: uniqueName("index"),
     dataType: DataType.TIMESTAMP,
     isIndex: true,
+  });
+  return await client.channels.create({
+    name: uniqueName("ch"),
+    dataType: DataType.FLOAT32,
+    index: index.key,
+    ...overrides,
+  });
+};
+
+const createVirtualChannel = async (overrides: Partial<channelClient.New> = {}) =>
+  await client.channels.create({
+    name: uniqueName("ch"),
+    dataType: DataType.FLOAT32,
+    virtual: true,
     ...overrides,
   });
 
@@ -89,6 +104,32 @@ const focusLog = async (store: TestStore): Promise<log.Key> => {
     Session.Panel.internalSelectTab({ key: pan.key, tabKey, otherTabKeys: [tabKey] }),
   );
   return doc.key;
+};
+
+// Opens a line plot in a panel of a new project and focuses its tab.
+const focusPlot = async (store: TestStore): Promise<lineplot.Key> => {
+  const proj = await client.projects.create({ name: uniqueName("proj") });
+  const plot = await client.lineplots.create({
+    project: proj.key,
+    name: uniqueName("plot"),
+  });
+  const tabKey = uuid.create();
+  const pan = await client.panels.create({
+    name: uniqueName("panel"),
+    project: proj.key,
+    root: {
+      variant: "leaf",
+      tabs: [
+        { variant: "resource", key: tabKey, resource: lineplot.resourceID(plot.key) },
+      ],
+    },
+  });
+  store.dispatch(Session.Project.select(proj.key));
+  store.dispatch(Session.Panel.select({ key: pan.key }));
+  store.dispatch(
+    Session.Panel.internalSelectTab({ key: pan.key, tabKey, otherTabKeys: [tabKey] }),
+  );
+  return plot.key;
 };
 
 const channelsOf = async (key: log.Key): Promise<channelClient.Key[]> =>
@@ -153,7 +194,7 @@ describe("channel/search", () => {
   });
 
   it("creates a log for a virtual channel without an expression", async () => {
-    const ch = await createChannel({ isIndex: false, virtual: true });
+    const ch = await createVirtualChannel();
     const proj = await client.projects.create({
       name: uniqueName("proj"),
     });
@@ -171,7 +212,7 @@ describe("channel/search", () => {
   });
 
   it("adds a virtual channel to the focused log", async () => {
-    const ch = await createChannel({ isIndex: false, virtual: true });
+    const ch = await createVirtualChannel();
     const store = await renderSearchItem(
       createResource(channelClient.resourceID(ch.key), ch.name),
     );
@@ -233,11 +274,7 @@ describe("channel/search", () => {
   });
 
   it("creates a line plot for a calculated channel", async () => {
-    const ch = await createChannel({
-      isIndex: false,
-      virtual: true,
-      expression: "return 1",
-    });
+    const ch = await createVirtualChannel({ expression: "return 1.0" });
     const proj = await client.projects.create({
       name: uniqueName("proj"),
     });
@@ -251,5 +288,36 @@ describe("channel/search", () => {
     expect(tab.resource.type).toBe("lineplot");
     const plot = await client.lineplots.retrieve(tab.resource.key);
     expect(plot.channels.y1).toContain(ch.key);
+  });
+
+  it("creates a log for a stored string channel", async () => {
+    const ch = await createChannel({ dataType: DataType.STRING });
+    const proj = await client.projects.create({ name: uniqueName("proj") });
+    const store = await renderSearchItem(
+      createResource(channelClient.resourceID(ch.key), ch.name),
+    );
+    store.dispatch(Session.Project.select(proj.key));
+    fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe("log");
+    expect(await channelsOf(tab.resource.key)).toContain(ch.key);
+  });
+
+  it("creates a log for a string channel when a line plot is focused", async () => {
+    const ch = await createChannel({ dataType: DataType.STRING });
+    const store = await renderSearchItem(
+      createResource(channelClient.resourceID(ch.key), ch.name),
+    );
+    const plot = await focusPlot(store);
+    fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
+    const tab = await resolveFocusedTab(
+      store,
+      client,
+      (t) => t.variant === "resource" && t.resource.type === "log",
+    );
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(await channelsOf(tab.resource.key)).toContain(ch.key);
+    expect((await client.lineplots.retrieve(plot)).channels.y1).toEqual([]);
   });
 });

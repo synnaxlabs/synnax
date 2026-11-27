@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
+import { type channel, lineplot, query, type ranger } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
@@ -69,6 +69,7 @@ import { Tooltip } from "@/lineplot/tooltip";
 import type { tooltip } from "@/lineplot/tooltip/aether";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { Ranger } from "@/ranger";
+import { Synnax } from "@/synnax";
 import { telem } from "@/telem/aether";
 import type { Viewport } from "@/viewport";
 
@@ -174,6 +175,19 @@ const useDropHighlight = (canDrop: Haul.CanDrop): DropHighlight => {
 
 const canDropChannelOrRange: Haul.CanDrop = (state) =>
   Channel.canDropHaulItem(state) || Ranger.canDropHaulItem(state);
+
+/**
+ * @returns a function that keeps the dragged channels the plot can draw. A channel the
+ * client has not loaded is left out.
+ */
+const usePlottable = (): ((items: Haul.Item[]) => Channel.HaulItem[]) => {
+  const client = Synnax.use();
+  return (items) =>
+    Channel.filterHaulItems(items).filter(({ key }) => {
+      const ch = client?.channels.watch(key).getCached();
+      return query.isLive(ch) && Channel.plottable(ch);
+    });
+};
 
 /** @returns whether an x axis draws each range from its zero. */
 export const isRelative = ({ type, timeMode }: lineplot.Axis): boolean =>
@@ -543,12 +557,14 @@ const YAxis = ({
   const { dispatch } = useDispatch();
   const { axis, lineKeys, channels: existing } = useYAxis({ key, axisKey });
   const edit = useEdit(key, editable);
-  const highlight = useDropHighlight(Channel.canDropHaulItem);
+  const plottable = usePlottable();
+  const canDrop: Haul.CanDrop = ({ items }) => plottable(items).length > 0;
+  const highlight = useDropHighlight(canDrop);
   const dropProps = Haul.useDrop({
     type: "channel_lineplot_y_axis",
-    canDrop: Channel.canDropHaulItem,
+    canDrop,
     onDrop: ({ items }) => {
-      const channels = newChannels(Channel.filterHaulItems(items), existing);
+      const channels = newChannels(plottable(items), existing);
       return edit(addChannels(axisKey, channels)) ? channels : [];
     },
   });
@@ -672,12 +688,15 @@ const usePlotDrop = (key: lineplot.Key, editable: boolean): PlotDrop => {
   const edit = useEdit(key, editable);
   const { channels: existing } = useYAxis({ key, axisKey: FIRST_Y_AXIS });
   const plotRanges = useRanges({ key });
-  const highlight = useDropHighlight(canDropChannelOrRange);
+  const plottable = usePlottable();
+  const canDrop: Haul.CanDrop = (state) =>
+    plottable(state.items).length > 0 || Ranger.canDropHaulItem(state);
+  const highlight = useDropHighlight(canDrop);
   const dropProps = Haul.useDrop({
     type: "lineplot_plot",
-    canDrop: canDropChannelOrRange,
+    canDrop,
     onDrop: ({ items }) => {
-      const channels = newChannels(Channel.filterHaulItems(items), existing);
+      const channels = newChannels(plottable(items), existing);
       const ranges = newRanges(Ranger.filterHaulItems(items), plotRanges);
       const actions = [...addChannels(FIRST_Y_AXIS, channels), ...addRanges(ranges)];
       return edit(actions) ? [...channels, ...ranges] : [];

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, lineplot, log, panel, type resource } from "@synnaxlabs/client";
+import { lineplot, log, panel, type resource } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Channel, Synnax } from "@synnaxlabs/pluto";
 
 import { Analytics } from "@/platform/analytics";
 import { LinePlot } from "@/platform/lineplot";
@@ -17,14 +17,9 @@ import { Log } from "@/platform/log";
 import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
-// A virtual channel without an expression has no stored data to plot, so it routes to a
-// log, which displays its live samples. Calculated channels plot like persisted ones.
-const isPlainVirtual = ({ virtual, expression }: channel.Channel): boolean =>
-  virtual && expression === "";
-
 // use returns a handler that opens a channel resource in a visualization. Any channel
-// goes to a focused log the user can edit. Otherwise, plottable channels go to the
-// focused line plot or a new one, and plain virtual channels to a new log.
+// goes to a focused log the user can edit. A plottable channel goes to a focused line
+// plot. Otherwise, a plottable channel opens a new line plot and any other a new log.
 export const use = (): ((resource: resource.Resource) => void) => {
   const client = Synnax.use();
   const openTab = Panel.useOpenTab();
@@ -38,7 +33,7 @@ export const use = (): ((resource: resource.Resource) => void) => {
     if (client == null) return;
     const channelKey = Number(item.id.key);
     handleError(async () => {
-      const virtual = isPlainVirtual(await client.channels.retrieve(channelKey));
+      const plottable = Channel.plottable(await client.channels.retrieve(channelKey));
       const focusedTab = getFocusedTab();
       const panelKey = getSelectedPanel();
       if (focusedTab != null && panelKey != null) {
@@ -55,14 +50,14 @@ export const use = (): ((resource: resource.Resource) => void) => {
               await Log.addChannelsToActiveLog(client, id.key, [channelKey]);
               return;
             }
-          } else if (!virtual && id.type === "lineplot") {
+          } else if (plottable && id.type === "lineplot") {
             await LinePlot.addChannelsToActivePlot(client, id.key, [channelKey]);
             return;
           }
         }
       }
       const project = getSelectedProject();
-      if (virtual) {
+      if (!plottable) {
         const { key } = await client.logs.create({
           project,
           name: "Log",

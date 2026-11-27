@@ -1289,6 +1289,26 @@ describe("LinePlot", () => {
         expect(dragOver(yAxis)).toBe(false);
       });
 
+      it("should not mark the plot area or a Y axis for a string channel", async () => {
+        const index = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        });
+        const text = await client.channels.create({
+          name: id.create(),
+          dataType: DataType.STRING,
+          index: index.key,
+        });
+        const { viewport, xAxis, yAxis } = await renderPlot([
+          Channel.createHaulItem(text.key),
+        ]);
+        await startDrag();
+        expect(droppable(viewport)).toBe(false);
+        expect(droppable(yAxis)).toBe(false);
+        expect(droppable(xAxis)).toBe(true);
+      });
+
       it("should mark only the target under the cursor as dragged over", async () => {
         const [first] = channels;
         const { viewport, xAxis, yAxis } = await renderPlot([

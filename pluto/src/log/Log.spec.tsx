@@ -108,7 +108,7 @@ describe("Log", () => {
       const created = await client.logs.create({ project: project.key, name: "drop" });
       const ch = await client.channels.create({
         name: id.create(),
-        dataType: DataType.FLOAT32,
+        dataType: DataType.STRING,
         virtual: true,
       });
       await act(async () => {
