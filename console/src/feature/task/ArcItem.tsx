@@ -102,7 +102,7 @@ export const ArcItem = ({
             )}
           </Flex.Box>
         </Flex.Box>
-        <Text.Text level="tiny" color={8}>
+        <Text.Text level="tiny" color={8} overflow="fade">
           {scopeText(status) ?? "Arc automation task"}
         </Text.Text>
       </Flex.Box>

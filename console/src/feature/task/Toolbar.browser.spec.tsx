@@ -340,10 +340,15 @@ describe("task/Toolbar Arc rows", () => {
   });
 
   describe("active scopes", () => {
-    const setScopes = async (t: task.Task, paths: string[][]) => {
+    const setScopes = async (
+      t: task.Task,
+      paths: string[][],
+      variant: status.Variant = "success",
+    ) => {
       runningTasks.add(t.key);
       await client.statuses.set(
         createTaskStatus({
+          variant,
           owner: task.resourceID(t.key),
           details: {
             running: true,
@@ -364,6 +369,14 @@ describe("task/Toolbar Arc rows", () => {
         ["abort", "safed"],
       ]);
       expect(await screen.findByText("main › high_vac, abort › safed")).toBeTruthy();
+    });
+
+    it("keeps the stage path while a warning shows", async () => {
+      const { arc: a, task: t } = await createBoundArc();
+      await renderToolbar();
+      await screen.findByText(a.name);
+      await setScopes(t, [["main", "hold"]], "warning");
+      expect(await screen.findByText("main › hold")).toBeTruthy();
     });
 
     it("shows Idle when no scope runs", async () => {
