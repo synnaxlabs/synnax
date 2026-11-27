@@ -134,7 +134,7 @@ TEST(FoundDevices, PutsModulesUnderTheirChassis) {
     ASSERT_EQ(devices.at(0).chassis, chassis_key);
     ASSERT_EQ(devices.at(0).serial, module.key);
     ASSERT_FALSE(devices.at(1).chassis.has_value());
-    ASSERT_FALSE(devices.at(1).serial.has_value());
+    ASSERT_EQ(devices.at(1).serial, "");
     ASSERT_EQ(devices.at(1).resource_name, standalone.resource_name);
 }
 

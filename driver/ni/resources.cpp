@@ -60,7 +60,7 @@ found_devices(const std::vector<Device> &scanned, const ChassisKey &chassis_key)
             synnax::ni::device::Device{
                 .rack = dev.rack,
                 .name = dev.name,
-                .serial = serial(dev),
+                .serial = serial(dev).value_or(""),
                 .resource_name = dev.resource_name,
                 .model = dev.model,
                 .hardware = dev.hardware,
