@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithRole,
   holdResponses,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
@@ -44,6 +45,9 @@ import {
   clickDeploy,
   countFailedSaves,
   deployAndAwaitTask,
+  findDetailsButton,
+  findDetailsPane,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -193,7 +197,7 @@ const createFormatTarget = async (fields: icd.JSONField[]) => {
 
 // The add button renders once the form leaves its loading preview.
 const openAddTargets = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
+  fireEvent.click(await findListButton("Add targets"));
   return within(await screen.findByRole("dialog"));
 };
 
@@ -240,10 +244,23 @@ describe("MQTT Write form", () => {
   // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
     await renderWrite();
-    await screen.findByText("Add targets to write to a topic or a tag");
+    await screen.findByText("No target selected");
     await addTag();
     expect(screen.getByText("Sparkplug B type")).toBeTruthy();
   }, 30_000);
+
+  it("should open Add targets from the empty details pane", async () => {
+    await renderWrite();
+    fireEvent.click(await findDetailsButton("Add targets"));
+    await screen.findByRole("dialog");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderWrite([], { as: await createTestClientWithRole(client, "Viewer") });
+    const details = await findDetailsPane();
+    await within(details).findByText("No target selected");
+    expect(within(details).queryByRole("button", { name: "Add targets" })).toBeNull();
+  });
 
   it("should show the topic settings of a plain target", async () => {
     await renderWrite([
@@ -490,11 +507,15 @@ describe("MQTT Write form", () => {
           value: { format: "text", delimiter: ",", prefix: "", fields: [] },
         }),
       );
-      fireEvent.click(
-        await screen.findByRole("treeitem", { name: /TEXT.*plant\/valve\/set/ }),
-      );
+      const item = await screen.findByRole("treeitem", {
+        name: /TEXT.*plant\/valve\/set/,
+      });
+      fireEvent.click(item);
       // The message format field shows the name of the message.
       await screen.findByRole("button", { name: /Command/ });
+      // A write task takes only JSON messages, even where a read task takes text.
+      await screen.findByText("Message is not JSON");
+      within(item).getByRole("img", { name: "Message is not JSON" });
     });
 
     it("should list a tag by its edge node, with its command channel in its pane", async () => {

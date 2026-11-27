@@ -175,7 +175,7 @@ var legacyReimportErrors = map[string]string{
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
 // variant, keyed by the variant's type tag. It scopes a drop that legacyDiscarded
 // would apply to every variant of the task type. NI-DAQmx accepts one unit for each
-// of the units channels, so the schema carries no units field and the driver passes
+// of the units channels, so the schema carries no units field and the Driver passes
 // the constant.
 var legacyVariantDiscarded = map[string]set.Set[string]{
 	// The built-in temperature sensor is not wired to a port. The Driver reads it

@@ -30,7 +30,7 @@ func MigrateScanConfig(ctx context.Context, old v2.ScanConfig) (ScanConfig, erro
 // ScanMigration lifts stored scan configs to v3.
 var ScanMigration = migrate.NewEntry("v61_drop_ignored_models", MigrateScanConfig)
 
-// maxLine is the highest line of a DAQmx digital port.
+// maxLine is the highest line of an NI-DAQmx digital port.
 const maxLine = 31
 
 // narrowPort clamps a port to uint32 and reports whether it changed.

@@ -125,7 +125,7 @@ const middleware =
 
 /**
  * Configures the Redux middleware for the current window's store.
- * @param mw - Middleware provided by the drift user (if any).
+ * @param mw - Middleware provided by the Drift user (if any).
  * @returns a middleware function to be passed to `configureStore`.
  */
 export const configureMiddleware =

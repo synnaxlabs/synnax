@@ -30,6 +30,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Make is the make of a device that the Driver reaches over UDP.
+const Make = "udp"
+
 const (
 	// readTaskType is the type of the task that reads ICD messages from a UDP socket.
 	readTaskType = "udp_read"

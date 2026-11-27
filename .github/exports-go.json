@@ -1,9 +1,48 @@
 {
   "gated": [
-    { "module": "freighter/integration", "usage": "tests-only" },
-    { "module": "freighter/integration", "usage": "unused" }
+    {
+      "module": "freighter/integration",
+      "usage": "tests-only"
+    },
+    {
+      "module": "freighter/integration",
+      "usage": "unused"
+    }
   ],
   "pending": [
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "TextEncoder",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "NewTextEncoder",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "TextEncoder",
+      "name": "Encode",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "TextEncoder",
+      "name": "Check",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "TextEncoder",
+      "name": "HasDefault",
+      "caller": "sy-6979-text-binary-writes"
+    },
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium",
@@ -147,6 +186,19 @@
       "receiver": "Binary",
       "name": "Decode",
       "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
+      "receiver": "Scheduler",
+      "name": "SetScopeHandler",
+      "caller": "sy-7012-arc-task-scope-status"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
+      "name": "ScopeHandler",
+      "caller": "sy-7012-arc-task-scope-status"
     }
   ]
 }

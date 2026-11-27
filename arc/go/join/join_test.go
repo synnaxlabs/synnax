@@ -159,11 +159,13 @@ var _ = Describe("Join", func() {
 			Expect(join.New(join.Config{Inputs: floatInputs(1), Primary: 1})).Error().
 				To(MatchError(validate.ErrValidation))
 		})
-		It("Should refuse an input with no fixed density", func() {
+		It("Should refuse an input with no known density", func() {
 			Expect(join.New(join.Config{Inputs: []join.Input{
 				{DataType: telem.Float64T},
-				{DataType: telem.StringT},
-			}})).Error().To(MatchError(ContainSubstring("input 1 has data type string")))
+				{DataType: telem.UnknownT},
+			}})).Error().To(MatchError(ContainSubstring(
+				`input 1 has data type "", which has no known density`,
+			)))
 		})
 		DescribeTable(
 			"Should refuse arrival-timed inputs that the join cannot take",
