@@ -51,6 +51,9 @@ type plainOpts struct {
 	// the longer good prefix. It checks the checksum of each record that starts before
 	// bulk.
 	bulk int64
+	// goesOn keeps the log open after a failed write, which the next commit writes
+	// over.
+	goesOn bool
 }
 
 // plainLog is an append-only log in one file. Each record is a checksum, a length, an
@@ -240,8 +243,11 @@ func (l *plainLog) Commit(
 	binary.LittleEndian.PutUint64(buf[8:], r.ID)
 	copy(buf[plainHeader:], r.Payload)
 	binary.LittleEndian.PutUint32(buf, crc32.Checksum(buf[4:], castagnoli))
-	if _, l.dead = l.f.WriteAt(buf, l.off); l.dead != nil {
-		return 0, l.dead
+	if _, err := l.f.WriteAt(buf, l.off); err != nil {
+		if !l.o.goesOn {
+			l.dead = err
+		}
+		return 0, err
 	}
 	l.off += int64(len(buf))
 	l.records = append(l.records, r)
