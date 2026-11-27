@@ -292,27 +292,60 @@ func (w Writer) syncConfig(ctx context.Context, key Key) error {
 	return nil
 }
 
+// targetSet fails when the config of the task with the given key no longer fits a
+// record that it references, naming the task, and otherwise stores its hash as syncHash
+// does.
+func (w Writer) targetSet(ctx context.Context, key Key) error {
+	t, store, err := w.withStore(ctx, key)
+	if err != nil {
+		return err
+	}
+	if err = store.Check(ctx, w.tx, key); err != nil {
+		return errors.Wrapf(err, "breaks task %s", t.Name)
+	}
+	return w.attachHash(ctx, store, &t)
+}
+
 // syncHash stores the hash of the config of the task with the given key, and attaches a
 // set of the hash, when a record that the config references changed it.
 func (w Writer) syncHash(ctx context.Context, key Key) error {
+	t, store, err := w.withStore(ctx, key)
+	if err != nil {
+		return err
+	}
+	return w.attachHash(ctx, store, &t)
+}
+
+// withStore returns the task with the given key and the config store of its type.
+func (w Writer) withStore(ctx context.Context, key Key) (Task, config.Store, error) {
 	var t Task
 	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Entry(&t).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return Task{}, nil, err
 	}
 	store, ok := w.configs.Store(t.Type)
 	if !ok {
-		return errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
+		return Task{}, nil, errors.Wrapf(
+			validate.ErrValidation,
+			"unknown task type %q",
+			t.Type,
+		)
 	}
-	changed, err := w.storeHash(ctx, store, &t)
+	return t, store, nil
+}
+
+// attachHash stores the hash of the config of t, and attaches a set of the hash when it
+// changed.
+func (w Writer) attachHash(ctx context.Context, store config.Store, t *Task) error {
+	changed, err := w.storeHash(ctx, store, t)
 	if err != nil || !changed {
 		return err
 	}
 	w.dispatcher.Attach(
 		w.tx,
-		key,
+		t.Key,
 		NewSetAction(SetPayload{Path: []string{"config_hash"}, Value: t.ConfigHash}),
 	)
 	return nil

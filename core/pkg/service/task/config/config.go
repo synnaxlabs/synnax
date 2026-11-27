@@ -72,6 +72,10 @@ type Store interface {
 	// the referenced records that ServiceConfig.HashReferences reads through snap. It
 	// returns an error wrapping query.ErrNotFound when no record exists.
 	Hash(ctx context.Context, snap gorp.Snapshot, key uuid.UUID) (string, error)
+	// Check returns the error of ServiceConfig.CheckReferences for the record stored
+	// under key, read through snap, or nil when the store sets none. It returns an
+	// error wrapping query.ErrNotFound when no record exists.
+	Check(ctx context.Context, snap gorp.Snapshot, key uuid.UUID) error
 	// Delete removes the records stored under keys. Delete is idempotent.
 	Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error
 	// Copy duplicates the record stored under from into a new record stored under to,
@@ -180,6 +184,12 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	//
 	// [REQUIRED] - when HashReferences is set, and empty otherwise.
 	HashedTables []string
+	// CheckReferences returns an error wrapping validate.ErrValidation when e no longer
+	// fits the records of HashedTables that it references, read through snap. It
+	// writes nothing.
+	//
+	// [OPTIONAL] - nil when e fits any record that it references.
+	CheckReferences func(ctx context.Context, snap gorp.Snapshot, e *E) error
 	// Migrations is the stored-shape migration chain for the record type. Empty for a
 	// type whose stored shape has never changed.
 	Migrations []gorp.Migration
@@ -235,6 +245,7 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.HashEntry = override.Nil(c.HashEntry, other.HashEntry)
 	c.HashReferences = override.Nil(c.HashReferences, other.HashReferences)
 	c.HashedTables = override.Slice(c.HashedTables, other.HashedTables)
+	c.CheckReferences = override.Nil(c.CheckReferences, other.CheckReferences)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
 	c.References = override.Slice(c.References, other.References)
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
@@ -259,6 +270,11 @@ func (c ServiceConfig[E]) Validate() error {
 		"hashed_tables",
 		(c.HashReferences == nil) != (len(c.HashedTables) == 0),
 		"must be set exactly when hash_references is set",
+	)
+	v.Ternary(
+		"check_references",
+		c.CheckReferences != nil && len(c.HashedTables) == 0,
+		"requires hashed_tables",
 	)
 	v.NotNil("ladder.decode", c.Ladder.Decode)
 	return v.Error()
@@ -499,6 +515,19 @@ func (s *Service[E]) Hash(
 		}
 	}
 	return h.Sum(), nil
+}
+
+// Check implements Store.
+func (s *Service[E]) Check(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key uuid.UUID,
+) error {
+	e, err := s.retrieve(ctx, snap, key)
+	if err != nil || s.cfg.CheckReferences == nil {
+		return err
+	}
+	return s.cfg.CheckReferences(ctx, snap, &e)
 }
 
 func encode[E any](e E) (msgpack.EncodedJSON, error) {

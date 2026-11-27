@@ -133,6 +133,32 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It(
+			"Should reject check references without the tables they read",
+			func(ctx SpecContext) {
+				Expect(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:          db,
+						Type:        testType,
+						Ladder:      arcversions.ConfigLadder,
+						SetEntryKey: (*arctask.Config).SetKey,
+						PatchEntry:  (*arctask.Config).Patch,
+						HashEntry:   (*arctask.Config).HashContent,
+						CheckReferences: func(
+							context.Context,
+							gorp.Snapshot,
+							*arctask.Config,
+						) error {
+							return nil
+						},
+					},
+				)).Error().To(MatchError(ContainSubstring(
+					"check_references: requires hashed_tables",
+				)))
+			},
+		)
+
 		It("Should reject a config missing the ladder", func(ctx SpecContext) {
 			Expect(config.OpenService(
 				ctx,
@@ -1256,6 +1282,26 @@ var _ = Describe("With a detach reference", func() {
 						h.String(used.Name)
 						return nil
 					},
+					CheckReferences: func(
+						ctx context.Context,
+						snap gorp.Snapshot,
+						c *arctask.Config,
+					) error {
+						var used target
+						if err := targets.NewRetrieve().
+							Where(gorp.MatchKeys[uuid.UUID, target](c.ArcKey)).
+							Entry(&used).
+							Exec(ctx, snap); err != nil {
+							return err
+						}
+						if used.Name == "broken" {
+							return errors.Wrap(
+								validate.ErrValidation,
+								"target is broken",
+							)
+						}
+						return nil
+					},
 				},
 			))
 			tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
@@ -1308,6 +1354,34 @@ var _ = Describe("With a detach reference", func() {
 			t.Name = "b"
 			Expect(targets.NewCreate().Entry(&t).Exec(ctx, ldb)).
 				To(MatchError("hook failed"))
+		})
+
+		Describe("Check", func() {
+			It("Should succeed when the record fits what it references", func(
+				ctx SpecContext,
+			) {
+				Expect(svc.Check(ctx, ldb, key)).To(Succeed())
+			})
+
+			It("Should return the error of the check references hook", func(
+				ctx SpecContext,
+			) {
+				svc.OnTargetSet(func(context.Context, gorp.Tx, uuid.UUID) error {
+					return nil
+				})
+				setTarget(ctx, "broken")
+				Expect(svc.Check(ctx, ldb, key)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("target is broken")),
+				))
+			})
+
+			It("Should return not found for a key with no record", func(
+				ctx SpecContext,
+			) {
+				Expect(svc.Check(ctx, ldb, uuid.New())).
+					To(MatchError(query.ErrNotFound))
+			})
 		})
 	})
 
