@@ -21,12 +21,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	alamostestutil "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var errSyncFault = xerrors.New("sync fault")
@@ -40,14 +43,18 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 		cancel    context.CancelFunc
 		idx, data cesium.ChannelKey
 		keys      []cesium.ChannelKey
+		logs      *observer.ObservedLogs
 	)
 	open := func(ctx context.Context) {
 		GinkgoHelper()
+		ins, observed := alamostestutil.ObservedInstrumentation(zapcore.ErrorLevel)
+		logs = observed
 		db = MustSucceed(cesium.Open(
 			ctx,
 			"",
 			cesium.WithFS(syncFaultFS{FS: mem, faults: &faults}),
 			cesium.WithPointerLog(),
+			cesium.WithInstrumentation(ins),
 		))
 		var runCtx context.Context
 		runCtx, cancel = context.WithCancel(context.Background())
@@ -175,6 +182,24 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 		Entry("that the disk holds", false, []int64{10, 11, 12, 20, 21}),
 		Entry("that the disk lost", true, []int64{10, 11, 12}),
 	)
+
+	It("Should log a failed log sync once, and a full log disk not at all", func(
+		ctx SpecContext,
+	) {
+		const failed = "the log failed a sync"
+		Expect(write(ctx, 10, 11, 12)).To(Succeed())
+		faults.logFull.Store(true)
+		Expect(write(ctx, 20, 21)).To(MatchError(syscall.ENOSPC))
+		faults.logFull.Store(false)
+		Expect(logs.FilterMessageSnippet(failed).Len()).To(BeZero())
+		faults.logSyncs.Store(true)
+		Expect(write(ctx, 30, 31)).To(MatchError(errSyncFault))
+		Expect(write(ctx, 40, 41)).To(MatchError(errSyncFault))
+		Expect(logs.FilterMessageSnippet(failed).Len()).To(Equal(1))
+		faults.logSyncs.Store(false)
+		Expect(shut()).To(MatchError(errSyncFault))
+		open(ctx)
+	})
 
 	DescribeTable("Should fail only the write that a full disk refuses, and write "+
 		"again with no restart once space frees", func(
