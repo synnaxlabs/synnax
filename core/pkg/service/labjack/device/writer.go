@@ -93,9 +93,36 @@ func refuseSharedPins(v *validate.Validator, analog, input, output []string) {
 	}
 }
 
+// mux80AddressLines are the T7 pins that address an attached Mux80.
+var mux80AddressLines = []T7DigitalPort{
+	T7DigitalPortDio20,
+	T7DigitalPortDio21,
+	T7DigitalPortDio22,
+}
+
+// refuseMux80AddressLines rejects a digital port of p that addresses its Mux80.
+func refuseMux80AddressLines(v *validate.Validator, p T7Ports) {
+	for _, port := range mux80AddressLines {
+		_, in := p.DigitalInput[port]
+		_, out := p.DigitalOutput[port]
+		v.Ternaryf(
+			"ports.digital_input",
+			in,
+			"%s addresses the attached Mux80",
+			port,
+		)
+		v.Ternaryf(
+			"ports.digital_output",
+			out,
+			"%s addresses the attached Mux80",
+			port,
+		)
+	}
+}
+
 // validateDevice rejects an invalid device, one whose ports are for another model, one
-// that gives a pin two roles, and a T7 that maps a Mux80 port while no Mux80 is
-// attached.
+// that gives a pin two roles, a T7 that maps a Mux80 port while no Mux80 is attached,
+// and a T7 that maps a Mux80 address line while one is attached.
 func validateDevice(d Device) error {
 	if err := d.Validate(); err != nil {
 		return err
@@ -117,7 +144,11 @@ func validateDevice(d Device) error {
 	case T8Ports:
 		refuseSharedPins(v, nil, keys(p.DigitalInput), keys(p.DigitalOutput))
 	}
-	if t7, ok := d.Ports.Variant.(T7Ports); ok && !t7.Mux80Attached {
+	t7, ok := d.Ports.Variant.(T7Ports)
+	switch {
+	case ok && t7.Mux80Attached:
+		refuseMux80AddressLines(v, t7)
+	case ok:
 		for _, port := range slices.Sorted(maps.Keys(t7.AnalogInput)) {
 			n, err := strconv.Atoi(strings.TrimPrefix(string(port), "AIN"))
 			v.Ternaryf(
@@ -134,8 +165,8 @@ func validateDevice(d Device) error {
 // Create stores d and writes an unknown status when it has none. An existing status
 // takes the name and rack of d. A device with a nil key gets a new one. It returns a
 // validation error when d is invalid, its ports are for another model, it gives a pin
-// two roles, it maps a Mux80 port while no Mux80 is attached, it replaces a device of
-// another model, or its rack does not exist.
+// two roles, it maps a Mux80 port or address line against the Mux80 state, it replaces
+// a device of another model, or its rack does not exist.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if err := validateDevice(*d); err != nil {
 		return err

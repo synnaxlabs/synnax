@@ -262,7 +262,7 @@ var _ = Describe("Service", func() {
 					device.T7DigitalPortDio0: ch[4],
 				},
 				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
-					device.T7DigitalPortDio22: {Command: ch[5], State: new(ch[6])},
+					device.T7DigitalPortDio19: {Command: ch[5], State: new(ch[6])},
 				},
 			})
 			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
@@ -298,6 +298,27 @@ var _ = Describe("Service", func() {
 					"ports.analog_input: AIN48 needs mux80_attached",
 				)),
 			)),
+		)
+
+		DescribeTable("Should refuse a Mux80 address line with a Mux80 attached",
+			func(ctx SpecContext, ports device.T7Ports, msg string) {
+				ports.Mux80Attached = true
+				d := newModel(device.ModelT7, ports)
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry("digital input", device.T7Ports{
+				DigitalInput: map[device.T7DigitalPort]channel.Key{
+					device.T7DigitalPortDio20: 1,
+				},
+			}, "ports.digital_input: DIO20 addresses the attached Mux80"),
+			Entry("digital output", device.T7Ports{
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio22: {Command: 1},
+				},
+			}, "ports.digital_output: DIO22 addresses the attached Mux80"),
 		)
 
 		It("Should refuse to replace a device of another model", func(ctx SpecContext) {
