@@ -12,9 +12,16 @@
 package server
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/http/server/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
+	"regexp"
+	"strconv"
 )
 
 // Key uniquely identifies an HTTP server.
@@ -143,6 +150,10 @@ type Status = versions.Status
 // Server is an HTTP server that a rack's Driver connects to.
 type Server = versions.Server
 
+var validatePattern0 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
+
+var validatePattern1 = regexp.MustCompile("^$|^/[^?#[:space:]]*$")
+
 // Where is a filter that selects HTTP servers.
 type Where struct {
 	// And matches when every child matches.
@@ -157,4 +168,231 @@ type Where struct {
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Rack selects by rack.
 	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
+}
+
+// Identity holds the server fields that the connect form owns.
+type Identity struct {
+	// Rack is the key of the rack whose Driver connects to the server.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Name is a human-readable name for the server.
+	Name string `json:"name" msgpack:"name"`
+	// Scheme is the URL scheme that the Driver reaches the server with.
+	Scheme Scheme `json:"scheme" msgpack:"scheme"`
+	// Host is the hostname or IP address of the server.
+	Host string `json:"host" msgpack:"host"`
+	// Port is the TCP port. Absent takes the default port of the scheme.
+	Port *uint16 `json:"port,omitzero" msgpack:"port,omitempty"`
+	// BasePath is the path that prefixes the path of every request.
+	BasePath string `json:"base_path" msgpack:"base_path"`
+	// Timeout is the timeout of each request.
+	Timeout telem.TimeSpan `json:"timeout" msgpack:"timeout"`
+	// MaxConcurrentRequests is the largest number of requests in flight to the server.
+	MaxConcurrentRequests uint32 `json:"max_concurrent_requests" msgpack:"max_concurrent_requests"`
+	// Auth holds the credentials that the Driver sends with each request.
+	Auth Auth `json:"auth" msgpack:"auth"`
+	// HealthCheck is the request that the Driver checks the server with.
+	HealthCheck HealthCheck `json:"health_check" msgpack:"health_check"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (i *Identity) SetDefaults() {
+	i.HealthCheck.SetDefaults()
+	i.Scheme.Variant = HttpsScheme{}
+	i.Timeout = 1000000000
+	i.MaxConcurrentRequests = 6
+	i.Auth.Variant = NoneAuth{}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i Identity) Validate() error {
+	v := validate.New("Identity")
+	v.NonZero("rack", i.Rack)
+	v.NotEmptyString("name", i.Name)
+	v.NotEmptyString("host", i.Host)
+	v.Ternary("host", !validatePattern0.MatchString(string(i.Host)), "Host must be a hostname or an IP address, with no scheme, port, or path")
+	if i.Port != nil {
+		v.GreaterThanEq("port", *i.Port, 1)
+	}
+	v.Ternary("base_path", !validatePattern1.MatchString(string(i.BasePath)), "Base path must be empty or start with /, with no query, fragment, or whitespace")
+	v.GreaterThanEq("timeout", i.Timeout, 10000000)
+	v.LessThanEq("timeout", i.Timeout, 3600000000000)
+	v.GreaterThanEq("max_concurrent_requests", i.MaxConcurrentRequests, 1)
+	v.LessThanEq("max_concurrent_requests", i.MaxConcurrentRequests, 64)
+	v.Exec(func() error { return validate.PathedError(i.Scheme.Validate(), "scheme") })
+	v.Exec(func() error { return validate.PathedError(i.Auth.Validate(), "auth") })
+	v.Exec(func() error { return validate.PathedError(i.HealthCheck.Validate(), "health_check") })
+	return v.Error()
+}
+
+// Configuration holds the server fields that the task forms own.
+type Configuration struct {
+	// Reads bind the values that read tasks poll to channels.
+	Reads []Read `json:"reads" msgpack:"reads"`
+	// Writes bind the requests that write tasks send to channels.
+	Writes []Write `json:"writes" msgpack:"writes"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Configuration) Validate() error {
+	v := validate.New("Configuration")
+	for i := range c.Reads {
+		v.Exec(func() error { return validate.PathedError(c.Reads[i].Validate(), "reads", strconv.Itoa(i)) })
+	}
+	for i := range c.Writes {
+		v.Exec(func() error { return validate.PathedError(c.Writes[i].Validate(), "writes", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// UpdateType is the "group" value that selects a variant of Update.
+type UpdateType string
+
+const (
+	// IdentityUpdateType writes the fields of the server that the connect form owns.
+	IdentityUpdateType UpdateType = "identity"
+	// ConfigurationUpdateType replaces the bindings of the server. A client sends the
+	// whole group, because a field it leaves out is cleared.
+	ConfigurationUpdateType UpdateType = "configuration"
+)
+
+// UpdateVariant is implemented by every Update variant.
+type UpdateVariant interface {
+	isUpdateVariant()
+}
+
+// IdentityUpdate writes the fields of the server that the connect form owns.
+type IdentityUpdate struct {
+	Identity
+}
+
+func (IdentityUpdate) isUpdateVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (i *IdentityUpdate) SetDefaults() {
+	i.Identity.SetDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i IdentityUpdate) Validate() error {
+	v := validate.New("IdentityUpdate")
+	v.Exec(i.Identity.Validate)
+	return v.Error()
+}
+
+// ConfigurationUpdate replaces the bindings of the server. A client sends the whole
+// group, because a field it leaves out is cleared.
+type ConfigurationUpdate struct {
+	Configuration
+}
+
+func (ConfigurationUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ConfigurationUpdate) Validate() error {
+	v := validate.New("ConfigurationUpdate")
+	v.Exec(c.Configuration.Validate)
+	return v.Error()
+}
+
+// Update is a write to one field group of a server.
+type Update struct {
+	Variant UpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "group" tag injected.
+func (u Update) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case IdentityUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}{Type: IdentityUpdateType, IdentityUpdate: v})
+	case ConfigurationUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}{Type: ConfigurationUpdateType, ConfigurationUpdate: v})
+	default:
+		return errors.Newf("Update: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "group" field.
+func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type UpdateType `json:"group"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case IdentityUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}
+		v.IdentityUpdate.SetDefaults()
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IdentityUpdate
+	case ConfigurationUpdateType:
+		var v struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ConfigurationUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Update: unknown group %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Group returns the group of the active variant, or an empty group when there is none.
+func (u Update) Group() UpdateType {
+	switch u.Variant.(type) {
+	case IdentityUpdate:
+		return IdentityUpdateType
+	case ConfigurationUpdate:
+		return ConfigurationUpdateType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Update) Validate() error {
+	v := validate.New("Update")
+	v.Ternary("group", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case IdentityUpdate:
+		v.Exec(variant.Validate)
+	case ConfigurationUpdate:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
 }

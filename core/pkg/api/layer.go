@@ -282,10 +282,16 @@ type Transport struct {
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, struct{}]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
 	// HTTP SERVER
+	HTTPServerCreate freighter.UnaryServer[
+		httpserver.CreateRequest,
+		httpserver.CreateResponse,
+	]
 	HTTPServerRetrieve freighter.UnaryServer[
 		httpserver.RetrieveRequest,
 		httpserver.RetrieveResponse,
 	]
+	HTTPServerUpdate freighter.UnaryServer[httpserver.UpdateRequest, struct{}]
+	HTTPServerDelete freighter.UnaryServer[httpserver.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -623,7 +629,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerUpdate,
 		t.OPCUAServerDelete,
 		// HTTP SERVER
+		t.HTTPServerCreate,
 		t.HTTPServerRetrieve,
+		t.HTTPServerUpdate,
+		t.HTTPServerDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -929,7 +938,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
 	// HTTP SERVER
+	t.HTTPServerCreate.BindHandler(bind.Write(l.binder, l.HTTPServer.Create))
 	t.HTTPServerRetrieve.BindHandler(bind.Read(l.binder, l.HTTPServer.Retrieve))
+	t.HTTPServerUpdate.BindHandler(bind.Write(l.binder, l.HTTPServer.Update))
+	t.HTTPServerDelete.BindHandler(bind.Write(l.binder, l.HTTPServer.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))

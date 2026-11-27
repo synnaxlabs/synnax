@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,6 +35,7 @@ var (
 	statusSvc  *status.Service
 	channelSvc *channel.Service
 	icdSvc     *icd.Service
+	secretSvc  *secret.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -52,6 +55,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:   db,
 		ImEx: imex.NewService(),
 	}))
+	secretSvc = secrettestutil.OpenService(ctx, db)
 })
 
 // createChannel creates a channel of data type dt, indexed by idx, or an index channel

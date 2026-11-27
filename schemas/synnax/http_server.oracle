@@ -341,3 +341,74 @@ Where filter Server {
     @doc value         "is a filter that selects HTTP servers."
     @go request_output "core/pkg/api/http/server"
 }
+
+Identity struct {
+    rack                    rack.Key       {
+        @doc value         "is the key of the rack whose Driver connects to the server."
+        @validate required
+    }
+    name                    string         {
+        @doc value         "is a human-readable name for the server."
+        @validate required
+    }
+    scheme                  Scheme = https {
+        @doc value "is the URL scheme that the Driver reaches the server with."
+    }
+    host                    string         {
+        @doc value         "is the hostname or IP address of the server."
+        @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
+        @validate required
+    }
+    port                    uint16?        {
+        @doc value    "is the TCP port. Absent takes the default port of the scheme."
+        @validate min 1
+    }
+    base_path               string = "" {
+        @doc value   "is the path that prefixes the path of every request."
+        @go validate pattern "^$|^/[^?#[:space:]]*$" "Base path must be empty or start with /, with no query, fragment, or whitespace"
+    }
+    timeout                 telem.TimeSpan = 1s {
+        @doc value    "is the timeout of each request."
+        @ts type      telem.NumericTimeSpan
+        @validate max 3600000000000
+        @validate min 10000000
+    }
+    max_concurrent_requests uint32 = 6 {
+        @doc value    "is the largest number of requests in flight to the server."
+        @validate max 64
+        @validate min 1
+    }
+    auth                    Auth = none {
+        @doc value "holds the credentials that the Driver sends with each request."
+    }
+    health_check            HealthCheck = {} {
+        @doc value "is the request that the Driver checks the server with."
+    }
+
+    @doc value "holds the server fields that the connect form owns."
+}
+
+Configuration struct {
+    reads  Read[] = [] {
+        @doc value "bind the values that read tasks poll to channels."
+    }
+    writes Write[] = [] {
+        @doc value "bind the requests that write tasks send to channels."
+    }
+
+    @doc value "holds the server fields that the task forms own."
+}
+
+Update union on group {
+    identity      Identity {
+        @doc value "writes the fields of the server that the connect form owns."
+    }
+    configuration Configuration {
+        @doc value """
+            replaces the bindings of the server. A client sends the whole group, because
+            a field it leaves out is cleared.
+        """
+    }
+
+    @doc value "is a write to one field group of a server."
+}

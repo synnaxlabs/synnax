@@ -228,6 +228,58 @@ inline x::json::json Where::to_json() const {
     return j;
 }
 
+inline Identity Identity::parse(x::json::Parser parser) {
+    return Identity{
+        .rack = parser.required_field<::synnax::rack::Key>("rack"),
+        .name = parser.required_field<std::string>("name"),
+        .scheme = parser.has("scheme") ? parse_scheme(parser.child("scheme"))
+                                       : Scheme{HttpsScheme{}},
+        .host = parser.required_field<std::string>("host"),
+        .port = parser.field<std::optional<std::uint16_t>>("port"),
+        .base_path = parser.field<std::string>("base_path", ""),
+        .timeout = parser.field<::x::telem::TimeSpan>(
+            "timeout",
+            ::x::telem::TimeSpan(1000000000)
+        ),
+        .max_concurrent_requests = parser.field<std::uint32_t>(
+            "max_concurrent_requests",
+            6
+        ),
+        .auth = parser.has("auth") ? parse_auth(parser.child("auth"))
+                                   : Auth{NoneAuth{}},
+        .health_check = parser.field<HealthCheck>("health_check", HealthCheck{}),
+    };
+}
+
+inline x::json::json Identity::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["rack"] = this->rack;
+    j["name"] = this->name;
+    j["scheme"] = ::synnax::http::server::to_json(this->scheme);
+    j["host"] = this->host;
+    if (this->port.has_value()) j["port"] = *this->port;
+    j["base_path"] = this->base_path;
+    j["timeout"] = this->timeout.nanoseconds();
+    j["max_concurrent_requests"] = this->max_concurrent_requests;
+    j["auth"] = ::synnax::http::server::to_json(this->auth);
+    j["health_check"] = this->health_check.to_json();
+    return j;
+}
+
+inline Configuration Configuration::parse(x::json::Parser parser) {
+    return Configuration{
+        .reads = parser.field<std::vector<Read>>("reads", std::vector<Read>{}),
+        .writes = parser.field<std::vector<Write>>("writes", std::vector<Write>{}),
+    };
+}
+
+inline x::json::json Configuration::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["reads"] = x::json::to_array(this->reads);
+    j["writes"] = x::json::to_array(this->writes);
+    return j;
+}
+
 inline Cursor Cursor::parse(x::json::Parser parser) {
     return Cursor{
         .key = parser.field<Key>("key"),
@@ -427,6 +479,35 @@ inline x::json::json NullResponse::to_json() const {
     return j;
 }
 
+inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
+    IdentityUpdate result;
+    static_cast<Identity &>(result) = Identity::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json IdentityUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Identity::to_json(); parent.is_object()) j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
+inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
+    ConfigurationUpdate result;
+    static_cast<Configuration &>(result) = Configuration::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json ConfigurationUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = Configuration::to_json(); parent.is_object())
+        j.update(parent);
+    j["group"] = this->group;
+    return j;
+}
+
 inline Scheme parse_scheme(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "https") return HttpsScheme::parse(parser);
@@ -467,6 +548,18 @@ inline Response parse_response(x::json::Parser parser) {
 }
 
 inline x::json::json to_json(const Response &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("group");
+    if (discriminator == "identity") return IdentityUpdate::parse(parser);
+    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
+    parser.field_err("group", "unknown Update group: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 

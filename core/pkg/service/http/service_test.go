@@ -46,6 +46,8 @@ var _ = Describe("Service", func() {
 			DB:      db,
 			Channel: channelSvc,
 			ICD:     icdSvc,
+			Status:  statusSvc,
+			Secret:  secretSvc,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -58,7 +60,13 @@ var _ = Describe("Service", func() {
 		DescribeTable(
 			"Should reject a config with a missing service",
 			func(ctx SpecContext, unset func(*http.ServiceConfig), msg string) {
-				cfg := http.ServiceConfig{DB: db, Channel: channelSvc, ICD: icdSvc}
+				cfg := http.ServiceConfig{
+					DB:      db,
+					Channel: channelSvc,
+					ICD:     icdSvc,
+					Status:  statusSvc,
+					Secret:  secretSvc,
+				}
 				unset(&cfg)
 				Expect(http.OpenService(ctx, cfg)).Error().To(MatchError(msg))
 			},
@@ -76,6 +84,16 @@ var _ = Describe("Service", func() {
 				"icd",
 				func(c *http.ServiceConfig) { c.ICD = nil },
 				"icd: must be non-nil",
+			),
+			Entry(
+				"status",
+				func(c *http.ServiceConfig) { c.Status = nil },
+				"status: must be non-nil",
+			),
+			Entry(
+				"secret",
+				func(c *http.ServiceConfig) { c.Secret = nil },
+				"secret: must be non-nil",
 			),
 		)
 
@@ -97,6 +115,8 @@ var _ = Describe("Service", func() {
 						DB:   db,
 						ImEx: imex.NewService(),
 					})),
+					Status: statusSvc,
+					Secret: secretSvc,
 				}))
 				_, closer := MustSucceed2(db.Get(v5.StagedWriteFieldsKVKey(old.Key)))
 				Expect(closer.Close()).To(Succeed())
@@ -119,6 +139,8 @@ var _ = Describe("Service", func() {
 						DB:   db,
 						ImEx: imex.NewService(),
 					})),
+					Status: statuses,
+					Secret: secretSvc,
 				}))
 				row := v2.Task{
 					Key:  uuid.New(),
