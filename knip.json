@@ -4,6 +4,9 @@
     "cycles": "error"
   },
   "workspaces": {
+    ".": {
+      "entry": ["oracle/format/typescript.mjs"]
+    },
     "alamos/ts": {
       "entry": ["src/index.ts!", "src/dev/index.ts!"],
       "project": ["src/**/*.ts!"]
@@ -109,6 +112,7 @@
       "ignoreDependencies": ["stylelint-config-standard"]
     }
   },
+  "ignoreIssues": { "oracle/format/typescript.mjs": ["unlisted"] },
   "ignoreExportsUsedInFile": {
     "interface": true,
     "type": true

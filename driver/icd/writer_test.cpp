@@ -21,6 +21,7 @@
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -815,5 +816,16 @@ TEST(Writer, WaitOnlyForSelectedBinaryFields) {
         sent(w, frame(4, x::telem::Series(7.0))),
         (std::vector<std::string>{std::string("\x01\x00\x07", 3)})
     );
+}
+
+/// @brief it should report the format of the message that it encodes.
+TEST(Writer, ReportFormat) {
+    EXPECT_EQ(ASSERT_NIL_P(setpoints().create()).format(), x::payload::FORMAT_TEXT);
+    auto json = json_message();
+    json.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    EXPECT_EQ(ASSERT_NIL_P(json.create()).format(), x::payload::FORMAT_JSON);
+    auto binary = binary_message();
+    binary.bind(byte<synnax::icd::UnsignedBinaryField>("a", 0), 2);
+    EXPECT_EQ(ASSERT_NIL_P(binary.create()).format(), x::payload::FORMAT_BINARY);
 }
 }

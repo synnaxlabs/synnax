@@ -70,14 +70,41 @@ func fixtureEntry(path string) TableEntry {
 	return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
 }
 
-// fixturePaths returns the fixtures in the dir folder of testdata.
+// fixturePaths returns the fixtures of JSON messages in the dir folder of testdata.
 func fixturePaths(dir string) []string {
 	GinkgoHelper()
 	paths := MustSucceed(
 		filepath.Glob(filepath.Join("..", "testdata", dir, "*.json")),
 	)
+	// The Go codec decodes JSON only.
+	paths = lo.Filter(paths, func(path string, _ int) bool {
+		return fixtureFormat(path) == payload.FormatJSON
+	})
 	Expect(paths).ToNot(BeEmpty())
 	return paths
+}
+
+type formatMessage struct {
+	Payload struct {
+		Format payload.Format `json:"format"`
+	} `json:"payload"`
+}
+
+// fixtureFormat returns the payload format of the first message of the fixture at
+// path.
+func fixtureFormat(path string) payload.Format {
+	GinkgoHelper()
+	var f struct {
+		Messages []formatMessage `json:"messages"`
+		Message  formatMessage   `json:"message"`
+	}
+	Expect(
+		json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
+	).To(Succeed())
+	if len(f.Messages) > 0 {
+		return f.Messages[0].Payload.Format
+	}
+	return f.Message.Payload.Format
 }
 
 // fixtureEntries returns an entry for each fixture in the dir folder of testdata.

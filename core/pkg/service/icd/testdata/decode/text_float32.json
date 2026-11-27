@@ -1,0 +1,42 @@
+{
+  "description": "A float32 channel takes the nearest float32 of a value, and refuses a value past its range.",
+  "messages": [
+    {
+      "name": "line",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 0
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float32"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "0.1",
+      "message": "line",
+      "samples": [0.10000000149011612]
+    },
+    {
+      "text": "1e39",
+      "message": "line",
+      "error": "field a: 1e+39 overflows float32: validation error"
+    }
+  ]
+}
