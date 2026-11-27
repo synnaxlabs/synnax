@@ -941,7 +941,10 @@ describe("log/Base", () => {
     };
 
     const isSelectAll = (r: Record<string, unknown>) =>
-      r.selectionStart === 0 && r.selectionEnd === Number.MAX_SAFE_INTEGER;
+      r.selectionStart === 0 &&
+      r.selectionEnd === Number.MAX_SAFE_INTEGER &&
+      r.selectionStartChar === -1 &&
+      r.selectionEndChar === -1;
     const isClearSelection = (r: Record<string, unknown>) =>
       r.selectionStart === -1 && r.selectionEnd === -1;
 
