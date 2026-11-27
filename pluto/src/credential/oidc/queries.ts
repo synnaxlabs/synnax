@@ -12,7 +12,6 @@ import {
   type auth,
   ProviderLinkedError,
   type resource,
-  status,
 } from "@synnaxlabs/client";
 import { errors, verbs } from "@synnaxlabs/x";
 
@@ -40,12 +39,23 @@ const describeRefusal = (e: unknown, provider: string): string | undefined => {
   return undefined;
 };
 
+class LinkRefusedError extends Error {
+  readonly description: string;
+
+  constructor(description: string, cause: unknown) {
+    super("Failed to link account", { cause });
+    this.description = description;
+  }
+
+  toStatus(): { message: string; description: string } {
+    return { message: this.message, description: this.description };
+  }
+}
+
 const toLinkError = (e: unknown, provider: string): Error => {
   const description = describeRefusal(e, provider);
   if (description == null) return errors.fromUnknown(e);
-  return status.toError(
-    status.create({ variant: "error", message: "Failed to link account", description }),
-  );
+  return new LinkRefusedError(description, e);
 };
 
 export const { useUpdate: useLink } = Flux.createUpdate<

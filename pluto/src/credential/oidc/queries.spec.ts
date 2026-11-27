@@ -71,5 +71,6 @@ describe("OIDC queries", () => {
     const status = await link();
     expect(status.message).toEqual("Failed to link account");
     expect(status.description).toEqual(description);
+    expect(status).toHaveProperty("details.error.cause.type", err.type);
   });
 });
