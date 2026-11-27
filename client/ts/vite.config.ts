@@ -38,6 +38,8 @@ const NODE_SPECS = [
   "src/framer/cache/streamer/streamer.spec.ts",
   // Read the filter vectors from the file system.
   "src/**/where.spec.ts",
+  // Reads the frame codec vectors from the file system.
+  "src/framer/codec/codec.spec.ts",
   // Reads the orphan vectors from the file system.
   "src/schematic/orphans.spec.ts",
 ];
