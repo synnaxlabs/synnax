@@ -934,10 +934,12 @@ new fields and no break):
    one, the drainer drops every channel of that index from the frame and counts their
    samples in its status, so it never opens a data channel without its index. From Phase
    50 authority is per channel, and the case goes.
-3. **Phases**: RFC 0113 Phase 7, which touches `driver/spool` and is not built, takes 1
-   and 2: the new fields of #6165's records, the forwarder, and the drainer. Phase 31
-   here follows RFC 0113 Phase 7 and drains an index-keyed segment, with a spec that
-   spools on one release and drains on the next with no loss.
+3. **Phases**: RFC 0113 Phase 7, which touches `driver/spool` and is not built, takes
+   item 2 and #6165's index-keyed records, since item 1 needs the time groups of Phase
+   30 and the group positions of Phase 31. Phase 31 here follows RFC 0113 Phase 7: it
+   adds the fields of item 1 to #6165's records, fills them in the forwarder, and drains
+   them and an index-keyed segment, with a spec that spools a group with no index and
+   drains it, and one that spools on one release and drains on the next with no loss.
 
 ### 4.10 Migration
 
