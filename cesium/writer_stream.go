@@ -566,6 +566,7 @@ func (w *idxWriter) appendAutoStamp(fr Frame, now telem.TimeStamp) Frame {
 		stamps[j] = t0 + telem.TimeStamp(j)
 	}
 	w.idx.autoStampClock = stamps[len(stamps)-1]
+	series.Clock = w.idx.ch.Key
 	return fr.Append(w.idx.ch.Key, series)
 }
 
