@@ -522,6 +522,9 @@ func (r *reference[K, E, T]) Referenced(
 	in func(K) bool,
 	targets ...T,
 ) (set.Set[T], error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
 	if err := r.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
 		return r.scanReferenced(ctx, snap, in, targets)
 	} else if err != nil {

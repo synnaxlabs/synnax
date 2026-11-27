@@ -98,6 +98,9 @@ func probe[K Key, V comparable](
 	snap Snapshot,
 	values []V,
 ) ([]K, error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
 	if err := store.Wait(ctx); err != nil {
 		return nil, err
 	}
