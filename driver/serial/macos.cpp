@@ -79,6 +79,10 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
 }
 
 namespace native {
+std::pair<bool, std::error_code> exclusive(int) {
+    return {false, {}};
+}
+
 x::errors::Error
 configure(const Handle handle, const synnax::serial::Properties &props) {
     const int fd = static_cast<int>(handle);

@@ -10,6 +10,8 @@
 #pragma once
 
 #include <string>
+#include <system_error>
+#include <utility>
 
 #include "x/cpp/errors/errors.h"
 
@@ -17,4 +19,8 @@
 namespace driver::serial::native {
 /// @returns the translated errno for a setting that the port rejected.
 x::errors::Error failed(const std::string &setting, const std::string &port);
+
+/// @returns true when a program holds the terminal at fd with TIOCEXCL. macOS cannot
+/// read the flag and returns false.
+std::pair<bool, std::error_code> exclusive(int fd);
 }

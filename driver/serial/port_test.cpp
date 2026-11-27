@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
@@ -23,7 +22,6 @@
 
 #include "gtest/gtest.h"
 #include <fcntl.h>
-#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -35,19 +33,6 @@
 
 namespace driver::serial {
 namespace {
-#ifdef __linux__
-/// @returns true when the terminal at path refuses programs other than its holder. A
-/// program without root cannot open it at all, and root can read its exclusive flag.
-bool exclusive(const std::string &path) {
-    const int fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-    if (fd < 0) return errno == EBUSY;
-    int flag = 0;
-    const bool read = ::ioctl(fd, TIOCGEXCL, &flag) == 0;
-    ::close(fd);
-    return read && flag != 0;
-}
-#endif
-
 /// @brief expects got to be want, with its message.
 void expect_same(const x::errors::Error &got, const x::errors::Error &want) {
     EXPECT_TRUE(got.matches(want)) << got;
@@ -246,8 +231,7 @@ TEST_F(PtyTest, SendsWrittenBytesBeforeClosing) {
     EXPECT_EQ(got, "bye");
 }
 
-/// @brief it should refuse a second open of a port in use and keep the first port
-/// exclusive.
+/// @brief it should refuse a second open of a port in use.
 TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
     const auto first = ASSERT_NIL_P(Port::open(this->props()));
     const auto [second, err] = Port::open(this->props());
@@ -257,10 +241,6 @@ TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
         "failed to open serial port " + this->path() +
             ": the port is in use by another program"
     );
-#ifdef __linux__
-    // A macOS pseudo-terminal lets programs without root open past TIOCEXCL.
-    EXPECT_TRUE(exclusive(this->path()));
-#endif
 }
 
 /// @brief it should refuse a second open without changing the settings of the port in
@@ -305,6 +285,16 @@ TEST(Port, FailsToOpenAMissingPort) {
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_TRUE(err.data.starts_with("failed to open serial port " + p.port + ": "))
         << err.data;
+}
+
+/// @brief it should refuse invalid settings before it opens the port.
+TEST(Port, RefusesInvalidSettingsBeforeItOpensThePort) {
+    synnax::serial::Properties p;
+    p.port = "/dev/synnax-missing-port";
+    p.data_bits = 9;
+    const auto [port, err] = Port::open(p);
+    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    EXPECT_EQ(err.data, "data bits must be 5, 6, 7, or 8, got 9");
 }
 
 /// @brief it should refuse an empty port path.
