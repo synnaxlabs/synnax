@@ -761,9 +761,6 @@ void Manager::execute_op(
                     this->refuse_pinned_start(tsk, operation);
                     break;
                 }
-                // Read before the loading status of the start replaces it.
-                if (entry->instance != nullptr)
-                    tsk.status = this->statuses->latest(tsk.key);
                 this->announce_start(tsk.key, operation);
                 std::string deployed;
                 {
@@ -813,7 +810,6 @@ void Manager::execute_op(
                     // The config changed during a Core outage. The replacement starts
                     // only if the instance ran, and one that did not reports its stop.
                     cmd_key = REDEPLOY;
-                    tsk.status = latest;
                     replaced_running = latest.has_value() && latest->details.running;
                     silent = replaced_running;
                 }
@@ -951,6 +947,12 @@ void Manager::announce_start(const synnax::task::Key &key, Operation &operation)
     status.message = "Starting task";
     status.details.running = false;
     status.details.config_hash = hash;
+    // A running task runs on until the start replaces it.
+    if (const auto latest = this->statuses->latest(key);
+        latest.has_value() && latest->details.running) {
+        status.details.running = true;
+        status.details.config_hash = latest->details.config_hash;
+    }
     operation.step(status, this->op_timeout);
 }
 
@@ -1012,9 +1014,11 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
         status.description = description;
         status.details.config_hash = tsk.config_hash;
         // A live instance runs on with its last deployed config.
-        if (tsk.status.has_value() && tsk.status->details.running) {
+        const auto latest = this->statuses->latest(tsk.key);
+        if (entry->instance != nullptr && latest.has_value() &&
+            latest->details.running) {
             status.details.running = true;
-            status.details.config_hash = tsk.status->details.config_hash;
+            status.details.config_hash = latest->details.config_hash;
         }
         operation.answer(status);
     };
@@ -1048,7 +1052,6 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
                 entry->instance->stop(true);
                 entry->instance = nullptr;
             }
-            tsk.status.reset();
             fail(
                 synnax::status::VARIANT_WARNING,
                 "Task moved to another rack",
@@ -1061,7 +1064,6 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
             return {nullptr, true};
         }
         LOG(INFO) << "config of task " << tsk << " changed while it was configured";
-        stored.status = std::move(tsk.status);
         tsk = std::move(stored);
         const auto released = operation.change_config(tsk.name, tsk.config_hash);
         if (!released.empty()) {

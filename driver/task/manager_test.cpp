@@ -1490,6 +1490,8 @@ public:
     struct Build {
         std::string cmd_key;
         std::optional<synnax::task::Status> status;
+        /// @brief the latest status of the task that the Driver sent.
+        std::optional<synnax::task::Status> latest;
         /// @brief the number of instances built before that were not stopped.
         size_t live = 0;
     };
@@ -1518,6 +1520,7 @@ public:
         this->builds.push_back({
             .cmd_key = cmd_key,
             .status = task.status,
+            .latest = ctx->latest_status(task.key),
             .live = static_cast<size_t>(
                 std::ranges::count_if(this->task_states, [](const auto &state) {
                     return !state->stopped.load();
@@ -1775,9 +1778,9 @@ TEST_F(TaskManagerTest, RunningTaskChangedDuringAnOutageIsReplacedAndStarted) {
     const auto replacement = builds(*f).at(1);
     EXPECT_EQ(replacement.cmd_key, REDEPLOY);
     EXPECT_EQ(replacement.live, 1);
-    ASSERT_TRUE(replacement.status.has_value());
-    EXPECT_TRUE(replacement.status.value().details.running);
-    EXPECT_EQ(replacement.status.value().details.config_hash, deployed);
+    ASSERT_TRUE(replacement.latest.has_value());
+    EXPECT_TRUE(replacement.latest.value().details.running);
+    EXPECT_EQ(replacement.latest.value().details.config_hash, deployed);
 }
 
 /// @brief it should leave the replacement of a stopped task stopped when its config
@@ -1927,9 +1930,9 @@ TEST_F(TaskManagerTest, StartWhoseBuildFailsKeepsTheLiveInstance) {
     const auto got = builds(*f);
     ASSERT_EQ(got.size(), 2);
     EXPECT_EQ(got[1].live, 1);
-    ASSERT_TRUE(got[1].status.has_value());
-    EXPECT_TRUE(got[1].status.value().details.running);
-    EXPECT_EQ(got[1].status.value().details.config_hash, deployed);
+    ASSERT_TRUE(got[1].latest.has_value());
+    EXPECT_TRUE(got[1].latest.value().details.running);
+    EXPECT_EQ(got[1].latest.value().details.config_hash, deployed);
 }
 
 /// @brief it should give the factory no status for a start with no live instance, even
@@ -1947,7 +1950,10 @@ TEST_F(TaskManagerTest, StartWithNoLiveInstanceGivesTheFactoryNoStatus) {
     store_status(client, task, synnax::status::VARIANT_SUCCESS, "Started task", true);
     send_start(client, task, "start-1");
     ASSERT_EVENTUALLY_EQ(builds(*f).size(), 1);
-    EXPECT_FALSE(builds(*f).at(0).status.has_value());
+    const auto first = builds(*f).at(0);
+    EXPECT_FALSE(first.status.has_value());
+    ASSERT_TRUE(first.latest.has_value());
+    EXPECT_FALSE(first.latest.value().details.running);
 }
 
 /// @brief it should stop the live instance of a task that a save moved to another rack
@@ -2048,6 +2054,63 @@ TEST_F(TaskManagerTest, RefusedRedeployOfARunningTaskKeepsItRunning) {
     EXPECT_TRUE(s.details.running);
     EXPECT_EQ(s.details.config_hash, deployed);
     EXPECT_FALSE(state->stopped.load());
+}
+
+/// @brief it should report a task as stopped when its instance stops during the build
+/// of a start that the Driver refuses.
+TEST_F(TaskManagerTest, RefusedRedeployReportsATaskThatStoppedDuringTheBuild) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "start-1");
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    ASSERT_EVENTUALLY_EQ(built(*f)[0]->exec_count.load(), 1);
+    {
+        std::lock_guard lock(f->mu);
+        f->during = [this, f](const synnax::task::Task &t) {
+            report(
+                f->ctx,
+                t.key,
+                false,
+                "",
+                synnax::status::VARIANT_ERROR,
+                "Failed to read data"
+            );
+            EXPECT_NIL(client->tasks.dispatch(
+                t.key,
+                {synnax::task::set({.path = {"config", "rate"}, .value = 200})}
+            ));
+        };
+    }
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "start-2",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-2" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(s.message, "Config changed");
+    EXPECT_FALSE(s.details.running);
 }
 
 /// @brief it should stop a task deleted during a Core outage silently, so no status

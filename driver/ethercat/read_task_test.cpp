@@ -1129,6 +1129,11 @@ public:
 
     bool statuses_stale() override { return false; }
 
+    std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &) override {
+        return std::nullopt;
+    }
+
     void release() {
         {
             std::lock_guard lock(this->mu);

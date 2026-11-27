@@ -705,21 +705,23 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
 TEST(TestHandleConfigErr, testErrorReplacingARunningInstanceKeepsItRunning) {
     x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    synnax::task::Task task{
+    const synnax::task::Task task{
         .name = "task1",
         .type = "ni_analog_read",
         .config_hash = "hash2"
     };
-    task.status = synnax::task::Status{
+    ctx->statuses.push_back({
         .message = "Started task",
-        .details = {
-            .running = true,
-            .cmd = "start_1",
-            .config_hash = "hash1",
-            .rack = 7,
-            .data = x::json::json::object_t{{"rate", 1}},
-        },
-    };
+        .details =
+            {
+                .running = true,
+                .cmd = "start_1",
+                .config_hash = "hash1",
+                .rack = 7,
+                .data = x::json::json::object_t{{"rate", 1}},
+            },
+        .owner = synnax::task::resource_id(task.key),
+    });
     auto [tsk, handled] = handle_config_err(
         ctx,
         task,
@@ -729,8 +731,8 @@ TEST(TestHandleConfigErr, testErrorReplacingARunningInstanceKeepsItRunning) {
     );
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
-    ASSERT_EQ(ctx->statuses.size(), 1);
-    const auto &s = ctx->statuses[0];
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto &s = ctx->statuses[1];
     EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(s.message, "Failed to deploy changes");
     EXPECT_EQ(
@@ -749,8 +751,11 @@ TEST(TestHandleConfigErr, testErrorReplacingARunningInstanceKeepsItRunning) {
 TEST(TestHandleConfigErr, testFailedRedeployAnswersNoCommand) {
     x::breaker::Breaker cancel;
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
-    task.status = synnax::task::Status{.details = {.running = true}};
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    ctx->statuses.push_back({
+        .details = {.running = true},
+        .owner = synnax::task::resource_id(task.key),
+    });
     handle_config_err(
         ctx,
         task,
@@ -758,9 +763,35 @@ TEST(TestHandleConfigErr, testFailedRedeployAnswersNoCommand) {
         task::REDEPLOY,
         cancel
     );
-    ASSERT_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].message, "Failed to deploy changes");
-    EXPECT_TRUE(ctx->statuses[0].details.cmd.empty());
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].message, "Failed to deploy changes");
+    EXPECT_TRUE(ctx->statuses[1].details.cmd.empty());
+}
+
+/// @brief it should report a task whose instance stopped before its deploy failed as
+/// not configured, even when the instance ran when the deploy began.
+TEST(TestHandleConfigErr, testErrorAfterTheInstanceStoppedReportsItStopped) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto owner = synnax::task::resource_id(task.key);
+    ctx->statuses.push_back({.details = {.running = true}, .owner = owner});
+    ctx->statuses.push_back({
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Failed to read data",
+        .details = {.running = false},
+        .owner = owner,
+    });
+    handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
+        "start_2",
+        cancel
+    );
+    ASSERT_EQ(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[2].message, "Failed to configure task");
+    EXPECT_FALSE(ctx->statuses[2].details.running);
 }
 
 /// @brief it should not start a redeploy on its own, since the task manager starts it.

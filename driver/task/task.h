@@ -16,6 +16,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -116,6 +117,10 @@ public:
     /// @brief returns true when a status write failed, a re-send included, and no
     /// re-send has started since.
     [[nodiscard]] virtual bool statuses_stale() = 0;
+
+    /// @brief returns the latest status of the task that this Driver sent, or nullopt.
+    [[nodiscard]] virtual std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -137,6 +142,15 @@ public:
     x::errors::Error resend_statuses() override { return x::errors::NIL; }
 
     bool statuses_stale() override { return false; }
+
+    std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) override {
+        std::lock_guard lock(this->mu);
+        const auto owner = synnax::task::resource_id(key);
+        for (auto it = this->statuses.rbegin(); it != this->statuses.rend(); ++it)
+            if (it->owner == owner) return *it;
+        return std::nullopt;
+    }
 
     /// @brief returns a copy of the statuses, safe to read while tasks send more.
     std::vector<synnax::task::Status> snapshot() {
@@ -212,6 +226,11 @@ public:
     x::errors::Error resend_statuses() override { return this->statuses->resend(); }
 
     bool statuses_stale() override { return this->statuses->stale(); }
+
+    std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) override {
+        return this->statuses->latest(key);
+    }
 
     /// @brief opens an operation that runs cmd on task, which is called name. The
     /// statuses that answer cmd go through it until end. The operation must not
@@ -303,8 +322,6 @@ public:
     virtual std::string name() { return ""; }
 
     /// @brief builds a live instance of the task if this factory handles its type.
-    /// @param task the task to build. For a deploy that replaces a live instance, its
-    /// status is the latest status of that instance.
     /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot, or
     /// REDEPLOY.
     /// @param cancel stops when a stop cancels the start, or when the task manager
@@ -633,7 +650,7 @@ private:
     /// starts that joined operation run again as their own commands, and a task that
     /// the save moved to another rack is released with a warning, along with its live
     /// instance. A failed read fails the deploy. tsk ends as the revision last
-    /// configured, with the status it came with.
+    /// configured.
     /// @param cmd_key the cmd_key given to the factory.
     /// @returns the configured task, or nullptr, and whether a factory handles tsk.
     std::pair<std::unique_ptr<Task>, bool> configure(
