@@ -64,7 +64,7 @@ const Item = (props: Base.ItemRenderProps<string>): ReactElement | null => {
           aria-label={`Pick ${name}`}
         />
       )}
-      <Text.Text level="small" weight={500} color={10} variant="code" overflow="fade">
+      <Text.Text level="small" weight={500} color={10} overflow="fade">
         {name}
       </Text.Text>
       <Text.Text

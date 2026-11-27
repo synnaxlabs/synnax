@@ -202,6 +202,11 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         finally:
             self._send_closed = True
 
+    @override
+    async def close(self) -> None:
+        """Implements the AsyncStream protocol."""
+        await self._internal.close()
+
     async def _close_server(self, exc_pld: ExceptionPayload | None) -> Exception:
         if self._server_closed is not None:
             return self._server_closed
@@ -310,6 +315,11 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             raise _handle_close_err(e) from e
         finally:
             self._send_closed = True
+
+    @override
+    def close(self) -> None:
+        """Implements the Stream protocol."""
+        self._connection.close()
 
     def _close_server(self, exc_pld: ExceptionPayload | None) -> Exception:
         if self._server_closed is not None:

@@ -135,61 +135,141 @@
       "document": {
         "v": ""
       },
-      "error": "field v: no value at /v: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "field v: no value at /v: validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "abc"
       },
-      "error": "field v: invalid number \"abc\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"abc\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "1 2"
       },
-      "error": "field v: invalid number \"1 2\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"1 2\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "+-1"
       },
-      "error": "field v: invalid number \"+-1\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"+-1\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "1_000"
       },
-      "error": "field v: invalid number \"1_000\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"1_000\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "0x"
       },
-      "error": "field v: invalid number \"0x\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"0x\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "0x1p"
       },
-      "error": "field v: invalid number \"0x1p\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"0x1p\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "0x1_0"
       },
-      "error": "field v: invalid number \"0x1_0\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"0x1_0\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "nan(-)"
       },
-      "error": "field v: invalid number \"nan(-)\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"nan(-)\": validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "1e999"
       },
-      "error": "field v: invalid number \"1e999\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"1e999\": validation error"
+        }
+      ]
     }
   ]
 }

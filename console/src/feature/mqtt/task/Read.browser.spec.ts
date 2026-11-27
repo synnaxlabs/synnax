@@ -14,6 +14,7 @@ import {
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -29,6 +30,7 @@ import {
 import {
   focusedIn,
   pickMessageFormat,
+  pickNewMessage,
   removeField,
   retype,
   searchMessageFormats,
@@ -1161,6 +1163,35 @@ describe("MQTT read form", () => {
         { type: "plain", topic: "plant/kiln" },
       ]),
     );
+    const labels = await screen.findAllByText("plant/kiln");
+    expect(labels.map(treatment)).not.toContain("code");
+  });
+
+  it("should draw the topic names of the Add data tree in Inter", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    const scanned = {
+      topic: TOPIC,
+      payload: '{"temperature": 1}',
+      shapes: [
+        {
+          fields: [
+            {
+              pointer: "/temperature",
+              type: "number",
+              kind: "float",
+              sample: "1",
+              enum: [],
+            },
+          ],
+          count: 1,
+        },
+      ],
+      retained: true,
+    };
+    await scanner.answer({ data: { topics: [scanned], truncated: false } });
+    expect(treatment(await dialog.findByText("plant"))).toBe("prose");
   });
 
   it("should open one Add data dialog for a double click", async () => {
@@ -2399,6 +2430,87 @@ describe("MQTT read form", () => {
         });
       },
     );
+
+    it("should list the messages of every format, each with its format", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const text: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("line"),
+        payload: { format: "text", delimiter: ",", prefix: "", fields: [] },
+      };
+      const binary: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("frame"),
+        payload: { format: "binary", fields: [] },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [text, binary],
+      });
+      await renderRead({ entries: [entry] });
+      await openTopic();
+      const dialog = await searchMessageFormats(TOPIC, shared.name);
+      const option = async (name: string) =>
+        (await dialog.findByRole("option", { name: new RegExp(name) })).textContent;
+      expect(await option(text.name)).toBe(`TEXT${text.name}${shared.name}`);
+      expect(await option(binary.name)).toBe(`BINARY${binary.name}${shared.name}`);
+    });
+
+    it("should read a new message in the ICD of the topic", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { draft } = await renderRead({ entries: [entry] });
+      await openTopic();
+      await pickNewMessage(TOPIC, "New JSON message");
+      const created = await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages).toHaveLength(2);
+        return messages[1];
+      });
+      expect(created).toMatchObject({
+        name: `${TOPIC} 2`,
+        payload: { format: "json", fields: [] },
+      });
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0])).toMatchObject({
+          icd: entry.icd,
+          messages: [{ message: created.key, bindings: [] }],
+        }),
+      );
+    });
+
+    it.each([
+      ["New text message", { format: "text", delimiter: ",", prefix: "", fields: [] }],
+      ["New binary message", { format: "binary", fields: [] }],
+    ] as const)("should read an empty message from %s", async (item, payload) => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await renderRead({ entries: [entry] });
+      await openTopic();
+      // The Core reads only JSON messages over MQTT, so it would undo the read.
+      holdRequests(client, "/task/create");
+      await pickNewMessage(TOPIC, item);
+      await findDialogTriggerByText(`${TOPIC} 2`);
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages[1]).toMatchObject({ name: `${TOPIC} 2`, payload });
+      });
+    });
+
+    it("should delete a message with no fields that the task made when a new message replaces it", async () => {
+      const { draft } = await renderRead();
+      const entry = await addTopic(draft.key, TOPIC);
+      await pickNewMessage("Untitled", "New JSON message");
+      await waitFor(async () => {
+        const keys = await messageKeys(entry.icd);
+        expect(keys).toHaveLength(1);
+        expect(keys).not.toContain(entry.messages[0].message);
+      });
+    });
 
     it("should list a message that is renamed while the topic is open", async () => {
       const entry = await createEntry({
@@ -4199,7 +4311,7 @@ describe("MQTT read form", () => {
 });
 
 describe("plotChannels", () => {
-  it("should find the bound channels of enabled plain entries and enabled Sparkplug tags", () => {
+  it("should find the bound channels and fields of enabled plain entries and enabled Sparkplug tags", () => {
     const plotChannels = MQTT.Task.INTEGRATION.plotChannels?.[MQTT.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");
     const plain = (disabled: boolean, ...channels: number[][]) => ({
@@ -4211,14 +4323,22 @@ describe("plotChannels", () => {
         bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
       })),
     });
+    const read = plain(false, [1, 0], [2]);
     const config = {
       entries: [
-        plain(false, [1, 0], [2]),
+        read,
         plain(true, [3]),
         { type: "sparkplug", channel: 4 },
         { type: "sparkplug", channel: 5, disabled: true },
       ],
     };
-    expect(plotChannels(config)).toEqual([1, 2, 4]);
+    const plotted = plotChannels(config);
+    expect(plotted.map(({ channel }) => channel)).toEqual([1, 0, 2, 4]);
+    expect(plotted[2].field).toEqual({
+      icd: read.icd,
+      message: read.messages[1].message,
+      key: read.messages[1].bindings[0].field,
+    });
+    expect(plotted[3].field).toBeUndefined();
   });
 });

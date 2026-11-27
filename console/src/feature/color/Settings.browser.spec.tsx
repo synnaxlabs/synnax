@@ -9,6 +9,7 @@
 
 import { color, group, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { color as xcolor, compare } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
@@ -108,6 +109,7 @@ describe("Color.Settings", () => {
     });
     expect(await screen.findByText(name)).toBeTruthy();
     expect(await screen.findByPlaceholderText("Color name")).toBeTruthy();
+    expect(screen.getAllByText("Auto").map(treatment)).not.toContain("code");
   });
 
   it("should put new colors at the start of a palette in the order typed", async () => {

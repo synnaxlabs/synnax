@@ -21,7 +21,6 @@ export const TopicLabel = ({ name }: { name: string }): ReactElement => (
     kind="Topic"
     kindColor={TOPIC_KIND_COLOR}
     color={name === "" ? 8 : 10}
-    variant="code"
   >
     {name === "" ? "New topic" : name}
   </Task.Views.ItemLabel>
@@ -43,7 +42,6 @@ export const RecordLabel = ({
       kind="JSON"
       kindColor="var(--pluto-secondary-z)"
       color={recordKey === "" ? 8 : 10}
-      variant="code"
     >
       {recordKey === "" ? emptyLabel : recordKey}
     </Task.Views.ItemLabel>
