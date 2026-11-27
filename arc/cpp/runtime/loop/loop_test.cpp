@@ -147,6 +147,24 @@ TEST(LoopTest, Wake_EventDriven) {
     ASSERT_TRUE(woke_up.load());
 }
 
+/// @brief it should let one thread wake the loop while another starts it.
+TEST(LoopTest, WakeWhileStarting) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = x::telem::TimeSpan(0);
+    config.cpu_affinity = CPU_AFFINITY_NONE;
+    const auto loop = create(config);
+    std::atomic<bool> started{false};
+    std::thread waker([&] {
+        while (!started.load())
+            loop->wake();
+    });
+    ASSERT_NIL(loop->start());
+    started.store(true);
+    waker.join();
+    loop->wake();
+}
+
 /// @brief Test that Loop wakes up on timer expiration.
 TEST(LoopTest, TimerExpiration) {
     Config config;
