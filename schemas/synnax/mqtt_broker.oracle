@@ -382,7 +382,7 @@ Identity struct {
         """
         @validate min_length 1
     }
-    keep_alive telem.TimeSpan = 30000000000 {
+    keep_alive telem.TimeSpan = 30s {
         @doc value    "is the keep alive interval, in whole seconds."
         @ts type      telem.NumericTimeSpan
         @validate max 65535000000000
