@@ -9,6 +9,7 @@
 
 import { auth, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { testClientParams } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { scheduler, sleep } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -25,6 +26,7 @@ import {
   retrieveKeyIDs,
 } from "@/feature/embedded/testutil";
 import { Session } from "@/session";
+import { CaptureStatuses } from "@/testutil";
 
 const { port } = testClientParams();
 
@@ -269,6 +271,54 @@ describe("Embedded.Guard API key for scripts", () => {
       },
       { timeout: 10_000 },
     );
+  });
+
+  it("should report a failed key save once and retry with backoff", async () => {
+    await deleteKeysCreatedByTest(client);
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout"],
+      shouldAdvanceTime: true,
+    });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const limit = vi.spyOn(auth.Client.prototype, "retrieveAPIKeyMaxLifetime");
+    onTestFinished(() => limit.mockRestore());
+    limit
+      .mockRejectedValueOnce(new Error("Core restarted"))
+      .mockRejectedValueOnce(new Error("Core restarted"));
+    const { file, handlers } = createDiscoveryFile();
+    mockSupervisor(() => live, handlers);
+    let statuses: Status.NotificationSpec[] = [];
+    const { wrapper } = await createDesktopWrapper();
+    render(
+      <>
+        <Embedded.Guard>
+          <span>workspace</span>
+        </Embedded.Guard>
+        <CaptureStatuses onStatuses={(s) => (statuses = s)} />
+      </>,
+      { wrapper },
+    );
+    const failures = (): number =>
+      statuses.filter((s) => s.message === "Failed to save API key for scripts").length;
+    await waitFor(() => expect(failures()).toBe(1));
+    expect(limit).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds);
+    });
+    await waitFor(() => expect(limit).toHaveBeenCalledTimes(2));
+    expect(failures()).toBe(1);
+    // The second retry waits twice as long as the first.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds);
+    });
+    expect(limit).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(10).milliseconds);
+    });
+    await waitFor(() => expect(file.apiKey).not.toBeNull());
+    expect(failures()).toBe(1);
   });
 
   it("should revoke a Desktop 1.1 key and save a new one in its place", async () => {
