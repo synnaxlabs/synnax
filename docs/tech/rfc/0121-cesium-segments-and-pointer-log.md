@@ -838,8 +838,12 @@ for the key.
 - **Pauses**: In an `Adaptive` writer, the keys that reach three quarters of P pauses
   (48 of 64) in their open segments at one frame, with one last present frame, get one
   clock from a background step off the frame path. The step reuses a clock that a
-  segment of one of those keys names and that no writer holds, and takes over their open
-  segments on it, as at open. If not, it leases a key and makes the files. At P pauses
+  segment of one of those keys names, with the drop rules of continuation: it drops a
+  key of the writer, a clock that an open writer holds, and a clock whose last stamp is
+  not before the first stamp of the frame that starts the step. It picks among the rest
+  as continuation does, takes over the open segments of the keys on that clock, as at
+  open, and makes the files of the keys whose segment there is sealed, missing, or of
+  another type. If no clock is left, it leases a key and makes the files. At P pauses
   the keys move to that clock at the first commit after its files exist. Their open
   segments on the clock they leave stay open, and the writer still holds them (§5.4,
   invariant 6), so the switch cannot seal them ahead of their last Commits. A move back
