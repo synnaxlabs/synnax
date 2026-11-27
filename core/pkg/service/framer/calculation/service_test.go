@@ -115,7 +115,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		_, sOutlet := confluencetestutil.Attach(streamer, 1, 1)
+		_, sOutlet := confluencetestutil.Attach(streamer, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet()).Should(Receive())
 		return w, sOutlet, calcs, func() {
@@ -722,7 +722,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Keys:        channel.Keys{calc.Key()},
 					SendOpenAck: new(true),
 				}))
-				_, sOutlet := confluencetestutil.Attach(strm, 1, 1)
+				_, sOutlet := confluencetestutil.Attach(strm, 1)
 				strm.Flow(sCtx)
 				Eventually(sOutlet.Outlet()).Should(Receive())
 
@@ -846,7 +846,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				_, outlet := confluencetestutil.Attach(s, 1, 1)
+				_, outlet := confluencetestutil.Attach(s, 1)
 				s.Flow(sCtx)
 				Eventually(outlet.Outlet()).Should(Receive())
 				rm := c.OpenRequestManager()
@@ -891,7 +891,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				_, outlet := confluencetestutil.Attach(s, 1, 1)
+				_, outlet := confluencetestutil.Attach(s, 1)
 				s.Flow(sCtx)
 				Eventually(outlet.Outlet()).Should(Receive())
 				repeated := c.OpenRequestManager()
@@ -976,7 +976,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				_, outlet := confluencetestutil.Attach(s, 1, 1)
+				_, outlet := confluencetestutil.Attach(s, 1)
 				s.Flow(sCtx)
 				Eventually(outlet.Outlet()).Should(Receive())
 				heldRM := svc.OpenRequestManager()
@@ -1055,7 +1055,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				_, outlet := confluencetestutil.Attach(s, 1, 1)
+				_, outlet := confluencetestutil.Attach(s, 1)
 				s.Flow(sCtx)
 				Eventually(outlet.Outlet()).Should(Receive())
 				heldRM := svc.OpenRequestManager()
@@ -1715,7 +1715,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
-			_, sOutlet := confluencetestutil.Attach(streamer, 1, 1)
+			_, sOutlet := confluencetestutil.Attach(streamer, 1)
 			streamer.Flow(sCtx)
 			Eventually(sOutlet.Outlet()).Should(Receive())
 			write := func() {
@@ -1828,7 +1828,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Keys:        channel.Keys{calc.Key()},
 					SendOpenAck: new(true),
 				}))
-				_, sOutlet := confluencetestutil.Attach(streamer, 1, 1)
+				_, sOutlet := confluencetestutil.Attach(streamer, 1)
 				streamer.Flow(sCtx)
 				Eventually(sOutlet.Outlet()).Should(Receive())
 
