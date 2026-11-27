@@ -585,7 +585,7 @@ TDMS) reads measured.
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `gorp`                                                  | Unique index and spaces, weak policy, dependents with their reference                                                                        | `x`                                                                                                            | Any Core package; the meaning of a tag                                        |
 | `core/pkg/service/imex/session`                         | Import and export sessions: the link reads and writes of one file                                                                            | `imex`, `service/channel`                                                                                      | -                                                                             |
-| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules, the folder name check per scope that `layer.go` injects                                  | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`                                              |
+| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules, the folder name check and the delete hook per scope that `layer.go` injects              | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`                                              |
 | `core/pkg/service/channel`                              | The record, the name rule of channels and channel folders, paths, the built-in set, tombstones, `rewires`, the meaning of the tag            | `service/group`, `service/status`, `distribution/channel`                                                      | `service/arc`, `service/calculation`, and `arc`, except through `versions/v1` |
 | `core/pkg/service/channel/resolver` (NEW)               | Channels as Arc symbols, consistent lookups for one compile                                                                                  | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`                                          |
 | `core/pkg/service/calculation`                          | The record, analyzer, compiler, graph, status, `reads`, its text holder                                                                      | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                                                                 |
@@ -787,21 +787,25 @@ or without the flag.
   next compile (§4.5), and the channel writer heals at every create (§4.12). Migrations
   keep their own writers. Today's rename, delete, and folder routes call apply with no
   picks. That runs the action with the defaults and returns no entries; a plan is made
-  only when picks come. The channel delete route looks up its keys and paths and deletes
-  in one transaction: one apply over its keys, then one over the keys of its paths, in
-  `main`'s order, so no request changes `main`'s answer. `Declare`, inside `channel`,
-  creates the built-ins that a service makes at open, such as the task command channel
-  or a signals channel. It runs before the text holders open, so it reports the channels
-  that it creates and renames; before the API serves, `channel/tree` applies their heals
-  and text passes with the defaults. A migration that moves a channel onto a tombstone's
-  path runs the same heal, so a live channel and a tombstone never share a path. No
-  migration of this RFC meets one, since `core/v0.62.0` holds no tombstones. `Declare`
-  renames a user channel and creates the built-in as two actions, the rename first, so
-  text that names the user channel follows it. Before any compile and before the API
-  serves, the rename's text pass runs from the stored old path, with `update_text` for
-  each of its tokens whatever holds the path by then, and deletes the stored path. A
-  crash before the pass runs it at the next start. Every first free suffix in this RFC
-  (`Declare`, the Phase 7 migration, a displaced channel) skips tombstone paths.
+  only when picks come. The group delete route stays `main`'s one `Delete`: the group
+  writer runs each scope's delete hook in its transaction first, and `channel/tree`'s
+  hook for scope `channel` deletes the folder's tombstones (§4.11), so every caller
+  passes the group guard. The channel delete route looks up its keys and paths and
+  deletes in one transaction: one apply over its keys, then one over the keys of its
+  paths, in `main`'s order, so no request changes `main`'s answer. `Declare`, inside
+  `channel`, creates the built-ins that a service makes at open, such as the task
+  command channel or a signals channel. It runs before the text holders open, so it
+  reports the channels that it creates and renames; before the API serves,
+  `channel/tree` applies their heals and text passes with the defaults. A migration that
+  moves a channel onto a tombstone's path runs the same heal, so a live channel and a
+  tombstone never share a path. No migration of this RFC meets one, since `core/v0.62.0`
+  holds no tombstones. `Declare` renames a user channel and creates the built-in as two
+  actions, the rename first, so text that names the user channel follows it. Before any
+  compile and before the API serves, the rename's text pass runs from the stored old
+  path, with `update_text` for each of its tokens whatever holds the path by then, and
+  deletes the stored path. A crash before the pass runs it at the next start. Every
+  first free suffix in this RFC (`Declare`, the Phase 7 migration, a displaced channel)
+  skips tombstone paths.
 - **Access**: The plan and apply routes refuse a request that names a record the caller
   cannot retrieve, before any plan, so an apply never acts on effects that the caller
   could not see. The refusal names the key that the caller sent. An entry for any other
