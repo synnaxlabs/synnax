@@ -319,7 +319,12 @@ public:
             this->t.certificate_refresh,
             this->t.certificate_delete
         ),
-        arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete),
+        arcs(
+            this->t.arc_retrieve,
+            this->t.arc_create,
+            this->t.arc_delete,
+            this->t.arc_calculations
+        ),
         control(this->t.control_retrieve),
         icds(this->t.icd_create, this->t.icd_retrieve) {
         details::check_little_endian();

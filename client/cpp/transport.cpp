@@ -258,6 +258,10 @@ Transport::Transport(
         grpc::arc::DeleteRequest,
         google::protobuf::Empty,
         grpc::arc::ArcDeleteService>>(pool, base_target);
+    this->arc_calculations = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::arc::CalculationsRequest,
+        grpc::arc::CalculationsResponse,
+        grpc::arc::ArcCalculationsService>>(pool, base_target);
     this->icd_create = std::make_shared<freighter::grpc::UnaryClient<
         grpc::icd::CreateRequest,
         grpc::icd::CreateResponse,
@@ -320,6 +324,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     arc_create->use(mw);
     arc_retrieve->use(mw);
     arc_delete->use(mw);
+    arc_calculations->use(mw);
     icd_create->use(mw);
     icd_retrieve->use(mw);
 }

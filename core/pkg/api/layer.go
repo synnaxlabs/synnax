@@ -302,6 +302,7 @@ type Transport struct {
 	ArcCreate            freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
 	ArcDelete            freighter.UnaryServer[arc.DeleteRequest, struct{}]
 	ArcRetrieve          freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
+	ArcCalculations      freighter.UnaryServer[arc.CalculationsRequest, arc.CalculationsResponse]
 	ArcDispatch          freighter.UnaryServer[arc.DispatchRequest, struct{}]
 	ArcUpdateTask        freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
 	ArcRetrieveDirectory freighter.UnaryServer[arcdirectory.RetrieveRequest, arcdirectory.RetrieveResponse]
@@ -658,6 +659,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
+		t.ArcCalculations,
 		t.ArcDispatch,
 		t.ArcUpdateTask,
 		t.ArcRetrieveDirectory,
@@ -968,6 +970,9 @@ func (l *Layer) BindTo(t Transport) {
 		bind.WritePrepared(l.binder, l.Arc.PrepareDelete, l.Arc.Delete),
 	)
 	t.ArcRetrieve.BindHandler(l.Arc.Compiled(bind.Read(l.binder, l.Arc.Retrieve)))
+	t.ArcCalculations.BindHandler(
+		l.Arc.Calculations(bind.Read(l.binder, l.Arc.CheckCalculations)),
+	)
 	t.ArcDispatch.BindHandler(bind.Write(l.binder, l.Arc.Dispatch))
 	t.ArcUpdateTask.BindHandler(
 		bind.WritePrepared(l.binder, l.Arc.PrepareUpdateTask, l.Arc.UpdateTask),

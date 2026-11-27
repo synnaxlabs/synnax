@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/arc/pb"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	grpcarc "github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
@@ -71,5 +72,31 @@ var _ = Describe("Retrieve", func() {
 		Expect(client.Exec(ctx, &decoded)).Error().To(MatchError(ContainSubstring(
 			"sy.validation---grpc.arc.RetrieveRequest has unknown fields",
 		)))
+	})
+})
+
+var _ = Describe("Calculations", func() {
+	It("Should carry the requested channels and the response", func(ctx SpecContext) {
+		var received arc.CalculationsRequest
+		transport.ArcCalculations.BindHandler(func(
+			_ context.Context,
+			req arc.CalculationsRequest,
+		) (arc.CalculationsResponse, error) {
+			received = req
+			return arc.CalculationsResponse{
+				Calculations: []svcarc.Calculation{{Channel: 3}},
+				Channels:     channel.Keys{1, 2, 3},
+				Omitted:      channel.Keys{2},
+			}, nil
+		})
+		client := grpcarc.NewArcCalculationsServiceClient(conn)
+		res := MustSucceed(client.Exec(ctx, &grpcarc.CalculationsRequest{
+			Channels: []uint32{1, 2},
+		}))
+		Expect(received.Channels).To(Equal(channel.Keys{1, 2}))
+		Expect(res.Calculations).To(HaveLen(1))
+		Expect(res.Calculations[0].Channel).To(Equal(uint32(3)))
+		Expect(res.Channels).To(Equal([]uint32{1, 2, 3}))
+		Expect(res.Omitted).To(Equal([]uint32{2}))
 	})
 })

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -358,6 +359,106 @@ var _ = Describe("Graph", func() {
 				for range 20 {
 					Expect(order()).To(Equal(first))
 				}
+			},
+		)
+	})
+
+	Describe("Examined", func() {
+		// createNested creates exam_<prefix>_base, the calculated channel
+		// exam_<prefix>_inner = base + 1, and exam_<prefix>_outer = inner * 2.
+		createNested := func(
+			ctx SpecContext,
+			prefix string,
+		) (base, inner, outer channel.Channel) {
+			GinkgoHelper()
+			name := "exam_" + prefix
+			base = channel.Channel{
+				Name: name + "_base", DataType: telem.Int64T, Virtual: true,
+			}
+			inner = channel.Channel{
+				Name:       name + "_inner",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return " + name + "_base + 1",
+			}
+			outer = channel.Channel{
+				Name:       name + "_outer",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return " + name + "_inner * 2",
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				for _, ch := range []*channel.Channel{&base, &inner, &outer} {
+					if err := w.Create(ctx, ch); err != nil {
+						return err
+					}
+				}
+				return nil
+			})).To(Succeed())
+			return base, inner, outer
+		}
+
+		It(
+			"Should hold a channel, its nested dependency, and their inputs",
+			func(ctx SpecContext) {
+				base, inner, outer := createNested(ctx, "ok")
+				Expect(g.Add(ctx, outer)).To(Succeed())
+				examined := g.Examined()
+				Expect(examined).To(HaveKey(outer.Key()))
+				Expect(examined).To(HaveKey(inner.Key()))
+				Expect(examined).To(HaveKey(base.Key()))
+			},
+		)
+
+		It(
+			"Should hold the channels of an Add that fails analysis",
+			func(ctx SpecContext) {
+				base, inner, outer := createNested(ctx, "invalid")
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Rename(
+						ctx,
+						base.Key(),
+						"exam_invalid_renamed",
+						false,
+					)
+				})).To(Succeed())
+				_, invalid := errors.AsType[*diagnostics.Diagnostics](g.Add(ctx, outer))
+				Expect(invalid).To(BeTrue())
+				Expect(g.CalculatedKeys()).To(BeEmpty())
+				examined := g.Examined()
+				Expect(examined).To(HaveKey(outer.Key()))
+				Expect(examined).To(HaveKey(inner.Key()))
+				Expect(examined).ToNot(HaveKey(base.Key()))
+			},
+		)
+
+		It(
+			"Should hold the channels of an Add that finds a cycle",
+			func(ctx SpecContext) {
+				first := channel.Channel{
+					Name:       "exam_cycle_1",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return 1",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &first)
+				})).To(Succeed())
+				second := channel.Channel{
+					Name:       "exam_cycle_2",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return exam_cycle_1",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &second)
+				})).To(Succeed())
+				setExpression(ctx, &first, "return exam_cycle_2")
+				Expect(g.Add(ctx, first)).To(MatchError(graph.ErrCycle))
+				examined := g.Examined()
+				Expect(examined).To(HaveKey(first.Key()))
+				Expect(examined).To(HaveKey(second.Key()))
 			},
 		)
 	})

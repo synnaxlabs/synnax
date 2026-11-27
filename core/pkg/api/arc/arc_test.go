@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 	"uuid"
 
@@ -675,6 +676,159 @@ var _ = Describe("Service", func() {
 					Where:          &arc.Where{Key: &filter.Set[arc.Key]{Eq: &key}},
 					IncludeProgram: true,
 				})).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+	})
+
+	Describe("Calculations", func() {
+		// createCalculated creates a base channel and the calculated channels
+		// inner = base + 1 and outer = inner * 2, named with prefix.
+		createCalculated := func(
+			ctx SpecContext,
+			prefix string,
+		) (base, inner, outer channel.Channel) {
+			GinkgoHelper()
+			base = channel.Channel{
+				Name: prefix + "_base", DataType: telem.Int64T, Virtual: true,
+			}
+			inner = channel.Channel{
+				Name:       prefix + "_inner",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return " + prefix + "_base + 1",
+			}
+			outer = channel.Channel{
+				Name:       prefix + "_outer",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return " + prefix + "_inner * 2",
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				for _, ch := range []*channel.Channel{&base, &inner, &outer} {
+					if err := w.Create(ctx, ch); err != nil {
+						return err
+					}
+				}
+				return nil
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).DeleteMany(ctx, []channel.Key{
+						outer.Key(), inner.Key(), base.Key(),
+					}, false)
+				})).To(Succeed())
+			})
+			return base, inner, outer
+		}
+		// grantChannels grants the author retrieve on each channel and its index.
+		grantChannels := func(ctx SpecContext, channels ...channel.Channel) {
+			GinkgoHelper()
+			var ids []resource.ID
+			for _, ch := range channels {
+				ids = append(ids, channel.ResourceID(ch.Key()))
+				if ch.Index() != 0 {
+					ids = append(ids, channel.ResourceID(ch.Index()))
+				}
+			}
+			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, ids...)
+		}
+
+		It(
+			"Should compile the calculations that the channels read, dependencies first",
+			func(ctx SpecContext) {
+				base, inner, outer := createCalculated(ctx, "calc_ok")
+				grantChannels(ctx, base, inner, outer)
+				res := MustSucceed(calculations(
+					AuthedCtx(ctx, author),
+					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},
+				))
+				Expect(res.Calculations).To(HaveLen(2))
+				Expect(res.Calculations[0].Channel).To(Equal(inner.Key()))
+				Expect(res.Calculations[1].Channel).To(Equal(outer.Key()))
+				Expect(res.Channels).To(ContainElements(
+					outer.Key(),
+					inner.Key(),
+					base.Key(),
+				))
+				Expect(res.Omitted).To(BeEmpty())
+			},
+		)
+
+		It(
+			"Should return the channels and the omission of a calculation that it leaves out",
+			func(ctx SpecContext) {
+				base, inner, outer := createCalculated(ctx, "calc_out")
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Rename(
+						ctx,
+						base.Key(),
+						"calc_out_renamed",
+						false,
+					)
+				})).To(Succeed())
+				grantChannels(ctx, inner, outer)
+				res := MustSucceed(calculations(
+					AuthedCtx(ctx, author),
+					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},
+				))
+				Expect(res.Calculations).To(BeEmpty())
+				Expect(res.Channels).To(ContainElements(outer.Key(), inner.Key()))
+				Expect(res.Channels).ToNot(ContainElement(base.Key()))
+				Expect(res.Omitted).To(ConsistOf(outer.Key()))
+			},
+		)
+
+		It(
+			"Should leave out a requested channel that does not exist",
+			func(ctx SpecContext) {
+				base, inner, outer := createCalculated(ctx, "calc_missing")
+				grantChannels(ctx, base, inner, outer)
+				missing := channel.Key(1 << 30)
+				grantOn(
+					ctx,
+					author.ResourceID(),
+					access.ActionRetrieve,
+					channel.ResourceID(missing),
+				)
+				res := MustSucceed(calculations(
+					AuthedCtx(ctx, author),
+					apiarc.CalculationsRequest{
+						Channels: channel.Keys{outer.Key(), missing},
+					},
+				))
+				Expect(res.Calculations).To(HaveLen(2))
+			},
+		)
+
+		It(
+			"Should deny a subject that cannot retrieve a channel that a calculation reads",
+			func(ctx SpecContext) {
+				base, inner, outer := createCalculated(ctx, "calc_denied")
+				grantChannels(ctx, outer)
+				Expect(calculations(
+					AuthedCtx(ctx, author),
+					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					Not(MatchError(ContainSubstring(inner.Key().String()))),
+					Not(MatchError(ContainSubstring(base.Key().String()))),
+				))
+			},
+		)
+
+		It(
+			"Should return empty lists for channels that read no calculation",
+			func(ctx SpecContext) {
+				base, _, _ := createCalculated(ctx, "calc_none")
+				grantChannels(ctx, base)
+				res := MustSucceed(calculations(
+					AuthedCtx(ctx, author),
+					apiarc.CalculationsRequest{Channels: channel.Keys{base.Key()}},
+				))
+				Expect(string(MustSucceed(json.Marshal(res)))).To(Equal(
+					`{"calculations":[],"channels":[],"omitted":[]}`,
+				))
 			},
 		)
 	})
