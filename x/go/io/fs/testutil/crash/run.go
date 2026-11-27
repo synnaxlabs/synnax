@@ -47,8 +47,10 @@ type run struct {
 	// attempts holds each commit so far, and acked holds the attempts as they were when
 	// the newest disk change began.
 	attempts, acked []attempt
-	cfg             Config
-	result          Result
+	// continued is true when the engine acked a commit after the plan freed the disk.
+	continued bool
+	cfg       Config
+	result    Result
 	// brokenAt is the event of broken, and brokenFaults holds the read faults of the
 	// recovery that broke it.
 	brokenAt     int
@@ -168,6 +170,7 @@ func (r *run) work(engine Engine) {
 		r.counter.mu.Unlock()
 		r.mu.Lock()
 		r.attempts[id-1].ack, r.attempts[id-1].ackedAt = ack, events
+		r.continued = r.continued || (r.plan.frees && int(id) > r.plan.freeAfter)
 		r.mu.Unlock()
 	}
 	if r.stopped() {
@@ -204,10 +207,19 @@ func (r *run) finish() {
 	r.result.SyncErrors, r.result.FullDisk = r.counter.syncErrors, r.counter.fullDisk
 }
 
-// fill fills the disk of the workload when the plan fills it after commit id.
+// fill fills, frees, and arms the later sync faults of the disk of the workload when
+// the plan does so after commit id.
 func (r *run) fill(id int) {
 	if r.plan.fills && r.plan.fillAfter == id {
 		r.disk.Fill(r.plan.room)
+	}
+	if r.plan.frees && r.plan.freeAfter == id {
+		r.disk.Free()
+	}
+	if r.plan.armsLater && r.plan.laterAfter == id {
+		if err := r.disk.Arm(r.plan.later); err != nil {
+			r.abort(err)
+		}
 	}
 }
 
@@ -215,15 +227,20 @@ func (r *run) fill(id int) {
 func (r *run) needsReadFault() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	read := r.cfg.Profile == OneTimeReadFaults || r.cfg.Profile == RepeatedReadFaults
+	read := r.cfg.Profile == OneTimeReadFaults || r.cfg.Profile == RepeatedReadFaults ||
+		r.cfg.Profile == Mixed
 	return read && r.result.ReadFaults == 0
 }
 
 // forcedRead takes the crash image behind the event with a read fault on the first
-// block read of its recovery, so that a run of a read fault profile gets one.
+// block read of its recovery, so that a run of a read fault profile gets one. Under
+// Mixed the image keeps every byte, since a partial crash can leave no block to read.
 func (r *run) forcedRead(event int) *snapshot {
 	cfg := r.plan.crash(event)
 	cfg.Image.ReadFaultAt = 1
+	if r.cfg.Profile == Mixed {
+		cfg.DataSurvivalRate, cfg.TornRate, cfg.EntrySurvivalRate = 1, 0, 1
+	}
 	image, err := r.disk.Crash(cfg)
 	if err != nil {
 		r.abort(err)
@@ -233,8 +250,10 @@ func (r *run) forcedRead(event int) *snapshot {
 }
 
 // unfired returns the kinds of fault of the profile that never fired after the engine
-// of the workload opened. Mixed needs one fault of the workload, since an engine that
-// stops on its first fault never meets a second kind.
+// of the workload opened. Mixed needs each of its four kinds, so a plan that stops
+// reaching one fails the run. It needs no sync error of an engine that took no commit
+// after the disk freed, since an engine that stops on its first fault never meets a
+// second kind.
 func (r *run) unfired() []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -247,7 +266,6 @@ func (r *run) unfired() []string {
 	add("unsynced image", res.Unsynced > 0)
 	add("sync error", res.SyncErrors > 0)
 	add("full disk", res.FullDisk > 0)
-	add("sync error or full disk", res.SyncErrors+res.FullDisk > 0)
 	add("read fault", res.ReadFaults > 0)
 	add("spoiled image", res.Spoiled > 0)
 	var needs []string
@@ -260,7 +278,10 @@ func (r *run) unfired() []string {
 	case FullDisk:
 		needs = []string{"full disk"}
 	case Mixed:
-		needs = []string{"sync error or full disk"}
+		needs = []string{"unsynced image", "full disk", "read fault"}
+		if r.continued {
+			needs = append(needs, "sync error")
+		}
 	case OneTimeReadFaults, RepeatedReadFaults:
 		needs = []string{"read fault"}
 	case OldCorruption, NewCorruption:
