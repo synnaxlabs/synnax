@@ -101,6 +101,18 @@ TEST(ConstantModuleTest, ErrorsWhenValueMissing) {
     );
 }
 
+/// @brief it should return VALIDATION when the output type has no data type.
+TEST(ConstantModuleTest, ErrorsWhenOutputHasNoDataType) {
+    TestSetup setup(types::Kind::F32, 42.5f);
+    auto ir_node = setup.ir.nodes[0];
+    ir_node.outputs[0].type.kind = types::Kind::Function;
+    Module module;
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
+        x::errors::VALIDATION
+    );
+}
+
 /// @brief Test that next() outputs the constant value on first call.
 TEST(ConstantTest, NextOutputsValueOnFirstCall) {
     TestSetup setup(types::Kind::F32, 42.5f);

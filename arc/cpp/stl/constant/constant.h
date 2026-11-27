@@ -85,9 +85,17 @@ public:
                     "The constant node is missing its value parameter."
                 )
             };
-        auto data_type = cfg.node.outputs[0].type.telem();
+        const auto data_type = cfg.node.outputs[0].type.telem();
+        if (!data_type.has_value())
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "The constant node's output type has no data type."
+                )
+            };
         return {
-            std::make_unique<Constant>(std::move(cfg.state), *sample_value, data_type),
+            std::make_unique<Constant>(std::move(cfg.state), *sample_value, *data_type),
             x::errors::NIL
         };
     }

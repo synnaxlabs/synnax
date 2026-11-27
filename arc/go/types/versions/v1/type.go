@@ -315,41 +315,42 @@ func (t Type) Density() int {
 	panic("Density: type is not a fixed-size primitive: " + t.String())
 }
 
-// ToTelem converts the Arc type to a telemetry data type.
-func (t Type) ToTelem() telem.DataType {
+// ToTelem converts the Arc type to a telemetry data type. It returns false when the
+// type has no telemetry data type.
+func (t Type) ToTelem() (telem.DataType, bool) {
 	if t.Kind == KindI64 && t.Unit != nil &&
 		t.Unit.Dimensions.Equal(Dimensions{Time: 1}) && t.Unit.Name == "ns" {
-		return telem.TimestampT
+		return telem.TimestampT, true
 	}
 	switch t.Kind {
 	case KindBool:
-		return telem.BooleanT
+		return telem.BooleanT, true
 	case KindU8:
-		return telem.Uint8T
+		return telem.Uint8T, true
 	case KindU16:
-		return telem.Uint16T
+		return telem.Uint16T, true
 	case KindU32:
-		return telem.Uint32T
+		return telem.Uint32T, true
 	case KindU64:
-		return telem.Uint64T
+		return telem.Uint64T, true
 	case KindF32:
-		return telem.Float32T
+		return telem.Float32T, true
 	case KindF64:
-		return telem.Float64T
+		return telem.Float64T, true
 	case KindString:
-		return telem.StringT
+		return telem.StringT, true
 	case KindI8:
-		return telem.Int8T
+		return telem.Int8T, true
 	case KindI16:
-		return telem.Int16T
+		return telem.Int16T, true
 	case KindI32:
-		return telem.Int32T
+		return telem.Int32T, true
 	case KindI64:
-		return telem.Int64T
+		return telem.Int64T, true
 	case KindInvalid, KindChan, KindSeries, KindVariable, KindNumericConstant,
 		KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant,
 		KindFunction, KindSequence, KindStage, KindVarRef:
-		return telem.UnknownT
+		return "", false
 	}
 	panic("unknown type kind " + t.Kind.String())
 }

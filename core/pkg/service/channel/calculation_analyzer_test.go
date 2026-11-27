@@ -399,6 +399,17 @@ var _ = Describe("Analyze", func() {
 			},
 		)
 
+		It("Should refuse a statement that returns no value", func(
+			ctx SpecContext,
+		) {
+			a := channel.NewCalculationAnalyzer(StaticResolver{})
+			ch := channel.Channel{Name: "calc", Expression: "x := 1.0"}
+			Expect(a.Analyze(ctx, ch)).Error().To(And(
+				BeAssignableToTypeOf(&diagnostics.Diagnostics{}),
+				MatchError(ContainSubstring(`"calc" returns no value`)),
+			))
+		})
+
 		It("Should return unresolved names on analysis error", func(ctx SpecContext) {
 			a := channel.NewCalculationAnalyzer(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}

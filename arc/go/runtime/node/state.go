@@ -50,7 +50,7 @@ func New(inter ir.IR) *ProgramState {
 	for _, node := range inter.Nodes {
 		for _, p := range node.Outputs {
 			s.outputs[ir.Handle{Node: node.Key, Param: p.Name}] = &value{
-				data: telem.Series{DataType: p.Type.ToTelem()},
+				data: telem.Series{DataType: slotDataType(p.Type)},
 				time: telem.Series{DataType: telem.TimestampT},
 			}
 		}
@@ -146,7 +146,10 @@ func (s *ProgramState) bindInput(nd *State, key string, i int, p types.Param) bo
 		Param: ir.DefaultOutputParam,
 	}
 	nd.ir.inputs[i] = ir.Edge{Source: src, Target: target}
-	data := telem.NewSeriesFromAny(types.DecodeValue(p.Value, p.Type), p.Type.ToTelem())
+	data := telem.NewSeriesFromAny(
+		types.DecodeValue(p.Value, p.Type),
+		slotDataType(p.Type),
+	)
 	time := telem.NewSeriesV[telem.TimeStamp](0)
 	nd.aligned.data[i] = data
 	nd.aligned.time[i] = time
@@ -697,4 +700,21 @@ func isSeriesTruthy(s telem.Series) bool {
 	case telem.UnknownT, telem.UUIDT, telem.BytesT, telem.JSONT:
 	}
 	return false
+}
+
+// slotDataType returns the data type of the series that a value slot of type t holds.
+// A channel slot holds channel keys, and a series slot holds samples of its element.
+// It panics for a type that no node slot takes.
+func slotDataType(t types.Type) telem.DataType {
+	switch {
+	case t.Kind == types.KindChan:
+		return telem.Uint32T
+	case t.Kind == types.KindSeries && t.Elem != nil:
+		return slotDataType(*t.Elem)
+	}
+	dt, ok := t.ToTelem()
+	if !ok {
+		panic("arc: type " + t.String() + " has no data type")
+	}
+	return dt
 }

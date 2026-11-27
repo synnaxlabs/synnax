@@ -1015,15 +1015,6 @@ var _ = Describe("Series", func() {
 			})
 		})
 
-		Describe("DataType", func() {
-			It("Should return the data type of the multi-series", func() {
-				s1 := telem.NewSeriesSecondsTSV(1, 2, 3)
-				s2 := telem.NewSeriesSecondsTSV(4, 5, 6)
-				ms := telem.NewMultiSeriesV(s1, s2)
-				Expect(ms.DataType()).To(Equal(telem.TimestampT))
-			})
-		})
-
 		Describe("Data", func() {
 			It(
 				"Should return the aggregate data of the multi-series as a single byte array",

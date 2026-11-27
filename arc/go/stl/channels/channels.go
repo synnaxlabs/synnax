@@ -274,7 +274,7 @@ func (s *source) Next(ctx node.Context) {
 			continue
 		}
 		var timeSeries telem.Series
-		if indexData.DataType() == telem.UnknownT {
+		if len(indexData.Series) == 0 {
 			n := int(ser.Len())
 			timeSeries = telem.Arrange(ctx.ReserveStamps(n), n, 1*telem.NanosecondTS)
 			timeSeries.Alignment = ser.Alignment

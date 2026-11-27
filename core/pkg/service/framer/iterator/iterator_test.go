@@ -69,7 +69,7 @@ func openServices(
 // merged concatenates every series into one.
 func merged(series []telem.Series) telem.Series {
 	ms := telem.MultiSeries{Series: series}
-	return telem.Series{DataType: ms.DataType(), Data: ms.Data()}
+	return telem.Series{DataType: series[0].DataType, Data: ms.Data()}
 }
 
 var _ = Describe("StreamIterator", Ordered, func() {

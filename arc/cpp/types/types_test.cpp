@@ -164,6 +164,13 @@ TEST(TypesTest, BoolTelem) {
     ASSERT_EQ(t.telem(), x::telem::BOOLEAN_T);
 }
 
+/// @brief it should return no data type for a channel type.
+TEST(TypesTest, ChanTelem) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Chan;
+    ASSERT_FALSE(t.telem().has_value());
+}
+
 /// @brief it should round-trip Channels through JSON as objects with string keys.
 TEST(TypesTest, ChannelsJSONRoundTrip) {
     arc::types::Channels original;

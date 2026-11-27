@@ -472,10 +472,10 @@ func (m MultiSeries) TimeRange() TimeRange {
 // Append appends a series to the MultiSeries. The series must have the same data type
 // as the MultiSeries. If the data types are different, a panic will occur.
 func (m MultiSeries) Append(series Series) MultiSeries {
-	if series.DataType != m.DataType() && len(m.Series) > 0 {
+	if len(m.Series) > 0 && series.DataType != m.Series[0].DataType {
 		panic(fmt.Sprintf(
 			"cannot append series with different data types: %v != %v",
-			m.DataType(),
+			m.Series[0].DataType,
 			series.DataType,
 		))
 	}
@@ -486,15 +486,6 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 // Len returns the aggregate length of all series in the MultiSeries.
 func (m MultiSeries) Len() int64 {
 	return lo.SumBy(m.Series, func(s Series) int64 { return s.Len() })
-}
-
-// DataType returns the data type of the multi series. If the multi series is empty, the
-// data type is UnknownT.
-func (m MultiSeries) DataType() DataType {
-	if len(m.Series) != 0 {
-		return m.Series[0].DataType
-	}
-	return UnknownT
 }
 
 // Data returns a byte slice containing the aggregated data of all series in the

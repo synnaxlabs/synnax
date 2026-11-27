@@ -2742,6 +2742,31 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
+	Describe("Output slots", func() {
+		DescribeTable("Should give each slot the data type of its samples",
+			func(t types.Type, expected telem.DataType) {
+				n := ir.Node{Key: "n", Type: "source", Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: t},
+				}}
+				s := node.New(ir.IR{Nodes: ir.Nodes{n}})
+				Expect(s.Node("n").Output(0).DataType).To(Equal(expected))
+			},
+			Entry("float", types.F32(), telem.Float32T),
+			Entry("channel keys", types.Chan(types.U8()), telem.Uint32T),
+			Entry("series elements", types.Series(types.I16()), telem.Int16T),
+		)
+
+		It("Should panic for a slot type that holds no samples", func() {
+			n := ir.Node{Key: "n", Type: "source", Outputs: types.Params{
+				{
+					Name: ir.DefaultOutputParam,
+					Type: types.Function(types.FunctionProperties{}),
+				},
+			}}
+			Expect(func() { node.New(ir.IR{Nodes: ir.Nodes{n}}) }).To(Panic())
+		})
+	})
+
 	Describe("StringInput", func() {
 		// build wires consumer c with a var-bound "tag" (variable node v) and a
 		// literal "plain".

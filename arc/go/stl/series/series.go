@@ -319,7 +319,7 @@ func bindBool(
 		{"or", op.Or},
 	} {
 		builder = bindSeriesBinary(
-			builder, s, entry.name, "logical operation", telem.BooleanT, entry.fn,
+			builder, s, entry.name, "logical operation", new(telem.BooleanT), entry.fn,
 		)
 	}
 	for _, entry := range []struct {
@@ -423,12 +423,12 @@ func bindNumericType[T numeric, W wasmValue](
 	return builder
 }
 
-// scalarOp is a host function that combines a series with a scalar. UnknownT as
-// resultDT keeps the series' type.
+// scalarOp is a host function that combines a series with a scalar. A nil resultDT
+// keeps the series' type.
 type scalarOp[T any] struct {
 	name     string
 	fn       func(telem.Series, T, *telem.Series)
-	resultDT telem.DataType
+	resultDT *telem.DataType
 }
 
 // bindScalarOps registers the element-wise arithmetic and comparison operations between
@@ -440,25 +440,25 @@ func bindScalarOps[T numeric, W wasmValue](
 	ops seriesOps[T],
 ) wazero.HostModuleBuilder {
 	seriesFirst := []scalarOp[T]{
-		{"element_add_", ops.addScalar, telem.UnknownT},
-		{"element_sub_", ops.subScalar, telem.UnknownT},
-		{"element_mul_", ops.mulScalar, telem.UnknownT},
-		{"element_div_", ops.divScalar, telem.UnknownT},
-		{"element_mod_", ops.modScalar, telem.UnknownT},
-		{"compare_gt_scalar_", ops.gtScalar, telem.BooleanT},
-		{"compare_lt_scalar_", ops.ltScalar, telem.BooleanT},
-		{"compare_ge_scalar_", ops.geScalar, telem.BooleanT},
-		{"compare_le_scalar_", ops.leScalar, telem.BooleanT},
-		{"compare_eq_scalar_", ops.eqScalar, telem.BooleanT},
-		{"compare_ne_scalar_", ops.neScalar, telem.BooleanT},
+		{"element_add_", ops.addScalar, nil},
+		{"element_sub_", ops.subScalar, nil},
+		{"element_mul_", ops.mulScalar, nil},
+		{"element_div_", ops.divScalar, nil},
+		{"element_mod_", ops.modScalar, nil},
+		{"compare_gt_scalar_", ops.gtScalar, new(telem.BooleanT)},
+		{"compare_lt_scalar_", ops.ltScalar, new(telem.BooleanT)},
+		{"compare_ge_scalar_", ops.geScalar, new(telem.BooleanT)},
+		{"compare_le_scalar_", ops.leScalar, new(telem.BooleanT)},
+		{"compare_eq_scalar_", ops.eqScalar, new(telem.BooleanT)},
+		{"compare_ne_scalar_", ops.neScalar, new(telem.BooleanT)},
 	}
 	// Add and mul commute, so their reverse forms reuse the forward ops.
 	scalarFirst := []scalarOp[T]{
-		{"element_radd_", ops.addScalar, telem.UnknownT},
-		{"element_rsub_", ops.rSubScalar, telem.UnknownT},
-		{"element_rmul_", ops.mulScalar, telem.UnknownT},
-		{"element_rdiv_", ops.rDivScalar, telem.UnknownT},
-		{"element_rmod_", ops.rModScalar, telem.UnknownT},
+		{"element_radd_", ops.addScalar, nil},
+		{"element_rsub_", ops.rSubScalar, nil},
+		{"element_rmul_", ops.mulScalar, nil},
+		{"element_rdiv_", ops.rDivScalar, nil},
+		{"element_rmod_", ops.rModScalar, nil},
 	}
 	for _, o := range seriesFirst {
 		builder = builder.NewFunctionBuilder().
@@ -485,22 +485,21 @@ func applyScalarOp[T any](
 	if !ok {
 		return 0
 	}
-	dt := o.resultDT
-	if dt == telem.UnknownT {
-		dt = ser.DataType
+	result := telem.Series{DataType: ser.DataType}
+	if o.resultDT != nil {
+		result.DataType = *o.resultDT
 	}
-	result := telem.Series{DataType: dt}
 	o.fn(ser, scalar, &result)
 	return s.Store(result)
 }
 
 // bindSeriesBinary registers a host function that takes two series handles and
-// stores the result of fn. UnknownT as resultDT keeps the left operand's type.
+// stores the result of fn. A nil resultDT keeps the left operand's type.
 func bindSeriesBinary(
 	builder wazero.HostModuleBuilder,
 	s *ProgramState,
 	name, opName string,
-	resultDT telem.DataType,
+	resultDT *telem.DataType,
 	fn func(telem.Series, telem.Series, *telem.Series),
 ) wazero.HostModuleBuilder {
 	return builder.NewFunctionBuilder().
@@ -513,11 +512,10 @@ func bindSeriesBinary(
 			if s1.Len() != s2.Len() {
 				panic("arc panic: series length mismatch in " + opName)
 			}
-			dt := resultDT
-			if dt == telem.UnknownT {
-				dt = s1.DataType
+			result := telem.Series{DataType: s1.DataType}
+			if resultDT != nil {
+				result.DataType = *resultDT
 			}
-			result := telem.Series{DataType: dt}
 			fn(s1, s2, &result)
 			return s.Store(result)
 		}).Export(name)
@@ -541,7 +539,7 @@ func bindSeriesOps[T any](
 		{"series_mod_", ops.mod, "modulo"},
 	} {
 		builder = bindSeriesBinary(
-			builder, s, entry.name+suffix, entry.op, telem.UnknownT, entry.fn,
+			builder, s, entry.name+suffix, entry.op, nil, entry.fn,
 		)
 	}
 	return builder
@@ -565,7 +563,7 @@ func bindCompareOps[T any](
 		{"compare_ne_", ops.ne},
 	} {
 		builder = bindSeriesBinary(
-			builder, s, entry.name+suffix, "comparison", telem.BooleanT, entry.fn,
+			builder, s, entry.name+suffix, "comparison", new(telem.BooleanT), entry.fn,
 		)
 	}
 	return builder
