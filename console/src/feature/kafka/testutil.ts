@@ -75,7 +75,7 @@ export const sampleOfTopic = (topic: string, ...shapes: object[]) => ({
   truncated: false,
 });
 
-/** @returns a field of a sampled shape, held by two records. */
+/** @returns a field of a sampled shape. */
 export const createInferredField = (
   pointer: string,
   kind: payload.Kind,
@@ -87,6 +87,4 @@ export const createInferredField = (
   type,
   timeFormat,
   enum: [],
-  count: 2,
-  mismatched: 0,
 });
