@@ -126,6 +126,12 @@ func testCluster(ctx context.Context, props Properties) error {
 	if err == nil {
 		return testBrokers(ctx, cl, md.Brokers)
 	}
+	return clusterFailure(props, &auth, err)
+}
+
+// clusterFailure returns the failure for err, the error of a metadata request that a
+// client with the hook auth sent to the cluster of props.
+func clusterFailure(props Properties, auth *authHook, err error) error {
 	if props.Sasl.Mechanism() != NoneSASLType &&
 		(saslFailure(err) || auth.dropped.Load()) {
 		return driver.Failure{

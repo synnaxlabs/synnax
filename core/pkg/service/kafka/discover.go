@@ -94,16 +94,12 @@ type browseResult struct {
 // browseTopics returns the topics of the cluster of props, other than internal topics,
 // sorted by name. It fails as the connect test does when the cluster does not answer.
 func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error) {
-	cl, err := openClient(props)
+	cl, details, err := openCluster(ctx, props, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer cl.Close()
 	adm := kadm.NewClient(cl)
-	details, err := describeCluster(ctx, props, cl, nil)
-	if err != nil {
-		return nil, err
-	}
 	topics, readable := listTopics(details)
 	if len(readable) == 0 {
 		return topics, nil
@@ -243,26 +239,34 @@ func (d topicDetail) readable() bool {
 		slices.Contains(d.operations, kadm.OpAll)
 }
 
-// describeCluster returns describeTopics of topics within the time that the connect
-// test
-// gives the cluster to answer. It fails as the connect test does.
-func describeCluster(
+// openCluster opens a client to the cluster of props and returns it with describeTopics
+// of topics. The cluster gets the time that the connect test gives it to answer, and
+// openCluster fails as the connect test does. The caller closes the client.
+func openCluster(
 	ctx context.Context,
 	props Properties,
-	cl *kgo.Client,
 	topics []string,
-) (map[string]topicDetail, error) {
+) (*kgo.Client, map[string]topicDetail, error) {
+	var auth authHook
+	cl, err := openClient(props, kgo.WithHooks(&auth))
+	if err != nil {
+		return nil, nil, err
+	}
 	mdCtx, cancel := context.WithTimeout(ctx, stageTimeout)
 	details, err := describeTopics(mdCtx, cl, topics)
 	cancel()
-	if err == nil || ctx.Err() != nil {
-		return details, err
+	if err == nil {
+		return cl, details, nil
+	}
+	cl.Close()
+	if ctx.Err() != nil {
+		return nil, nil, err
 	}
 	conn, _, dErr := dialSeed(ctx, props.Brokers)
 	if dErr != nil {
-		return nil, dErr
+		return nil, nil, dErr
 	}
-	return nil, errors.Combine(metadataFailure(err), conn.Close())
+	return nil, nil, errors.Combine(clusterFailure(props, &auth, err), conn.Close())
 }
 
 // describeTopics returns the metadata of topics, or of every topic that the client may
@@ -438,16 +442,12 @@ func sampleTopics(
 	}
 	count := int64(cmp.Or(args.Count, defaultSampleCount))
 	count = min(max(count, 1), maxSampleCount)
-	cl, err := openClient(props)
+	cl, details, err := openCluster(ctx, props, args.Topics)
 	if err != nil {
 		return sampleResult{}, err
 	}
 	defer cl.Close()
 	adm := kadm.NewClient(cl)
-	details, err := describeCluster(ctx, props, cl, args.Topics)
-	if err != nil {
-		return sampleResult{}, err
-	}
 	res, readable := newSampleResult(args.Topics, details)
 	if len(readable) == 0 {
 		return res, nil

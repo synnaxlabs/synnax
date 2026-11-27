@@ -141,6 +141,41 @@ var _ = Describe("Discover", func() {
 			"Check that the TLS and SASL settings match the listener of the broker."))
 	}
 
+	DescribeTable("Should say that authentication failed with a wrong password",
+		func(ctx SpecContext, typ string, variant kafka.SASLVariant) {
+			c := MustSucceed(kfake.NewCluster(
+				kfake.NumBrokers(1),
+				kfake.EnableSASL(),
+				kfake.Superuser("PLAIN", "plain-user", "plain-pass"),
+				kfake.Superuser("SCRAM-SHA-256", "scram256-user", "scram256-pass"),
+			))
+			DeferCleanup(c.Close)
+			dev := createDevice(ctx, kafka.Properties{
+				Brokers: c.ListenAddrs(),
+				Sasl:    kafka.SASL{Variant: variant},
+			})
+			stat := command(ctx, typ, map[string]any{
+				"device": dev.Key,
+				"topics": []string{"plant"},
+			}, nil)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Authentication failed"))
+			Expect(stat.Description).To(HaveSuffix(
+				". Check the username, the password, and the SASL mechanism.",
+			))
+		},
+		Entry("browse with plain", "browse",
+			kafka.PlainSASL{Username: "plain-user", Password: "wrong"},
+		),
+		// The broker closes the connection on a failed SCRAM exchange.
+		Entry("browse with SCRAM-SHA-256", "browse",
+			kafka.ScramSha256SASL{Username: "scram256-user", Password: "wrong"},
+		),
+		Entry("sample with plain", "sample",
+			kafka.PlainSASL{Username: "plain-user", Password: "wrong"},
+		),
+	)
+
 	Describe("Browse", func() {
 		// browse returns the topics of the cluster of props.
 		browse := func(ctx context.Context, props kafka.Properties) []browsedTopic {
