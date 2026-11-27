@@ -31,7 +31,9 @@ const NODE_SPECS = [
   "src/framer/streamer.spec.ts",
   "src/transport/transport.spec.ts",
   // Reach the Core through a TCP proxy.
+  "src/channel/builtins.spec.ts",
   "src/channel/channel.spec.ts",
+  "src/channel/internal.spec.ts",
   "src/connection/downtime.spec.ts",
   "src/task/task.spec.ts",
   // Listen for unhandled rejections on `process`.

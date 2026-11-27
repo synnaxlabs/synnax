@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -171,6 +172,34 @@ var _ = Describe("PlanDelete", func() {
 		}
 		channel = func(k uint32) gorp.Target { return gorp.NewTarget("channel", k) }
 	)
+
+	It("Should fail when a reference index failed to populate", func(ctx SpecContext) {
+		kvs := DeferClose(memkv.New())
+		pre := gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
+		Expect(gorp.NewCreate[uint32, pdChannel]().
+			Entry(&pdChannel{Key: 1}).
+			Exec(ctx, pre)).To(Succeed())
+		failing := gorp.Wrap(
+			&failOnceDB{DB: kvs, err: errors.New("populate failed")},
+			gorp.WithCodec(msgpack.Codec),
+		)
+		StartRun(failing.Run)
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, pdCalc]{
+			DB:   failing,
+			Name: "calc",
+			References: []gorp.Reference[string, pdCalc]{
+				pdChannelRef("output", gorp.Cascade, func(c *pdCalc) []uint32 {
+					return []uint32{c.Output}
+				}, 0),
+			},
+		}))
+		chans := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, pdChannel]{
+			DB:   failing,
+			Name: "channel",
+		}))
+		Expect(chans.PlanDelete(ctx, failing, []uint32{1})).Error().
+			To(MatchError(gorp.ErrIndexInvalid))
+	})
 
 	It("Should list each effect of a delete and write nothing", func(ctx SpecContext) {
 		open(ctx)
