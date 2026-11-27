@@ -596,7 +596,7 @@ func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 	clear(t.skipped)
 	t.heads = t.heads[:0]
 	// The records hold their batch buffers, which an idle task must not keep.
-	defer clear(t.heads)
+	defer func() { clear(t.heads) }()
 	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
 		for _, rec := range p.Records {
 			t.convert(rec)
