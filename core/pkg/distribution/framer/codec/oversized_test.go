@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build unix
+//go:build unix && !race
 
 package codec_test
 
@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// The race detector shadows each page these specs read, which outgrows a CI runner.
 var _ = Describe("Series over 4 GiB", func() {
 	It(
 		"Should fail to encode a variable series whose size the length field "+
