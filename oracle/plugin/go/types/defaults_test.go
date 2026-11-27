@@ -815,6 +815,12 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 
 				Name string
 
+				Ident uuid
+
+				Big uint64
+
+				PortAlias Port
+
 				Param struct {
 					level float64 {
 						@validate gt 0
@@ -827,6 +833,9 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 					by_name map<Name, Param>
 					by_index map<uint16, Param>
 					by_key map<uuid, Param>
+					by_ident map<Ident, Param>
+					by_big map<Big, Param>
+					by_port_alias map<PortAlias, Param>
 				}
 			`
 			resp := MustGenerate(source, "x", loader, goPlugin)
@@ -837,8 +846,13 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 					`strconv.FormatInt(int64(key), 10))`,
 				`validate.PathedError(value.Validate(), "by_name", string(key))`,
 				`validate.PathedError(value.Validate(), "by_index", `+
-					`strconv.FormatInt(int64(key), 10))`,
+					`strconv.FormatUint(uint64(key), 10))`,
 				`validate.PathedError(value.Validate(), "by_key", key.String())`,
+				`validate.PathedError(value.Validate(), "by_ident", `+
+					`uuid.UUID(key).String())`,
+				`validate.PathedError(value.Validate(), "by_big", `+
+					`strconv.FormatUint(uint64(key), 10))`,
+				`validate.PathedError(value.Validate(), "by_port_alias", string(key))`,
 			)
 		})
 

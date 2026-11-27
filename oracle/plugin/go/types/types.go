@@ -998,9 +998,7 @@ func addMethodImports(sd *structData, data *templateData) {
 		len(sd.ValidateRecurse) > 0 {
 		data.AddExternal(validateImportPath)
 	}
-	if needsStrconv(sd.ValidateRecurse) {
-		data.AddExternal(strconvImportPath)
-	}
+	addRecurseImports(sd.ValidateRecurse, data)
 }
 
 // validateToAny errors when @go to_any marks a struct that its ToAny method cannot

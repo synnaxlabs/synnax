@@ -34,6 +34,9 @@ const (
 	msgpackImportPath  = "github.com/vmihailenco/msgpack/v5"
 )
 
+// uuidImportPath is the package of the Go type a uuid maps to.
+var uuidImportPath = primitiveMapper.Map("uuid").Imports[0].Path
+
 // defaultFillData describes a single field assignment emitted by a generated
 // SetDefaults method: Setup runs, and the field is set to Expr.
 type defaultFillData struct {
@@ -1163,30 +1166,52 @@ func hasSliceRecurse(steps []recurseStepData) bool {
 	return false
 }
 
-// needsStrconv reports whether any step formats a path segment with strconv: a slice
-// index or an integer map key.
-func needsStrconv(steps []recurseStepData) bool {
-	return hasSliceRecurse(steps) || lo.SomeBy(steps, func(step recurseStepData) bool {
-		return strings.HasPrefix(step.Key, strconvImportPath+".")
-	})
+// addRecurseImports adds the imports that the path segments of steps need: strconv for
+// a slice index or an integer map key, and uuid for a distinct uuid map key.
+func addRecurseImports(steps []recurseStepData, data *templateData) {
+	keyUses := func(pkg string) func(recurseStepData) bool {
+		return func(step recurseStepData) bool {
+			return strings.HasPrefix(step.Key, pkg+".")
+		}
+	}
+	if hasSliceRecurse(steps) || lo.SomeBy(steps, keyUses(strconvImportPath)) {
+		data.AddExternal(strconvImportPath)
+	}
+	if lo.SomeBy(steps, keyUses("uuid")) {
+		data.AddExternal(uuidImportPath)
+	}
 }
 
 // mapKeySegment returns the Go expression that turns the map key variable into a
 // validation path segment for a key of type ref.
 func mapKeySegment(ref resolution.TypeRef, data *templateData) string {
-	if resolved, _, ok := resolution.Dealias(ref, data.table); ok {
+	distinct := false
+	for {
+		resolved, _, ok := resolution.Dealias(ref, data.table)
+		if !ok {
+			break
+		}
 		if form, ok := resolved.Form.(resolution.EnumForm); ok {
 			if form.IsIntEnum {
 				return "strconv.FormatInt(int64(key), 10)"
 			}
 			return "string(key)"
 		}
+		form, ok := resolved.Form.(resolution.DistinctForm)
+		if !ok {
+			break
+		}
+		distinct, ref = true, form.Base
 	}
 	switch base := resolution.PrimitiveBase(ref, data.table); {
+	case base == "uuid" && distinct:
+		return "uuid.UUID(key).String()"
 	case base == "uuid":
 		return "key.String()"
-	case base == "string" && ref.Name != "string":
+	case base == "string" && (distinct || ref.Name != "string"):
 		return "string(key)"
+	case strings.HasPrefix(base, "uint"):
+		return "strconv.FormatUint(uint64(key), 10)"
 	case resolution.IsNumberPrimitive(base) && !strings.HasPrefix(base, "float"):
 		return "strconv.FormatInt(int64(key), 10)"
 	}
