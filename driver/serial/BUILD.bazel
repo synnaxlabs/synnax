@@ -53,8 +53,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":serial",
-        "//client/cpp/device",
         "//client/cpp/serial",
+        "//driver/bus:device",
         "//driver/bus:holders",
         "//driver/transport",
         "//x/cpp/errors",
@@ -93,27 +93,13 @@ cc_library(
     deps = [
         ":ports",
         "//client/cpp/serial",
+        "//driver/bus:device",
         "//driver/bus:holders",
         "//driver/bus:tasks",
         "//driver/common",
         "//driver/task",
         "//x/cpp/breaker",
         "//x/cpp/json",
-    ],
-)
-
-cc_test(
-    name = "retrieve_device_test",
-    srcs = ["retrieve_device_test.cpp"],
-    tags = ["requires-core"],
-    deps = [
-        ":ports",
-        "//client/cpp/serial",
-        "//client/cpp/testutil",
-        "//x/cpp/errors",
-        "//x/cpp/json",
-        "//x/cpp/testutil",
-        "@googletest//:gtest_main",
     ],
 )
 

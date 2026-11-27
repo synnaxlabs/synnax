@@ -118,6 +118,23 @@ TEST(Connections, ShareTransportAmongTasks) {
     EXPECT_EQ(device->count(&Device::opens), 1);
 }
 
+/// @brief it should open the transport of a new connection at once, and fail only on an
+/// open that reopening cannot fix.
+TEST(Connections, OpenNewConnectionAtOnce) {
+    const auto device = std::make_shared<Device>();
+    Connections connections;
+    const auto open = ASSERT_NIL_P(acquire(connections, "open", {}, device));
+    EXPECT_EQ(device->count(&Device::opens), 1);
+    device->failures.push_back(GONE);
+    const auto gone = ASSERT_NIL_P(acquire(connections, "gone", {}, device));
+    EXPECT_EQ(device->count(&Device::attempts), 2);
+    device->failures.emplace_back(CONFIG_ERROR, "bad baud rate");
+    const auto [none, err] = acquire(connections, "bad", {}, device);
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data(), "bad baud rate");
+    EXPECT_EQ(none, nullptr);
+}
+
 /// @brief it should give each device its own connection.
 TEST(Connections, KeepDevicesApart) {
     const auto device = std::make_shared<Device>();
