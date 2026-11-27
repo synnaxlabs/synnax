@@ -1766,6 +1766,14 @@ describe("log/aether/Log", () => {
       expect(log.state.rowEntries).toEqual(rows);
     });
 
+    it("should resume live for a drop at the end of the track", () => {
+      const { leaf: log, source } = paused();
+      log.seekProgress(0.5);
+      log.seekProgress(1);
+      expect(log.state.scrolling).toBe(false);
+      expect(source.resumeCalls).toBe(1);
+    });
+
     it("should not seek a log that went live", () => {
       const { leaf: log, source, updateState } = paused();
       updateState({ scrolling: false, empty: false });

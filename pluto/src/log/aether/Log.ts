@@ -109,7 +109,7 @@ export const methodsZ = {
   seek: z.function({ input: z.tuple([z.string()]), output: z.void() }),
   /**
    * Moves a paused view to where a thumb at progress down the scrollbar track puts it.
-   * A live view does not move.
+   * Progress 1 resumes live. A live view does not move.
    */
   seekProgress: z.function({ input: z.tuple([z.number()]), output: z.void() }),
 };
@@ -496,17 +496,8 @@ export class Log
           moved: 0,
           awayFromEnd: false,
         });
-      else if (
-        i.telem.wrapped.live !== false &&
-        (scrollState.awayFromEnd || dist < 0)
-      ) {
-        this.setState((s) => ({
-          ...s,
-          scrolling: false,
-          resumedAt: performance.now(),
-        }));
-        i.telem.wrapped.resume?.();
-      }
+      else if (i.telem.wrapped.live !== false && (scrollState.awayFromEnd || dist < 0))
+        this.resume();
     }
 
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
@@ -1007,6 +998,7 @@ export class Log
 
   seekProgress(progress: number): void {
     if (!this.state.scrolling || this.track == null) return;
+    if (progress >= 1) return this.resume();
     const { time, entry } = this.track(progress);
     const offset = entry == null ? 0 : this.locate(entry) + 1;
     // The time finds an entry evicted since the render again.
@@ -1020,6 +1012,11 @@ export class Log
     this.anchors.scroll = this.entries[this.scrollState.offset - 1];
     this.loadNearEdges();
     if (this.state.visible) this.requestRender();
+  }
+
+  private resume(): void {
+    this.setState((s) => ({ ...s, scrolling: false, resumedAt: performance.now() }));
+    this.internal.telem.wrapped.resume?.();
   }
 
   private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
