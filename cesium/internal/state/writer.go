@@ -313,6 +313,9 @@ func (s *State) newSegment(r *segmentRequest) {
 	r.id = id
 }
 
+// blocks counts the blocks of each kind of value that the owner reserved.
+type blocks struct{ segments, alignments int }
+
 func block(n int) uint64 {
 	if n == 1 {
 		return firstBlock
@@ -335,21 +338,24 @@ func (s *State) reserveAhead() {
 	if s.core.reserved != l {
 		return
 	}
-	next, blocks := l, [2]int{s.idBlocks, s.alignBlocks}
-	if room(s.nextID, l.Segments) <= block(s.idBlocks)/2 {
-		s.idBlocks++
-		next.Segments = max(l.Segments, s.nextID) + block(s.idBlocks)
+	next, before := l, s.blocks
+	if room(s.nextID, l.Segments) <= block(s.blocks.segments)/2 {
+		s.blocks.segments++
+		next.Segments = max(l.Segments, s.nextID) + block(s.blocks.segments)
 	}
 	zero := uint64(alignment.ZeroLeading)
 	if l.Alignments < zero &&
-		room(s.nextAlign, l.Alignments) <= block(s.alignBlocks)/2 {
-		s.alignBlocks++
-		next.Alignments = min(max(l.Alignments, s.nextAlign)+block(s.alignBlocks), zero)
+		room(s.nextAlign, l.Alignments) <= block(s.blocks.alignments)/2 {
+		s.blocks.alignments++
+		next.Alignments = min(
+			max(l.Alignments, s.nextAlign)+block(s.blocks.alignments),
+			zero,
+		)
 	}
 	if next == l {
 		return
 	}
-	s.core.reserved, s.refusedBlocks = next, blocks
+	s.core.reserved, s.refusedBlocks = next, before
 	s.entry.Reset()
 	s.entry.Add(&log.Reserve{Segments: next.Segments, Alignments: next.Alignments})
 	s.cfg.Append(&s.entry)
@@ -390,7 +396,7 @@ func (r *refusedRequest) run(s *State) {
 	for _, rec := range r.records {
 		if _, ok := rec.(*log.Reserve); ok {
 			s.core.reserved = s.core.limits
-			s.idBlocks, s.alignBlocks = s.refusedBlocks[0], s.refusedBlocks[1]
+			s.blocks = s.refusedBlocks
 			s.failParked(r.err)
 			return
 		}

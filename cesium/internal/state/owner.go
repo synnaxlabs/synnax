@@ -80,11 +80,10 @@ type State struct {
 	stepped chan bool
 	// The fields below belong to the owner.
 	nextID, nextAlign uint64
-	idBlocks          int
-	alignBlocks       int
-	// refusedBlocks holds idBlocks and alignBlocks from before the Reserve in flight,
-	// which a refusal of it restores.
-	refusedBlocks [2]int
+	blocks            blocks
+	// refusedBlocks holds blocks from before the Reserve in flight, which a refusal of
+	// it restores.
+	refusedBlocks blocks
 	entry         log.Entry
 	// parked holds the requests that wait for a durable Reserve.
 	parked []request
