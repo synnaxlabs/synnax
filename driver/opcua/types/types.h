@@ -24,7 +24,9 @@ namespace driver::opcua::types {
 // NOLINTBEGIN(misc-explicit-constructor): each wrapper converts to the open62541 type
 // it holds.
 struct Node {
-    x::telem::DataType data_type;
+    /// @brief the data type of the node's values, or none when no Synnax data type
+    /// holds them.
+    std::optional<x::telem::DataType> data_type;
     std::string node_class;
     std::string name;
     std::string node_id;
@@ -34,7 +36,7 @@ struct Node {
     std::string field;
 
     Node(
-        x::telem::DataType data_type,
+        std::optional<x::telem::DataType> data_type,
         std::string name,
         std::string node_id,
         std::string node_class,
@@ -49,7 +51,7 @@ struct Node {
         field(std::move(field)) {}
 
     explicit Node(x::json::Parser &p):
-        data_type(x::telem::DataType(p.field<std::string>("data_type"))),
+        data_type(parse_data_type(p.field<std::string>("data_type"))),
         name(p.field<std::string>("name")),
         node_id(p.field<std::string>("node_id")),
         is_array(p.field<bool>("is_array", false)),
@@ -57,13 +59,21 @@ struct Node {
 
     [[nodiscard]] x::json::json to_json() const {
         return {
-            {"data_type", data_type.name()},
+            {"data_type", data_type.has_value() ? data_type->name() : ""},
             {"name", name},
             {"node_id", node_id},
             {"node_class", node_class},
             {"is_array", is_array},
             {"field", field}
         };
+    }
+
+private:
+    /// @brief scan results write a node with no data type as an empty string, which the
+    /// Console reads.
+    static std::optional<x::telem::DataType> parse_data_type(const std::string &name) {
+        if (name.empty()) return std::nullopt;
+        return x::telem::DataType(name);
     }
 };
 

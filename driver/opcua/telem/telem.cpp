@@ -30,8 +30,8 @@
 #include "driver/opcua/telem/telem.h"
 
 namespace driver::opcua::telem {
-x::telem::DataType to_data_type(const UA_DataType *dt) {
-    if (dt == nullptr) return x::telem::UNKNOWN_T;
+std::optional<x::telem::DataType> to_data_type(const UA_DataType *dt) {
+    if (dt == nullptr) return std::nullopt;
     switch (dt->typeKind) {
         case UA_DATATYPEKIND_BOOLEAN:
             return x::telem::BOOLEAN_T;
@@ -65,11 +65,11 @@ x::telem::DataType to_data_type(const UA_DataType *dt) {
         case UA_DATATYPEKIND_BYTESTRING:
             return x::telem::BYTES_T;
         default:
-            return x::telem::UNKNOWN_T;
+            return std::nullopt;
     }
 }
 
-x::telem::DataType to_data_type(const UA_NodeId &data_type) {
+std::optional<x::telem::DataType> to_data_type(const UA_NodeId &data_type) {
     return to_data_type(UA_findDataType(&data_type));
 }
 
@@ -268,8 +268,8 @@ to_sample(const UA_Variant &v, const x::telem::DataType &dt) {
         }
         default: {
             const auto src = to_data_type(v.type);
-            if (src == x::telem::UNKNOWN_T) return {{}, cannot_convert(v.type, dt)};
-            sample = src.cast(v.data, src);
+            if (!src.has_value()) return {{}, cannot_convert(v.type, dt)};
+            sample = src->cast(v.data, *src);
         }
     }
     try {
@@ -312,9 +312,10 @@ std::pair<size_t, x::errors::Error> ua_array_write_to_series(
             x::errors::Error(x::errors::VALIDATION, "cannot convert scalar to series")
         };
 
-    const auto src = to_data_type(val->type);
-    if (src.matches(NUMERIC_TYPES) && series.data_type().matches(NUMERIC_TYPES))
-        return {series.write_casted(val->data, size, src), x::errors::NIL};
+    if (const auto src = to_data_type(val->type);
+        src.has_value() && src->matches(NUMERIC_TYPES) &&
+        series.data_type().matches(NUMERIC_TYPES))
+        return {series.write_casted(val->data, size, *src), x::errors::NIL};
 
     // Converts every element before it writes one, so a bad element writes nothing.
     std::vector<x::telem::SampleValue> samples;

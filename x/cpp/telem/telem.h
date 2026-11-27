@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <typeindex>
 #include <unordered_map>
@@ -974,8 +975,8 @@ public:
     /// @returns the inferred data type if the override is not provided, otherwise
     /// returns the override.
     template<typename T>
-    DataType static infer(const DataType &override = DataType(details::UNKNOWN_T)) {
-        if (override != details::UNKNOWN_T) return override;
+    DataType static infer(const std::optional<DataType> &override = std::nullopt) {
+        if (override.has_value()) return *override;
         const auto type_index = std::type_index(typeid(T));
         const auto it = TYPE_INDEXES.find(type_index);
         if (it != TYPE_INDEXES.end()) return DataType(it->second);
@@ -989,29 +990,30 @@ public:
                 using T = std::decay_t<IT>;
                 if constexpr (std::is_same_v<T, double>)
                     return DataType(details::FLOAT64_T);
-                if constexpr (std::is_same_v<T, float>)
+                else if constexpr (std::is_same_v<T, float>)
                     return DataType(details::FLOAT32_T);
-                if constexpr (std::is_same_v<T, int64_t>)
+                else if constexpr (std::is_same_v<T, int64_t>)
                     return DataType(details::INT64_T);
-                if constexpr (std::is_same_v<T, int32_t>)
+                else if constexpr (std::is_same_v<T, int32_t>)
                     return DataType(details::INT32_T);
-                if constexpr (std::is_same_v<T, int16_t>)
+                else if constexpr (std::is_same_v<T, int16_t>)
                     return DataType(details::INT16_T);
-                if constexpr (std::is_same_v<T, int8_t>)
+                else if constexpr (std::is_same_v<T, int8_t>)
                     return DataType(details::INT8_T);
-                if constexpr (std::is_same_v<T, uint64_t>)
+                else if constexpr (std::is_same_v<T, uint64_t>)
                     return DataType(details::UINT64_T);
-                if constexpr (std::is_same_v<T, uint32_t>)
+                else if constexpr (std::is_same_v<T, uint32_t>)
                     return DataType(details::UINT32_T);
-                if constexpr (std::is_same_v<T, uint16_t>)
+                else if constexpr (std::is_same_v<T, uint16_t>)
                     return DataType(details::UINT16_T);
-                if constexpr (std::is_same_v<T, uint8_t>)
+                else if constexpr (std::is_same_v<T, uint8_t>)
                     return DataType(details::UINT8_T);
-                if constexpr (std::is_same_v<T, TimeStamp>)
+                else if constexpr (std::is_same_v<T, TimeStamp>)
                     return DataType(details::TIMESTAMP_T);
-                if constexpr (std::is_same_v<T, std::string>)
+                else {
+                    static_assert(std::is_same_v<T, std::string>);
                     return DataType(details::STRING_T);
-                return DataType(details::UNKNOWN_T);
+                }
             },
             value
         );
@@ -1305,7 +1307,7 @@ public:
 /// Note for future editors of these types, using `inline const` is dangerous as it
 /// causes problems with density lookups.
 
-/// @brief identifier for an unknown data type in a Synnax cluster.
+/// @brief identifier for an unknown data type. Only Modbus and EtherCAT tests use it.
 const DataType UNKNOWN_T(details::UNKNOWN_T);
 /// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
 const DataType FLOAT64_T(details::FLOAT64_T);

@@ -405,7 +405,7 @@ std::optional<T> scalar(const UA_DataValue &result, const UA_DataType &type) {
 
 /// @brief the data type of a variable and whether it holds an array.
 struct VariableType {
-    x::telem::DataType data_type = x::telem::UNKNOWN_T;
+    std::optional<x::telem::DataType> data_type;
     bool is_array = false;
 };
 
@@ -424,9 +424,9 @@ std::pair<VariableType, bool> variable_type(
     const auto rank = scalar<UA_Int32>(value_rank, UA_TYPES[UA_TYPES_INT32]);
     const bool rank_known = rank.has_value() && *rank >= UA_VALUERANK_SCALAR;
     type.is_array = rank_known && *rank != UA_VALUERANK_SCALAR;
-    const bool declared = type.data_type != x::telem::UNKNOWN_T && rank_known;
+    const bool declared = type.data_type.has_value() && rank_known;
     if (value == nullptr || !value->hasValue) return {type, declared};
-    if (type.data_type == x::telem::UNKNOWN_T)
+    if (!type.data_type.has_value())
         type.data_type = telem::to_data_type(value->value.type);
     if (!rank_known) type.is_array = !UA_Variant_isScalar(&value->value);
     return {type, declared};

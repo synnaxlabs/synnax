@@ -235,7 +235,7 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
         if (err) return {Field{}, err};
         field.number = std::move(number);
         // A scaled value need not be an integer.
-        v.sample.range = x::telem::UNKNOWN_T;
+        v.sample.range = std::nullopt;
     }
     auto [sample, sample_err] = x::json::Decoder::create(std::move(v.sample));
     if (sample_err) return {Field{}, sample_err};

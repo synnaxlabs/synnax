@@ -33,7 +33,7 @@ TEST(TelemTest, testUAToDataType) {
     EXPECT_EQ(to_data_type(&UA_TYPES[UA_TYPES_BYTESTRING]), x::telem::BYTES_T);
     EXPECT_EQ(to_data_type(&UA_TYPES[UA_TYPES_DURATION]), x::telem::FLOAT64_T);
     EXPECT_EQ(to_data_type(&UA_TYPES[UA_TYPES_SERVERSTATE]), x::telem::INT32_T);
-    EXPECT_EQ(to_data_type(nullptr), x::telem::UNKNOWN_T);
+    EXPECT_FALSE(to_data_type(nullptr).has_value());
 }
 
 /// @brief it should convert telem data types to UA types.
@@ -53,7 +53,10 @@ TEST(TelemTest, testDataTypeToUA) {
     EXPECT_EQ(data_type_to_ua(x::telem::UINT8_T), &UA_TYPES[UA_TYPES_BYTE]);
     EXPECT_EQ(data_type_to_ua(x::telem::BOOLEAN_T), &UA_TYPES[UA_TYPES_BOOLEAN]);
     EXPECT_EQ(data_type_to_ua(x::telem::BYTES_T), &UA_TYPES[UA_TYPES_BYTESTRING]);
-    EXPECT_EQ(data_type_to_ua(x::telem::UNKNOWN_T), &UA_TYPES[UA_TYPES_VARIANT]);
+    EXPECT_EQ(
+        data_type_to_ua(x::telem::DataType("custom")),
+        &UA_TYPES[UA_TYPES_VARIANT]
+    );
 }
 
 /// @brief it should convert UA float arrays to telem series.
@@ -209,15 +212,11 @@ TEST(TelemTest, ToDataType) {
         to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_UTCTIME)),
         x::telem::TIMESTAMP_T
     );
-    EXPECT_EQ(
-        to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE)),
-        x::telem::UNKNOWN_T
+    EXPECT_FALSE(to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE)).has_value());
+    EXPECT_FALSE(
+        to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERSTATUSDATATYPE)).has_value()
     );
-    EXPECT_EQ(
-        to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERSTATUSDATATYPE)),
-        x::telem::UNKNOWN_T
-    );
-    EXPECT_EQ(to_data_type(UA_NODEID_NUMERIC(2, 3001)), x::telem::UNKNOWN_T);
+    EXPECT_FALSE(to_data_type(UA_NODEID_NUMERIC(2, 3001)).has_value());
 }
 
 /// @brief it should read a Boolean node into a boolean sample.

@@ -824,7 +824,6 @@ TEST(DataTypeTests, testIsVariable) {
 
 /// @brief it should check if a data type matches a set of types.
 TEST(DataTypeTests, testMatches) {
-    const auto empty = UNKNOWN_T;
     const auto dt = FLOAT32_T;
 
     const std::vector types = {FLOAT32_T, FLOAT64_T};

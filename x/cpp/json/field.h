@@ -10,6 +10,7 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -48,9 +49,9 @@ struct Field {
     /// the first entry that matches it, whatever the type. Floats match by value, and a
     /// NaN entry matches any NaN.
     std::vector<Enum> enums;
-    /// @brief range is an integer data type, or UNKNOWN_T. When set, a Decoder rejects
-    /// a JSON number that range does not hold exactly, such as 1.5 or -1 for UINT64_T.
-    telem::DataType range = telem::UNKNOWN_T;
+    /// @brief range is an optional integer data type. When set, a Decoder rejects a
+    /// JSON number that range does not hold exactly, such as 1.5 or -1 for UINT64_T.
+    std::optional<telem::DataType> range;
 };
 
 /// @brief Decoder converts the JSON values of a Field into samples. It is not safe for

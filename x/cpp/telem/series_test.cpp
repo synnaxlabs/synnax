@@ -2764,7 +2764,7 @@ TEST(SeriesCopyFrom, CopiesDataAndMetadataIntoTheReceiver) {
     Series src(std::vector<int64_t>{1, 2, 3});
     src.time_range = TimeRange(TimeStamp(100), TimeStamp(200));
     src.alignment = Alignment(1, 5);
-    Series dst(UNKNOWN_T, 0);
+    Series dst(UINT8_T, 0);
     dst.copy_from(src);
     ASSERT_EQ(dst.data_type(), INT64_T);
     ASSERT_EQ(dst.time_range, src.time_range);
@@ -2775,7 +2775,7 @@ TEST(SeriesCopyFrom, CopiesDataAndMetadataIntoTheReceiver) {
 /// @brief copy_from() should not share data with the source.
 TEST(SeriesCopyFrom, DoesNotShareDataWithTheSource) {
     Series src(std::vector<int64_t>{1, 2, 3});
-    Series dst(UNKNOWN_T, 0);
+    Series dst(UINT8_T, 0);
     dst.copy_from(src);
     src.set(0, static_cast<int64_t>(99));
     ASSERT_EQ(dst.at<int64_t>(0), 1);
@@ -2783,7 +2783,7 @@ TEST(SeriesCopyFrom, DoesNotShareDataWithTheSource) {
 
 /// @brief copy_from() should reuse the receiver's buffer across copies.
 TEST(SeriesCopyFrom, ReusesTheReceiversBufferAcrossCopies) {
-    Series dst(UNKNOWN_T, 0);
+    Series dst(UINT8_T, 0);
     dst.copy_from(Series(std::vector<int64_t>{1, 2, 3}));
     const auto *first = dst.data();
     dst.copy_from(Series(std::vector<int64_t>{7}));
@@ -2804,7 +2804,7 @@ TEST(SeriesCopyFrom, ReplacesABufferSharedViaShallowCopy) {
 /// @brief copy_from() should work with variable density types.
 TEST(SeriesCopyFrom, WorksWithVariableDensityTypes) {
     const Series src(std::vector<std::string>{"foo", "bar"});
-    Series dst(UNKNOWN_T, 0);
+    Series dst(UINT8_T, 0);
     dst.copy_from(src);
     ASSERT_EQ(dst.data_type(), STRING_T);
     ASSERT_EQ(dst.strings(), std::vector<std::string>({"foo", "bar"}));
