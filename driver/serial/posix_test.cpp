@@ -150,7 +150,7 @@ TEST(TranslateOpen, ReportsABusyPortAsInUseByAnotherProgram) {
     const auto err = translate_open("/dev/ttyUSB0", os(EBUSY));
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to open serial port /dev/ttyUSB0: the port is in use by another "
         "program"
     );
@@ -161,7 +161,7 @@ TEST(TranslateOpen, MapsEveryOtherErrorThroughTranslate) {
     const auto err = translate_open("/dev/ttyUSB0", os(ENOENT));
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to open serial port /dev/ttyUSB0: " + os(ENOENT).message()
     );
 }
@@ -174,7 +174,7 @@ TEST(Translate, ReportsABusyPortOutsideAnOpenWithTheSystemMessage) {
     );
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read from serial port /dev/ttyUSB0: " + os(EBUSY).message()
     );
 }
@@ -217,7 +217,7 @@ TEST(Translate, MapsErrnoFromTheGenericCategory) {
 /// @brief it should put the context before the system message.
 TEST(Translate, PutsTheContextBeforeTheSystemMessage) {
     EXPECT_EQ(
-        translate("failed to open serial port /dev/ttyUSB0", os(ENOENT)).data,
+        translate("failed to open serial port /dev/ttyUSB0", os(ENOENT)).data(),
         "failed to open serial port /dev/ttyUSB0: " + os(ENOENT).message()
     );
 }

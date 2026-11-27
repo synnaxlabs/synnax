@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package alignment_test
+package v1_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestAlignment(t *testing.T) {
+func TestPayloadV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Alignment Suite", SuiteConfig())
+	RunSpecs(t, "Payload v1 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -62,8 +62,8 @@ int32_t synnax_client_open(
             set_err(
                 err,
                 CODE_ERROR,
-                has_err ? state.error.type : std::string("sy.connection"),
-                has_err ? state.error.data : state.message
+                has_err ? state.error.type() : std::string("sy.connection"),
+                has_err ? state.error.data() : state.message
             );
             return CODE_ERROR;
         }

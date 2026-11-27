@@ -297,7 +297,7 @@ class WriteTask final : public driver::task::Task {
                 this->missed_shown = false;
                 this->write_warned = err.matches(errors::TEMPORARY_HARDWARE_ERROR);
                 if (this->write_warned)
-                    this->p.state.send_warning("Failed to write commands", err.data);
+                    this->p.state.send_warning("Failed to write commands", err.data());
                 return err;
             }
             this->write_warned = !warning.empty();

@@ -15,20 +15,22 @@ import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { useRef } from "react";
 
-import { jsonFields } from "@/platform/icd/read";
+import type { Field } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
-export interface UseSuitParams<V> {
+export interface UseSuitParams<V, F extends Field> {
   /** The form path of the value to keep suited. */
   path: deep.Target<V>;
   /** The message whose format the value must suit. */
   message: icd.Message | null;
+  /** @returns the fields that value must suit, or null when it suits none. */
+  fieldsOf: (message: icd.Message) => F[] | null;
   /** @returns value, changed to suit fields. */
-  suit: (value: V, fields: icd.JSONField[]) => V;
+  suit: (value: V, fields: F[]) => V;
   /** @returns the channels that value binds. */
   bound: (value: V) => channel.Key[];
   /** @returns value, with each channel that its field does not take unbound. */
-  unbind: (value: V, fields: icd.JSONField[], channels: channel.Channel[]) => V;
+  unbind: (value: V, fields: F[], channels: channel.Channel[]) => V;
 }
 
 interface Sent<V> {
@@ -37,18 +39,19 @@ interface Sent<V> {
 }
 
 /**
- * Keeps the value at path suited to a JSON message, whose edits can leave a value that
- * the Core refuses to save. It suits the value at once, then unbinds once the bound
+ * Keeps the value at path suited to a message, whose edits can leave a value that the
+ * Core refuses to save. It suits the value at once, then unbinds once the bound
  * channels are retrieved. A failed retrieval skips only the unbinding. A correction
  * that the Core refuses waits for the next change of the message.
  */
-export const useSuit = <V>({
+export const useSuit = <V, F extends Field>({
   path,
   message,
+  fieldsOf,
   suit,
   bound,
   unbind,
-}: UseSuitParams<V>) => {
+}: UseSuitParams<V, F>) => {
   const client = PSynnax.use();
   const { get, set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
@@ -57,12 +60,12 @@ export const useSuit = <V>({
   const sent = useRef<Sent<V> | null>(null);
   useAsyncEffect(
     async (signal) => {
-      if (isPreview || message?.payload.format !== "json") return;
+      const fields = message == null ? null : fieldsOf(message);
+      if (isPreview || message == null || fields == null) return;
       const last = sent.current;
       // The form changes the value away from a correction only when it undoes a
       // refused save, or when the user edits the value.
       if (last?.message === message && !deep.equal(last.value, get(path).value)) return;
-      const fields = jsonFields(message);
       const correct = (next: V) => {
         if (deep.equal(next, get(path).value)) return;
         sent.current = { message, value: next };

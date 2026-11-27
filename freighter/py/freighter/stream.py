@@ -134,7 +134,11 @@ class AsyncStream(AsyncStreamSenderCloser[RQ], AsyncStreamReceiver[RS], Protocol
     requests and responses.
     """
 
-    ...
+    async def close(self) -> None:
+        """Closes the connection without waiting for the server to end the stream.
+        Frees a stream that failed.
+        """
+        ...
 
 
 class Stream(StreamSenderCloser[RQ], StreamReceiver[RS], Protocol):
@@ -142,7 +146,11 @@ class Stream(StreamSenderCloser[RQ], StreamReceiver[RS], Protocol):
     Protocol for an entity that sends and receives a stream of requests and responses.
     """
 
-    ...
+    def close(self) -> None:
+        """Closes the connection without waiting for the server to end the stream.
+        Frees a stream that failed.
+        """
+        ...
 
 
 class AsyncStreamClient(AsyncTransport, Protocol):

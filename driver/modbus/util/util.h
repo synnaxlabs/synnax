@@ -17,7 +17,7 @@
 #include "x/cpp/telem/telem.h"
 
 namespace driver::modbus::util {
-/// @brief parses data from a modbus register into a compatible x::telem::SampleValue.
+/// @brief parses data from a Modbus register into a compatible x::telem::SampleValue.
 /// @param data buffer of register values to parse from. Must be at least as large as
 /// the density of the data type (dt.density()).
 /// @param dt the data type to parse from the buffer.
@@ -166,7 +166,7 @@ parse_string(const uint16_t *data, const std::size_t length, const bool swap_byt
 }
 
 /// @brief formats a x::telem::SampleValue into a destination buffer of uint16_t values
-/// representing modbus registers.
+/// representing Modbus registers.
 /// @param dt the data type fo the sample value.
 /// @param dest the destination buffer to write to.
 /// @param swap_bytes whether to swap the byte order of the data.

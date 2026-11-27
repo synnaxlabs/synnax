@@ -41,56 +41,70 @@ import (
 )
 
 var _ = Describe("Task migration", func() {
+	// migrate stores t as the Console stored it, runs the task migrations, and returns
+	// the HTTP service, the ICD service, and the database that holds them.
+	migrate := func(ctx SpecContext, t v2.Task) (*http.Service, *icd.Service, *gorp.DB) {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		icds := MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+			DB:   db,
+			ImEx: imex.NewService(),
+		}))
+		svc := MustOpen(http.OpenService(ctx, http.ServiceConfig{
+			DB:      db,
+			Channel: channelSvc,
+			ICD:     icds,
+		}))
+		Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&t).Exec(ctx, db)).
+			To(Succeed())
+		Expect(ontology.DefineResources(ctx, db, resource.ID{
+			Type: resource.TypeTask,
+			Key:  t.Key.String(),
+		})).To(Succeed())
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Task]{
+			DB:   db,
+			Name: string(resource.TypeTask),
+			Migrations: []gorp.Migration{v3.NewMigration(v3.MigrationConfig{
+				Status:  statuses,
+				Configs: MustSucceed(config.NewRegistry(svc.Stores()...)),
+			})},
+		}))
+		return svc, icds, db
+	}
+	// endpoint returns a Console-era read endpoint at path that reads a timestamp
+	// index, with headers.
+	endpoint := func(path string, headers ...any) map[string]any {
+		return map[string]any{
+			"key":     "ep",
+			"method":  "GET",
+			"path":    path,
+			"headers": headers,
+			"index":   "ts",
+			"fields": []any{map[string]any{
+				"enabled":         true,
+				"key":             "ts",
+				"pointer":         "/ts",
+				"dataType":        "timestamp",
+				"timestampFormat": "unix_ms",
+			}},
+		}
+	}
+
 	It("Should move the fields of a Console-era task into an ICD named after the task",
 		func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			StartRun(db.Run)
-			MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
-			statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
-			icds := MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
-				DB:   db,
-				ImEx: imex.NewService(),
-			}))
-			svc := MustOpen(http.OpenService(ctx, http.ServiceConfig{
-				DB:      db,
-				Channel: channelSvc,
-				ICD:     icds,
-			}))
 			t := v2.Task{
 				Key:  uuid.New(),
 				Name: "Telemetry",
 				Type: "http_read",
 				Config: msgpack.EncodedJSON{
-					"rate": 2,
-					"endpoints": []any{map[string]any{
-						"key":    "ep",
-						"method": "GET",
-						"path":   "/telemetry",
-						"index":  "ts",
-						"fields": []any{map[string]any{
-							"enabled":         true,
-							"key":             "ts",
-							"pointer":         "/ts",
-							"dataType":        "timestamp",
-							"timestampFormat": "unix_ms",
-						}},
-					}},
+					"rate":      2,
+					"endpoints": []any{endpoint("/telemetry")},
 				},
 			}
-			Expect(gorp.NewCreate[v2.Key, v2.Task]().Entry(&t).Exec(ctx, db)).
-				To(Succeed())
-			Expect(ontology.DefineResources(ctx, db, resource.ID{
-				Type: resource.TypeTask,
-				Key:  t.Key.String(),
-			})).To(Succeed())
-			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Task]{
-				DB:   db,
-				Name: string(resource.TypeTask),
-				Migrations: []gorp.Migration{v3.NewMigration(v3.MigrationConfig{
-					Status:  statuses,
-					Configs: MustSucceed(config.NewRegistry(svc.Stores()...)),
-				})},
-			}))
+			svc, icds, db := migrate(ctx, t)
 			stored := MustSucceed(svc.Read.Read(ctx, db, t.Key))
 			Expect(stored).ToNot(HaveKey("inline"))
 			Expect(stored["endpoints"]).To(HaveExactElements(Not(HaveKey("fields"))))
@@ -105,6 +119,41 @@ var _ = Describe("Task migration", func() {
 			Expect(ic.Name).To(Equal("Telemetry"))
 			Expect(ic.Messages).To(HaveLen(1))
 			Expect(ic.Messages[0].Name).To(Equal("GET /telemetry"))
+		},
+	)
+
+	It("Should drop each header and query parameter of a Console-era task that the "+
+		"Driver refuses",
+		func(ctx SpecContext) {
+			ep := endpoint(
+				"/status",
+				map[string]any{"name": "Accept", "value": "application/json"},
+				map[string]any{"name": "X-Key"},
+				map[string]any{"value": "abc"},
+			)
+			ep["queryParams"] = []any{
+				map[string]any{"value": "10"},
+				map[string]any{"parameter": "limit", "value": ""},
+			}
+			t := v2.Task{
+				Key:  uuid.New(),
+				Name: "Status",
+				Type: "http_read",
+				Config: msgpack.EncodedJSON{
+					"rate":      1,
+					"endpoints": []any{ep},
+				},
+			}
+			svc, _, db := migrate(ctx, t)
+			var cfg http.ReadConfig
+			Expect(MustSucceed(svc.Read.Read(ctx, db, t.Key)).Unmarshal(&cfg)).
+				To(Succeed())
+			Expect(cfg.Endpoints[0].Headers).To(Equal([]http.Header{
+				{Name: "Accept", Value: "application/json"},
+			}))
+			Expect(cfg.Endpoints[0].QueryParams).To(Equal([]http.QueryParam{
+				{Parameter: "limit", Value: ""},
+			}))
 		},
 	)
 })

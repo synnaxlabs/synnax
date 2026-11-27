@@ -54,7 +54,6 @@ export const Symbol = ({ config: { channel, value } }: SymbolProps) => {
           color={10}
           className={CSS.BE("arc", "sink-label")}
           overflow="fade"
-          variant="code"
         >
           {value}
         </Text.Text>

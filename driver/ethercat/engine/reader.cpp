@@ -77,7 +77,7 @@ x::errors::Error Engine::Reader::read(
             return x::errors::Error(
                 errors::CYCLE_FAILED,
                 errors::sentence(
-                    "Every bus cycle failed: " + this->engine.cycle_error().data
+                    "Every bus cycle failed: " + this->engine.cycle_error().data()
                 )
             );
         if (std::ranges::any_of(in.slaves, [](const Input::Slave &slave) {
@@ -127,7 +127,7 @@ std::string Engine::Reader::warning() {
     };
     hold(this->failed, samples_dropped(this->input->failed_samples), [this] {
         return errors::sentence(
-            "Bus cycles failed: " + this->engine.cycle_error().data
+            "Bus cycles failed: " + this->engine.cycle_error().data()
         );
     });
     for (size_t i = 0; i < this->input->slaves.size(); ++i) {
