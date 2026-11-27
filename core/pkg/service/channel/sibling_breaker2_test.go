@@ -295,7 +295,7 @@ var _ = Describe("Sibling breaker 2 over stored names", func() {
 		cfg, groupSvc := serviceConfig(ctx, fresh, fresh.DB)
 		// The sibling rules hold whatever the name rule; free text needs it off.
 		cfg.ValidateNames = new(false)
-		// A v0.62 Core stored a name as sent.
+		// A v0.62 Core stored a name as sent, and the upgrade stores it in NFC.
 		stored := channel.Channel{
 			Name:        "Stand A\u030A brk2",
 			Leaseholder: node.KeyFree,
@@ -303,9 +303,14 @@ var _ = Describe("Sibling breaker 2 over stored names", func() {
 			DataType:    telem.Float32T,
 			Virtual:     true,
 		}
-		createStored(ctx, fresh.DB, stored)
+		createV062(ctx, fresh.DB, stored)
 		svc := MustOpen(channel.OpenService(ctx, cfg))
-		// The name index compares the stored name in NFC.
+		var upgraded channel.Channel
+		Expect(svc.NewRetrieve().
+			Where(channel.MatchKeys(stored.Key())).
+			Entry(&upgraded).
+			Exec(ctx, fresh.DB)).To(Succeed())
+		Expect(upgraded.Name).To(Equal("Stand \u00C5 brk2"))
 		ch := channel.Channel{
 			Name:     "Stand \u00C5 brk2",
 			DataType: telem.Float32T,

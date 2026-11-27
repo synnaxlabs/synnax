@@ -11,6 +11,8 @@ package channel_test
 
 import (
 	"context"
+	"slices"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -91,6 +93,24 @@ func createStored(ctx context.Context, db *gorp.DB, channels ...channel.Channel)
 		DB:         db,
 		Namespace:  types.Name[channel.Channel](),
 		Migrations: versions.NewMigrations(1, parser.Config{}),
+	})).To(Succeed())
+	Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, channels...)).
+		To(Succeed())
+}
+
+// createV062 stores channels as a v0.62 Core left them: after each migration before the
+// first one of v0.63, which run when a service opens db.
+func createV062(ctx context.Context, db *gorp.DB, channels ...channel.Channel) {
+	GinkgoHelper()
+	chain := versions.NewMigrations(1, parser.Config{})
+	upgrade := slices.IndexFunc(chain, func(m gorp.Migration) bool {
+		return strings.HasPrefix(m.Key(), "v63_")
+	})
+	Expect(upgrade).To(BeNumerically(">", 0))
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  types.Name[channel.Channel](),
+		Migrations: chain[:upgrade],
 	})).To(Succeed())
 	Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, channels...)).
 		To(Succeed())
