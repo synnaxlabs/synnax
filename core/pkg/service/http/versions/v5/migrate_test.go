@@ -37,7 +37,6 @@ func field(key string, ch channel.Key, pointer string) v4.ReadField {
 	}
 }
 
-// storedConfig returns a v4 config with two endpoints, one indexed by its field t.
 // withRefused returns copies of headers and params with a header that has no value, a
 // header that has no name, and a query parameter that has no name, which the Driver
 // refuses, and a query parameter that has no value, which it accepts.
@@ -45,18 +44,11 @@ func withRefused(
 	headers []v4.Header,
 	params []v4.QueryParam,
 ) ([]v4.Header, []v4.QueryParam) {
-	return append(
-			slices.Clone(headers),
-			v4.Header{Name: "X-Key"},
-			v4.Header{Value: "abc"},
-		),
-		append(
-			slices.Clone(params),
-			v4.QueryParam{Parameter: "limit"},
-			v4.QueryParam{Value: "10"},
-		)
+	return slices.Concat(headers, []v4.Header{{Name: "X-Key"}, {Value: "abc"}}),
+		slices.Concat(params, []v4.QueryParam{{Parameter: "limit"}, {Value: "10"}})
 }
 
+// storedConfig returns a v4 config with two endpoints, one indexed by its field t.
 func storedConfig() v4.ReadConfig {
 	return v4.ReadConfig{
 		Key:    uuid.New(),
