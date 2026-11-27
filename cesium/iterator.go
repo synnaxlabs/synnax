@@ -290,6 +290,7 @@ func (i *Iterator) readInChunks(
 			}
 			if !u.Continue(ctx, stop) {
 				i.report(j)
+				ends[j] = 0
 				continue
 			}
 			ok = true
@@ -306,7 +307,7 @@ func (i *Iterator) readInChunks(
 
 // startChunks moves the iterator of each channel to the start of the range of a read
 // of span, and returns the end of each range and the latest of them. A channel whose
-// read failed keeps a zero end, so the read passes over it.
+// read failed has a zero end, so the chunks pass over it.
 func (i *Iterator) startChunks(
 	ctx context.Context,
 	span telem.TimeSpan,
