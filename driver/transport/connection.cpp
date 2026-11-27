@@ -106,10 +106,12 @@ std::pair<std::shared_ptr<Connection>, x::errors::Error> Connections::acquire(
     const x::json::json &settings,
     Connection::Config cfg
 ) {
-    std::lock_guard lock(this->mu);
-    auto &entry = this->entries[key];
-    if (auto conn = entry.conn.lock()) {
-        if (entry.settings != settings)
+    std::shared_ptr<Connection> conn;
+    {
+        std::lock_guard lock(this->mu);
+        auto &entry = this->entries[key];
+        conn = entry.conn.lock();
+        if (conn != nullptr && entry.settings != settings)
             return {
                 nullptr,
                 x::errors::Error(
@@ -117,10 +119,14 @@ std::pair<std::shared_ptr<Connection>, x::errors::Error> Connections::acquire(
                     "another task has device " + key + " open with other settings"
                 ),
             };
-        return {std::move(conn), x::errors::NIL};
+        if (conn == nullptr) {
+            conn = std::make_shared<Connection>(std::move(cfg));
+            entry = {.conn = conn, .settings = settings};
+        }
     }
-    auto conn = std::make_shared<Connection>(std::move(cfg));
-    entry = {.conn = conn, .settings = settings};
+    auto guard = conn->lock();
+    if (auto err = guard.transport().second.skip(UNREACHABLE_ERROR))
+        return {nullptr, err};
     return {std::move(conn), x::errors::NIL};
 }
 }

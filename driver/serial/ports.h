@@ -13,28 +13,16 @@
 #include <string>
 #include <utility>
 
-#include "client/cpp/device/device.h"
 #include "client/cpp/serial/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
+#include "driver/bus/device.h"
 #include "driver/bus/holders.h"
 #include "driver/transport/connection.h"
 
 namespace driver::serial {
 /// @brief Device is a serial device that tasks run on.
-struct Device {
-    /// @brief key is the key of the device.
-    std::string key;
-    /// @brief name is the name of the device.
-    std::string name;
-    /// @brief props is the properties of the port of the device.
-    synnax::serial::Properties props;
-};
-
-/// @brief retrieves the serial device with key.
-/// @returns the error of the retrieve, or VALIDATION when the properties are invalid.
-std::pair<Device, x::errors::Error>
-retrieve_device(const synnax::device::Client &devices, const std::string &key);
+using Device = bus::Device<synnax::serial::Properties>;
 
 /// @brief Ports shares the serial ports of an integration among its tasks. Each open
 /// port belongs to one device, whatever path names it. It is safe for concurrent use.

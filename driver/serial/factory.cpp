@@ -14,6 +14,7 @@
 #include "client/cpp/serial/json.gen.h"
 #include "x/cpp/json/json.h"
 
+#include "driver/bus/device.h"
 #include "driver/bus/tasks.h"
 #include "driver/common/status.h"
 #include "driver/serial/serial.h"
@@ -40,7 +41,10 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     if (cfg.entries.empty())
         parser.field_err("entries", "at least one entry is required");
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
-    auto [dev, dev_err] = retrieve_device(ctx->client->devices, cfg.device);
+    auto [dev, dev_err] = bus::retrieve_device<synnax::serial::Properties>(
+        ctx->client->devices,
+        cfg.device
+    );
     if (dev_err) return {common::ConfigureResult{}, dev_err};
     return bus::configure_read(
         ctx,
@@ -67,7 +71,10 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     if (cfg.targets.empty())
         parser.field_err("targets", "at least one target is required");
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
-    auto [dev, dev_err] = retrieve_device(ctx->client->devices, cfg.device);
+    auto [dev, dev_err] = bus::retrieve_device<synnax::serial::Properties>(
+        ctx->client->devices,
+        cfg.device
+    );
     if (dev_err) return {common::ConfigureResult{}, dev_err};
     return bus::configure_write(ctx, task, cfg, cfg.targets, acquire(ports, dev));
 }

@@ -25,18 +25,6 @@
 #include "driver/transport/transport.h"
 
 namespace driver::serial {
-std::pair<Device, x::errors::Error>
-retrieve_device(const synnax::device::Client &devices, const std::string &key) {
-    auto [dev, err] = devices.retrieve(key);
-    if (err) return {Device{}, err};
-    x::json::Parser parser(x::json::json(dev.properties));
-    auto props = synnax::serial::Properties::parse(parser);
-    return {
-        Device{.key = dev.key, .name = dev.name, .props = std::move(props)},
-        parser.error(),
-    };
-}
-
 namespace {
 /// @brief Held is an open port and the claim of its device on the port, which ends when
 /// the port closes.
@@ -67,7 +55,7 @@ public:
 
 std::pair<std::shared_ptr<transport::Connection>, x::errors::Error>
 Ports::acquire(const Device &dev) {
-    auto [conn, err] = this->connections.acquire(
+    return this->connections.acquire(
         dev.key,
         dev.props.to_json(),
         {.open = [devices = this->devices, dev]()
@@ -94,10 +82,5 @@ Ports::acquire(const Device &dev) {
             };
         }}
     );
-    if (err) return {nullptr, err};
-    auto guard = conn->lock();
-    if (auto open_err = guard.transport().second.skip(transport::UNREACHABLE_ERROR))
-        return {nullptr, open_err};
-    return {std::move(conn), x::errors::NIL};
 }
 }

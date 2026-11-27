@@ -16,11 +16,11 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
 
-#include "driver/serial/ports.h"
+#include "driver/bus/device.h"
 
-namespace driver::serial {
+namespace driver::bus {
 namespace {
-/// @brief RetrieveDevice retrieves serial devices from a live Core.
+/// @brief RetrieveDevice retrieves devices with serial properties from a live Core.
 class RetrieveDevice : public ::testing::Test {
 protected:
     synnax::Synnax client = new_test_client();
@@ -49,18 +49,20 @@ TEST_F(RetrieveDevice, ReturnsKeyNameAndProperties) {
     props.port = "/dev/ttyUSB0";
     props.baud_rate = 115200;
     const auto dev = this->create(props.to_json());
-    const auto got = ASSERT_NIL_P(retrieve_device(this->client.devices, dev.key));
+    const auto got = ASSERT_NIL_P(
+        retrieve_device<synnax::serial::Properties>(this->client.devices, dev.key)
+    );
     EXPECT_EQ(got.key, dev.key);
     EXPECT_EQ(got.name, "boiler");
     EXPECT_EQ(got.props.port, "/dev/ttyUSB0");
     EXPECT_EQ(got.props.baud_rate, 115200);
 }
 
-/// @brief it should fail on a device whose properties are not serial properties.
+/// @brief it should fail on a device whose properties are not valid properties.
 TEST_F(RetrieveDevice, FailsOnInvalidProperties) {
     const auto dev = this->create(x::json::json{{"port", 12}});
     ASSERT_OCCURRED_AS_P(
-        retrieve_device(this->client.devices, dev.key),
+        retrieve_device<synnax::serial::Properties>(this->client.devices, dev.key),
         x::errors::VALIDATION
     );
 }

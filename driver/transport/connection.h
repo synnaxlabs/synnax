@@ -134,10 +134,13 @@ class Connections {
 
 public:
     /// @brief returns the live connection of the device with key, or creates one from
-    /// cfg. A new connection opens on its first lock.
+    /// cfg, and opens its transport when no task holds it open. It takes a turn on the
+    /// connection, so it blocks until the turns of earlier callers end. A device that
+    /// cannot be reached does not fail, since each turn opens it again.
     /// @param settings how the device opens. Every task on the device must use the same
     /// settings.
-    /// @returns CONFIG_ERROR when another task has the device open with other settings.
+    /// @returns CONFIG_ERROR when another task has the device open with other settings,
+    /// and the error of an open that reopening cannot fix.
     std::pair<std::shared_ptr<Connection>, x::errors::Error> acquire(
         const std::string &key,
         const x::json::json &settings,
