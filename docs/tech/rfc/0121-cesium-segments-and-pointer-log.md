@@ -74,8 +74,8 @@ telemetry (§9.0).
    (§9.0), whose two ways on keep different data. From RFC 0120 Phase 50, a clock that
    has a channel record must never take a write, since the write would put stamps in a
    user's channel. The Core then starts with an error status that names the channel, the
-   framer refuses writes to that channel, and continuation never picks its key (founder
-   delegation, D-425 (3)).
+   framer refuses writes to that channel, and continuation never picks its key, since
+   the Core passes such keys to `Open` (§5.8) (founder delegation, D-425 (3)).
 
 ## 4 The seam with the Core
 
@@ -137,25 +137,25 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    goes to the injected error handler (§7): the Core raises the same status, and the
    next open removes the files.
 5. At start, before a writer opens, the Core calls `Delete` for each note and clears it.
-   It then reads `DB.Keys`: each key that Cesium holds data for, whether its intent is
-   live, and the other keys whose kept segments name it as their clock, where a key with
-   a live intent counts as gone, as in `DB.Clocks`. Before any create, the channel
-   service raises each key counter above the highest key of its own range that `Keys`
-   returns: the channel counter over the local keys of the host's lease, and the clock
-   counter over the clock range (RFC 0120 §4.0). So an undo to a release without clock
-   keys never moves a local key past 2^20, and such a key is never given to a new
-   channel after an undo or a lost metadata tail. A key with a record, a clock, and a
-   key whose intent is live are accounted for. From RFC 0120 Phase 50, a clock that has
-   a record takes the open rule of principle 5 (RFC 0120 §4.10), and the channel service
-   deletes each entry of the retired index table whose key `Keys` no longer lists, so an
-   entry ends with its clock after a delete, a `synnax purge`, or a range delete. An
-   entry holds no data, so this is no delete on absence. Any other key with data is
-   kept: the Core raises a warning status whose description names the keys and their
-   bytes and says: restore the records from a backup to keep the data, or stop the Core
-   and run `synnax purge <keys>` to remove it. A missing record can come from a restored
-   backup or lost metadata, never only from a delete, so the Core deletes a key only
-   from a note, never on absence. No writer or reader reaches a kept key: the framer and
-   the API reach a key only through its record.
+   It then reads `DB.Keys`: each key that Cesium holds data for, with its last stamp and
+   whether its intent is live, and the other keys whose kept segments name it as their
+   clock, where a key with a live intent counts as gone, as in `DB.Clocks`. Before any
+   create, the channel service raises each key counter above the highest key of its own
+   range that `Keys` returns: the channel counter over the local keys of the host's
+   lease, and the clock counter over the clock range (RFC 0120 §4.0). So an undo to a
+   release without clock keys never moves a local key past 2^20, and such a key is never
+   given to a new channel after an undo or a lost metadata tail. A key with a record, a
+   clock, and a key whose intent is live are accounted for. From RFC 0120 Phase 50, a
+   clock that has a record takes the open rule of principle 5 (RFC 0120 §4.10), and the
+   channel service deletes each entry of the retired index table whose key `Keys` no
+   longer lists, so an entry ends with its clock after a delete, a `synnax purge`, or a
+   range delete. An entry holds no data, so this is no delete on absence. Any other key
+   with data is kept: the Core raises a warning status whose description names the keys
+   and their bytes and says: restore the records from a backup to keep the data, or stop
+   the Core and run `synnax purge <keys>` to remove it. A missing record can come from a
+   restored backup or lost metadata, never only from a delete, so the Core deletes a key
+   only from a note, never on absence. No writer or reader reaches a kept key: the
+   framer and the API reach a key only through its record.
 6. The command `synnax purge` runs with the Core stopped: it takes the directory lock,
    opens storage, and lists the kept keys and their bytes. With keys, it refuses any key
    that has a record or is not kept, and any key that a kept segment of another key
@@ -847,14 +847,16 @@ open made ready for the key (Segments, below).
   writer holds that clock, the key's newest open segment on a clock that no writer holds
   stands in, so a session that takes a command channel again reuses its clock. It drops
   a candidate that is a key of the group, one that an open writer holds, one that
-  another group of the same open took, and one whose last stamp is not before the
-  writer's start. The group with the most keys on one candidate picks first, and on a
-  tie the earlier group of the open. Each group takes the candidate that the most of its
-  keys name, then the one with the latest last stamp, then the lowest key, and else
-  leases a new key (RFC 0120 §4.0). A key of the group on another clock starts a new
-  segment on the chosen clock. The first drop rule keeps a group's stamps out of a key
-  that times itself, such as an index channel that the migration keeps as a timestamp
-  channel, with no stored flag (RFC 0120 §4.11, hard rule 4).
+  another group of the same open took, one whose last stamp is not before the writer's
+  start, and one that the Core passed to `Open` as a clock with a channel record
+  (`WithRecordedClocks`, NEW, from RFC 0120 Phase 50). The group with the most keys on
+  one candidate picks first, and on a tie the earlier group of the open. Each group
+  takes the candidate that the most of its keys name, then the one with the latest last
+  stamp, then the lowest key, and else leases a new key (RFC 0120 §4.0). A key of the
+  group on another clock starts a new segment on the chosen clock. The first drop rule
+  keeps a group's stamps out of a key that times itself, such as an index channel that
+  the migration keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11, hard
+  rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
   claim. The state owner keeps the writer of each clock and the holder of each open
   segment (NEW).
