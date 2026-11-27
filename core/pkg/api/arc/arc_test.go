@@ -804,13 +804,14 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				base, inner, outer := createCalculated(ctx, "calc_denied")
 				grantChannels(ctx, outer)
-				_, err := calculations(
+				Expect(calculations(
 					AuthedCtx(ctx, author),
 					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},
-				)
-				Expect(err).To(MatchError(access.ErrDenied))
-				Expect(err).ToNot(MatchError(ContainSubstring(inner.Key().String())))
-				Expect(err).ToNot(MatchError(ContainSubstring(base.Key().String())))
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					Not(MatchError(ContainSubstring(inner.Key().String()))),
+					Not(MatchError(ContainSubstring(base.Key().String()))),
+				))
 			},
 		)
 
