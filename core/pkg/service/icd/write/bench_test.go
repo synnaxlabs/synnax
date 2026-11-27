@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -32,13 +33,13 @@ func benchDocuments(b *testing.B, n, samples int) (*write.Documents, frame.Frame
 		bindings = make([]icd.WriteBinding, 0, n)
 		keys     = make(channel.Keys, n)
 		series   = make([]telem.Series, n)
-		channels = make(map[channel.Key]channel.Channel, n)
+		channels = make(map[channel.Key]icdv0.Channel, n)
 	)
 	for i := range n {
 		f := jsonField("f"+strconv.Itoa(i), icd.FloatJSONField{})
 		fields = append(fields, f)
 		keys[i] = channel.Key(i + 1)
-		channels[keys[i]] = channel.Channel{DataType: telem.Float64T}
+		channels[keys[i]] = icdv0.Channel{DataType: telem.Float64T}
 		bindings = append(bindings, channelOf(f.Base().Key, keys[i], nil))
 		values := make([]float64, samples)
 		for j := range values {
