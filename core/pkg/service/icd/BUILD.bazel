@@ -26,6 +26,12 @@ cpp_grpc_library(
 )
 
 filegroup(
+    name = "check_fixtures",
+    srcs = glob(["testdata/fixtures/**/*.json"]),
+    visibility = ["//driver/codec:__pkg__"],
+)
+
+filegroup(
     name = "decode_fixtures",
     srcs = glob(["testdata/decode/*.json"]),
     visibility = ["//driver/codec:__pkg__"],
@@ -38,4 +44,10 @@ filegroup(
         "//driver/codec:__pkg__",
         "//x/cpp/json:__pkg__",
     ],
+)
+
+filegroup(
+    name = "task_fixtures",
+    srcs = glob(["testdata/task/**/*.json"]),
+    visibility = ["//driver/icd:__pkg__"],
 )

@@ -11,6 +11,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <system_error>
 #include <utility>
 
@@ -74,6 +75,10 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
 }
 
 namespace native {
+std::string node(const std::string &path) {
+    return path;
+}
+
 void unlock(const Handle handle) {
     // A pseudo-terminal keeps TIOCEXCL after its last close while its controller is
     // open, so the port clears it.

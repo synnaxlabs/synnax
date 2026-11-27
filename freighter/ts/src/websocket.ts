@@ -78,7 +78,7 @@ type ReceiveCallbacksQueue = Array<{
   reject: (reason: unknown) => void;
 }>;
 
-/** WebSocketStream is an implementation of Stream that is backed by a websocket. */
+/** WebSocketStream is an implementation of Stream that is backed by a WebSocket. */
 class WebSocketStream<
   RQ extends z.ZodType,
   RS extends z.ZodType = RQ,

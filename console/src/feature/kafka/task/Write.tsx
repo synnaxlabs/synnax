@@ -122,13 +122,21 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
   return (
     <Task.Views.TreeGroupItem
       {...props}
-      label={<RecordLabel recordKey={recordKey} emptyLabel={NO_KEY} />}
+      label={
+        <RecordLabel
+          recordKey={recordKey}
+          emptyLabel={NO_KEY}
+          icdKey={icdKey}
+          message={message}
+        />
+      }
       off={disabled}
     >
       <ICD.MessageMark
         icdKey={icdKey}
         messages={[message]}
         missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+        jsonOnly
       />
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
@@ -186,6 +194,7 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
           <ICD.MessageWarning
             message={message}
             missingDescription={ICD.Write.MISSING_DESCRIPTION}
+            jsonOnly
           />
         </PForm.Section>
       </PForm.Sections>
@@ -252,7 +261,14 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       TargetItem,
       targetPane: (target, onAddField) => ({
         path: root.config.targets[target.key],
-        title: <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />,
+        title: (
+          <RecordLabel
+            recordKey={target.recordKey}
+            emptyLabel={NO_KEY}
+            icdKey={target.icd}
+            message={target.message.message}
+          />
+        ),
         details: (
           <TargetDetails
             key={target.key}

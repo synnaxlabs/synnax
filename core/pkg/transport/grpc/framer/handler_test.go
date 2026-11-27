@@ -288,6 +288,19 @@ var _ = Describe("gRPC Framer Transport", func() {
 			).To(MatchSeriesData(telem.NewSeriesV[int64](10, 20, 30)))
 		})
 
+		It("Should send an empty frame with no buffer", func(ctx SpecContext) {
+			keys := createVirtualChannel(ctx, telem.Int64T)
+			serve(transport.FrameStreamer, 1, framer.StreamerResponse{Ack: true})
+			res := exchange(
+				MustSucceed(client.Exec(ctx)),
+				1,
+				&grpcframer.StreamerRequest{Keys: keys.Uint32()},
+			)[0]
+			Expect(res.Ack).To(BeTrue())
+			Expect(res.Buffer).To(BeEmpty())
+			Expect(res.Frame).To(BeNil())
+		})
+
 		It("Should keep the codec when a later request names no keys", func(
 			ctx SpecContext,
 		) {

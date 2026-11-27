@@ -220,15 +220,16 @@ func (t frameStreamerResponseTranslator) Forward(
 	msg framer.StreamerResponse,
 ) (*StreamerResponse, error) {
 	if t.codec.Initialized() {
+		res := &StreamerResponse{Ack: msg.Ack, Missed: msg.Missed}
+		if msg.Frame.Empty() {
+			return res, nil
+		}
 		buf, err := t.codec.Encode(ctx, msg.Frame)
 		if err != nil {
 			return nil, err
 		}
-		return &StreamerResponse{
-			Buffer: buf,
-			Ack:    msg.Ack,
-			Missed: msg.Missed,
-		}, nil
+		res.Buffer = buf
+		return res, nil
 	}
 	frm, err := telempb.FrameToPB(msg.Frame.Frame)
 	if err != nil {

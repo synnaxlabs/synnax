@@ -18,7 +18,7 @@ reads the C++ source as text, so it needs no build. It reports:
 - each member, with its default, of a config struct that has an `override` method;
 - the defaults that `resolve` sets;
 - each integration that a build runs, by platform, with the preprocessor conditions
-  that build it.
+  that build it, and each one that a config runs only when it names it.
 
     uv run --project scripts scripts/surface_driver.py .
 """
@@ -46,10 +46,12 @@ READ = re.compile(
 )
 STRUCT = re.compile(r"\bstruct\s+(\w+)\s*(?::[^{;]*)?\{")
 DEFAULTS = re.compile(
-    r"\b(resolve|built_integrations|platform_integrations)\s*\([^)]*\)[^;{]*\{"
+    r"\b(resolve|built_integrations|platform_integrations|default_integrations)"
+    r"\s*\([^)]*\)[^;{]*\{"
 )
 INIT = re.compile(r"\.(\w+)\s*=\s*([^,{}]+?)\s*(?=[,}])")
 INTEGRATION = re.compile(r"\b\w+::INTEGRATION_NAME\b")
+ERASE = re.compile(r"\berase\s*\(")
 DIRECTIVE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b\s*(.*)$")
 
 
@@ -115,8 +117,9 @@ def integrations(fn_body: str) -> list[str]:
     for line in fn_body.splitlines():
         directive = DIRECTIVE.match(line)
         if directive is None:
+            prefix = "erases " if ERASE.search(line) else ""
             suffix = "".join(f" #{c}" for c in conditions)
-            out += [f"{entry}{suffix}" for entry in INTEGRATION.findall(line)]
+            out += [f"{prefix}{entry}{suffix}" for entry in INTEGRATION.findall(line)]
             continue
         kind, arg = directive.group(1), " ".join(directive.group(2).split())
         if kind in ("if", "ifdef", "ifndef"):

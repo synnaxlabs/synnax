@@ -24,7 +24,7 @@ import (
 
 // The vectors are shared with the TypeScript, Python, and C++ codecs, so that all four
 // encode and decode each frame byte for byte.
-const vectorsPath = "../../../../../x/testdata/framecodec/vectors.json"
+const vectorsPath = "../../../../testdata/framecodec/vectors.json"
 
 type vectorFile struct {
 	Cases []vectorCase `json:"cases"`

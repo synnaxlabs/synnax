@@ -644,14 +644,17 @@ Codec::decode(const uint8_t *data, const size_t size) {
                     " under a shared length"
                 };
             const std::uint32_t len = flags.equal_lens ? shared_len : r.u32();
+            const bool packed = dt == x::telem::BOOLEAN_T;
+            const std::size_t n = packed           ? bit_packed_byte_count(len)
+                                : dt.is_variable() ? len
+                                                   : len * dt.density();
+            const auto *body = r.bytes(n);
             auto s = x::telem::Series(dt, len);
-            if (dt == x::telem::BOOLEAN_T) {
-                const auto *packed = r.bytes(bit_packed_byte_count(len));
-                const auto unpacked = unpack_bool_bits(packed, len);
+            if (packed) {
+                const auto unpacked = unpack_bool_bits(body, len);
                 s.write(unpacked.data(), len);
             } else {
-                const std::size_t n = dt.is_variable() ? len : len * dt.density();
-                x::binary::Reader sub(r.bytes(n), n);
+                x::binary::Reader sub(body, n);
                 s.fill_from(sub);
             }
             s.time_range = ref_tr;
