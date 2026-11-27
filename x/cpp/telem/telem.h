@@ -1045,7 +1045,8 @@ inline std::pair<Size, errors::Error> Size::parse(const std::string &text) {
             return invalid(
                 "unknown unit '" + name + "', expected B, KB, MB, GB, or TB"
             );
-        if (u < next_unit) return invalid("units must be in descending order");
+        if (u < next_unit)
+            return invalid("each unit may appear at most once, largest first");
         if (i < text.size() && !is_space(text[i]))
             return invalid("expected a space after each unit");
         next_unit = u + 1;

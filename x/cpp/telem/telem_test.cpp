@@ -1501,7 +1501,8 @@ TEST(SizeTests, testParseErrorReasons) {
     ASSERT_EQ(reason("-5"), "sizes cannot be negative");
     ASSERT_EQ(reason("1.5GB"), "fractional numbers are not allowed");
     ASSERT_EQ(reason("1KB1B"), "expected a space after each unit");
-    ASSERT_EQ(reason("1MB 1GB"), "units must be in descending order");
+    ASSERT_EQ(reason("1MB 1GB"), "each unit may appear at most once, largest first");
+    ASSERT_EQ(reason("1KB 1KB"), "each unit may appear at most once, largest first");
 }
 
 /// @brief it should cut a long input to 64 characters in a parse error.
