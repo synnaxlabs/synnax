@@ -43,6 +43,33 @@ common::Warning dropped(const x::errors::Error &err) {
     return {.message = "Dropped invalid data", .description = err.data};
 }
 
+/// @returns n and one when n is 1, or else n and many.
+std::string
+count(const std::size_t n, const std::string &one, const std::string &many) {
+    return std::to_string(n) + " " + (n == 1 ? one : many);
+}
+
+/// @returns the warning about the line errors and overruns of chunk.
+common::Warning line_errors(const transport::Chunk &chunk) {
+    std::string counts;
+    if (chunk.errors > 0)
+        counts = count(
+            chunk.errors,
+            "parity error, framing error, or break",
+            "parity errors, framing errors, or breaks"
+        );
+    if (chunk.overruns > 0) {
+        if (!counts.empty()) counts += ", and ";
+        counts += count(chunk.overruns, "receive overrun", "receive overruns");
+    }
+    return {
+        .message = "Received serial line errors",
+        .description = "The port reported " + counts +
+                       ". Check that the baud rate, parity, and data bits match the "
+                       "device.",
+    };
+}
+
 x::errors::Error refuse(const std::string &text) {
     return {driver::errors::CONFIGURATION_ERROR, text};
 }
@@ -320,6 +347,8 @@ common::ReadResult Receiver::read(transport::Transport &t, x::telem::Frame &fr) 
     if (this->framer != nullptr && this->decode(fr, res.warning) > 0) return res;
     const auto [chunk, err] = t.read(timeout);
     if (err) return this->fail(err);
+    if ((chunk.errors > 0 || chunk.overruns > 0) && res.warning.empty())
+        res.warning = line_errors(chunk);
     if (this->framer == nullptr) {
         this->received = chunk.time;
         if (!chunk.data.empty()) this->dispatch(chunk.data, fr, res.warning);
