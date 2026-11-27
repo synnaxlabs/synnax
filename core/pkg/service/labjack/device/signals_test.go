@@ -149,4 +149,52 @@ var _ = Describe("Signals", Ordered, func() {
 		}
 		Expect(removed).To(ContainElement(d.Key))
 	})
+
+	It("Should publish dispatched actions with their dispatch key", func(
+		ctx SpecContext,
+	) {
+		d := device.Device{
+			Rack:       rackSvc.EmbeddedKey,
+			Name:       "T7-0002",
+			Serial:     470010002,
+			Connection: device.ConnectionUSB,
+			Model:      device.ModelT7,
+			Ports:      device.Ports{Variant: device.T7Ports{}},
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &d)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, d.Key)
+			})).To(Succeed())
+		})
+		acts := openStreamer(ctx, "sy_labjack_device_action_set")
+		apply := func(name string) error {
+			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).WithDispatchKey("dk-1").Apply(
+					ctx,
+					d.Key,
+					device.NewSetAction(device.SetPayload{
+						Path:  []string{"name"},
+						Value: name,
+					}),
+				)
+			})
+		}
+		Expect(apply("")).To(MatchError(ContainSubstring("name")))
+		Consistently(acts.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
+		Expect(apply("Renamed")).To(Succeed())
+		var res framer.StreamerResponse
+		Eventually(acts.Outlet(), 5*time.Second).Should(Receive(&res))
+		var scoped struct {
+			Key         uuid.UUID `json:"key"`
+			DispatchKey string    `json:"dispatch_key"`
+		}
+		for sample := range res.Frame.SeriesAt(0).Samples() {
+			Expect(json.Unmarshal(sample, &scoped)).To(Succeed())
+		}
+		Expect(scoped.Key).To(Equal(d.Key))
+		Expect(scoped.DispatchKey).To(Equal("dk-1"))
+	})
 })

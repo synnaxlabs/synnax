@@ -749,6 +749,29 @@ var _ = Describe("Service", func() {
 			}, "model: cannot change from t7 to t4"),
 		)
 
+		It("Should clear an optional field with a remove", func(ctx SpecContext) {
+			d := create(ctx)
+			ch := createChannels(ctx, 1)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, set("read_index", ch[0]))).
+				To(Succeed())
+			Expect(retrieve(ctx, d.Key).ReadIndex).To(HaveValue(Equal(ch[0])))
+			Expect(svc.NewWriter(tx).Apply(
+				ctx,
+				d.Key,
+				device.NewRemoveAction(device.RemovePayload{Key: "read_index"}),
+			)).To(Succeed())
+			Expect(retrieve(ctx, d.Key).ReadIndex).To(BeNil())
+		})
+
+		It("Should refuse an action with no payload", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(
+				ctx,
+				d.Key,
+				device.Action{Type: device.ActionTypeSet},
+			)).To(MatchError(ContainSubstring("missing payload")))
+		})
+
 		It("Should refuse a create action", func(ctx SpecContext) {
 			d := create(ctx)
 			Expect(svc.NewWriter(tx).Apply(
