@@ -55,7 +55,7 @@ export interface Callbacks<S, A extends Action> {
 }
 
 /**
- * Builds a synchronizer's callbacks. The hook body only captures context (flux
+ * Builds a synchronizer's callbacks. The hook body only captures context (Flux
  * handles, adders); execution timing belongs to the host.
  */
 export type Use<S, A extends Action> = () => Callbacks<S, A>;

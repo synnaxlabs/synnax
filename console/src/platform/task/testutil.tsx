@@ -127,7 +127,7 @@ export const createRegistry = ({
 const DEFAULT_REGISTRY = createRegistry();
 
 /**
- * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
+ * Renders a real Pluto Form context seeded with `values` and invokes `useValue` with
  * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
  * exercised in isolation without mounting the full task Form UI.
  */
@@ -332,7 +332,7 @@ interface PanelScopesProps extends PropsWithChildren {
 }
 
 /**
- * Provides the pluto panel and tab scopes the way the panel mosaic does, so
+ * Provides the Pluto panel and tab scopes the way the panel mosaic does, so
  * tab-scoped hooks (Session.Panel.useSelectIsFocused, panel view args) resolve.
  */
 const PanelScopes = ({ panelKey, tabKey, children }: PanelScopesProps) => (
@@ -392,7 +392,7 @@ export interface RenderInTaskFormWithClientResult extends RenderInTaskFormResult
 }
 
 /**
- * Like renderInTaskForm, but backs the console provider stack with the given client so
+ * Like renderInTaskForm, but backs the Console provider stack with the given client so
  * components that reach for Synnax.use() (e.g. Controls issuing task commands) see it.
  */
 export const renderInTaskFormWithClient = async (
@@ -441,9 +441,9 @@ export const renderInTaskFormWithClient = async (
 };
 
 export interface RenderTaskFormTabOptions extends Pick<RenderOptions, "onCaughtError"> {
-  /** Client backing the console wrapper; falls back to a shared test client. */
+  /** Client backing the Console wrapper; falls back to a shared test client. */
   client?: Client | null;
-  /** Client the console renders as; the panel and task are created with `client`. */
+  /** Client the Console renders as; the panel and task are created with `client`. */
   as?: Client;
   /** Key of the task row the form edits. */
   taskKey?: task.Key;
@@ -799,7 +799,7 @@ export const reportTaskRunning = async (
 };
 
 /**
- * Writes the status a driver reports once a task has stopped. Specs run without a
+ * Writes the status a Driver reports once a task has stopped. Specs run without a
  * driver, so a start command otherwise leaves the task mid-start forever and the
  * form offers no way to deploy again.
  */

@@ -28,7 +28,7 @@ export interface CoreOptions {
   /** Enable the embedded driver. Off by default so captures never show rack or
    * driver state that isn't part of the script. */
   driver?: boolean;
-  /** The integrations the driver enables. Every one when left out. */
+  /** The integrations the Driver enables. Every one when left out. */
   integrations?: string[];
 }
 

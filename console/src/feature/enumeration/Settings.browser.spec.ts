@@ -63,7 +63,7 @@ const openBuiltinMenu = async (name: string): Promise<void> => {
 const stored = async (key: enumeration.Key): Promise<enumeration.Entry[]> =>
   (await core.enumerations.retrieve(key)).entries;
 
-/** Waits for the cache of core to hear that the Core deleted the enumeration. */
+/** Waits for the cache of the Core to hear that the Core deleted the enumeration. */
 const waitForDeleted = async (key: enumeration.Key): Promise<void> =>
   await waitFor(
     async () =>

@@ -221,9 +221,9 @@ describe("panel selectors", () => {
   }
 
   // setup mounts the reactive hooks in the production-shaped console stack: the full
-  // session store wired through drift's middleware, nested inside the pluto flux
+  // session store wired through Drift's middleware, nested inside the Pluto Flux
   // provider. The wiring under test is the scope, window-default, and
-  // overlaid/focused/visible resolution the console selectors layer on top.
+  // overlaid/focused/visible resolution the Console selectors layer on top.
   const setup = async ({ scope, tabScope, client = null }: SetupOptions = {}) => {
     const { wrapper: Console, store } = await createConsoleWrapper({ client });
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
