@@ -41,13 +41,7 @@ const Folder = ({ channel: ch }: { channel: channel.Channel }): ReactElement | n
   const folder = folderOf(ch);
   if (folder == null) return null;
   return (
-    <Text.Text
-      el="span"
-      level="small"
-      color={9}
-      overflow="fade"
-      className={FOLDER_CLASS}
-    >
+    <Text.Text level="small" color={9} overflow="fade" className={FOLDER_CLASS}>
       {folder}
     </Text.Text>
   );
@@ -62,7 +56,9 @@ const ListItem = ({
   return (
     <Select.Item itemKey={itemKey} {...rest}>
       <Icon />
-      {item?.name}
+      <Text.Text el="span" overflow="fade" className={CSS.BE("channel", "name")}>
+        {item?.name}
+      </Text.Text>
       {item != null && <Folder channel={item} />}
     </Select.Item>
   );
