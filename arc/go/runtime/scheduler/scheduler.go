@@ -15,6 +15,7 @@ package scheduler
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	rnode "github.com/synnaxlabs/arc/runtime/node"
@@ -173,6 +174,16 @@ type Scheduler struct {
 	cycleNow telem.TimeStamp
 	// nextStamp is the first stamp ReserveStamps has not handed out this cycle.
 	nextStamp telem.TimeStamp
+	// scopeHandler receives the active paths after a cycle that changed them; nil
+	// drops them.
+	scopeHandler ScopeHandler
+	// scopesChanged is set when a scope starts, changes step, or stops, and cleared
+	// at the end of the cycle.
+	scopesChanged bool
+	// paths are the active paths the scope handler last received.
+	paths [][]string
+	// pathsReported is true once the scope handler has received paths.
+	pathsReported bool
 }
 
 // ErrorHandler receives errors raised by node execution.
@@ -186,6 +197,55 @@ type ErrorHandlerFunc func(ctx context.Context, nodeKey string, err error)
 // HandleError implements ErrorHandler.
 func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err error) {
 	f(ctx, nodeKey, err)
+}
+
+// ScopeHandler receives the active paths of a program, as ActivePaths returns them.
+type ScopeHandler func(ctx context.Context, paths [][]string)
+
+// SetScopeHandler configures the handler that receives the active paths at the end of
+// the first cycle, and at the end of each cycle that changes them. A cycle that changes
+// no path does not call the handler.
+func (s *Scheduler) SetScopeHandler(handler ScopeHandler) {
+	s.scopeHandler = handler
+}
+
+// ActivePaths returns the path of each active top-level scope, in program order. A path
+// is the key of the top-level scope, then the key of each active step below it, down to
+// a step that is not a sequence.
+func (s *Scheduler) ActivePaths() [][]string {
+	var paths [][]string
+	for i := range s.root.members {
+		top := s.root.members[i].scope
+		if top == nil || !top.active {
+			continue
+		}
+		path := []string{top.ir.Key}
+		for sc := top; sc.ir.Mode == ir.ScopeModeSequential && sc.activeStep >= 0; {
+			step := &sc.members[sc.activeStep]
+			if step.scope == nil {
+				break
+			}
+			path = append(path, step.key)
+			sc = step.scope
+		}
+		paths = append(paths, path)
+	}
+	return paths
+}
+
+// reportScopes passes the active paths to the scope handler when a scope changed this
+// cycle and the paths differ from the last ones it received.
+func (s *Scheduler) reportScopes(ctx context.Context) {
+	if !s.scopesChanged || s.scopeHandler == nil {
+		return
+	}
+	s.scopesChanged = false
+	paths := s.ActivePaths()
+	if s.pathsReported && slices.EqualFunc(s.paths, paths, slices.Equal) {
+		return
+	}
+	s.paths, s.pathsReported = paths, true
+	s.scopeHandler(ctx, paths)
 }
 
 // SetErrorHandler configures the handler for node execution errors.
@@ -219,6 +279,7 @@ func (s *Scheduler) Next(ctx context.Context, cycle rnode.Cycle) telem.TimeStamp
 	}
 	clear(s.changedFlags)
 	clear(s.markedFlags)
+	s.reportScopes(ctx)
 	if s.nextStamp == s.cycleNow {
 		return 0
 	}
@@ -392,6 +453,7 @@ func (s *Scheduler) resetLeafNode(m *member) {
 // (used for named top-level scopes awaiting an external trigger).
 func (s *Scheduler) activateScope(ss *scope) {
 	ss.active = true
+	s.scopesChanged = true
 	if ss.ir.Mode == ir.ScopeModeSequential {
 		for i := len(ss.ir.Steps); i < len(ss.members); i++ {
 			s.resetLeafNode(&ss.members[i])
@@ -417,6 +479,7 @@ func (s *Scheduler) activateScope(ss *scope) {
 // (or cascade-activates) that step.
 func (s *Scheduler) activateSequentialStep(ss *scope, idx int) {
 	ss.activeStep = idx
+	s.scopesChanged = true
 	m := &ss.members[idx]
 	if m.isNode() {
 		s.resetLeafNode(m)
@@ -461,6 +524,7 @@ func (s *Scheduler) deactivateScope(ss *scope) {
 		s.deactivateMember(&ss.members[i])
 	}
 	ss.active = false
+	s.scopesChanged = true
 }
 
 // markChanged propagates the current node's output to downstream nodes, records a fresh

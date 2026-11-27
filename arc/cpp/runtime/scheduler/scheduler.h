@@ -51,6 +51,13 @@ using ErrorHandler = std::function<void(const ir::Node &, const x::errors::Error
 inline const ErrorHandler noop_handler = [](const ir::Node &,
                                             const x::errors::Error &) {};
 
+/// @brief the path of an active top-level scope: its key, then the key of each active
+/// step below it, down to a step that is not a sequence.
+using Path = std::vector<std::string>;
+
+/// @brief receives the active paths of a program, as active_paths returns them.
+using ScopeHandler = std::function<void(const std::vector<Path> &)>;
+
 namespace detail {
 class Builder;
 }
@@ -239,12 +246,26 @@ class Scheduler {
     /// @brief owns the IR by value so the ir::Scope * pointers held by
     /// every ScopeState remain valid for the Scheduler's lifetime.
     ir::IR prog;
+    /// @brief receives the active paths after a cycle that changed them; null drops
+    /// them.
+    ScopeHandler scope_handler;
+    /// @brief set when a scope starts, changes step, or stops, and cleared at the end
+    /// of the cycle.
+    bool scopes_changed = false;
+    /// @brief the active paths that scope_handler last received.
+    std::vector<Path> paths;
+    /// @brief true once scope_handler has received paths since construction or reset.
+    bool paths_reported = false;
 
 public:
+    /// @param scope_handler receives the active paths at the end of the first cycle,
+    /// and at the end of each cycle that changes them. A cycle that changes no path
+    /// does not call it. It runs on the thread that calls next.
     Scheduler(
         ir::IR prog,
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-        ErrorHandler error_handler = noop_handler
+        ErrorHandler error_handler = noop_handler,
+        ScopeHandler scope_handler = nullptr
     );
 
     Scheduler(Scheduler &&) = delete;
@@ -262,6 +283,7 @@ public:
         std::ranges::fill(this->fired_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
         this->curr_node = NO_INDEX;
+        this->paths_reported = false;
         for (auto &sc: this->scopes) {
             sc.active = false;
             sc.active_step = NO_INDEX;
@@ -297,6 +319,7 @@ public:
 
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
+        this->report_scopes();
         if (this->next_stamp == this->cycle_now) return x::telem::TimeStamp(0);
         return this->next_stamp - int64_t{1};
     }
@@ -305,7 +328,38 @@ public:
     /// equal deadlines, it holds the shortest span.
     [[nodiscard]] node::Deadline next_deadline() const { return this->min_deadline; }
 
+    /// @brief returns the path of each active top-level scope, in program order.
+    [[nodiscard]] std::vector<Path> active_paths() const {
+        std::vector<Path> out;
+        for (const auto &m: this->scopes[0].members) {
+            if (m.scope == NO_INDEX || !this->scopes[m.scope].active) continue;
+            const ScopeState *sc = &this->scopes[m.scope];
+            Path path{sc->ir.key};
+            while (sc->ir.mode == ir::ScopeMode::Sequential &&
+                   sc->active_step != NO_INDEX) {
+                const auto &step = sc->members[sc->active_step];
+                if (step.scope == NO_INDEX) break;
+                path.push_back(step.key);
+                sc = &this->scopes[step.scope];
+            }
+            out.push_back(std::move(path));
+        }
+        return out;
+    }
+
 private:
+    /// @brief passes the active paths to scope_handler when a scope changed this cycle
+    /// and the paths differ from the last ones it received.
+    void report_scopes() {
+        if (!this->scopes_changed || this->scope_handler == nullptr) return;
+        this->scopes_changed = false;
+        auto next = this->active_paths();
+        if (this->paths_reported && next == this->paths) return;
+        this->paths = std::move(next);
+        this->paths_reported = true;
+        this->scope_handler(this->paths);
+    }
+
     /// @brief executes one pass over a scope; no-op if inactive.
     void walk(ScopeState &state) {
         if (!state.active) return;
@@ -457,6 +511,7 @@ private:
     /// (used for named top-level scopes awaiting an external trigger).
     void activate_scope(ScopeState &state) {
         state.active = true;
+        this->scopes_changed = true;
         if (state.ir.mode == ir::ScopeMode::Sequential) {
             for (size_t i = state.ir.steps.size(); i < state.members.size(); ++i)
                 this->reset_leaf_node(state.members[i]);
@@ -478,6 +533,7 @@ private:
     /// cascade-activates) that step.
     void activate_sequential_step(ScopeState &state, const size_t idx) {
         state.active_step = idx;
+        this->scopes_changed = true;
         auto &m = state.members[idx];
         if (m.is_node()) {
             this->reset_leaf_node(m);
@@ -513,6 +569,7 @@ private:
         for (auto &m: state.members)
             this->deactivate_member(m);
         state.active = false;
+        this->scopes_changed = true;
     }
 
     x::telem::TimeStamp reserve_stamps(const size_t n) {
@@ -968,9 +1025,12 @@ inline x::errors::Error validate(const ir::Scope &root) {
 inline Scheduler::Scheduler(
     ir::IR prog,
     std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
-    ErrorHandler error_handler
+    ErrorHandler error_handler,
+    ScopeHandler scope_handler
 ):
-    error_handler(std::move(error_handler)), prog(std::move(prog)) {
+    error_handler(std::move(error_handler)),
+    prog(std::move(prog)),
+    scope_handler(std::move(scope_handler)) {
     this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
     this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
     this->ctx.mark_done = std::bind_front(&Scheduler::mark_done, this);
