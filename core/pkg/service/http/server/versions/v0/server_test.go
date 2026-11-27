@@ -11,6 +11,7 @@ package v0_test
 
 import (
 	"encoding/json/v2"
+	"io"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,6 +23,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Server", func() {
@@ -276,5 +278,142 @@ var _ = Describe("Server", func() {
 		Entry("an escaped pointer", func(s *v0.Server) {
 			s.Reads = []v0.Read{read("/a~1b/~0c/0")}
 		}),
+	)
+})
+
+var _ = Describe("msgpack", func() {
+	DescribeTable("Should round trip a scheme",
+		func(sc v0.Scheme) {
+			var decoded v0.Scheme
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(sc)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(sc))
+		},
+		Entry("HTTPS", v0.Scheme{Variant: v0.HttpsScheme{
+			CertificateValidationDisabled: true,
+		}}),
+		Entry("HTTP", v0.Scheme{Variant: v0.HttpScheme{}}),
+		Entry("no variant", v0.Scheme{}),
+	)
+
+	It("Should reject an unknown scheme type", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{"type": "ftp"}))
+		var decoded v0.Scheme
+		Expect(msgpack.Unmarshal(raw, &decoded)).
+			To(MatchError(validate.ErrValidation))
+	})
+
+	DescribeTable("Should round trip an auth",
+		func(a v0.Auth) {
+			var decoded v0.Auth
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(a)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(a))
+		},
+		Entry("none", v0.Auth{Variant: v0.NoneAuth{}}),
+		Entry("bearer", v0.Auth{Variant: v0.BearerAuth{Token: uuid.New()}}),
+		Entry("basic", v0.Auth{Variant: v0.BasicAuth{
+			Username: "admin",
+			Password: uuid.New(),
+		}}),
+		Entry("API key", v0.Auth{Variant: v0.APIKeyAuth{
+			Key:    uuid.New(),
+			SendAs: v0.SendAsQueryParam,
+			Name:   "key",
+		}}),
+		Entry("no variant", v0.Auth{}),
+	)
+
+	DescribeTable("Should round trip a response",
+		func(r v0.Response) {
+			var decoded v0.Response
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(r)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(r))
+		},
+		Entry("string", v0.Response{Variant: v0.StringResponse{
+			Pointer:       "/status",
+			ExpectedValue: "ok",
+		}}),
+		Entry("number", v0.Response{Variant: v0.NumberResponse{
+			Pointer:       "/code",
+			ExpectedValue: 200,
+		}}),
+		Entry("boolean", v0.Response{Variant: v0.BooleanResponse{
+			Pointer:       "/up",
+			ExpectedValue: true,
+		}}),
+		Entry("null", v0.Response{Variant: v0.NullResponse{Pointer: "/error"}}),
+	)
+
+	It("Should apply the defaults of an API key", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"type": "api_key",
+			"name": "X-Key",
+		}))
+		var decoded v0.Auth
+		Expect(msgpack.Unmarshal(raw, &decoded)).To(Succeed())
+		Expect(decoded.Variant).To(Equal(v0.APIKeyAuth{
+			SendAs: v0.SendAsHeader,
+			Name:   "X-Key",
+		}))
+	})
+
+	It("Should reject an unknown auth type", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{"type": "oauth"}))
+		var decoded v0.Auth
+		Expect(msgpack.Unmarshal(raw, &decoded)).
+			To(MatchError(validate.ErrValidation))
+	})
+
+	It("Should reject an unknown expected value type", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"expected_value_type": "date",
+		}))
+		var decoded v0.Response
+		Expect(msgpack.Unmarshal(raw, &decoded)).
+			To(MatchError(validate.ErrValidation))
+	})
+
+	DescribeTable("Should reject a variant whose fields have the wrong type",
+		func(target any, fields map[string]any) {
+			raw := MustSucceed(msgpack.Marshal(fields))
+			Expect(msgpack.Unmarshal(raw, target)).
+				To(MatchError(ContainSubstring("msgpack: ")))
+		},
+		Entry("HTTPS", &v0.Scheme{}, map[string]any{
+			"type":                            "https",
+			"certificate_validation_disabled": "yes",
+		}),
+		Entry("bearer", &v0.Auth{}, map[string]any{"type": "bearer", "token": 1}),
+		Entry("basic", &v0.Auth{}, map[string]any{"type": "basic", "username": 1}),
+		Entry("API key", &v0.Auth{}, map[string]any{"type": "api_key", "name": 1}),
+		Entry("none", &v0.Auth{}, map[string]any{"type": []int{1}}),
+		Entry("string", &v0.Response{}, map[string]any{
+			"expected_value_type": "string",
+			"expected_value":      1,
+		}),
+		Entry("number", &v0.Response{}, map[string]any{
+			"expected_value_type": "number",
+			"expected_value":      "one",
+		}),
+		Entry("boolean", &v0.Response{}, map[string]any{
+			"expected_value_type": "boolean",
+			"expected_value":      "yes",
+		}),
+		Entry("null", &v0.Response{}, map[string]any{
+			"expected_value_type": "null",
+			"pointer":             1,
+		}),
+	)
+
+	DescribeTable("Should reject truncated input",
+		func(target any) {
+			Expect(msgpack.Unmarshal([]byte{0x81}, target)).
+				To(MatchError(io.EOF))
+		},
+		Entry("scheme", &v0.Scheme{}),
+		Entry("auth", &v0.Auth{}),
+		Entry("response", &v0.Response{}),
 	)
 })

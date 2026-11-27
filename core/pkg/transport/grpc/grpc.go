@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/enumeration"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	httpserver "github.com/synnaxlabs/synnax/pkg/api/http/server"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -170,6 +171,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
 	t.OPCUAServerUpdate = noop.UnaryServer[server.UpdateRequest, struct{}]{}
 	t.OPCUAServerDelete = noop.UnaryServer[server.DeleteRequest, struct{}]{}
+	// HTTP SERVER
+	t.HTTPServerRetrieve = noop.UnaryServer[
+		httpserver.RetrieveRequest,
+		httpserver.RetrieveResponse,
+	]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}

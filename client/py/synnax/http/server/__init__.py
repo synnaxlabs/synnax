@@ -17,6 +17,7 @@ from synnax.http.server.types_gen import (
     BasicAuth,
     BearerAuth,
     BooleanResponse,
+    Cursor,
     HealthCheck,
     HttpScheme,
     HttpsScheme,
@@ -34,6 +35,8 @@ from synnax.http.server.types_gen import (
     Status,
     StatusDetails,
     StringResponse,
+    Where,
+    WhereInput,
     Write,
     resource_id,
 )
@@ -48,6 +51,7 @@ __all__ = [
     "BasicAuth",
     "BearerAuth",
     "BooleanResponse",
+    "Cursor",
     "HealthCheck",
     "HttpScheme",
     "HttpsScheme",
@@ -65,6 +69,8 @@ __all__ = [
     "Status",
     "StatusDetails",
     "StringResponse",
+    "Where",
+    "WhereInput",
     "Write",
     "resource_id",
 ]
