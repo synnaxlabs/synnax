@@ -223,8 +223,10 @@ Field groups per make:
 - **OPC UA server**: identity `rack`, `name`, and `connection` (`auth`, `security`, and
   nested `server_trust` unions); configuration `reads` and `writes`. Node IDs name their
   namespace by URI.
-- **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
-  channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
+- **Modbus server**: `connection` and `request_policy` from the connect form; `reads`
+  (location and index, unique) and `writes` (location, unique) from the task forms. A
+  location is a table and an address; a holding or input register holds a whole, bit, or
+  string value. Durations are `TimeSpan`; `baud_rate` and `stop_bits` are enums.
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
   union), `max_concurrent_requests`, `health_check`, per-path read and write channel
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
@@ -390,6 +392,18 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - LabJack `location` `WIFI` types map to `LJM_ctWIFI`; `TCP`, `ETHERNET`, `NETWORK`
      types to `LJM_ctETHERNET`; anything else to `LJM_ctUSB`.
    - LabJack T7s mapping `AIN48`-`AIN127` get `mux80_attached`; bad identifiers clear.
+
+   Modbus rows change as follows:
+   - No `transport` is TCP; `*_ms` become spans; `swap_*` become `*_swapped`.
+   - `max_registers` becomes `max_read_registers` and `write_codes` becomes
+     `write_function`. A `max_gap` above 125 clamps to 125.
+   - A channel key parses (type prefix, address, data type or bit) to a location; reads
+     take `read.index`. A whole-value register key with no data type takes its
+     channel's. When two keys give one location, the key with a data type wins. A key
+     that does not parse drops with a warning.
+   - A value takes its task channel's swap overrides, and a string its `length`. A
+     string with no task channel drops with a warning.
+
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map. OPC UA parks `ns=` task node IDs with the bindings for `/opcua/server/resolve`.
