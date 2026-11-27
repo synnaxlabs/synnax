@@ -339,6 +339,46 @@ describe("task/Toolbar Arc rows", () => {
     expect(row.textContent).not.toContain("Stopped");
   });
 
+  describe("active scopes", () => {
+    const setScopes = async (t: task.Task, paths: string[][]) => {
+      runningTasks.add(t.key);
+      await client.statuses.set(
+        createTaskStatus({
+          owner: task.resourceID(t.key),
+          details: {
+            running: true,
+            configHash: t.configHash,
+            rack: t.rack,
+            data: { scopes: paths.map((path) => ({ path })) },
+          },
+        }),
+      );
+    };
+
+    it("shows the stage path of each running scope", async () => {
+      const { arc: a, task: t } = await createBoundArc();
+      await renderToolbar();
+      await screen.findByText(a.name);
+      await setScopes(t, [
+        ["main", "high_vac"],
+        ["abort", "safed"],
+      ]);
+      expect(await screen.findByText("main › high_vac, abort › safed")).toBeTruthy();
+    });
+
+    it("shows Idle when no scope runs", async () => {
+      const { arc: a, task: t } = await createBoundArc();
+      await renderToolbar();
+      await screen.findByText(a.name);
+      await setScopes(t, []);
+      await waitFor(() => {
+        const row = document.getElementById(t.key);
+        if (row == null) throw new Error(`no list item for ${a.name}`);
+        expect(within(row).getByText("Idle")).toBeTruthy();
+      });
+    });
+  });
+
   it("leaves out an Arc that has no task", async () => {
     const unbound = await createArc();
     const { arc: bound } = await createBoundArc();

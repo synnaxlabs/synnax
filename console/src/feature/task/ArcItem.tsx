@@ -9,7 +9,7 @@
 
 import "@/feature/task/ArcItem.css";
 
-import { arc, type task } from "@synnaxlabs/client";
+import { arc, type status as xstatus, type task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,9 +21,26 @@ import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access, Arc } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
+import { z } from "zod";
 
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
+
+const runningStatusZ = z.object({
+  details: z.object({ running: z.literal(true), data: arc.task.statusDataZ }),
+});
+
+/**
+ * The active scopes of a running Arc, such as "main › high_vac", or "Idle" when none
+ * runs. Undefined when the status shows no scopes.
+ */
+const scopeText = (stat: xstatus.Status): string | undefined => {
+  const parsed = runningStatusZ.safeParse(stat);
+  if (!parsed.success) return undefined;
+  const { scopes } = parsed.data.details.data;
+  if (scopes.length === 0) return "Idle";
+  return scopes.map(({ path }) => path.join(" › ")).join(", ");
+};
 
 export interface ArcItemProps extends List.ItemProps<task.Key> {
   arcKey: arc.Key;
@@ -86,7 +103,7 @@ export const ArcItem = ({
           </Flex.Box>
         </Flex.Box>
         <Text.Text level="tiny" color={8}>
-          Arc automation task
+          {scopeText(status) ?? "Arc automation task"}
         </Text.Text>
       </Flex.Box>
       {hasUpdatePermission && (
