@@ -12,15 +12,13 @@ package impact
 import (
 	"cmp"
 	"context"
-	"encoding/binary"
-	"encoding/hex"
 	"iter"
 	"slices"
 	"strings"
 
-	"github.com/cespare/xxhash/v2"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -250,11 +248,11 @@ func compareRecords(a, b resource.ID) int {
 	)
 }
 
-// tokenSum returns an xxHash-64 of p, the plan of the delete of records as the caller
-// sees it: the records in sorted order, each visible entry's record and effect, and the
-// hidden counts. Each field holds its length, so no two plans hash the same bytes. The
-// token detects a stale view, not a forged one, so it needs no cryptographic hash.
-func tokenSum(records []resource.ID, p Plan) uint64 {
+// tokenOf returns the token of p, the plan of the delete of records as the caller sees
+// it: a hash of the records in sorted order, each visible entry's record and effect,
+// and the hidden counts. The token detects a stale view, not a forged one, so it needs
+// no cryptographic hash.
+func tokenOf(records []resource.ID, p Plan) string {
 	sorted := records
 	if !slices.IsSortedFunc(records, compareRecords) {
 		sorted = slices.SortedFunc(slices.Values(records), compareRecords)
@@ -262,53 +260,20 @@ func tokenSum(records []resource.ID, p Plan) uint64 {
 	sorted = slices.CompactFunc(slices.Clone(sorted), func(a, b resource.ID) bool {
 		return compareRecords(a, b) == 0
 	})
-	var (
-		fixed [256]byte
-		buf   = fixed[:0]
-	)
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(sorted)))
+	h := content.NewHash()
+	h.Len(len(sorted))
 	for _, r := range sorted {
-		buf = appendField(buf, string(r.Type))
-		buf = appendField(buf, r.Key)
+		h.String(string(r.Type))
+		h.String(r.Key)
 	}
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(p.Entries)))
+	h.Len(len(p.Entries))
 	for _, e := range p.Entries {
-		buf = appendField(buf, string(e.Record.Type))
-		buf = appendField(buf, e.Record.Key)
-		buf = appendField(buf, string(e.Effect))
+		h.String(string(e.Record.Type))
+		h.String(e.Record.Key)
+		h.String(string(e.Effect))
 	}
-	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Restrict)
-	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Cascade)
-	buf = binary.BigEndian.AppendUint32(buf, p.Hidden.Detach)
-	return xxhash.Sum64(buf)
-}
-
-// token returns the hex form of tokenSum(records, p).
-func token(records []resource.ID, p Plan) string {
-	var (
-		raw     [8]byte
-		encoded [16]byte
-	)
-	binary.BigEndian.PutUint64(raw[:], tokenSum(records, p))
-	hex.Encode(encoded[:], raw[:])
-	return string(encoded[:])
-}
-
-// matches reports whether t is the token of p, the plan of the delete of records, with
-// no hex form built.
-func matches(t string, records []resource.ID, p Plan) bool {
-	var decoded [8]byte
-	if len(t) != hex.EncodedLen(len(decoded)) {
-		return false
-	}
-	if _, err := hex.Decode(decoded[:], []byte(t)); err != nil {
-		return false
-	}
-	return binary.BigEndian.Uint64(decoded[:]) == tokenSum(records, p)
-}
-
-// appendField appends the length of s, then s, to buf.
-func appendField(buf []byte, s string) []byte {
-	buf = binary.BigEndian.AppendUint32(buf, uint32(len(s)))
-	return append(buf, s...)
+	h.Uint(uint64(p.Hidden.Restrict))
+	h.Uint(uint64(p.Hidden.Cascade))
+	h.Uint(uint64(p.Hidden.Detach))
+	return h.Sum()
 }

@@ -134,7 +134,7 @@ func (s *Service) Plan(
 	if err != nil {
 		return Plan{}, err
 	}
-	r.plan.Token = token(records, r.plan)
+	r.plan.Token = tokenOf(records, r.plan)
 	return r.plan, nil
 }
 
@@ -252,8 +252,8 @@ func (s *Service) Apply(
 		return Plan{}, err
 	}
 	if opts.Token != "" {
-		if !matches(opts.Token, records, r.plan) {
-			r.plan.Token = token(records, r.plan)
+		if t := tokenOf(records, r.plan); t != opts.Token {
+			r.plan.Token = t
 			return Plan{}, PlanChangedError{Plan: r.plan}
 		}
 		r.plan.Token = opts.Token
@@ -294,7 +294,7 @@ func (s *Service) Stopping(
 	if err != nil || r.cancel != nil {
 		return nil, err
 	}
-	if opts.Token != "" && !matches(opts.Token, records, r.plan) {
+	if opts.Token != "" && tokenOf(records, r.plan) != opts.Token {
 		return nil, nil
 	}
 	var stopping []resource.ID
