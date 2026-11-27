@@ -11,6 +11,7 @@ package write
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"strconv"
 
@@ -66,6 +67,52 @@ func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
 	return Resolver{icds: icds, channels: channels}
 }
 
+// NewChecker returns the Checker of writes and of tags, the channels that a task takes
+// beyond the bindings of writes. It holds each ICD from icds or else retrieved through
+// snap, and the channels of the bindings and the tags. An ICD or a channel that does
+// not exist is absent.
+func (r Resolver) NewChecker(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	writes []Write,
+	tags []channel.Key,
+	icds map[icd.Key]icd.ICD,
+) (Checker, error) {
+	c := Checker{icds: make(map[icd.Key]icd.ICD, len(icds))}
+	maps.Copy(c.icds, icds)
+	var (
+		icdKeys     []icd.Key
+		channelKeys = slices.Clone(tags)
+	)
+	for _, w := range writes {
+		if _, ok := c.icds[w.ICD]; !ok {
+			icdKeys = append(icdKeys, w.ICD)
+		}
+		for _, b := range ChannelBindings(w.Message) {
+			if b.Channel != 0 {
+				channelKeys = append(channelKeys, b.Channel)
+			}
+		}
+	}
+	if len(icdKeys) > 0 {
+		found, err := r.icds.NewRetrieve().
+			Where(icd.MatchKeys(lo.Uniq(icdKeys)...)).
+			SkipMissingKeys().
+			ByKey(ctx, snap)
+		if err != nil {
+			return Checker{}, err
+		}
+		maps.Copy(c.icds, found)
+	}
+	if len(channelKeys) > 0 {
+		var err error
+		if c.channels, err = r.channels(ctx, snap, lo.Uniq(channelKeys)); err != nil {
+			return Checker{}, err
+		}
+	}
+	return c, nil
+}
+
 // Check builds the encoder of each of writes from its ICD, from icds or else retrieved
 // through snap, and the data types of the channels that the lookup finds. It skips a
 // write whose ICD does not exist, which the reference check of the write reports. It
@@ -79,54 +126,49 @@ func (r Resolver) Check(
 	writes []Write,
 	icds map[icd.Key]icd.ICD,
 ) error {
-	if len(writes) == 0 {
-		return nil
-	}
-	missing := lo.Uniq(lo.FilterMap(writes, func(w Write, _ int) (icd.Key, bool) {
-		_, ok := icds[w.ICD]
-		return w.ICD, !ok
-	}))
-	if len(missing) > 0 {
-		found, err := r.icds.NewRetrieve().
-			Where(icd.MatchKeys(missing...)).
-			SkipMissingKeys().
-			ByKey(ctx, snap)
-		if err != nil {
-			return err
-		}
-		icds = lo.Assign(icds, found)
-	}
-	var keys []channel.Key
-	for _, w := range writes {
-		for _, b := range ChannelBindings(w.Message) {
-			if b.Channel != 0 {
-				keys = append(keys, b.Channel)
-			}
-		}
-	}
-	var channels map[channel.Key]icdv0.Channel
-	if len(keys) > 0 {
-		var err error
-		if channels, err = r.channels(ctx, snap, lo.Uniq(keys)); err != nil {
-			return err
-		}
+	c, err := r.NewChecker(ctx, snap, writes, nil, icds)
+	if err != nil {
+		return err
 	}
 	dataTypes := lo.MapValues(
-		channels,
+		c.channels,
 		func(ch icdv0.Channel, _ channel.Key) telem.DataType { return ch.DataType },
 	)
 	for _, w := range writes {
-		ic, ok := icds[w.ICD]
+		ic, ok := c.icds[w.ICD]
 		if !ok || unfilled(ic, w.Message) {
 			continue
 		}
-		if err := check(w, ic, dataTypes); err != nil {
+		if err = check(w, ic, dataTypes); err != nil {
 			path := slices.Concat(w.Path, []string{"message"})
 			return validate.PathedError(err, path...)
 		}
 	}
 	return nil
 }
+
+// Checker holds the ICDs and the channels of the writes of one task config, read from
+// one snapshot.
+type Checker struct {
+	icds     map[icd.Key]icd.ICD
+	channels map[channel.Key]icdv0.Channel
+}
+
+// ICD returns the ICD with key. It returns a validation error when the ICD does not
+// exist.
+func (c Checker) ICD(key icd.Key) (icd.ICD, error) {
+	ic, ok := c.icds[key]
+	if !ok {
+		return icd.ICD{}, errors.Wrapf(
+			validate.ErrValidation, "icd: ICD %s does not exist", key,
+		)
+	}
+	return ic, nil
+}
+
+// Channels returns the channels of the bindings and the tags, by key. A channel that
+// does not exist is absent.
+func (c Checker) Channels() map[channel.Key]icdv0.Channel { return c.channels }
 
 // unfilled reports whether wm has no bindings and sends a JSON message of ic with no
 // fields.

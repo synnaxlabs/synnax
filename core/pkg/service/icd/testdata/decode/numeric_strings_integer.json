@@ -86,43 +86,99 @@
       "document": {
         "v": "12.5"
       },
-      "error": "field v: 12.5 is not an integer: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: 12.5 is not an integer: validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "0x1.8"
       },
-      "error": "field v: 0x1.8 is not an integer: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: 0x1.8 is not an integer: validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "nan"
       },
-      "error": "field v: nan is not an integer: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: nan is not an integer: validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "-inf"
       },
-      "error": "field v: -inf is out of range for int64: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: -inf is out of range for int64: validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "0x8000000000000000"
       },
-      "error": "field v: 9223372036854775808 is out of range for int64: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: 9223372036854775808 is out of range for int64: validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "0x10000000000000000"
       },
-      "error": "field v: 0x10000000000000000 is out of range for int64: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: 0x10000000000000000 is out of range for int64: validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "-0x8000000000000001"
       },
-      "error": "field v: -0x8000000000000001 is out of range for int64: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: -0x8000000000000001 is out of range for int64: validation error"
+        }
+      ]
     }
   ]
 }

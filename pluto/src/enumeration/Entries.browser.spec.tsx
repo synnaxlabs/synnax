@@ -10,7 +10,7 @@
 import type { enumeration } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { renderThemed } from "@synnaxlabs/lyra/styletest";
+import { renderThemed, treatment } from "@synnaxlabs/lyra/styletest";
 import { color, id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, useState } from "react";
@@ -41,10 +41,8 @@ const takesPointer = (el: Element): boolean => {
   return el.contains(document.elementFromPoint(left + width / 2, top + height / 2));
 };
 
-const fontOf = (el: Element): string => getComputedStyle(el).fontFamily;
-
 describe("Enumeration.Table", () => {
-  it("should show a fixed color in the code font and a named one in the text font", async () => {
+  it("should show a fixed and a named color in the text font", async () => {
     const Wrapper = createSynnaxWrapper({ client: null });
     const fixed = { type: "fixed" as const, value: color.construct("#d67e00") };
     await renderThemed(
@@ -65,12 +63,11 @@ describe("Enumeration.Table", () => {
         />
       </Wrapper>,
     );
-    const text = fontOf(screen.getByLabelText("Name 1"));
     const digits = screen.getByLabelText("Color 1");
-    expect(fontOf(digits)).not.toBe(text);
-    expect(fontOf(screen.getByText("#"))).toBe(fontOf(digits));
+    expect(treatment(digits)).toBe("prose");
+    expect(treatment(screen.getByText("#"))).toBe("prose");
     expect(getComputedStyle(digits).textTransform).toBe("uppercase");
-    expect(fontOf(screen.getByLabelText("Color 2"))).toBe(text);
+    expect(treatment(screen.getByLabelText("Color 2"))).toBe("prose");
   });
 
   it("should take a pointer on the swatch and the warning of a color cell", async () => {

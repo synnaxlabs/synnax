@@ -579,6 +579,14 @@ describe("AnalogRead ports", () => {
     return await screen.findByRole("group", { name: `${dev.name} ports` });
   };
 
+  it("should draw the device location in Inter", async () => {
+    const dev = await createDevice();
+    await renderWith([createChannel("ai_voltage", 0, { device: dev.key })]);
+    await openPorts(dev);
+    const { fontFamily } = getComputedStyle(screen.getByText(dev.location));
+    expect(fontFamily).toMatch(/^"?Inter/);
+  });
+
   it.each<[string, (device: string) => NI.Task.AIChannel[], string]>([
     [
       "a port the device does not have",

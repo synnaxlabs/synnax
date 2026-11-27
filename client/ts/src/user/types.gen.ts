@@ -46,7 +46,9 @@ export const userZ = z.object({
    */
   rootUser: z.boolean().default(false),
   /** role is the role that grants the user its permissions. */
-  role: role.keyZ.min(1, "Role is required"),
+  role: role.keyZ
+    .min(1, "Role is required")
+    .refine((v) => v !== "00000000-0000-0000-0000-000000000000", "Role is required"),
 });
 export interface User extends z.infer<typeof userZ> {}
 

@@ -38,7 +38,7 @@ type BackwardTranslator[I, O freighter.Payload] interface {
 	Backward(ctx context.Context, out O) (I, error)
 }
 
-// EmptyTranslator is a translator for an empty GRPC request.
+// EmptyTranslator is a translator for an empty gRPC request.
 type EmptyTranslator struct{}
 
 var _ Translator[struct{}, *emptypb.Empty] = EmptyTranslator{}

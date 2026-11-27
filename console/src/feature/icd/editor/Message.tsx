@@ -15,25 +15,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type CrudeTimeSpan, deep, type payload, TimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import {
-  FormattedField,
-  orError,
-  parseUnsigned,
-} from "@/feature/icd/editor/FormattedField";
-import { Identifier, IdentifierFields } from "@/feature/icd/editor/Identifier";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
-
-const createPayload = (format: payload.Format): icd.Payload => {
-  switch (format) {
-    case "binary":
-      return { format, fields: [] };
-    case "text":
-      return { format, delimiter: ",", prefix: "", fields: [] };
-    case "json":
-      return { format, fields: [] };
-  }
-};
 
 const checkCycleTime = (span: TimeSpan): string | null => {
   if (span.lessThan(TimeSpan.NANOSECOND)) return "Cycle time must be 1ns or more";
@@ -91,7 +74,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
   const { set, mode } = Form.useContext();
   const format = Form.useFieldValue(payloadPath.format);
   const handleFormatChange = (next: payload.Format) => {
-    if (next !== format) set(payloadPath, createPayload(next));
+    if (next !== format) set(payloadPath, ICD.createPayload(next));
   };
   return (
     <Form.Sections className={CSS.BE("icd-editor", "details")}>
@@ -116,8 +99,8 @@ export const Message = ({ path }: MessageProps): ReactElement => {
         <>
           <Form.Section title="Frame">
             <Flex.Box x>
-              <Identifier path={binary} />
-              <FormattedField<number>
+              <ICD.Identifier path={binary} />
+              <ICD.FormattedField<number>
                 path={binary.length}
                 label="Length"
                 placeholder="Variable"
@@ -125,11 +108,14 @@ export const Message = ({ path }: MessageProps): ReactElement => {
                 optional
                 format={String}
                 parse={(text) =>
-                  orError(parseUnsigned(text), "Length must be a whole number of bytes")
+                  ICD.orError(
+                    ICD.parseUnsigned(text),
+                    "Length must be a whole number of bytes",
+                  )
                 }
               />
             </Flex.Box>
-            <IdentifierFields path={binary} />
+            <ICD.IdentifierFields path={binary} />
           </Form.Section>
           <Form.Section title="Fields">
             <ICD.Fields path={binary.fields} encoding="binary" />

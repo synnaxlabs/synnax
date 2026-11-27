@@ -355,10 +355,11 @@ var _ = Describe("Service", func() {
 				}
 			})
 			grantWrites(ctx, s.Rack)
-			MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(s)))
+			res := MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(s)))
 			got := retrieveServer(ctx, s.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Reads).To(Equal(s.Reads))
+			Expect(res.Server).To(Equal(got))
 		})
 
 		// bindValve returns an update that binds the node Valve to the channel ch.
@@ -380,8 +381,9 @@ var _ = Describe("Service", func() {
 			s := createServer(ctx)
 			grantWrites(ctx, s.Rack)
 			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
-			MustSucceed(update(testutil.AuthedCtx(ctx, u), bindValve(s, ch)))
+			res := MustSucceed(update(testutil.AuthedCtx(ctx, u), bindValve(s, ch)))
 			got := retrieveServer(ctx, s.Key)
+			Expect(res.Server).To(Equal(got))
 			Expect(
 				got.Writes,
 			).To(Equal([]server.Write{{Node: "nsu=urn:plc;s=Valve", Channel: ch}}))

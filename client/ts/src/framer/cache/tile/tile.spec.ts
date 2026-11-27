@@ -384,13 +384,13 @@ describe("tile", () => {
         await reader.read(createSpec({ tile: 1, key: 2 }));
         dataType = DataType.UINT8;
         const changed = await reader.read(createSpec({ tile: 3 }));
-        expect(changed.dataType.equals(DataType.UINT8)).toBe(true);
+        expect(changed.dataType).toEqual(DataType.UINT8);
         expect(calls).toHaveLength(4);
         const refetched = await reader.read(createSpec({ tile: 1 }));
-        expect(refetched.dataType.equals(DataType.UINT8)).toBe(true);
+        expect(refetched.dataType).toEqual(DataType.UINT8);
         expect(calls).toHaveLength(5);
         const other = await reader.read(createSpec({ tile: 1, key: 2 }));
-        expect(other.dataType.equals(DataType.FLOAT64)).toBe(true);
+        expect(other.dataType).toEqual(DataType.FLOAT64);
         expect(calls).toHaveLength(5);
         reader.close();
       });
