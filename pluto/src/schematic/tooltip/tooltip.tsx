@@ -14,6 +14,7 @@ import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Telem } from "@synnaxlabs/lyra/telem";
+import type { Text } from "@synnaxlabs/lyra/text";
 import type { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { type destructor, primitive, strings, TimeSpan } from "@synnaxlabs/x";
@@ -94,12 +95,19 @@ interface RowProps {
   value: ReactNode;
   labelColor?: Theming.Shade;
   valueClassName?: string;
+  valueVariant?: Text.Variant;
 }
 
-const Row = ({ label, value, labelColor, valueClassName }: RowProps): ReactElement => (
+const Row = ({
+  label,
+  value,
+  labelColor,
+  valueClassName,
+  valueVariant,
+}: RowProps): ReactElement => (
   <Description.Item>
     <Description.Label color={labelColor}>{label}</Description.Label>
-    <Description.Value variant="code" className={valueClassName}>
+    <Description.Value variant={valueVariant} className={valueClassName}>
       {value}
     </Description.Value>
   </Description.Item>
@@ -121,6 +129,7 @@ const SampleAge = ({ channel }: SampleAgeProps): ReactElement => {
     <Description.List level="small" justify="between" className={LIST_CLASS}>
       <Row
         valueClassName={CSS.BE("schematic-tooltip", "sample-age")}
+        valueVariant="numeric"
         label={
           <>
             <Icon.TimeOutline />
