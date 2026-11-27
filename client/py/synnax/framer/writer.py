@@ -83,6 +83,7 @@ class WriterResponse(BaseModel):
     end: TimeStamp
     err: ExceptionPayload
     authorized: bool
+    clocks: list[channel.Key] | None = None
 
 
 class CommitResult(BaseModel):
@@ -224,7 +225,9 @@ class Writer:
             auto_index=auto_index,
         )
         self._stream.send(WriterRequest(command=WriterCommand.OPEN, config=config))
-        self._stream.receive()
+        res = self._stream.receive()
+        if res.clocks is not None:
+            self._adapter.clocks = res.clocks
 
     @overload
     def write(

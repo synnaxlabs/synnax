@@ -164,7 +164,22 @@ class ReadFrameAdapter:
         return calculated - recorded
 
 
+# _TIME marks the series of a write's "time" key, which names no channel of the writer.
+_TIME = channel.Key(0)
+
+_TIME_AND_NO_CHANNELS = (
+    'The write holds "time" and no channels. An empty series, time or data, makes '
+    "nothing present"
+)
+
+
 class WriteFrameAdapter:
+    """
+    :ivar clocks: The index channel of each group of the writer's channels, from the
+        writer's open response. A write's "time" goes to the clock of each group that
+        has a channel in the write.
+    """
+
     _adapter: dict[str, channel.Key] | None
     _channels: dict[channel.Key, channel.Payload]
     _keys: list[channel.Key]
@@ -174,6 +189,7 @@ class WriteFrameAdapter:
 
     retriever: Retriever
     codec: Codec
+    clocks: list[channel.Key]
 
     def __init__(
         self,
@@ -191,6 +207,7 @@ class WriteFrameAdapter:
         self._strict_data_types = strict_data_types
         self._suppress_warnings = suppress_warnings
         self.codec = Codec()
+        self.clocks = []
 
     def update(self, channels: channel.Params) -> None:
         results = retrieve_required_channel(self.retriever, channels)
@@ -220,7 +237,16 @@ class WriteFrameAdapter:
         if isinstance(ch, channel.Payload):
             return ch.key
         key = None if self._adapter is None else self._adapter.get(ch)
+        if key is None and ch == "time":
+            return _TIME
         return key if key is not None else self.retriever.retrieve_one(ch).key
+
+    def _adapt_name(self, name: str) -> channel.Key:
+        if self._adapter is not None and name in self._adapter:
+            return self._adapter[name]
+        if name == "time":
+            return _TIME
+        raise KeyError(name)
 
     def adapt(
         self,
@@ -230,6 +256,7 @@ class WriteFrameAdapter:
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         frame = self._adapt(channels_or_data, series)
+        time = self._take_time(frame)
         channels: list[channel.Payload] = []
         extra: set[channel.Key | str] = set()
         for col in frame.channels:
@@ -266,7 +293,47 @@ class WriteFrameAdapter:
                         stacklevel=3,
                     )
                 frame.series[i] = series.astype(ch.data_type)
+        if time is not None:
+            self._place_time(frame, time)
         return frame
+
+    def _take_time(self, frame: Frame) -> Series | None:
+        """Removes the series of the write's "time" key from frame and returns it."""
+        if _TIME not in frame.channels:
+            return None
+        i = frame.channels.index(_TIME)
+        del frame.channels[i]
+        return frame.series.pop(i)
+
+    def _place_time(self, frame: Frame, time: Series) -> None:
+        """Adds time to frame under the clock of each group that has a channel in it,
+        and sets the clock of each series on it.
+        """
+        if len(frame.channels) == 0:
+            raise ValidationError(_TIME_AND_NO_CHANNELS)
+        if time.data_type not in (DataType.TIMESTAMP, DataType.INT64):
+            raise ValidationError(f'"time" holds {time.data_type}, not timestamps')
+        placed: list[channel.Key] = []
+        for col, s in frame.items():
+            if not isinstance(col, channel.Key):
+                continue
+            index = self._channels[col].index
+            if index not in self.clocks:
+                continue
+            if index in frame.channels:
+                raise ValidationError(
+                    f'The write holds "time" and the index channel {index}, which '
+                    "both give the time of one group"
+                )
+            s.clock = index
+            if index not in placed:
+                placed.append(index)
+        if len(placed) == 0:
+            raise ValidationError(
+                'The write holds "time" and no channel that stores it'
+            )
+        for index in placed:
+            frame.append(index, Series(time, data_type=DataType.TIMESTAMP, clock=index))
 
     def _adapt(
         self,
@@ -339,7 +406,7 @@ class WriteFrameAdapter:
             for col in cols:
                 try:
                     adapted_channels.append(
-                        self._adapter[col] if isinstance(col, str) else col
+                        self._adapt_name(col) if isinstance(col, str) else col
                     )
                     adapted_series.append(Series(channels_or_data[col]))
                 except KeyError as e:
