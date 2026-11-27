@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -89,7 +90,7 @@ func createStored(ctx context.Context, db *gorp.DB, channels ...channel.Channel)
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  types.Name[channel.Channel](),
-		Migrations: versions.NewMigrations(1),
+		Migrations: versions.NewMigrations(1, parser.Config{}),
 	})).To(Succeed())
 	Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, channels...)).
 		To(Succeed())

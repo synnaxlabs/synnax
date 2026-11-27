@@ -12,15 +12,19 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
+	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
@@ -126,13 +130,25 @@ func newArcTextMigration(cfg parser.Config) gorp.Migration {
 				Exec(ctx, tx); err != nil {
 				return err
 			}
-			names := make(map[channel.Key]string, len(channels))
+			byKey := make(map[channel.Key]channelv1.TextChannel, len(channels))
 			for _, c := range channels {
-				names[c.Key()] = c.Name
+				byKey[c.Key()] = channelv1.TextChannel{
+					Name:     c.Name,
+					DataType: c.DataType,
+				}
 			}
-			rename, err := channelv1.TextRename(tx, names)
-			if err != nil || rename == nil {
+			renames, err := channelv1.TextRename(tx, byKey)
+			if err != nil || renames == nil {
 				return err
+			}
+			w := channelv1.Rewriter{
+				Renames: renames,
+				Config:  cfg,
+				Ambient: slices.Concat(
+					stl.NewSymbols(),
+					arcstatus.NewSymbols(),
+					ranges.NewSymbols(),
+				),
 			}
 			var arcs []arc.Arc
 			if err = gorp.NewRetrieve[arc.Key, arc.Arc]().
@@ -143,7 +159,11 @@ func newArcTextMigration(cfg parser.Config) gorp.Migration {
 			var changed []arc.Arc
 			for _, a := range arcs {
 				b := a.Base()
-				if renameSource(&b.Source, cfg, rename) {
+				renamed, err := renameSource(ctx, tx, w, a.ResourceID(), &b.Source)
+				if err != nil {
+					return err
+				}
+				if renamed {
 					a.SetBase(b)
 					changed = append(changed, a)
 				}
@@ -153,31 +173,54 @@ func newArcTextMigration(cfg parser.Config) gorp.Migration {
 	)
 }
 
-// renameSource applies rename to each channel name in src, and reports whether it
-// changed src.
+// renameSource rewrites each stored text of src with w, stages each reference that the
+// rewrite kept on an old name as a text site of holder, and reports whether it changed
+// src.
 func renameSource(
+	ctx context.Context,
+	tx gorp.Tx,
+	w channelv1.Rewriter,
+	holder resource.ID,
 	src *arc.Source,
-	cfg parser.Config,
-	rename func(string) (string, bool),
-) bool {
+) (bool, error) {
+	rewrite := func(source channelv1.Source) (string, error) {
+		res, err := w.Rewrite(ctx, source)
+		if err != nil {
+			return "", err
+		}
+		return res.Text, channelv1.StageKept(ctx, tx, holder, res)
+	}
 	changed := false
 	switch v := src.Variant.(type) {
 	case arc.TextSource:
 		raw := v.Text.Materialize().Raw
-		if renamed := channelv1.RenameInText(raw, cfg, rename); renamed != raw {
-			v.Text = text.Text{Doc: text.Create(renamed)}
+		out, err := rewrite(channelv1.Source{Text: raw, Form: channelv1.FormProgram})
+		if err != nil {
+			return false, err
+		}
+		if out != raw {
+			v.Text = text.Text{Doc: text.Create(out)}
 			src.Variant, changed = v, true
 		}
 	case arc.GraphSource:
 		for i, f := range v.Graph.Functions {
-			renamed := channelv1.RenameInText(f.Body.Raw, cfg, rename)
-			if renamed != f.Body.Raw {
-				v.Graph.Functions[i].Body.Raw = renamed
+			out, err := rewrite(channelv1.Source{
+				Text:     f.Body.Raw,
+				Form:     channelv1.FormBody,
+				Function: f.Key,
+				Inputs:   f.Inputs,
+				Outputs:  f.Outputs,
+			})
+			if err != nil {
+				return false, err
+			}
+			if out != f.Body.Raw {
+				v.Graph.Functions[i].Body.Raw = out
 				src.Variant, changed = v, true
 			}
 		}
 	}
-	return changed
+	return changed, nil
 }
 
 // newRenameReport returns a migration that writes a warning status for each rename that
@@ -223,9 +266,83 @@ func newRenameReport(
 			if err = channels.RenameStorage(ctx, stored); err != nil {
 				return err
 			}
+			if err = reportTextSites(ctx, tx, res, w); err != nil {
+				return err
+			}
+			if err = resourcev0.ClearTextSites(ctx, tx); err != nil {
+				return err
+			}
 			return resourcev0.ClearRenames(ctx, tx)
 		},
 	)
+}
+
+// reportTextSites writes a warning status for each reference in stored text that the
+// text passes left on the old name of a renamed channel (resourcev0.StagedTextSites).
+func reportTextSites(
+	ctx context.Context,
+	tx gorp.Tx,
+	res *resource.Service,
+	w status.Writer,
+) error {
+	sites, err := resourcev0.StagedTextSites(tx)
+	if err != nil || len(sites) == 0 {
+		return err
+	}
+	ids := make([]resource.ID, len(sites))
+	for i, site := range sites {
+		ids[i] = site.Holder
+	}
+	found, err := res.Retrieve(ctx, tx, ids...)
+	if err != nil {
+		return err
+	}
+	holders := make(map[resource.ID]string, len(found))
+	for _, r := range found {
+		holders[r.ID] = r.Name
+	}
+	for _, site := range sites {
+		holder, ok := holders[site.Holder]
+		if !ok {
+			return errors.Newf("staged text site of %s names no record", site.Holder)
+		}
+		s := textSiteStatus(site, holder)
+		if err = w.Set(ctx, &s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// textSiteStatus returns the warning status that reports site in the text of the
+// resource named holder.
+func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] {
+	noun := "calculated channel"
+	if site.Holder.Type == resource.TypeArc {
+		noun = "Arc"
+	}
+	why := "the text does not parse"
+	if site.Captured {
+		why = fmt.Sprintf("a symbol in scope there holds the name %q", site.NewName)
+	}
+	return status.Status[any]{
+		Name:    holder,
+		Variant: status.VariantWarning,
+		Message: "Kept an old channel name in text",
+		Description: fmt.Sprintf(
+			"The upgrade renamed channel %q to %q, but the text of %s %q still reads "+
+				"the old name at line %d, column %d, because %s. Edit the text so "+
+				"that it reads the channel.",
+			site.Name,
+			site.NewName,
+			noun,
+			holder,
+			site.Line,
+			site.Column+1,
+			why,
+		),
+		Time: telem.Now(),
+	}
 }
 
 // renamedNames returns the name that each renamed channel and folder holds now, by

@@ -436,11 +436,23 @@ func (w Writer) create(
 	written = append(written, linked...)
 	for idx, g := range regroup {
 		if err = w.SetGroup(ctx, g, indexChannels[idx].Key()); err != nil {
-			return err
+			return atOwner(err, owners[idx])
 		}
 	}
 	*_channels = channels
 	return w.attachCreates(ctx, lo.Uniq(written))
+}
+
+// atOwner returns err, the error of a move of one adopted index, with the position that
+// starts its path set to owner: the position in the request of the calculated channel
+// that adopts the index.
+func atOwner(err error, owner int) error {
+	pe, ok := errors.AsType[validate.PathError](err)
+	if !ok || len(pe.Path) == 0 {
+		return err
+	}
+	path := append([]string{strconv.Itoa(owner)}, pe.Path[1:]...)
+	return validate.PathedError(pe.Err, path...)
 }
 
 // validateCreate validates each channel and its group. checkCreatedNames checks the

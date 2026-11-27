@@ -60,6 +60,7 @@ var _ = Describe("Folder", func() {
 			ChannelGraph: graph,
 		}))
 		cfg = metrics.ServiceConfig{
+			Status:             statuses,
 			Channel:            channels,
 			Group:              groups,
 			Framer:             framers,

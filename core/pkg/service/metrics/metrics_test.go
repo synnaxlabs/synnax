@@ -34,6 +34,7 @@ var _ = Describe("Metrics", func() {
 	Describe("Service Creation", func() {
 		It("Should create a service with valid configuration", func(ctx SpecContext) {
 			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:             statusSvc,
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
@@ -46,6 +47,7 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should fail with missing Channel service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:  statusSvc,
 				Framer:  framerSvc,
 				HostKey: dist.Identity.HostKey,
 				Storage: dist.Storage,
@@ -53,6 +55,7 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should fail with missing Framer service", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:  statusSvc,
 				Channel: channelSvc,
 				HostKey: dist.Identity.HostKey,
 				Storage: dist.Storage,
@@ -60,6 +63,7 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should fail with a missing host key", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:  statusSvc,
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				Storage: dist.Storage,
@@ -67,6 +71,7 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should fail with missing Storage", func(ctx SpecContext) {
 			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:  statusSvc,
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				HostKey: dist.Identity.HostKey,
@@ -74,6 +79,7 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should apply default collection interval", func() {
 			cfg := metrics.DefaultServiceConfig.Override(metrics.ServiceConfig{
+				Status:  statusSvc,
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				HostKey: dist.Identity.HostKey,
@@ -89,6 +95,7 @@ var _ = Describe("Metrics", func() {
 		JustBeforeEach(func() {
 			MustOpen(
 				metrics.OpenService(context.Background(), metrics.ServiceConfig{
+					Status:             statusSvc,
 					Channel:            channelSvc,
 					Group:              groupSvc,
 					Framer:             framerSvc,
@@ -177,6 +184,7 @@ var _ = Describe("Metrics", func() {
 		})
 		It("Should reuse existing channels", func(ctx SpecContext) {
 			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:             statusSvc,
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
@@ -200,6 +208,7 @@ var _ = Describe("Metrics", func() {
 		open := func(ctx context.Context) *metrics.Service {
 			GinkgoHelper()
 			return MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:             statusSvc,
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
@@ -313,6 +322,7 @@ var _ = Describe("Metrics", func() {
 	Describe("Writer Control Subject", func() {
 		It("Should name the writer after the host node", func(ctx SpecContext) {
 			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:             statusSvc,
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
@@ -377,6 +387,7 @@ var _ = Describe("Metrics", func() {
 			Expect(w.Close()).To(Succeed())
 
 			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Status:             statusSvc,
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				DB:                 dist.DB,
