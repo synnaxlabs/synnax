@@ -99,9 +99,6 @@ func decodeSector(b []byte) (Header, error) {
 // chunkCount returns the number of chunks of the body of h. It is bounded by the length
 // that decodeSector checked.
 func chunkCount(h Header) uint64 {
-	if h.chunks < BodyStart {
-		return 0
-	}
 	return (h.chunks - BodyStart + ChunkSize - 1) / ChunkSize
 }
 

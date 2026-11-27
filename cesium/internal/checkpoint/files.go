@@ -66,7 +66,7 @@ func write(fs xfs.FS, f xfs.File, b []byte) error {
 
 // Read reads and checks the head of generation in the root fs. A header sector, chunk
 // table, or chunk that fails its check is read a second time, and only a second failure
-// of the same range decides. It reads no byte between the header sector and the body,
+// of the same range decides. It checks no byte between the header sector and the body,
 // which no checksum covers. It returns ErrIncomplete for a zero header sector, an error
 // for a format this binary does not know, and an error that wraps place.ErrCorrupt for
 // any other check that fails.
