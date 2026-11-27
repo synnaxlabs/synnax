@@ -133,6 +133,34 @@ describe("Channel select", () => {
       expect(triggerText()).toContain(folder.name);
     });
 
+    it("should fade the folders before the name in a narrow trigger", async () => {
+      let folder = await client.groups.create({
+        name: `Instrumentation and sensors ${id.create()}`,
+        scope: "channel",
+      });
+      for (let i = 0; i < 3; i++)
+        folder = await client.groups.create({
+          name: `Pressure transducers bank ${i} ${id.create()}`,
+          parent: group.resourceID(folder.key),
+        });
+      const ch = await createChannel(folder);
+      const c = await render(
+        <div style={{ width: "220px" }}>
+          <Channel.SelectSingle value={ch.key} onChange={vi.fn()} />
+        </div>,
+        { wrapper: Wrapper },
+      );
+      const trigger = () => c.container.querySelector<HTMLElement>(`.${TRIGGER_CLASS}`);
+      await expect
+        .poll(() => trigger()?.querySelector(`.${FOLDER_CLASS}`))
+        .not.toBeNull();
+      const label = trigger()?.querySelector<HTMLElement>(".lyra-select__label");
+      expect(label?.textContent).toEqual(ch.name);
+      expect(label?.clientWidth).toBeGreaterThan(60);
+      const el = trigger();
+      expect(el?.scrollWidth).toBeLessThanOrEqual(el?.clientWidth ?? 0);
+    });
+
     it("should show the folders of each channel in a multiple select", async () => {
       const folder = await createFolder();
       const ch = await createChannel(folder);
