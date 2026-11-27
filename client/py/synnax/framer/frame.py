@@ -318,7 +318,7 @@ class Frame:
 
 
 def _column_values(series: MultiSeries) -> npt.NDArray[np.generic] | list[object]:
-    if series.data_type.has_np:
+    if series.data_type is not None and series.data_type.has_np:
         return series.to_numpy()
     return list(series)
 

@@ -223,7 +223,6 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
-export interface New extends z.input<typeof payloadZ> {}
 
 /** RetrieveResponse holds the channels a RetrieveRequest selects. */
 export const retrieveResponseZ = z.object({

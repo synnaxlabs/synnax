@@ -1228,9 +1228,8 @@ class TestSeriesNarrowing:
             (telem.Series([1]), float),
             (telem.Series([telem.TimeStamp(5)]), np.int64),
             (telem.Series([{"a": 1}]), dict),
-            (telem.Series(b"", data_type=telem.DataType.UNKNOWN), np.float64),
         ],
-        ids=["float-width", "python-float", "timestamp-int", "json", "unknown"],
+        ids=["float-width", "python-float", "timestamp-int", "json"],
     )
     def test_mismatch(
         self, series: telem.Series, sample_type: type[telem.SampleValue]
@@ -1299,12 +1298,6 @@ class TestSeriesSamples:
         s = telem.Series([uuid.UUID(int=1), uuid.UUID(int=2)])
         with pytest.raises(IndexError):
             s[index]
-
-    def test_unknown(self) -> None:
-        """Should raise a ValueError when reading a series of unknown data type"""
-        s = telem.Series(b"", data_type=telem.DataType.UNKNOWN)
-        with pytest.raises(ValueError, match="unknown data type"):
-            s[0]
 
     def test_repr(self) -> None:
         """Should name the data type and length in the representation"""

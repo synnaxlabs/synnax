@@ -234,6 +234,54 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
+class New(BaseModel):
+    """Contains parameters for creating a new channel.
+
+    Attributes:
+        key: Is the unique identifier for this channel, automatically assigned by
+            Synnax.
+        name: Is the human-readable channel name.
+        leaseholder: Is the node that holds the lease for this channel. Mostly for
+            internal use.
+        data_type: Is the data type of samples stored in this channel. A calculated
+            channel leaves it out, and the Core derives it from the expression.
+        is_index: Is true if this is an index channel. Index channels must have int64
+            values (TIMESTAMP data type) written in ascending order, and are most
+            commonly Unix nanosecond timestamps.
+        index: Is the channel used to index this channel's values, associating each
+            value with a timestamp.
+        virtual: Is true if this channel does not store data in the database but can
+            still be used for streaming purposes.
+        internal: Is true if this is a system channel hidden from normal user queries.
+        expression: Is an Arc expression for calculated channels. If set, the channel is
+            automatically configured as virtual.
+        operations: Contains optional aggregation operations (min, max, avg, derivative)
+            applied to channel data over time or triggered by a reset channel.
+        concurrency: Sets the policy for concurrent writes to the channel's data. Only
+            virtual channels can have a policy of shared concurrency.
+        status: Is the current operational status of the channel.
+        group: Is the group the channel sits in, if any.
+    """
+
+    key: Key = Field(default=Key(0), ge=0, le=4294967295)
+    name: Name = Field(min_length=1)
+    leaseholder: node.Key = Field(default=node.Key(0), ge=0, le=4095)
+    data_type: telem.DataType | None = None
+    is_index: bool = False
+    index: Key = Field(default=Key(0), ge=0, le=4294967295)
+    virtual: bool = False
+    internal: bool = False
+    expression: str = ""
+    operations: list[Operation] = Field(default_factory=list)
+    concurrency: control.Concurrency = control.Concurrency.exclusive
+    status: Status | None = Field(default=None, exclude=True)
+    group: group_.Key | None = None
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class RetrieveResponse(BaseModel):
     """Holds the channels a RetrieveRequest selects.
 

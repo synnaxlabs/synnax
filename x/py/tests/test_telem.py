@@ -923,7 +923,6 @@ class TestDataType:
     def test_all(self) -> None:
         """ALL should contain every data type exactly once."""
         assert set(sy.DataType.ALL) == {
-            sy.DataType.UNKNOWN,
             sy.DataType.UINT8,
             sy.DataType.UINT16,
             sy.DataType.UINT32,

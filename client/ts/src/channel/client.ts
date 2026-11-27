@@ -34,6 +34,7 @@ import {
 import {
   analyzeParams,
   isCalculated,
+  type New,
   type Params,
   type PrimitiveParams,
   singleWhere,
@@ -44,7 +45,6 @@ import {
   type Key,
   keyZ,
   type Name,
-  type New,
   type Operation,
   operationZ,
   type Payload,

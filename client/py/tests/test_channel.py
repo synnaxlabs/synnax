@@ -251,6 +251,21 @@ class TestChannel:
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
 
+    def test_create_calculation_without_data_type(self, client: sy.Synnax) -> None:
+        """Should derive the data type of a calculated channel created without one."""
+        channel = client.channels.create(
+            name=channel_name(), expression="return 1.5 * 2.0"
+        )
+        assert channel.data_type == sy.DataType.FLOAT64
+        res = client.channels.retrieve(channel.key)
+        assert res.data_type == sy.DataType.FLOAT64
+
+    def test_create_index_without_data_type(self, client: sy.Synnax) -> None:
+        """Should default an index channel created without a data type to a
+        timestamp."""
+        channel = client.channels.create(name=channel_name(), is_index=True)
+        assert channel.data_type == sy.DataType.TIMESTAMP
+
     def test_set_expression(self, client: sy.Synnax) -> None:
         """Should set the expression of a calculated channel and infer its new data
         type."""

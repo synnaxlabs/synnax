@@ -302,6 +302,23 @@ APIChannel struct {
     @ts name       "Payload"
 }
 
+New struct extends APIChannel {
+    -status
+    data_type? {
+        @doc value """
+            is the data type of samples stored in this channel. A calculated channel
+            leaves it out, and the Core derives it from the expression.
+        """
+    }
+
+    @cpp omit
+    @doc value "contains parameters for creating a new channel."
+    @go omit
+    @pb omit
+    @py name   "New"
+    @ts hand
+}
+
 CountLimitedResponse struct {
     count uint32 {
         @doc value "is how many channels count against the license channel limit."

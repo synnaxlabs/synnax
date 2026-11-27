@@ -21,12 +21,13 @@ from synnax.channel.payload import (
     Payload,
     normalize_params,
 )
+from synnax.channel.types_gen import New
 from synnax.transport import send_batch
 from x import patch
 
 
 class _CreateRequest(BaseModel):
-    channels: list[Payload]
+    channels: list[New]
     retrieve_if_name_exists: bool
 
 
@@ -75,7 +76,7 @@ class Writer:
     @trace("debug")
     def create(
         self,
-        channels: list[Payload],
+        channels: list[New],
         retrieve_if_name_exists: bool,
     ) -> list[Payload]:
         req = _CreateRequest(
