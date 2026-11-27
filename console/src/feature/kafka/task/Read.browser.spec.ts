@@ -33,6 +33,7 @@ import {
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { server, userEvent } from "vitest/browser";
 
 import { Kafka } from "@/feature/kafka";
 import {
@@ -633,11 +634,41 @@ describe("Kafka read form", () => {
       });
       const search = dialog.getByPlaceholderText("Search topics");
       fireEvent.change(search, { target: { value: "plant" } });
-      fireEvent.click(await dialog.findByText("Read “plant”"));
+      fireEvent.click(await dialog.findByRole("button", { name: "Read “plant”" }));
       expect((await second.answered)[0].args.topics).toEqual(["plant"]);
       await dialog.findByText("Not listed by the cluster");
       dialog.getByRole("checkbox", { name: "Record /temperature" });
     });
+
+    // WebKit tabs to a button only when the user turns on full keyboard access.
+    it.runIf(server.browser === "chromium")(
+      "should read a typed topic that no topic matches from the keyboard",
+      async () => {
+        const { dev } = await renderRead({ empty: true });
+        await screen.findByText("No topics");
+        const scan = await createScanTask(client, dev);
+        const first = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: { topics: [listTopic("alarms")], truncated: true } },
+          sample: { data: sampleOfTopic("alarms") },
+        });
+        const dialog = await clickAddData();
+        await first.answered;
+        await dialog.findByText("1 topic, list is full");
+        const second = await answerCommandsUntil(client, [scan], "sample", {
+          sample: { data: sampleOfTopic("plant", OVEN_SHAPE) },
+        });
+        const search = dialog.getByPlaceholderText("Search topics");
+        fireEvent.change(search, { target: { value: "plant" } });
+        const action = await dialog.findByRole("button", { name: "Read “plant”" });
+        search.focus();
+        // The topic tree takes focus before its empty content.
+        await userEvent.tab();
+        await userEvent.tab();
+        expect(document.activeElement).toBe(action);
+        await userEvent.keyboard("{Enter}");
+        expect((await second.answered)[0].args.topics).toEqual(["plant"]);
+      },
+    );
 
     it("should keep the topics of the task when the browse fails", async () => {
       const { dev } = await renderRead();
@@ -764,8 +795,9 @@ describe("Kafka read form", () => {
       dialog.getByRole("button", { name: "Read “pla”" });
       fireEvent.change(search, { target: { value: "boiler" } });
       await dialog.findByText("No topic matches “boiler”.");
-      dialog.getByText("Read “boiler”");
-      expect(dialog.queryByRole("button", { name: "Read “boiler”" })).toBeNull();
+      const empty = dialog.getByText("No topic matches “boiler”.");
+      within(empty).getByRole("button", { name: "Read “boiler”" });
+      expect(dialog.getAllByRole("button", { name: "Read “boiler”" })).toHaveLength(1);
     });
 
     it("should clear the pane while the search hides the active topic", async () => {
