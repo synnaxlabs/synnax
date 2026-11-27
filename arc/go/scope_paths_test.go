@@ -100,4 +100,23 @@ var _ = Describe("Scope paths", func() {
 		Expect(reports).To(HaveLen(2))
 		Expect(h.scheduler.ActivePaths()).To(Equal([][]string{{"main", "first"}}))
 	})
+
+	It("Should not report a program with no top-level scope", func(ctx SpecContext) {
+		flow := newRuntimeHarness(ctx, "start_cmd -> out", channelSymbols(
+			map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.U8(), 102},
+			},
+		),
+			channels.Digest{Key: 100, DataType: telem.Uint8T},
+			channels.Digest{Key: 102, DataType: telem.Uint8T},
+		)
+		DeferCleanup(flow.Close)
+		called := false
+		flow.scheduler.SetScopeHandler(func(context.Context, [][]string) {
+			called = true
+		})
+		flow.Tick(ctx, telem.Millisecond)
+		Expect(called).To(BeFalse())
+	})
 })

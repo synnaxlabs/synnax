@@ -117,4 +117,18 @@ TEST_F(ScopeTest, ReportsAgainAfterAReset) {
     EXPECT_EQ(this->reports.size(), 2);
     EXPECT_EQ(this->reports.back(), (std::vector<Path>{{"main", "first"}}));
 }
+
+/// @brief it should not report a program with no top-level scope.
+TEST_F(SchedulerTest, DoesNotReportAProgramWithNoTopLevelScope) {
+    mock("A");
+    bool called = false;
+    const auto s = std::make_unique<Scheduler>(
+        program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")})),
+        this->nodes,
+        noop_handler,
+        [&called](const std::vector<Path> &) { called = true; }
+    );
+    s->next({.elapsed = x::telem::MILLISECOND, .reason = node::RunReason::TimerTick});
+    EXPECT_FALSE(called);
+}
 }

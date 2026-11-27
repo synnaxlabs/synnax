@@ -184,6 +184,8 @@ type Scheduler struct {
 	paths [][]string
 	// pathsReported is true once the scope handler has received paths.
 	pathsReported bool
+	// scoped is true when the program has a top-level scope.
+	scoped bool
 }
 
 // ErrorHandler receives errors raised by node execution.
@@ -204,7 +206,8 @@ type ScopeHandler func(ctx context.Context, paths [][]string)
 
 // SetScopeHandler configures the handler that receives the active paths at the end of
 // the first cycle, and at the end of each cycle that changes them. A cycle that changes
-// no path does not call the handler.
+// no path does not call the handler, and a program with no top-level scope never calls
+// it.
 func (s *Scheduler) SetScopeHandler(handler ScopeHandler) {
 	s.scopeHandler = handler
 }
@@ -236,7 +239,7 @@ func (s *Scheduler) ActivePaths() [][]string {
 // reportScopes passes the active paths to the scope handler when a scope changed this
 // cycle and the paths differ from the last ones it received.
 func (s *Scheduler) reportScopes(ctx context.Context) {
-	if !s.scopesChanged || s.scopeHandler == nil {
+	if !s.scopesChanged || s.scopeHandler == nil || !s.scoped {
 		return
 	}
 	s.scopesChanged = false

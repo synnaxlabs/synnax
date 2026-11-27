@@ -256,11 +256,14 @@ class Scheduler {
     std::vector<Path> paths;
     /// @brief true once scope_handler has received paths since construction or reset.
     bool paths_reported = false;
+    /// @brief true when the program has a top-level scope.
+    bool scoped = false;
 
 public:
     /// @param scope_handler receives the active paths at the end of the first cycle,
     /// and at the end of each cycle that changes them. A cycle that changes no path
-    /// does not call it. It runs on the thread that calls next.
+    /// does not call it, and a program with no top-level scope never calls it. It runs
+    /// on the thread that calls next.
     Scheduler(
         ir::IR prog,
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls,
@@ -351,7 +354,8 @@ private:
     /// @brief passes the active paths to scope_handler when a scope changed this cycle
     /// and the paths differ from the last ones it received.
     void report_scopes() {
-        if (!this->scopes_changed || this->scope_handler == nullptr) return;
+        if (!this->scopes_changed || this->scope_handler == nullptr || !this->scoped)
+            return;
         this->scopes_changed = false;
         auto next = this->active_paths();
         if (this->paths_reported && next == this->paths) return;
@@ -1042,6 +1046,9 @@ inline Scheduler::Scheduler(
     this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
     this->ctx.reserve_stamps = std::bind_front(&Scheduler::reserve_stamps, this);
     detail::Builder().build(*this, node_impls);
+    this->scoped = std::ranges::any_of(this->scopes[0].members, [](const auto &m) {
+        return m.scope != NO_INDEX;
+    });
 }
 
 }
