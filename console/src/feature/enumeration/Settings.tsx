@@ -134,10 +134,10 @@ const Item = ({
             </Text.Text>
           </List.Cell>
           <List.Cell>
-            <UsedBy.UsedBy
+            <UsedBy.Popover
               itemKey={e.key}
               kind="enumeration"
-              uses={e.uses}
+              uses={e.uses?.map((id) => ({ id }))}
               anchor={element}
             />
           </List.Cell>
