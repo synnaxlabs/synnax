@@ -18,7 +18,7 @@ import (
 )
 
 // BenchmarkWrite measures a write of one series to an open fixed-density segment in
-// memory, which a commit then puts back so the file stays one block long.
+// memory. PutBack undoes each write, so each one writes over the bytes of the last.
 func BenchmarkWrite(b *testing.B) {
 	for _, size := range []int{512, 16 << 10, 1 << 20} {
 		b.Run(fmt.Sprintf("bytes=%d", size), func(b *testing.B) {
@@ -30,6 +30,11 @@ func BenchmarkWrite(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+			b.Cleanup(func() {
+				if err := h.Close(); err != nil {
+					b.Error(err)
+				}
+			})
 			w := segment.NewWriter(h, cfg)
 			data := pattern(size)
 			b.SetBytes(int64(size))
