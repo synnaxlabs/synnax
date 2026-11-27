@@ -107,7 +107,8 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    first refuses the delete of an index channel that a kept channel outside the delete
    names as its index, with the error of today (`cesium/delete.go:144-152`), so no data
    channel loses the clock it writes. The guard and each create that names an index run
-   under one lock of the channel service, as Cesium's `db.mu` holds both today
+   under one lock of the channel service, held from the guard or the create's check of
+   its index to the commit of the transaction, as Cesium's `db.mu` holds both today
    (`cesium/delete.go:133-153`), so a create cannot pass the guard unseen. Only once
    that delete succeeds does it save a pending-drop note (NEW) with the keys whose
    record the transaction deleted, never a requested key that had none, so a delete
@@ -129,20 +130,21 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    next open removes the files.
 5. At start, before a writer opens, the Core calls `Delete` for each note and clears it.
    It then reads `DB.Keys`: each key that Cesium holds data for, whether its intent is
-   live, and the other keys whose kept segments name it as their clock. Before any
-   create, the channel service raises each key counter above the highest key of its own
-   range that `Keys` returns: the channel counter over the local keys of the host's
-   lease, and the clock counter over the clock range (RFC 0120 §4.0). So an undo to a
-   release without clock keys never moves a local key past 2^20, and such a key is never
-   given to a new channel after an undo or a lost metadata tail. A key with a record, a
-   clock, and a key whose intent is live are accounted for. From RFC 0120 Phase 50, a
-   clock that has a record takes the open rule of principle 5 (RFC 0120 §4.10). Any
-   other key with data is kept: the Core raises a warning status whose description names
-   the keys and their bytes and says: restore the records from a backup to keep the
-   data, or stop the Core and run `synnax purge <keys>` to remove it. A missing record
-   can come from a restored backup or lost metadata, never only from a delete, so the
-   Core deletes a key only from a note, never on absence. No writer or reader reaches a
-   kept key: the framer and the API reach a key only through its record.
+   live, and the other keys whose kept segments name it as their clock, where a key with
+   a live intent counts as gone, as in `DB.Clocks`. Before any create, the channel
+   service raises each key counter above the highest key of its own range that `Keys`
+   returns: the channel counter over the local keys of the host's lease, and the clock
+   counter over the clock range (RFC 0120 §4.0). So an undo to a release without clock
+   keys never moves a local key past 2^20, and such a key is never given to a new
+   channel after an undo or a lost metadata tail. A key with a record, a clock, and a
+   key whose intent is live are accounted for. From RFC 0120 Phase 50, a clock that has
+   a record takes the open rule of principle 5 (RFC 0120 §4.10). Any other key with data
+   is kept: the Core raises a warning status whose description names the keys and their
+   bytes and says: restore the records from a backup to keep the data, or stop the Core
+   and run `synnax purge <keys>` to remove it. A missing record can come from a restored
+   backup or lost metadata, never only from a delete, so the Core deletes a key only
+   from a note, never on absence. No writer or reader reaches a kept key: the framer and
+   the API reach a key only through its record.
 6. The command `synnax purge` runs with the Core stopped: it takes the directory lock,
    opens storage, and lists the kept keys and their bytes. With keys, it refuses any key
    that has a record or is not kept, and any key that a kept segment of another key
@@ -581,13 +583,16 @@ end limits, so a delete can still be logged, and `C` tries again at each later f
    fed by acked entries in log order, apart from the visible view that `Commit`
    publishes, and it answers with the durable view, which covers exactly log `g`. In the
    same step it marks sealed each open segment that no writer holds and that has reached
-   a limit of §5.1, or whose first stamp is 7 days older than the injected clock
-   (D-079), and sends those segments to `L`, which logs a Seal for each in log `g + 1`.
-   Every other unheld open segment stays open, so a later session takes it over (§5.8,
-   D-512). So the head holds open segments of at most 7 days, each with at most 4,096
-   pointers. It sends the durable view, as references to immutable channel states, to
-   `C`. `L` sends later batches to log `g + 1`. A crash now recovers from head `g` and
-   both logs.
+   a limit of §5.1, or whose first stamp is more than 7 days from the injected clock,
+   before or after it (D-079), and sends those segments to `L`, which logs a Seal for
+   each in log `g + 1`. Every other unheld open segment stays open, so a later session
+   takes it over (§5.8, D-512). While the pointers of open segments in the durable view
+   pass 16 MiB (a config default), it also seals the unheld open segments with the most
+   pointers, largest first. So the head holds open segments of at most 7 days, each with
+   at most 4,096 pointers, and at most 16 MiB of open pointers beyond those that writers
+   hold. It sends the durable view, as references to immutable channel states, to `C`.
+   `L` sends later batches to log `g + 1`. A crash now recovers from head `g` and both
+   logs.
 3. `C`, when the sealed records pass 8 MiB or a part must be written again: create
    `<p>.part`, write its body, sync, write its header sector, sync. A part that fails a
    read during its rewrite stays as it is, with its marks in the head.
@@ -713,15 +718,15 @@ The steps:
     their lengths, and no other. After it reads a clean mark, open writes and syncs a
     plain mark before any writer opens, so a clean mark is the last valid frame only
     when no writer ran after it. Then, unless the last valid frame is a clean mark, open
-    checks every byte of the disk block that holds the durable end of each segment that
-    the last stop left open: the tail against `tail_crc`, and the last full block
-    against its trailer when the disk block starts in it. A write past the durable end
-    writes that disk block again, so a crash can tear durable bytes in it; after a clean
-    mark no write passed a durable end. On a failure, open logs a Tombstone per pointer
-    from the first sample in the bad range, over the same stamp range for every key that
-    the clock times, then a Seal. A lost trailer leaves the earlier samples of its block
-    readable unchecked. The error handler (§7) gets an error that lists each cut and
-    each lost trailer.
+    checks, through the sync pool (§8.0), every byte of the disk block that holds the
+    durable end of each segment that the last stop left open: the tail against
+    `tail_crc`, and the last full block against its trailer when the disk block starts
+    in it. A write past the durable end writes that disk block again, so a crash can
+    tear durable bytes in it; after a clean mark no write passed a durable end. On a
+    failure, open logs a Tombstone per pointer from the first sample in the bad range,
+    over the same stamp range for every key that the clock times, then a Seal. A lost
+    trailer leaves the earlier samples of its block readable unchecked. The error
+    handler (§7) gets an error that lists each cut and each lost trailer.
 
 ### 5.6 Seal, deletes, and compaction
 
@@ -783,8 +788,8 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
   every later read agree. A number is an identity, not an order in time: a backfill
   takes a higher number than later data (RFC 0120).
 
-Readers treat a break in alignment as a gap and index 0 as the start of a stretch: the
-frame codec merges series whose alignments touch
+Readers treat a break in a clock's alignment as a gap and index 0 as the start of a
+stretch: the frame codec merges series whose alignments touch
 (`core/pkg/distribution/framer/codec/codec.go:428-432`), and the TypeScript cache starts
 a stretch at index 0 (`client/ts/src/framer/cache/join/join.ts:128-136`). The table
 holds sizing assumptions.
@@ -830,13 +835,13 @@ for the key.
   stands in, so a session that takes a command channel again reuses its clock. It drops
   a candidate that is a key of the group, one that an open writer holds, one that
   another group of the same open took, and one whose last stamp is not before the
-  writer's start. The group with the most keys on one candidate picks first. Each group
-  takes the candidate that the most of its keys name, then the one with the latest last
-  stamp, then the lowest key, and else leases a new key (RFC 0120 §4.0). A key of the
-  group on another clock starts a new segment on the chosen clock. The first drop rule
-  keeps a group's stamps out of a key that times itself, such as an index channel that
-  the migration keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11, hard
-  rule 4).
+  writer's start. The group with the most keys on one candidate picks first, and on a
+  tie the earlier group of the open. Each group takes the candidate that the most of its
+  keys name, then the one with the latest last stamp, then the lowest key, and else
+  leases a new key (RFC 0120 §4.0). A key of the group on another clock starts a new
+  segment on the chosen clock. The first drop rule keeps a group's stamps out of a key
+  that times itself, such as an index channel that the migration keeps as a timestamp
+  channel, with no stored flag (RFC 0120 §4.11, hard rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
   claim. The state owner keeps the writer of each clock and the holder of each open
   segment (NEW).
@@ -855,9 +860,9 @@ for the key.
   or a later open after its `Close` takes them over, and a script that runs again reuses
   its clocks and files. The writer then stores the group's stamps on that clock for each
   frame that holds one of its keys: the one copy of stored stamps, at most one per
-  presence pattern per frame, until the keys rejoin the group's clock at the next open.
-  A clock stores no stamps for a frame in which no key on it has a sample. A file that
-  the step made and no move used is a spare, which a close removes.
+  cohort of keys that moved together per frame, until the keys rejoin the group's clock
+  at the next open. A clock stores no stamps for a frame in which no key on it has a
+  sample. A file that the step made and no move used is a spare, which a close removes.
 - **Segments**: An open segment belongs to one writer, its holder (§5.4, invariant 6).
   At open, a later session with the same key, type, and clock key takes it over only
   after the commits of the earlier writer are durable. At a handoff, the gainer takes it
@@ -1144,7 +1149,7 @@ builds it with the read check.
 | Warm scan, memory file system                  | CPU per byte at most 1.25 × (1/`F_copy` + 1/`F_crc`)                                                                                                                                                                                                                                                                                                                                    | A read is the copy and one CRC pass                                                                                                                                                                                          |
 | Point read, wide-stride read, time to position | At most 1.25 × `F_block` per block read                                                                                                                                                                                                                                                                                                                                                 | A wide-stride read checks one block per kept sample (`cesium/internal/unary/iterator.go:1165-1199`), and Phase 7 adds its benchmark. A time lookup reads one block of a version 2 clock and at most two of a version 1 clock |
 | Cold scan                                      | At least 0.5 × min(`F_read`, `F_crc`)                                                                                                                                                                                                                                                                                                                                                   | One sequential stream per segment                                                                                                                                                                                            |
-| Recovery                                       | At most 3 × bytes read / min(`F_read`, `F_crc`)                                                                                                                                                                                                                                                                                                                                         | A head of a few MB and at most 64 MiB of log. Replay keeps the last slot list of each clock, so a slot is a compare and a store                                                                                              |
+| Recovery                                       | At most 3 × bytes read / min(`F_read`, `F_crc`), plus, after an unclean stop, open segments × `F_page` / 32, the width of the pool                                                                                                                                                                                                                                                      | A head of a few MB and at most 64 MiB of log. Replay keeps the last slot list of each clock, so a slot is a compare and a store                                                                                              |
 | Switch                                         | At most 3 × (bytes written and read: new parts, the head, and the heads that `Clean` reads) / min(`F_write`, `F_crc`)                                                                                                                                                                                                                                                                   | One walk over the sorted records of the parts and the state, with no map per record. About 26 MB, so about 50 ms, at 100,000 keys of 5 segments each                                                                         |
 | Conversion                                     | At most 2 × (old metadata bytes / `F_read` + (part bytes + head bytes + 2 × log size) / `F_write` + old files × `F_files(32)` / 1,000 + stamp reads × `F_page`), measured in Phase 8. Stamp reads: 2 per old index pointer, up to 27 per data piece that starts inside an index pointer, and 1 per piece that ends inside one. 10,000 channels convert in under a minute on a real disk | 40 million old pointers are 1 GB to read and 1.5 GB of parts. One sync per old file through the pool, most of them clean                                                                                                     |
 | Compaction, progression encoding               | `BenchmarkCommit` p99 with a rewrite running: at most 1.2 × its value alone                                                                                                                                                                                                                                                                                                             | A background copy under a rate limit                                                                                                                                                                                         |
