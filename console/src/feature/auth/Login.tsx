@@ -115,9 +115,16 @@ export const useCompleteBrowserLogin = (): void => {
   const servingCore = Core.detectConnection();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
+  const reportUnfinished = Core.useReportUnfinished();
   useEffect(() => {
     handleError(() => {
-      const completed = Core.completeBrowserLogin();
+      let completed: Core.CompletedLogin | undefined;
+      try {
+        completed = Core.completeBrowserLogin();
+      } catch (e) {
+        reportUnfinished(e, "Login not finished");
+        return;
+      }
       if (completed == null) return;
       const core = cores.find((c) => c.key === completed.core) ?? servingCore;
       if (core == null) return;
@@ -152,6 +159,7 @@ export const Login = (): ReactElement => {
   // a provider list that is still loading, or failed to load, says nothing yet
   const noLogin = !passwordAccepted && (!oidcAccepted || loadedProviders?.length === 0);
   const handleError = Status.useErrorHandler();
+  const reportUnfinished = Core.useReportUnfinished();
   // a newer provider login replaces an older one, which then ends unreported
   const attempts = useRef(0);
   const mounted = useRef(false);
@@ -177,7 +185,10 @@ export const Login = (): ReactElement => {
           failure = errors.fromUnknown(e);
         }
         if (attempt !== attempts.current) return;
-        if (failure != null) throw failure;
+        if (failure != null) {
+          reportUnfinished(failure, "Login not finished");
+          return;
+        }
         if (Session.Runtime.ENGINE !== "tauri") return;
         const current = Session.Core.selectState(store.getState(), core.key);
         // the token is saved under the address the login started with
