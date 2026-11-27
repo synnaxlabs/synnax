@@ -37,14 +37,22 @@ export const resolve = (
 
 const RELATIVE = new Intl.RelativeTimeFormat("en", { numeric: "always" });
 
+const UNITS = [
+  { span: TimeSpan.DAY, name: "day" },
+  { span: TimeSpan.HOUR, name: "hour" },
+  { span: TimeSpan.MINUTE, name: "minute" },
+] as const;
+
+// Rounds up, so the label changes a whole unit before the expiry.
+const count = (left: TimeSpan): { unit: (typeof UNITS)[number]; n: number } => {
+  const unit = UNITS.find((u) => left.greaterThan(u.span)) ?? UNITS[2];
+  return { unit, n: Math.ceil(Number(left.valueOf()) / Number(unit.span.valueOf())) };
+};
+
 /** @returns how long until expires, such as "in 12 days". */
 export const relative = (expires: TimeStamp, now: TimeStamp): string => {
-  const left = now.span(expires);
-  if (left.greaterThanOrEqual(TimeSpan.DAY))
-    return RELATIVE.format(Math.round(left.days), "day");
-  if (left.greaterThanOrEqual(TimeSpan.HOUR))
-    return RELATIVE.format(Math.round(left.hours), "hour");
-  return RELATIVE.format(Math.max(1, Math.round(left.minutes)), "minute");
+  const { unit, n } = count(now.span(expires));
+  return RELATIVE.format(n, unit.name);
 };
 
 /**
@@ -56,11 +64,6 @@ export const nextChange = (
   now: TimeStamp,
 ): TimeStamp | null => {
   if (expires == null || !expires.after(now)) return null;
-  const step = now.span(expires).lessThan(TimeSpan.HOUR)
-    ? TimeSpan.MINUTE
-    : TimeSpan.HOUR;
-  // The label also changes when it moves from days to hours and from hours to minutes.
-  return [now.add(step), expires.sub(TimeSpan.DAY), expires.sub(TimeSpan.HOUR), expires]
-    .filter((t) => t.after(now))
-    .reduce((a, b) => (b.before(a) ? b : a));
+  const { unit, n } = count(now.span(expires));
+  return expires.sub(unit.span.mult(n - 1));
 };
