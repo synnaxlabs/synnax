@@ -89,10 +89,10 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
 - **Create checks**: Phase 8 moves the checks that `CreateChannel` runs on a stored
   channel (`cesium/internal/channel/channel.go:114-138`, `cesium/channel.go:154`,
   `:169-185`) into the validation of the channel service, with the same messages and one
-  spec per message: a data channel names an index, an index channel is of type timestamp
-  and names no other index, and the named index exists and is an index. The existence
-  check runs under the lock of §4.1 step 2. RFC 0120 Phase 44 drops the first check, and
-  Phase 50 drops the rest.
+  spec per message: a stored channel has a data type, a data channel names an index, an
+  index channel is of type timestamp and names no other index, and the named index
+  exists and is an index. The existence check runs under the lock of §4.1 step 2. RFC
+  0120 Phase 44 drops the first check, and Phase 50 drops the rest.
 - **Channel lookup**: The framer reads channels from Cesium today. It gains a lookup
   that the channel service provides: for a key, the declared type (RFC 0120), the
   live-only flag, and the index key until RFC 0120 Phase 50 retires it. The framer opens
@@ -831,8 +831,8 @@ transfers, and control state belong to the framer, which gates its own writers o
 that writes a key that another session's writer holds gets no claim on it at open. At
 its first write of the key, the key moves into that session's writer through
 `DB.Handoff` (§4.2), the one path that moves a key. When the holder has closed, that
-first write takes the free claim, as an open does, and uses the file that the open made
-for the key.
+first write takes the free claim, as an open does, and continues the segment that the
+open made ready for the key (Segments, below).
 
 - **Continuation**: A group with an `Index` takes that key as its clock with no
   continuation (RFC 0120 §4.8). At open, for each other group, Cesium takes as
