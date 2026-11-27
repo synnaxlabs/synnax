@@ -858,7 +858,7 @@ TEST_F(JournalTest, RecoversBadChecksumAtTail) {
 TEST_F(JournalTest, ReaderMissingFileIsError) {
     ASSERT_OCCURRED_AS_P(
         Reader::open({.path = this->dir / "missing", .magic = SEGMENT}),
-        BASE_ERROR
+        x::fs::FS_ERROR
     );
 }
 
@@ -866,7 +866,7 @@ TEST_F(JournalTest, ReaderMissingFileIsError) {
 TEST_F(JournalTest, WriterMissingDirectoryIsError) {
     ASSERT_OCCURRED_AS_P(
         Writer::open({.path = this->dir / "missing" / "0.seg", .magic = SEGMENT}),
-        BASE_ERROR
+        x::fs::FS_ERROR
     );
 }
 

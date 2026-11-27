@@ -26,9 +26,9 @@ const x::errors::Error LOCKED = FS_ERROR.sub("locked");
 /// @brief a file is already at a path.
 const x::errors::Error EXISTS = FS_ERROR.sub("exists");
 
-/// @brief gets each file that the journal creates, before the journal uses it, such as
-/// to set its owner.
-/// @returns an error to fail the create, and then the journal removes the file.
+/// @brief gets each temp file that create or create_new makes, before it writes the
+/// file, such as to set its owner.
+/// @returns an error to fail the create, and then the create removes the file.
 using OnCreate = std::function<x::errors::Error(const std::filesystem::path &)>;
 
 /// @brief an OnCreate that does nothing.
