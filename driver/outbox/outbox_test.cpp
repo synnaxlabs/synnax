@@ -462,7 +462,7 @@ TEST_F(OutboxTest, RemovesStaleTemporaryFiles) {
 /// @brief it should refuse to open a directory that another outbox has open.
 TEST_F(OutboxTest, RefusesLockedDirectory) {
     const auto outbox = this->open_unreachable();
-    ASSERT_OCCURRED_AS_P(Outbox::open({.dir = this->dir}), journal::LOCKED);
+    ASSERT_OCCURRED_AS_P(Outbox::open({.dir = this->dir}), x::fs::LOCKED);
 }
 
 /// @brief it should send the calls of a v1 segment.

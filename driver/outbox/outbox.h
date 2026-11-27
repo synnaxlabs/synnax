@@ -30,6 +30,7 @@
 #include "client/cpp/status/status.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/fs/file.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/journal/journal.h"
@@ -99,7 +100,7 @@ struct Config {
         [](const x::errors::Error &err) { return err; };
     /// @brief called with each file and directory that the outbox creates, before the
     /// outbox uses it, such as to set its owner.
-    journal::OnCreate on_create = journal::no_create_hook;
+    x::fs::OnCreate on_create = x::fs::no_create_hook;
     /// @brief gets the result of each save of the send position and returns the result
     /// the outbox uses.
     std::function<x::errors::Error(const x::errors::Error &)> on_save =
@@ -287,7 +288,7 @@ public:
     /// on from the segment, and counts them in cut(). It removes a segment that a crash
     /// left during a compaction after the saved offset.
     /// @returns UNKNOWN_VERSION when a segment has a call kind this Driver cannot send.
-    /// CORRUPT when a call does not decode. journal::LOCKED when another outbox has the
+    /// CORRUPT when a call does not decode. x::fs::LOCKED when another outbox has the
     /// directory. journal::CORRUPT when the saved offset is past the end of its
     /// segment. The errors of journal::Writer::open and journal::Reader::next when a
     /// segment or the offset is not valid.

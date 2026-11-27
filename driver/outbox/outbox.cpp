@@ -832,7 +832,7 @@ void Outbox::remove_segments(const std::vector<std::uint64_t> &keys) const {
         if (std::filesystem::remove(this->segment_path(key), ec); ec)
             LOG(WARNING) << "[outbox] failed to remove " << this->segment_path(key)
                          << ": " << ec.message();
-    if (const auto err = journal::sync_dir(this->cfg.dir))
+    if (const auto err = x::fs::sync_dir(this->cfg.dir))
         LOG(WARNING) << "[outbox] failed to sync " << this->cfg.dir << ": " << err;
 }
 
