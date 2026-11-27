@@ -258,4 +258,36 @@ TEST(Resources, SkipsUnparsableSetSignal) {
         ASSERT_NO_THROW(resources->on_signal(ch, x::telem::Series(std::string("{}"))));
     }
 }
+
+/// @brief it should keep the chassis of a module when another rack holds the chassis.
+TEST(Resources, KeepsModuleChassisWhileAnotherRackHoldsIt) {
+    const auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::rack::Rack rack{.name = "ni_resources_rack"};
+    ASSERT_NIL(client->racks.create(rack));
+    synnax::rack::Rack other{.name = "ni_resources_other_rack"};
+    ASSERT_NIL(client->racks.create(other));
+    auto chassis = scanned(rack.key, false);
+    chassis.is_chassis = true;
+    chassis.provides_link_name = "link";
+    auto module = scanned(rack.key, false);
+    module.connects_to_link_name = "link";
+    const auto resources = create_resources(client, rack.key);
+    ASSERT_NIL(resources->sync({chassis, module}));
+    const auto stored_chassis = ASSERT_NIL_P(client->ni.chassis.retrieve(
+        synnax::ni::chassis::Where{.serial = chassis.key},
+        x::filter::one
+    ));
+    synnax::ni::chassis::IdentityUpdate moved;
+    moved.rack = other.key;
+    moved.serial = stored_chassis.serial;
+    moved.resource_name = stored_chassis.resource_name;
+    moved.model = stored_chassis.model;
+    ASSERT_NIL_P(client->ni.chassis.update(stored_chassis.key, moved));
+    ASSERT_NIL(resources->sync({chassis, module}));
+    const auto stored_module = ASSERT_NIL_P(client->ni.devices.retrieve(
+        synnax::ni::device::Where{.serial = module.key},
+        x::filter::one
+    ));
+    ASSERT_EQ(stored_module.chassis, stored_chassis.key);
+}
 }
