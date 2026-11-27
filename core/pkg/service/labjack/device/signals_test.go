@@ -150,7 +150,7 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(removed).To(ContainElement(d.Key))
 	})
 
-	It("Should publish dispatched actions with their dispatch key", func(
+	It("Should publish create and dispatched actions with their dispatch key", func(
 		ctx SpecContext,
 	) {
 		d := device.Device{
@@ -161,6 +161,7 @@ var _ = Describe("Signals", Ordered, func() {
 			Model:      device.ModelT7,
 			Ports:      device.Ports{Variant: device.T7Ports{}},
 		}
+		acts := openStreamer(ctx, "sy_labjack_device_action_set")
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &d)
 		})).To(Succeed())
@@ -169,7 +170,27 @@ var _ = Describe("Signals", Ordered, func() {
 				return svc.NewWriter(tx).Delete(ctx, d.Key)
 			})).To(Succeed())
 		})
-		acts := openStreamer(ctx, "sy_labjack_device_action_set")
+		type scopedFrame struct {
+			Key         uuid.UUID `json:"key"`
+			DispatchKey string    `json:"dispatch_key"`
+			Actions     []struct {
+				Type string `json:"type"`
+			} `json:"actions"`
+		}
+		receive := func() scopedFrame {
+			GinkgoHelper()
+			var res framer.StreamerResponse
+			Eventually(acts.Outlet(), 5*time.Second).Should(Receive(&res))
+			var scoped scopedFrame
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				Expect(json.Unmarshal(sample, &scoped)).To(Succeed())
+			}
+			return scoped
+		}
+		created := receive()
+		Expect(created.Key).To(Equal(d.Key))
+		Expect(created.Actions).To(HaveLen(1))
+		Expect(created.Actions[0].Type).To(Equal("create"))
 		apply := func(name string) error {
 			return node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).WithDispatchKey("dk-1").Apply(
@@ -185,16 +206,8 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(apply("")).To(MatchError(ContainSubstring("name")))
 		Consistently(acts.Outlet(), 500*time.Millisecond).ShouldNot(Receive())
 		Expect(apply("Renamed")).To(Succeed())
-		var res framer.StreamerResponse
-		Eventually(acts.Outlet(), 5*time.Second).Should(Receive(&res))
-		var scoped struct {
-			Key         uuid.UUID `json:"key"`
-			DispatchKey string    `json:"dispatch_key"`
-		}
-		for sample := range res.Frame.SeriesAt(0).Samples() {
-			Expect(json.Unmarshal(sample, &scoped)).To(Succeed())
-		}
-		Expect(scoped.Key).To(Equal(d.Key))
-		Expect(scoped.DispatchKey).To(Equal("dk-1"))
+		applied := receive()
+		Expect(applied.Key).To(Equal(d.Key))
+		Expect(applied.DispatchKey).To(Equal("dk-1"))
 	})
 })

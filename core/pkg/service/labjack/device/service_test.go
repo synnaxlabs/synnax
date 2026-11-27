@@ -763,6 +763,12 @@ var _ = Describe("Service", func() {
 			Expect(retrieve(ctx, d.Key).ReadIndex).To(BeNil())
 		})
 
+		It("Should refuse an action of an unknown type", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Action{Type: "update"})).
+				To(MatchError(ContainSubstring("update")))
+		})
+
 		It("Should refuse an action with no payload", func(ctx SpecContext) {
 			d := create(ctx)
 			Expect(svc.NewWriter(tx).Apply(
