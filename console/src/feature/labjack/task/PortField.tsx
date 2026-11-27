@@ -14,7 +14,7 @@ import type { ReactElement } from "react";
 import { Device } from "@/feature/labjack/device";
 import { BankTabs, PortBanks } from "@/feature/labjack/task/PortBanks";
 import { claims } from "@/feature/labjack/task/ports";
-import type { Channel, ReadChannel } from "@/feature/labjack/task/types";
+import type { Channel } from "@/feature/labjack/task/types";
 import { Task } from "@/platform/task";
 
 export interface PortFieldProps<C extends Channel> {
@@ -48,7 +48,7 @@ export const PortField = <C extends Channel>({
   const tabbed = ports.some(({ connector }) => connector != null);
   return (
     <Form.Field path={port} label="Port">
-      {({ value, onChange, preview }) => {
+      {({ value, preview }) => {
         const props = {
           ports,
           claims: claims(channels, model),
@@ -57,16 +57,12 @@ export const PortField = <C extends Channel>({
           onMove: preview
             ? undefined
             : (cell: Task.Port.Cell) => {
-                onChange(cell.key);
-                // A differential channel reads against the pair of its new port. An
-                // analog and a thermocouple channel keep negChan at the same path.
-                const { negChan } = deep.variant(
-                  deep.widen<ReadChannel>(path),
-                  "type",
-                  "analog",
-                );
-                if (get(negChan, { optional: true })?.value != null)
-                  set(negChan, Device.negativeChannelOf(cell.key) ?? undefined);
+                const channel = deep.widen<Channel>(path);
+                const next: Channel = { ...get(channel).value, port: cell.key };
+                // A differential channel reads against the pair of its new port.
+                if ("negChan" in next && next.negChan != null)
+                  next.negChan = Device.negativeChannelOf(cell.key) ?? undefined;
+                set(channel, next);
               },
         };
         return tabbed ? (
