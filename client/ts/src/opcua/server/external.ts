@@ -7,5 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/opcua/server/client";
 export * from "@/opcua/server/types.gen";
 export type { WhereInput } from "@/opcua/server/where.gen";

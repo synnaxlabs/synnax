@@ -46,6 +46,7 @@ import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
 import { ni } from "@/ni";
+import { opcua } from "@/opcua";
 import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -222,7 +223,10 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   ni_chassis: changes(ni.chassis.SET_CHANNEL_NAME, ni.chassis.DELETE_CHANNEL_NAME),
   ni_device: changes(ni.device.SET_CHANNEL_NAME, ni.device.DELETE_CHANNEL_NAME),
   node: null,
-  opcua_server: null,
+  opcua_server: changes(
+    opcua.server.SET_CHANNEL_NAME,
+    opcua.server.DELETE_CHANNEL_NAME,
+  ),
   panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
   policy: changes(access.policy.ACTION_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
   project: changes(project.ACTION_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
@@ -276,6 +280,7 @@ export default class Synnax extends framer.Client {
   readonly racks: rack.Client;
   readonly devices: device.Client;
   readonly ni: ni.Client;
+  readonly opcua: opcua.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
   readonly views: view.Client;
@@ -510,6 +515,7 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
     });
     this.ni = new ni.Client({ unary, cache, statuses: this.statuses });
+    this.opcua = new opcua.Client({ unary, cache, statuses: this.statuses });
     this.arcs = new arc.Client({
       unary,
       stream: this.transport.stream,
