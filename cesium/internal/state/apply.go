@@ -268,7 +268,7 @@ func (c *core) drop(key uint32) error {
 
 func (c *core) restart() {
 	for _, s := range c.segments {
-		if s.dur.created && !s.dur.sealed {
+		if s.dur.created {
 			s.dur.sealed = true
 		}
 	}

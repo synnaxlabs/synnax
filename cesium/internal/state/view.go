@@ -10,6 +10,7 @@
 package state
 
 import (
+	"cmp"
 	"slices"
 	"sync/atomic"
 
@@ -53,13 +54,7 @@ type keyEntry struct {
 // insert adds s to c in order of identity.
 func (c *keyEntry) insert(s *segEntry) {
 	i, _ := slices.BinarySearchFunc(c.segs, s.vis.ID, func(o *segEntry, id uint64) int {
-		switch {
-		case o.vis.ID < id:
-			return -1
-		case o.vis.ID > id:
-			return 1
-		}
-		return 0
+		return cmp.Compare(o.vis.ID, id)
 	})
 	c.segs = slices.Insert(c.segs, i, s)
 }
