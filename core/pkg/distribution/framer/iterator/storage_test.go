@@ -296,7 +296,10 @@ var _ = Describe("Storage stream read failures", func() {
 			stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
 			Eventually(responses.Outlet()).Should(Receive(HaveField("Ack", true)))
-			requests.Inlet() <- iterator.Request{Command: iterator.CommandNext, Span: span}
+			requests.Inlet() <- iterator.Request{
+				Command: iterator.CommandNext,
+				Span:    span,
+			}
 			var res iterator.Response
 			Eventually(responses.Outlet()).Should(Receive(&res))
 			Expect(res.Variant).To(Equal(iterator.ResponseVariantData))
