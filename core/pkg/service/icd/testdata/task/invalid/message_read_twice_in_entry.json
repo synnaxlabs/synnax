@@ -1,0 +1,100 @@
+{
+  "description": "One entry reads one message twice.",
+  "error": "message A is read twice",
+  "path": "entries.0.messages.1.message",
+  "icds": [
+    {
+      "key": "00000000-0000-4000-8000-000000000f03",
+      "name": "device",
+      "framing": {
+        "type": "delimited",
+        "delimiter": "\n"
+      },
+      "messages": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "A",
+          "payload": {
+            "format": "text",
+            "delimiter": ",",
+            "prefix": "A",
+            "fields": [
+              {
+                "key": "00000000-0000-4000-8000-00000000000a",
+                "name": "v",
+                "scale": 1,
+                "offset": 0,
+                "units": "",
+                "encoding": "delimited",
+                "position": 1
+              }
+            ]
+          }
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "B",
+          "payload": {
+            "format": "text",
+            "delimiter": ",",
+            "prefix": "B",
+            "fields": [
+              {
+                "key": "00000000-0000-4000-8000-00000000000b",
+                "name": "v",
+                "scale": 1,
+                "offset": 0,
+                "units": "",
+                "encoding": "delimited",
+                "position": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "channels": [
+    {
+      "key": 11,
+      "name": "c11",
+      "data_type": "float64",
+      "is_index": false,
+      "index": 111
+    },
+    {
+      "key": 12,
+      "name": "c12",
+      "data_type": "float64",
+      "is_index": false,
+      "index": 112
+    }
+  ],
+  "entries": [
+    {
+      "icd": "00000000-0000-4000-8000-000000000f03",
+      "messages": [
+        {
+          "message": "00000000-0000-4000-8000-000000000001",
+          "bindings": [
+            {
+              "field": "00000000-0000-4000-8000-00000000000a",
+              "channel": 11,
+              "data_type": ""
+            }
+          ]
+        },
+        {
+          "message": "00000000-0000-4000-8000-000000000001",
+          "bindings": [
+            {
+              "field": "00000000-0000-4000-8000-00000000000a",
+              "channel": 12,
+              "data_type": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

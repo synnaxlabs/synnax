@@ -23,11 +23,13 @@ import {
 } from "@tauri-apps/api/webviewWindow";
 import {
   availableMonitors,
+  type BackgroundThrottlingPolicy,
   LogicalPosition,
   LogicalSize,
   type PhysicalPosition,
   type PhysicalSize,
 } from "@tauri-apps/api/window";
+import { z } from "zod";
 
 import type { Event, Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
@@ -85,11 +87,22 @@ const isPositionVisible = async (position: xy.XY): Promise<boolean> => {
   return boxes.some((b) => box.contains(b, position));
 };
 
+// Tauri exports its policy enum as a type only.
+const backgroundThrottlingZ = z.custom<BackgroundThrottlingPolicy>(
+  (v) => v === "disabled" || v === "throttle" || v === "suspend",
+);
+
 export interface TauriRuntimeProps {
   /** The window this runtime drives. Defaults to the current window. */
   window?: WebviewWindow;
   /** Where macOS draws the window controls in each window the runtime creates. */
   trafficLightPosition?: xy.XY;
+  /**
+   * How the webview of each window the runtime creates runs while the window is
+   * hidden. Applies on macOS 14 and later. Defaults to Tauri's default, which suspends
+   * the webview.
+   */
+  backgroundThrottling?: "disabled" | "throttle" | "suspend";
   /**
    * Runs before the runtime closes the window with the given label. The window stays
    * open until it resolves.
@@ -104,12 +117,21 @@ export class TauriRuntime<
 > implements Runtime<S, A> {
   private readonly win: WebviewWindow;
   private readonly trafficLightPosition?: LogicalPosition;
+  private readonly backgroundThrottling?: BackgroundThrottlingPolicy;
   private readonly beforeClose?: (label: string) => Promise<void>;
   private unsubscribe: Record<string, UnlistenFn>;
   private monitorChangePoll: NodeJS.Timeout | null = null;
 
-  constructor({ window, trafficLightPosition, beforeClose }: TauriRuntimeProps = {}) {
+  constructor({
+    window,
+    trafficLightPosition,
+    backgroundThrottling,
+    beforeClose,
+  }: TauriRuntimeProps = {}) {
     this.win = window ?? getCurrentWindow();
+    this.backgroundThrottling = backgroundThrottlingZ
+      .optional()
+      .parse(backgroundThrottling);
     this.beforeClose = beforeClose;
     if (trafficLightPosition != null)
       this.trafficLightPosition = new LogicalPosition(
@@ -240,6 +262,7 @@ export class TauriRuntime<
       titleBarStyle: "overlay",
       hiddenTitle: true,
       trafficLightPosition: this.trafficLightPosition,
+      backgroundThrottling: this.backgroundThrottling,
       dragDropEnabled: false,
       ...rest,
     });

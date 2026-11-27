@@ -102,8 +102,8 @@ void configure_modbus(const Config &, FactoryList &factories) {
     factories.push_back(
         std::make_unique<UnavailableFactory>(
             modbus::INTEGRATION_NAME,
-            "Modbus tasks do not run on NI Linux RT. Connect the device from a Driver on "
-            "Windows, macOS, or Linux."
+            "Modbus tasks do not run on NI Linux Real-Time. Connect the device from a "
+            "Driver on Windows, macOS, or Linux."
         )
     );
 }
