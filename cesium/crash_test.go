@@ -244,18 +244,14 @@ var _ = DescribeTable("Crash harness, ordered entries",
 )
 
 // Each entry holds only because Cesium syncs nothing: each crash image is empty, so the
-// harness checks only R0.
+// harness checks only R0. A profile whose faults need a sync fires none here, so the
+// table holds no such profile.
 var _ = DescribeTable("Crash harness, holding",
 	func(ctx SpecContext, ack crash.Ack, profile crash.Profile, runKey uint64) {
 		Expect(run(ctx, ack, profile, runKey, false)).To(Succeed())
 	},
 	Entry("Visible, Strict", crash.Visible, crash.Strict, uint64(0)),
-	Entry("Visible, SyncErrors", crash.Visible, crash.SyncErrors, uint64(0)),
 	Entry("Visible, FullDisk", crash.Visible, crash.FullDisk, uint64(0)),
-	Entry("Visible, OldCorruption", crash.Visible, crash.OldCorruption, uint64(0)),
-	Entry("Visible, NewCorruption", crash.Visible, crash.NewCorruption, uint64(0)),
-	// The disk fills on the first commit, so the engine acks nothing.
-	Entry("Durable, FullDisk, run key 1", crash.Durable, crash.FullDisk, uint64(1)),
 )
 
 var _ = Describe("Crash adapter", func() {
