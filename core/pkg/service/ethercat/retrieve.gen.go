@@ -12,6 +12,7 @@
 package ethercat
 
 import (
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -49,6 +50,21 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case EntryReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case UnresolvedReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i3 := range e.Channels {
@@ -110,6 +126,21 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t device.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case EntryReadChannel:
+						if v9.Device == t {
+							return []string{"channels", strconv.Itoa(i7), "device"}
+						}
+					case UnresolvedReadChannel:
+						if v9.Device == t {
+							return []string{"channels", strconv.Itoa(i7), "device"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t device.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
@@ -160,6 +191,14 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t device.Key) []string {
+				for i4, v5 := range e.StartupParameters {
+					if v5.Device == t {
+						return []string{"startup_parameters", strconv.Itoa(i4), "device"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t device.Key) {
 				for i2 := range e.StartupParameters {
 					if e.StartupParameters[i2].Device == t {
@@ -208,6 +247,21 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case EntryWriteChannel:
+						if v9.CmdChannel == t {
+							return []string{"channels", strconv.Itoa(i7), "cmd_channel"}
+						}
+					case UnresolvedWriteChannel:
+						if v9.CmdChannel == t {
+							return []string{"channels", strconv.Itoa(i7), "cmd_channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Channels {
@@ -270,6 +324,21 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case EntryWriteChannel:
+						if v9.StateChannel == t {
+							return []string{"channels", strconv.Itoa(i7), "state_channel"}
+						}
+					case UnresolvedWriteChannel:
+						if v9.StateChannel == t {
+							return []string{"channels", strconv.Itoa(i7), "state_channel"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
@@ -329,6 +398,21 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t device.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case EntryWriteChannel:
+						if v9.Device == t {
+							return []string{"channels", strconv.Itoa(i7), "device"}
+						}
+					case UnresolvedWriteChannel:
+						if v9.Device == t {
+							return []string{"channels", strconv.Itoa(i7), "device"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t device.Key) {
 				for i3 := range e.Channels {

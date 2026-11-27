@@ -1,0 +1,55 @@
+{
+  "description": "A number whose exponent is past ±2^20 is not valid, quoted or not.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "{\"v\":1e-1048576}",
+      "message": "reading",
+      "samples": [0]
+    },
+    {
+      "text": "{\"v\":1e-1048577}",
+      "error": "field v: invalid number \"1e-1048577\": validation error"
+    },
+    {
+      "text": "{\"v\":0e1048577}",
+      "error": "field v: invalid number \"0e1048577\": validation error"
+    },
+    {
+      "text": "{\"v\":1e1048577}",
+      "error": "field v: invalid number \"1e1048577\": validation error"
+    },
+    {
+      "document": { "v": "1e-1048577" },
+      "error": "field v: invalid number \"1e-1048577\": validation error"
+    },
+    {
+      "document": { "v": "0x1p-1048577" },
+      "error": "field v: invalid number \"0x1p-1048577\": validation error"
+    }
+  ]
+}
