@@ -124,17 +124,37 @@ describe("Channel select", () => {
       <output>{JSON.stringify(Haul.useDraggingState().items)}</output>
     );
 
-    it("should record whether a line plot can draw the dragged channel", async () => {
+    const createTextChannel = async (): Promise<channel.Channel> => {
       const index = await client.channels.create({
         name: id.create(),
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
-      const text = await client.channels.create({
+      return await client.channels.create({
         name: id.create(),
         dataType: DataType.STRING,
         index: index.key,
       });
+    };
+
+    const dragStart = (el: Element): void => {
+      el.dispatchEvent(
+        new DragEvent("dragstart", { bubbles: true, dataTransfer: new DataTransfer() }),
+      );
+    };
+
+    const expectDragged = async (text: channel.Channel): Promise<void> => {
+      await expect
+        .element(page.getByRole("status"))
+        .toHaveTextContent(
+          JSON.stringify([
+            { type: Channel.HAUL_TYPE, key: text.key, data: { plottable: false } },
+          ]),
+        );
+    };
+
+    it("should record whether a line plot can draw the channel a single select drags", async () => {
+      const text = await createTextChannel();
       const c = await render(
         <Haul.Provider>
           <Channel.SelectSingle value={text.key} onChange={vi.fn()} />
@@ -145,16 +165,23 @@ describe("Channel select", () => {
       const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
       if (trigger == null) throw new Error("the trigger did not render");
       await expect.element(page.getByText(text.name)).toBeInTheDocument();
-      trigger.dispatchEvent(
-        new DragEvent("dragstart", { bubbles: true, dataTransfer: new DataTransfer() }),
+      dragStart(trigger);
+      await expectDragged(text);
+    });
+
+    it("should record whether a line plot can draw the channel a multiple select drags", async () => {
+      const text = await createTextChannel();
+      await render(
+        <Haul.Provider>
+          <Channel.SelectMultiple value={[text.key]} onChange={vi.fn()} />
+          <Dragged />
+        </Haul.Provider>,
+        { wrapper: Wrapper },
       );
-      await expect
-        .element(page.getByRole("status"))
-        .toHaveTextContent(
-          JSON.stringify([
-            { type: Channel.HAUL_TYPE, key: text.key, data: { plottable: false } },
-          ]),
-        );
+      const tag = page.getByText(text.name);
+      await expect.element(tag).toBeInTheDocument();
+      dragStart(tag.element());
+      await expectDragged(text);
     });
   });
 });
