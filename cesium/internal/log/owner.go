@@ -31,7 +31,7 @@ var (
 
 // minSize is the smallest log file, in which the switch at three quarters comes before
 // the delete reserve stops entries that hold a Commit.
-const minSize = 4 * DeleteReserve
+const minSize = 8 * DeleteReserve
 
 // Name returns the file name of the log of generation.
 func Name(generation uint64) string { return fmt.Sprintf("%016x.log", generation) }

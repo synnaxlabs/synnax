@@ -19,10 +19,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// segState is the state of one segment. vis is what readers see, and dur is what a
+// segEntry is the state of one segment. vis is what readers see, and dur is what a
 // durable log record covers. Visible data that is not durable is always a suffix of
 // vis.
-type segState struct {
+type segEntry struct {
 	key uint32
 	vis Segment
 	dur durable
@@ -41,18 +41,18 @@ type durable struct {
 	pointers []Pointer
 }
 
-// chanState is the state of one key: its segments, in rising order of identity, and the
+// keyEntry is the state of one key: its segments, in rising order of identity, and the
 // visible Channel that readers load.
-type chanState struct {
+type keyEntry struct {
 	key    uint32
-	segs   []*segState
+	segs   []*segEntry
 	claims []*claim
 	pub    atomic.Pointer[Channel]
 }
 
 // insert adds s to c in order of identity.
-func (c *chanState) insert(s *segState) {
-	i, _ := slices.BinarySearchFunc(c.segs, s.vis.ID, func(o *segState, id uint64) int {
+func (c *keyEntry) insert(s *segEntry) {
+	i, _ := slices.BinarySearchFunc(c.segs, s.vis.ID, func(o *segEntry, id uint64) int {
 		switch {
 		case o.vis.ID < id:
 			return -1
@@ -65,14 +65,14 @@ func (c *chanState) insert(s *segState) {
 }
 
 // remove takes the segment with identity id out of c.
-func (c *chanState) remove(id uint64) {
-	c.segs = slices.DeleteFunc(c.segs, func(s *segState) bool { return s.vis.ID == id })
+func (c *keyEntry) remove(id uint64) {
+	c.segs = slices.DeleteFunc(c.segs, func(s *segEntry) bool { return s.vis.ID == id })
 }
 
 // checkViews panics when the pointers of c, in the visible view or the durable one, are
 // not apart in time, or not in stream order inside a segment, or when a durable view
 // runs past the visible one. It runs only in a build with invariants.
-func (c *chanState) checkViews() {
+func (c *keyEntry) checkViews() {
 	if !invariants.Enabled {
 		return
 	}
@@ -104,7 +104,7 @@ func (c *chanState) checkViews() {
 }
 
 // publish stores a new visible Channel of c for readers.
-func (c *chanState) publish() {
+func (c *keyEntry) publish() {
 	ch := &Channel{Key: c.key, Segments: make([]Segment, 0, len(c.segs))}
 	for _, s := range c.segs {
 		ch.Segments = append(ch.Segments, s.vis)
@@ -115,7 +115,7 @@ func (c *chanState) publish() {
 // overlaps returns the first pointer of c, in the durable view or the visible one, that
 // shares a stamp with [first, last], and false when there is none. It reads every
 // pointer, since a backfill leaves the pointers of a segment out of time order.
-func (c *chanState) overlaps(
+func (c *keyEntry) overlaps(
 	first, last telem.TimeStamp,
 	durableView bool,
 ) (Pointer, bool) {

@@ -81,7 +81,7 @@ type Writer struct {
 	done chan error
 	// The fields below belong to the owner.
 	claims map[uint32]*claim
-	held   map[uint32]*segState
+	held   map[uint32]*segEntry
 	types  map[uint32]uint8
 }
 
@@ -112,7 +112,7 @@ func (s *State) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, erro
 		cfg:    cfg,
 		done:   make(chan error, 1),
 		claims: map[uint32]*claim{},
-		held:   map[uint32]*segState{},
+		held:   map[uint32]*segEntry{},
 		types:  map[uint32]uint8{},
 	}
 	for _, k := range cfg.Keys {
@@ -298,7 +298,7 @@ func (s *State) checkSegment(r *segmentRequest) error {
 func (s *State) newSegment(r *segmentRequest) {
 	id := s.nextID
 	s.nextID++
-	seg := &segState{key: r.key, holder: r.w, vis: Segment{
+	seg := &segEntry{key: r.key, holder: r.w, vis: Segment{
 		ID:       id,
 		Clock:    r.w.cfg.Clock,
 		Version:  s.cfg.Version,
@@ -531,7 +531,7 @@ func (r *sealRequest) run(s *State) {
 }
 
 // sealVisible seals seg in the visible view, takes it from w, and returns its Seal.
-func (s *State) sealVisible(w *Writer, seg *segState) log.Seal {
+func (s *State) sealVisible(w *Writer, seg *segEntry) log.Seal {
 	seg.vis.Sealed, seg.holder = true, nil
 	delete(w.held, seg.key)
 	return log.Seal{
@@ -629,7 +629,7 @@ func (*switchRequest) fail(error) {}
 
 // drop takes seg, which has no durable byte, out of the state, for the database to
 // unlink its file.
-func (s *State) drop(seg *segState) {
+func (s *State) drop(seg *segEntry) {
 	ch := s.core.channels[seg.key]
 	ch.remove(seg.vis.ID)
 	delete(s.core.segments, seg.vis.ID)

@@ -67,7 +67,7 @@ type State struct {
 	core *core
 	// keys maps each key to its channel for readers. The owner replaces the map when it
 	// adds or drops a key.
-	keys atomic.Pointer[map[uint32]*chanState]
+	keys atomic.Pointer[map[uint32]*keyEntry]
 	wake chan struct{}
 	exit chan struct{}
 	mu   struct {
