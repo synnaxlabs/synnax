@@ -78,8 +78,11 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 		if s, ok := r.temp.keys[i]; ok {
 			return s, nil
 		}
-	} else {
-		if s, ok := r.temp.names[name]; ok {
+	} else if s, ok := r.temp.names[name]; ok {
+		// A name that several stored channels hold stays ambiguous when the create
+		// names one of them.
+		_, err := r.SymbolResolver.Resolve(ctx, name)
+		if _, ambiguous := errors.AsType[AmbiguousNameError](err); !ambiguous {
 			return s, nil
 		}
 	}
