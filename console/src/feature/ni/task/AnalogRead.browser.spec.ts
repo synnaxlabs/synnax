@@ -28,6 +28,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  getAddChannelButton,
   preloadForms,
   reportTaskRunning,
   selectFromDropdown,
@@ -1002,7 +1003,7 @@ describe("AnalogRead ports", () => {
     await selectFromDropdown("Voltage", "Current");
     const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
     await waitFor(() => expect(min.value).toBe("-0.02"));
-    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    fireEvent.click(getAddChannelButton());
     await waitFor(() => {
       const rows = screen.getAllByRole("option");
       expect(rows).toHaveLength(2);
