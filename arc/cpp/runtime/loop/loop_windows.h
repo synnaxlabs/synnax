@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 
 #include "absl/log/log.h"
@@ -393,7 +394,8 @@ private:
 
     Config config;
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
-    HANDLE wake_event = NULL;
+    /// @brief atomic, as wake reads it from another thread while start sets it.
+    std::atomic<HANDLE> wake_event = NULL;
     HANDLE timer_event = NULL;
     HANDLE watched_handle = NULL;
     bool arm_failed = false;
