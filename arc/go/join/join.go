@@ -8,51 +8,62 @@
 // included in the file licenses/APL.txt.
 
 // Package join pairs the inputs of a calculation by sample time. The output takes the
-// stamps and alignments of a primary input, and each other input holds its last value
-// at or before each stamp, up to a hold limit set from its own sample interval. A live
-// input whose stamps do not time its samples holds its newest value by arrival.
+// stamps and alignments of a primary input. Each other input holds its last sample at
+// or before each stamp, for at most its hold limit: 3 times the median of its last 16
+// intervals. An input with fewer than 2 samples has no limit, and so does one with no
+// steady rate, where fewer than 3 in 4 of those intervals lie within a factor of 2 of
+// their median.
+//
+// A live join waits for no input, so it judges an input with no sample past a stamp by
+// arrival. The input's sample stays valid while its last frame arrived within a window
+// before the primary's last frame: the larger of its hold limit and 3 times the median
+// of its last 16 frame gaps, or of the primary's until the input has one. Pushes that
+// arrive at one time are one frame. An input with no steady rate holds with no window.
 package join
 
 import (
-	"slices"
-
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Input configures one input of a Join.
+type Input struct {
+	// DataType is the data type of the input's samples. It must have a fixed density.
+	//
+	// [REQUIRED]
+	DataType telem.DataType
+	// ArrivalTimed marks an input whose stamps do not time its samples, as for a
+	// channel with no index. It holds its newest pushed sample within its window, and
+	// Push ignores its stamps. Only a live join takes one, and never as its primary.
+	//
+	// [OPTIONAL] - Defaults to false.
+	ArrivalTimed bool
+}
+
 // Config configures a Join.
 type Config struct {
-	// DataTypes holds the data type of each input, in input order. Each must have a
-	// fixed density.
-	DataTypes []telem.DataType
+	// Inputs holds the inputs, in input order.
+	//
+	// [REQUIRED]
+	Inputs []Input
 	// Primary is the index of the input whose stamps time the output.
+	//
+	// [OPTIONAL] - Defaults to 0.
 	Primary int
 	// From is the first stamp that gets an output. The samples before it only fill the
-	// hold limits, so that a read can look back before its range.
+	// hold limits and the held samples.
+	//
+	// [OPTIONAL] - Defaults to 0.
 	From telem.TimeStamp
-	// Live makes the join judge an input with no sample past a primary stamp by
-	// arrival, as a live read cannot wait for it. The input holds its value while its
-	// last frame arrived within the larger of its hold limit and 3 times the median gap
-	// of the arrivals of its last 16 frames, before the primary frame. Until it has a
-	// frame gap, it takes the primary's, and with no limit and no gap it holds. A push
-	// before From seeds the input as no frame, so its newest sample holds within one
-	// hold limit of a primary frame's first stamp. A live join drops the oldest samples
-	// of an input past 65,536, so a primary that stays silent leaves memory bounded. A
-	// history join never drops a sample, and Push refuses one past 65,536.
+	// Live makes the join judge late inputs by arrival. A live join drops the oldest
+	// samples of an input past 65,536, so a silent primary leaves memory bounded.
+	//
+	// [OPTIONAL] - Defaults to false.
 	Live bool
-	// Arrival marks the inputs, in input order, whose stamps do not time their samples,
-	// as for a channel with no index. Such an input holds its newest pushed sample for
-	// each primary stamp while its last push arrived within 3 times the median gap of
-	// the arrivals of its last 16 pushes, before the primary frame. Until it has a push
-	// gap, it takes the primary's frame gaps, and with neither it holds. Push ignores
-	// its stamps. Only a live join takes arrival inputs, and never as its primary.
+	// Now returns the arrival of a push. It must never go back.
 	//
-	// [OPTIONAL] - Defaults to no arrival input.
-	Arrival []bool
-	// Now returns the time of a push, which a live join takes as its arrival.
-	//
-	// [OPTIONAL] - Defaults to telem.Now.
+	// [REQUIRED] for a live join.
 	Now func() telem.TimeStamp
 }
 
@@ -61,7 +72,8 @@ type Run struct {
 	// Values holds one series per input, in input order, with one sample per stamp of
 	// Time.
 	Values []telem.Series
-	// Time holds the stamps of the primary input, with its alignments.
+	// Time holds the stamps of the primary input, with the run's alignment and time
+	// range.
 	Time telem.Series
 }
 
@@ -96,12 +108,10 @@ type Join struct {
 	from    telem.TimeStamp
 	live    bool
 	now     func() telem.TimeStamp
-	// arrived is the arrival of the last push of the primary, started the arrival of
-	// its first, and frames holds the gaps between the arrivals of its pushes.
-	arrived telem.TimeStamp
+	// frames holds the live frames of the primary, and started the arrival of its
+	// first.
+	frames  cadence
 	started telem.TimeStamp
-	frames  intervals
-	framed  bool
 	// last is the alignment of the last primary sample that got an output, and joined
 	// is false when no sample did or a dropped stamp came after it.
 	last   telem.Alignment
@@ -109,121 +119,184 @@ type Join struct {
 }
 
 type input struct {
-	dataType telem.DataType
-	density  int
-	arrival  bool
-	// data, stamps, and alignments hold the pushed samples that Next has not passed,
+	dataType     telem.DataType
+	density      int
+	arrivalTimed bool
+	// data, stamps, and alignments hold the added samples that Next has not passed,
 	// from first on. Only the primary keeps alignments.
 	data       []byte
 	stamps     []telem.TimeStamp
 	alignments []telem.Alignment
 	first      int
-	// last is the last stamp pushed to the input, and pushed is false before the first
-	// push.
-	last   telem.TimeStamp
-	pushed bool
+	// last is the last stamp added to the input, and added is false before the first.
+	last  telem.TimeStamp
+	added bool
 	// held is the last sample at or before the last stamp that Next passed.
 	held      []byte
 	heldStamp telem.TimeStamp
 	holds     bool
 	intervals intervals
-	// frames holds the gaps between the arrivals of the live frames pushed from From
-	// on, and arrived the arrival of the last of them.
-	frames  intervals
+	frames    cadence
+}
+
+// cadence holds the arrivals of the live frames of an input.
+type cadence struct {
+	gaps    intervals
 	arrived telem.TimeStamp
 	framed  bool
 }
 
+// arrive counts a frame that arrived at at. A frame that arrives with the last one is
+// part of it.
+func (c *cadence) arrive(at telem.TimeStamp) {
+	if c.framed && at != c.arrived {
+		c.gaps.add(telem.TimeSpan(at - c.arrived))
+	}
+	c.arrived, c.framed = at, true
+}
+
 // New returns a Join of cfg.
 func New(cfg Config) (*Join, error) {
-	if len(cfg.DataTypes) == 0 {
+	if len(cfg.Inputs) == 0 {
 		return nil, errors.Wrap(validate.ErrValidation, "join needs at least one input")
 	}
-	if cfg.Primary < 0 || cfg.Primary >= len(cfg.DataTypes) {
+	if cfg.Primary < 0 || cfg.Primary >= len(cfg.Inputs) {
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"primary input %d is not one of the %d inputs",
 			cfg.Primary,
-			len(cfg.DataTypes),
+			len(cfg.Inputs),
 		)
 	}
-	if err := validateArrival(cfg); err != nil {
-		return nil, err
-	}
-	if cfg.Now == nil {
-		cfg.Now = telem.Now
+	if cfg.Live && cfg.Now == nil {
+		return nil, errors.Wrap(validate.ErrValidation, "a live join needs Now")
 	}
 	j := &Join{
-		inputs:  make([]*input, len(cfg.DataTypes)),
+		inputs:  make([]*input, len(cfg.Inputs)),
 		primary: cfg.Primary,
 		from:    cfg.From,
 		live:    cfg.Live,
 		now:     cfg.Now,
 	}
-	for i, dt := range cfg.DataTypes {
-		if dt.IsVariable() || dt.Density() == 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"input %d has data type %s, which has no fixed density",
-				i,
-				dt,
-			)
+	for i, in := range cfg.Inputs {
+		if err := validateInput(cfg, i); err != nil {
+			return nil, err
 		}
-		density := int(dt.Density())
+		density := int(in.DataType.Density())
 		j.inputs[i] = &input{
-			dataType: dt,
-			density:  density,
-			arrival:  len(cfg.Arrival) > 0 && cfg.Arrival[i],
-			held:     make([]byte, density),
+			dataType:     in.DataType,
+			density:      density,
+			arrivalTimed: in.ArrivalTimed,
+			held:         make([]byte, density),
 		}
 	}
 	return j, nil
 }
 
-// validateArrival returns why cfg cannot take its arrival inputs, or nil.
-func validateArrival(cfg Config) error {
+// validateInput returns why cfg cannot take its input i, or nil.
+func validateInput(cfg Config, i int) error {
+	in := cfg.Inputs[i]
 	switch {
-	case len(cfg.Arrival) == 0:
-		return nil
-	case len(cfg.Arrival) != len(cfg.DataTypes):
+	case in.DataType.IsVariable() || in.DataType.Density() == 0:
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"arrival marks %d inputs of %d",
-			len(cfg.Arrival),
-			len(cfg.DataTypes),
+			"input %d has data type %s, which has no fixed density",
+			i,
+			in.DataType,
 		)
-	case cfg.Arrival[cfg.Primary]:
+	case in.ArrivalTimed && i == cfg.Primary:
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"primary input %d cannot pair by arrival",
-			cfg.Primary,
+			i,
 		)
-	case !cfg.Live && slices.Contains(cfg.Arrival, true):
+	case in.ArrivalTimed && !cfg.Live:
 		return errors.Wrap(validate.ErrValidation, "only a live join pairs by arrival")
 	}
 	return nil
 }
 
-// Push adds the samples of input i, with their stamps in t. The stamps must rise
-// strictly from the last stamp pushed to the input. The samples take the alignment of
-// t, and Push ignores the alignment of data. In history, Push refuses samples that
-// would leave more than most samples of the input that Next has not passed, since a
-// history read paces its inputs. An arrival input keeps only its newest sample, and
-// Push ignores t.
+// Load adds stored samples of input i from before a live open, with their stamps in t,
+// which must rise. They fill the input's hold limit and held sample, and count as no
+// frame. Until the input's first live frame, its held sample is valid for each primary
+// stamp within one hold limit of its own stamp. Only a live join loads samples, never
+// for an arrival-timed input, and only before the input's first live frame.
+func (j *Join) Load(i int, data, t telem.Series) error {
+	if err := j.validate(i, data, t); err != nil {
+		return err
+	}
+	in := j.inputs[i]
+	switch {
+	case !j.live:
+		return errors.Wrap(validate.ErrValidation, "only a live join loads samples")
+	case in.arrivalTimed:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"input %d is arrival-timed, so it loads no samples",
+			i,
+		)
+	case in.frames.framed:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"input %d loads after its first live frame",
+			i,
+		)
+	}
+	return j.add(i, data, t, false)
+}
+
+// Push adds the samples of input i, with their stamps in t. The samples take the
+// alignment of t, not of data. A live join skips each sample whose stamp does not
+// follow the input's last, as a stream can repeat the samples that Load added, and it
+// counts a push of samples as a frame. A history join refuses such a sample, and keeps
+// the input as it was. It also refuses samples that would leave an input other than the
+// primary with more than 65,536 samples that Next has not passed, since a history read
+// paces its inputs. An arrival-timed input keeps only its newest sample, and Push
+// ignores t.
 func (j *Join) Push(i int, data, t telem.Series) error {
 	if err := j.validate(i, data, t); err != nil {
 		return err
 	}
 	in := j.inputs[i]
-	if in.arrival {
-		j.arrive(in, data)
+	if in.arrivalTimed {
+		if data.Len() > 0 {
+			copy(in.held, data.Data[len(data.Data)-in.density:])
+			in.holds = true
+			in.frames.arrive(j.now())
+		}
 		return nil
 	}
+	if err := j.add(i, data, t, j.live); err != nil {
+		return err
+	}
+	if !j.live || t.Len() == 0 {
+		return nil
+	}
+	at := j.now()
+	if i != j.primary {
+		in.frames.arrive(at)
+		return nil
+	}
+	if !j.frames.framed {
+		j.started = at
+	}
+	j.frames.arrive(at)
+	return nil
+}
+
+// add appends the samples of input i whose stamps follow its last. A stamp that does
+// not follow is skipped when skip is true, or refused with the input kept as it was.
+func (j *Join) add(i int, data, t telem.Series, skip bool) error {
+	in := j.inputs[i]
 	stamps, alignments := len(in.stamps), len(in.alignments)
-	last, pushed := in.last, in.pushed
-	for k := range t.Len() {
+	last, added, skipped := in.last, in.added, false
+	for k := range int(t.Len()) {
 		stamp := telem.TimeStamp(telem.ByteOrder.Uint64(t.Data[k*8:]))
-		if pushed && stamp <= last {
+		if added && stamp <= last {
+			if skip {
+				skipped = true
+				continue
+			}
 			in.stamps, in.alignments = in.stamps[:stamps], in.alignments[:alignments]
 			return errors.Wrapf(
 				validate.ErrValidation,
@@ -233,50 +306,37 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 				last,
 			)
 		}
-		last, pushed = stamp, true
+		last, added = stamp, true
 		in.stamps = append(in.stamps, stamp)
 		if i == j.primary {
 			in.alignments = append(in.alignments, t.Alignment+telem.Alignment(k))
 		}
 	}
-	in.data = append(in.data, data.Data...)
-	in.last, in.pushed = last, pushed
-	if j.live && t.Len() > 0 {
-		at := j.now()
-		switch {
-		case i == j.primary:
-			if j.framed {
-				j.frames.add(telem.TimeSpan(at - j.arrived))
-			} else {
-				j.started = at
-			}
-			j.arrived, j.framed = at, true
-		case last >= j.from:
-			if in.framed {
-				in.frames.add(telem.TimeSpan(at - in.arrived))
-			}
-			in.arrived, in.framed = at, true
-		}
+	if skipped {
+		in.appendFollowing(data, t)
+	} else {
+		in.data = append(in.data, data.Data...)
 	}
+	in.last, in.added = last, added
 	return nil
 }
 
-// arrive holds the newest sample of data for the arrival input in, and counts the push
-// as a frame.
-func (j *Join) arrive(in *input, data telem.Series) {
-	if data.Len() == 0 {
-		return
+// appendFollowing appends the samples of data whose stamps in t follow the input's last
+// stamp before the call to add.
+func (in *input) appendFollowing(data, t telem.Series) {
+	last, added := in.last, in.added
+	for k := range int(t.Len()) {
+		stamp := telem.TimeStamp(telem.ByteOrder.Uint64(t.Data[k*8:]))
+		if added && stamp <= last {
+			continue
+		}
+		last, added = stamp, true
+		in.data = append(in.data, data.Data[k*in.density:(k+1)*in.density]...)
 	}
-	copy(in.held, data.Data[len(data.Data)-in.density:])
-	in.holds = true
-	at := j.now()
-	if in.framed {
-		in.frames.add(telem.TimeSpan(at - in.arrived))
-	}
-	in.arrived, in.framed = at, true
 }
 
-// validate returns why Push refuses the samples data of input i with stamps t, or nil.
+// validate returns why the join refuses the samples data of input i with stamps t, or
+// nil.
 func (j *Join) validate(i int, data, t telem.Series) error {
 	if i < 0 || i >= len(j.inputs) {
 		return errors.Wrapf(validate.ErrValidation, "input %d does not exist", i)
@@ -291,7 +351,7 @@ func (j *Join) validate(i int, data, t telem.Series) error {
 			in.dataType,
 			data.DataType,
 		)
-	case in.arrival:
+	case in.arrivalTimed:
 		return nil
 	case t.DataType != telem.TimestampT:
 		return errors.Wrapf(
@@ -308,7 +368,7 @@ func (j *Join) validate(i int, data, t telem.Series) error {
 			data.Len(),
 			t.Len(),
 		)
-	case !j.live && len(in.stamps)-in.first+int(t.Len()) > most:
+	case !j.live && i != j.primary && len(in.stamps)-in.first+int(t.Len()) > most:
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"input %d would hold more than %d samples that the join has not passed",
@@ -326,16 +386,12 @@ func (j *Join) validate(i int, data, t telem.Series) error {
 	return nil
 }
 
-// Next appends to out a joined sample for each pushed primary stamp up to until. A live
-// read passes the newest primary stamp, so no input is waited for. A historical read
-// passes the earliest of the newest stamps of the inputs, so each input's value at a
-// stamp is known. It sets out.Settled.
+// Next appends to out a joined sample for each added primary stamp up to until, and
+// sets out.Settled. A live read passes the newest primary stamp, so no input is waited
+// for. A history read passes the earliest of the newest stamps of the inputs, so each
+// input's value at a stamp is known.
 func (j *Join) Next(until telem.TimeStamp, out *Output) {
 	p := j.inputs[j.primary]
-	var frame telem.TimeStamp
-	if p.first < len(p.stamps) {
-		frame = p.stamps[p.first]
-	}
 	for ; p.first < len(p.stamps) && p.stamps[p.first] <= until; p.first++ {
 		stamp := p.stamps[p.first]
 		j.pass(stamp)
@@ -344,12 +400,17 @@ func (j *Join) Next(until telem.TimeStamp, out *Output) {
 		if stamp < j.from {
 			continue
 		}
-		if !j.holdsAll(stamp, frame) {
+		if !j.holdsAll(stamp) {
 			out.Dropped++
 			j.joined = false
 			continue
 		}
 		j.emit(p.first, out)
+	}
+	// No later primary stamp comes at or before the primary's last, so the other inputs
+	// pass it too, which bounds their buffers across a gap of the primary.
+	if p.added {
+		j.pass(min(until, p.last))
 	}
 	for i, in := range j.inputs {
 		if j.live && i != j.primary {
@@ -357,8 +418,9 @@ func (j *Join) Next(until telem.TimeStamp, out *Output) {
 		}
 		in.compact()
 	}
-	out.Settled = !j.live || (j.frames.n > 0 &&
-		telem.TimeSpan(j.arrived-j.started) >= j.frames.within())
+	gaps := &j.frames.gaps
+	out.Settled = !j.live ||
+		(gaps.n > 0 && telem.TimeSpan(j.frames.arrived-j.started) >= gaps.within())
 }
 
 // pass moves the held sample of each other input than the primary to its last sample at
@@ -374,7 +436,7 @@ func (j *Join) pass(stamp telem.TimeStamp) {
 	}
 }
 
-// step moves the held sample of in to its next pushed sample.
+// step moves the held sample of in to its next added sample.
 func (in *input) step() {
 	next := in.stamps[in.first]
 	if in.holds {
@@ -397,53 +459,48 @@ func (in *input) bound() {
 	}
 }
 
-// holdsAll reports whether each other input than the primary holds a sample within its
-// hold limit of stamp, in the frame of primary stamps that starts at frame.
-func (j *Join) holdsAll(stamp, frame telem.TimeStamp) bool {
+// holdsAll reports whether each other input than the primary holds a valid sample for
+// stamp.
+func (j *Join) holdsAll(stamp telem.TimeStamp) bool {
 	for i, in := range j.inputs {
-		if i == j.primary {
-			continue
-		}
-		if in.arrival {
-			if !in.holds || !j.arrivedWithin(in, 0) {
-				return false
-			}
-			continue
-		}
-		// A sample that bound stepped to can lie after stamp.
-		if !in.holds || stamp < in.heldStamp {
-			return false
-		}
-		limit := in.intervals.limit()
-		late := j.live && in.first == len(in.stamps)
-		switch {
-		case late && in.framed:
-			if !j.arrivedWithin(in, limit) {
-				return false
-			}
-		case limit == 0:
-		case late:
-			if telem.TimeSpan(max(stamp, frame)-in.heldStamp) > limit {
-				return false
-			}
-		case telem.TimeSpan(stamp-in.heldStamp) > limit:
+		if i != j.primary && !j.holds(in, stamp) {
 			return false
 		}
 	}
 	return true
 }
 
-// arrivedWithin reports whether the last frame of in arrived within the larger of
-// limit and 3 times the median gap of its frames, before the last push of the primary.
-// An input with no frame gap yet takes the primary's, and with no limit and no gap it
-// holds.
-func (j *Join) arrivedWithin(in *input, limit telem.TimeSpan) bool {
-	gaps := &in.frames
-	if gaps.n == 0 {
-		gaps = &j.frames
+// holds reports whether in holds a valid sample for stamp.
+func (j *Join) holds(in *input, stamp telem.TimeStamp) bool {
+	if in.arrivalTimed {
+		return in.holds && j.arrivedWithin(in, 0)
 	}
-	window := max(limit, gaps.within())
-	return window == 0 || telem.TimeSpan(j.arrived-in.arrived) <= window
+	// A sample that bound stepped to can lie after stamp.
+	if !in.holds || stamp < in.heldStamp {
+		return false
+	}
+	limit := in.intervals.limit()
+	switch {
+	case in.intervals.unsteady():
+		return true
+	case j.live && in.frames.framed && in.first == len(in.stamps):
+		return j.arrivedWithin(in, limit)
+	case limit == 0:
+		return true
+	}
+	return telem.TimeSpan(stamp-in.heldStamp) <= limit
+}
+
+// arrivedWithin reports whether the last frame of in arrived within its window before
+// the primary's last frame: the larger of limit and 3 times the median of its frame
+// gaps, or of the primary's until it has one. With no limit and no gap, it holds.
+func (j *Join) arrivedWithin(in *input, limit telem.TimeSpan) bool {
+	gaps := &in.frames.gaps
+	if gaps.n == 0 {
+		gaps = &j.frames.gaps
+	}
+	span := max(limit, gaps.within())
+	return span == 0 || telem.TimeSpan(j.frames.arrived-in.frames.arrived) <= span
 }
 
 // emit appends the held samples of the inputs at the primary sample k to out, in a new
@@ -457,7 +514,6 @@ func (j *Join) emit(k int, out *Output) {
 	run := &out.Runs[len(out.Runs)-1]
 	for i, in := range j.inputs {
 		run.Values[i].Data = append(run.Values[i].Data, in.held...)
-		run.Values[i].TimeRange.End = after(stamp)
 	}
 	run.Time.Data = telem.ByteOrder.AppendUint64(run.Time.Data, uint64(stamp))
 	run.Time.TimeRange.End = after(stamp)
@@ -476,20 +532,17 @@ func (j *Join) startRun(out *Output, alignment telem.Alignment, stamp telem.Time
 	if len(run.Values) != len(j.inputs) {
 		run.Values = make([]telem.Series, len(j.inputs))
 	}
-	tr := telem.TimeRange{Start: stamp, End: after(stamp)}
 	for i, in := range j.inputs {
 		run.Values[i] = telem.Series{
-			DataType:  in.dataType,
-			Data:      run.Values[i].Data[:0],
-			Alignment: alignment,
-			TimeRange: tr,
+			DataType: in.dataType,
+			Data:     run.Values[i].Data[:0],
 		}
 	}
 	run.Time = telem.Series{
 		DataType:  telem.TimestampT,
 		Data:      run.Time.Data[:0],
 		Alignment: alignment,
-		TimeRange: tr,
+		TimeRange: telem.TimeRange{Start: stamp, End: after(stamp)},
 	}
 }
 
