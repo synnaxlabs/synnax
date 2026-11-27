@@ -1,6 +1,6 @@
 {
   "description": "A JSON match rule's pointer does not start with a slash.",
-  "codec_rejects": false,
+  "codec_rejects": true,
   "problems": [
     {
       "path": "messages.0.payload.match.pointer",

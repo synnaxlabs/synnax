@@ -115,10 +115,10 @@ class PagerDutyAlert(TestCase):
         self.task_key = created.key
         self.log(f"Alert task created: key={created.key}")
 
-        # Deploy the saved config: tasks only reach the driver on start.
+        # Deploy the saved config: tasks only reach the Driver on start.
         created.execute_command("start")
 
-        # Wait for the Go driver to configure and start the task
+        # Wait for the Core's Driver to configure and start the task
         task_owner = {"type": "task", "key": str(created.key)}
         timer = sy.Timer()
         configured = False

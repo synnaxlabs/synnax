@@ -25,6 +25,7 @@ cc_test(
     srcs = ["errors_test.cpp"],
     deps = [
         "//x/cpp/errors",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

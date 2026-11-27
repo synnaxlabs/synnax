@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
@@ -28,22 +29,22 @@ import (
 
 const xKey, yKey channel.Key = 10, 11
 
-var _ = Describe("Documents", func() {
-	channels := map[channel.Key]channel.Channel{
+var _ = Describe("Payloads", func() {
+	channels := map[channel.Key]icdv0.Channel{
 		xKey: {DataType: telem.Float64T},
 		yKey: {DataType: telem.Float64T},
 	}
 	var skips *driver.Skips
 	BeforeEach(func() { skips = driver.NewSkips("command", driver.SkipHold) })
 
-	// point returns the Documents of a message that sends x and y, where y has the
+	// point returns the Payloads of a message that sends x and y, where y has the
 	// variant yField.
-	point := func(yField icd.JSONFieldVariant) *write.Documents {
+	point := func(yField icd.JSONFieldVariant) *write.Payloads {
 		GinkgoHelper()
 		x, y := jsonField("x", icd.FloatJSONField{}), jsonField("y", yField)
 		m := jsonMessage("Point", x, y)
 		ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
-		return MustSucceed(write.NewDocuments(
+		return MustSucceed(write.NewPayloads(
 			writeOf(
 				m,
 				channelOf(x.Base().Key, xKey, nil),
@@ -60,16 +61,16 @@ var _ = Describe("Documents", func() {
 		return frame.NewMulti([]channel.Key{xKey, yKey}, []telem.Series{xs, ys})
 	}
 
-	// from returns the documents that d builds from fr, as text.
-	from := func(d *write.Documents, fr frame.Frame) []string {
-		var docs []string
-		for _, doc := range d.From(fr, skips) {
-			docs = append(docs, string(doc))
+	// from returns the payloads that d builds from fr, as text.
+	from := func(d *write.Payloads, fr frame.Frame) []string {
+		var payloads []string
+		for _, payload := range d.From(fr, skips) {
+			payloads = append(payloads, string(payload))
 		}
-		return docs
+		return payloads
 	}
 
-	It("Should build one document from the commands of one frame", func() {
+	It("Should build one payload from the commands of one frame", func() {
 		d := point(icd.FloatJSONField{})
 		Expect(from(d, both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)))).
 			To(HaveExactElements(`{"x":1,"y":2}`))
@@ -97,7 +98,7 @@ var _ = Describe("Documents", func() {
 			To(HaveExactElements(`{"x":1,"y":5}`))
 	})
 
-	It("Should skip each document that would send a NaN default", func() {
+	It("Should skip each payload that would send a NaN default", func() {
 		d := point(icd.FloatJSONField{Default: new(payload.Float(math.NaN()))})
 		Expect(from(d, frame.NewUnary(xKey, telem.NewSeriesV(1.0)))).To(BeEmpty())
 		w := skips.Warning(time.Now())
@@ -114,14 +115,14 @@ var _ = Describe("Documents", func() {
 		)
 		m := jsonMessage("Mode", x, mode)
 		const modeKey channel.Key = 12
-		d := MustSucceed(write.NewDocuments(
+		d := MustSucceed(write.NewPayloads(
 			writeOf(
 				m,
 				channelOf(x.Base().Key, xKey, nil),
 				channelOf(mode.Base().Key, modeKey, nil),
 			),
 			icd.ICD{Name: "Plant", Messages: []icd.Message{m}},
-			map[channel.Key]channel.Channel{
+			map[channel.Key]icdv0.Channel{
 				xKey:    {DataType: telem.Float64T},
 				modeKey: {DataType: telem.StringT},
 			},
@@ -167,7 +168,7 @@ var _ = Describe("Documents", func() {
 			To(HaveExactElements(`{"x":1,"y":2}`))
 	})
 
-	It("Should give each document the row of the commands that it holds", func() {
+	It("Should give each payload the row of the commands that it holds", func() {
 		d := point(icd.FloatJSONField{})
 		var rows []int
 		for row := range d.From(both(
@@ -185,7 +186,7 @@ var _ = Describe("Documents", func() {
 			To(HaveExactElements(`{"x":1,"y":4}`))
 	})
 
-	It("Should build no document for a frame that holds only bad commands", func() {
+	It("Should build no payload for a frame that holds only bad commands", func() {
 		d := point(icd.FloatJSONField{})
 		from(d, both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)))
 		Expect(from(d, frame.NewUnary(xKey, telem.NewSeriesV(math.NaN())))).
@@ -211,7 +212,7 @@ var _ = Describe("Documents", func() {
 			x := jsonField("x", icd.FloatJSONField{})
 			m := jsonMessage("Point", x)
 			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m}}
-			Expect(write.NewDocuments(
+			Expect(write.NewPayloads(
 				writeOf(m, channelOf(x.Base().Key, 99, nil)), ic, channels, "target",
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),

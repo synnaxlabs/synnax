@@ -120,7 +120,7 @@ func migrateEdge(e legacy.Edge) (Edge, msgpack.EncodedJSON, error) {
 	return out, lifted, nil
 }
 
-// stumpLength mirrors STUMP_LENGTH in the pluto segmented connector: the fixed length
+// stumpLength mirrors STUMP_LENGTH in the Pluto segmented connector: the fixed length
 // of the auto-generated stub that leaves each handle.
 const stumpLength = 10.0
 

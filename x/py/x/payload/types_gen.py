@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -70,6 +70,17 @@ JSON_TYPE_BOOLEAN: Literal["boolean"] = "boolean"
 
 
 JSONType = Literal["number", "string", "boolean"]
+
+SCALAR_TYPE_NUMBER: Literal["number"] = "number"
+
+SCALAR_TYPE_STRING: Literal["string"] = "string"
+
+SCALAR_TYPE_BOOLEAN: Literal["boolean"] = "boolean"
+
+SCALAR_TYPE_NULL: Literal["null"] = "null"
+
+
+ScalarType = Literal["number", "string", "boolean", "null"]
 
 GENERATOR_TYPE_UUID: Literal["uuid"] = "uuid"
 
@@ -159,3 +170,37 @@ class EnumEntry(BaseModel):
 
     label: str = ""
     value: float = 0
+
+
+class NumberScalar(BaseModel):
+    """Is a JSON number."""
+
+    type: Literal["number"] = "number"
+    value: float
+
+
+class StringScalar(BaseModel):
+    """Is a JSON string."""
+
+    type: Literal["string"] = "string"
+    value: str
+
+
+class BooleanScalar(BaseModel):
+    """Is a JSON boolean."""
+
+    type: Literal["boolean"] = "boolean"
+    value: bool
+
+
+class NullScalar(BaseModel):
+    """Is JSON null."""
+
+    type: Literal["null"] = "null"
+
+
+# Is a JSON scalar: a number, a string, a boolean, or null.
+Scalar = Annotated[
+    NumberScalar | StringScalar | BooleanScalar | NullScalar,
+    Field(discriminator="type"),
+]

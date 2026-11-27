@@ -14,7 +14,6 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id, type json, unique } from "@synnaxlabs/x";
@@ -32,6 +31,7 @@ import {
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
@@ -122,7 +122,14 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
   return (
     <Task.Views.TreeGroupItem
       {...props}
-      label={<RecordLabel recordKey={recordKey} emptyLabel={NO_KEY} />}
+      label={
+        <RecordLabel
+          recordKey={recordKey}
+          emptyLabel={NO_KEY}
+          icdKey={icdKey}
+          message={message}
+        />
+      }
       off={disabled}
     >
       <ICD.MessageMark
@@ -254,7 +261,14 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       TargetItem,
       targetPane: (target, onAddField) => ({
         path: root.config.targets[target.key],
-        title: <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />,
+        title: (
+          <RecordLabel
+            recordKey={target.recordKey}
+            emptyLabel={NO_KEY}
+            icdKey={target.icd}
+            message={target.message.message}
+          />
+        ),
         details: (
           <TargetDetails
             key={target.key}
@@ -312,6 +326,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add targets");
+  const isPreview = Task.useIsPreview();
 
   return (
     <Task.Views.Panes
@@ -334,15 +349,17 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         (currentGroup == null ? null : <TopicLabel name={currentGroup} />)
       }
     >
-      {pane?.details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            {currentGroup == null
-              ? "Add a target to send records to a topic"
-              : "Select a record key of the topic"}
-          </Text.Text>
-        </Flex.Box>
-      )}
+      {pane?.details ??
+        (currentGroup == null ? (
+          <Empty.Action
+            grow
+            message="No target selected"
+            action={isPreview ? undefined : "Add targets"}
+            onClick={handleAdd}
+          />
+        ) : (
+          <Empty.Action grow message="Select a record key of the topic" />
+        ))}
       {all.map(({ key, icd: icdKey }) => (
         <ICD.Write.Suit
           key={key}

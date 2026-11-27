@@ -25,7 +25,7 @@ import (
 // from panics in unary handlers, records the stack via ins, and returns a
 // codes.Internal status carrying recovery.ErrPanic encoded as the recovery Middleware
 // encodes it. It is a transport-level backstop for gRPC handlers that do not pass
-// through the freighter recovery Middleware, such as cluster-internal services.
+// through the Freighter recovery Middleware, such as cluster-internal services.
 func RecoveryUnaryServerInterceptor(
 	ins alamos.Instrumentation,
 ) grpc.UnaryServerInterceptor {
