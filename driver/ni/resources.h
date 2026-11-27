@@ -30,15 +30,21 @@ namespace driver::ni {
 std::vector<synnax::ni::chassis::Chassis>
 found_chassis(const std::vector<Device> &scanned);
 
+/// @brief returns the key that matches scanned hardware to its stored resource: the
+/// serial number, or the resource name when the hardware has no serial number.
+std::string match_key(const Device &scanned);
+
+/// @brief returns the key of the chassis of a module.
+/// @param module the match key of the module.
+/// @param chassis the match key of the scanned chassis whose link the module connects
+/// to.
+/// @returns nothing when the module sits under its rack.
+using ChassisKey = std::function<std::optional<
+    synnax::ni::chassis::Key>(const std::string &module, const std::string &chassis)>;
+
 /// @brief returns the modules and standalone devices among the scanned hardware.
-/// @param chassis_key returns the key of the stored chassis with the given match key,
-/// or nothing when no chassis is stored. A module whose chassis has no key sits under
-/// its rack.
-std::vector<synnax::ni::device::Device> found_devices(
-    const std::vector<Device> &scanned,
-    const std::function<std::optional<synnax::ni::chassis::Key>(const std::string &)>
-        &chassis_key
-);
+std::vector<synnax::ni::device::Device>
+found_devices(const std::vector<Device> &scanned, const ChassisKey &chassis_key);
 
 /// @brief keeps the NI chassis and devices of a rack in step with the hardware that a
 /// scan finds. Resources is safe for concurrent use.
@@ -58,7 +64,8 @@ public:
 
     /// @brief saves the scanned hardware: the chassis first, then the devices under
     /// them.
-    /// @returns the first error of either sync, after both run.
+    /// @returns the error of the chassis sync, which skips the device sync, or the
+    /// error of the device sync.
     x::errors::Error sync(const std::vector<Device> &scanned);
 
     /// @brief returns the stored hardware of the scanned device, if the Driver holds

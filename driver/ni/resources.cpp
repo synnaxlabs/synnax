@@ -20,11 +20,16 @@
 
 namespace driver::ni {
 namespace {
-/// @brief returns the serial number of the scanned hardware, which is empty on
-/// simulated hardware.
-std::string serial(const Device &dev) {
-    return dev.is_simulated ? "" : dev.key;
+/// @brief returns the serial number of the scanned hardware, or nothing on simulated
+/// hardware or hardware that reports none.
+std::optional<std::string> serial(const Device &dev) {
+    if (dev.is_simulated || dev.key.empty()) return std::nullopt;
+    return dev.key;
 }
+}
+
+std::string match_key(const Device &scanned) {
+    return serial(scanned).value_or(scanned.resource_name);
 }
 
 std::vector<synnax::ni::chassis::Chassis>
@@ -35,22 +40,19 @@ found_chassis(const std::vector<Device> &scanned) {
             found.push_back({
                 .rack = dev.rack,
                 .name = dev.name,
-                .serial = serial(dev),
+                .serial = serial(dev).value_or(""),
                 .resource_name = dev.resource_name,
                 .model = dev.model,
             });
     return found;
 }
 
-std::vector<synnax::ni::device::Device> found_devices(
-    const std::vector<Device> &scanned,
-    const std::function<std::optional<synnax::ni::chassis::Key>(const std::string &)>
-        &chassis_key
-) {
+std::vector<synnax::ni::device::Device>
+found_devices(const std::vector<Device> &scanned, const ChassisKey &chassis_key) {
     std::unordered_map<std::string, std::string> link_to_chassis;
     for (const auto &dev: scanned)
         if (dev.is_chassis && !dev.provides_link_name.empty())
-            link_to_chassis[dev.provides_link_name] = dev.key;
+            link_to_chassis[dev.provides_link_name] = match_key(dev);
     std::vector<synnax::ni::device::Device> found;
     for (const auto &dev: scanned) {
         if (dev.is_chassis) continue;
@@ -66,7 +68,8 @@ std::vector<synnax::ni::device::Device> found_devices(
         );
         if (dev.connects_to_link_name.empty()) continue;
         const auto it = link_to_chassis.find(dev.connects_to_link_name);
-        if (it != link_to_chassis.end()) res.chassis = chassis_key(it->second);
+        if (it != link_to_chassis.end())
+            res.chassis = chassis_key(match_key(dev), it->second);
     }
     return found;
 }
@@ -87,19 +90,26 @@ Resources::Resources(
     devices(std::move(devices), rack, SCAN_LOG_PREFIX) {}
 
 x::errors::Error Resources::sync(const std::vector<Device> &scanned) {
-    const auto chassis_err = this->chassis.sync(found_chassis(scanned));
-    const auto devices_err = this->devices.sync(
-        found_devices(scanned, [this](const std::string &match) {
-            const auto c = this->chassis.get(match);
-            return c.has_value() ? std::optional(c->key) : std::nullopt;
-        })
-    );
-    return chassis_err ? chassis_err : devices_err;
+    // A failed chassis sync can leave a chassis without a key, which would detach its
+    // modules.
+    if (const auto err = this->chassis.sync(found_chassis(scanned))) return err;
+    return this->devices.sync(found_devices(
+        scanned,
+        [this](const std::string &module, const std::string &chassis)
+            -> std::optional<synnax::ni::chassis::Key> {
+            if (const auto c = this->chassis.get(chassis); c.has_value()) return c->key;
+            // Another rack can still hold the chassis, so the module keeps the
+            // chassis it has.
+            if (const auto d = this->devices.get(module); d.has_value())
+                return d->chassis;
+            return std::nullopt;
+        }
+    ));
 }
 
 std::optional<synnax::ni::device::Hardware>
 Resources::stored_hardware(const Device &scanned) {
-    const auto dev = this->devices.get(scanned.key);
+    const auto dev = this->devices.get(match_key(scanned));
     if (!dev.has_value()) return std::nullopt;
     return dev->hardware;
 }
