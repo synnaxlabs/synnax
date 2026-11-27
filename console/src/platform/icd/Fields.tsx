@@ -15,7 +15,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, payload, type record, uuid } from "@synnaxlabs/x";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
@@ -574,6 +574,16 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const { push, remove } = Form.useFieldListUtils(path);
   const fields = Form.useFieldValue(path);
   const own = fields.filter((f) => encodingOf(f) === encoding);
+  // The fields that the grid added, whose pointers follow a rename as in the task form.
+  const [created, setCreated] = useState<string[]>([]);
+  const followName = (prev: Field, next: Field): Field => {
+    if (!("pointer" in prev) || !("pointer" in next) || !created.includes(prev.key))
+      return next;
+    if (next.name === prev.name || next.pointer !== prev.pointer) return next;
+    const json = fields.filter((f): f is icd.JSONField => "pointer" in f);
+    const pointer = renamedPointer(prev, next.name, json);
+    return pointer == null ? next : { ...next, pointer };
+  };
   const status = Form.useStatuses(path).find(({ key }) =>
     own.some((f) => matchOwnField(key, path, f)),
   );
@@ -582,8 +592,13 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const handleChange = (next: Input.TableCell[][]) => {
     const updated = fieldsFromRows(encoding, columns, own, rows, next);
     const entries = deep.widen<unknown>(path);
-    own.forEach((field, i) => writeField(ctx, entries[field.key], field, updated[i]));
-    if (updated.length > own.length) push(updated.slice(own.length));
+    own.forEach((field, i) =>
+      writeField(ctx, entries[field.key], field, followName(field, updated[i])),
+    );
+    if (updated.length <= own.length) return;
+    const added = updated.slice(own.length);
+    setCreated((prev) => [...prev, ...added.map(({ key }) => key)]);
+    push(added);
   };
   const handleRemove = (index: number) => remove(own[index].key);
   // A paste adds several rows before any is stored. Each grid's first column is the
