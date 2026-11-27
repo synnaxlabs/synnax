@@ -1202,8 +1202,9 @@ var _ = Describe("Scan task", func() {
 			// succeeds and the TLS handshake waits for a reply that never comes.
 			silent := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
 			DeferCleanup(silent.Close)
-			port := silent.Addr().(*net.TCPAddr).Port
-			dev := createBrokerDevice(ctx, rackKey, port, msgpack.EncodedJSON{
+			addr, ok := silent.Addr().(*net.TCPAddr)
+			Expect(ok).To(BeTrue())
+			dev := createBrokerDevice(ctx, rackKey, addr.Port, msgpack.EncodedJSON{
 				"secure": true,
 			})
 			configured, t := scan(ctx)
