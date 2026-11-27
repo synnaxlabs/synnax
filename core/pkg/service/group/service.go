@@ -51,8 +51,9 @@ type ServiceConfig struct {
 	// MoveMembers runs in each write that moves groups under a new top parent. Nil
 	// means no record belongs to the top parent of its group.
 	MoveMembers MoveMembers
-	// NameRules holds the rule of the names of the groups of each scope that has one.
-	// Each create of a group of the scope runs it, and each change of one.
+	// NameRules holds the rule of the names of the groups of each scope that has one,
+	// and each namespaced scope needs one. Each create of a group of the scope runs it,
+	// and each change of its name.
 	NameRules map[resource.Type]NameRule
 }
 
@@ -71,6 +72,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("group")
 	v.NotNil("db", c.DB)
+	for _, scope := range slices.Sorted(maps.Keys(memberRules)) {
+		if memberRules[scope].namespaced {
+			v.NotNil("name_rules."+string(scope), c.NameRules[scope])
+		}
+	}
 	return v.Error()
 }
 
