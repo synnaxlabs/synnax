@@ -521,7 +521,7 @@ table, 24 bytes per section: kind and record version (`uint16` each), record siz
 | 16     | 8    | `uint64`      | Database identity                                                                              |
 | 24     | 8    | `uint64`      | Head: its generation. Part: its identity                                                       |
 | 32     | 8    | `uint64`      | Head: the log sequence that the state covers. Part: the generation of the switch that wrote it |
-| 40     | 24   | `uint64` each | Head: the limits of segment identities, alignment numbers, and part identities. Part: 0        |
+| 40     | 24   | `uint64` each | Head: the limits of segment identities, alignment counts, and part identities. Part: 0         |
 | 64     | 8    | `uint64`      | File length. Recovery checks it against the size on disk                                       |
 | 72     | 8    | `uint64`      | Offset of the section table                                                                    |
 | 80     | 8    | `uint32` each | Section count, then zero                                                                       |
