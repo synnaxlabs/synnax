@@ -32,7 +32,7 @@ import {
 import {
   clickDeploy,
   clickFailedDeploy,
-  countFailedSaves,
+  createFailedSaves,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
@@ -153,6 +153,7 @@ const renderRead = async ({
   );
   await beforeRender?.(dev);
   const statuses: Status.NotificationSpec[] = [];
+  const failedSaves = createFailedSaves();
   const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.READ_TYPE], {
     client,
     as,
@@ -160,9 +161,10 @@ const renderRead = async ({
     onStatuses: (next) => {
       statuses.length = 0;
       statuses.push(...next);
+      failedSaves.record(next);
     },
   });
-  return { ...result, dev, draft, statuses };
+  return { ...result, dev, draft, statuses, failedSaves };
 };
 
 const retrieveEntries = async (key: string) =>
@@ -1395,7 +1397,7 @@ describe("MQTT read form", () => {
       fields: [time, temperature, mode],
       index: time.key,
     });
-    const { draft, statuses } = await renderRead({ entries: [entry] });
+    const { draft, failedSaves } = await renderRead({ entries: [entry] });
     fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }));
     const { message } = messageOf(entry);
     const fields = ["messages", message, "payload", "fields"];
@@ -1408,9 +1410,9 @@ describe("MQTT read form", () => {
       icd.remove({ path: fields, key: mode.key }),
       icd.set({ path: [...fields, time.key], value: defaulted }),
     ]);
-    await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+    await waitFor(() => expect(failedSaves.count()).toBeGreaterThan(0));
     await toggleRefused("Ignore retained");
-    expect(countFailedSaves(statuses)).toBe(2);
+    expect(failedSaves.count()).toBe(2);
     await setField(client, messageOf(entry), time);
     await waitFor(async () =>
       expect((await retrieveBindings(draft.key)).map(({ field }) => field)).toEqual([
@@ -1418,7 +1420,7 @@ describe("MQTT read form", () => {
         temperature.key,
       ]),
     );
-    expect(countFailedSaves(statuses)).toBe(2);
+    expect(failedSaves.count()).toBe(2);
   });
 
   describe("messages", () => {

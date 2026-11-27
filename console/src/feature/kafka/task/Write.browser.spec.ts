@@ -16,7 +16,6 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -39,7 +38,7 @@ import {
   awaitCommand,
   clickDeploy,
   type CommandAnswer,
-  countFailedSaves,
+  createFailedSaves,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
@@ -206,10 +205,8 @@ describe("Kafka Write form", () => {
   }, 30_000);
 
   it("should send the shape of the most records, in a message named after the topic", async () => {
-    let statuses: Status.NotificationSpec[] = [];
-    const { dev, draft } = await renderWrite([], {
-      onStatuses: (s) => (statuses = s),
-    });
+    const failedSaves = createFailedSaves();
+    const { dev, draft } = await renderWrite([], { onStatuses: failedSaves.record });
     const [target] = await addSampledTarget(dev, draft.key, [
       createShape(["pump-1"], 2, "/speed"),
       createShape(["pump-2"], 5, "/speed", "/mode"),
@@ -228,7 +225,7 @@ describe("Kafka Write form", () => {
       { type: "channel", channel: 0 },
       { type: "channel", channel: 0 },
     ]);
-    expect(countFailedSaves(statuses)).toBe(0);
+    expect(failedSaves.count()).toBe(0);
   });
 
   it("should give a target no record key when several keys sent its shape", async () => {

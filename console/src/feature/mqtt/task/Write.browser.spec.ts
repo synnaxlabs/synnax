@@ -41,7 +41,7 @@ import {
 } from "@/platform/icd/testutil";
 import {
   clickDeploy,
-  countFailedSaves,
+  createFailedSaves,
   deployAndAwaitTask,
   preloadForms,
   renderTaskFormTab,
@@ -727,9 +727,9 @@ describe("MQTT Write form", () => {
       it("should send a refused binding once, and again on the next format change", async () => {
         const setpoint = createField("setpoint", "float");
         const { target } = await createFormatTarget([setpoint]);
-        let statuses: Status.NotificationSpec[] = [];
+        const failedSaves = createFailedSaves();
         const { draft } = await renderWrite([target], {
-          onStatuses: (s) => (statuses = s),
+          onStatuses: failedSaves.record,
         });
         await screen.findByRole("treeitem", { name: /^setpoint/ });
         // Pointer "" reads the whole document, which holds the value of setpoint.
@@ -742,9 +742,9 @@ describe("MQTT Write form", () => {
             after: setpoint.key,
           }),
         );
-        await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+        await waitFor(() => expect(failedSaves.count()).toBeGreaterThan(0));
         await toggleRefused("Retain");
-        expect(countFailedSaves(statuses)).toBe(2);
+        expect(failedSaves.count()).toBe(2);
         await setField(client, messageOf(target), { ...whole, pointer: "/whole" });
         await waitFor(async () =>
           expect((await retrieveTargets(draft.key))[0]).toMatchObject({
@@ -756,7 +756,7 @@ describe("MQTT Write form", () => {
             },
           }),
         );
-        expect(countFailedSaves(statuses)).toBe(2);
+        expect(failedSaves.count()).toBe(2);
       });
 
       it("should send a refused unbind once, and again on the next format change", async () => {
@@ -770,7 +770,7 @@ describe("MQTT Write form", () => {
             virtual: true,
           }),
         ]);
-        let statuses: Status.NotificationSpec[] = [];
+        const failedSaves = createFailedSaves();
         const { draft } = await renderWrite(
           [
             {
@@ -784,16 +784,16 @@ describe("MQTT Write form", () => {
               },
             },
           ],
-          { onStatuses: (s) => (statuses = s) },
+          { onStatuses: failedSaves.record },
         );
         await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
         // Pointer /count/x reads inside count, so the Core refuses each save.
         await setField(client, messageOf(target), { ...setpoint, pointer: "/count/x" });
         await retype(client, messageOf(target), count, "string", setpoint.key);
-        await waitFor(() => expect(countFailedSaves(statuses)).toBeGreaterThan(0));
+        await waitFor(() => expect(failedSaves.count()).toBeGreaterThan(0));
         fireEvent.click(screen.getByRole("treeitem", { name: /plant\/valve\/set/ }));
         await toggleRefused("Retain");
-        expect(countFailedSaves(statuses)).toBe(2);
+        expect(failedSaves.count()).toBe(2);
         await setField(client, messageOf(target), setpoint);
         await waitFor(async () =>
           expect((await retrieveTargets(draft.key))[0]).toMatchObject({
@@ -805,7 +805,7 @@ describe("MQTT Write form", () => {
             },
           }),
         );
-        expect(countFailedSaves(statuses)).toBe(2);
+        expect(failedSaves.count()).toBe(2);
       });
 
       it("should correct for a format that changes while a refused save is in flight", async () => {
@@ -819,7 +819,7 @@ describe("MQTT Write form", () => {
             virtual: true,
           }),
         ]);
-        let statuses: Status.NotificationSpec[] = [];
+        const failedSaves = createFailedSaves();
         const { draft } = await renderWrite(
           [
             {
@@ -833,7 +833,7 @@ describe("MQTT Write form", () => {
               },
             },
           ],
-          { onStatuses: (s) => (statuses = s) },
+          { onStatuses: failedSaves.record },
         );
         await (await fieldGroup(count.name)).findByDisplayValue(cmd.name);
         const { responded, release } = holdResponses(client, "/task/dispatch");
@@ -857,7 +857,7 @@ describe("MQTT Write form", () => {
             },
           }),
         );
-        expect(countFailedSaves(statuses)).toBe(1);
+        expect(failedSaves.count()).toBe(1);
       });
 
       it("should suit the bindings when the channels of the message fail to load", async () => {

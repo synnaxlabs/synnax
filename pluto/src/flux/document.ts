@@ -10,6 +10,7 @@
 import {
   type actions,
   DisconnectedError,
+  PathError,
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -21,6 +22,7 @@ import {
   type destructor,
   patch,
   type record,
+  strings,
   TimeSpan,
   zod,
 } from "@synnaxlabs/x";
@@ -29,8 +31,11 @@ import type { z } from "zod";
 
 import { Synnax } from "@/synnax";
 
+/** A document that a document form edits, which the user knows by its name. */
+export type Document = query.Data & { name: string };
+
 /** The part of a domain client that a document form reads and edits through. */
-export interface DocumentDomain<Key extends record.Key, Doc extends query.Data> {
+export interface DocumentDomain<Key extends record.Key, Doc extends Document> {
   watch: (key: Key) => query.Live<Doc>;
   /**
    * Begins a transaction of actions on the cached document, with camelCase keys.
@@ -158,7 +163,7 @@ const overlaps = (a: string, b: string): boolean =>
 
 interface StoreParams<
   Key extends record.Key,
-  Doc extends query.Data,
+  Doc extends Document,
   Query extends DocumentQuery<Key>,
   V,
 > {
@@ -184,7 +189,7 @@ interface StoreParams<
  */
 class DocumentStore<
   Key extends record.Key,
-  Doc extends query.Data,
+  Doc extends Document,
   Query extends DocumentQuery<Key>,
   V,
 > implements Form.Store<V> {
@@ -491,7 +496,7 @@ class DocumentStore<
 
 export interface CreateDocumentFormParams<
   Key extends record.Key,
-  Doc extends query.Data,
+  Doc extends Document,
   Schema extends z.ZodType,
   Query extends DocumentQuery<Key>,
 > {
@@ -546,6 +551,24 @@ export interface UseDocumentForm<Query, Schema extends z.ZodType> {
 
 const WHOLE_DOCUMENT = (): string[] => [];
 
+/** @returns the stored name of the document, or "" once it left the cache. */
+const storedName = <Key extends record.Key, Doc extends Document>(
+  docs: DocumentDomain<Key, Doc>,
+  key: Key,
+): string => {
+  const cached = docs.watch(key).getCached();
+  return query.isLive(cached) ? cached.name : "";
+};
+
+const UNDONE = "The change was undone.";
+
+/** Says why a send failed and what to do now, with the raw error last. */
+const describeFailure = (error: unknown, raw: string): string => {
+  if (!PathError.matchExact(error)) return `${UNDONE} ${raw}`;
+  const plain = strings.capitalize(error.error.message.replace(/\.$/, ""));
+  return `${plain}. Fix it, then make the change again. ${UNDONE} ${raw}`;
+};
+
 /**
  * Builds a hook for a form over a document in the client cache, which other clients
  * edit at the same time. The form shows the cached document, re-rendering only the
@@ -554,7 +577,7 @@ const WHOLE_DOCUMENT = (): string[] => [];
  */
 export const createDocumentForm = <
   Key extends record.Key,
-  Doc extends query.Data,
+  Doc extends Document,
   Schema extends z.ZodType,
   Query extends DocumentQuery<Key> = DocumentQuery<Key>,
 >({
@@ -576,19 +599,31 @@ export const createDocumentForm = <
   }: UseDocumentFormParams<Query>): UseDocumentFormReturn<Schema> => {
     useEnsure({ key: query.key });
     const client = Synnax.use();
-    const handleError = Status.useErrorHandler();
+    const addStatus = Status.useAdder();
     const beforeSendRef = useSyncedRef(beforeSend);
     const create = (): DocumentStore<Key, Doc, Query, z.infer<Schema>> => {
       if (client == null)
         throw new DisconnectedError(`Cannot edit ${name}: no Core connected.`);
+      const docs = domain(client);
+      const handleError = (error: unknown): void => {
+        const failed = Status.fromException(error, "Failed to save change");
+        addStatus({
+          ...failed,
+          // One key for each document, so a new failure replaces the last one.
+          key: `${name}-${query.key}`,
+          // A failed send rolls the cached document back to the stored one.
+          name: storedName(docs, query.key),
+          description: describeFailure(error, failed.description),
+        });
+      };
       return new DocumentStore({
         client,
         query,
-        domain: domain(client),
+        domain: docs,
         schema,
         toValues,
         path: pathOf(query),
-        onError: (error) => handleError(error, `Failed to save ${name}`),
+        onError: handleError,
         beforeSend: beforeSendRef,
       });
     };

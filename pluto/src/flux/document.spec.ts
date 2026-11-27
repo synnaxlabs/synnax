@@ -657,23 +657,53 @@ describe("createDocumentForm", () => {
     expect(edited.config).toMatchObject({ routingKey: OTHER_ROUTING_KEY });
   });
 
-  it("should report an edit that the Core refuses and drop it", async () => {
-    const t = await createTask();
-    const { result } = await renderHookSuspended(
+  const NEXT_STEP = "Fix it, then make the change again. The change was undone.";
+
+  const renderWithToasts = async (key: task.Key, beforeSend?: () => Promise<unknown>) =>
+    await renderHookSuspended(
       () => ({
-        ...useForm({ query: { key: t.key } }),
-        statuses: Status.useNotifications().statuses,
+        ...useForm({ query: { key }, beforeSend }),
+        failures: Status.useNotifications().statuses.filter(
+          ({ message }) => message === "Failed to save change",
+        ),
       }),
       { wrapper },
     );
+
+  it("should report an edit that the Core refuses and drop it", async () => {
+    const t = await createTask();
+    const { result } = await renderWithToasts(t.key);
     act(() => result.current.form.set(path.name, ""));
     await act(async () => expect(await result.current.flush()).toBe(false));
     await waitFor(() =>
-      expect(result.current.statuses).toContainEqual(
-        expect.objectContaining({ variant: "error", message: "Failed to save Task" }),
-      ),
+      expect(result.current.failures).toEqual([
+        expect.objectContaining({
+          variant: "error",
+          name: t.name,
+          description: `Required. ${NEXT_STEP} name: required`,
+        }),
+      ]),
     );
     expect(result.current.form.get(path.name).value).toBe(t.name);
+  });
+
+  it("should replace the report of the document when another send fails", async () => {
+    const t = await createTask();
+    const { result } = await renderWithToasts(t.key);
+    act(() => result.current.form.set(path.name, ""));
+    await act(async () => expect(await result.current.flush()).toBe(false));
+    const missing = uuid.create();
+    act(() => result.current.form.set(path.config.routingKey, missing));
+    await act(async () => expect(await result.current.flush()).toBe(false));
+    const raw = `routing_key: secret ${missing} does not exist`;
+    await waitFor(() =>
+      expect(result.current.failures).toEqual([
+        expect.objectContaining({
+          name: t.name,
+          description: `Secret ${missing} does not exist. ${NEXT_STEP} ${raw}`,
+        }),
+      ]),
+    );
   });
 
   it("should report a refused send that was in flight when it flushes", async () => {
@@ -740,7 +770,7 @@ describe("createDocumentForm", () => {
 
     it("should drop an edit when beforeSend rejects", async () => {
       const t = await createTask();
-      const { result } = await renderGated(t.key, async () => {
+      const { result } = await renderWithToasts(t.key, async () => {
         throw new Error("not ready");
       });
       act(() =>
@@ -749,6 +779,14 @@ describe("createDocumentForm", () => {
       await act(async () => expect(await result.current.flush()).toBe(false));
       expect(result.current.form.get(path.name).value).toBe(t.name);
       expect((await fetchStored(t.key)).name).toBe(t.name);
+      await waitFor(() =>
+        expect(result.current.failures).toEqual([
+          expect.objectContaining({
+            name: t.name,
+            description: "The change was undone. not ready",
+          }),
+        ]),
+      );
     });
   });
 
