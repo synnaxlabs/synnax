@@ -94,9 +94,10 @@ writer opens. No channel record, task config, or client library keeps it.
   stamp, then the lowest key. With no candidate left, it leases a new key. Each key of
   the group on another clock moves to the chosen clock once, with one new segment. So a
   task restart, a changed config, a task copy, and a `client.write` loop keep one clock.
-- **One session per clock**: A clock has at most one open session, which holds its claim
-  (RFC 0121 §5.8). A second writer of the same channels at once gets a new clock. A key
-  moves between sessions only through a handoff (§4.8).
+- **One session per clock**: A clock has at most one live open session, which holds its
+  claim (RFC 0121 §5.8); until Phase 50 a `Bounded` session of an index shares it. A
+  second writer of the same channels at once gets a new clock. A key moves between
+  sessions only through a handoff (§4.8).
 - **Takeover**: A session takes over the open segment of a continued clock, and of each
   key on it, once the earlier commits are durable, and appends at the committed length
   (RFC 0121 §5.8). At a handoff on one clock the new holder takes over at once, with the
@@ -322,14 +323,15 @@ Codes 17 to 254 are free. The list holds data types only; an encoding takes a fl
 
 **Cost:**
 
-| Frame                              | Extra bytes                                               | Extra work                                                                                                  |
-| ---------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Steady state                       | 0                                                         | Encoder: a few predictable tests per frame, 1 XOR and 1 OR per series. Decoder: one 4-byte store per series |
-| First frame of a state             | 1 + K, 4 + 4N, and 4 + 9 per data series that has a clock | once per state                                                                                              |
-| One type override                  | 5 + 6 = 11                                                | on each frame that holds the series, until the next state                                                   |
-| One clock move                     | 5 + 9 + 8 = 22 for one channel on one clock               | once; the next frame is steady                                                                              |
-| One key on two clocks in one frame | 5 + 9 + 12 = 26, then 9 for the shorter list              | a read across a clock move                                                                                  |
-| Worst case per series              | 10 (46 against 36 today)                                  |                                                                                                             |
+| Frame                                                        | Extra bytes                                               | Extra work                                                                                                  |
+| ------------------------------------------------------------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Steady state                                                 | 0                                                         | Encoder: a few predictable tests per frame, 1 XOR and 1 OR per series. Decoder: one 4-byte store per series |
+| First frame of a state                                       | 1 + K, 4 + 4N, and 4 + 9 per data series that has a clock | once per state                                                                                              |
+| One type override                                            | 5 + 6 = 11                                                | on each frame that holds the series, until the next state                                                   |
+| One clock move                                               | 5 + 9 + 8 = 22 for one channel on one clock               | once; the next frame is steady                                                                              |
+| One key on two clocks in one frame                           | 5 + 9 + 12 = 26, then 9 for the shorter list              | a read across a clock move                                                                                  |
+| A clock whose timed and untimed keys come in separate frames | 9 for field 5 on each such frame                          | the declared list leaves and enters again, since the codec keeps no untimed set (D-524)                     |
+| Worst case per series                                        | 10 (46 against 36 today)                                  |                                                                                                             |
 
 **Versions**: The first frame of every state is the handshake, on every transport.
 
@@ -539,23 +541,25 @@ flow declares each channel's type at configure
 (`core/pkg/service/sift/ingest/flow.go:29-42`), so from Phase 52 a type change starts a
 new flow config, whose type widens the types of the segments in the task's range, from
 `DB.Types` (RFC 0121 §4.2), by the rule of §4.4, since no record keeps the old type. A
-channel whose types cannot widen, such as a number and text, fails only its own flow,
-with a status that names the channel, and the task's other channels go on. The encoder
-casts each value to the flow's type, where it takes the series' type today
-(`encode.go:129-160`). Every ICD write (Kafka, MQTT, HTTP, UDP, TCP, and serial) fixes a
-field's type at configure and reads each command sample by that type today
-(`core/pkg/service/icd/write/documents.go:82`, `x/go/json/number.go:592-616`,
-`driver/icd/writer.cpp:152-160`), so after a type change a command of 1.0 could reach a
-`uint8` field as 0, or a read could run past the sample. From Phase 11 each encoder
-takes a command sample by its series' type and converts it to the field's type with a
-range check, as the NI and LabJack sinks do through `x::telem::cast`
-(`driver/ni/write_task.h:205-210`). A value that the field's type cannot hold is not
-sent, and the task raises an error status that names the channel and the value. A
-Sparkplug edge tag converts to its birth type
-(`core/pkg/service/mqtt/edge_task.go:74-79`). A spec sends a command of the old type and
-one of the new type after a type change, and each encodes the right value. A clock move
-is not a channel edit: storage moves a key at continuation, at a handoff, and at a pause
-move (§4.0, §4.8), from Phase 25.
+channel whose types cannot widen, such as a number and text, drops from its flow's
+config, with a status that names it, and the flow's other channels go on, since a flow
+holds every channel of one clock and maps values by position
+(`sift/ingest/flow.go:48-54`). The encoder casts each value to the flow's type, where it
+takes the series' type today (`encode.go:129-160`). Every ICD write (Kafka, MQTT, HTTP,
+UDP, TCP, and serial) fixes a field's type at configure and reads each command sample by
+that type today (`core/pkg/service/icd/write/documents.go:82`,
+`x/go/json/number.go:592-616`, `driver/icd/writer.cpp:152-160`), so after a type change
+a command of 1.0 could reach a `uint8` field as 0, or a read could run past the sample.
+From Phase 11 each encoder takes a command sample by its series' type and converts it to
+the field's type with a range check, through a checked convert that Phase 11 adds to
+`x::telem` and `x/go/telem`, since `x::telem::cast` is a plain `static_cast` today
+(`x/cpp/telem/telem.h:868-875`); the NI, LabJack, Modbus, and EtherCAT sinks take it
+too. A value that the field's type cannot hold is not sent, and the task raises an error
+status that names the channel and the value. A Sparkplug edge tag converts to its birth
+type (`core/pkg/service/mqtt/edge_task.go:74-79`). A spec sends a command of the old
+type and one of the new type after a type change, and each encodes the right value. A
+clock move is not a channel edit: storage moves a key at continuation, at a handoff, and
+at a pause move (§4.0, §4.8), from Phase 25.
 
 ### 4.7 Calculations and XY plots across clocks
 
@@ -568,7 +572,7 @@ alignment and inputs of two clocks by sample time:
 | Output stamps                                 | The primary input's stamps, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the smallest median of its newest 16 intervals in one stored stretch, the first in the text on a tie, or, when no input has stored data, the first read that is not virtual. A virtual input is the primary only when every input is virtual. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Reset channel                                 | No join input. A reset sample applies at the first primary stamp at or after its own stamp, live and in history. A reset channel with no samples never resets, and it takes no hold limit and no `Input stale` status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Reset channel                                 | No join input. A `true` reset sample applies at the first primary stamp at or after its own stamp, live and in history. A reset channel with no samples never resets, and it takes no hold limit and no `Input stale` status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, with a median of 0, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Past the hold limit                           | No output for that stamp, a new output series after the gap, and a status on the calculation: message `Input stale`, and a description that names the input and its hold limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Live wait budget                              | 0. Live judges by arrival: a held value stays valid while its input's last frame arrived within the larger of its hold limit and 3 times the median of its last 16 frame arrival gaps, before the primary frame. Until an input has a frame gap, its window is the larger of its hold limit and 3 times the median of the primary's frame gaps, or the primary's term alone for an input with fewer than 2 samples, computed again at each primary frame. Before an input's first value, a stamp gets no output, and no stale status comes before the primary has a frame gap and one such window has passed. History judges by stamps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -587,32 +591,32 @@ alignment and inputs of two clocks by sample time:
   calculation has no historical values, and its live blocks are not replaced.
 - **Running operations** (Phase 55, D-063, D-518 (3)): A running operation is a node
   that keeps state across samples with no window: `avg`, `min`, and `max` with no
-  window, and a stateful variable of a calculation. A history read looks back to its
-  last reset, or to its first sample when it never resets, with no stored state, so no
-  history value depends on where a read starts. A `count` reset
-  (`arc/go/stl/math/math.go:77`) looks back to the first sample, since a node counts its
-  join outputs, not stored samples. Live starts at its open, as on `main` and as D-063
-  accepted: its value covers the data from the open until the first reset after it, and
-  from that reset on it equals history. Until then the calculation's status has message
-  `Live since open` and a description that says that the live value covers the data from
-  the open and that a history read covers all of it since the last reset. So no live
-  open reads history, and only a history read pays the far look back.
-- **Kept states**: The service keeps in memory, and never stores, up to 64 states per
-  calculation at the chunk ends that its passes reach, the oldest dropped first, each
-  taken at a primary stamp T only once each input's newest stored stamp is at or past T,
-  so a later commit at or before T is a backfill. The reset channel takes no part in
-  that test, and a reset sample at or before T drops the states from T on. A history
-  change of an input (`DB.OnHistoryChange`) drops only the states at or after its start,
-  and a change of the compiled module drops them all. A history read starts from the
-  newest kept state at or before its start. A read waits for a running pass of its
-  calculation that will reach its start, else it runs its own, and a closed request's
-  pass keeps the states it recorded. A group rebuild keeps the calculator of each
-  running operation whose module did not change, so its live value does not start again.
-  Every pass runs in one bounded pool under a read rate limit, as the version 0 check
-  pass does (RFC 0121 §5.1), so no live `Sync` and no other read waits (R6), and the box
-  benchmarks a common read beside one. The look back is a rare-path exception to R2
-  (§4.13): its cost grows with the samples since the reset, at about 25 ns a sample, so
-  a year of a 25 kHz input takes about 5.5 hours of one core.
+  window, and a stateful variable of a calculation whose assignment reads a stateful
+  variable, as a running total does; a copy such as `prev $= x` looks back one primary
+  sample. A history read looks back to its last reset, or to its first sample when it
+  never resets, with no stored state, so no history value depends on where a read
+  starts. A `count` reset (`arc/go/stl/math/math.go:77`) looks back to the first sample,
+  since a node counts its join outputs, not stored samples. Live starts at its open, as
+  on `main` and as D-063 accepted: its value covers the data from the open until the
+  first reset after it, and from that reset on it equals history. Until then the
+  calculation's status has message `Live since open` and a description that says that
+  the live value covers the data from the open and that a history read covers all of it
+  since the last reset. So no live open reads history, and only a history read pays the
+  far look back.
+- **The look back pool**: Only a running operation's look back past its hold window
+  enters the pool, with no kept state, so no cache can hold a value that storage lost. A
+  closed request cancels its pass, and a group rebuild opens each calculator again, as
+  on `main`, so live restarts there too. The pool has a fixed number of slots, a config
+  default, and runs its passes by turns, one chunk each, under one read rate limit that
+  they share, as the version 0 check pass does (RFC 0121 §5.1). So a pass of n chunks
+  ends within n times the active passes' chunk time, a far reset never holds back a near
+  one, and no live `Sync` and no other read waits (R6). The look back is a rare-path
+  exception to R2 (§4.13): its cost grows with the samples since the reset, at about 25
+  ns a sample, so a year of a 25 kHz input takes about 5.5 hours of one core, and each
+  history read of it pays that, as D-518 (3) lets the rare path pay. The box benchmarks
+  a 1-hour `max` pass beside a 1-year pass, within 2 times its time alone, and
+  `BenchmarkCommit` p99 at most 1.2 times, and a plain read within 15% of, their values
+  alone beside one pass.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
@@ -919,12 +923,13 @@ continuation. A partial group from a task fails loud, as a partial index group d
   each series of the group and of its time series, in place of a counter per key that
   starts a new key at 0 (`driver/bypass/bypass.h:172-180`). A counter starts above the
   highest alignment that any key of its group took on the bus or in a Core frame
-  (`:229-247`). Each publish, under the bus's `alignment_mu` (`bypass.h:199`), raises it
-  to the mark of each key in the frame, steps it, and raises those marks, as one step,
-  so two writers that publish one key at once never take overlapping alignments, as
-  today. The bus keeps its mark per key. The forwarder maps positions to clock keys only
-  where it writes to the Core. A local reader, such as Arc from Phase 41, pairs a series
-  with its group's time in the same frame, never by bus alignment across groups.
+  (`:229-247`). Each publish, under an exclusive hold of the bus's `alignment_mu` in
+  place of today's shared hold (`bypass.h:199`), raises it to the mark of each key in
+  the frame, steps it, and raises those marks, as one step, so two writers that publish
+  one key at once never take overlapping alignments, as today. The bus keeps its mark
+  per key. The forwarder maps positions to clock keys only where it writes to the Core.
+  A local reader, such as Arc from Phase 41, pairs a series with its group's time in the
+  same frame, never by bus alignment across groups.
 - **Console forms**: From Phase 47, task forms make data channels only, with no `_time`
   channels (`console/src/feature/ni/task/AnalogRead.tsx:211-215` and its siblings).
   Until then they make index channels as today, which form whole groups (§4.8), and the
@@ -1346,7 +1351,7 @@ Phase 42. Keys of `core/v0.62.0` keep their numbers.
 | 8     | Declare each series' type and clock in the frame codecs      | `core/pkg/distribution/framer/codec`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 7                                                  |
 | 9     | Pair data by each series' clock in the clients               | `client/ts/src/framer/cache`, `client/py/synnax/framer`, `pluto/src/vis/line`, `arc/cpp/stl/channels`, `arc/cpp/runtime`, `driver/bypass`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 8                                                  |
 | 10    | Swap the codec state when the relay applies new keys         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/streamer`, `core/pkg/transport/grpc/framer`, `core/pkg/transport/http/framer`, `client/ts/src/framer/codec`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 8                                                  |
-| 11    | Accept mixed data types in every reader                      | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `client/ts/src/framer`, `pluto/src/vis/line`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/arc`, `arc/cpp/stl/channels`, `core/pkg/service/icd`, `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `driver/icd`, `driver/http`, `driver/codec`                                                                                                                                                                                                                                                                                                                                                   | 1, 9                                               |
+| 11    | Accept mixed data types in every reader                      | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `client/ts/src/framer`, `pluto/src/vis/line`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/arc`, `arc/cpp/stl/channels`, `core/pkg/service/icd`, `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `driver/icd`, `driver/http`, `driver/codec`, `driver/ni`, `driver/labjack`, `driver/modbus`, `driver/ethercat`                                                                                                                                                                                                                                                                                | 1, 9                                               |
 | 12    | Send the time of its data with every read and stream         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/api/framer`, `core/pkg/transport/grpc/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                             | 10                                                 |
 | 13    | Read and write time by channel in Python and TypeScript      | `client/py/synnax/framer`, `client/py/synnax/ranger`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 12                                                 |
 | 14    | Keep one alignment space and floor per clock in cache blocks | `client/ts/src/framer/cache`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 12                                                 |
