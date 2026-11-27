@@ -13,6 +13,7 @@ import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/synnax/status"
 import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/opcua/server"
@@ -236,29 +237,42 @@ Server struct {
     }
     rack       rack.Key   {
         @doc value     "is the key of the rack whose Driver connects to the server."
+        @patch
         @ref kind      place
         @ref on_delete restrict
     }
     name       string     {
         @doc value         "is a human-readable name for the server."
         @filter
+        @patch
         @search
         @validate required
     }
     connection Connection {
         @doc value "holds the settings that the Driver connects with."
+        @patch
     }
     reads      Read[] = [] {
         @doc value "bind the nodes that read tasks sample to channels."
+        @patch
     }
     writes     Write[] = [] {
         @doc value "bind the nodes that write tasks command to channels."
+        @patch
     }
     status     Status?    {
         @doc value  "is the current connection status of the server."
         @go marshal omit
         @include
     }
+
+    action Set = patch.Set
+
+    action Remove = patch.Remove
+
+    action Insert = patch.Insert
+
+    action Move = patch.Move
 
     @create
     @doc value     "is an OPC UA server that a rack's Driver connects to."

@@ -87,6 +87,9 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
       filter.split(input, ["and", "or", "not", "key", "name", "rack"]),
     );
 
+/** LIST_FIELDS are the top-level fields that a list can read, by wire name. */
+export const LIST_FIELDS: readonly string[] = ["key", "rack", "name"];
+
 /** @returns the position of record in key order. */
 export const cursor = (record: Server): Cursor => ({ key: record.key });
 
