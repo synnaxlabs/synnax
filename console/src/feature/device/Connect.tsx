@@ -45,7 +45,9 @@ interface EntryProps {
 
 const Entry = ({ integration, reason, onSelect }: EntryProps): ReactElement => (
   <Pane.Button onClick={() => onSelect(integration.key)}>
-    <Icon.Tile>{integration.icon}</Icon.Tile>
+    <Icon.Tile>
+      <Icon.Colored>{integration.icon}</Icon.Colored>
+    </Icon.Tile>
     <Flex.Box y gap="tiny" grow align="start">
       <Text.Text level="p" weight={500} color={11}>
         {integration.title}

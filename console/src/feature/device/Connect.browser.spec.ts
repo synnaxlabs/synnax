@@ -55,6 +55,15 @@ describe("Device.useConnectModal", () => {
       ).toBeNull();
     });
 
+    it("should draw the logo of each integration in its brand color", async () => {
+      await open();
+      const logo = async (title: string): Promise<string | undefined> =>
+        (await screen.findByText(title)).closest("button")?.querySelector("svg")?.style
+          .color;
+      expect(await logo("NI hardware")).toEqual("rgb(3, 181, 133)");
+      expect(await logo("LabJack hardware")).toEqual("rgb(141, 2, 0)");
+    });
+
     it("should open a connect form at the scoped rack, then go back", async () => {
       const rack = await createRunningRack(client, "opc");
       await open({ rack: rack.key });

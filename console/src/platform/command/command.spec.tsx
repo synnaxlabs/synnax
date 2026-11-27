@@ -70,4 +70,26 @@ describe("Command.create", () => {
     expect(screen.getByText("Hook Command")).toBeTruthy();
     expect(document.querySelector(".lyra-text--keyboard")).toBeNull();
   });
+
+  describe("icon", () => {
+    const renderIcon = async (icon: Icon.ReactElement): Promise<string | undefined> => {
+      await renderCommand(
+        Command.create({
+          key: "cc",
+          name: "Connect",
+          icon,
+          useOnSelect: () => vi.fn(),
+        }),
+      );
+      return screen.getByText("Connect").querySelector("svg")?.style.color;
+    };
+
+    it("should draw a third-party logo in its brand color", async () => {
+      expect(await renderIcon(<Icon.Logo.NI />)).toEqual("rgb(3, 181, 133)");
+    });
+
+    it("should draw a Synnax icon in the text color", async () => {
+      expect(await renderIcon(<Icon.Device />)).toEqual("");
+    });
+  });
 });
