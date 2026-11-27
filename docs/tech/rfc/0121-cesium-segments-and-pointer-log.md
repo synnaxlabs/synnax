@@ -85,7 +85,8 @@ telemetry (§9.0).
 Cesium learns a key from the first segment created for it and forgets the key when its
 last segment is dropped. `CreateChannel`, `RetrieveChannels`, and `RenameChannels` go
 (`cesium/channel.go:24`, `:40`, `:83`), and so do the calls to storage on create and
-rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
+rename (`core/pkg/service/channel/writer.go:837`, `storage.go:35`), and the test node's
+create (`core/pkg/distribution/testutil/node.go:59`).
 
 - **Create checks**: Phase 8 moves the checks that `CreateChannel` runs on each channel
   that the Core leases (`cesium/internal/channel/channel.go:114-138`,
@@ -829,14 +830,15 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
   MHz clock breaks its line every 71.6 minutes. The first sample of a stretch has
   index 0. A new segment inside a stretch takes no number.
 - **Continued stretches**: A session goes on with the stretch of its clock, with no new
-  number, when the session before it on the clock closed clean, its commits are durable,
-  every alignment it gave is committed, and the new session's first stamp is after the
-  clock's last stored stamp by at most 3 times the clock's last step (the time between
-  its last two stamps). A reader draws one line through a stretch, so the gap rule keeps
-  a task stop out of a line, and a loop at a steady rate stays in one. The state owner
-  keeps the last number, the next index, and the last two stamps of each clock in memory
-  only, so after a restart each clock takes a new number at its next session. A
-  `client.write` loop takes a number at its first two calls only.
+  number, when that stretch holds the clock's newest stamp, the session before it on the
+  clock wrote it and closed clean, its commits are durable, every alignment it gave is
+  committed, and the new session's first stamp is after the clock's last stored stamp by
+  at most 3 times the clock's last step (the time between its last two stamps). A reader
+  draws one line through a stretch, so the gap rule keeps a task stop out of a line, and
+  a loop at a steady rate stays in one. The state owner keeps the last number, the next
+  index, and the last two stamps of each clock in memory only, so after a restart each
+  clock takes a new number at its next session. A `client.write` loop takes a number at
+  its first two calls only.
 - **Data follows its clock**: The channels of a clock write take the alignment of the
   clock, and data written against stored stamps takes the alignment of the stamp at its
   start. Each pointer stores the alignment of its first sample, so a live stream and
@@ -1465,16 +1467,16 @@ Other RFCs wait on this one: RFC 0120 Phases 2 to 4 and 18 on Phase 6; RFC 0120 
 24 to 54 on Phases 7 and 8 (RFC 0120 §5); and RFC 0119 Phases 34 to 38, the measured
 reads and rewires, on Phase 8, the one alignment counter per database.
 
-| Phase | Scope                                                      | Touches                                                                                                                                                                  | Depends on |
-| ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| 1     | Add a directory sync to the file system interface          | `x/go/io/fs`                                                                                                                                                             | -          |
-| 2     | Add a fault file system for storage tests                  | `x/go/io/fs/testutil/fault`                                                                                                                                              | 1          |
-| 3     | Add a crash harness with a durable-ack oracle              | `cesium`, `x/go/io/fs/testutil/fault`                                                                                                                                    | 2          |
-| 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                                                | 3          |
-| 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `cesium/internal/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp`, `core/cmd/purge` | 1          |
-| 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`, `x/go/io/fs/testutil/crash`                                                             | 3, 4, 5    |
-| 7     | Fix the read costs that D-459 names                        | `cesium/internal/segment`, `cesium`                                                                                                                                      | 6          |
-| 8     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`, `core/cmd/update`      | 6, 7       |
+| Phase | Scope                                                      | Touches                                                                                                                                                                                               | Depends on |
+| ----- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Add a directory sync to the file system interface          | `x/go/io/fs`                                                                                                                                                                                          | -          |
+| 2     | Add a fault file system for storage tests                  | `x/go/io/fs/testutil/fault`                                                                                                                                                                           | 1          |
+| 3     | Add a crash harness with a durable-ack oracle              | `cesium`, `x/go/io/fs/testutil/fault`                                                                                                                                                                 | 2          |
+| 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                                                                             | 3          |
+| 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `cesium/internal/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp`, `core/cmd/purge`                              | 1          |
+| 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`, `x/go/io/fs/testutil/crash`                                                                                          | 3, 4, 5    |
+| 7     | Fix the read costs that D-459 names                        | `cesium/internal/segment`, `cesium`                                                                                                                                                                   | 6          |
+| 8     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`, `core/cmd/update`, `core/pkg/distribution/testutil` | 6, 7       |
 
 ## 13 Resolved decisions
 
