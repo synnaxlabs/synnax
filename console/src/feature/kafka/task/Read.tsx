@@ -46,7 +46,12 @@ import {
 } from "@/feature/kafka/task/additions";
 import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
-import { planAdd, type TopicAdditions } from "@/feature/kafka/task/plan";
+import {
+  type Plan,
+  planAdd,
+  type TopicAdditions,
+  type TopicPick,
+} from "@/feature/kafka/task/plan";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -619,9 +624,22 @@ const Records: FC<RecordsProps> = ({
       }
     });
 
+  /**
+   * @returns what an add of the picks of topics, and of an empty record of record,
+   * puts in the ICDs and the task.
+   */
+  const plan = (picked: TopicPick[], record: string | null = null): Plan =>
+    planAdd({
+      topics: picked,
+      record,
+      recordsOf: topicRecords,
+      messagesOf,
+      home: ICD.mostRead(records),
+      nameOf: topicMessageName,
+    });
+
   /** Adds the fields that the user picks from topics, and any empty record. */
   const add = async () => {
-    const home = ICD.mostRead(records);
     const result = await addData({
       device,
       topic: selectedTopic(),
@@ -629,17 +647,11 @@ const Records: FC<RecordsProps> = ({
       reads: (name) => readsOf(topicRecords(name), messagesOf),
       label,
       formats,
-      home,
+      home: ICD.mostRead(records),
+      plan,
     });
     if (result == null) return;
-    const { extensions, kinds, additions } = planAdd({
-      topics: result.topics,
-      record: result.record,
-      recordsOf: topicRecords,
-      messagesOf,
-      home,
-      nameOf: topicMessageName,
-    });
+    const { extensions, kinds, additions } = plan(result.topics, result.record);
     extend(extensions, kinds);
     if (additions.size === 0) return;
     await addRecords(additions);

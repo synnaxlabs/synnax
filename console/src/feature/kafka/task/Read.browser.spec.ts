@@ -1890,7 +1890,12 @@ describe("Kafka read form", () => {
         ),
       });
       await dialog.findByText("Adds to oven-1");
+      await dialog.findByText(/^Reads oven-1 of format/);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      await waitFor(() => {
+        expect(dialog.queryByText("Adds to oven-1")).toBeNull();
+        expect(dialog.queryByText(/^Reads oven-1 of format/)).toBeNull();
+      });
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
       const records = await waitFor(async () => {
         const next = await retrieveRecords(draft.key);
@@ -2673,7 +2678,7 @@ describe("Kafka read form", () => {
       });
     });
 
-    it("should change no ICD when a picked record loses its message before the add", async () => {
+    it("should add nothing for a picked record that loses its message before the add", async () => {
       const createMessage = (name: string) => {
         const field = createField("temperature", "float");
         const message: icd.Message = {
@@ -2729,23 +2734,21 @@ describe("Kafka read form", () => {
       });
       fireEvent.click(dialog.getByRole("checkbox", { name: "Pick alpha" }));
       await second.answered;
-      const add = await dialog.findByRole("button", { name: /^Add \d+ fields$/ });
+      await dialog.findByRole("button", { name: "Add 2 fields" });
       await removeMessage(ovenRecord);
       await screen.findByText("Message not found");
-      fireEvent.click(add);
-      await waitFor(() =>
-        expect(statuses).toContainEqual(
-          expect.objectContaining({
-            message: "Failed to add data",
-            description: `Record ${ovenRecord.key} reads no JSON message`,
-          }),
-        ),
+      fireEvent.click(await dialog.findByRole("button", { name: "Add 1 field" }));
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve(format.key);
+        expect(messages.map(({ name }) => name)).toEqual(["kiln"]);
+        expect(ICD.jsonFields(messages[0]).map(({ pointer }) => pointer)).toEqual([
+          "/temperature",
+          "/pressure",
+        ]);
+      });
+      expect(statuses).not.toContainEqual(
+        expect.objectContaining({ message: "Failed to add data" }),
       );
-      const { messages } = await client.icds.retrieve(format.key);
-      expect(messages.map(({ name }) => name)).toEqual(["kiln"]);
-      expect(ICD.jsonFields(messages[0]).map(({ pointer }) => pointer)).toEqual([
-        "/temperature",
-      ]);
     });
 
     it("should add a field to a read key's message and a record for a free key", async () => {

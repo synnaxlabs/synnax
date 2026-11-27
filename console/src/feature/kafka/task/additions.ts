@@ -19,6 +19,8 @@ export type Picks = Map<string, Set<string>>;
 /** A message that new records read, and those records. */
 export interface Addition {
   message: icd.Message;
+  /** The key of the shape whose new records read the message. Absent for none. */
+  shape?: string;
   /** Whether an ICD holds the message already. Absent, Add data puts it in one. */
   reused?: boolean;
   /** The fields that a held message gains. */
@@ -242,6 +244,7 @@ const reuse = (
   const index = stamp == null ? undefined : holderOf(stamp)?.key;
   return {
     message,
+    shape: json.shapeKey(shape),
     reused: true,
     appended,
     recordKeys,
@@ -331,6 +334,7 @@ export const createAdditions = (
     return [
       {
         message,
+        shape: json.shapeKey(shape),
         recordKeys,
         ...(index == null ? {} : { index }),
         fields: fields.map(({ key }) => key),
