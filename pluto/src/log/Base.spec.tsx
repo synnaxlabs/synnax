@@ -12,7 +12,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardUnavailable, stubCopyCommand } from "@synnaxlabs/lyra/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -335,65 +335,234 @@ describe("log/Base", () => {
   });
 
   describe("mouse interactions", () => {
-    it("should handle mouse down events on left click", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        visibleStart: 0,
-      });
+    type State = Record<string, unknown>;
+
+    // Returns the state after the last update the log made.
+    const lastState = (
+      setState: ReturnType<typeof vi.fn>,
+      from: State = DEFAULT_STATE,
+    ): State => {
+      const update = setState.mock.calls.at(-1)?.[0];
+      return typeof update === "function" ? update(from) : update;
+    };
+
+    // Returns the state after every update the log made, in order, as React applies
+    // them.
+    const applied = (setState: ReturnType<typeof vi.fn>): State =>
+      setState.mock.calls.reduce<State>((state, [update]) => {
+        if (typeof update === "function") return update(state);
+        return { ...state, ...update };
+      }, DEFAULT_STATE);
+
+    const WHOLE = { selectionStartChar: -1, selectionEndChar: -1 };
+
+    it("should select the whole line a click lands on", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValue({ entry: 2, char: 5 });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 50 });
-      expect(setState).toHaveBeenCalled();
+      fireEvent.mouseDown(getLogDiv(container), {
+        button: 0,
+        clientX: 30,
+        clientY: 50,
+      });
+      await waitFor(() =>
+        expect(lastState(setState)).toMatchObject({
+          selectionStart: 2,
+          selectionEnd: 2,
+          ...WHOLE,
+        }),
+      );
+      expect(hit).toHaveBeenCalledWith({ x: 30, y: 50 });
     });
 
-    it("should ignore non-left mouse button on mouse down", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-      });
+    it("should clear a line that alone is selected when clicked again", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValue({ entry: 2, char: 5 });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      const callsBefore = setState.mock.calls.length;
-      fireEvent.mouseDown(logDiv, { button: 2, clientY: 50 });
-      expect(setState.mock.calls.length).toBe(callsBefore);
+      fireEvent.mouseDown(getLogDiv(container), { button: 0 });
+      const selected = { selectionStart: 2, selectionEnd: 2, ...WHOLE };
+      await waitFor(() =>
+        expect(lastState(setState, selected)).toMatchObject({
+          selectionStart: -1,
+          selectionEnd: -1,
+        }),
+      );
     });
 
-    it("should handle mouse move events", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-      });
+    it("should ignore a button other than the left", () => {
+      const { hit } = setupAether({ empty: false });
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 50 });
-      const callsAfterDown = setState.mock.calls.length;
-      fireEvent.mouseMove(window, { clientY: 80, buttons: 1 });
-      expect(setState.mock.calls.length).toBeGreaterThan(callsAfterDown);
+      fireEvent.mouseDown(getLogDiv(container), { button: 2 });
+      expect(hit).not.toHaveBeenCalled();
     });
 
-    it("should stop extending the selection on mouse up", () => {
-      const { setState } = setupAether({ empty: false, computedLineHeight: 16 });
+    it("should select the characters between a drag's ends", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 1, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 3, char: 2 });
       const { container } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 50 });
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await act(async () => {});
+      fireEvent.mouseMove(window, { buttons: 1, clientX: 10, clientY: 90 });
+      await waitFor(() =>
+        expect(applied(setState)).toMatchObject({
+          selectionStart: 1,
+          selectionStartChar: 4,
+          selectionEnd: 3,
+          selectionEndChar: 2,
+        }),
+      );
+    });
+
+    it("should stop selecting when the button comes up", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await act(async () => {});
       fireEvent.mouseUp(window);
-      const callsAfterUp = setState.mock.calls.length;
-      fireEvent.mouseMove(window, { clientY: 80, buttons: 1 });
-      expect(setState.mock.calls.length).toBe(callsAfterUp);
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 80 });
+      expect(hit).toHaveBeenCalledTimes(1);
     });
 
-    it("should extend selection with shift+click", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        visibleStart: 0,
-        selectionStart: 0,
-        selectionEnd: 0,
-      });
+    it("should not drag after a release that comes before the hit", async () => {
+      const { hit } = setupAether({ empty: false });
+      let resolve: (point: { entry: number; char: number }) => void = () => {};
+      hit.mockReturnValueOnce(new Promise((r) => (resolve = r)));
       const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 100, shiftKey: true });
-      expect(setState).toHaveBeenCalled();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      fireEvent.mouseUp(window);
+      resolve({ entry: 2, char: 5 });
+      await act(async () => {});
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 80 });
+      expect(hit).toHaveBeenCalledTimes(1);
+    });
+
+    it("should return to the pressed line when a drag comes back to its start", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 1, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 3, char: 2 });
+      hit.mockResolvedValueOnce({ entry: 1, char: 4 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await act(async () => {});
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 90 });
+      await waitFor(() =>
+        expect(applied(setState)).toMatchObject({ selectionEndChar: 2 }),
+      );
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 30 });
+      await waitFor(() =>
+        expect(applied(setState)).toMatchObject({
+          selectionStart: 1,
+          selectionEnd: 1,
+          ...WHOLE,
+        }),
+      );
+    });
+
+    it("should keep the start the worker moved as entries shift", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 5, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 8, char: 2 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await act(async () => {});
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 90 });
+      // Two entries were evicted, so the worker moved the start from 5 to 3.
+      const shifted = { ...DEFAULT_STATE, selectionStart: 3, selectionStartChar: 4 };
+      await waitFor(() =>
+        expect(lastState(setState, shifted)).toMatchObject({
+          selectionStart: 3,
+          selectionStartChar: 4,
+          selectionEnd: 8,
+          selectionEndChar: 2,
+        }),
+      );
+    });
+
+    it("should keep the start character the worker moved", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 5, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 8, char: 2 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await act(async () => {});
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 90 });
+      // The start line was evicted, so the worker moved the start to the oldest line.
+      const evicted = { ...DEFAULT_STATE, selectionStart: 0, selectionStartChar: 0 };
+      await waitFor(() =>
+        expect(lastState(setState, evicted)).toMatchObject({
+          selectionStart: 0,
+          selectionStartChar: 0,
+          selectionEnd: 8,
+        }),
+      );
+    });
+
+    it("should end a drag whose selection the worker cleared", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 5, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 8, char: 2 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await act(async () => {});
+      // The press selected its line, then the worker evicted it and cleared the
+      // selection.
+      lastState(setState);
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 90 });
+      await waitFor(() => expect(hit).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(lastState(setState)).toEqual(DEFAULT_STATE));
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 80 });
+      expect(hit).toHaveBeenCalledTimes(2);
+    });
+
+    it("should start no drag from a click that clears its line", async () => {
+      const selected = {
+        ...DEFAULT_STATE,
+        ...WHOLE,
+        selectionStart: 2,
+        selectionEnd: 2,
+      };
+      const { setState, hit } = setupAether({ ...selected, empty: false });
+      hit.mockResolvedValue({ entry: 2, char: 5 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await act(async () => {});
+      expect(lastState(setState, selected)).toMatchObject({ selectionStart: -1 });
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 90 });
+      expect(hit).toHaveBeenCalledTimes(1);
+    });
+
+    it("should start no drag on a shift-click", async () => {
+      const { hit } = setupAether({ empty: false });
+      hit.mockResolvedValue({ entry: 4, char: 3 });
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0, shiftKey: true });
+      await act(async () => {});
+      fireEvent.mouseMove(window, { buttons: 1, clientY: 90 });
+      expect(hit).toHaveBeenCalledTimes(1);
+    });
+
+    it("should extend the selection by whole lines on a shift-click", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValue({ entry: 4, char: 3 });
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, shiftKey: true });
+      await waitFor(() =>
+        expect(lastState(setState, { selectionStart: 1 })).toMatchObject({
+          selectionStart: 1,
+          selectionEnd: 4,
+          ...WHOLE,
+        }),
+      );
     });
   });
 
@@ -433,46 +602,57 @@ describe("log/Base", () => {
         });
     };
 
+    // Presses inside the log and waits for the worker to place the press.
+    const press = async (container: HTMLElement): Promise<void> => {
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      await act(async () => {});
+    };
+
     // Applies the state updates the log made from the drag on, in order.
-    const dragTo = (clientY: number, frames: number, props = {}) => {
-      const { setState, state } = setupAether(ROWS);
+    const dragTo = async (clientY: number, frames: number, props = {}) => {
+      const { setState, state, hit } = setupAether(ROWS);
+      hit.mockResolvedValueOnce({ entry: 10, char: 1 });
+      hit.mockResolvedValueOnce({ entry: 12, char: 3 });
       const { container } = renderLog(props);
       const before = setState.mock.calls.length;
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      await press(container);
       fireEvent.mouseMove(window, { clientY, buttons: 1 });
+      await act(async () => {});
       advanceFrames(frames);
       return applyCalls(setState, before, state);
     };
 
-    it("should scroll up and select the top row above the log", () => {
-      const state = dragTo(-50, 3);
+    it("should scroll up and select from the start of the top row", async () => {
+      const state = await dragTo(-50, 3);
       expect(state.wheelPos).toBeGreaterThan(0);
       expect(state.scrolling).toBe(true);
       expect(state.selectionEnd).toBe(aetherLog.selectRow(0));
+      expect(state.selectionEndChar).toBe(0);
     });
 
-    it("should pause the log when it scrolls up", () => {
+    it("should pause the log when it scrolls up", async () => {
       const onHold = vi.fn();
-      dragTo(-50, 1, { onHold });
+      await dragTo(-50, 1, { onHold });
       expect(onHold).toHaveBeenCalledWith(true);
     });
 
-    it("should scroll down and select the bottom row below the log", () => {
-      const state = dragTo(550, 3);
+    it("should scroll down and select to the end of the bottom row", async () => {
+      const state = await dragTo(550, 3);
       expect(state.wheelPos).toBeLessThan(0);
       expect(state.selectionEnd).toBe(aetherLog.selectRow(34));
+      expect(state.selectionEndChar).toBeGreaterThan(1_000);
     });
 
-    it("should scroll faster the farther the pointer is past the edge", () => {
-      const near = dragTo(-10, 1).wheelPos;
-      const far = dragTo(-100, 1).wheelPos;
+    it("should scroll faster the farther the pointer is past the edge", async () => {
+      const near = (await dragTo(-10, 1)).wheelPos;
+      const far = (await dragTo(-100, 1)).wheelPos;
       expect(far).toBeGreaterThan(Number(near));
     });
 
-    it("should not scroll while the pointer is inside the log", () => {
-      const state = dragTo(100, 3);
+    it("should select to the character under a pointer inside the log", async () => {
+      const state = await dragTo(100, 3);
       expect(state.wheelPos).toBe(0);
-      expect(state.selectionEnd).toBe(aetherLog.selectRow(5));
+      expect(state).toMatchObject({ selectionEnd: 12, selectionEndChar: 3 });
     });
 
     it("should mark the log as selecting until mouse up", () => {
@@ -484,10 +664,10 @@ describe("log/Base", () => {
       expect(applyCalls(setState, 0, state).selecting).toBe(false);
     });
 
-    it("should stop scrolling on mouse up", () => {
+    it("should stop scrolling on mouse up", async () => {
       const { setState } = setupAether(ROWS);
       const { container } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      await press(container);
       fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
       fireEvent.mouseUp(window);
       const callsAfterUp = setState.mock.calls.length;
@@ -497,10 +677,10 @@ describe("log/Base", () => {
       expect(setState.mock.calls.length).toBe(callsAfterUp);
     });
 
-    it("should stop scrolling when a move arrives with no button held", () => {
+    it("should stop scrolling when a move arrives with no button held", async () => {
       const { setState } = setupAether(ROWS);
       const { container } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      await press(container);
       fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
       fireEvent.mouseMove(window, { clientY: -60, buttons: 0 });
       const callsAfterRelease = setState.mock.calls.length;
@@ -509,10 +689,10 @@ describe("log/Base", () => {
       expect(setState.mock.calls.length).toBe(callsAfterRelease);
     });
 
-    it("should stop scrolling when the window loses focus", () => {
+    it("should stop scrolling when the window loses focus", async () => {
       const { setState } = setupAether(ROWS);
       const { container } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      await press(container);
       fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
       fireEvent.blur(window);
       const callsAfterBlur = setState.mock.calls.length;
@@ -776,63 +956,6 @@ describe("log/Base", () => {
       fireEvent.keyDown(document.body, { code: "Escape" });
       fireEvent.keyUp(document.body, { code: "Escape" });
       expect(findUpdaterResult(setState, isClearSelection)).toBeUndefined();
-    });
-  });
-
-  describe("mouseYToEntryIndex", () => {
-    it("should handle mouse down when computedLineHeight is 0", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 0,
-        visibleStart: 0,
-      });
-      const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 100 });
-      expect(setState).toHaveBeenCalled();
-    });
-
-    it("should select the entry of a wrapped row", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        rowEntries: [4, 4, 4, 5],
-        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
-      });
-      const { container } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
-      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
-      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
-        selectionStart: 4,
-      });
-    });
-
-    it("should select the last shown entry below the last row", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        rowEntries: [0, 0, 1],
-        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
-      });
-      const { container } = renderLog();
-      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 400 });
-      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
-      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
-        selectionStart: 1,
-      });
-    });
-
-    it("should compute entry index from clientY position", () => {
-      const { setState } = setupAether({
-        empty: false,
-        computedLineHeight: 16,
-        visibleStart: 5,
-        region: { one: { x: 0, y: 100 }, two: { x: 400, y: 600 } },
-      });
-      const { container } = renderLog();
-      const logDiv = getLogDiv(container);
-      fireEvent.mouseDown(logDiv, { button: 0, clientY: 150 });
-      expect(setState).toHaveBeenCalled();
     });
   });
 });

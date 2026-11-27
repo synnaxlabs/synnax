@@ -10,7 +10,13 @@
 import type { log as clientLog } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
-import { box, type color as xcolor, type optional, TimeSpan } from "@synnaxlabs/x";
+import {
+  box,
+  type color as xcolor,
+  type optional,
+  TimeSpan,
+  type xy,
+} from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import type { z } from "zod";
 
@@ -38,9 +44,10 @@ export interface UseProps
         | "selectionStart"
         | "selectionEnd"
         | "selecting"
-        | "visibleStart"
-        | "rowEntries"
         | "computedLineHeight"
+        | "selectionStartChar"
+        | "selectionEndChar"
+        | "rowEntries"
         | "channelNames"
         | "channelDataTypes"
         | "channelColors"
@@ -69,7 +76,10 @@ export type LogState = z.output<typeof log.logStateZ>;
 export interface UseReturn {
   state: LogState;
   setState: Dispatch<SetStateAction<LogState>>;
-  methods: { selection: () => Promise<log.Selection> };
+  methods: {
+    selection: () => Promise<log.Selection>;
+    hit: (position: xy.XY) => Promise<log.Point>;
+  };
 }
 
 export const use = ({
