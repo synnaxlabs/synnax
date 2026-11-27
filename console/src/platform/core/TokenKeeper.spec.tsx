@@ -24,7 +24,9 @@ import { act, render, waitFor } from "@testing-library/react";
 import type { PropsWithChildren, ReactElement } from "react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreSelectable?: boolean } => ({
+  engine: "tauri",
+}));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -39,6 +41,7 @@ import {
   createSessionConsoleWrapper,
   createStatusConsoleWrapper,
   disableActEnvironment,
+  renderHookWithConsole,
 } from "@/testutil";
 
 /** Records the keychain calls the keeper issues. Every read answers with `stored`. */
@@ -61,6 +64,47 @@ const renderKeeper = async (core: ReturnType<typeof createCore>) => {
 };
 
 describe("Core.TokenKeeper", () => {
+  it("should resume the tab's session on the dev server", async () => {
+    mocks.engine = "web";
+    mocks.coreSelectable = true;
+    onTestFinished(() => {
+      mocks.engine = "tauri";
+      mocks.coreSelectable = undefined;
+      sessionStorage.clear();
+    });
+    const core = createCore("Local");
+    const loggedOut = { ...core, password: "" };
+    expect(Core.hasLogin(loggedOut)).toBe(false);
+    await renderKeeper(core);
+    await waitFor(() => expect(sessionStorage).toHaveLength(1));
+    expect(Core.hasLogin(loggedOut)).toBe(true);
+    const { result } = await renderHookWithConsole(() => Core.useConnParams(), {
+      preloadedState: createCoreState([core], core.key),
+    });
+    await waitFor(() => expect(result.current?.token).toMatch(/^sys_/));
+    expect(result.current?.sessionCookie).toBeUndefined();
+    expect(result.current?.sessionPersistent).toBe(true);
+  });
+
+  it("should forget the tab's token on the dev server at log out", async () => {
+    mocks.engine = "web";
+    mocks.coreSelectable = true;
+    onTestFinished(() => {
+      mocks.engine = "tauri";
+      mocks.coreSelectable = undefined;
+      sessionStorage.clear();
+    });
+    const core = createCore("Local");
+    await renderKeeper(core);
+    await waitFor(() => expect(sessionStorage).toHaveLength(1));
+    const { result } = await renderHookWithConsole(() => Core.useLogout(), {
+      preloadedState: createCoreState([core], core.key),
+    });
+    act(() => result.current());
+    await waitFor(() => expect(sessionStorage).toHaveLength(0));
+    expect(Core.hasLogin({ ...core, password: "" })).toBe(false);
+  });
+
   it("should save the token once the Core accepts the session", async () => {
     const calls = recordKeychain();
     const core = createCore("Local");
@@ -312,6 +356,22 @@ describe("Core.TokenKeeper", () => {
     await waitFor(() =>
       expect(store.getState().core.cores[core.key].oidc).toBeUndefined(),
     );
+  });
+
+  it("should drop a spent code on the dev server once the tab holds its token", async () => {
+    mocks.engine = "web";
+    mocks.coreSelectable = true;
+    onTestFinished(() => {
+      mocks.engine = "tauri";
+      mocks.coreSelectable = undefined;
+      sessionStorage.clear();
+    });
+    const { core, store } = await renderCodeLogin("sys_token");
+    await waitFor(() =>
+      expect(store.getState().core.cores[core.key].oidc).toBeUndefined(),
+    );
+    expect(store.getState().core.cores[core.key].lastLogin).toBeDefined();
+    expect(sessionStorage).toHaveLength(1);
   });
 
   it("should keep a spent code on the web while a token holds the session", async () => {

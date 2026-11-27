@@ -9,13 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  formatEscaped,
-  formatHexBytes,
-  parseEscaped,
-  parseHexBytes,
-  parseUnsigned,
-} from "@/feature/icd/editor/FormattedField";
+import { ICD } from "@/platform/icd";
 
 describe("parseUnsigned", () => {
   it.each([
@@ -24,17 +18,17 @@ describe("parseUnsigned", () => {
     ["0x1F0", 0x1f0],
     [" 0x18ff50e5 ", 0x18ff50e5],
   ])("should parse %j", (text, want) => {
-    expect(parseUnsigned(text)).toBe(want);
+    expect(ICD.parseUnsigned(text)).toBe(want);
   });
 
   it.each(["", "  ", "-1", "1.5", "0x18FF5G", "1F0"])("should refuse %j", (text) => {
-    expect(parseUnsigned(text)).toBeNull();
+    expect(ICD.parseUnsigned(text)).toBeNull();
   });
 });
 
 describe("formatHexBytes", () => {
   it("should write each byte as two uppercase digits split by spaces", () => {
-    expect(formatHexBytes(new Uint8Array([0xaa, 0x05, 0xff]))).toBe("AA 05 FF");
+    expect(ICD.formatHexBytes(new Uint8Array([0xaa, 0x05, 0xff]))).toBe("AA 05 FF");
   });
 });
 
@@ -45,16 +39,16 @@ describe("parseHexBytes", () => {
     ["0xAA 0x55", [0xaa, 0x55]],
     [" 7e\t01 ", [0x7e, 0x01]],
   ])("should parse %j", (text, want) => {
-    expect(parseHexBytes(text)).toEqual(new Uint8Array(want));
+    expect(ICD.parseHexBytes(text)).toEqual(new Uint8Array(want));
   });
 
   it.each(["", "  ", "A", "AA 5", "GG", "0x"])("should refuse %j", (text) => {
-    expect(parseHexBytes(text)).toBeNull();
+    expect(ICD.parseHexBytes(text)).toBeNull();
   });
 
   it("should give back the bytes that formatHexBytes writes", () => {
     const bytes = new Uint8Array([0x00, 0x7e, 0xaa, 0xff]);
-    expect(parseHexBytes(formatHexBytes(bytes))).toEqual(bytes);
+    expect(ICD.parseHexBytes(ICD.formatHexBytes(bytes))).toEqual(bytes);
   });
 });
 
@@ -68,7 +62,7 @@ describe("formatEscaped", () => {
     ["\x7f", "\\x7F"],
     ["END;", "END;"],
   ])("should write %j as %j", (text, want) => {
-    expect(formatEscaped(text)).toBe(want);
+    expect(ICD.formatEscaped(text)).toBe(want);
   });
 });
 
@@ -82,18 +76,18 @@ describe("parseEscaped", () => {
     ["\\x7f", "\x7f"],
     ["END;", "END;"],
   ])("should parse %j", (text, want) => {
-    expect(parseEscaped(text)).toBe(want);
+    expect(ICD.parseEscaped(text)).toBe(want);
   });
 
   it.each(["", "\\", "\\q", "\\x", "\\x8", "\\x80", "\\xZZ"])(
     "should refuse %j",
     (text) => {
-      expect(parseEscaped(text)).toBeNull();
+      expect(ICD.parseEscaped(text)).toBeNull();
     },
   );
 
   it("should give back the text that formatEscaped writes", () => {
     const text = "\x02 \\ \r\n\t\x7f;";
-    expect(parseEscaped(formatEscaped(text))).toBe(text);
+    expect(ICD.parseEscaped(ICD.formatEscaped(text))).toBe(text);
   });
 });

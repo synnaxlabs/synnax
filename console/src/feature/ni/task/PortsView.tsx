@@ -117,7 +117,9 @@ const DeviceSection = ({
               {usage}
             </Text.Text>
           </Flex.Box>
-          <span className={CSS.BE("ni-ports", "location")}>{device.location}</span>
+          <Text.Text level="small" className={CSS.BE("ni-ports", "location")}>
+            {device.location}
+          </Text.Text>
         </Flex.Box>
         {children(open)}
       </Flex.Box>

@@ -54,7 +54,7 @@ const (
 // frameContentType is the media type of the binary frame encoding.
 const frameContentType = "application/vnd.synnax.frame"
 
-// Codec encodes and decodes the websocket messages of one framer stream.
+// Codec encodes and decodes the WebSocket messages of one framer stream.
 type Codec struct {
 	ctx   context.Context
 	frame *codec.Codec

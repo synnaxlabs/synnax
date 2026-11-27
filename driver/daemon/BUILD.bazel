@@ -61,7 +61,7 @@ cc_library(
 )
 
 # Exercises the systemd sd_notify protocol, so it only runs where daemon_linux.cpp is
-# the selected implementation: Linux, excluding the NI Linux RT configuration.
+# the selected implementation: Linux, excluding the NI Linux Real-Time configuration.
 cc_test(
     name = "daemon_test",
     size = "small",
