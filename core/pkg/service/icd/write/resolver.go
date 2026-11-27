@@ -113,9 +113,13 @@ func (r Resolver) NewChecker(
 	return c, nil
 }
 
-// Check checks each of writes, in order, against its ICD, from icds or else retrieved
-// through snap, and its channels. It returns the validation error of the first write
-// that does not build.
+// Check builds the encoder of each of writes from its ICD, from icds or else retrieved
+// through snap, and the data types of the channels that the lookup finds. It skips a
+// write whose ICD does not exist, which the reference check of the write reports. It
+// also skips a write with no bindings of a JSON message with no fields, because only
+// deploying refuses it. A framed write of a binary or text message builds no encoder,
+// so only its bindings are checked. It returns the validation error of the first write
+// that does not build, at the path of its message.
 func (r Resolver) Check(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -126,9 +130,18 @@ func (r Resolver) Check(
 	if err != nil {
 		return err
 	}
+	dataTypes := lo.MapValues(
+		c.channels,
+		func(ch icdv0.Channel, _ channel.Key) telem.DataType { return ch.DataType },
+	)
 	for _, w := range writes {
-		if err = c.Check(w); err != nil {
-			return err
+		ic, ok := c.icds[w.ICD]
+		if !ok || unfilled(ic, w.Message) {
+			continue
+		}
+		if err = check(w, ic, dataTypes); err != nil {
+			path := slices.Concat(w.Path, []string{"message"})
+			return validate.PathedError(err, path...)
 		}
 	}
 	return nil
@@ -139,27 +152,6 @@ func (r Resolver) Check(
 type Checker struct {
 	icds     map[icd.Key]icd.ICD
 	channels map[channel.Key]icdv0.Channel
-}
-
-// Check builds the encoder of w from its ICD and the data types of its channels. It
-// skips a write whose ICD does not exist, which the reference check of the write
-// reports. It also skips a write with no bindings of a JSON message with no fields,
-// because only deploying refuses it. A framed write of a binary or text message builds
-// no encoder, so only its bindings are checked. It returns a validation error at the
-// path of the message of w.
-func (c Checker) Check(w Write) error {
-	ic, ok := c.icds[w.ICD]
-	if !ok || unfilled(ic, w.Message) {
-		return nil
-	}
-	dataTypes := lo.MapValues(
-		c.channels,
-		func(ch icdv0.Channel, _ channel.Key) telem.DataType { return ch.DataType },
-	)
-	if err := check(w, ic, dataTypes); err != nil {
-		return validate.PathedError(err, slices.Concat(w.Path, []string{"message"})...)
-	}
-	return nil
 }
 
 // ICD returns the ICD with key. It returns a validation error when the ICD does not
