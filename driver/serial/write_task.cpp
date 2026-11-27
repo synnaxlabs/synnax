@@ -78,12 +78,11 @@ x::errors::Error Sink::stop() {
 x::errors::Error Sink::write(x::telem::Frame &frame) {
     std::lock_guard lock(this->mu);
     auto guard = this->conn->lock();
-    const auto [t, err] = guard.transport();
-    if (err) return err;
-    auto [warning, write_err] = this->sender.write(*t, frame);
-    if (from_port(write_err)) guard.fail(write_err);
+    const auto t = guard.transport();
+    auto [warning, err] = this->sender.write(t, frame);
+    if (!t.second && from_port(err)) guard.fail(err);
     this->warn(std::move(warning));
-    return write_err;
+    return err;
 }
 
 common::Warning Sink::held_warning() {
