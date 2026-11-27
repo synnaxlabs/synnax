@@ -58,6 +58,7 @@ from synnax import (
 )
 from synnax.config import DESKTOP_NOT_RUNNING_MSG, load_options
 from synnax.exceptions import ValidationError
+from synnax.ni.client import Client as NIClient
 from synnax.options import Options
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
@@ -323,6 +324,11 @@ class Synnax(framer.Client):
     @_Lazy
     def devices(self) -> device.Client:
         return device.Client(client=self._transport.unary)
+
+    @_Lazy
+    def ni(self) -> NIClient:
+        """The clients of the NI resources in the Core."""
+        return NIClient(client=self._transport.unary)
 
     @_Lazy
     def tasks(self) -> task.Client:
