@@ -398,8 +398,10 @@ var _ = Describe("Service", func() {
 		It("Should reject a missing rack", func(ctx SpecContext) {
 			b := newBroker()
 			b.Rack = 999
-			Expect(svc.NewWriter(tx).Create(ctx, &b)).
-				To(MatchError(query.ErrNotFound))
+			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("rack 999 does not exist")),
+			))
 		})
 	})
 

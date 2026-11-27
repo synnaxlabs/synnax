@@ -23,13 +23,17 @@ import (
 // Integration is the name that a rack lists in its integrations when it runs MQTT.
 const Integration = "mqtt"
 
-// checkRack refuses a rack that does not run the MQTT integration.
+// checkRack refuses a missing rack and a rack that does not run the MQTT integration.
 func (w Writer) checkRack(ctx context.Context, b Broker) error {
 	var r rack.Rack
-	if err := w.racks.NewRetrieve().
+	err := w.racks.NewRetrieve().
 		Where(rack.MatchKeys(b.Rack)).
 		Entry(&r).
-		Exec(ctx, w.tx); err != nil {
+		Exec(ctx, w.tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return errors.Wrapf(validate.ErrValidation, "rack: rack %d does not exist", b.Rack)
+	}
+	if err != nil {
 		return err
 	}
 	if !slices.Contains(r.Integrations, Integration) {
