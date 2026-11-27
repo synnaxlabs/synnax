@@ -109,19 +109,12 @@ func (c FactoryConfig) Validate() error {
 }
 
 type factory struct {
-	cfg   FactoryConfig
-	reads read.Resolver
+	cfg      FactoryConfig
+	reads    read.Resolver
+	reporter driver.ConfigReporter
 }
 
 var _ driver.Factory = (*factory)(nil)
-
-func (f *factory) reporter() driver.ConfigReporter {
-	return driver.ConfigReporter{
-		DB:              f.cfg.DB,
-		Status:          f.cfg.Status,
-		Instrumentation: f.cfg.Instrumentation,
-	}
-}
 
 // NewFactory creates a driver.Factory for the Kafka scan, read, and write task types.
 func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
@@ -132,6 +125,11 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	return &factory{
 		cfg:   cfg,
 		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
+		reporter: driver.ConfigReporter{
+			DB:              cfg.DB,
+			Status:          cfg.Status,
+			Instrumentation: cfg.Instrumentation,
+		},
 	}, nil
 }
 
@@ -147,59 +145,45 @@ func (f *factory) InitialTasks() []task.Task {
 	}}
 }
 
+// autoStarter is a task that the factory starts when its config asks for it.
+type autoStarter interface {
+	driver.Task
+	Start(ctx context.Context, cmdKey string) error
+}
+
 // ConfigureTask implements driver.Factory.
 func (f *factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
 ) (driver.Task, error) {
+	var (
+		configured autoStarter
+		autoStart  bool
+		err        error
+	)
 	switch t.Type {
 	case ScanTaskType:
-		st, autoStart, err := f.configureScan(t)
-		if err != nil {
-			f.reporter().Report(ctx, t, cmdKey, err)
-			return nil, err
-		}
-		// Start writes its own status when it fails.
-		if autoStart && cmdKey == driver.NoCommand {
-			if err := st.Start(ctx, cmdKey); err != nil {
-				return nil, err
-			}
-		}
-		return st, nil
+		configured, autoStart, err = f.configureScan(t)
 	case ReadTaskType:
-		rt, err := f.configureRead(ctx, t)
-		if err != nil {
-			f.reporter().Report(ctx, t, cmdKey, err)
-			return nil, err
-		}
-		// A successful configure writes no status, so a start answers the command.
-		if rt.cfg.AutoStart && cmdKey == driver.NoCommand {
-			if err := rt.Start(ctx, cmdKey); err != nil {
-				return nil, err
-			}
-		}
-		return rt, nil
+		configured, autoStart, err = f.configureRead(ctx, t)
 	case WriteTaskType:
-		var cfg WriteConfig
-		if err := t.Config.Unmarshal(&cfg); err != nil {
-			f.reporter().Report(ctx, t, cmdKey, err)
-			return nil, err
-		}
-		wt, err := f.configureTargets(ctx, t, cfg)
-		if err != nil {
-			f.reporter().Report(ctx, t, cmdKey, err)
-			return nil, err
-		}
-		if cfg.AutoStart && cmdKey == driver.NoCommand {
-			if err = wt.Start(ctx, cmdKey); err != nil {
-				return nil, err
-			}
-		}
-		return wt, nil
+		configured, autoStart, err = f.configureWrite(ctx, t)
 	default:
 		return nil, driver.ErrTaskNotHandled
 	}
+	if err != nil {
+		f.reporter.Report(ctx, t, cmdKey, err)
+		return nil, err
+	}
+	// A successful configure writes no status: the start that follows it answers the
+	// command, and a "configured" status would answer it first with running false.
+	if autoStart && cmdKey == driver.NoCommand {
+		if err = configured.Start(ctx, cmdKey); err != nil {
+			return nil, err
+		}
+	}
+	return configured, nil
 }
 
 // resolveProperties retrieves the Kafka cluster device key and decodes its connection
