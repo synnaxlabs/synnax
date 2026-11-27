@@ -140,6 +140,8 @@ public:
         }
     }
 
+    [[nodiscard]] std::size_t pending() const { return this->buf.pending(); }
+
     void clear() {
         this->buf.clear();
         this->scanned = 0;
@@ -163,6 +165,10 @@ public:
     }
 
     x::errors::Error idle() override { return x::errors::NIL; }
+
+    [[nodiscard]] std::size_t pending() const override {
+        return this->splitter.pending();
+    }
 
     void clear() override { this->splitter.clear(); }
 
@@ -232,6 +238,10 @@ public:
     }
 
     x::errors::Error idle() override { return x::errors::NIL; }
+
+    [[nodiscard]] std::size_t pending() const override {
+        return this->splitter.pending();
+    }
 
     void clear() override { this->splitter.clear(); }
 
@@ -307,6 +317,10 @@ public:
 
     x::errors::Error idle() override { return x::errors::NIL; }
 
+    [[nodiscard]] std::size_t pending() const override {
+        return this->splitter.pending();
+    }
+
     void clear() override { this->splitter.clear(); }
 
     /// @brief starts the frame with an END byte as well, which ends any line noise
@@ -354,6 +368,8 @@ public:
             "dropped " + std::to_string(dropped) + " bytes of a partial frame"
         );
     }
+
+    [[nodiscard]] std::size_t pending() const override { return this->buf.pending(); }
 
     void clear() override { this->buf.clear(); }
 
@@ -553,6 +569,8 @@ public:
             "dropped " + std::to_string(dropped) + " bytes of a partial frame"
         );
     }
+
+    [[nodiscard]] std::size_t pending() const override { return this->buf.pending(); }
 
     void clear() override { this->buf.clear(); }
 

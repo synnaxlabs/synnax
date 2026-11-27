@@ -638,11 +638,59 @@ describe("MQTT read form", () => {
     });
   });
 
+  it("should show a partial pick of a topic with some of its fields picked, and pick the rest on a click", async () => {
+    const { dev } = await renderRead();
+    const dialog = await openShapedTopic(dev.rack);
+    fireEvent.click(
+      await dialog.findByRole("checkbox", { name: "Record temperature" }),
+    );
+    const topic = dialog.getByRole<HTMLInputElement>("checkbox", { name: "Pick oven" });
+    await waitFor(() => expect(topic.closest(".lyra--indeterminate")).not.toBeNull());
+    expect(topic.checked).toBe(false);
+    fireEvent.click(topic);
+    await waitFor(() => expect(topic.checked).toBe(true));
+    expect(topic.closest(".lyra--indeterminate")).toBeNull();
+    expect(dialog.getByRole("button", { name: "Add 2 fields" })).toBeTruthy();
+  });
+
+  it("should list the type of a boolean value as boolean", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [
+          {
+            topic: TOPIC,
+            payload: '{"running": true}',
+            shapes: [
+              {
+                fields: [
+                  {
+                    pointer: "/running",
+                    type: "boolean",
+                    kind: "boolean",
+                    sample: "true",
+                  },
+                ],
+                count: 1,
+              },
+            ],
+            retained: true,
+          },
+        ],
+        truncated: false,
+      },
+    });
+    const value = await findValue(dialog, "running");
+    expect(value.getByText("boolean")).toBeTruthy();
+  });
+
   it("should add a message for each shape of a new topic, named after the field that matches its documents", async () => {
     const { dev, draft } = await renderRead();
     const dialog = await openShapedTopic(dev.rack);
-    await dialog.findByText("44 messages with /temperature");
-    expect(dialog.getByText("11 messages with /fault")).toBeTruthy();
+    await dialog.findByText("Messages that have /temperature");
+    expect(dialog.getByText("Messages that have /fault")).toBeTruthy();
     fireEvent.click(dialog.getByRole("checkbox", { name: "Pick oven" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
     await waitFor(async () => {

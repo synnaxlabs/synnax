@@ -138,6 +138,28 @@
         "blob": ""
       },
       "error": "field id: invalid UUID \"nope\": validation error"
+    },
+    {
+      "document": {
+        "state": "run",
+        "doc": 1,
+        "id": 1,
+        "blob": ""
+      },
+      "error": "field id: expected a UUID string, got a number: validation error"
+    },
+    {
+      "document": {
+        "state": "run",
+        "doc": 1,
+        "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
+        "blob": "a*b="
+      },
+      "error": "field blob: not canonical base64: validation error"
+    },
+    {
+      "text": "{\"state\": \"run\", \"doc\": {\"a\": 1, \"a\": 2}, \"id\": \"6ba7b810-9dad-41d1-80b4-00c04fd430c8\", \"blob\": \"\"}",
+      "error": "field doc: jsontext: duplicate object member name \"a\": validation error"
     }
   ]
 }

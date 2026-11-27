@@ -709,6 +709,29 @@ TEST(Framer, EncodeMaxSize) {
     }
 }
 
+/// @brief it should count the bytes that no frame has read in every framing, and none
+/// after clear.
+TEST(Framer, CountPendingBytes) {
+    const auto y = ASSERT_NIL_P(create(sync_framing()));
+    Bytes synced;
+    ASSERT_NIL(y->encode(with_header({1}), synced));
+    std::vector<std::pair<std::unique_ptr<Framer>, Bytes>> cases;
+    cases.emplace_back(delimited_by("\n"), Bytes{'a', 'b', '\n'});
+    cases.emplace_back(fixed(3), Bytes{'a', 'b', 'c'});
+    cases.emplace_back(cobs(), Bytes{0x02, 'a', 0x00});
+    cases.emplace_back(slip(), Bytes{'a', 0xC0});
+    cases.emplace_back(ASSERT_NIL_P(create(sync_framing())), synced);
+    for (const auto &[f, frame]: cases) {
+        f->write(frame);
+        f->write(Bytes{0xAA, 0x55});
+        ASSERT_TRUE(ASSERT_NIL_P(f->next()).has_value());
+        ASSERT_FALSE(ASSERT_NIL_P(f->next()).has_value());
+        EXPECT_EQ(f->pending(), 2U);
+        f->clear();
+        EXPECT_EQ(f->pending(), 0U);
+    }
+}
+
 /// @brief it should split a stream without allocating once its buffer has grown.
 TEST(Framer, SplitWithoutAllocating) {
     const auto d = delimited_by("\r\n");

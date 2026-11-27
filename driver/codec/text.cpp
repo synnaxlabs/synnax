@@ -255,7 +255,7 @@ Text::decode(const std::string_view line) {
         if (auto err = m.fields[i].decode(this->items, dst)) {
             err = err.wrap("field " + m.fields[i].name);
             if (this->messages.size() > 1) err = err.wrap("message " + m.name);
-            return {std::nullopt, err};
+            return {found, err};
         }
     }
     return {found, x::errors::NIL};

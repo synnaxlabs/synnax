@@ -426,8 +426,6 @@ func (h *hearing) hear(m paho.Message) bool {
 	}
 	h.held += len(payload)
 	msg := sampledMessage{Time: telem.Now(), Retained: m.Retained()}
-	msg.Format = driver.FormatOf(payload)
-	msg.Payload = driver.Display(payload, msg.Format, samplePayloadLimit)
 	h.by[m.Topic()] = append(
 		messages,
 		heardMessage{sampledMessage: msg, payload: payload},
@@ -462,21 +460,29 @@ func newSampleResult(by map[string][]heardMessage) (sampleResult, [][]sampledMes
 		sampled = make([][]sampledMessage, len(names))
 		docs    []xjson.Document
 	)
-	for i, name := range names {
+	for _, name := range names {
 		for _, m := range by[name] {
-			sampled[i] = append(sampled[i], m.sampledMessage)
 			docs = append(
 				docs,
 				xjson.Document{Source: name, Data: m.payload, Time: m.Time},
 			)
 		}
 	}
-	res := sampleResult{
-		Topics: make([]sampledTopic, len(names)),
-		Shapes: xjson.Infer(docs),
-	}
+	shapes, isJSON := xjson.Infer(docs)
+	res := sampleResult{Topics: make([]sampledTopic, len(names)), Shapes: shapes}
+	d := 0
 	for i, name := range names {
 		res.Topics[i].Topic = name
+		for _, m := range by[name] {
+			msg := m.sampledMessage
+			msg.Format = payload.FormatJSON
+			if !isJSON[d] {
+				msg.Format = driver.FormatOf(m.payload)
+			}
+			d++
+			msg.Payload = driver.Display(m.payload, msg.Format, samplePayloadLimit)
+			sampled[i] = append(sampled[i], msg)
+		}
 	}
 	return res, sampled
 }
