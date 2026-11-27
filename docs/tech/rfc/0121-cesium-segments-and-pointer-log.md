@@ -1447,12 +1447,13 @@ layout, so each piece merges alone and leaves `main` green. Every other phase is
 15. **The Core ends a clock**: Rejected: a `Delete` that ends each clock with no user on
     its own. Before RFC 0120 Phase 50 a clock can be an index channel with a record,
     which Cesium cannot see.
-16. **No segment file on the frame path**: Spares made at open and at a handoff cost one
-    empty file each, and a pause move makes its files in a background step at three
-    quarters of P. Keys that pause together move together, and a move reuses a clock
-    that one of their segments names. Rejected: a clock per moved key, which stores the
-    stamps of 20 keys that pause together 20 times. Rejected: a file made at a key's
-    first write after a move.
+16. **No segment file on the frame path**: A spare for each held segment costs one empty
+    file, an open takes over the unheld segment of a key that another writer holds, so a
+    handoff opens no file, and a pause move makes its files in a background step at
+    three quarters of P. Keys that pause together move together, and a move reuses a
+    clock that one of their segments names. Rejected: a clock per moved key, which
+    stores the stamps of 20 keys that pause together 20 times. Rejected: a file made at
+    a key's first write after a move.
 
 17. **The Core starts past a clock with a record and an uncommitted conversion**: By the
     founder delegation, each takes the most robust option, which keeps the Core
