@@ -130,12 +130,9 @@ func newArcTextMigration(cfg parser.Config) gorp.Migration {
 				Exec(ctx, tx); err != nil {
 				return err
 			}
-			byKey := make(map[channel.Key]channelv1.TextChannel, len(channels))
-			for _, c := range channels {
-				byKey[c.Key()] = channelv1.TextChannel{
-					Name:     c.Name,
-					DataType: c.DataType,
-				}
+			byKey, err := channelv1.TextChannels(ctx, tx, channels)
+			if err != nil {
+				return err
 			}
 			renames, err := channelv1.TextRename(tx, byKey)
 			if err != nil || renames == nil {
@@ -329,9 +326,15 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 	if site.Function != "" {
 		noun = fmt.Sprintf("function %q of %s", site.Function, noun)
 	}
-	why := "the text does not parse, or its names do not bind"
-	if site.Captured {
+	why, fix := "the text does not parse, or its names do not bind",
+		"Edit the text so that it reads the channel."
+	switch {
+	case site.Captured:
 		why = "a symbol that the text declares holds one of these names there"
+	case site.FolderUnreadable:
+		why = "its folder cannot be read in Arc yet"
+		fix = "Rename the folder so that Arc can read it, then edit the text so " +
+			"that it reads the channel."
 	}
 	return status.Status[any]{
 		Name:    holder,
@@ -339,8 +342,7 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 		Message: "Kept an old channel name in text",
 		Description: fmt.Sprintf(
 			"The upgrade renamed channel %q to %q, but the text of %s %q still reads "+
-				"the old name at line %d, column %d, because %s. Edit the text so "+
-				"that it reads the channel.",
+				"the old name at line %d, column %d, because %s. %s",
 			site.Name,
 			site.NewName,
 			noun,
@@ -348,6 +350,7 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 			site.Line,
 			site.Column+1,
 			why,
+			fix,
 		),
 		Time: telem.Now(),
 	}

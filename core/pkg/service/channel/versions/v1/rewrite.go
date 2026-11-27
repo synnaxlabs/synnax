@@ -38,6 +38,8 @@ import (
 type TextChannel struct {
 	Name     string
 	DataType telem.DataType
+	// Folders are the names of the folders of the channel, from the top level down.
+	Folders []string
 }
 
 // Renames is how text that a v0.62 Core stored reads each channel name, and the new
@@ -75,6 +77,21 @@ func (r *Renames) Resolve(_ context.Context, name string) (*symbol.Symbol, error
 		return nil, errors.Wrapf(query.ErrNotFound, "channel %q", name)
 	}
 	return r.symbol(name, b.key), nil
+}
+
+// readable reports whether Arc with cfg reads the name of each folder of the channel
+// that a v0.62 Core bound name to as one bare identifier, so a path through them reads.
+func (r *Renames) readable(name string, cfg parser.Config) bool {
+	for _, folder := range r.channels[r.bound[name].key].Folders {
+		lexer := parser.NewLexer(folder, cfg)
+		lexer.RemoveErrorListeners()
+		tokens := lexer.GetAllTokens()
+		if len(tokens) != 1 || tokens[0].GetTokenType() != parser.ArcLexerIDENTIFIER ||
+			tokens[0].GetText() != folder {
+			return false
+		}
+	}
+	return true
 }
 
 // symbol returns the channel symbol of key under name.
@@ -133,9 +150,12 @@ type Reference struct {
 	// declares takes the old or the new name there: in the scopes that the analyzer has
 	// bound when it reads the reference, or in the finished scopes.
 	Captured bool
+	// FolderUnreadable is true when the reference reads the channel, but the channel
+	// sits in a folder whose name Arc cannot read bare yet, such as one with a space.
+	FolderUnreadable bool
 	// Kept is true when the rewrite left the reference on the old name although it may
-	// read the channel: the text does not parse or bind, or a reference of it is
-	// captured.
+	// read the channel: the text does not parse or bind, a reference of it is captured,
+	// or its folder is unreadable.
 	Kept bool
 }
 
@@ -213,10 +233,17 @@ func (w Rewriter) Rewrite(ctx context.Context, src Source) (Result, error) {
 		}
 		return res, nil
 	}
+	for i, r := range res.References {
+		if r.Bound && r.Binding == symbol.KindChannel &&
+			!w.Renames.readable(r.Name, w.Config) {
+			res.References[i].FolderUnreadable = true
+			res.References[i].Kept = true
+		}
+	}
 	var b strings.Builder
 	last := 0
 	for i, r := range res.References {
-		if r.Bound && r.Binding == symbol.KindChannel {
+		if r.Bound && r.Binding == symbol.KindChannel && !r.Kept {
 			b.WriteString(src.Text[last:written[i].start])
 			b.WriteString(r.NewName)
 			last = written[i].end
@@ -646,13 +673,14 @@ func StageKept(
 			continue
 		}
 		if err := resource.StageTextSite(ctx, tx, resource.TextSite{
-			Holder:   holder,
-			Function: function,
-			Name:     r.Name,
-			NewName:  r.NewName,
-			Line:     r.Line,
-			Column:   r.Column,
-			Captured: r.Captured,
+			Holder:           holder,
+			Function:         function,
+			Name:             r.Name,
+			NewName:          r.NewName,
+			Line:             r.Line,
+			Column:           r.Column,
+			Captured:         r.Captured,
+			FolderUnreadable: r.FolderUnreadable,
 		}); err != nil {
 			return err
 		}
