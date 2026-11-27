@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/cesium/internal/testutil/opfs"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	. "github.com/synnaxlabs/x/testutil"
@@ -39,7 +39,7 @@ var _ = Describe("Log end check", func() {
 			if full {
 				inner = MustSucceed(fault.New(fault.Config{Capacity: logSize}))
 			}
-			fs := testutil.NewOpFS(inner, "write", "sync", "syncdir")
+			fs := opfs.New(inner, "write", "sync", "syncdir")
 			Expect(log.Prepare(fs, generation, logSize)).To(Succeed())
 			l := MustSucceed(log.Start(log.Config{
 				FS:         fs,

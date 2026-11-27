@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/cesium/internal/testutil/opfs"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
@@ -140,11 +140,11 @@ var _ = Describe("Sync check", func() {
 
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
-			var fs *testutil.OpFS
+			var fs *opfs.FS
 			BeforeEach(func() {
 				inner := makeFS()
 				MustSucceed(inner.Sub("12"))
-				fs = testutil.NewOpFS(inner, "open", "close", "sync", "syncdir")
+				fs = opfs.New(inner, "open", "close", "sync", "syncdir")
 			})
 
 			It(
