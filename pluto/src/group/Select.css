@@ -9,8 +9,22 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The groups above sit at the trailing edge and fade first when the name runs long. */
-.pluto-group__parents {
-    margin-left: auto;
+/* The groups above follow the name and fade first when the row is narrow, so the name
+   fades last. */
+.pluto-group__name {
     min-width: 0;
+}
+
+.pluto-group__parents {
+    min-width: 0;
+    flex-shrink: 1000;
+}
+
+/* The groups above in a trigger take only the room that the name leaves, so a long
+   chain never widens the trigger. */
+.pluto-group__trigger .lyra-select-single-trigger__end {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    contain: inline-size;
 }

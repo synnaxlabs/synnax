@@ -49,7 +49,6 @@ const Parents = ({ itemKey }: { itemKey: group.Key }): ReactElement | null => {
   if (parents == null) return null;
   return (
     <Text.Text
-      el="span"
       level="small"
       color={9}
       overflow="fade"
@@ -69,7 +68,9 @@ const ListItem = ({
   return (
     <Select.Item itemKey={itemKey} {...rest}>
       <Icon.Group />
-      {item.name}
+      <Text.Text el="span" overflow="fade" className={CSS.BE("group", "name")}>
+        {item.name}
+      </Text.Text>
       <Parents itemKey={itemKey} />
     </Select.Item>
   );
@@ -89,6 +90,9 @@ export interface SelectSingleProps
       Select.SingleProps<group.Key, group.Group | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,
+    Partial<
+      Pick<Select.SingleProps<group.Key, group.Group | undefined>, "resourceName">
+    >,
     Omit<Flux.UseListParams<group.RetrieveMultipleParams, group.Group>, "name"> {}
 
 /**
@@ -100,6 +104,7 @@ export const SelectSingle = ({
   query,
   triggerProps,
   value,
+  resourceName = "group",
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = Flux.useList(
@@ -116,11 +121,15 @@ export const SelectSingle = ({
       onFetchMore={more}
       onSearch={search}
       status={status}
-      triggerProps={{ renderEndContent: renderTriggerParents, ...triggerProps }}
+      triggerProps={{
+        renderEndContent: renderTriggerParents,
+        ...triggerProps,
+        className: CSS.cls(CSS.BE("group", "trigger"), triggerProps?.className),
+      }}
       value={value}
       {...rest}
       data={data}
-      resourceName="group"
+      resourceName={resourceName}
       subscribe={subscribe}
     >
       {listItemRenderProp}
