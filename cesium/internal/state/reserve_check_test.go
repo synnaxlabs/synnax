@@ -49,7 +49,7 @@ func (h *hookErrs) err() error {
 var _ = Describe("Check: a Reserve on a full log", func() {
 	It("Should keep the state when a Reserve fails on a full log and the Create that "+
 		"uses its value lands in the next log", func() {
-		const size = 4 << 20
+		const size = 8 * log.DeleteReserve
 		fs := xfs.NewMem()
 		Expect(log.Prepare(fs, 1, size)).To(Succeed())
 		var (
