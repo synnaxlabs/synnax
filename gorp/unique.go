@@ -69,7 +69,9 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 	// then until the index leaves.
 	members *uniqueSpace[V]
 	table   string
-	joined  bool
+	// prefix is the key prefix of the entries of the table, set when the index joins.
+	prefix []byte
+	joined bool
 }
 
 // NewUniqueIndex constructs a UniqueIndex named name in the space named space. value
@@ -152,16 +154,17 @@ func (u *UniqueIndex[K, E, V]) check(ctx context.Context, tx Tx, e *E) error {
 	return nil
 }
 
-// Holder returns the entry of any table of the space of u that holds v, as seen by
-// snap, and false when none does. It waits for every index of the space to populate.
+// Holder returns the entry of any table of the space of u that holds v as storage holds
+// it in snap, and false when none does. Like FilterFunc, it sees the changes staged
+// against snap and each commit in flight, and reads each entry to check its value. It
+// waits for every index of the space to populate.
 func (u *UniqueIndex[K, E, V]) Holder(
 	ctx context.Context,
 	snap Snapshot,
 	v V,
 ) (Target, bool, error) {
-	scope := scopeOf(snap)
 	for _, m := range *u.members.members.Load() {
-		if holder, found, err := m.holder(ctx, scope, v); err != nil || found {
+		if holder, found, err := m.stored(ctx, snap, v); err != nil || found {
 			return holder, found, err
 		}
 	}
@@ -238,6 +241,24 @@ func (u *UniqueIndex[K, E, V]) holder(
 	return NewTarget(u.table, k), true, nil
 }
 
+// stored implements uniqueMember.
+func (u *UniqueIndex[K, E, V]) stored(
+	ctx context.Context,
+	snap Snapshot,
+	v V,
+) (Target, bool, error) {
+	r := NewRetrieve[K, E]()
+	r.keyPrefix = u.prefix
+	var held []E
+	if err := r.
+		Where(u.FilterFunc(func(Context) ([]V, error) { return []V{v}, nil })).
+		Entries(&held).
+		Exec(ctx, snap); err != nil || len(held) == 0 {
+		return Target{}, false, err
+	}
+	return NewTarget(u.table, held[0].GorpKey()), true, nil
+}
+
 // spaceName implements checkedIndex.
 func (u *UniqueIndex[K, E, V]) spaceName() string { return u.space }
 
@@ -256,7 +277,7 @@ func (u *UniqueIndex[K, E, V]) canJoin(r *registry) error {
 }
 
 // join implements checkedIndex.
-func (u *UniqueIndex[K, E, V]) join(r *registry, table string) {
+func (u *UniqueIndex[K, E, V]) join(r *registry, table string, prefix []byte) {
 	space, ok := r.spaces[u.space].(*uniqueSpace[V])
 	if !ok {
 		space = &uniqueSpace[V]{}
@@ -265,7 +286,7 @@ func (u *UniqueIndex[K, E, V]) join(r *registry, table string) {
 	}
 	joined := append(slices.Clone(*space.members.Load()), uniqueMember[V](u))
 	space.members.Store(&joined)
-	u.members, u.table, u.joined = space, table, true
+	u.members, u.table, u.prefix, u.joined = space, table, prefix, true
 }
 
 // leave implements checkedIndex.
@@ -300,7 +321,7 @@ type checkedIndex[K Key, E Entry[K]] interface {
 	canJoin(r *registry) error
 	// join adds the index, on the table named table, to its space in r. Call it with
 	// the lock of r held, after canJoin.
-	join(r *registry, table string)
+	join(r *registry, table string, prefix []byte)
 	// leave removes the index from its space in r, and drops the space when the index
 	// was its last member. Call it with the lock of r held.
 	leave(r *registry)
@@ -310,6 +331,9 @@ type checkedIndex[K Key, E Entry[K]] interface {
 type uniqueMember[V comparable] interface {
 	// holder returns an entry that holds v, with the changes of scope applied.
 	holder(ctx context.Context, scope *txState, v V) (Target, bool, error)
+	// stored returns the entry of the table of the index that holds v as storage holds
+	// it in snap.
+	stored(ctx context.Context, snap Snapshot, v V) (Target, bool, error)
 }
 
 // uniqueSpace is the set of UniqueIndexes of one space on a DB.
