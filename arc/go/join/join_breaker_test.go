@@ -150,6 +150,7 @@ var _ = Describe("Join breaker", func() {
 			next = ms
 		)
 		push := func(n int) {
+			GinkgoHelper()
 			for range n {
 				for k := range ts {
 					ts[k], next = next, next+ms
@@ -319,6 +320,7 @@ var _ = Describe("Join breaker", func() {
 					from = 0
 				}
 				newJ := func() *join.Join {
+					GinkgoHelper()
 					return MustSucceed(join.New(join.Config{
 						Inputs:  inputsOf(dts),
 						Primary: p,
@@ -340,6 +342,7 @@ var _ = Describe("Join breaker", func() {
 				// pushPrimary pushes primary samples [lo, hi), split where the
 				// alignments do not touch.
 				pushPrimary := func(j *join.Join, lo, hi int) {
+					GinkgoHelper()
 					start := lo
 					for k := lo + 1; k <= hi; k++ {
 						if k == hi || align[k] != align[k-1]+1 {
@@ -350,6 +353,7 @@ var _ = Describe("Join breaker", func() {
 					}
 				}
 				push := func(j *join.Join, i, lo, hi int) {
+					GinkgoHelper()
 					if i == p {
 						pushPrimary(j, lo, hi)
 						return

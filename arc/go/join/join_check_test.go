@@ -205,8 +205,8 @@ var _ = Describe("Join check", func() {
 		},
 	)
 
-	It("Should hold an input of Poisson stamps with no limit", func() {
-		for run := range uint64(8) {
+	DescribeTable("Should hold an input of Poisson stamps with no limit",
+		func(run uint64) {
 			r := rand.New(rand.NewPCG(run, 1))
 			ss := make([]float64, 0, 33)
 			ss = append(ss, 0)
@@ -219,7 +219,15 @@ var _ = Describe("Join check", func() {
 			Expect(j.Push(0, values(1), stamps(0, ss[len(ss)-1]+1000))).To(Succeed())
 			var out join.Output
 			j.Next(telem.TimeStampMax, &out)
-			Expect(out.Dropped).To(BeZero(), "run %d", run)
-		}
-	})
+			Expect(out.Dropped).To(BeZero())
+		},
+		Entry("run 0", uint64(0)),
+		Entry("run 1", uint64(1)),
+		Entry("run 2", uint64(2)),
+		Entry("run 3", uint64(3)),
+		Entry("run 4", uint64(4)),
+		Entry("run 5", uint64(5)),
+		Entry("run 6", uint64(6)),
+		Entry("run 7", uint64(7)),
+	)
 })
