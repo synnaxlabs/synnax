@@ -609,11 +609,11 @@ end limits, so a delete can still be logged, and `C` tries again at each later f
    a limit of §5.1, or whose first stamp is more than 7 days from the injected clock,
    before or after it (D-079), and sends those segments to `L`, which logs a Seal for
    each in log `g + 1`. Every other unheld open segment stays open, so a later session
-   takes it over (§5.8, D-512). While the pointers of open segments in the durable view
-   pass 16 MiB (a config default), it also seals the unheld open segments with the most
-   pointers, largest first. So the head holds open segments of at most 7 days, each with
-   at most 4,096 pointers, and at most 16 MiB of open pointers beyond those that writers
-   hold. It sends the durable view, as references to immutable channel states, to `C`.
+   takes it over (§5.8, D-512). While the pointers of unheld open segments in the
+   durable view pass 16 MiB (a config default), it also seals the unheld open segments
+   with the most pointers, largest first. So the head holds open segments of at most
+   4,096 pointers each, unheld ones of at most 7 days and at most 16 MiB of pointers in
+   all. It sends the durable view, as references to immutable channel states, to `C`.
    `L` sends later batches to log `g + 1`. A crash now recovers from head `g` and both
    logs.
 3. `C`, when the sealed records pass 8 MiB or a part must be written again: create
@@ -648,8 +648,8 @@ and the specs of the storage phases test each one (§12).
    entry.
 5. **One sync per file**: One sync of a file runs at a time, a failed sync marks the
    file before the next sync of it starts, and that sync returns the same error.
-6. **One holder**: Every open segment has one holder, the writer that created it or took
-   it over, until a same-clock handoff moves it to the gainer in one step or the
+6. **One holder**: Every open segment has at most one holder, the writer that created it
+   or took it over, until a same-clock handoff moves it to the gainer in one step or the
    holder's `Close` releases it after its last entry is acked.
 7. **The state owner seals for no holder**: The state owner keeps the holder of each
    open segment, and only it seals a segment that no writer holds, in the step that
@@ -737,19 +737,20 @@ The steps:
     identity, and a writer that would create a name from the listing waits for the pass.
     In the root it keeps what the switch keeps: the live head, the older head, each log
     from the older generation on, each part that either head names, the next log, and
-    every `.damaged` and `.undone` file. It cuts version 1 and version 2 segments to
-    their lengths, and no other. After it reads a clean mark, open writes and syncs a
-    plain mark before any writer opens, so a clean mark is the last valid frame only
-    when no writer ran after it. Then, unless the last valid frame is a clean mark, open
-    checks, through the sync pool (§8.0), every byte of the disk block that holds the
-    durable end of each segment that the last stop left open: the tail against
-    `tail_crc`, and the last full block against its trailer when the disk block starts
-    in it. A write past the durable end writes that disk block again, so a crash can
-    tear durable bytes in it; after a clean mark no write passed a durable end. On a
-    failure, open logs a Tombstone per pointer from the first sample in the bad range,
-    over the same stamp range for every key that the clock times, then a Seal. A lost
-    trailer leaves the earlier samples of its block readable unchecked. The error
-    handler (§7) gets an error that lists each cut and each lost trailer.
+    every `.damaged` and `.undone` file. After it reads a clean mark, open writes and
+    syncs a plain mark before the pass cuts a segment or any writer opens, so a clean
+    mark is the last valid frame only when nothing wrote after it. The pass then cuts
+    version 1 and version 2 segments to their lengths, and no other. Then, unless the
+    last valid frame is a clean mark, open checks, through the sync pool (§8.0), every
+    byte of the disk block that holds the durable end of each segment that the last stop
+    left open: the tail against `tail_crc`, and the last full block against its trailer
+    when the disk block starts in it. A write past the durable end writes that disk
+    block again, so a crash can tear durable bytes in it; after a clean mark no write
+    passed a durable end. On a failure, open logs a Tombstone per pointer from the first
+    sample in the bad range, over the same stamp range for every key that the clock
+    times, then a Seal. A lost trailer leaves the earlier samples of its block readable
+    unchecked. The error handler (§7) gets an error that lists each cut and each lost
+    trailer.
 
 ### 5.6 Seal, deletes, and compaction
 
