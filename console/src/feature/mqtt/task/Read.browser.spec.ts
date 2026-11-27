@@ -1142,6 +1142,8 @@ describe("MQTT read form", () => {
     await selectField("count");
     await screen.findByText("int64");
     const scale = await screen.findByLabelText("Scale");
+    // A read multiplies, as the label says, so only a write field explains its scale.
+    expect(screen.queryByText("The task sends (value − offset) ÷ scale.")).toBeNull();
     fireEvent.change(scale, { target: { value: "0.5" } });
     fireEvent.blur(scale);
     await screen.findByText("float64");

@@ -1069,6 +1069,23 @@ describe("MQTT Write form", () => {
       expect(screen.queryByText("Message has no fields")).toBeNull();
     });
 
+    it("should say how a number field converts the value it sends", async () => {
+      const setpoint = createField("setpoint", "float");
+      const mode = createField("mode", "string");
+      const { target } = await createFormatTarget([setpoint, mode]);
+      await renderWrite([target]);
+      await fieldGroup(setpoint.name);
+      expect(
+        await screen.findByText("The task sends (value − offset) ÷ scale."),
+      ).toBeTruthy();
+      await fieldGroup(mode.name);
+      await waitFor(() =>
+        expect(
+          screen.queryByText("The task sends (value − offset) ÷ scale."),
+        ).toBeNull(),
+      );
+    });
+
     it("should rename a field in its ICD from its pane", async () => {
       const setpoint = createField("setpoint", "float");
       const { target, ic, message } = await createFormatTarget([setpoint]);

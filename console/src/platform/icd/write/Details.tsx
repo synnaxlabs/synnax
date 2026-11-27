@@ -171,6 +171,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldPath}
+            written
             autoFocus={autoFocus}
             onNameChange={created ? handleRename : undefined}
             actions={<OpenInEditor icdKey={icdKey} message={message} />}
