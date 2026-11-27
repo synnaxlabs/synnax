@@ -24,8 +24,8 @@ export interface TransportConfig {
   url: url.URL;
   /** How the unary client retries a request that fails. Defaults to the breaker's. */
   retry?: breaker.Config;
-  /** Whether to connect with TLS. Defaults to false. */
-  secure?: boolean;
+  /** Whether to connect with TLS. */
+  secure: boolean;
   /** Receives each failed attempt that the unary client retries. */
   onRetry?: (error: Error) => void;
   /**
@@ -47,13 +47,7 @@ export class Transport {
   readonly stream: WebSocketClient;
   readonly secure: boolean;
 
-  constructor({
-    url,
-    retry = {},
-    secure = false,
-    onRetry,
-    connector,
-  }: TransportConfig) {
+  constructor({ url, retry = {}, secure, onRetry, connector }: TransportConfig) {
     this.secure = secure;
     this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();

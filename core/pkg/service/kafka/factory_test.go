@@ -361,7 +361,11 @@ var _ = Describe("Factory", func() {
 		expectInvalid := func(stat task.Status, reason string) {
 			GinkgoHelper()
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Description).To(ContainSubstring(reason))
+			Expect(stat.Message).To(Equal("Invalid cluster settings"))
+			Expect(stat.Description).To(And(
+				ContainSubstring(reason),
+				HaveSuffix(". Edit the cluster settings."),
+			))
 			Expect(stat.Details.Data).To(BeEmpty())
 		}
 
@@ -474,7 +478,7 @@ var _ = Describe("Factory", func() {
 					Brokers:       brokers,
 					Secure:        true,
 					CaCertificate: "not a certificate",
-				}), "PEM-encoded certificate")
+				}), "ca_certificate: must contain a PEM-encoded certificate")
 			})
 		})
 

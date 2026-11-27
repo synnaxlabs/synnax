@@ -11,6 +11,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -44,4 +46,34 @@ std::pair<std::size_t, std::error_code> queued_output(Handle handle);
 /// @brief drops the written bytes that the port has not yet sent. A close on Linux
 /// waits up to 30 s for them otherwise.
 void discard_output(Handle handle);
+
+/// @brief Line is the line errors of an open port, carried from one read to the next.
+struct Line {
+    /// @brief marked is how many bytes of an error mark ended the last read.
+    std::uint8_t marked = 0;
+    /// @brief overruns is the overrun count that the port last reported, if it counts
+    /// overruns.
+    std::optional<std::uint32_t> overruns;
+};
+
+/// @brief Received is what one read received once its line errors are removed.
+struct Received {
+    /// @brief size is the number of bytes left at the front of the read.
+    std::size_t size = 0;
+    /// @brief errors is the number of parity errors, framing errors, and breaks that
+    /// the read received. Windows counts each kind of error once.
+    std::size_t errors = 0;
+    /// @brief overruns is the number of receive overruns since the last read. Windows
+    /// counts each kind of overrun once.
+    std::size_t overruns = 0;
+};
+
+/// @brief starts counting line errors from the port's current state.
+std::error_code watch(Handle handle, Line &line);
+
+/// @brief removes the bytes with line errors from data, which the port just read, and
+/// counts the errors and overruns. Windows leaves the bytes in data. When the overrun
+/// count fails, it still returns the bytes with the error.
+std::pair<Received, std::error_code>
+receive(Handle handle, Line &line, std::span<std::uint8_t> data);
 }

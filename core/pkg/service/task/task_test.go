@@ -46,6 +46,7 @@ import (
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -68,6 +69,25 @@ const (
 	routingKey1 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b01"
 	routingKey2 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
 )
+
+// errorPath returns the path of err, or nil when err is not a path error.
+func errorPath(err error) []string {
+	pathErr, _ := errors.AsType[validate.PathError](err)
+	return pathErr.Path
+}
+
+// errorPaths returns the path of each member of a joined error.
+func errorPaths(err error) [][]string {
+	members := errors.UnwrapMulti(err)
+	if members == nil {
+		return [][]string{errorPath(err)}
+	}
+	var paths [][]string
+	for _, member := range members {
+		paths = append(paths, errorPaths(member)...)
+	}
+	return paths
+}
 
 // createRoutingKeys creates a stored secret under each key, so that an alert config
 // can name it.
@@ -198,6 +218,7 @@ var _ = Describe("Task", Ordered, func() {
 				racktestutil.CreateDriverRole(ctx, db, roleSvc),
 			),
 		}))
+		StartRun(rackService.Run)
 		secrets := secrettestutil.OpenService(ctx, db)
 		createRoutingKeys(ctx, db, secrets, routingKey1, routingKey2)
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
@@ -551,6 +572,68 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, t)).To(MatchError(validate.ErrValidation))
 			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("made_up")))
 		})
+		// LabJack read checks its stream rate on validation, and an alert checks its
+		// secret on write.
+		DescribeTable(
+			"Should root a refused config at the config of the task",
+			func(ctx SpecContext, taskType string, cfg msgpack.EncodedJSON, field string) {
+				Expect(w.Create(ctx, &task.Task{
+					Type:   taskType,
+					Rack:   testRack.Key,
+					Name:   "Refused Task",
+					Config: cfg,
+				})).To(WithTransform(errorPath, Equal([]string{"config", field})))
+			},
+			Entry("on validation", "labjack_read",
+				msgpack.EncodedJSON{"stream_rate": -5}, "stream_rate"),
+			Entry("on write", testType,
+				msgpack.EncodedJSON{"routing_key": uuid.New().String()}, "routing_key"),
+		)
+		DescribeTable("Should root a refused config edit at the config of the task",
+			func(
+				ctx SpecContext,
+				taskType string,
+				cfg msgpack.EncodedJSON,
+				field string,
+				value any,
+			) {
+				t := &task.Task{
+					Type:   taskType,
+					Rack:   testRack.Key,
+					Name:   "Edited Task",
+					Config: cfg,
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(w.Apply(ctx, t.Key, task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", field},
+					Value: value,
+				}))).Error().To(WithTransform(errorPath, Equal([]string{"config", field})))
+			},
+			Entry("on validation", "labjack_read",
+				msgpack.EncodedJSON{"sample_rate": 50}, "stream_rate", -5),
+			Entry("on write", testType,
+				msgpack.EncodedJSON{"routing_key": routingKey1}, "routing_key",
+				uuid.New().String()),
+		)
+		It(
+			"Should keep a config edit error that names no path as it is",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Type:   testType,
+					Rack:   testRack.Key,
+					Name:   "Edited Task",
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(w.Apply(ctx, t.Key, task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", "made_up"},
+					Value: 1,
+				}))).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("the path names no editable field")),
+					WithTransform(errorPath, BeNil()),
+				))
+			},
+		)
 		It(
 			"Should store the config as a record under the task's key",
 			func(ctx SpecContext) {

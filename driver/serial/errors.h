@@ -17,9 +17,13 @@
 namespace driver::serial {
 /// @brief maps a native error from a serial port to a transport error whose message is
 /// context followed by the error's message.
-/// @returns UNREACHABLE_ERROR when the port is missing, gone, closed, timed out, or in
-/// use by another program. CONFIG_ERROR when the Driver may not use the port or the
-/// port rejects a setting. CRITICAL_ERROR when the host runs out of resources or the
-/// error is unknown.
+/// @returns UNREACHABLE_ERROR when the port is missing, gone, closed, busy, or timed
+/// out. CONFIG_ERROR when the Driver may not use the port or the port rejects a
+/// setting. CRITICAL_ERROR when the host runs out of resources or the error is unknown.
 x::errors::Error translate(const std::string &context, const std::error_code &ec);
+
+/// @brief maps a native error from opening the serial port at port. A port that another
+/// program holds is UNREACHABLE_ERROR with a message that says so, and every other
+/// error maps through translate.
+x::errors::Error translate_open(const std::string &port, const std::error_code &ec);
 }

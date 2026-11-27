@@ -1,0 +1,55 @@
+{
+  "description": "A delimiter of more than one character splits the items of a line.",
+  "messages": [
+    {
+      "name": "line",
+      "payload": {
+        "format": "text",
+        "delimiter": "::",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 0
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "b",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 1
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "4::5",
+      "message": "line",
+      "samples": [4, 5]
+    },
+    {
+      "text": "4:5",
+      "message": "line",
+      "error": "field a: invalid number \"4:5\": validation error"
+    }
+  ]
+}

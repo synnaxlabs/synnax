@@ -90,5 +90,8 @@ public:
     /// target has a period, and the error of t, or else the first error of an encode or
     /// of the framing.
     std::pair<x::telem::TimeSpan, x::errors::Error> send(transport::Transport &t);
+
+    /// @brief returns true when a target has a period.
+    [[nodiscard]] bool periodic() const;
 };
 }

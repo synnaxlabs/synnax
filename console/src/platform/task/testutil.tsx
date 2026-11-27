@@ -60,6 +60,7 @@ import {
   createTestStore,
   findDialogTriggerByText,
   getBySelector,
+  getIconButton,
   getSwitchInput,
   HaulProvider,
   renderHookWithConsole,
@@ -600,7 +601,7 @@ export const awaitEditableForm = async (): Promise<void> => {
 export const clickDeploy = async (container: HTMLElement): Promise<void> =>
   await step("clickDeploy", async () => {
     const button = await waitFor(() => {
-      const b = within(container).getByRole("button", { name: "Start" });
+      const b = getIconButton(container, "play");
       if (b.getAttribute("aria-disabled") === "true")
         throw new Error("start button is disabled");
       return b;
@@ -616,7 +617,7 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> =>
 export const clickFailedDeploy = async (container: HTMLElement): Promise<void> => {
   await clickDeploy(container);
   await waitFor(() => {
-    const b = within(container).getByRole("button", { name: "Start" });
+    const b = getIconButton(container, "play");
     if (b.getAttribute("aria-disabled") === "true") throw new Error("still starting");
   });
   await act(async () => {});
@@ -630,7 +631,7 @@ export const START_FAILURE = expect.objectContaining({
 /** @returns how many saves of the task the form reported as failed. */
 export const countFailedSaves = (statuses: Status.NotificationSpec[]): number =>
   statuses
-    .filter(({ message }) => message === "Failed to save task")
+    .filter(({ message }) => message === "Failed to save change")
     .reduce((n, { count }) => n + count, 0);
 
 /**

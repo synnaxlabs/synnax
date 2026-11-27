@@ -81,6 +81,7 @@ fn main() {
     let builder = builder.plugin(desktop::webkit::init());
     builder
         .manage(oidc::Loopback::default())
+        .manage(keychain::Lock::default())
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             #[cfg(feature = "desktop")]

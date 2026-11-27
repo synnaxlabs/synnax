@@ -55,7 +55,7 @@ func finite(m codec.JSONMessage, c decodeCase) bool {
 func documentEntries() []TableEntry {
 	GinkgoHelper()
 	var entries []TableEntry
-	for _, path := range fixturePaths("decode") {
+	for _, path := range fixturePaths("decode", payload.FormatJSON) {
 		if readDecodeFixture(path).Error == "" {
 			entries = append(entries, fixtureEntry(path))
 		}
@@ -233,7 +233,7 @@ var _ = Describe("JSONEncoder", func() {
 				Expect(doc).To(MatchJSON([]byte(c.Document)))
 			}
 		}
-	}, fixtureEntries("encode"))
+	}, fixtureEntries("encode", payload.FormatJSON))
 
 	It("Should write the time of each encode for a now default", func() {
 		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{

@@ -140,6 +140,13 @@ public:
         transport::Clock now = std::chrono::steady_clock::now
     );
 
+    /// @brief returns each channel that the receiver writes, index channels included.
+    [[nodiscard]] std::vector<synnax::channel::Key> channels() const;
+
+    /// @brief drops the bytes that the receiver holds, including frames that no read
+    /// has decoded yet. Call it when the transport reopens.
+    void clear();
+
     /// @brief sends the poll query on t that has been due the longest when no reply to
     /// the last query is due, and then reads into fr up to BATCH frames: the frames
     /// left from the last read, or else the frames of the bytes that arrive on t within

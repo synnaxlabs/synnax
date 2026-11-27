@@ -109,7 +109,7 @@ func (p *Plugin) processUnion(
 		ud.BorrowsEnum = true
 		ud.TypeName = p.typeRefToTS(&form.Enum, table, data, true)
 		if enumType, ok := form.Enum.Resolve(table); ok &&
-			enumType.FilePath != data.FilePath {
+			!data.declares(enumType) {
 			ns := importNamespace(
 				enumType.Namespace,
 				output.GetPath(enumType, "ts"),

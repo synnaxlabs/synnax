@@ -36,11 +36,10 @@ const defaultPort = "9092"
 
 // testConnection tests a connection to the cluster of props one stage at a time: dial,
 // TLS, SASL, metadata, and each broker that the cluster advertises. It returns a
-// driver.Failure for the first stage that fails, and a validation error when props
-// cannot open a client.
+// driver.Failure for the first stage that fails.
 func testConnection(ctx context.Context, props Properties) error {
 	if err := validateProperties(props); err != nil {
-		return err
+		return settingsFailure(err)
 	}
 	conn, addr, err := dialSeed(ctx, props.Brokers)
 	if err != nil {
@@ -151,10 +150,7 @@ func testCluster(ctx context.Context, props Properties) error {
 		kgo.WithHooks(&auth),
 	)
 	if err != nil {
-		return driver.Failure{
-			Message:     "Failed to open client",
-			Description: err.Error() + ".",
-		}
+		return settingsFailure(err)
 	}
 	defer cl.Close()
 	mdCtx, cancel := context.WithTimeout(ctx, stageTimeout)
@@ -164,6 +160,15 @@ func testCluster(ctx context.Context, props Properties) error {
 		return testBrokers(ctx, cl, md.Brokers)
 	}
 	return clusterFailure(props, &auth, err)
+}
+
+// settingsFailure returns the failure for err, the reason that the cluster settings
+// cannot open a client.
+func settingsFailure(err error) error {
+	return driver.Failure{
+		Message:     "Invalid cluster settings",
+		Description: err.Error() + ". Edit the cluster settings.",
+	}
 }
 
 // clusterFailure returns the failure for err, the error of a metadata request that a

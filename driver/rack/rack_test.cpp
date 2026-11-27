@@ -20,6 +20,7 @@
 #include "x/cpp/kv/kv.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/http/scan_task.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
@@ -32,6 +33,48 @@ x::args::Parser fresh_args(std::vector<std::string> extra) {
     argv.insert(argv.end(), extra.begin(), extra.end());
     return x::args::Parser(argv);
 }
+
+/// @brief returns arguments that run the Driver of rack through pipe.
+x::args::Parser piped_args(
+    const synnax::Synnax &client,
+    const synnax::rack::Rack &rack,
+    const CorePipe &pipe
+) {
+    const auto conn = test_client_config();
+    auto args = fresh_args({
+        "--host",
+        "127.0.0.1",
+        "--port",
+        std::to_string(pipe.port),
+        "--username",
+        conn.username,
+        "--password",
+        conn.password,
+    });
+    const auto kv = ASSERT_NIL_P(
+        x::kv::JSONFile::open_file({
+            .path = RACK_STATE_PATH,
+            .dir_mode = std::filesystem::perms::owner_all,
+            .file_mode = std::filesystem::perms::owner_read |
+                         std::filesystem::perms::owner_write,
+        })
+    );
+    const auto cluster_key = client.connectivity->check().cluster_key;
+    EXPECT_NIL(kv->set(
+        "remote_info",
+        x::json::json{{"rack_key", rack.key}, {"cluster_key", cluster_key}}.dump()
+    ));
+    return args;
+}
+
+/// @brief a rack config that reaches the Core again within milliseconds.
+const x::breaker::Config FAST_RETRY{
+    .name = "driver",
+    .base_interval = x::telem::MILLISECOND,
+    .max_retries = 2,
+    .scale = 1,
+    .max_interval = x::telem::MILLISECOND,
+};
 
 /// @brief it should stop without an error while it waits to reach the Core again.
 TEST(RackTest, StopDuringReconnectReportsNoError) {
@@ -68,41 +111,12 @@ TEST(RackTest, FatalErrorStopsRack) {
 /// @brief it should keep waiting for an unreachable Core past its retry limit after its
 /// first run.
 TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
-    const auto conn = test_client_config();
     const auto client = new_test_client();
     const auto rack = ASSERT_NIL_P(client.racks.create("outage rack"));
-    const auto cluster_key = client.connectivity->check().cluster_key;
-    CorePipe pipe(conn.port);
-    auto args = fresh_args({
-        "--host",
-        "127.0.0.1",
-        "--port",
-        std::to_string(pipe.port),
-        "--username",
-        conn.username,
-        "--password",
-        conn.password,
-    });
-    const auto kv = ASSERT_NIL_P(
-        x::kv::JSONFile::open_file({
-            .path = RACK_STATE_PATH,
-            .dir_mode = std::filesystem::perms::owner_all,
-            .file_mode = std::filesystem::perms::owner_read |
-                         std::filesystem::perms::owner_write,
-        })
-    );
-    ASSERT_NIL(kv->set(
-        "remote_info",
-        x::json::json{{"rack_key", rack.key}, {"cluster_key", cluster_key}}.dump()
-    ));
+    CorePipe pipe(test_client_config().port);
+    auto args = piped_args(client, rack, pipe);
     std::atomic shut_down = false;
-    Rack r({
-        .name = "driver",
-        .base_interval = x::telem::MILLISECOND,
-        .max_retries = 2,
-        .scale = 1,
-        .max_interval = x::telem::MILLISECOND,
-    });
+    Rack r(FAST_RETRY);
     r.start(args, [&] { shut_down = true; });
     const auto running = [&] {
         const synnax::rack::RetrieveOptions opts{.include_status = true};
@@ -118,6 +132,51 @@ TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
     std::this_thread::sleep_for(std::chrono::seconds(1));
     ASSERT_FALSE(shut_down);
     pipe.resume();
+    ASSERT_NIL(r.stop());
+}
+
+/// @brief it should leave a scanner disabled during a Core outage stopped once the Core
+/// is back, with a status that names the state.
+TEST(RackTest, ScannerDisabledDuringAnOutageStaysStopped) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("scanner outage rack"));
+    CorePipe pipe(test_client_config().port);
+    auto args = piped_args(client, rack, pipe);
+    Rack r(FAST_RETRY);
+    r.start(args, [] {});
+    const auto scanner = [&] {
+        auto tasks = ASSERT_NIL_P(rack.tasks.retrieve(
+            synnax::task::Where{.type = http::SCAN_TASK_TYPE},
+            synnax::task::RetrieveOptions{.include_status = true}
+        ));
+        EXPECT_LE(tasks.size(), 1);
+        return tasks.empty() ? synnax::task::Task{} : tasks[0];
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            const auto t = scanner();
+            return t.status.has_value() && t.status->details.running;
+        }(),
+        std::chrono::seconds(30),
+        std::chrono::milliseconds(100)
+    );
+    pipe.pause();
+    ASSERT_NIL(client.tasks.dispatch(
+        scanner().key,
+        {synnax::task::set({.path = {"config", "disabled"}, .value = true})}
+    ));
+    pipe.resume();
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            const auto t = scanner();
+            return t.status.has_value() && t.status->message == "Scanner disabled";
+        }(),
+        std::chrono::seconds(30),
+        std::chrono::milliseconds(100)
+    );
+    const auto status = scanner().status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_DISABLED);
+    EXPECT_FALSE(status.details.running);
     ASSERT_NIL(r.stop());
 }
 }

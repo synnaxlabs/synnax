@@ -1,0 +1,49 @@
+{
+  "description": "A field with no binding or no sample writes its default.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 0,
+          "default": 7
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "b",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 1,
+          "default": 2.5
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [null],
+      "text": "7,2.5"
+    },
+    {
+      "samples": [3],
+      "text": "3,2.5"
+    }
+  ]
+}

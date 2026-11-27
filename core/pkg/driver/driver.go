@@ -124,6 +124,9 @@ type Config struct {
 	// RestartHealthyUptime is the minimum run time after which an exit is treated as a
 	// healthy run rather than a crash loop, resetting the restart counter.
 	RestartHealthyUptime time.Duration `json:"-"`
+	// PipeRestartInterval is how long the Core waits before it restarts a reader of the
+	// Driver's output that panicked. Core-side only, not forwarded to the Driver.
+	PipeRestartInterval time.Duration `json:"-"`
 	// TaskOpTimeout sets the duration before reporting stuck task operations.
 	TaskOpTimeout time.Duration `json:"task_op_timeout"`
 	// TaskPollInterval sets the interval between task timeout checks.
@@ -202,6 +205,7 @@ func defaultConfig() Config {
 		RestartBaseInterval:  2 * time.Second,
 		RestartMaxRetries:    100,
 		RestartHealthyUptime: time.Minute,
+		PipeRestartInterval:  time.Second,
 		TaskOpTimeout:        time.Second * 60,
 		TaskPollInterval:     time.Second * 1,
 		TaskShutdownTimeout:  time.Second * 30,
@@ -243,6 +247,9 @@ func (c Config) Override(other Config) Config {
 	c.RestartHealthyUptime = override.Numeric(
 		c.RestartHealthyUptime, other.RestartHealthyUptime,
 	)
+	c.PipeRestartInterval = override.Numeric(
+		c.PipeRestartInterval, other.PipeRestartInterval,
+	)
 	return c
 }
 
@@ -267,6 +274,7 @@ func (c Config) Validate() error {
 	v.NotEmptyString("binary_dirname", c.BinaryDirname)
 	v.NotNil("binary_fs", c.BinaryFS)
 	v.InBounds("task_worker_count", c.TaskWorkerCount, 1, 64)
+	v.Positive("pipe_restart_interval", c.PipeRestartInterval)
 	v.Ternary(
 		"secrets_dir",
 		c.SecretsDir != "" && !filepath.IsAbs(c.SecretsDir),
@@ -625,6 +633,7 @@ func (d *Driver) pipeOutput(
 			signal.WithKey(key),
 			signal.RecoverWithErrOnPanic(),
 			signal.WithRetryOnPanic(),
+			signal.WithBaseRetryInterval(d.cfg.PipeRestartInterval),
 		)
 	}
 	out.reads.Add(2)

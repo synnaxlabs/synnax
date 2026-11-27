@@ -171,9 +171,12 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldPath}
+            commanded={binding?.type === "channel"}
             autoFocus={autoFocus}
             onNameChange={created ? handleRename : undefined}
-            actions={<OpenInEditor icdKey={icdKey} message={message} />}
+            actions={
+              <OpenInEditor icdKey={icdKey} message={message} field={field.key} />
+            }
           />
         </PForm.Form>
         <PForm.Section title="Source" actions={modes} role="group" aria-label="Source">

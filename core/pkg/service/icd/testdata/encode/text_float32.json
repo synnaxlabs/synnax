@@ -1,0 +1,38 @@
+{
+  "description": "A float32 sample writes its shortest decimal text, and must be finite.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 0
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float32"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [1.1],
+      "text": "1.1"
+    },
+    {
+      "samples": ["Infinity"],
+      "error": "message cmd: field a: Infinity is not finite: validation error"
+    }
+  ]
+}

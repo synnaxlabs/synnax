@@ -9,6 +9,7 @@
 
 import type { RenderResult } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { type MockInstance, onTestFinished, vi } from "vitest";
 
 import { Modals } from "@/platform/modals";
 import {
@@ -33,3 +34,20 @@ export const renderCoreUI = async (
     </>,
     { preloadedState },
   );
+
+/**
+ * Answers every request for a Core's login methods with the given methods, because no
+ * test Core turns passwords off. Other requests reach their Core.
+ * @returns The fetch spy, which restores itself when the test finishes.
+ */
+export const answerMethods = (methods: string[]): MockInstance<typeof fetch> => {
+  const real = globalThis.fetch;
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    if (!url.endsWith("/auth/methods")) return await real(input, init);
+    const body = JSON.stringify({ methods, providers: [] });
+    return new Response(body, { headers: { "Content-Type": "application/json" } });
+  });
+  onTestFinished(() => spy.mockRestore());
+  return spy;
+};

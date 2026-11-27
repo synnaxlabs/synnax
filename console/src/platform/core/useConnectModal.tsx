@@ -76,6 +76,7 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
           key: coreKey,
           username: existing.username,
           password: existing.password,
+          lastLogin: existing.lastLogin,
         }),
       );
     else dispatch(Session.Core.set({ ...data, username: "", password: "" }));
