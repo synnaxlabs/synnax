@@ -73,8 +73,8 @@ type Decoder struct {
 	intent    Intent
 }
 
-// Reset starts reading the entry at the start of b, and returns the length of the
-// entry in b.
+// Reset starts reading the entry at the start of b, and returns the length of the entry
+// in b.
 func (d *Decoder) Reset(b []byte) (int, error) {
 	if len(b) < recordHeaderSize {
 		return 0, errors.Wrapf(

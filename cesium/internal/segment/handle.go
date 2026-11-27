@@ -159,8 +159,8 @@ func (h *Handle) ReadAt(p []byte, off int64) (int, error) {
 	return file.ReadAt(p, off)
 }
 
-// WriteAt writes p at file offset off, with no sync. It returns the error of the
-// failed sync when the handle is failed.
+// WriteAt writes p at file offset off, with no sync. It returns the error of the failed
+// sync when the handle is failed.
 func (h *Handle) WriteAt(p []byte, off int64) (int, error) {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()

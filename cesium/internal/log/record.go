@@ -101,8 +101,8 @@ type Commit struct {
 	Alignment uint64
 	// First and Last are the stamps of the first and last samples.
 	First, Last int64
-	// Slots hold one range per segment. A decoded Commit's Slots stay valid only
-	// until the next call of Decoder.Next.
+	// Slots hold one range per segment. A decoded Commit's Slots stay valid only until
+	// the next call of Decoder.Next.
 	Slots []Slot
 }
 

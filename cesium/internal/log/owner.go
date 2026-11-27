@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	// errFull is the error of an entry that does not fit in the log file. An entry
-	// that holds a Commit stops DeleteReserve bytes before the end of the file.
+	// errFull is the error of an entry that does not fit in the log file. An entry that
+	// holds a Commit stops DeleteReserve bytes before the end of the file.
 	errFull = errors.New("log file is full")
 	// errClosed is the error of an entry appended after Close.
 	errClosed = errors.New("log is closed")
@@ -350,8 +350,8 @@ func (l *Log) write(queue []pending) {
 	flush()
 }
 
-// fits returns an error that wraps errFull when p does not fit in a frame of size
-// bytes at start, or when p holds a Commit after one that did not fit.
+// fits returns an error that wraps errFull when p does not fit in a frame of size bytes
+// at start, or when p holds a Commit after one that did not fit.
 func (l *Log) fits(p pending, start, size int64) error {
 	if p.commit && l.commitsFull {
 		return errors.Wrapf(

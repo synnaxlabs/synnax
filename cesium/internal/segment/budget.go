@@ -23,11 +23,11 @@ type Executor func(f func())
 // GoExecutor runs each f on a new goroutine.
 func GoExecutor(f func()) { go f() }
 
-// Budget limits the open file handles of a database, and runs every sync of their
-// files in one pool. To open a handle when the limit is reached, it closes the idle
-// handle that was used least recently, and syncs that handle first when it has unsynced
-// bytes. When every open handle is in use, the open waits for one to become idle. At
-// most width file and directory syncs run at once. A Budget is safe for concurrent use.
+// Budget limits the open file handles of a database, and runs every sync of their files
+// in one pool. To open a handle when the limit is reached, it closes the idle handle
+// that was used least recently, and syncs that handle first when it has unsynced bytes.
+// When every open handle is in use, the open waits for one to become idle. At most
+// width file and directory syncs run at once. A Budget is safe for concurrent use.
 type Budget struct {
 	limit int
 	exec  Executor
