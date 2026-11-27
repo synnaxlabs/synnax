@@ -517,6 +517,39 @@ var _ = Describe("Graph", func() {
 			)
 
 			It(
+				"Should derive a missing DataType during hydration",
+				func(ctx SpecContext) {
+					base := channel.Channel{
+						Name:     "hy_missing_base",
+						DataType: telem.Int64T,
+						Virtual:  true,
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &base)
+					})).To(Succeed())
+					calc := channel.Channel{
+						Name:       "hy_missing_calc",
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return hy_missing_base + 1",
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &calc)
+					})).To(Succeed())
+					// A shipped Core could store a calculated channel with no type.
+					calc.DataType = ""
+					Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+						Entry(&calc).
+						Exec(ctx, db)).To(Succeed())
+					Expect(retrieveChannelDataType(ctx, calc.Key())).To(BeEmpty())
+					openGraph(ctx)
+					Expect(
+						retrieveChannelDataType(ctx, calc.Key()),
+					).To(Equal(telem.Int64T))
+				},
+			)
+
+			It(
 				"Should repair cascaded DataType when a dependent has a lower key than its dependency",
 				func(ctx SpecContext) {
 					base := channel.Channel{
