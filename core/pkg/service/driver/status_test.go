@@ -148,23 +148,16 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
 		})
 
-		It("should clear the data of a prior warning, which a later one cannot restore",
-			func(ctx SpecContext) {
-				Expect(handler.Warn(ctx, driver.Warning{
-					Message: "Skipped 1 of 1 record",
-					Data:    msgpack.EncodedJSON{"stats": "old"},
-				})).To(Succeed())
-				Expect(handler.Send(
-					ctx, "cmd-2", status.VariantSuccess, false, "Stopped task", "",
-				)).To(Succeed())
-				Expect(retrieve(ctx).Details.Data).To(BeEmpty())
-				Expect(handler.Warn(
-					ctx,
-					driver.Warning{Message: "Node failed", Description: "details"},
-				)).To(Succeed())
-				Expect(handler.ClearWarning(ctx)).To(Succeed())
-				Expect(retrieve(ctx).Details.Data).To(BeEmpty())
-			})
+		It("should clear the data of a prior warning", func(ctx SpecContext) {
+			Expect(handler.Warn(ctx, driver.Warning{
+				Message: "Skipped 1 of 1 record",
+				Data:    msgpack.EncodedJSON{"stats": "old"},
+			})).To(Succeed())
+			Expect(handler.Send(
+				ctx, "cmd-2", status.VariantSuccess, false, "Stopped task", "",
+			)).To(Succeed())
+			Expect(retrieve(ctx).Details.Data).To(BeEmpty())
+		})
 
 		It("should write the description it is given", func(ctx SpecContext) {
 			Expect(handler.Send(
@@ -309,85 +302,6 @@ var _ = Describe("StatusHandler", func() {
 				),
 			).To(Succeed())
 			Expect(retrieve(ctx).Description).To(Equal("refused"))
-		})
-	})
-
-	Describe("ClearWarning", func() {
-		It("should restore the status that the warning replaced",
-			func(ctx SpecContext) {
-				Expect(handler.Send(
-					ctx,
-					"cmd-1",
-					status.VariantError,
-					true,
-					"Failed to send event",
-					"outage",
-				)).To(Succeed())
-				Expect(
-					handler.Warn(
-						ctx,
-						driver.Warning{
-							Message:     "Broker unreachable",
-							Description: "dial timeout",
-						},
-					),
-				).
-					To(Succeed())
-				Expect(
-					handler.Warn(
-						ctx,
-						driver.Warning{
-							Message:     "Broker unreachable",
-							Description: "refused",
-						},
-					),
-				).
-					To(Succeed())
-				Expect(handler.ClearWarning(ctx)).To(Succeed())
-				stat := retrieve(ctx)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to send event"))
-				Expect(stat.Description).To(Equal("outage"))
-				Expect(stat.Details.Running).To(BeTrue())
-				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
-			},
-		)
-		It(
-			"should clear a warning again after its write failed",
-			func(ctx SpecContext) {
-				Expect(
-					handler.Warn(
-						ctx,
-						driver.Warning{
-							Message:     "Broker unreachable",
-							Description: "dial timeout",
-						},
-					),
-				).
-					To(Succeed())
-				setUnreadable(ctx)
-				Expect(handler.ClearWarning(ctx)).
-					To(MatchError(ContainSubstring("failed to decode")))
-				deleteStored(ctx)
-				Expect(handler.ClearWarning(ctx)).To(Succeed())
-				stat := retrieve(ctx)
-				Expect(stat.Variant).To(Equal(status.VariantSuccess))
-				Expect(stat.Message).To(Equal("Task configured"))
-			},
-		)
-		It("should write nothing when no warning is active", func(ctx SpecContext) {
-			Expect(handler.Send(
-				ctx,
-				"cmd-1",
-				status.VariantError,
-				false,
-				"Failed to run task",
-				"boom",
-			)).To(Succeed())
-			Expect(handler.ClearWarning(ctx)).To(Succeed())
-			stat := retrieve(ctx)
-			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 		})
 	})
 

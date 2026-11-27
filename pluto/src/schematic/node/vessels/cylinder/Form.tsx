@@ -21,10 +21,12 @@ export const CylinderForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Label">
       <Label.Form path={path.label} />
+      <Orientation.Field path={path} hideInner label="Position" />
     </Base.Section>
     <Base.Section title="Appearance">
       <Form.ColorField path={path.strokeColor} label="Stroke" />
       <Form.FillField />
+      <Orientation.Field path={path} hideOuter label="Orientation" />
     </Base.Section>
     <Base.Section title="Dimensions">
       <Base.NumericField
@@ -38,6 +40,5 @@ export const CylinderForm = (): ReactElement => (
         inputProps={Form.DIMENSIONS_INPUT_PROPS}
       />
     </Base.Section>
-    <Orientation.Section path={path} />
   </Base.Sections>
 );

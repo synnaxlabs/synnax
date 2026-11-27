@@ -61,6 +61,9 @@ type browsedField struct {
 	Kind payload.Kind `json:"kind"`
 	// TimeFormat is the format of a timestamp field. Nil for any other field.
 	TimeFormat *xjson.TimeFormat `json:"time_format,omitempty"`
+	// Enum holds the distinct values, sorted, of a field of only strings that repeats
+	// a few.
+	Enum []string `json:"enum"`
 }
 
 // browsedTopic is one topic that a browse heard, with its last payload and the shapes
