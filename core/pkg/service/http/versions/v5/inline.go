@@ -301,8 +301,7 @@ func fillField(field icdv1.JSONField) (xjson.Field, error) {
 	case icdv1.StringJSONField:
 		return xjson.Field{DataType: telem.StringT}, nil
 	case icdv1.TimestampJSONField:
-		format, err := xjson.ParseTimeFormat(string(v.TimeFormat))
-		return xjson.Field{DataType: telem.TimestampT, TimeFormat: format}, err
+		return xjson.Field{DataType: telem.TimestampT, TimeFormat: v.TimeFormat}, nil
 	case icdv1.JSONJSONField:
 		return xjson.Field{DataType: telem.JSONT}, nil
 	case icdv1.UuidJSONField:
