@@ -89,12 +89,6 @@ func Part(db, file, offset uint64) Place {
 	return Place{db: db, file: file, offset: offset, kind: kindPart, version: 1}
 }
 
-// At returns p at another offset of the same file.
-func (p Place) At(offset uint64) Place {
-	p.offset = offset
-	return p
-}
-
 // Start returns the CRC state after p, from which Update continues over the covered
 // bytes. It allocates nothing.
 func (p Place) Start() uint32 {
