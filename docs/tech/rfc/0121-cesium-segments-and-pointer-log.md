@@ -104,11 +104,13 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
 2. In the Gorp transaction, the service deletes the records. Until RFC 0120 Phase 50 it
    first refuses the delete of an index channel that a kept channel outside the delete
    names as its index, with the error of today (`cesium/delete.go:144-152`), so no data
-   channel loses the clock it writes. Only once that delete succeeds does it save a
-   pending-drop note (NEW) with the keys whose record the transaction deleted, never a
-   requested key that had none, so a delete route cannot remove a kept key. A refused
-   delete saves no note and drops nothing, even when the transaction commits other
-   writes.
+   channel loses the clock it writes. The guard and each create that names an index run
+   under one lock of the channel service, as Cesium's `db.mu` holds both today
+   (`cesium/delete.go:133-153`), so a create cannot pass the guard unseen. Only once
+   that delete succeeds does it save a pending-drop note (NEW) with the keys whose
+   record the transaction deleted, never a requested key that had none, so a delete
+   route cannot remove a kept key. A refused delete saves no note and drops nothing,
+   even when the transaction commits other writes.
 3. The service commits the Gorp transaction.
 4. After the commit, a worker of the channel service calls `DB.Delete` with the keys,
    clears the note, then releases the claim. A public hook, `gorp.AfterEnd` (NEW),
@@ -153,15 +155,15 @@ key while a live pointer of another key names it, as today (`cesium/delete.go:26
 
 **The end of a clock** (RFC 0120 Phase 27): A clock that has no record ends with its
 last user. `DB.Clocks` (NEW) takes keys and returns each clock that their segments name
-and that no segment of another key names, where a key with a live intent counts as gone.
-So two deletes whose first Drop a reader pins still end the clock, and a spec covers
-that case. In step 2 the channel service adds each such clock that has no record to the
-note and to the `Delete` call, so one log entry holds the Intents of the keys and of
-their clocks. Cesium logs the Drop of a clock after the Drops of the keys that it times.
-No writer can make a new user of such a clock while the claim is held: continuation
-picks only a clock that a key of the group already names. A `synnax purge` adds the
-clocks of its keys in the same way. Before RFC 0120 Phase 50 an index channel has a
-record, so its stamps stay until its own delete.
+and that no segment of a key outside the call names, other than the clock's own, where a
+key with a live intent counts as gone. So two deletes whose first Drop a reader pins
+still end the clock, and a spec covers that case. In step 2 the channel service adds
+each such clock that has no record to the note and to the `Delete` call, so one log
+entry holds the Intents of the keys and of their clocks. Cesium logs the Drop of a clock
+after the Drops of the keys that it times. No writer can make a new user of such a clock
+while the claim is held: continuation picks only a clock that a key of the group already
+names. A `synnax purge` adds the clocks of its keys in the same way. Before RFC 0120
+Phase 50 an index channel has a record, so its stamps stay until its own delete.
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
@@ -205,7 +207,7 @@ of the first head.
 | Call                                                                  | Status                        | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `Open`, `DB.Run`                                                      | Kept                          | `Open` takes the database identity that the Core holds (§9.0) and runs recovery or the conversion; options inject the file system, clock, random source, the executor of owner steps and syncs, and a handler of errors that no call returns (§7), and set `WithReadsChecked` and `WithVersion0Rewritable` (NEW, both false by default). `Run` runs the owners of §7 until its context ends                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `DB.Identity`                                                         | NEW                           | Returns the database identity, and whether this open converted the old layout. After an open that converted, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `DB.Identity`                                                         | NEW                           | Returns the database identity, whether this open converted the old layout, and each file that the conversion left unread or emptied, with its time range, for the Core's statuses (§9). After an open that converted, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `DB.OpenWriter`                                                       | Changed                       | From RFC 0120 Phase 25 (one clock key before it), takes the groups (`Group`, NEW: its keys; the key whose stored stamps time them, or zero; and `Index`, until RFC 0120 Phase 50 the index key that is the group's clock, or zero), the type of each key, `Adaptive` (NEW: the one group may arrive in part, and a key that pauses often moves to a clock of its own), a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW, for a stream-only write of a stored channel: it checks, stamps, and commits as any writer, takes no claim, writes no bytes, and streams with a number from 2^31 up that steps once per session, §5.7). Picks the clock of each group (§5.8), which `Writer.Clocks` (NEW) returns in the order of the groups. Refuses an overlap (§5.8)                                                                                                                                                                                                                                         |
 | `Writer.Write`, `Writer.Commit`                                       | Changed                       | `Write` appends with no sync and returns the frame with alignments set. `Commit` makes the written samples visible and returns the end stamp. Both take the skip predicate of Phase 5 (§12); in test builds, a call into Cesium from inside it panics (`x/go/invariants`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entries. It is safe beside `Write` and `Commit`: under a short lock it moves the writer's entry to the end of its pending list (NEW) and waits with no lock, so a `Commit` during the wait goes into a new entry. It syncs the segments that the list names, then queues the list to the log owner in order. An entry stays in the list, reachable under the lock, until it is queued (§5.4). `Close` does the same and releases the claims after its last entry is acked. While the log is failing (§6), it returns the error at once and releases them: its commits stay visible, so the overlap rules of §5.8 still see them, and no writer takes over its segments before they are durable                                                                                                                                                                                                                                                                                 |
@@ -365,10 +367,10 @@ its directory, and logs a Check record, which turns the checks on. In a clock fi
 also checks that the stamps of each pointer rise inside its time range. A run of stamps
 that do not rise through the end of the file is a crash tail: the pass logs a Tombstone
 whose left cut is the first sample of that run, by alignment, for the clock and for each
-key that it times at that position. Any other sample whose stamp is not above the last
-kept stamp is cut alone, for the clock and for each key that it times at that position,
-by a split of the pointer around it. A warning names the channel and the time range of
-each cut.
+key that it times at or past that position. Any other sample whose stamp is not above
+the last kept stamp is cut alone, for the clock and for each key that it times at that
+position, by a split of the pointer around it. A warning names the channel and the time
+range of each cut.
 
 | Offset | Size | Type     | Check file of a version 0 segment of length `len`, with `n = ceil(len / 65,536)`                                     |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -1051,16 +1053,16 @@ below, with `F_cpu` = 1 / (1/`F_copy` + 1/`F_crc`) and `F_block` = the copy and 
 read at a random offset of a cold file. Recovery and the cold scan, with their read
 floor `F_read`, run as a cold group of the compare script, with a page cache drop
 between its two processes. The method is RFC 0120 §4.13's, run on the bench host against
-`main`; no speed gate runs on `main` or in CI. One baseline moves by design: Phase 6
-raises `BenchmarkCommit` (commits sync). Every read (full reads, long streamed reads,
-point reads, and time lookups) stays within 15% of `main`, with an aim of 10%, in time,
-bytes, and allocations per read, with read checks off, at 1 and 8 readers. A run with
-checks on is measured and reported. The block cache splits its lock, so parallel readers
-scale (Phase 7). A live auto-commit writer is as fast as on `main`: write-to-stream
-latency at p50, p99, and max, and throughput, at 1 kHz, on a 25 kHz card, and in a wide
-frame of many channels. The framer's stream stage over `cesium.Iterator` loses nothing
-against today's stream iterator in read time, allocations, bytes, and 8 parallel
-readers.
+`main`; no speed gate runs on `main` or in CI. One baseline moves by design: from Phase
+6 commits do not sync, so `BenchmarkCommit` falls, and `BenchmarkSync` (NEW) holds the
+cost of a sync. Every read (full reads, long streamed reads, point reads, and time
+lookups) stays within 15% of `main`, with an aim of 10%, in time, bytes, and allocations
+per read, with read checks off, at 1 and 8 readers. A run with checks on is measured and
+reported. The block cache splits its lock, so parallel readers scale (Phase 7). A live
+auto-commit writer is as fast as on `main`: write-to-stream latency at p50, p99, and
+max, and throughput, at 1 kHz, on a 25 kHz card, and in a wide frame of many channels.
+The framer's stream stage over `cesium.Iterator` loses nothing against today's stream
+iterator in read time, allocations, bytes, and 8 parallel readers.
 
 **Read checks**: Writes always store checksums. The reads that serve iterators check
 them only when the Core start flag `--check-reads` (NEW) sets the Cesium option
@@ -1111,12 +1113,12 @@ update backup of RFC 0102.
    a virtual channel. The old files hold no checksum, so each is read twice and used
    only when the reads agree; with no two agreeing reads in three, the conversion leaves
    the file unread in place, where an undo still finds it, converts the channel without
-   its samples, and raises a status that names the file and its time range (D-425 (2)).
-   Data that such a clock file timed goes with it, by step 3. The old layout never
-   syncs, so a power loss can leave a pointer that ends past its file: cut it to the
-   file length, at a whole sample, and log the cut. It can also leave a channel
-   directory with no `meta.json`: the conversion skips that directory, leaves it in
-   place, and reports its key.
+   the samples of that file, and `DB.Identity` returns the file, so the Core raises a
+   status that names it and its time range (D-425 (2)). Data that such a clock file
+   timed goes with it, by step 3. The old layout never syncs, so a power loss can leave
+   a pointer that ends past its file: cut it to the file length, at a whole sample, and
+   log the cut. It can also leave a channel directory with no `meta.json`: the
+   conversion skips that directory, leaves it in place, and reports its key.
 3. Apply the rule of `TruncateToIndex` once, in memory: a data pointer keeps the samples
    that its clock has stamps for. Log each cut. The cut of step 2 runs first, so a
    pointer that covers index bytes past the end of their file never keeps data samples
@@ -1135,8 +1137,9 @@ update backup of RFC 0102.
    - Below that range, a torn area that reads as zeros: the pointer becomes empty, and a
      warning names the file. Those samples were never durable.
    - At or past the end of its own range: the pointer becomes empty, with the data that
-     it times, and a status names the file and the time range (D-425 (2)). So does a
-     pointer whose own range starts at or below the stamps before it.
+     it times, and `DB.Identity` returns the file and the time range for the Core's
+     status (D-425 (2)). So does a pointer whose own range starts at or below the stamps
+     before it.
 4. Build the state. Each `N.domain` with a pointer is a sealed version 0 segment with a
    new identity and the old index key as its clock key. Each stretch of an old index
    takes one alignment number, in key order and then in time order. An old data pointer
