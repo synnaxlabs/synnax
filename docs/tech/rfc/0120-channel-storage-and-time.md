@@ -789,17 +789,17 @@ The migration changes metadata only and runs at the first start, before any writ
 2. **Channel table**: A new last step of the chain
    (`core/pkg/service/channel/versions/migrations.go:19-26`), with Cesium's `Keys`
    injected, retires an index record when `Keys` marks its key as a clock, a key that a
-   kept segment of another key names. It reads `Keys` after the start deletes of the
-   pending-drop notes (RFC 0121 §4.1). For each retired record it writes an entry of the
-   retired index table (NEW): the key, the name, and the key of its first data channel,
-   or 0 for none. It keeps every other index record as a timestamp channel, which times
-   itself. So this step and the start check read one fact, and data of a kept key with
-   no record also counts. It mints channel v3, which drops `is_index`, `local_index`,
-   and `concurrency`, keeps `data_type` as the declared type, and stores `key` whole
-   (RFC 0119 §4.0). The retired records go after every chain, through the channel writer
-   in a composition step, as `main` deletes retired channels
-   (`core/pkg/service/migrate.go:147-158`). So their groups, labels, and policies go
-   with them, and Cesium keeps their stamps (D-464).
+   kept segment of another key names, or lists no data for it. It reads `Keys` after the
+   start deletes of the pending-drop notes (RFC 0121 §4.1). For each retired record it
+   writes an entry of the retired index table (NEW): the key, the name, and the key of
+   its first data channel, or 0 for none. It keeps every other index record as a
+   timestamp channel, which times itself. So this step and the start check read one
+   fact, and data of a kept key with no record also counts. It mints channel v3, which
+   drops `is_index`, `local_index`, and `concurrency`, keeps `data_type` as the declared
+   type, and stores `key` whole (RFC 0119 §4.0). The retired records go after every
+   chain, through the channel writer in a composition step, as `main` deletes retired
+   channels (`core/pkg/service/migrate.go:147-158`). So their groups, labels, and
+   policies go with them, and Cesium keeps their stamps (D-464).
 3. **Start check**: After the migrations and that delete, a clock that has a Core record
    fails the start with an error that names it. It is the one check that Gorp and Cesium
    agree.
@@ -1155,9 +1155,11 @@ config from Phase 43. Keys of `core/v0.62.0` keep their numbers.
     which keeps a record that acts as an index channel and shows it to users.
 28. **An index channel that times no stored data stays a timestamp channel**:
     `core/v0.62.0` lets users write and read an index channel alone, so its samples are
-    user data. The test is Cesium's, not the records': a test of records (a data record
-    names the index) deletes an index whose data channels are empty, and keeps one that
-    times data of a kept key, which then fails the start check.
+    user data. One with no samples at all retires, since it holds nothing to keep: a
+    task that was configured and never run leaves one. The test is Cesium's, not the
+    records': a test of records (a data record names the index) deletes an index whose
+    data channels are empty, and keeps one that times data of a kept key, which then
+    fails the start check.
 29. **`time.of(channel)` and a text rewrite**: Arc and calculations read a channel's
     stamps with one builtin. Rejected: a hidden alias, and a compile error with no
     rewrite, which breaks stored programs.
