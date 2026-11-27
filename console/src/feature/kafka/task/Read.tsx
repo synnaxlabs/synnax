@@ -657,27 +657,33 @@ const Records: FC<RecordsProps> = ({
     ];
     const make = (icdKey: icd.Key | undefined, messages: icd.Message[]) =>
       making.set(icdKey, [...(making.get(icdKey) ?? []), ...messages]);
-    for (const { topic, shapes, picks, reading } of result.topics) {
-      const records = topicRecords(topic);
-      const reads = readsOf(records, messagesOf);
-      const nameOf = (recordKey: string) => topicMessageName(topic, recordKey);
+    const held = result.topics.map(({ topic }) =>
+      readsOf(topicRecords(topic), messagesOf),
+    );
+    const nameIn = (topic: string) => (recordKey: string) =>
+      topicMessageName(topic, recordKey);
+    // Every extension goes before every reuse, so that each reuse sees the fields that
+    // extensions add, whatever the order of the topics.
+    for (const { topic, shapes, picks } of result.topics) {
       const { extensions, kinds } = createExtensions(
         shapes,
         picks,
-        records,
+        topicRecords(topic),
         messagesOf,
-        nameOf,
-        appends,
+        nameIn(topic),
       );
       extend(extensions, kinds);
       for (const { icd: k, message } of kinds) make(k, [message]);
+    }
+    for (const [i, pick] of result.topics.entries()) {
+      const { topic, shapes, picks, reading } = pick;
       const target = reading?.icd ?? home;
       const added = createAdditions(
         shapes,
         picks,
-        reads,
+        held[i],
         takenIn(target),
-        nameOf,
+        nameIn(topic),
         reading,
         appends,
       );

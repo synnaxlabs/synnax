@@ -387,8 +387,6 @@ export interface KindMessage {
  * does not hold, once for all of its records. A record starts to read each picked
  * field that it does not read in that message. When no message of a record takes a
  * shape, the records of its ICD start to read a new message for the kind.
- * @param appends - What messages gain in this add. A message holds the fields that it
- * gains.
  * @throws if a picked shape is not extendable.
  */
 export const createExtensions = (
@@ -397,7 +395,6 @@ export const createExtensions = (
   records: ReadRecord[],
   messagesOf: MessagesOf,
   nameOf: (recordKey: string) => string,
-  appends: Appends,
 ): { extensions: Extension[]; kinds: KindMessage[] } => {
   const drafts = new Map<icd.MessageKey, Draft>();
   const kinds = new Map<string, KindMessage>();
@@ -444,7 +441,6 @@ export const createExtensions = (
         a.picks.push(...picked.filter(({ pointer }) => pointer === a.field.pointer));
       const holds = [
         ...ICD.jsonFields(held.find(({ key }) => key === message)),
-        ...(appends.get(message) ?? []),
         ...draft.added.map(({ field }) => field),
       ];
       const missing = picked.filter((f) => !holds.some((h) => h.pointer === f.pointer));
