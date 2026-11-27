@@ -181,8 +181,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_targets(
     Acquire acquire
 );
 
-/// @brief configures a read task whose config is a Config, on a device whose
-/// properties are Properties.
+/// @brief configures a read task whose config is a Config, on a device whose properties
+/// are Properties.
 /// @param readers holds the device for the task.
 /// @param acquire gives the Acquire of the connection to the device.
 /// @returns VALIDATION when the config names no device or no entry, the error of the
