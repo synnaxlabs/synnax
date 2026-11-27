@@ -275,7 +275,6 @@ func (db *DB) deleteTimeRange(
 	return changes, nil
 }
 
-// deleteTarget is a channel that DeleteTimeRange takes before it deletes.
 // openTimeRangeDeletes takes each target for a delete of tr, and returns the deletes
 // with their data channels first, since those resolve their offsets through the index.
 // It returns the release of each target it took, also when it fails.
@@ -331,6 +330,7 @@ type keyDelete struct {
 	del func(context.Context) ([]telem.TimeRange, error)
 }
 
+// deleteTarget is a channel that DeleteTimeRange takes before it deletes.
 type deleteTarget struct {
 	db unary.DB
 	// index is the channel that db depends on, set when dependent is true.
