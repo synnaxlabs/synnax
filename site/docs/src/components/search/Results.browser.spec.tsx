@@ -12,11 +12,35 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Search } from "@/components/search";
 
-const hit = (title: string) => ({
+const hit = (title: string, href = `/reference/${title}`) => ({
   objectID: title,
   title,
-  href: `/reference/${title}`,
+  href,
 });
+
+const openWith = async (hits: ReturnType<typeof hit>[]): Promise<void> => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({ json: async () => ({ hits }) })),
+  );
+  render(<Search.Search />);
+  fireEvent.click(screen.getByRole("button", { name: /Search/ }));
+  const input = document.querySelector<HTMLInputElement>(
+    ".search-results__content input",
+  )!;
+  await act(async () => fireEvent.change(input, { target: { value: "read" } }));
+};
+
+const iconColors = (): string[] =>
+  [...document.querySelectorAll<SVGElement>(".search-result__icon svg")].map(
+    (el) => el.style.color,
+  );
+
+const prefersDark = (matches: boolean) =>
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({ matches, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+  );
 
 describe("Results", () => {
   afterEach(() => {
@@ -32,7 +56,9 @@ describe("Results", () => {
         () =>
           new Promise((resolve) =>
             pending.push((titles) =>
-              resolve({ json: async () => ({ hits: titles.map(hit) }) }),
+              resolve({
+                json: async () => ({ hits: titles.map((title) => hit(title)) }),
+              }),
             ),
           ),
       ),
@@ -51,5 +77,24 @@ describe("Results", () => {
       (el) => el.textContent,
     );
     expect(titles).toEqual(["newest"]);
+  });
+
+  describe("logos", () => {
+    const HITS = [
+      hit("LabJack read task", "/reference/hardware/labjack/read-task"),
+      hit("channels"),
+    ];
+
+    it("should draw a vendor logo in its light brand color", async () => {
+      prefersDark(false);
+      await openWith(HITS);
+      expect(iconColors()).toEqual(["rgb(141, 2, 0)", ""]);
+    });
+
+    it("should draw a vendor logo in its dark brand color", async () => {
+      prefersDark(true);
+      await openWith(HITS);
+      expect(iconColors()).toEqual(["rgb(226, 96, 80)", ""]);
+    });
   });
 });
