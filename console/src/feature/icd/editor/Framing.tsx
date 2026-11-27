@@ -168,7 +168,7 @@ const SyncFields = ({ path }: SyncFieldsProps): ReactElement => (
 );
 
 /**
- * Edits how a byte stream splits into the messages of the PICD. A type switch replaces
+ * Edits how a byte stream splits into the messages of the ICD. A type switch replaces
  * the framing with a new one of that type.
  */
 export const Framing = (): ReactElement => {
