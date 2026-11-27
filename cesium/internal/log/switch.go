@@ -55,7 +55,8 @@ func (l *Log) switchIfReady(flush func()) (bool, error) {
 		return false, nil
 	}
 	flush()
-	if err != nil {
+	// The flush can fail the log, which then must not switch.
+	if err = l.failure(); err != nil {
 		return false, err
 	}
 	return true, l.advance()
