@@ -88,8 +88,8 @@ protected:
     std::shared_ptr<Ports> ports = std::make_shared<Ports>();
     std::unique_ptr<common::WriteTask> task;
 
-    /// @brief creates the task of a target that sends Command on the port of props,
-    /// and gets commands from commands.
+    /// @brief creates the task of a target that sends Command on the port of props, and
+    /// gets commands from commands.
     void create(
         const synnax::serial::Properties &props,
         const Command &cmd,
@@ -253,6 +253,27 @@ TEST_F(SerialWriteTask, SharesPortWithReadTask) {
     this->peer_write("1.5\n");
     ASSERT_EVENTUALLY_GE(writes->writes->size(), 1);
     ASSERT_EQ(writes->writes->at(0).at<double>(3, 0), 1.5);
+}
+
+/// @brief it should keep the port open for the other tasks on the device after a send
+/// fails on an error of its own.
+TEST_F(SerialWriteTask, KeepsPortOpenAfterFramingError) {
+    Command cmd;
+    cmd.ic.framing = synnax::icd::DelimitedFraming{.delimiter = "5"};
+    std::vector<x::telem::Frame> commands;
+    commands.emplace_back(2, x::telem::Series(4.5));
+    const auto conn = ASSERT_NIL_P(this->ports->acquire(
+        Device{.key = "device", .name = "device", .props = this->props()}
+    ));
+    this->create(this->props(), cmd, std::move(commands));
+    ASSERT_TRUE(this->task->start("start", this->cancel));
+    ASSERT_EVENTUALLY_EQ(this->last_status().variant, synnax::status::VARIANT_ERROR);
+    const auto status = this->last_status();
+    ASSERT_EQ(status.message, "Failed to write commands");
+    ASSERT_EQ(status.description, "the frame holds the delimiter");
+    auto guard = conn->lock();
+    ASSERT_NIL_P(guard.transport());
+    ASSERT_EQ(guard.opens(), 1);
 }
 
 /// @brief it should start a target with a period on a missing port, and warn while it
