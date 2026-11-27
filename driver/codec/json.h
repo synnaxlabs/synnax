@@ -170,8 +170,8 @@ public:
     /// @returns CONFIG_ERROR when two value rules test different pointers, one document
     /// value can meet two value rules, a present rule tests a pointer at or above the
     /// pointer of another rule, two messages have no match rule, a binding names no
-    /// field of its message, or a field does not convert to the data type of its
-    /// binding.
+    /// field of its message, a bound field has a zero scale, or a field does not
+    /// convert to the data type of its binding.
     static std::pair<JSON, x::errors::Error>
     create(const std::vector<JSONMessage> &messages);
 
@@ -247,7 +247,7 @@ class JSONEncoder {
         [[nodiscard]] x::errors::Error
         append(const x::telem::Series &s, std::size_t i, std::string &out) const;
         /// @brief appends JSON text to out: n, unscaled and rounded to the nearest
-        /// integer.
+        /// integer. It checks the limits against the value that the integer decodes to.
         [[nodiscard]] x::errors::Error
         append_integer(const x::json::Number &n, std::string &out) const;
     };
@@ -277,10 +277,11 @@ public:
     /// holds the value of the message's value rule and each field at its pointer. The
     /// fields at or inside the pointer of a present rule give it its value.
     /// @returns CONFIG_ERROR when a binding names no field, a field has two bindings, a
-    /// field has no binding and no default, a default is not valid, a binding's data
-    /// type does not write to its field's kind, a scaled field's channel is not a
-    /// float, two pointers are equal or one holds the other, a pointer holds an array
-    /// index, or no field is at or inside the pointer of a present rule.
+    /// field has no binding and no default, a default is not valid, a bound field has a
+    /// zero scale, a binding's data type does not write to its field's kind, a scaled
+    /// field's channel is not a float, two pointers are equal or one holds the other, a
+    /// pointer holds an array index, or no field is at or inside the pointer of a
+    /// present rule.
     static std::pair<JSONEncoder, x::errors::Error> create(const JSONMessage &message);
 
     /// @brief encodes samples into payload, one document of the message. A scaled field

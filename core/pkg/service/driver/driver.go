@@ -319,7 +319,9 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 				zap.Stringer("task", cmd.Task),
 				zap.Error(err),
 			)
-			d.ackFailure(ctx, task.Task{Key: cmd.Task}, cmd, err)
+			d.ackFailure(
+				ctx, task.Task{Key: cmd.Task}, cmd, "Failed to start task", err.Error(),
+			)
 		}
 		return
 	}
@@ -350,9 +352,15 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 			// Factories answer their own failures. Neither of these reaches one:
 			// an unhandled type never gets to a factory, and a factory that ran
 			// out of time has no live context to write with.
-			if errors.Is(err, ErrTaskNotHandled) ||
-				errors.Is(err, context.DeadlineExceeded) {
-				d.ackFailure(ctx, tsk, cmd, err)
+			switch {
+			case errors.Is(err, ErrTaskNotHandled):
+				d.ackFailure(ctx, tsk, cmd, "Failed to configure task", fmt.Sprintf(
+					"No integration on this Core runs '%s' tasks. Move the task to a "+
+						"Driver that has the integration. %s",
+					tsk.Type, err,
+				))
+			case errors.Is(err, context.DeadlineExceeded):
+				d.ackFailure(ctx, tsk, cmd, "Failed to start task", err.Error())
 			}
 			return
 		}
@@ -367,20 +375,20 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 }
 
 // ackFailure acknowledges a start command whose deploy failed without a factory
-// reporting it.
+// reporting it, with an error status of message and description.
 func (d *Driver) ackFailure(
 	ctx context.Context,
 	t task.Task,
 	cmd task.Command,
-	err error,
+	message, description string,
 ) {
 	if sErr := NewStatusHandler(d.cfg.DB, d.cfg.Status, t).Send(
 		ctx,
 		cmd.Key,
 		status.VariantError,
 		false,
-		"Failed to start task",
-		err.Error(),
+		message,
+		description,
 	); sErr != nil {
 		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
 	}

@@ -1673,9 +1673,11 @@ var _ = Describe("Driver", func() {
 						Exec(ctx, node.DB)).To(Succeed())
 					g.Expect(stat.Name).To(Equal(t.Name))
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("Failed to start task"))
+					g.Expect(stat.Message).To(Equal("Failed to configure task"))
 					g.Expect(stat.Description).To(Equal(
-						"task type 'pagerduty_alert': task not handled by factory",
+						"No integration on this Core runs 'pagerduty_alert' tasks. " +
+							"Move the task to a Driver that has the integration. " +
+							"task type 'pagerduty_alert': task not handled by factory",
 					))
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-unhandled"))
 					g.Expect(stat.Details.Running).To(BeFalse())
