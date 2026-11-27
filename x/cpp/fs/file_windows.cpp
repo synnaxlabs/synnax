@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstddef>
+#include <cstring>
 #include <string>
 #include <system_error>
+#include <vector>
 
 #include <windows.h>
 
@@ -56,7 +59,7 @@ File::open(const std::filesystem::path &path) {
     // FILE_SHARE_DELETE lets other handles rename or remove the file while it is open.
     const HANDLE h = CreateFileW(
         path.c_str(),
-        GENERIC_WRITE,
+        GENERIC_WRITE | FILE_READ_ATTRIBUTES,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
         nullptr,
         OPEN_ALWAYS,
@@ -74,6 +77,66 @@ File::open(const std::filesystem::path &path) {
         std::unique_ptr<File>(new File(reinterpret_cast<std::intptr_t>(h))),
         x::errors::NIL
     };
+}
+
+std::pair<std::unique_ptr<File>, x::errors::Error>
+File::open_read(const std::filesystem::path &path) {
+    const HANDLE h = CreateFileW(
+        path.c_str(),
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+    if (h == INVALID_HANDLE_VALUE)
+        return {nullptr, last_error("failed to open " + path.string())};
+    return {
+        std::unique_ptr<File>(new File(reinterpret_cast<std::intptr_t>(h))),
+        x::errors::NIL
+    };
+}
+
+std::pair<std::size_t, x::errors::Error>
+File::read(const std::uint64_t pos, char *dst, const std::size_t size) const {
+    std::size_t done = 0;
+    while (done < size) {
+        OVERLAPPED overlapped{};
+        const auto at = pos + done;
+        overlapped.Offset = static_cast<DWORD>(at & 0xFFFFFFFF);
+        overlapped.OffsetHigh = static_cast<DWORD>(at >> 32);
+        const auto len = static_cast<DWORD>(
+            std::min<std::size_t>(size - done, MAXDWORD)
+        );
+        DWORD n = 0;
+        if (!ReadFile(to_handle(this->handle), dst + done, len, &n, &overlapped)) {
+            if (GetLastError() == ERROR_HANDLE_EOF) break;
+            return {done, last_error("failed to read")};
+        }
+        if (n == 0) break;
+        done += n;
+    }
+    return {done, x::errors::NIL};
+}
+
+std::pair<std::uint64_t, x::errors::Error> File::size() const {
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(to_handle(this->handle), &size))
+        return {0, last_error("failed to stat")};
+    return {static_cast<std::uint64_t>(size.QuadPart), x::errors::NIL};
+}
+
+std::pair<bool, x::errors::Error> File::removed() const {
+    FILE_STANDARD_INFO info{};
+    if (!GetFileInformationByHandleEx(
+            to_handle(this->handle),
+            FileStandardInfo,
+            &info,
+            sizeof(info)
+        ))
+        return {false, last_error("failed to stat")};
+    return {info.NumberOfLinks == 0 || info.DeletePending != FALSE, x::errors::NIL};
 }
 
 x::errors::Error File::write(std::string_view data) const {
@@ -125,6 +188,50 @@ x::errors::Error sync_dir(const std::filesystem::path &) {
 
 x::errors::Error
 replace(const std::filesystem::path &from, const std::filesystem::path &to) {
+    const HANDLE h = CreateFileW(
+        from.c_str(),
+        DELETE | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+    if (h == INVALID_HANDLE_VALUE) return last_error("failed to open " + from.string());
+    std::error_code ec;
+    const auto target = std::filesystem::absolute(to, ec).wstring();
+    if (ec) {
+        CloseHandle(h);
+        return x::errors::Error(FS_ERROR, "failed to resolve " + to.string());
+    }
+    const auto name_size = target.size() * sizeof(wchar_t);
+    std::vector<std::byte> buf(sizeof(FILE_RENAME_INFO) + name_size);
+    auto *info = reinterpret_cast<FILE_RENAME_INFO *>(buf.data());
+    // POSIX semantics replace a file that other handles hold open.
+    info->Flags = FILE_RENAME_FLAG_REPLACE_IF_EXISTS | FILE_RENAME_FLAG_POSIX_SEMANTICS;
+    info->RootDirectory = nullptr;
+    info->FileNameLength = static_cast<DWORD>(name_size);
+    std::memcpy(info->FileName, target.data(), name_size);
+    auto err = x::errors::NIL;
+    if (SetFileInformationByHandle(
+            h,
+            FileRenameInfoEx,
+            info,
+            static_cast<DWORD>(buf.size())
+        )) {
+        if (!FlushFileBuffers(h)) err = last_error("failed to sync " + to.string());
+        CloseHandle(h);
+        return err;
+    }
+    const auto code = GetLastError();
+    CloseHandle(h);
+    // FAT volumes and some network shares have no POSIX rename. There a replace fails
+    // while another handle holds the target open.
+    if (code != ERROR_INVALID_PARAMETER && code != ERROR_NOT_SUPPORTED &&
+        code != ERROR_INVALID_FUNCTION) {
+        SetLastError(code);
+        return last_error("failed to rename " + from.string());
+    }
     if (!MoveFileExW(
             from.c_str(),
             to.c_str(),
@@ -132,5 +239,15 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to) {
         ))
         return last_error("failed to rename " + from.string());
     return x::errors::NIL;
+}
+
+x::errors::Error
+rename_new(const std::filesystem::path &from, const std::filesystem::path &to) {
+    if (MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_WRITE_THROUGH))
+        return x::errors::NIL;
+    const auto code = GetLastError();
+    if (code == ERROR_ALREADY_EXISTS || code == ERROR_FILE_EXISTS)
+        return x::errors::Error(EXISTS, to.string());
+    return last_error("failed to rename " + from.string());
 }
 }
