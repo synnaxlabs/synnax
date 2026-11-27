@@ -70,13 +70,12 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = Device.useViewFromConfig();
-  const configured = Device.useFromConfig();
+  const dev = Device.useTargetFromConfig("digitalOutput");
   PForm.useCheck(root.config, digitalHardwareZ(dev, "output"));
   const resolve = (ch: DOChannel) => {
-    if (configured == null) return null;
+    if (dev == null) return null;
     const pair =
-      configured.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)] ??
+      dev.channels.channels[getDigitalChannelDeviceKey(ch)] ??
       PlatformDevice.ZERO_COMMAND_STATE_PAIR;
     return { cmdChannel: pair.command, stateChannel: pair.state };
   };
@@ -113,24 +112,26 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve({
-    key: config.device,
-    schemas: Device.SCHEMAS,
-  });
-  const before = deep.copy(dev.properties);
-  PlatformDevice.checkConfigured(dev);
-  let modified = false;
-  let shouldCreateStateIndex = primitive.isZero(
-    dev.properties.digitalOutput.stateIndex,
+  const targets = await Device.retrieveTargets(
+    client,
+    [config.device],
+    "digitalOutput",
   );
+  PlatformDevice.checkFound([config.device], targets);
+  const [dev] = targets;
+  PlatformDevice.checkConfigured(dev);
+  const dout = dev.channels;
+  const before = deep.copy(dout);
+  let modified = false;
+  let shouldCreateStateIndex = primitive.isZero(dout.stateIndex);
   if (!shouldCreateStateIndex)
     try {
-      await client.channels.retrieve(dev.properties.digitalOutput.stateIndex);
+      await client.channels.retrieve(dout.stateIndex);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
       else throw errors.fromUnknown(e);
     }
-  const identifier = channel.escapeInvalidName(dev.properties.identifier);
+  const identifier = channel.escapeInvalidName(dev.identifier);
   try {
     if (shouldCreateStateIndex) {
       modified = true;
@@ -139,8 +140,8 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
         dataType: "timestamp",
         isIndex: true,
       });
-      dev.properties.digitalOutput.stateIndex = stateIndex.key;
-      dev.properties.digitalOutput.channels = {};
+      dout.stateIndex = stateIndex.key;
+      dout.channels = {};
     }
     const commandsToCreate: DOChannel[] = [];
     const statesToCreate: DOChannel[] = [];
@@ -149,7 +150,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       getDigitalChannelDeviceKey,
     )) {
       const key = getDigitalChannelDeviceKey(channel);
-      const exPair = dev.properties.digitalOutput.channels[key];
+      const exPair = dout.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
         statesToCreate.push(channel);
@@ -173,48 +174,46 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       modified = true;
       const states = await client.channels.create(
         statesToCreate.map((c) => ({
-          name: digitalOutputStateName(c, Device.toView(dev)),
-          index: dev.properties.digitalOutput.stateIndex,
+          name: digitalOutputStateName(c, dev),
+          index: dout.stateIndex,
           dataType: "uint8",
         })),
       );
       states.forEach((s, i) => {
         const key = getDigitalChannelDeviceKey(statesToCreate[i]);
-        if (!(key in dev.properties.digitalOutput.channels))
-          dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
-        else dev.properties.digitalOutput.channels[key].state = s.key;
+        if (!(key in dout.channels)) dout.channels[key] = { state: s.key, command: 0 };
+        else dout.channels[key].state = s.key;
       });
     }
     if (commandsToCreate.length > 0) {
       modified = true;
       const commandIndexes = await client.channels.create(
         commandsToCreate.map((c) => ({
-          name: `${digitalOutputName(c, Device.toView(dev))}_time`,
+          name: `${digitalOutputName(c, dev)}_time`,
           dataType: "timestamp",
           isIndex: true,
         })),
       );
       const commands = await client.channels.create(
         commandsToCreate.map((c, i) => ({
-          name: digitalOutputName(c, Device.toView(dev)),
+          name: digitalOutputName(c, dev),
           index: commandIndexes[i].key,
           dataType: "uint8",
         })),
       );
       commands.forEach((s, i) => {
         const key = getDigitalChannelDeviceKey(commandsToCreate[i]);
-        if (!(key in dev.properties.digitalOutput.channels))
-          dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
-        else dev.properties.digitalOutput.channels[key].command = s.key;
+        if (!(key in dout.channels)) dout.channels[key] = { state: 0, command: s.key };
+        else dout.channels[key].command = s.key;
       });
     }
   } finally {
     if (modified)
-      await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
+      await Device.writeChannels(client, dev.key, "digitalOutput", before, dout);
   }
   config.channels = config.channels.map((c) => {
     const key = getDigitalChannelDeviceKey(c);
-    const pair = dev.properties.digitalOutput.channels[key];
+    const pair = dout.channels[key];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
   });
   return [config, dev.rack];

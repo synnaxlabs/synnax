@@ -125,7 +125,7 @@ const hasPortList = (devices: Device.View[]): boolean =>
   devices.some(({ hardware }) => hardware != null);
 
 const Form: FC = () => {
-  const devices = Device.useReadTargets(
+  const devices = Device.useTargets(
     Task.useChannelDeviceKeys(root.config.channels),
     "analogInput",
   );
@@ -181,7 +181,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
-  const allDevices = await Device.retrieveReadTargets(client, devices, "analogInput");
+  const allDevices = await Device.retrieveTargets(client, devices, "analogInput");
   PlatformDevice.checkFound(devices, allDevices);
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
@@ -247,7 +247,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
       }
     } finally {
       if (modified)
-        await Device.writeReadChannels(client, dev.key, "analogInput", before, ai);
+        await Device.writeChannels(client, dev.key, "analogInput", before, ai);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;

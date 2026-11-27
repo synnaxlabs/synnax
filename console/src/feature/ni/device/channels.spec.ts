@@ -59,7 +59,7 @@ describe("NI.Device read channels with typed devices", () => {
     const index = await createIndex();
     const [ai0, ai3, temp] = await Promise.all([1, 2, 3].map(() => createData(index)));
     const channels = { "0": ai0, "3": ai3, [NI.Device.BUILT_IN_TEMP_KEY]: temp };
-    await NI.Device.writeReadChannels(client, dev.key, "analogInput", EMPTY, {
+    await NI.Device.writeChannels(client, dev.key, "analogInput", EMPTY, {
       index,
       channels,
     });
@@ -69,11 +69,7 @@ describe("NI.Device read channels with typed devices", () => {
       temperature: temp,
       channels: { 0: ai0, 3: ai3 },
     });
-    const [target] = await NI.Device.retrieveReadTargets(
-      client,
-      [dev.key],
-      "analogInput",
-    );
+    const [target] = await NI.Device.retrieveTargets(client, [dev.key], "analogInput");
     expect(target.configured).toBe(true);
     expect(target.channels).toEqual({ index, channels });
   });
@@ -82,17 +78,13 @@ describe("NI.Device read channels with typed devices", () => {
     const dev = await createDevice();
     const index = await createIndex();
     const ctr1 = await createData(index);
-    await NI.Device.writeReadChannels(client, dev.key, "counterInput", EMPTY, {
+    await NI.Device.writeChannels(client, dev.key, "counterInput", EMPTY, {
       index,
       channels: { "1": ctr1 },
     });
     const stored = await client.ni.devices.retrieve({ key: dev.key });
     expect(stored.counterInput).toEqual({ 1: { index, channel: ctr1 } });
-    const [target] = await NI.Device.retrieveReadTargets(
-      client,
-      [dev.key],
-      "counterInput",
-    );
+    const [target] = await NI.Device.retrieveTargets(client, [dev.key], "counterInput");
     expect(target.channels).toEqual({ index, channels: { "1": ctr1 } });
   });
 
@@ -100,11 +92,11 @@ describe("NI.Device read channels with typed devices", () => {
     const dev = await createDevice();
     const index = await createIndex();
     const [ctr0, ai0] = await Promise.all([1, 2].map(() => createData(index)));
-    await NI.Device.writeReadChannels(client, dev.key, "counterInput", EMPTY, {
+    await NI.Device.writeChannels(client, dev.key, "counterInput", EMPTY, {
       index,
       channels: { "0": ctr0 },
     });
-    await NI.Device.writeReadChannels(client, dev.key, "analogInput", EMPTY, {
+    await NI.Device.writeChannels(client, dev.key, "analogInput", EMPTY, {
       index,
       channels: { "0": ai0 },
     });
@@ -121,11 +113,7 @@ describe("NI.Device read channels with typed devices", () => {
       identifier: "",
       group: "configuration",
     });
-    const [target] = await NI.Device.retrieveReadTargets(
-      client,
-      [dev.key],
-      "analogInput",
-    );
+    const [target] = await NI.Device.retrieveTargets(client, [dev.key], "analogInput");
     expect(target.configured).toBe(false);
   });
 
@@ -133,11 +121,11 @@ describe("NI.Device read channels with typed devices", () => {
     const dev = await createDevice();
     const index = await createIndex();
     const [ai0, ai1] = await Promise.all([1, 2].map(() => createData(index)));
-    await NI.Device.writeReadChannels(client, dev.key, "analogInput", EMPTY, {
+    await NI.Device.writeChannels(client, dev.key, "analogInput", EMPTY, {
       index,
       channels: { "0": ai0 },
     });
-    await NI.Device.writeReadChannels(
+    await NI.Device.writeChannels(
       client,
       dev.key,
       "analogInput",
@@ -151,10 +139,74 @@ describe("NI.Device read channels with typed devices", () => {
   it("should delete a counter index that has no counters to hold it", async () => {
     const dev = await createDevice();
     const index = await createIndex();
-    await NI.Device.writeReadChannels(client, dev.key, "counterInput", EMPTY, {
+    await NI.Device.writeChannels(client, dev.key, "counterInput", EMPTY, {
       index,
       channels: {},
     });
     await expect(client.channels.retrieve(index)).rejects.toThrow(NotFoundError);
+  });
+
+  it("should store digital input lines by port with the shared index", async () => {
+    const dev = await createDevice();
+    const index = await createIndex();
+    const [p0l1, p1l2] = await Promise.all([1, 2].map(() => createData(index)));
+    const channels = { "0l1": p0l1, "1l2": p1l2 };
+    await NI.Device.writeChannels(client, dev.key, "digitalInput", EMPTY, {
+      index,
+      channels,
+    });
+    const stored = await client.ni.devices.retrieve({ key: dev.key });
+    expect(stored.digitalInput).toEqual({
+      0: { index, lines: { 1: p0l1 } },
+      1: { index, lines: { 2: p1l2 } },
+    });
+    const [target] = await NI.Device.retrieveTargets(client, [dev.key], "digitalInput");
+    expect(target.channels).toEqual({ index, channels });
+  });
+
+  it("should store analog output commands and states with the state index", async () => {
+    const dev = await createDevice();
+    const stateIndex = await createIndex();
+    const [command, state] = await Promise.all(
+      [1, 2].map(async () => await createData(await createIndex())),
+    );
+    const channels = { "2": { command, state } };
+    await NI.Device.writeChannels(
+      client,
+      dev.key,
+      "analogOutput",
+      { stateIndex: 0, channels: {} },
+      { stateIndex, channels },
+    );
+    const stored = await client.ni.devices.retrieve({ key: dev.key });
+    expect(stored.analogOutput).toEqual({ 2: { stateIndex, command, state } });
+    const [target] = await NI.Device.retrieveTargets(client, [dev.key], "analogOutput");
+    expect(target.channels).toEqual({ stateIndex, channels });
+  });
+
+  it("should store digital output lines by port with the state index", async () => {
+    const dev = await createDevice();
+    const stateIndex = await createIndex();
+    const [command, state] = await Promise.all(
+      [1, 2].map(async () => await createData(await createIndex())),
+    );
+    const channels = { "0l3": { command, state } };
+    await NI.Device.writeChannels(
+      client,
+      dev.key,
+      "digitalOutput",
+      { stateIndex: 0, channels: {} },
+      { stateIndex, channels },
+    );
+    const stored = await client.ni.devices.retrieve({ key: dev.key });
+    expect(stored.digitalOutput).toEqual({
+      0: { stateIndex, lines: { 3: { command, state } } },
+    });
+    const [target] = await NI.Device.retrieveTargets(
+      client,
+      [dev.key],
+      "digitalOutput",
+    );
+    expect(target.channels).toEqual({ stateIndex, channels });
   });
 });

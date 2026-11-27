@@ -69,17 +69,13 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = Device.useViewFromConfig();
-  const configured = Device.useFromConfig();
+  const dev = Device.useTargetFromConfig("digitalInput");
   PForm.useCheck(root.config, digitalHardwareZ(dev, "input"));
   const resolve = (ch: DIChannel) =>
-    configured == null
+    dev == null
       ? null
       : {
-          channel:
-            configured.properties.digitalInput.channels[
-              getDigitalChannelDeviceKey(ch)
-            ] ?? 0,
+          channel: dev.channels.channels[getDigitalChannelDeviceKey(ch)] ?? 0,
         };
   const map =
     dev?.hardware == null
@@ -113,22 +109,22 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve({
-    key: config.device,
-    schemas: Device.SCHEMAS,
-  });
-  const before = deep.copy(dev.properties);
+  const targets = await Device.retrieveTargets(client, [config.device], "digitalInput");
+  PlatformDevice.checkFound([config.device], targets);
+  const [dev] = targets;
   PlatformDevice.checkConfigured(dev);
+  const di = dev.channels;
+  const before = deep.copy(di);
   let modified = false;
-  let shouldCreateIndex = primitive.isZero(dev.properties.digitalInput.index);
+  let shouldCreateIndex = primitive.isZero(di.index);
   if (!shouldCreateIndex)
     try {
-      await client.channels.retrieve(dev.properties.digitalInput.index);
+      await client.channels.retrieve(di.index);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateIndex = true;
       else throw errors.fromUnknown(e);
     }
-  const identifier = channel.escapeInvalidName(dev.properties.identifier);
+  const identifier = channel.escapeInvalidName(dev.identifier);
   try {
     if (shouldCreateIndex) {
       modified = true;
@@ -137,8 +133,8 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
         dataType: "timestamp",
         isIndex: true,
       });
-      dev.properties.digitalInput.index = aiIndex.key;
-      dev.properties.digitalInput.channels = {};
+      di.index = aiIndex.key;
+      di.channels = {};
     }
     const toCreate: DIChannel[] = [];
     for (const channel of Task.firstPerPort(
@@ -146,7 +142,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       getDigitalChannelDeviceKey,
     )) {
       const key = getDigitalChannelDeviceKey(channel);
-      const exKey = dev.properties.digitalInput.channels[key];
+      const exKey = di.channels[key];
       if (primitive.isZero(exKey)) toCreate.push(channel);
       else
         try {
@@ -160,23 +156,23 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: digitalInputName(c, Device.toView(dev)),
+          name: digitalInputName(c, dev),
           dataType: "uint8",
-          index: dev.properties.digitalInput.index,
+          index: di.index,
         })),
       );
       channels.forEach((c, i) => {
         const key = getDigitalChannelDeviceKey(toCreate[i]);
-        dev.properties.digitalInput.channels[key] = c.key;
+        di.channels[key] = c.key;
       });
     }
   } finally {
     if (modified)
-      await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
+      await Device.writeChannels(client, dev.key, "digitalInput", before, di);
   }
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);
-    c.channel = dev.properties.digitalInput.channels[key];
+    c.channel = di.channels[key];
   });
   return [config, dev.rack];
 };
