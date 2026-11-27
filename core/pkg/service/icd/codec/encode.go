@@ -87,8 +87,8 @@ type encodeField struct {
 	fallback fieldDefault
 	// scaled is true when the field's scale or offset changes its value.
 	scaled bool
-	// converted is true when the number that encoder writes needs a scale, a rounding,
-	// a range check, or a change to a boolean.
+	// converted is true when the number of a sample needs a scale, a rounding, a range
+	// check, or a change to a boolean before encode writes it.
 	converted     bool
 	scale, offset float64
 	// base holds the min and max of the field.
