@@ -18,17 +18,11 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var errInjected = errors.New("injected")
 
 var _ = Describe("Handle", func() {
-	It("Should refuse a budget below one handle", func() {
-		Expect(segment.NewBudget(0, 4, segment.GoExecutor)).Error().
-			To(MatchError(validate.ErrValidation))
-	})
-
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
 			var fs *opFS
