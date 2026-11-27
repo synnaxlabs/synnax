@@ -279,6 +279,9 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 			Expect(f.Messages[m].Name).To(Equal(c.Message))
 			bindings := f.Messages[m].Bindings
 			Expect(c.Samples).To(HaveLen(len(bindings)))
+			if len(c.Failures) == 0 {
+				Expect(failures).To(BeNil())
+			}
 			Expect(failures).To(HaveLen(len(c.Failures)))
 			for j, want := range c.Failures {
 				Expect(failures[j].Binding).To(Equal(want.Binding))
