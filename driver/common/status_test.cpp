@@ -1107,8 +1107,8 @@ TEST(TestSendRunning, SendsNothingForAStoppedOrFailedTask) {
     EXPECT_EQ(statuses[2].details.cmd, "stop");
 }
 
-/// @brief it should drop the data when a warning or an error replaces the status.
-TEST(TestSendRunning, DropsTheDataOnAWarningOrAnError) {
+/// @brief it should keep the data through a warning, and drop it on an error.
+TEST(TestSendRunning, KeepsTheDataThroughAWarningAndDropsItOnAnError) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "arc"};
     auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
@@ -1118,8 +1118,7 @@ TEST(TestSendRunning, DropsTheDataOnAWarningOrAnError) {
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
     handler.send_warning("Node failed", "");
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 3);
-    EXPECT_FALSE(ctx->snapshot()[2].details.data.has_value());
-    handler.set_data(x::json::json::object_t{{"scopes", x::json::json::array()}});
+    EXPECT_TRUE(ctx->snapshot()[2].details.data.has_value());
     handler.send_error(x::errors::Error(x::errors::INTERNAL, "boom"), "Failed");
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 4);
     EXPECT_FALSE(ctx->snapshot()[3].details.data.has_value());

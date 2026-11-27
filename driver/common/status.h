@@ -105,7 +105,6 @@ struct StatusHandler {
     /// @brief sends a warning to the task. If the task is in error state, the error is
     /// communicated instead.
     void send_warning(const std::string &message, const std::string &description) {
-        this->status.details.data.reset();
         if (!this->accumulated_err) {
             this->status.variant = synnax::status::VARIANT_WARNING;
             this->set_text(message, description);
@@ -139,8 +138,8 @@ struct StatusHandler {
         this->defer(this->shown(this->status));
     }
 
-    /// @brief sets the task-specific data of the statuses sent after it, until a
-    /// warning or an error clears it. It sends nothing by itself.
+    /// @brief sets the task-specific data of the statuses sent after it, until an error
+    /// clears it. It sends nothing by itself.
     void set_data(std::optional<x::json::json::object_t> data) {
         this->status.details.data = std::move(data);
     }

@@ -80,6 +80,10 @@ type impl struct {
 	closer io.Closer
 	// sCtx is the runtime's context. A runtime that fails cancels it.
 	sCtx signal.Context
+	// scopesMu guards scopes.
+	scopesMu sync.Mutex
+	// scopes is the data of the last scope status of this run, which a warning keeps.
+	scopes msgpack.EncodedJSON
 }
 
 var _ driver.Task = (*impl)(nil)
@@ -134,6 +138,9 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 			)
 		}
 	}
+	t.scopesMu.Lock()
+	t.scopes = nil
+	t.scopesMu.Unlock()
 	flow, err := t.open(ctx)
 	if err != nil {
 		return err, t.status.Send(
@@ -789,6 +796,9 @@ func (t *impl) setScopes(ctx context.Context, paths [][]string) {
 	}
 	encoded, err := msgpack.NewEncodedJSON(data)
 	if err == nil {
+		t.scopesMu.Lock()
+		t.scopes = encoded
+		t.scopesMu.Unlock()
 		message, description := scopeText(data)
 		err = t.status.SendRunning(ctx, message, description, encoded)
 	}
@@ -806,9 +816,13 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey, text string) {
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
+	t.scopesMu.Lock()
+	scopes := t.scopes
+	t.scopesMu.Unlock()
 	if setErr := t.status.Warn(ctx, driver.Warning{
 		Message:     "Node failed",
 		Description: fmt.Sprintf("The %s node failed: %s", nodeType, text),
+		Data:        scopes,
 	}); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
