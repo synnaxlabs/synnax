@@ -119,7 +119,7 @@ func decode(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	case unsupported:
 		return wrap(ErrUnsupported, pld.Data), true
 	case multipleResults:
-		return wrap(errMultipleResults, pld.Data), true
+		return multipleResultsError{msg: pld.Data}, true
 	}
 	if strings.HasPrefix(pld.Type, typePrefix) {
 		return wrap(ErrQuery, pld.Data), true
