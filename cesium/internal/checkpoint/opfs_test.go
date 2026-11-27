@@ -17,7 +17,7 @@ import (
 )
 
 // opFS records the writes, syncs, truncates, and removes of a file system, fails a
-// chosen sync, and flips a bit of chosen reads.
+// chosen sync or directory sync, and flips a bit of chosen reads.
 type opFS struct {
 	xfs.FS
 	mu  sync.Mutex
@@ -25,7 +25,9 @@ type opFS struct {
 	// failSync fails the sync with this number, from 1, and no other.
 	failSync int
 	syncs    int
-	dirErr   error
+	// failDir fails the SyncDir with this number, from 1, and no other.
+	failDir int
+	dirs    int
 	// flips holds, for a file offset, how many more reads that cover it get a flipped
 	// bit. A negative count flips every read.
 	flips map[int64]int
@@ -79,10 +81,11 @@ func (f *opFS) Remove(name string) error {
 
 func (f *opFS) SyncDir(name string) error {
 	f.mu.Lock()
-	err := f.dirErr
+	f.dirs++
+	fail := f.dirs == f.failDir
 	f.mu.Unlock()
-	if err != nil {
-		return err
+	if fail {
+		return errSync
 	}
 	f.recordf("syncdir %q", name)
 	return f.FS.SyncDir(name)

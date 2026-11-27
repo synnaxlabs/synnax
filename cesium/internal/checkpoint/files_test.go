@@ -87,6 +87,23 @@ var _ = Describe("Files", func() {
 					Entry("at the commit sync", 2),
 				)
 
+				It(
+					"Should remove the head and sync the root when the root sync before "+
+						"the commit fails",
+					func() {
+						fs.failDir = 1
+						b := checkpoint.Encode(db, generation, sample(2))
+						Expect(
+							checkpoint.Write(fs, generation, b),
+						).To(MatchError(errSync))
+						Expect(exists(name)).To(BeFalse())
+						ops := fs.Ops()
+						Expect(ops).ToNot(ContainElement("write " + name + " 0 512"))
+						Expect(ops[len(ops)-2:]).
+							To(Equal([]string{"remove " + name, `syncdir ""`}))
+					},
+				)
+
 				It("Should refuse a head that exists", func() {
 					b := checkpoint.Encode(db, generation, sample(2))
 					Expect(checkpoint.Write(fs, generation, b)).To(Succeed())
