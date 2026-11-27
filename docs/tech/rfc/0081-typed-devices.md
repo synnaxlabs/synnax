@@ -386,11 +386,14 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
 
    An EtherCAT slave row also converts, with a warning per drop:
-   - Nanosecond integers become spans; a `switched_at` of 0 becomes absent.
+   - Nanosecond integers become spans. A zero `switched_at` or cycle, an empty mode or
+     PDO name, and a zero state or index channel become absent.
    - `disabled` is `!enabled`, and a missing `enabled` is `true`. Bad identifiers clear.
    - Startup parameters take their `data_type` variant; out-of-range ones are dropped.
+   - PDO entries without a PDO index in the range of their direction are dropped.
    - Bindings, map form included, convert as the Console reads them; ones to a missing
-     or repeated entry are dropped. `network_name` moves to the master.
+     or repeated entry are dropped. `scaled` and `calibrated` become `samples`.
+   - `network_name` moves to the master.
 
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
