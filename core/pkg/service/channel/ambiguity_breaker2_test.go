@@ -56,9 +56,9 @@ var _ = Describe("Ambiguity breaker 2", func() {
 		all := func(context.Context) (func(resource.ID) bool, error) {
 			return func(resource.ID) bool { return true }, nil
 		}
-		Expect(svc.DescribeAmbiguity(ctx, db, channel.AmbiguousNameError{
-			Name:    "it's",
-			Holders: channel.Keys{inA.Key(), inB.Key()},
-		}, all)).To(MatchError(ContainSubstring(`'a.it's', 'b.it's'`)))
+		Expect(svc.DescribeAmbiguity(ctx, db, func() error {
+			_, err := svc.KeysByNames(ctx, db, []string{"it's"})
+			return err
+		}(), all)).To(MatchError(ContainSubstring(`'a.it's', 'b.it's'`)))
 	})
 })

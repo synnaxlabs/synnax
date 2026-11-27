@@ -89,10 +89,10 @@ var _ = Describe("Ambiguity breaker 3", func() {
 	It("Should quote the ambiguous name and each path as plain display text",
 		func(ctx SpecContext) {
 			open(ctx, "it's")
-			Expect(svc.DescribeAmbiguity(ctx, db, channel.AmbiguousNameError{
-				Name:    "it's",
-				Holders: channel.Keys{inStand.Key(), inRig.Key()},
-			}, all)).To(MatchError(
+			Expect(svc.DescribeAmbiguity(ctx, db, func() error {
+				_, err := svc.KeysByNames(ctx, db, []string{"it's"})
+				return err
+			}(), all)).To(MatchError(
 				`2 channels are named 'it's': 'rig.it's', 'stand.it's'`,
 			))
 		})

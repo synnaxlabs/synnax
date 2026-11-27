@@ -12,6 +12,7 @@ package channel_test
 import (
 	"context"
 	"slices"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -67,19 +68,32 @@ var _ = Describe("Ambiguous names", func() {
 		createStored(ctx, db, inStand, inRig, solo)
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 	})
-	ambiguousPT := func() channel.AmbiguousNameError {
-		return channel.AmbiguousNameError{
-			Name:    "pt",
-			Holders: channel.Keys{inStand.Key(), inRig.Key()},
+	// ambiguousPT returns the error of a lookup of the name pt, which two channels
+	// hold.
+	ambiguousPT := func(ctx context.Context) error {
+		_, err := svc.KeysByNames(ctx, db, []string{"pt"})
+		return err
+	}
+	// causes returns the text of err and of each error that it wraps.
+	causes := func(err error) string {
+		var texts []string
+		for e := err; e != nil; {
+			texts = append(texts, e.Error())
+			wrapper, ok := e.(interface{ Unwrap() error })
+			if !ok {
+				break
+			}
+			e = wrapper.Unwrap()
 		}
+		return strings.Join(texts, "\n")
 	}
 	matchAmbiguousPT := func() OmegaMatcher {
 		return SatisfyAll(
 			MatchError(query.ErrQuery),
-			WithTransform(func(err error) channel.Keys {
-				ambiguous, _ := errors.AsType[channel.AmbiguousNameError](err)
-				return ambiguous.Holders
-			}, ConsistOf(inStand.Key(), inRig.Key())),
+			WithTransform(causes, SatisfyAll(
+				ContainSubstring(inStand.Key().String()),
+				ContainSubstring(inRig.Key().String()),
+			)),
 		)
 	}
 	// access returns an access read that lets the subject retrieve every record but
@@ -92,9 +106,9 @@ var _ = Describe("Ambiguous names", func() {
 		}
 	}
 
-	Describe("AmbiguousNameError", func() {
-		It("Should name the holders by key and no path", func() {
-			Expect(ambiguousPT().Error()).To(Equal(
+	Describe("An ambiguous name", func() {
+		It("Should name the holders by key and no path", func(ctx SpecContext) {
+			Expect(ambiguousPT(ctx).Error()).To(Equal(
 				"2 channels are named 'pt' (keys " + inStand.Key().String() + ", " +
 					inRig.Key().String() + ")",
 			))
@@ -124,7 +138,7 @@ var _ = Describe("Ambiguous names", func() {
 		It("Should quote the path of each holder that the subject can see", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.DescribeAmbiguity(ctx, db, ambiguousPT(), access())).
+			Expect(svc.DescribeAmbiguity(ctx, db, ambiguousPT(ctx), access())).
 				To(SatisfyAll(
 					MatchError("2 channels are named 'pt': 'rig.pt', 'stand.pt'"),
 					matchAmbiguousPT(),
@@ -137,7 +151,7 @@ var _ = Describe("Ambiguous names", func() {
 			Expect(svc.DescribeAmbiguity(
 				ctx,
 				db,
-				ambiguousPT(),
+				ambiguousPT(ctx),
 				access(rig.ResourceID()),
 			)).To(MatchError(
 				"2 channels are named 'pt': 'stand.pt', and 1 more you cannot see",
@@ -150,7 +164,7 @@ var _ = Describe("Ambiguous names", func() {
 			Expect(svc.DescribeAmbiguity(
 				ctx,
 				db,
-				ambiguousPT(),
+				ambiguousPT(ctx),
 				access(inStand.ResourceID(), inRig.ResourceID()),
 			)).To(MatchError("2 channels are named 'pt': 2 you cannot see"))
 		})
