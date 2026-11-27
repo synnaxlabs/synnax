@@ -71,7 +71,7 @@ func (v *logView) load() {
 		return
 	}
 	v.fresh = true
-	if v.loaded && v.e.state.Unchanged(v.count) {
+	if v.loaded && v.e.state.Count() == v.count {
 		return
 	}
 	v.next = slices.Grow(v.next[:0], len(v.keys))[:len(v.keys)]

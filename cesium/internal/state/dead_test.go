@@ -1,0 +1,127 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package state_test
+
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/state"
+	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("Dead", func() {
+	var (
+		a *appended
+		s *state.State
+	)
+	BeforeEach(func() {
+		a = &appended{}
+		s = MustSucceed(state.Open(config(a), sample()))
+		a.s, a.seq = s, sample().Sequence
+		run(s)
+		MustSucceed(s.Snapshot())
+	})
+
+	// load returns the publish count of a load of keys 5, 6, and 9, and the segments
+	// that it sees.
+	load := func() (uint64, set.Set[uint64]) {
+		chs := make([]*state.Channel, 3)
+		count := s.Load([]uint32{5, 6, 9}, chs)
+		ids := set.New[uint64]()
+		for _, ch := range chs {
+			if ch == nil {
+				continue
+			}
+			for _, seg := range ch.Segments {
+				ids.Add(seg.ID)
+			}
+		}
+		return count, ids
+	}
+	durable := func(records ...log.Record) {
+		GinkgoHelper()
+		Expect(a.durable(records)).To(Succeed())
+	}
+	// newSegment returns a new open segment of key 9, on clock 9, with no durable
+	// Create, and its writer.
+	newSegment := func() (*state.Writer, uint64) {
+		GinkgoHelper()
+		w := MustSucceed(s.OpenWriter(context.Background(), clockWriter(100, false, 9)))
+		return w, MustSucceed(w.NewSegment(9))
+	}
+
+	DescribeTable("Should give a segment the publish count at the end of the step "+
+		"that takes it out of what readers see",
+		func(remove func() []uint64) {
+			before, _ := load()
+			removed := remove()
+			dead := MustSucceed(s.TakeDead())
+			after, ids := load()
+			Expect(dead).To(HaveLen(len(removed)))
+			for i, d := range dead {
+				Expect(d.Segment).To(Equal(removed[i]))
+				Expect(d.Count).To(BeNumerically(">", before))
+				Expect(d.Count).To(Equal(after))
+				Expect(ids.Contains(d.Segment)).To(BeFalse())
+			}
+		},
+		Entry("a Drop", func() []uint64 {
+			durable(&log.Drop{Key: 6})
+			return []uint64{3}
+		}),
+		Entry("a Tombstone that empties a sealed segment", func() []uint64 {
+			durable(&log.Tombstone{Key: 6, Start: 0, End: 100})
+			durable(&log.Tombstone{Key: 5, Start: 0, End: 35})
+			return []uint64{2}
+		}),
+		Entry("the Seal of a segment that a Tombstone emptied", func() []uint64 {
+			durable(&log.Tombstone{Key: 6, Start: 0, End: 100})
+			seal := log.Seal{Segment: 3, Length: 12, TailCRC: 3}
+			Eventually(a.seals).Should(Equal([]log.Seal{seal}))
+			durable(&seal)
+			return []uint64{3}
+		}),
+		Entry("a take back of a segment with no durable Create", func() []uint64 {
+			w, id := newSegment()
+			Expect(w.TakeBack()).To(BeEmpty())
+			return []uint64{id}
+		}),
+		Entry("a switch of an open segment that no writer holds and no durable Create "+
+			"made", func() []uint64 {
+			w, id := newSegment()
+			Expect(w.Close()).To(Succeed())
+			Expect(s.Switch(4)).To(Succeed())
+			Eventually(a.switched).Should(HaveLen(1))
+			return []uint64{id}
+		}),
+	)
+})
+
+var _ = Describe("Count", func() {
+	It("Should be even between steps, at or below the count of a later Load, and "+
+		"grow by two with each step that publishes", func() {
+		a := &appended{}
+		s := MustSucceed(state.Open(config(a), sample()))
+		run(s)
+		MustSucceed(s.Snapshot())
+		count := s.Count()
+		Expect(count % 2).To(BeZero())
+		chs := make([]*state.Channel, 1)
+		Expect(s.Load([]uint32{6}, chs)).To(Equal(count))
+		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+		Eventually(s.Count).Should(Equal(count + 2))
+		Expect(s.Load([]uint32{6}, chs)).To(Equal(count + 2))
+		Expect(chs[0]).To(BeNil())
+	})
+})

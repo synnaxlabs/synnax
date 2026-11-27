@@ -26,9 +26,9 @@ var _ = Describe("Load", func() {
 		count := s.Load([]uint32{6, 5}, chs)
 		Expect(chs[0].Key).To(Equal(uint32(6)))
 		Expect(chs[1].Key).To(Equal(uint32(5)))
-		Expect(s.Unchanged(count)).To(BeTrue())
+		Expect(s.Count()).To(Equal(count))
 		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
-		Eventually(func() bool { return s.Unchanged(count) }).Should(BeFalse())
+		Eventually(s.Count).ShouldNot(Equal(count))
 	})
 
 	It("Should set the Channel of a key with no segment to nil", func() {

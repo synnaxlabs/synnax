@@ -292,7 +292,8 @@ func (s *State) Channel(key uint32) *Channel {
 // Load sets each of chs to the visible state of the key of keys at its index, from one
 // step of the owner, or to nil for a key that the state holds no segment of. It loads
 // them all again while the owner publishes between its loads. It returns the publish
-// count of the loads, which Unchanged takes. chs must be as long as keys.
+// count of the loads, which is at or past a Count read before the call. chs must be as
+// long as keys.
 func (s *State) Load(keys []uint32, chs []*Channel) uint64 {
 	for {
 		count := s.core.count.n.Load()
@@ -309,9 +310,9 @@ func (s *State) Load(keys []uint32, chs []*Channel) uint64 {
 	}
 }
 
-// Unchanged reports whether the owner published nothing since the loads of Load that
-// returned count.
-func (s *State) Unchanged(count uint64) bool { return s.core.count.n.Load() == count }
+// Count returns the publish count of the owner, which is odd while a step publishes and
+// grows by two with each step that publishes. It takes no lock.
+func (s *State) Count() uint64 { return s.core.count.n.Load() }
 
 type durableRequest struct {
 	sequence uint64
@@ -397,6 +398,9 @@ type Dead struct {
 	// Sequence is the entry whose record took the segment out of the state, or 0 when
 	// no durable record named the segment.
 	Sequence uint64
+	// Count is the publish count from which no Load sees the segment: the count at the
+	// end of the step of the owner that took it out of what readers see.
+	Count uint64
 }
 
 type deadRequest struct {
