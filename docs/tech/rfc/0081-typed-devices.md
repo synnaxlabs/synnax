@@ -103,10 +103,11 @@ one shared behavior, and it stays in the status service (§4.2).
   LabJack devices, EtherCAT masters and slaves.
 - **Connected resource**: A resource a user creates from a connect form: OPC UA, Modbus,
   and HTTP servers.
-- **Identity group**: The fields of a discovered resource that the scanner owns: rack,
-  serial, NI-MAX resource name, model, chassis, bus topology.
-- **Configuration group**: The fields a user owns: name, identifier, index channel keys,
-  channel maps, enabled flags, connection settings.
+- **Identity group**: The fields that the scanner, or a connected resource's connect
+  form, owns: rack, serial, NI-MAX resource name, model, chassis, bus topology,
+  connection settings.
+- **Configuration group**: The fields a user owns: a discovered resource's name,
+  identifier, index channel keys, channel maps, enabled flags.
 - **Identifier**: The prefix a user chooses for a discovered resource's channel names. A
   discovered resource with an empty identifier is unconfigured.
 - **Scanner**: An integration's scan task in the Driver. It discovers hardware, reports
@@ -125,8 +126,8 @@ one shared behavior, and it stays in the status service (§4.2).
 4. **Repeat, then deduplicate across every resource**: Device services repeat the writer
    code that racks and schematics also carry. A later project removes that overlap for
    all resources, not for devices alone.
-5. **One writer per field**: The scanner writes the identity group and the user writes
-   the configuration group. Neither write path touches the other group.
+5. **One writer per field**: The scanner or connect form writes the identity group and
+   the user writes the configuration group. Neither write path touches the other group.
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
    indexed field, never a key.
 7. **Delete refuses, then cascades**: A resource a task references cannot be deleted. A
@@ -225,11 +226,11 @@ Field groups per make:
   namespace by URI.
 - **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
   channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
-- **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
-  union), `max_concurrent_requests`, `health_check`, per-path read and write channel
-  maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
-  injects from `location` (`driver/http/device/device.cpp:100-106`) is derived from
-  `host` and `secure` in generated code.
+- **HTTP server**: identity is the connect form's fields; configuration is `reads` and
+  `writes`. `host`, an optional `port`, and `base_path` replace `location`. `scheme` is
+  a union of `https` (with `certificate_validation_disabled`) and `http`, replacing
+  `secure` and `verify_ssl`. Credentials are `secret.Key` references. A write is keyed
+  by its method, path, and query; a read also by its pointer.
 
 A connected resource has no scanned identity: the connect form writes its identity
 group, `rack` included. The OPC UA certificate pin is a narrow write that only moves
@@ -390,6 +391,19 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - LabJack `location` `WIFI` types map to `LJM_ctWIFI`; `TCP`, `ETHERNET`, `NETWORK`
      types to `LJM_ctETHERNET`; anything else to `LJM_ctUSB`.
    - LabJack T7s mapping `AIN48`-`AIN127` get `mux80_attached`; bad identifiers clear.
+
+   HTTP rows change as follows:
+
+   - Credentials become stored secrets; an API key's `header` or `parameter` is `name`.
+   - `secure: false` becomes `http`; otherwise `https` with
+     `certificate_validation_disabled = !verify_ssl`, a missing `verify_ssl` being
+     `true`.
+   - `location` parses into `host`, `port`, and `base_path`, or the row is quarantined.
+   - `timeout_ms` clamps to between 10 ms and 1 h; concurrency caps at 64.
+   - `max_response_size` is dropped; the Driver default caps each response.
+   - Task read fields and write endpoints become bindings, falling back to the map; a
+     read with index 0 takes its channel's index, or is dropped with a warning.
+
 3. Re-key statuses, ontology resources and edges, and policy object IDs.
 4. Each integration's task config migration rewrites its device references through the
    map. OPC UA parks `ns=` task node IDs with the bindings for `/opcua/server/resolve`.

@@ -1,0 +1,333 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/rack"
+import "schemas/synnax/secret"
+import "schemas/synnax/status"
+import "schemas/x/http"
+import "schemas/x/telem"
+
+@cpp output "client/cpp/http/server"
+@go output  "core/pkg/service/http/server"
+@py output  "client/py/synnax/http/server"
+@ts output  "client/ts/src/http/server"
+
+Key = uuid {
+    @doc value "uniquely identifies an HTTP server."
+}
+
+Scheme union on type {
+    https {
+        certificate_validation_disabled bool = false {
+            @doc value "is true when the Driver accepts any server certificate."
+        }
+
+        @doc value "sends requests over TLS."
+    }
+    http {
+        @doc value "sends requests in plain text."
+    }
+
+    @doc value  "is the URL scheme that the Driver reaches a server with."
+    @go marshal
+}
+
+SendAs enum {
+    header      = "header" {
+        @doc value "sends the key in a request header."
+    }
+    query_param = "query_param" {
+        @doc value "sends the key in a URL query parameter."
+    }
+
+    @doc value "selects where a request carries an API key."
+}
+
+Auth union on type {
+    none {
+        @doc value "sends no credentials."
+    }
+    bearer {
+        token secret.Key {
+            @doc value         "is the secret that holds the bearer token."
+            @validate required
+        }
+
+        @doc value "sends a bearer token in the Authorization header."
+    }
+    basic {
+        username string     {
+            @doc value         "is the user name to authenticate with."
+            @go validate       pattern "^[^:[:cntrl:]]*$" "User name must not contain a colon or a control character"
+            @validate required
+        }
+        password secret.Key {
+            @doc value         "is the secret that holds the password."
+            @validate required
+        }
+
+        @doc value "sends a user name and password with HTTP basic authentication."
+    }
+    api_key {
+        key     secret.Key {
+            @doc value         "is the secret that holds the API key."
+            @validate required
+        }
+        send_as SendAs = header {
+            @doc value "selects where requests carry the key."
+        }
+        name    string     {
+            @doc value         """
+                is the name of the header or query parameter that carries the key.
+            """
+            @validate required
+        }
+
+        @doc value "sends an API key in a header or a query parameter."
+    }
+
+    @doc value  "holds the credentials that the Driver sends with each request."
+    @go marshal
+}
+
+BaseResponse struct {
+    pointer string {
+        @doc value   "is the JSON Pointer to the value in the response body."
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+    }
+
+    @doc value  "carries the fields that every expected response shares."
+    @go marshal
+}
+
+Response union on expected_value_type extends BaseResponse {
+    string {
+        expected_value string {
+            @doc value "is the string that the value must equal."
+        }
+
+        @doc value "expects a string."
+    }
+    number {
+        expected_value float64 {
+            @doc value       "is the number that the value must equal."
+            @validate finite
+        }
+
+        @doc value "expects a number."
+    }
+    boolean {
+        expected_value bool {
+            @doc value "is the boolean that the value must equal."
+        }
+
+        @doc value "expects a boolean."
+    }
+    null {
+        @doc value "expects null."
+    }
+
+    @doc value  "is the value that a health check expects at a point in the response."
+    @go marshal
+}
+
+HealthCheck struct {
+    method       http.Method = get {
+        @doc value "is the method of the health check request."
+    }
+    path         string = "" {
+        @doc value   """
+            is the path appended to the base URL. Empty requests the base URL.
+        """
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
+    }
+    headers      http.Header[] = [] {
+        @doc value "are the headers sent with the request."
+    }
+    query_params http.QueryParam[] = [] {
+        @doc value "are the query parameters sent with the request."
+    }
+    body         string = "" {
+        @doc value "is the body sent with the request. Empty sends no body."
+    }
+    response     Response?         {
+        @doc value """
+            is the value that the response must hold. Absent accepts any successful
+            response.
+        """
+    }
+
+    @doc value  "is the request that the Driver sends to check that a server answers."
+    @go marshal
+}
+
+Request struct {
+    method http.Method = post {
+        @doc value "is the method of the request."
+    }
+    path   string = "" {
+        @doc value   """
+            is the path appended to the base URL. Empty requests the base URL.
+        """
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
+    }
+    query  http.QueryParam[] = [] {
+        @doc value "are the query parameters of the request, in sorted order."
+    }
+
+    @doc value  "identifies the request that a write task sends."
+    @go marshal
+}
+
+ReadRequest struct {
+    method http.Method = get {
+        @doc value "is the method of the request."
+    }
+    path   string = "" {
+        @doc value   """
+            is the path appended to the base URL. Empty requests the base URL.
+        """
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
+    }
+    query  http.QueryParam[] = [] {
+        @doc value "are the query parameters of the request, in sorted order."
+    }
+
+    @doc value  "identifies the request that a read task polls."
+    @go marshal
+}
+
+Read struct {
+    request ReadRequest {
+        @doc value "is the request whose responses hold the value."
+    }
+    pointer string = "" {
+        @doc value   "is the JSON Pointer to the value in the response body."
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+    }
+    index   channel.Key {
+        @doc value         "is the index channel of the channel."
+        @ref kind          use
+        @ref on_delete     restrict
+        @validate required
+    }
+    channel channel.Key {
+        @doc value         "is the channel that holds the samples of the value."
+        @ref kind          use
+        @ref on_delete     restrict
+        @validate required
+    }
+
+    @doc value  "binds a value in the responses of a request to a channel."
+    @go marshal
+}
+
+Write struct {
+    request Request     {
+        @doc value "is the request that commands send."
+    }
+    channel channel.Key {
+        @doc value         "is the channel whose commands send the request."
+        @ref kind          use
+        @ref on_delete     restrict
+        @validate required
+    }
+
+    @doc value  "binds a request to the channel whose commands send it."
+    @go marshal
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the server belongs to."
+    }
+    server    Key      {
+        @doc value "is the key of the server."
+    }
+    connected bool = false {
+        @doc value "is true when the server passed the last health check."
+    }
+
+    @doc value "identifies the server and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a server."
+}
+
+Server struct {
+    key                     Key = create {
+        @doc value "uniquely identifies the server."
+        @key
+    }
+    rack                    rack.Key       {
+        @doc value     "is the key of the rack whose Driver connects to the server."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name                    string         {
+        @doc value         "is a human-readable name for the server."
+        @filter
+        @search
+        @validate required
+    }
+    scheme                  Scheme = https {
+        @doc value "is the URL scheme that the Driver reaches the server with."
+    }
+    host                    string         {
+        @doc value         "is the hostname or IP address of the server."
+        @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
+        @validate required
+    }
+    port                    uint16?        {
+        @doc value    "is the TCP port. Absent takes the default port of the scheme."
+        @validate min 1
+    }
+    base_path               string = "" {
+        @doc value   "is the path that prefixes the path of every request."
+        @go validate pattern "^$|^/[^?#[:space:]]*$" "Base path must be empty or start with /, with no query, fragment, or whitespace"
+    }
+    timeout                 telem.TimeSpan = 1s {
+        @doc value    "is the timeout of each request."
+        @ts type      telem.NumericTimeSpan
+        @validate max 3600000000000
+        @validate min 10000000
+    }
+    max_concurrent_requests uint32 = 6 {
+        @doc value    "is the largest number of requests in flight to the server."
+        @validate max 64
+        @validate min 1
+    }
+    auth                    Auth = none {
+        @doc value "holds the credentials that the Driver sends with each request."
+    }
+    health_check            HealthCheck = {} {
+        @doc value "is the request that the Driver checks the server with."
+    }
+    reads                   Read[] = [] {
+        @doc value "bind the values that read tasks poll to channels."
+    }
+    writes                  Write[] = [] {
+        @doc value "bind the requests that write tasks send to channels."
+    }
+    status                  Status?        {
+        @doc value  "is the current connection status of the server."
+        @go marshal omit
+        @include
+    }
+
+    @create
+    @doc value     "is an HTTP server that a rack's Driver connects to."
+    @go entry      "http_server"
+    @go marshal
+    @go migrate
+    @resource type "http_server"
+    @retrieve
+}
