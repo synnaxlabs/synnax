@@ -42,8 +42,8 @@ using testutil::string_at;
 /// decode.
 const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata/decode";
 
-/// @brief the prefix of an error from Go's JSON syntax parser, whose text the Driver
-/// does not copy.
+/// @brief the start of the text of an error from Go's JSON syntax parser. The Driver
+/// does not copy that text, so a case checks only the error text before it.
 constexpr std::string_view SYNTAX_PREFIX = "jsontext: ";
 
 std::vector<JSONMessage> parse_messages(const std::string &doc) {
@@ -63,7 +63,7 @@ nlohmann::json float_json(const double v) {
 
 /// @brief returns the JSON form of the one sample in s, as the fixtures write it.
 nlohmann::json sample_json(const x::telem::Series &s) {
-    const auto dt = s.data_type();
+    const auto &dt = s.data_type();
     if (dt == x::telem::FLOAT64_T) return float_json(s.at<double>(0));
     if (dt == x::telem::FLOAT32_T)
         return float_json(static_cast<double>(s.at<float>(0)));
@@ -102,7 +102,10 @@ void check_case(
         err = dec.failures(*message).front().error;
     if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        if (!expected.starts_with(SYNTAX_PREFIX)) {
+        if (const auto syntax = expected.find(SYNTAX_PREFIX);
+            syntax != std::string::npos) {
+            ASSERT_TRUE(err.data.starts_with(expected.substr(0, syntax))) << err.data;
+        } else {
             ASSERT_EQ(err.data, error_data(expected));
         }
         return;

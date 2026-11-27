@@ -218,7 +218,8 @@ TEST(Binary, DecodeBindingOrder) {
     EXPECT_EQ(s[1].at<std::uint8_t>(0), 1);
 }
 
-/// @brief it should reject a payload too short for a field with no default.
+/// @brief it should reject a payload too short for a field with no default, and return
+/// the message that it matches.
 TEST(Binary, RejectShortPayload) {
     const auto f = field<icd::UnsignedBinaryField>("rpm", 8, 16);
     auto dec = ASSERT_NIL_P(Binary::create({frame(f, x::telem::UINT16_T)}));
@@ -226,6 +227,7 @@ TEST(Binary, RejectShortPayload) {
     const auto [message, err] = dec.decode(bytes);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data, "field rpm: the payload has 2 bytes and the field needs 3");
+    EXPECT_EQ(message, std::size_t{0});
 }
 
 /// @brief it should reject a value too large for a float32 channel.
@@ -549,6 +551,16 @@ TEST(Binary, MatchCANExact) {
     EXPECT_FALSE(ASSERT_NIL_P(dec.decode(0x300, false, PAYLOAD)).has_value());
 }
 
+/// @brief it should reject a CAN frame too short for a field of its message, and return
+/// the message.
+TEST(Binary, RejectShortCANPayload) {
+    auto dec = ASSERT_NIL_P(Binary::create({identified("a", can(0x100))}));
+    const auto [message, err] = dec.decode(0x100, false, std::vector<std::uint8_t>{1});
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "field v: the payload has 1 bytes and the field needs 2");
+    EXPECT_EQ(message, std::size_t{0});
+}
+
 /// @brief it should match a CAN frame by the bits of its identifier under a mask, and
 /// give other frames to the message with no identifier.
 TEST(Binary, MatchCANMasked) {
@@ -616,7 +628,8 @@ TEST(Binary, MatchWithoutAllocating) {
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
 }
 
-/// @brief it should reject a frame that meets the field identifiers of two messages.
+/// @brief it should reject a frame that meets the field identifiers of two messages,
+/// and return the first of them.
 TEST(Binary, RejectTwoFieldMatches) {
     auto dec = ASSERT_NIL_P(
         Binary::create({
@@ -627,6 +640,7 @@ TEST(Binary, RejectTwoFieldMatches) {
     const auto [message, err] = dec.decode(PAYLOAD);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data, "frame matches messages a and b");
+    EXPECT_EQ(message, std::size_t{0});
 }
 
 /// @brief it should refuse two messages with the same CAN identifier.

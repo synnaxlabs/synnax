@@ -482,6 +482,40 @@ var _ = Describe("Discover", func() {
 			Expect(shapes[1].Sources).To(Equal([]string{"pump-1"}))
 		})
 
+		It("Should give the format and payload of each sampled record",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				values := [][]byte{
+					[]byte(`{"v":1}`),
+					[]byte("open"),
+					{0xff, 0x01},
+					{0, 0, 0, 0, 7, 2, 4},
+				}
+				recs := make([]*kgo.Record, len(values))
+				for i, v := range values {
+					recs[i] = &kgo.Record{Topic: topic, Value: v}
+				}
+				Expect(newKafkaClient().ProduceSync(ctx, recs...).FirstErr()).
+					To(Succeed())
+				samples, _ := sample(ctx, []string{topic}, 0)
+				Expect(samples[0].Records).To(HaveLen(len(values)))
+				formats := make([]payload.Format, len(values))
+				payloads := make([]string, len(values))
+				for i, r := range samples[0].Records {
+					formats[i], payloads[i] = r.Format, r.Payload
+				}
+				Expect(formats).To(Equal([]payload.Format{
+					payload.FormatJSON,
+					payload.FormatText,
+					payload.FormatBinary,
+					"schema_registry",
+				}))
+				Expect(payloads).
+					To(Equal([]string{`{"v":1}`, "open", "ff01", "00000000070204"}))
+			},
+		)
+
 		DescribeTable("Should read windows spread back in time",
 			func(ctx SpecContext, count int, expected []int64) {
 				topic := uniqueTopic()
