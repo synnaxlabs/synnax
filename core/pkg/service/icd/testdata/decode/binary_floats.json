@@ -1,0 +1,54 @@
+{
+  "description": "A float field reads a 32 or 64-bit IEEE 754 float.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "f32",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "kind": "float"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "f64",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 32,
+            "bit_length": 64,
+            "byte_order": "little_endian",
+            "kind": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float32"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "0000c03f00000000000002c0",
+      "message": "frame",
+      "samples": [1.5, -2.25]
+    }
+  ]
+}

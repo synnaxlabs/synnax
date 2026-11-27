@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <string>
-#include <system_error>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -28,6 +26,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/codec/binary.h"
 #include "driver/codec/errors.h"
 #include "driver/codec/json.h"
 #include "driver/codec/testutil/fixture.h"
@@ -36,23 +35,14 @@
 namespace driver::codec {
 namespace {
 using testutil::error_data;
+using testutil::integer_of;
 using testutil::raw_at;
 using testutil::required_at;
 using testutil::string_at;
 
-/// @brief the Core's encode fixtures. Each holds one JSON or text message and either
-/// the error that creating an encoder for it returns, or the samples it encodes.
+/// @brief the Core's encode fixtures. Each holds one JSON, text, or binary message and
+/// either the error that creating an encoder for it returns, or the samples it encodes.
 const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata/encode";
-
-/// @brief returns the integer that raw, the text of a JSON integer, holds exactly.
-template<typename T>
-T integer_of(const std::string &raw) {
-    T v{};
-    const auto [end, ec] = std::from_chars(raw.data(), raw.data() + raw.size(), v);
-    EXPECT_TRUE(ec == std::errc{} && end == raw.data() + raw.size())
-        << raw << " is not an integer of its channel";
-    return v;
-}
 
 /// @brief returns the float that raw holds: a JSON number, or a string for NaN,
 /// Infinity, and -Infinity.
@@ -125,6 +115,10 @@ void check_case(
     }
     ASSERT_NIL(err);
     ASSERT_TRUE(rejected.empty()) << rejected[0];
+    if (raw_at(doc, c + "/hex").has_value()) {
+        ASSERT_EQ(payload, testutil::bytes_at(doc, c + "/hex"));
+        return;
+    }
     const std::string text(payload.begin(), payload.end());
     if (raw_at(doc, c + "/text").has_value()) {
         ASSERT_EQ(text, string_at(doc, c + "/text"));
@@ -167,6 +161,8 @@ void check_fixture(const std::filesystem::path &path) {
         check_codec<JSONEncoder, JSONMessage>(doc);
     else if (format == "text")
         check_codec<TextEncoder, TextMessage>(doc);
+    else if (format == "binary")
+        check_codec<BinaryEncoder, BinaryMessage>(doc);
     else
         FAIL() << "unknown payload format " << format;
 }
