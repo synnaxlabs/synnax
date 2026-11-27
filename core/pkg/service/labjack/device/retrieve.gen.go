@@ -67,9 +67,9 @@ func newIndexes() indexes {
 			Targets: func(e *Device) []rack.Key {
 				return []rack.Key{e.Rack}
 			},
-			Retarget: func(e *Device, from, to rack.Key) {
-				if e.Rack == from {
-					e.Rack = to
+			Retarget: func(e *Device, to map[rack.Key]rack.Key) {
+				if t, ok := to[e.Rack]; ok {
+					e.Rack = t
 				}
 			},
 		}),
@@ -182,28 +182,28 @@ func newIndexes() indexes {
 					e.Ports.Variant = v5
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				switch v12 := e.Ports.Variant.(type) {
 				case T4Ports:
 					for k13, v14 := range v12.AnalogInput {
-						if v14 == from {
-							v14 = to
+						if t, ok := to[v14]; ok {
+							v14 = t
 							v12.AnalogInput[k13] = v14
 						}
 					}
 					e.Ports.Variant = v12
 				case T7Ports:
 					for k15, v16 := range v12.AnalogInput {
-						if v16 == from {
-							v16 = to
+						if t, ok := to[v16]; ok {
+							v16 = t
 							v12.AnalogInput[k15] = v16
 						}
 					}
 					e.Ports.Variant = v12
 				case T8Ports:
 					for k17, v18 := range v12.AnalogInput {
-						if v18 == from {
-							v18 = to
+						if t, ok := to[v18]; ok {
+							v18 = t
 							v12.AnalogInput[k17] = v18
 						}
 					}
@@ -257,28 +257,28 @@ func newIndexes() indexes {
 				}
 				return nil
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				switch v5 := e.Ports.Variant.(type) {
 				case T4Ports:
 					for k7, v6 := range v5.AnalogOutput {
-						if v6.Command == from {
-							v6.Command = to
+						if t, ok := to[v6.Command]; ok {
+							v6.Command = t
 						}
 						v5.AnalogOutput[k7] = v6
 					}
 					e.Ports.Variant = v5
 				case T7Ports:
 					for k9, v8 := range v5.AnalogOutput {
-						if v8.Command == from {
-							v8.Command = to
+						if t, ok := to[v8.Command]; ok {
+							v8.Command = t
 						}
 						v5.AnalogOutput[k9] = v8
 					}
 					e.Ports.Variant = v5
 				case T8Ports:
 					for k11, v10 := range v5.AnalogOutput {
-						if v10.Command == from {
-							v10.Command = to
+						if t, ok := to[v10.Command]; ok {
+							v10.Command = t
 						}
 						v5.AnalogOutput[k11] = v10
 					}
@@ -366,28 +366,34 @@ func newIndexes() indexes {
 					e.Ports.Variant = v5
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				switch v12 := e.Ports.Variant.(type) {
 				case T4Ports:
 					for k14, v13 := range v12.AnalogOutput {
-						if v13.State != nil && *v13.State == from {
-							*v13.State = to
+						if v13.State != nil {
+							if t, ok := to[*v13.State]; ok {
+								*v13.State = t
+							}
 						}
 						v12.AnalogOutput[k14] = v13
 					}
 					e.Ports.Variant = v12
 				case T7Ports:
 					for k16, v15 := range v12.AnalogOutput {
-						if v15.State != nil && *v15.State == from {
-							*v15.State = to
+						if v15.State != nil {
+							if t, ok := to[*v15.State]; ok {
+								*v15.State = t
+							}
 						}
 						v12.AnalogOutput[k16] = v15
 					}
 					e.Ports.Variant = v12
 				case T8Ports:
 					for k18, v17 := range v12.AnalogOutput {
-						if v17.State != nil && *v17.State == from {
-							*v17.State = to
+						if v17.State != nil {
+							if t, ok := to[*v17.State]; ok {
+								*v17.State = t
+							}
 						}
 						v12.AnalogOutput[k18] = v17
 					}
@@ -466,28 +472,28 @@ func newIndexes() indexes {
 					e.Ports.Variant = v5
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				switch v12 := e.Ports.Variant.(type) {
 				case T4Ports:
 					for k13, v14 := range v12.DigitalInput {
-						if v14 == from {
-							v14 = to
+						if t, ok := to[v14]; ok {
+							v14 = t
 							v12.DigitalInput[k13] = v14
 						}
 					}
 					e.Ports.Variant = v12
 				case T7Ports:
 					for k15, v16 := range v12.DigitalInput {
-						if v16 == from {
-							v16 = to
+						if t, ok := to[v16]; ok {
+							v16 = t
 							v12.DigitalInput[k15] = v16
 						}
 					}
 					e.Ports.Variant = v12
 				case T8Ports:
 					for k17, v18 := range v12.DigitalInput {
-						if v18 == from {
-							v18 = to
+						if t, ok := to[v18]; ok {
+							v18 = t
 							v12.DigitalInput[k17] = v18
 						}
 					}
@@ -541,28 +547,28 @@ func newIndexes() indexes {
 				}
 				return nil
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				switch v5 := e.Ports.Variant.(type) {
 				case T4Ports:
 					for k7, v6 := range v5.DigitalOutput {
-						if v6.Command == from {
-							v6.Command = to
+						if t, ok := to[v6.Command]; ok {
+							v6.Command = t
 						}
 						v5.DigitalOutput[k7] = v6
 					}
 					e.Ports.Variant = v5
 				case T7Ports:
 					for k9, v8 := range v5.DigitalOutput {
-						if v8.Command == from {
-							v8.Command = to
+						if t, ok := to[v8.Command]; ok {
+							v8.Command = t
 						}
 						v5.DigitalOutput[k9] = v8
 					}
 					e.Ports.Variant = v5
 				case T8Ports:
 					for k11, v10 := range v5.DigitalOutput {
-						if v10.Command == from {
-							v10.Command = to
+						if t, ok := to[v10.Command]; ok {
+							v10.Command = t
 						}
 						v5.DigitalOutput[k11] = v10
 					}
@@ -650,28 +656,34 @@ func newIndexes() indexes {
 					e.Ports.Variant = v5
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				switch v12 := e.Ports.Variant.(type) {
 				case T4Ports:
 					for k14, v13 := range v12.DigitalOutput {
-						if v13.State != nil && *v13.State == from {
-							*v13.State = to
+						if v13.State != nil {
+							if t, ok := to[*v13.State]; ok {
+								*v13.State = t
+							}
 						}
 						v12.DigitalOutput[k14] = v13
 					}
 					e.Ports.Variant = v12
 				case T7Ports:
 					for k16, v15 := range v12.DigitalOutput {
-						if v15.State != nil && *v15.State == from {
-							*v15.State = to
+						if v15.State != nil {
+							if t, ok := to[*v15.State]; ok {
+								*v15.State = t
+							}
 						}
 						v12.DigitalOutput[k16] = v15
 					}
 					e.Ports.Variant = v12
 				case T8Ports:
 					for k18, v17 := range v12.DigitalOutput {
-						if v17.State != nil && *v17.State == from {
-							*v17.State = to
+						if v17.State != nil {
+							if t, ok := to[*v17.State]; ok {
+								*v17.State = t
+							}
 						}
 						v12.DigitalOutput[k18] = v17
 					}
