@@ -806,7 +806,7 @@ describe("Streamer", () => {
       await expect(streamer.read()).rejects.toSatisfy(
         (exc) =>
           Unreachable.matches(exc) &&
-          exc.message === `stream received no message for ${TIMEOUT.toString()}`,
+          exc.message === `stream received no keep-alive for ${TIMEOUT.toString()}`,
       );
       // An instant rejection would mean the deadline armed wrong, not that silence was
       // detected.
@@ -1856,7 +1856,7 @@ describe("open against a server that never acks", () => {
     // Opens the transport with keep-alives, then goes silent and never answers the
     // streamer's open request.
     server.on("connection", (ws) => {
-      ws.send('{"type":"keep_alive"}');
+      ws.send('{"type":"keep_alive","elapsed":0}');
       // The leading byte marks a JSON message from the Core.
       ws.send(Buffer.concat([Buffer.from([254]), Buffer.from('{"type":"open"}')]));
       ws.on("message", (data: Buffer) => received.push(data.toString()));
@@ -1888,7 +1888,7 @@ describe("open against a server that never acks", () => {
     ).rejects.toSatisfy(
       (exc) =>
         Unreachable.matches(exc) &&
-        exc.message === `stream received no message for ${timeout.toString()}`,
+        exc.message === `stream received no keep-alive for ${timeout.toString()}`,
     );
     expect(received.length).toBeGreaterThan(0);
   });

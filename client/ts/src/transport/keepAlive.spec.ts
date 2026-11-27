@@ -23,7 +23,7 @@ const KEEP_ALIVE = { interval: TimeSpan.seconds(1), timeout: TIMEOUT };
 const STALLED = (err: unknown): boolean =>
   err instanceof Error &&
   Unreachable.matches(err) &&
-  err.message === `stream received no message for ${TIMEOUT.toString()}`;
+  err.message === `stream received no keep-alive for ${TIMEOUT.toString()}`;
 const SPEC_TIMEOUT = 15_000;
 
 const client = createTestClient();

@@ -417,11 +417,17 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			return msg
 		}
 
-		readKeepAlive := func(conn *ws.Conn) {
+		readKeepAlive := func(conn *ws.Conn) time.Duration {
 			GinkgoHelper()
 			t, data := MustSucceed2(conn.ReadMessage())
 			Expect(t).To(Equal(ws.TextMessage))
-			Expect(string(data)).To(Equal(`{"type":"keep_alive"}`))
+			var msg struct {
+				Type    string `json:"type"`
+				Elapsed int64  `json:"elapsed"`
+			}
+			Expect(json.Codec.Decode(data, &msg)).To(Succeed())
+			Expect(msg.Type).To(Equal("keep_alive"))
+			return time.Duration(msg.Elapsed)
 		}
 
 		It("Should send a keep-alive before the open ack and on each interval", func(
@@ -434,6 +440,17 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			readKeepAlive(conn)
 			Expect(time.Since(start)).
 				To(BeNumerically("~", time.Second, 500*time.Millisecond))
+		})
+
+		It("Should stamp each keep-alive with the time since the first one", func(
+			ctx SpecContext,
+		) {
+			conn := dial(ctx, "?freighterctxkeep_alive=1000000000")
+			first := readKeepAlive(conn)
+			Expect(first).To(BeZero())
+			Expect(read(conn).Type).To(Equal(fhttp.WSMessageTypeOpen))
+			Expect(readKeepAlive(conn) - first).
+				To(BeNumerically("~", time.Second, 100*time.Millisecond))
 		})
 
 		DescribeTable("Should send no keep-alive when the client asks for none", func(

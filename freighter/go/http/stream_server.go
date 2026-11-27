@@ -263,9 +263,11 @@ const keepAliveParam = "keep_alive"
 // minKeepAlive keeps a client from making the server send at a high rate.
 const minKeepAlive = time.Second
 
-// keepAliveMessage goes out as a text frame. Every other message is a binary frame, so
-// a client can tell a keep-alive apart without decoding it.
-var keepAliveMessage = []byte(`{"type":"keep_alive"}`)
+// keepAlivePrefix starts a keep-alive, which goes out as a text frame. Every other
+// message is a binary frame, so a client can tell a keep-alive apart without decoding
+// it. The elapsed field is the nanoseconds since the first keep-alive of the stream, on
+// a monotonic clock, so the client can age a keep-alive that it receives late.
+const keepAlivePrefix = `{"type":"keep_alive","elapsed":`
 
 func parseKeepAlive(params freighter.Params) (time.Duration, error) {
 	raw, ok := params.Get(keepAliveParam)
@@ -286,6 +288,8 @@ func parseKeepAlive(params freighter.Params) (time.Duration, error) {
 }
 
 type serverStream[RQ, RS freighter.Payload] struct {
+	// start is when the first keep-alive went out.
+	start time.Time
 	streamCore[RQ, RS]
 	// mu serializes writes from the handler and the keep-alive ticker.
 	mu sync.Mutex
@@ -303,7 +307,12 @@ func (s *serverStream[RQ, RS]) sendKeepAlive() error {
 	if err := s.setWriteDeadline(); err != nil {
 		return err
 	}
-	return s.conn.WriteMessage(ws.TextMessage, keepAliveMessage)
+	now := time.Now()
+	if s.start.IsZero() {
+		s.start = now
+	}
+	msg := strconv.AppendInt([]byte(keepAlivePrefix), int64(now.Sub(s.start)), 10)
+	return s.conn.WriteMessage(ws.TextMessage, append(msg, '}'))
 }
 
 // keepAlive sends a keep-alive every interval until the returned function is called.
