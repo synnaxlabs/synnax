@@ -130,11 +130,10 @@ Config::login(x::args::Parser &args, const synnax::Config &conn) {
     const auto &saved = cfg.connection;
     if (!saved.api_key.empty()) {
         // Each client applies SYNNAX_CLIENT_CA_CERT, so the comparison does too.
-        const auto env_ca = synnax::env_ca_cert();
         auto conn_pair = conn;
-        conn_pair.override_tls_default(env_ca);
+        conn_pair.override_tls_default();
         auto saved_pair = saved;
-        saved_pair.override_tls_default(env_ca);
+        saved_pair.override_tls_default();
         const auto [conn_tls, conn_err] = conn_pair.tls();
         if (conn_err) return {cfg, conn_err};
         const auto [saved_tls, saved_err] = saved_pair.tls();

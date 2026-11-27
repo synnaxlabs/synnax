@@ -380,19 +380,21 @@ TEST(ConfigTLSPure, IgnoresEnvironment) {
     EXPECT_FALSE(tls.enabled);
 }
 
-/// @brief it should take the default CA certificate only when neither secure nor
-/// ca_cert is set.
+/// @brief it should take the CA certificate from the environment only when neither
+/// secure nor ca_cert is set.
 TEST(ConfigOverrideTLSDefault, AppliesOnlyWhenPairIsUnset) {
+    x::env::set("SYNNAX_CLIENT_CA_CERT", "/etc/synnax/env.pem");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CLIENT_CA_CERT"); });
     synnax::Config unset;
-    unset.override_tls_default("/etc/synnax/env.pem");
+    unset.override_tls_default();
     EXPECT_EQ(unset.ca_cert, "/etc/synnax/env.pem");
     synnax::Config secure;
     secure.secure = false;
-    secure.override_tls_default("/etc/synnax/env.pem");
+    secure.override_tls_default();
     EXPECT_EQ(secure.ca_cert, "");
     synnax::Config ca;
     ca.ca_cert = "/etc/synnax/ca.pem";
-    ca.override_tls_default("/etc/synnax/env.pem");
+    ca.override_tls_default();
     EXPECT_EQ(ca.ca_cert, "/etc/synnax/ca.pem");
 }
 

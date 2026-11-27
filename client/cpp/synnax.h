@@ -51,6 +51,21 @@ inline void check_little_endian() {
 }
 }
 
+/// @brief reads the CA certificate path from SYNNAX_CLIENT_CA_CERT. Only when it is
+/// unset, reads the deprecated SYNNAX_CA_CERT and logs a warning. A Core also reads
+/// SYNNAX_CA_CERT as its --ca-cert.
+/// @returns the path, or an empty string when neither variable is set.
+inline std::string env_ca_cert() {
+    x::env::Parser client_env("SYNNAX_CLIENT");
+    if (auto ca_cert = client_env.field("ca_cert", std::string()); !ca_cert.empty())
+        return ca_cert;
+    x::env::Parser deprecated_env("SYNNAX");
+    auto deprecated = deprecated_env.field("ca_cert", std::string());
+    if (!deprecated.empty())
+        LOG(WARNING) << "SYNNAX_CA_CERT is deprecated. Use SYNNAX_CLIENT_CA_CERT";
+    return deprecated;
+}
+
 /// @brief how a client secures its connection to a Core.
 struct TLS {
     /// @brief whether the client connects with TLS.
@@ -131,11 +146,11 @@ struct Config {
         return this->host + ":" + std::to_string(this->port);
     }
 
-    /// @brief applies ca_cert as the lowest source of the secure and ca_cert pair: it
-    /// sets ca_cert only when neither field is set.
-    void override_tls_default(const std::string &ca_cert) {
+    /// @brief applies env_ca_cert as the lowest source of the secure and ca_cert pair:
+    /// it reads the environment only when neither field is set.
+    void override_tls_default() {
         if (this->secure.has_value() || !this->ca_cert.empty()) return;
-        this->ca_cert = ca_cert;
+        this->ca_cert = env_ca_cert();
     }
 
     /// @brief resolves how the client secures its connection. A CA certificate turns
@@ -173,27 +188,12 @@ struct Config {
     }
 };
 
-/// @brief reads the CA certificate path from SYNNAX_CLIENT_CA_CERT. Only when it is
-/// unset, reads the deprecated SYNNAX_CA_CERT and logs a warning. A Core also reads
-/// SYNNAX_CA_CERT as its --ca-cert.
-/// @returns the path, or an empty string when neither variable is set.
-inline std::string env_ca_cert() {
-    x::env::Parser client_env("SYNNAX_CLIENT");
-    if (auto ca_cert = client_env.field("ca_cert", std::string()); !ca_cert.empty())
-        return ca_cert;
-    x::env::Parser deprecated_env("SYNNAX");
-    auto deprecated = deprecated_env.field("ca_cert", std::string());
-    if (!deprecated.empty())
-        LOG(WARNING) << "SYNNAX_CA_CERT is deprecated. Use SYNNAX_CLIENT_CA_CERT";
-    return deprecated;
-}
-
 namespace details {
 /// @brief returns the connection pool for cfg, with SYNNAX_CLIENT_CA_CERT applied as
 /// the lowest source of the TLS pair. A pool for an invalid TLS configuration fails
 /// every call with the reason.
 inline std::shared_ptr<freighter::grpc::Pool> new_pool(Config cfg) {
-    cfg.override_tls_default(env_ca_cert());
+    cfg.override_tls_default();
     const auto [tls, tls_err] = cfg.tls();
     if (tls_err) return std::make_shared<freighter::grpc::Pool>(tls_err);
     if (!tls.enabled) return std::make_shared<freighter::grpc::Pool>();
