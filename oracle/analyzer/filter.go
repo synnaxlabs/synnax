@@ -664,7 +664,7 @@ func addRequestOptions(
 			return nil, false
 		}
 		request = append(request, defaultField(
-			expr.Name,
+			name,
 			resolution.TypeRef{Name: "bool"},
 			expr.Values[0].StringValue,
 			resolution.ExpressionValue{Kind: resolution.ValueKindBool},
