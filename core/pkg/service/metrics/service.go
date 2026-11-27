@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"time"
-	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -24,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -64,6 +64,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
+	// Status reports a channel that the service renames to keep the name of its folder.
+	//
+	// [REQUIRED]
+	Status *status.Service
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 	// CollectionInterval sets the interval at which metrics will be collected from the
@@ -92,6 +96,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -104,6 +109,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("storage", c.Storage)
 	v.Positive("collection_interval", c.CollectionInterval)
 	v.NotNil("group", c.Group)
+	v.NotNil("status", c.Status)
 	v.NotNil("db", c.DB)
 	return v.Error()
 }
@@ -124,63 +130,61 @@ const (
 	channelBufferSize                 = 10
 )
 
-// folderKey is the KV key that holds the key of the folder of the metrics channels.
-var folderKey = []byte("sy_metrics_folder")
-
-// openFolder returns the folder of the metrics channels, found by its stored key so
-// that a rename keeps it. When no folder is stored, or the stored one is gone, it finds
-// or creates a top-level channel folder named Metrics, or the first free name after it
-// when a channel holds that name, and stores its key.
-func openFolder(ctx context.Context, cfg ServiceConfig) (group.Group, error) {
-	var (
-		g     group.Group
-		found bool
-	)
-	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		b, closer, err := tx.Get(folderKey)
-		if errors.Is(err, query.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		key, err := uuid.Parse(string(b))
-		if err = errors.Combine(err, closer.Close()); err != nil {
-			return err
-		}
-		err = cfg.Group.NewRetrieve().
-			Where(group.MatchKeys(key)).
-			Entry(&g).
-			Exec(ctx, tx)
-		found = err == nil
-		return errors.Skip(err, query.ErrNotFound)
-	}); err != nil || found {
-		return g, err
-	}
-	g, err := createFolder(ctx, cfg.Group)
-	if err != nil {
-		return group.Group{}, err
-	}
-	return g, cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return tx.Set(ctx, folderKey, []byte(g.Key.String()))
-	})
-}
-
-// folderName is the name of the folder of the metrics channels.
+// folderName is the name of the top-level channel folder that holds the metrics
+// channels.
 const folderName = "Metrics"
 
-// createFolder finds or creates the top-level channel folder named folderName. When
-// another record holds that name, it takes the first free name of the form Metrics_2,
-// so a name never stops the Core from starting.
-func createFolder(ctx context.Context, groups *group.Service) (group.Group, error) {
-	name := folderName
-	for n := 2; ; n++ {
-		g, err := groups.CreateOrRetrieve(ctx, name, resource.TypeChannel)
-		if !errors.Is(err, query.ErrUniqueViolation) {
-			return g, err
-		}
-		name = fmt.Sprintf("%s_%d", folderName, n)
+// openFolder returns the top-level channel folder named folderName, and creates it when
+// there is none. A top-level channel that holds the name yields first (yieldName).
+func openFolder(ctx context.Context, cfg ServiceConfig) (group.Group, error) {
+	g, err := cfg.Group.CreateOrRetrieve(ctx, folderName, resource.TypeChannel)
+	if !errors.Is(err, query.ErrUniqueViolation) {
+		return g, err
 	}
+	if err = yieldName(ctx, cfg); err != nil {
+		return group.Group{}, err
+	}
+	return cfg.Group.CreateOrRetrieve(ctx, folderName, resource.TypeChannel)
+}
+
+// yieldName renames the top-level channel named folderName to the first free name of
+// the form Metrics_2, and writes a warning status that names the new name.
+func yieldName(ctx context.Context, cfg ServiceConfig) error {
+	return cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var ch channel.Channel
+		if err := cfg.Channel.NewRetrieve().
+			Where(channel.MatchPaths(folderName)).
+			Entry(&ch).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		w := cfg.Channel.NewWriter(tx)
+		for n := 2; ; n++ {
+			name := fmt.Sprintf("%s_%d", folderName, n)
+			err := w.Rename(ctx, ch.Key(), name, false)
+			if errors.Is(err, query.ErrUniqueViolation) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			s := status.Status[any]{
+				Name:    name,
+				Variant: status.VariantWarning,
+				Message: "Renamed channel",
+				Description: fmt.Sprintf(
+					"The Core renamed channel %q to %q, because its metrics folder "+
+						"keeps the top-level name %q. Update each reference to the "+
+						"old name.",
+					folderName,
+					name,
+					folderName,
+				),
+				Time: telem.Now(),
+			}
+			return cfg.Status.NewWriter(tx).Set(ctx, &s)
+		}
+	})
 }
 
 // OpenService opens a new metric.Service using the provided configuration. See the
