@@ -184,8 +184,8 @@ func (s *Service) ApplyHandler(
 			return Response{}, err
 		}
 		if len(ids) > 0 {
-			// A write that its checks refuse must stop nothing, so it runs once and rolls
-			// back before the stop.
+			// A write that its checks refuse must stop nothing, so it runs once and
+			// rolls back before the stop.
 			if err = bind.RehearseRetrievable(binder, apply)(ctx, req); err != nil {
 				return Response{}, redact(err, visible)
 			}

@@ -308,7 +308,9 @@ var _ = Describe("Running task deletes", Ordered, func() {
 					channel.ResourceID(ch),
 				)),
 			))
-			Consistently(commands).WithTimeout(500 * time.Millisecond).ShouldNot(Receive())
+			Consistently(commands).
+				WithTimeout(500 * time.Millisecond).
+				ShouldNot(Receive())
 			Expect(taskExists(ctx, t.Key)).To(BeTrue())
 			Expect(channelExists(ctx, ch)).To(BeTrue())
 		},

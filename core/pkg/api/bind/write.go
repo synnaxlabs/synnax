@@ -72,8 +72,8 @@ func Write[RQ, RS freighter.Payload](
 // errRehearsed rolls back the transaction of a rehearsal once its checks pass.
 var errRehearsed = errors.New("[bind] - a rehearsal rolls back")
 
-// write runs apply and the checks of Write in one transaction, then commits it, or rolls
-// it back when rehearse is true.
+// write runs apply and the checks of Write in one transaction, then commits it, or
+// rolls it back when rehearse is true.
 func write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
@@ -164,10 +164,10 @@ func WriteRetrievable[RQ, RS freighter.Payload](
 	return write(s, withRetrievable(s, apply), false)
 }
 
-// RehearseRetrievable returns a handler that runs a write as WriteRetrievable does, then
-// rolls back every write. It returns the error that the write fails with, or nil when
-// the write would commit. Use it before work outside the transaction that a refused
-// write must not do, such as stopping a running task.
+// RehearseRetrievable returns a handler that runs a write as WriteRetrievable does,
+// then rolls back every write. It returns the error that the write fails with, or nil
+// when the write would commit. Use it before work outside the transaction that a
+// refused write must not do, such as stopping a running task.
 func RehearseRetrievable[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
