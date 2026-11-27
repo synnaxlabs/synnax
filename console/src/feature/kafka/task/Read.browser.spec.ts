@@ -46,7 +46,7 @@ import {
 } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
-import { pickMessageFormat, retype } from "@/platform/icd/testutil";
+import { pickMessageFormat, pickNewMessage, retype } from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -2285,6 +2285,23 @@ describe("Kafka read form", () => {
       );
       const { messages } = await client.icds.retrieve({ key: rec.icd });
       expect(messages.map(({ key }) => key)).toContain(status.key);
+    });
+
+    it("should read a new message in the ICD of the record", async () => {
+      const { draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      await pickNewMessage("Any key", "New JSON message");
+      await waitFor(async () => {
+        const [rec] = await retrieveRecords(draft.key);
+        const { messages } = await client.icds.retrieve({ key: rec.icd });
+        expect(messages).toHaveLength(2);
+        expect(messages[1].payload).toEqual({ format: "json", fields: [] });
+        expect(rec.messages).toMatchObject([
+          { message: messages[1].key, bindings: [] },
+        ]);
+      });
     });
 
     it("should read a message of another ICD with each of its fields", async () => {

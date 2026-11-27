@@ -22,20 +22,32 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import type { destructor, record } from "@synnaxlabs/x";
+import type { destructor, payload, record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
+import { FORMAT_KINDS } from "@/platform/icd/payload";
+import { Task } from "@/platform/task";
 
 /** A message of an ICD, as one option of the field. */
 interface Choice extends record.KeyedNamed<string> {
   icdName: string;
-  /** Whether the field offers the message, which only a JSON message is. */
-  offered: boolean;
+  format: payload.Format;
 }
 
 const NONE = "none";
+
+const JSON_ONLY: readonly payload.Format[] = ["json"];
+
+const CREATE_TEXTS: Record<payload.Format, string> = {
+  json: "New JSON message",
+  text: "New text message",
+  binary: "New binary message",
+};
+
+const createKey = (format: payload.Format): string => `new/${format}`;
 
 const choiceKey = (icdKey: icd.Key, message: icd.MessageKey): string =>
   `${icdKey}/${message}`;
@@ -45,11 +57,25 @@ const parseChoiceKey = (key: string): [icd.Key, icd.MessageKey] => {
   return [icdKey, message];
 };
 
-const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
-  const choice = List.useItem<string, Choice>(props.itemKey);
+interface ChoiceItemProps extends List.ItemRenderProps<string> {
+  /** Shows the format of the message before its name, as a task tree does. */
+  formatShown?: boolean;
+}
+
+const ChoiceItem = ({
+  formatShown = false,
+  ...rest
+}: ChoiceItemProps): ReactElement => {
+  const choice = List.useItem<string, Choice>(rest.itemKey);
   return (
-    <Select.Item {...props}>
-      <Text.Text overflow="fade">{choice?.name}</Text.Text>
+    <Select.Item {...rest}>
+      {formatShown && choice != null ? (
+        <Task.Views.ItemLabel kind={FORMAT_KINDS[choice.format]} kindColor={9}>
+          {choice.name}
+        </Task.Views.ItemLabel>
+      ) : (
+        <Text.Text overflow="fade">{choice?.name}</Text.Text>
+      )}
       <Text.Text color={9} overflow="fade">
         {choice?.icdName}
       </Text.Text>
@@ -57,7 +83,12 @@ const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
   );
 };
 
+const FormatChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => (
+  <ChoiceItem {...props} formatShown />
+);
+
 const choiceRenderProp = Component.renderProp(ChoiceItem);
+const formatChoiceRenderProp = Component.renderProp(FormatChoiceItem);
 
 const DIALOG_PROPS = { className: CSS.BE("message-format", "dialog") };
 
@@ -70,6 +101,13 @@ export interface MessageFormatFieldProps extends Pick<
   /** The key of the picked message. Absent before a pick. */
   message?: icd.MessageKey;
   onChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** The formats of the messages that the field lists and creates. Defaults to JSON. */
+  formats?: readonly payload.Format[];
+  /**
+   * Creates an empty message of the format. When given, the field offers a pinned
+   * create item, such as "New text message", for each format that it lists.
+   */
+  onCreate?: (format: payload.Format) => void;
   /** Empties the pick. When given, the field offers a pinned "No message format". */
   onClear?: () => void;
   disabled?: boolean;
@@ -78,30 +116,33 @@ export interface MessageFormatFieldProps extends Pick<
 }
 
 /**
- * Picks a message from the JSON messages of every ICD, beside a button that opens the
- * editor at it. A search matches ICD names on the Core and lists every JSON message of
- * each match. The field shows a picked message of any format.
+ * Picks a message from the messages of every ICD in formats, beside a button that opens
+ * the editor at it. A search matches ICD names on the Core and lists every message of
+ * each match in formats. The field shows a picked message of any format.
  */
 export const MessageFormatField = ({
   icdKey,
   message,
   onChange,
+  formats = JSON_ONLY,
+  onCreate,
   onClear,
   disabled = false,
   preview = false,
   ...rest
 }: MessageFormatFieldProps): ReactElement => {
   const icds = PICD.useList();
+  const listed = FLAGS.textMessages ? formats : JSON_ONLY;
+  const creates = FLAGS.textMessages && onCreate != null ? listed : [];
   // List readers need one choice object for as long as its ICD stays the same.
   const cache = useInitializerRef(() => new WeakMap<icd.ICD, Map<string, Choice>>());
   const choicesOf = (parent: icd.ICD): Map<string, Choice> => {
     let choices = cache.current.get(parent);
     if (choices == null) {
       choices = new Map(
-        parent.messages.map(({ key, name, payload }) => {
+        parent.messages.map(({ key, name, payload: { format } }) => {
           const itemKey = choiceKey(parent.key, key);
-          const offered = payload.format === "json";
-          return [itemKey, { key: itemKey, name, icdName: parent.name, offered }];
+          return [itemKey, { key: itemKey, name, icdName: parent.name, format }];
         }),
       );
       cache.current.set(parent, choices);
@@ -125,11 +166,11 @@ export const MessageFormatField = ({
   const data = useMemoDeepEqual(
     parents.flatMap((parent) =>
       [...choicesOf(parent).values()]
-        .filter(({ offered }) => offered)
+        .filter(({ format }) => listed.includes(format))
         .map(({ key }) => key),
     ),
   );
-  // A page of ICDs with no JSON message adds no row, so no scroll asks for the next.
+  // A page of ICDs with no listed message adds no row, so no scroll asks for the next.
   const rowsBeforeRead = useRef<number | null>(null);
   const handleFetchMore = () => {
     rowsBeforeRead.current = data.length;
@@ -148,6 +189,11 @@ export const MessageFormatField = ({
   const handleChange = (key: string) => {
     if (key === NONE) {
       onClear?.();
+      return;
+    }
+    const created = creates.find((format) => createKey(format) === key);
+    if (created != null) {
+      onCreate?.(created);
       return;
     }
     const [parent, messageKey] = parseChoiceKey(key);
@@ -173,18 +219,30 @@ export const MessageFormatField = ({
           disabled={disabled}
           dialogProps={DIALOG_PROPS}
           footer={
-            onClear != null && (
+            (creates.length > 0 || onClear != null) && (
               <>
                 <Divider.Divider x />
-                <Select.Item itemKey={NONE} textValue="No message format">
-                  <Icon.None />
-                  No message format
-                </Select.Item>
+                {creates.map((format) => (
+                  <Select.Item
+                    key={format}
+                    itemKey={createKey(format)}
+                    textValue={CREATE_TEXTS[format]}
+                  >
+                    <Icon.Add />
+                    {CREATE_TEXTS[format]}
+                  </Select.Item>
+                ))}
+                {onClear != null && (
+                  <Select.Item itemKey={NONE} textValue="No message format">
+                    <Icon.None />
+                    No message format
+                  </Select.Item>
+                )}
               </>
             )
           }
         >
-          {choiceRenderProp}
+          {listed.length > 1 ? formatChoiceRenderProp : choiceRenderProp}
         </Select.Single>
         {icdKey != null && message != null && (
           <OpenInEditor icdKey={icdKey} message={message} />
