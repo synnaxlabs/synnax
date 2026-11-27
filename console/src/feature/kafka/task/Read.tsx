@@ -211,7 +211,14 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
   return (
     <Task.Views.TreeGroupItem
       {...props}
-      label={<RecordLabel recordKey={recordKey} emptyLabel={ANY_KEY} />}
+      label={
+        <RecordLabel
+          recordKey={recordKey}
+          emptyLabel={ANY_KEY}
+          icdKey={icdKey}
+          message={messages?.[0]?.message}
+        />
+      }
       off={disabled}
     >
       {messages != null && (
@@ -703,7 +710,14 @@ const Records: FC<RecordsProps> = ({
     );
   } else if (rec != null) {
     detailsPath = recordPath(topic, rec.key);
-    title = <RecordLabel recordKey={rec.recordKey} emptyLabel={ANY_KEY} />;
+    title = (
+      <RecordLabel
+        recordKey={rec.recordKey}
+        emptyLabel={ANY_KEY}
+        icdKey={rec.icd}
+        message={rec.messages[0]?.message}
+      />
+    );
     if (format != null)
       details = (
         <RecordDetails

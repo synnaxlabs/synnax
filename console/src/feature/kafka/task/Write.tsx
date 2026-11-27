@@ -122,7 +122,14 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
   return (
     <Task.Views.TreeGroupItem
       {...props}
-      label={<RecordLabel recordKey={recordKey} emptyLabel={NO_KEY} />}
+      label={
+        <RecordLabel
+          recordKey={recordKey}
+          emptyLabel={NO_KEY}
+          icdKey={icdKey}
+          message={message}
+        />
+      }
       off={disabled}
     >
       <ICD.MessageMark
@@ -252,7 +259,14 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       TargetItem,
       targetPane: (target, onAddField) => ({
         path: root.config.targets[target.key],
-        title: <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />,
+        title: (
+          <RecordLabel
+            recordKey={target.recordKey}
+            emptyLabel={NO_KEY}
+            icdKey={target.icd}
+            message={target.message.message}
+          />
+        ),
         details: (
           <TargetDetails
             key={target.key}
