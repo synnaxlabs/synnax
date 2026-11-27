@@ -269,12 +269,13 @@ describe("Group", () => {
       const [root, mid, leaf] = await createChain();
       const handler = vi.fn();
       const stop = client.groups.onAncestorsChange(leaf.key, handler);
-      await client.groups.rename(root.key, "renamed");
+      const renamed = `renamed-${id.create()}`;
+      await client.groups.rename(root.key, renamed);
       await expect
         .poll(() => handler.mock.lastCall?.[0])
         .toEqual([
           expect.objectContaining({ key: mid.key }),
-          expect.objectContaining({ key: root.key, name: "renamed" }),
+          expect.objectContaining({ key: root.key, name: renamed }),
         ]);
       await client.groups.setParent(mid.key, null);
       await expect
@@ -396,7 +397,11 @@ describe("Group", () => {
       });
       const key = uuid.create();
       await client.batch.send([
-        client.groups.createRequest({ key, name: "Batched", scope: "channel" }),
+        client.groups.createRequest({
+          key,
+          name: `batched-${id.create()}`,
+          scope: "channel",
+        }),
         ...client.channels.setGroupRequest(ch.key, key),
       ]);
       expect(
