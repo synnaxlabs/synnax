@@ -1645,6 +1645,38 @@ var _ = Describe("WriteRetrievable", func() {
 	})
 })
 
+var _ = Describe("RehearseRetrievable", func() {
+	createLabelAs := func(
+		ctx context.Context,
+		tx gorp.Tx,
+		_ bind.Retrievable,
+		l label.Label,
+	) (label.Label, error) {
+		return l, svc.Label.NewWriter(tx).Create(ctx, &l)
+	}
+
+	It("Should return the error that the write fails with", func(ctx SpecContext) {
+		u := newUser(ctx)
+		l := label.Label{Key: uuid.New(), Name: "denied", Color: labelColor}
+		rehearse := bind.RehearseRetrievable(binder, createLabelAs)
+		rehearsed := rehearse(AuthedCtx(ctx, u), l)
+		Expect(rehearsed).To(MatchError(access.ErrDenied))
+		Expect(bind.WriteRetrievable(binder, createLabelAs)(AuthedCtx(ctx, u), l)).
+			Error().To(MatchError(rehearsed.Error()))
+	})
+
+	It("Should roll back a write that passes its checks", func(ctx SpecContext) {
+		u := newUser(ctx)
+		grant(ctx, u, access.ActionCreate, resource.ID{Type: resource.TypeLabel})
+		l := label.Label{Key: uuid.New(), Name: "rehearsed", Color: labelColor}
+		Expect(bind.RehearseRetrievable(binder, createLabelAs)(AuthedCtx(ctx, u), l)).
+			To(Succeed())
+		Expect(svc.Label.NewRetrieve().
+			Where(label.MatchKeys(l.Key)).
+			Exists(ctx, db)).To(BeFalse())
+	})
+})
+
 var _ = Describe("WriteUnchecked", func() {
 	It("Should commit the writes of apply", func(ctx SpecContext) {
 		l := MustSucceed(bind.WriteUnchecked(
