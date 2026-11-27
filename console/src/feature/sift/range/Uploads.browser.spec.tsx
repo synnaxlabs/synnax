@@ -16,6 +16,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -81,7 +82,7 @@ describe("Sift.Range.Uploads", () => {
     await renderUploads(rng.key);
     expect(await screen.findByText("stand")).toBeTruthy();
     expect(screen.getByText("Uploading to Sift")).toBeTruthy();
-    expect(screen.getByText("50%")).toBeTruthy();
+    expect(treatment(screen.getByText("50%"))).toBe("numeric");
   });
 
   it("should show no progress before the first checkpoint", async () => {

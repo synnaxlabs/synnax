@@ -178,6 +178,7 @@ const Reading = ({
             <Text.Text
               level="small"
               color={9}
+              variant="numeric"
               className={CSS.BE("opc-details", "time")}
             >
               {new TimeStamp(time).toString("dateTime", "local")}

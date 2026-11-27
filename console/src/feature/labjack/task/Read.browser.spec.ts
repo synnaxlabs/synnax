@@ -9,6 +9,7 @@
 
 import type { Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -558,7 +559,7 @@ describe("Read ports", () => {
     expect(cell("AIN0", "Analog inputs").className).toContain(
       "console-port-grid__cell--conflict",
     );
-    expect(screen.getByText("1 of 12 ports used")).toBeTruthy();
+    expect(treatment(screen.getByText("1 of 12 ports used"))).toBe("numeric");
   });
 
   it("should open the channel's menu on a used port", async () => {

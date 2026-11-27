@@ -261,7 +261,6 @@
 .console-file-browser__numeric {
     justify-content: flex-end;
     text-align: right;
-    font-variant-numeric: tabular-nums;
 
     & > * {
         flex-grow: 0;

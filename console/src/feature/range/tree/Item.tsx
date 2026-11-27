@@ -281,7 +281,12 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
     );
   else
     span = (
-      <Text.Text level="small" color={8} className={CSS.BE("range-item", "span")}>
+      <Text.Text
+        level="small"
+        color={8}
+        variant="numeric"
+        className={CSS.BE("range-item", "span")}
+      >
         {start.span(end).toString("semantic")}
       </Text.Text>
     );
@@ -299,7 +304,12 @@ const When = ({ range }: { range: ranger.Range }): ReactElement => {
         className={CSS.BE("range-item", "when")}
       >
         {/* A range with no start keeps the empty column, so the columns line up. */}
-        <Text.Text level="small" color={9} className={CSS.BE("range-item", "start")}>
+        <Text.Text
+          level="small"
+          color={9}
+          variant="numeric"
+          className={CSS.BE("range-item", "start")}
+        >
           {hasStart && (
             <>
               <span className={CSS.BE("range-item", "start-full")}>{full}</span>

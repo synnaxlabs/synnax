@@ -9,6 +9,7 @@
 
 import { device, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -68,7 +69,7 @@ describe("Modbus.Device.useConnectModal", () => {
     const dialogs = await screen.findAllByRole("dialog");
     const menu = within(dialogs[dialogs.length - 1]);
     for (const bytes of ["ABCD", "BADC", "CDAB", "DCBA"])
-      expect(menu.getByText(bytes)).toBeTruthy();
+      expect(treatment(menu.getByText(bytes))).toBe("prose");
   });
 
   it("should save the unit, byte order, and mask writes entered for a new server", async () => {

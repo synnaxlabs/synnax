@@ -9,6 +9,7 @@
 
 import { type certificate, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -1145,7 +1146,7 @@ describe("FileBrowser.useModal", () => {
     it("should round a size up to the next unit", async () => {
       await openBrowser([TOP, FILES]);
       await openFolder("/");
-      expect(await screen.findByText("1.0 MB")).toBeDefined();
+      expect(treatment(await screen.findByText("1.0 MB"))).toBe("numeric");
     });
 
     it("should count the entries of a folder", async () => {

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/credential/apikey/Table.css";
-
 import { type auth, type resource, TimeStamp } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { List } from "@synnaxlabs/lyra/list";
@@ -21,7 +19,6 @@ import { createContext, type ReactElement, use, useEffect } from "react";
 import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { useCreateModal } from "@/platform/credential/apikey/useCreateModal";
-import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
 const COLUMNS: List.Column[] = [
@@ -61,7 +58,7 @@ const KeyItem = ({ sessions, ...rest }: KeyItemProps): ReactElement | null => {
         <List.Cell>
           <Text.Text
             color={sessions == null || sessions === 0 ? 9 : undefined}
-            className={CSS.BE("key-table", "count")}
+            variant="numeric"
           >
             {sessions ?? "Unknown"}
           </Text.Text>

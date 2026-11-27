@@ -295,6 +295,7 @@ export const Editor = <V,>({
           hideCaret
           variant={variant === "outlined" ? "outlined" : "text"}
           tooltipLocation="bottom"
+          textVariant="numeric"
           className={CSS.BE("time-editor", "trigger")}
           {...rest}
           status={itemStatus.status}
@@ -354,6 +355,7 @@ export const Editor = <V,>({
                     <Menu.Item
                       key={suggestion.key}
                       itemKey={suggestion.key}
+                      textVariant="numeric"
                       className={CSS.BE("time-editor", "suggestion")}
                       onMouseEnter={() => update({ selected: i })}
                     >

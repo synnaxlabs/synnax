@@ -18,7 +18,6 @@
 
     & .lyra-time-editor__trigger {
         width: fit-content;
-        font-variant-numeric: tabular-nums;
         white-space: nowrap;
     }
 
@@ -67,7 +66,6 @@
 
 .lyra-time-editor__suggestion {
     padding: 0 1.5rem;
-    font-variant-numeric: tabular-nums;
 }
 
 /* The reading's detail yields its width to the value and truncates. */

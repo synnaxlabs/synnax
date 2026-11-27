@@ -23,10 +23,6 @@
     }
 }
 
-.console-ni-ports__usage {
-    font-variant-numeric: tabular-nums;
-}
-
 .console-ni-ports__add {
     flex: none;
 }

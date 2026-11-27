@@ -15,7 +15,7 @@ import { page } from "vitest/browser";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
-import { renderThemed } from "@/styletest";
+import { renderThemed, treatment } from "@/styletest";
 import { mockBoundingClientRect } from "@/testutil";
 import { Triggers } from "@/triggers";
 
@@ -243,5 +243,13 @@ describe("Haul", () => {
       fireEvent.dragStart(screen.getByRole("treeitem", { name: "c" }), DRAG);
       expect(dimmed()).toEqual(["c"]);
     });
+  });
+});
+
+describe("Haul.Preview", () => {
+  it("should draw the facts and the count with proportional digits", async () => {
+    await renderThemed(<Haul.Preview name="pressure" facts={["float64"]} count={12} />);
+    expect(treatment(screen.getByText("float64"))).toBe("prose");
+    expect(treatment(screen.getByText("12"))).toBe("prose");
   });
 });

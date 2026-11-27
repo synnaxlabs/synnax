@@ -34,6 +34,7 @@ export const Row = ({ label, children }: RowProps): ReactElement => (
       color={9}
       align="center"
       overflow="nowrap"
+      variant="numeric"
       className={CSS.BE("port-rows", "label")}
     >
       {label}

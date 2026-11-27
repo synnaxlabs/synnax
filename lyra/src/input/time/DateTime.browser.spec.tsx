@@ -288,6 +288,19 @@ describe("Input.DateTime", () => {
     expect(treatment(screen.getByText("T+0"))).toBe("prose");
   });
 
+  it("should draw the value and its readings with tabular digits", async () => {
+    const { container } = await renderThemed(
+      <Input.DateTime value={VALUE} onChange={vi.fn()} />,
+    );
+    const trigger = container.querySelector(".lyra-time-editor__trigger");
+    if (trigger == null) throw new Error("no time editor trigger");
+    expect(treatment(trigger)).toBe("numeric");
+    type(open(container), "2h");
+    const reading = document.querySelector(".lyra-time-editor__suggestion");
+    if (reading == null) throw new Error("no reading");
+    expect(treatment(reading)).toBe("numeric");
+  });
+
   describe("readings", () => {
     const NOW = new TimeStamp(new Date(2026, 7, 23, 14, 5));
     const START = NOW.sub(TimeSpan.hours(1));

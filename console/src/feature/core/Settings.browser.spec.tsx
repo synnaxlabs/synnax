@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -32,7 +33,9 @@ describe("Core.Settings", () => {
       preloadedState: createCoreState([core], core.key),
     });
     render(<Core.Settings />, { wrapper });
-    expect(await screen.findByText(`${core.host}:${core.port}`)).toBeTruthy();
+    expect(treatment(await screen.findByText(`${core.host}:${core.port}`))).toBe(
+      "prose",
+    );
     expect(await screen.findByText("Connected")).toBeTruthy();
     expect(await screen.findByText(/^v\d+\.\d+/)).toBeTruthy();
   });

@@ -83,7 +83,6 @@
     );
     padding-left: 0.75rem;
     transform: translateY(-50%);
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 

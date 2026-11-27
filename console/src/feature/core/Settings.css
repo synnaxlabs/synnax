@@ -10,7 +10,6 @@
  */
 
 .console-core-settings__value {
-    font-variant-numeric: tabular-nums;
     -webkit-user-select: text;
     user-select: text;
 }

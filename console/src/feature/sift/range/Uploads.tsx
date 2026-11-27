@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/sift/range/Uploads.css";
-
 import { type ranger, sift, type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -24,7 +22,6 @@ import { bounds, TimeRange } from "@synnaxlabs/x";
 import { Device } from "@/feature/sift/device";
 import { useList } from "@/feature/sift/range/list";
 import { useUploadModal } from "@/feature/sift/range/useUploadModal";
-import { CSS } from "@/platform/css";
 
 const { useResult: useUpload } = PStatus.createRetrieve(sift.uploadDetailsZ);
 
@@ -59,7 +56,7 @@ const UploadListItem = (props: List.ItemProps<status.Key>) => {
           <Text.Text weight={450}>{details.asset}</Text.Text>
           <Text.Text color={9}>{message}</Text.Text>
           {pending && (
-            <Text.Text color={9} className={CSS.BE("sift-uploads", "progress")}>
+            <Text.Text color={9} variant="numeric">
               {Math.floor(progress(details) * 100)}%
             </Text.Text>
           )}

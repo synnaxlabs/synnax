@@ -510,6 +510,7 @@ const Frame = ({
                   key={mark.at}
                   level="tiny"
                   color={9}
+                  variant="numeric"
                   className={CSS.BE("range-timeline", "tick")}
                   style={
                     {
