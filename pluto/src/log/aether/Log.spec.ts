@@ -1800,6 +1800,18 @@ describe("log/aether/Log", () => {
         expect(source.seeks).toEqual([]);
       });
 
+      it("should seek by time to a line the source evicted since the render", () => {
+        const { leaf: log, source } = unranged();
+        assert(log.state.thumb != null);
+        const copies = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+        source.setEntries(copies);
+        source.notify();
+        log.seekProgress(0);
+        expect(source.seeks).toHaveLength(1);
+        log.render();
+        expect(log.state.rowEntries[0]).toBe(0);
+      });
+
       it("should show the time of the line under a dragged thumb", () => {
         const { h, leaf: log, recorder } = unranged();
         h.setState((s) => ({ ...s, dragProgress: 1 }));
