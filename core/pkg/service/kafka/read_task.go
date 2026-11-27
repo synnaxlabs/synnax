@@ -29,19 +29,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"go.uber.org/zap"
 )
 
 // readGroup holds the samples of one group of an ICD message in the records of one key.
@@ -89,11 +85,10 @@ type row struct {
 
 // readTask consumes topics and writes the fields of ICD messages into channels.
 type readTask struct {
+	*driver.Runner
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        ReadConfig
-	// status is the authority on this instance's current status.
-	status *driver.StatusHandler
 	// topics are the topics the task consumes: each one with an enabled record, in
 	// config order.
 	topics []string
@@ -101,17 +96,10 @@ type readTask struct {
 	records map[string]map[string]*readRecord
 	// groups holds the groups of every record.
 	groups []*readGroup
-	// writer writes every group's channels, nil once the consumer exits.
+	// writer writes every group's channels, nil once a write fails.
 	writer *framer.Writer
-	// client is the consumer, nil while stopped.
+	// client is the consumer of the current run.
 	client *kgo.Client
-	// closer releases the consumer, nil once released.
-	closer io.Closer
-	// sCtx is the consumer's context. A consumer that panics or fails without a report
-	// cancels it.
-	sCtx signal.Context
-	// failed is set before the consumer reports its failure.
-	failed atomic.Bool
 	// skips counts the records of the current run that the task reads and skips.
 	skips *driver.Skips
 	// skipped holds the records of the current poll that count as skipped, so that a
@@ -148,11 +136,19 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
-		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 		marks:      make(map[string]map[int32]kgo.EpochOffset),
 	}
 	var err error
 	if rt.records, rt.groups, err = f.buildReadRecords(ctx, cfg); err != nil {
+		return nil, err
+	}
+	if rt.Runner, err = driver.NewRunner(driver.RunnerConfig{
+		DB:              f.cfg.DB,
+		Status:          f.cfg.Status,
+		Instrumentation: f.cfg.Instrumentation,
+		Task:            t,
+		Open:            rt.open,
+	}); err != nil {
 		return nil, err
 	}
 	for _, topic := range cfg.Topics {
@@ -275,117 +271,6 @@ func newReadRecord(topic string, rec ReadRecord, source *read.Source) *readRecor
 	return rd
 }
 
-// Exec implements driver.Task. Start and stop answer the command with a status,
-// failures included, so Exec returns an error only when that status was not written.
-func (t *readTask) Exec(ctx context.Context, cmd task.Command) error {
-	var err, answerErr error
-	switch cmd.Type {
-	case "start":
-		err, answerErr = t.start(ctx, cmd.Key)
-	case "stop":
-		err, answerErr = t.stop(ctx, cmd.Key, true)
-	default:
-		return driver.ErrUnsupportedCommand
-	}
-	if answerErr != nil {
-		return errors.Combine(err, answerErr)
-	}
-	if err != nil {
-		t.factoryCfg.L.Error("failed to execute command",
-			zap.Stringer("task", t.task.Key),
-			zap.Stringer("command", cmd),
-			zap.Error(err),
-		)
-	}
-	return nil
-}
-
-// Stop implements driver.Task.
-func (t *readTask) Stop(sendStatus bool) error {
-	return errors.Combine(t.stop(context.TODO(), driver.NoCommand, sendStatus))
-}
-
-// isRunning reports whether the consumer is up. A consumer that failed on its own sets
-// failed, and one that panicked cancels sCtx. Neither releases the closer.
-func (t *readTask) isRunning() bool {
-	return t.closer != nil && !t.failed.Load() && t.sCtx.Err() == nil
-}
-
-func (t *readTask) release() error {
-	err := t.closer.Close()
-	t.closer = nil
-	t.client = nil
-	return err
-}
-
-// start returns the error that kept the consumer from starting, and the error of the
-// status write that answers cmdKey.
-func (t *readTask) start(ctx context.Context, cmdKey string) (err, answerErr error) {
-	if t.isRunning() {
-		return nil, t.status.Ack(ctx, cmdKey, true)
-	}
-	if t.closer != nil {
-		if err := t.release(); err != nil {
-			t.factoryCfg.L.Warn("kafka consumer failed",
-				zap.Stringer("task", t.task.Key),
-				zap.Error(err),
-			)
-		}
-	}
-	if err = t.open(ctx); err != nil {
-		return err, t.status.Send(
-			ctx,
-			cmdKey,
-			status.VariantError,
-			false,
-			"Failed to start task",
-			err.Error(),
-		)
-	}
-	if answerErr = t.status.Send(
-		ctx, cmdKey, status.VariantSuccess, true, "Started task", "",
-	); answerErr != nil {
-		// The caller sees the start fail, so the consumer must not outlive it. The
-		// consumer never ran, so the start closes the writer itself.
-		return errors.Combine(t.release(), t.closeWriter()), answerErr
-	}
-	// The consumer writes statuses too, so it starts after this one to not be replaced.
-	t.sCtx.Go(
-		t.consume,
-		signal.RecoverWithErrOnPanic(),
-		signal.CancelOnFail(),
-		signal.DeferErr(t.closeWriter),
-	)
-	return nil, nil
-}
-
-// stop returns the error that ended the consumer and that no status reports, and the
-// error of the status write that answers cmdKey.
-func (t *readTask) stop(
-	ctx context.Context,
-	cmdKey string,
-	sendStatus bool,
-) (err, answerErr error) {
-	if t.closer == nil {
-		if sendStatus {
-			return nil, t.status.Ack(ctx, cmdKey, false)
-		}
-		return nil, nil
-	}
-	err = t.release()
-	if !sendStatus {
-		return err, nil
-	}
-	if err != nil {
-		return err, t.status.Send(
-			ctx, cmdKey, status.VariantError, false, "Failed to stop task", err.Error(),
-		)
-	}
-	return nil, t.status.Send(
-		ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "",
-	)
-}
-
 // resetOffset maps the configured start offset onto the consumer's reset offset. A
 // group without a committed offset starts there.
 func resetOffset(start StartOffset) kgo.Offset {
@@ -409,9 +294,11 @@ func (t *readTask) group() string {
 	return "kafka-" + t.task.Key.String()
 }
 
-// open connects the consumer. It writes no statuses and does not start the fetch loop:
-// start owns both.
-func (t *readTask) open(ctx context.Context) (err error) {
+// open connects the consumer and opens the writer. The run it returns consumes until
+// ctx ends, then commits the marked offsets and releases both.
+func (t *readTask) open(
+	ctx context.Context,
+) (run func(context.Context) error, err error) {
 	props, err := resolveProperties(
 		ctx,
 		t.factoryCfg.DB,
@@ -419,11 +306,11 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		t.cfg.Device,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cl, err := openClient(props, t.consumerOpts()...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() {
 		if err != nil {
@@ -433,42 +320,33 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	pingCtx, cancelPing := context.WithTimeout(ctx, t.factoryCfg.PingTimeout.Duration())
 	defer cancelPing()
 	if err = cl.Ping(pingCtx); err != nil {
-		return errors.Wrap(err, "connecting to cluster")
+		return nil, errors.Wrap(err, "connecting to cluster")
 	}
 	if t.cfg.StartOffset == StartOffsetNone {
 		if err = t.checkCommitted(pingCtx, cl); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if err = t.resetGroups(ctx); err != nil {
-		return err
+		return nil, err
 	}
-	sCtx, cancel := signal.Isolated(
-		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
-	)
-	// The writer outlives the start command and sCtx: a stop cancels sCtx, and the
-	// consumer must finish its write. The consumer closes it on exit.
+	// The writer outlives the start command, and a stop lets the run finish its write.
 	wCtx, cancelWriter := context.WithCancel(context.Background())
 	if t.writer, err = t.openWriter(wCtx); err != nil {
 		cancelWriter()
-		cancel()
-		return err
+		return nil, err
 	}
 	t.client = cl
-	t.sCtx = sCtx
-	t.failed.Store(false)
 	t.skips = driver.NewSkips("record", driver.SkipHold)
 	t.skipped = make(set.Set[recordID])
 	t.disconnected = false
-	stopConsumer := signal.NewHardShutdown(sCtx, cancel)
-	t.closer = xio.MultiCloser{
-		xio.CloserFunc(t.closeClient),
-		xio.CloserFunc(func() error {
-			defer cancelWriter()
-			return stopConsumer.Close()
-		}),
-	}
-	return nil
+	return func(ctx context.Context) (err error) {
+		defer func() {
+			err = errors.Combine(err, errors.Combine(t.closeClient(), t.closeWriter()))
+			cancelWriter()
+		}()
+		return t.consume(ctx)
+	}, nil
 }
 
 // consumerOpts returns the client options of the consumer.
@@ -538,8 +416,7 @@ func (t *readTask) checkCommitted(ctx context.Context, cl *kgo.Client) error {
 	return nil
 }
 
-// closeWriter releases the task's channels. It runs as the consumer exits, for any
-// reason, once no write is in progress.
+// closeWriter releases the task's channels.
 func (t *readTask) closeWriter() error {
 	if t.writer == nil {
 		return nil
@@ -616,9 +493,8 @@ func (t *readTask) lastStored(
 	return s.ValueAt[telem.TimeStamp](int(s.Len()) - 1), nil
 }
 
-// consume polls the topic until ctx ends. A connection failure sets a warning status
-// while the consumer retries. Any other fetch failure or a write failure stops it with
-// an error status.
+// consume polls the topics until ctx ends. A connection failure sets a warning status
+// while the consumer retries. Any other fetch failure or a write failure ends the run.
 func (t *readTask) consume(ctx context.Context) error {
 	for {
 		fetches := t.poll(ctx)
@@ -626,9 +502,6 @@ func (t *readTask) consume(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		default:
-		}
-		if fetches.IsClientClosed() {
-			return nil
 		}
 		var fatal, transient error
 		fetches.EachError(func(topic string, partition int32, err error) {
@@ -650,33 +523,22 @@ func (t *readTask) consume(ctx context.Context) error {
 			}
 		})
 		if fatal != nil {
-			return t.fail(ctx, "Failed to fetch records", fatal)
+			return fatal
 		}
-		// Recovery is reported before the batch, so a skip in it stays visible.
 		if transient != nil && !t.disconnected {
 			t.disconnected = true
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantWarning,
-				true,
-				"Lost connection to cluster",
-				transient.Error()+". The task retries until the cluster is reachable.",
-			)
+			t.Report(ctx, "", driver.Warning{
+				Message: "Lost connection to cluster",
+				Description: transient.Error() +
+					". The task retries until the cluster is reachable.",
+			}.Degraded())
 		}
-		if transient == nil && t.disconnected && fetches.NumRecords() > 0 {
+		// The skip report of the batch replaces the connection warning.
+		if transient == nil && fetches.NumRecords() > 0 {
 			t.disconnected = false
-			t.setStatus(
-				ctx,
-				driver.NoCommand,
-				status.VariantSuccess,
-				true,
-				"Reconnected to cluster",
-				"",
-			)
 		}
 		if err := t.process(ctx, fetches); err != nil {
-			return t.fail(ctx, "Failed to process records", err)
+			return err
 		}
 	}
 }
@@ -690,19 +552,6 @@ func (t *readTask) poll(ctx context.Context) kgo.Fetches {
 		defer cancel()
 	}
 	return t.client.PollFetches(ctx)
-}
-
-// fail reports the error that stops the consumer. It returns the error only when the
-// report fails, so a stop does not report a failure the status already shows. A start
-// that follows the status replaces the consumer instead of acknowledging the failure.
-func (t *readTask) fail(ctx context.Context, message string, err error) error {
-	t.failed.Store(true)
-	if sendErr := t.status.Send(
-		ctx, driver.NoCommand, status.VariantError, false, message, err.Error(),
-	); sendErr != nil {
-		return errors.Combine(err, sendErr)
-	}
-	return nil
 }
 
 // unavailable are the broker errors for a broker or coordinator that is down or
@@ -944,37 +793,7 @@ func (t *readTask) reportSkips(ctx context.Context, now time.Time) {
 	}
 	var err error
 	if w != nil {
-		err = t.status.Warn(ctx, *w)
-	} else {
-		err = t.status.ClearWarning(ctx)
+		err = w.Degraded()
 	}
-	if err != nil {
-		t.factoryCfg.L.Error("failed to write task warning",
-			zap.Stringer("task", t.task.Key),
-			zap.Error(err),
-		)
-	}
-}
-
-func (t *readTask) setStatus(
-	ctx context.Context,
-	cmdKey string,
-	variant status.Variant,
-	running bool,
-	message string,
-	description string,
-) {
-	if err := t.status.Send(
-		ctx,
-		cmdKey,
-		variant,
-		running,
-		message,
-		description,
-	); err != nil {
-		t.factoryCfg.L.Error("failed to set task status",
-			zap.Stringer("task", t.task.Key),
-			zap.Error(err),
-		)
-	}
+	t.Report(ctx, "", err)
 }
