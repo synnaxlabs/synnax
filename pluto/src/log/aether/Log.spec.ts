@@ -784,6 +784,27 @@ describe("log/aether/Log", () => {
       expect(leaf.state.rowEntries).toContain(150);
     });
 
+    it("should show the first row of a match that wraps to many rows", () => {
+      const tall = lines(1_000, [150]).map((entry, i) =>
+        i === 150 ? { ...entry, value: `err ${"x".repeat(1_500)}` } : entry,
+      );
+      const { leaf, updateState } = setup(tall, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(149);
+      expect(leaf.state.rowEntries).toContain(150);
+    });
+
+    it("should start the view at a match taller than the view", () => {
+      const tall = lines(1_000, [150]).map((entry, i) =>
+        i === 150 ? { ...entry, value: `err ${"x".repeat(20_000)}` } : entry,
+      );
+      const { leaf, updateState } = setup(tall, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries.slice(1).every((entry) => entry === 150)).toBe(true);
+    });
+
     it("should move from the last match in either direction", () => {
       const { leaf, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
       jumpTo(updateState, "previous", 1);

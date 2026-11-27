@@ -637,11 +637,15 @@ export class Log
     this.seeking = null;
     this.scrollState.offset = i + 1;
     this.scrollState.tail = 0;
-    // Half a screen of rows below the match, as lines below it can wrap. A match on the
-    // first screen shows from the top.
-    const half = Math.floor(this.calcRowCapacity(lineHeight) / 2);
+    // Up to half a screen of rows below the match, as lines below it can wrap, while
+    // the first row of the match stays on screen. A match on the first screen shows
+    // from the top.
+    const capacity = this.calcRowCapacity(lineHeight);
+    const { rows } = this.layoutEntry(i);
     const onFirstScreen = i + 1 < this.calcTop(lineHeight).offset;
-    this.moveView(onFirstScreen ? 0 : -half, lineHeight);
+    const spare = capacity - 1 - rows;
+    const down = spare >= 0 ? Math.min(Math.floor(capacity / 2), spare) : spare;
+    this.moveView(onFirstScreen ? 0 : -down, lineHeight);
     // Only a scroll after the jump counts toward resuming.
     this.scrollState.scrollRef = this.state.wheelPos;
     this.scrollState.moved = 0;
