@@ -43,6 +43,17 @@ describe("detectConnection", () => {
     });
   });
 
+  it("should detect the serving Core when the page has a select-core param", () => {
+    pinLocationOrigin("http://example.com:8080", "?select-core");
+    expect(Core.detectConnection()).toEqual({
+      key: Session.Core.SERVED_KEY,
+      name: "Core",
+      host: "example.com",
+      port: 8080,
+      secure: false,
+    });
+  });
+
   it("should default an https origin without a port to 443 and mark it secure", () => {
     pinLocationOrigin("https://example.com");
     expect(Core.detectConnection()).toEqual({

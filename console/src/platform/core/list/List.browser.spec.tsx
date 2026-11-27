@@ -17,7 +17,13 @@ import { fillConnectForm, renderCoreUI } from "@/platform/core/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { CaptureStatuses, dragOnto, getBySelector, HaulProvider } from "@/testutil";
+import {
+  CaptureStatuses,
+  disableActEnvironment,
+  dragOnto,
+  getBySelector,
+  HaulProvider,
+} from "@/testutil";
 
 const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
 const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });
@@ -145,24 +151,6 @@ describe("Core List", () => {
     expect(onChange).toHaveBeenCalledWith(BRAVO.key);
     expect(Session.Core.selectState(store.getState(), ALPHA.key)).toBeUndefined();
     expect(Session.Core.selectState(store.getState(), BRAVO.key)).toBeDefined();
-  });
-
-  it("should report a refreshed connection to a reachable Core", async () => {
-    const statuses = await renderWithStatuses(
-      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
-      createCoreState([ALPHA], ALPHA.key),
-    );
-    fireEvent.contextMenu(await screen.findByText("Alpha"));
-    fireEvent.click(await screen.findByText("Refresh connection"));
-    await waitFor(() =>
-      expect(statuses()).toContainEqual(
-        expect.objectContaining({
-          variant: "success",
-          name: "Alpha",
-          message: "Connected to Core",
-        }),
-      ),
-    );
   });
 
   it("should list a Core added through the connect modal", async () => {
@@ -328,5 +316,27 @@ describe("Core List", () => {
     expect(
       within(tooltip).getByText(`Cannot reach Core at ${BRAVO.host}:${BRAVO.port}`),
     ).toBeTruthy();
+  });
+});
+
+describe("Core List against a live Core", () => {
+  disableActEnvironment();
+
+  it("should report a refreshed connection to a reachable Core", async () => {
+    const statuses = await renderWithStatuses(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByText("Refresh connection"));
+    await waitFor(() =>
+      expect(statuses()).toContainEqual(
+        expect.objectContaining({
+          variant: "success",
+          name: "Alpha",
+          message: "Connected to Core",
+        }),
+      ),
+    );
   });
 });
