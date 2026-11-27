@@ -12,7 +12,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -31,6 +31,7 @@ import { findIconButton, queryIconButton } from "@/testutil";
 const path = deep.path<{
   config: { dataSavingDisabled: boolean; autoStart: boolean };
 }>();
+const statusPath = deep.path<{ status: task.Status }>().status;
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -77,7 +78,8 @@ describe("Controls.Controls", () => {
     expect(play.getAttribute("aria-disabled")).toBe("true");
   });
 
-  it("should warn about a stopped task rack and keep Start enabled", async () => {
+  // Renders a task on a stopped rack, while another rack can run its integration.
+  const renderOnStoppedRack = async (onDeploy = vi.fn()) => {
     // A prefix of its own, so no rack of another spec can run it.
     const beta: Task.Integration = {
       ...ACME,
@@ -89,8 +91,7 @@ describe("Controls.Controls", () => {
       name: uniqueName("rack"),
       integrations: [beta.prefix],
     });
-    const onDeploy = vi.fn();
-    const { container } = await renderInTaskFormWithClient(
+    const rendered = await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
       {
         client,
@@ -98,10 +99,28 @@ describe("Controls.Controls", () => {
         registry: createRegistry({ integrations: [beta] }),
       },
     );
-    expect(await screen.findByText(`${stopped.name} is not running`)).toBeTruthy();
+    await screen.findByText(`${stopped.name} is not running`);
+    return { ...rendered, stopped };
+  };
+
+  it("should warn about a stopped task rack and keep Start enabled", async () => {
+    const onDeploy = vi.fn();
+    const { container, stopped } = await renderOnStoppedRack(onDeploy);
     expect(screen.getByText(`Start the Driver on ${stopped.name}.`)).toBeTruthy();
     fireEvent.click(await findIconButton(container, "play"));
     expect(onDeploy).toHaveBeenCalledTimes(1);
+  });
+
+  it("should show the task's own warning over the rack warning", async () => {
+    const { form, stopped } = await renderOnStoppedRack();
+    act(() =>
+      form.current?.set(
+        statusPath,
+        createTaskStatus({ variant: "warning", message: "Driver not running" }),
+      ),
+    );
+    expect(await screen.findByText("Driver not running")).toBeTruthy();
+    expect(screen.queryByText(`${stopped.name} is not running`)).toBeNull();
   });
 
   it("should keep Stop and the status of a running task no rack can run", async () => {
