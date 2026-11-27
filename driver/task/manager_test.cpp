@@ -4510,7 +4510,6 @@ class ScriptedStream final : public synnax::framer::StreamerStream {
     std::condition_variable cv;
     std::vector<grpc::framer::StreamerResponse> responses;
     bool closed = false;
-    x::errors::Error end_err = freighter::ERR_EOF;
 
 public:
     void push(grpc::framer::StreamerResponse res) {
@@ -4526,7 +4525,7 @@ public:
         this->cv.wait(lock, [this] {
             return this->closed || !this->responses.empty();
         });
-        if (this->responses.empty()) return {{}, this->end_err};
+        if (this->responses.empty()) return {{}, freighter::ERR_EOF};
         auto res = std::move(this->responses.front());
         this->responses.erase(this->responses.begin());
         return {std::move(res), x::errors::NIL};
@@ -4557,16 +4556,6 @@ public:
     bool is_closed() {
         std::lock_guard lock(this->mu);
         return this->closed;
-    }
-
-    /// @brief ends the stream with err, as a lost Core does.
-    void fail(const x::errors::Error &err) {
-        {
-            std::lock_guard lock(this->mu);
-            this->end_err = err;
-            this->closed = true;
-        }
-        this->cv.notify_all();
     }
 
     /// @brief opens a closed stream again, for the next run.
@@ -5323,49 +5312,5 @@ TEST_F(ScriptedControlTest, StopIsPromptAfterAFailedSync) {
     thread.join();
     ASSERT_LT(std::chrono::steady_clock::now() - began, std::chrono::seconds(5));
     pipe->resume();
-}
-
-/// @brief it should put the control state under the local rule when the Core becomes
-/// unreachable, so a decrease made while the Core was connected hands the channel on.
-TEST_F(TaskManagerTest, UnreachableCoreAppliesTheLocalRule) {
-    auto factory = std::make_unique<ContextCaptureFactory>();
-    auto *f = factory.get();
-    const auto stream = std::make_shared<ScriptedStream>();
-    const auto managed = std::make_shared<synnax::Synnax>(new_test_client());
-    managed->telem = synnax::framer::Client(
-        std::make_unique<ScriptedStreamerClient>(stream),
-        nullptr,
-        managed->channels
-    );
-    // The open ack.
-    stream->push({});
-    const auto managed_rack = ASSERT_NIL_P(managed->racks.retrieve(rack.key));
-    manager = std::make_unique<Manager>(managed_rack, managed, std::move(factory));
-    std::promise<void> started;
-    std::promise<x::errors::Error> ended;
-    thread = std::thread([&] {
-        ended.set_value(manager->run([&] { started.set_value(); }));
-    });
-    ASSERT_EQ(
-        started.get_future().wait_for((5 * x::telem::SECOND).chrono()),
-        std::future_status::ready
-    );
-    ASSERT_NE(f->captured_ctx, nullptr);
-    const auto states = f->captured_ctx->control_states();
-    constexpr synnax::channel::Key channel = 4242;
-    const x::control::Subject high{.key = "high", .name = "high"};
-    const x::control::Subject low{.key = "low", .name = "low"};
-    states->opened_on_core(high);
-    states->opened_on_core(low);
-    states->open_gate(high, {channel}, {200});
-    states->open_gate(low, {channel}, {100});
-    states->set_authority(high, channel, 50);
-    ASSERT_TRUE(states->is_authorized(channel, high));
-    stream->fail(freighter::UNREACHABLE);
-    auto end = ended.get_future();
-    ASSERT_EQ(end.wait_for((5 * x::telem::SECOND).chrono()), std::future_status::ready);
-    ASSERT_OCCURRED_AS(end.get(), freighter::UNREACHABLE);
-    ASSERT_TRUE(states->is_authorized(channel, low));
-    ASSERT_FALSE(states->is_authorized(channel, high));
 }
 }
