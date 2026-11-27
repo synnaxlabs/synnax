@@ -389,6 +389,13 @@ struct Config {
             this->outbox.sync_interval
         );
         this->outbox.stuck_after = span("outbox_stuck_after", this->outbox.stuck_after);
+        if (this->outbox.retry.base_interval > this->outbox.retry.max_interval)
+            p.field_err(
+                "outbox_retry_interval",
+                "must be at most outbox_max_retry_interval"
+            );
+        if (this->outbox.max_payload > this->outbox.max_bytes)
+            p.field_err("outbox_max_payload", "must be at most outbox_size");
     }
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);

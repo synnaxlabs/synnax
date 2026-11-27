@@ -757,6 +757,24 @@ TEST_F(RackConfigTest, RefuseOutOfRangeOutboxDurations) {
     ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
 }
 
+/// @brief it should refuse a retry interval above the largest one, and a payload above
+/// the outbox size.
+TEST_F(RackConfigTest, RefuseConflictingOutboxSettings) {
+    for (const auto &vars:
+         std::vector<std::vector<std::pair<std::string, std::string>>>{
+             {{"SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "10"},
+              {"SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL", "5"}},
+             {{"SYNNAX_DRIVER_OUTBOX_SIZE", "1024"},
+              {"SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD", "2048"}},
+         }) {
+        for (const auto &[k, v]: vars)
+            x::env::set(k, v);
+        ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+        for (const auto &[k, _]: vars)
+            x::env::unset(k);
+    }
+}
+
 /// @brief it should refuse an outbox setting that is not greater than 0.
 TEST_F(RackConfigTest, RefuseNonPositiveOutboxSetting) {
     x::env::set("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "0");
