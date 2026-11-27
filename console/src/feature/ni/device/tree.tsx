@@ -16,7 +16,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Device } from "@synnaxlabs/pluto";
 
-import { HARDWARE, TYPED_ADAPTER } from "@/feature/ni/device/hardware";
+import { TYPED_ADAPTER, TYPED_HARDWARE } from "@/feature/ni/device/hardware";
 import { useDelete, useRename, useRetrieve } from "@/feature/ni/device/queries";
 import { ContextMenu } from "@/platform/context-menu";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -58,7 +58,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <ConfigureMenuItem
             {...props}
-            onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
+            onConfigure={(deviceKey) =>
+              configure({ deviceKey, hardware: TYPED_HARDWARE })
+            }
           />
           <ChangeIdentifierMenuItem {...props} />
           <Menu.Divider />

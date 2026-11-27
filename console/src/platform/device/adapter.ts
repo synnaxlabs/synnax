@@ -46,7 +46,7 @@ export interface Adapter {
   use: (key: string) => Configurable;
   /** Saves the name and identifier and marks the device configured. */
   useSave: Flux.UseUpdate<SaveParams>;
-  /** Writes only the identifier, so concurrent writes to other fields survive. */
+  /** Writes the identifier and keeps the other stored fields. */
   useChangeIdentifier: Flux.UseUpdate<ChangeIdentifierParams>;
 }
 

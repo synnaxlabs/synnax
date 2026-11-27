@@ -14,12 +14,12 @@ import { suggestIdentifiers } from "@/feature/ni/device/identifier";
 import { use, useChangeIdentifier, useSave } from "@/feature/ni/device/queries";
 import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/ni/device/types";
 import { SCAN_TYPE } from "@/feature/ni/task/types";
-import { FLAGS } from "@/flags";
 import { Device } from "@/platform/device";
 
 const ICON = <Icon.Logo.NI />;
 
-const LEGACY_ADAPTER = Device.createLegacyAdapter({
+/** Binds the configure form and menu items to the generic device table. */
+export const ADAPTER = Device.createLegacyAdapter({
   make: MAKE,
   zeroProperties: ZERO_PROPERTIES,
   suggestIdentifiers,
@@ -47,9 +47,6 @@ export const TYPED_ADAPTER: Device.Adapter = {
   useChangeIdentifier,
 };
 
-/** Binds the configure form and menu items to the table that stores NI devices. */
-export const ADAPTER = FLAGS.typedNIDevices ? TYPED_ADAPTER : LEGACY_ADAPTER;
-
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
   name: "NI",
@@ -64,4 +61,10 @@ export const HARDWARE: Device.Hardware = {
     "NI-DAQmx is installed on that computer. NI hardware needs Windows or Linux.",
     "The device shows in NI MAX, and no other program reserves it.",
   ],
+};
+
+/** The hardware integration whose configure form writes the typed NI device table. */
+export const TYPED_HARDWARE: Device.Hardware = {
+  ...HARDWARE,
+  Configure: Device.createConfigure({ icon: ICON, adapter: TYPED_ADAPTER }),
 };
