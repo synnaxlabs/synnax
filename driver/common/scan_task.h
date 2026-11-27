@@ -136,7 +136,8 @@ struct Scanner {
     virtual void on_device_set(const synnax::device::Device &dev) {}
 
     /// @brief called from the signal thread with each series that a channel in
-    /// config().signals carries.
+    /// config().signals carries. It runs concurrently with scan() and exec(), so the
+    /// scanner synchronizes its own state.
     virtual void
     on_signal(const synnax::channel::Channel &ch, const x::telem::Series &series) {}
 };
@@ -469,6 +470,12 @@ class ScanTask final : public task::Task, public pipeline::Base {
         if (err) return err;
 
         std::vector<synnax::channel::Key> keys;
+        for (const auto &name: names)
+            if (std::ranges::none_of(channels, [&](const auto &ch) {
+                    return ch.name == name;
+                }))
+                LOG(WARNING) << this->log_prefix << "signal channel " << name
+                             << " does not exist";
         for (const auto &ch: channels) {
             keys.push_back(ch.key);
             if (std::ranges::find(cfg.signals, ch.name) != cfg.signals.end())
@@ -478,6 +485,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
             else if (ch.name == synnax::device::DELETE_CHANNEL)
                 this->device_delete_channel = ch;
         }
+        if (keys.empty()) return x::errors::NIL;
 
         auto [s, open_err] = this->client->open_streamer(
             synnax::framer::StreamerConfig{.channels = keys}

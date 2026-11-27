@@ -245,6 +245,10 @@ public:
     std::vector<std::vector<synnax::device::Status>> propagated_statuses;
     std::shared_ptr<pipeline::testutil::StreamerFactory> streamer_factory;
     std::vector<synnax::channel::Channel> signal_channels;
+    /// @brief the channel names that each retrieve_channels call asked for.
+    std::vector<std::vector<std::string>> requested_channels;
+    /// @brief the channel keys of each streamer that open_streamer opened.
+    std::vector<std::vector<synnax::channel::Key>> streamed_channels;
     /// @brief the errors that successive create_devices calls return.
     std::vector<x::errors::Error> create_errors;
     size_t create_count = 0;
@@ -329,6 +333,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig config) override {
+        this->streamed_channels.push_back(config.channels);
         if (this->signals)
             return {std::make_unique<QueueStreamer>(this->signals), x::errors::NIL};
         if (streamer_factory) return streamer_factory->open_streamer(config);
@@ -337,6 +342,7 @@ public:
 
     std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) override {
+        this->requested_channels.push_back(names);
         return {signal_channels, x::errors::NIL};
     }
 };
@@ -389,6 +395,20 @@ public:
         exec_commands.push_back(cmd);
         return exec_return_value;
     }
+
+    std::atomic<size_t> device_sets = 0;
+    std::atomic<size_t> signals = 0;
+
+    void on_device_set(const synnax::device::Device &) override { this->device_sets++; }
+
+    void
+    on_signal(const synnax::channel::Channel &, const x::telem::Series &) override {
+        this->signals++;
+    }
+
+    size_t device_set_count() const { return this->device_sets.load(); }
+
+    size_t signal_count() const { return this->signals.load(); }
 };
 
 /// @brief it should scan and create new devices in the cluster.
@@ -2590,5 +2610,103 @@ TEST(TestScanTask, PassesScannerSignalsToScanner) {
     );
     for (const auto &statuses: cluster_api_ptr->propagated_statuses)
         EXPECT_TRUE(statuses.empty());
+    ASSERT_EQ(cluster_api_ptr->requested_channels.size(), 1);
+    EXPECT_EQ(
+        cluster_api_ptr->requested_channels[0],
+        std::vector<std::string>{"sy_thing_set"}
+    );
+    ASSERT_EQ(cluster_api_ptr->streamed_channels.size(), 1);
+    EXPECT_EQ(
+        cluster_api_ptr->streamed_channels[0],
+        std::vector<synnax::channel::Key>{thing_set.key}
+    );
+}
+
+/// @brief a scanner that keeps its own resources and names no signals.
+class SilentScanner final : public Scanner {
+public:
+    [[nodiscard]] ScannerConfig config() const override {
+        return ScannerConfig{.log_prefix = "[test] "};
+    }
+
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    scan(const ScannerContext &) override {
+        return {{}, x::errors::NIL};
+    }
+};
+
+/// @brief it should open no signal stream for a scanner without a make or signals.
+TEST(TestScanTask, OpensNoStreamWithoutSignals) {
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        std::make_shared<std::vector<synnax::device::Device>>(),
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    auto *cluster_api_ptr = cluster_api.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::make_unique<SilentScanner>(),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 50),
+        std::move(cluster_api)
+    );
+    scan_task.start();
+    ASSERT_EVENTUALLY_GE(cluster_api_ptr->scans.load(), 2);
+    scan_task.stop();
+    EXPECT_TRUE(cluster_api_ptr->requested_channels.empty());
+    EXPECT_TRUE(cluster_api_ptr->streamed_channels.empty());
+}
+
+/// @brief it should pass legacy device signals to the device table and scanner
+/// signals to on_signal for a scanner with a make and signals.
+TEST(TestScanTask, RoutesLegacyAndScannerSignals) {
+    synnax::channel::Channel set_ch;
+    set_ch.key = 100;
+    set_ch.name = synnax::device::SET_CHANNEL;
+    synnax::channel::Channel thing_set;
+    thing_set.key = 102;
+    thing_set.name = "sy_thing_set";
+    synnax::device::Device signaled;
+    signaled.key = "device1";
+    signaled.rack = 1;
+    signaled.make = "test_make";
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        std::make_shared<std::vector<synnax::device::Device>>(std::vector{signaled}),
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    auto *cluster_api_ptr = cluster_api.get();
+    cluster_api->signal_channels = {set_ch, thing_set};
+    cluster_api->signals = std::make_shared<SignalQueue>();
+    ScannerConfig cfg{
+        .make = "test_make",
+        .log_prefix = "[test] ",
+        .signals = {"sy_thing_set"},
+    };
+    auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
+    auto *scanner_ptr = scanner.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::move(scanner),
+        std::make_shared<task::MockContext>(nullptr),
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 50),
+        std::move(cluster_api)
+    );
+    scan_task.start();
+    x::telem::Frame frame(2);
+    frame.emplace(set_ch.key, x::telem::Series(signaled.to_json().dump()));
+    frame.emplace(thing_set.key, x::telem::Series(std::string(R"({"key":"a"})")));
+    cluster_api_ptr->signals->send(std::move(frame));
+    scan_task.stop();
+    EXPECT_EQ(scanner_ptr->device_set_count(), 1);
+    EXPECT_EQ(scanner_ptr->signal_count(), 1);
 }
 }
