@@ -792,14 +792,19 @@ its first write of the key, the key moves into that session's writer through
   hard rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
   claim. The state owner keeps the writer of each clock (NEW).
-- **Pauses**: In an `Adaptive` writer, a key that reaches 48 pauses in its open segment
-  gets a clock of its own from a background step, which leases the key and makes the two
-  files off the frame path. The clock of the key's last move is reused when no writer
-  holds it. At 64 pauses the key moves to that clock at the first commit after its files
-  exist. The writer then stores the group's stamps on that clock for each frame that
-  holds the key: the one copy of stored stamps, at most one per moved key per frame,
-  until the key moves back at the next open. A clock stores no stamps for a frame in
-  which no key on it has a sample.
+- **Pauses**: In an `Adaptive` writer, the keys that reach three quarters of P pauses
+  (48 of 64) in their open segments at one frame, with one last present frame, get one
+  clock from a background step off the frame path. The step reuses a clock that a
+  segment of one of those keys names and that no writer holds, and takes over their open
+  segments on it, as at open. If not, it leases a key and makes the files. At P pauses
+  the keys move to that clock at the first commit after its files exist. Their open
+  segments on the clock they leave stay open, so a later open or move takes them over,
+  and a script that runs again reuses its clocks and files. The writer then stores the
+  group's stamps on that clock for each frame that holds one of its keys: the one copy
+  of stored stamps, at most one per presence pattern per frame, until the keys rejoin
+  the group's clock at the next open. A clock stores no stamps for a frame in which no
+  key on it has a sample. A file that the step made and no move used is a spare, which a
+  close removes.
 - **Segments**: An open segment belongs to one writer. At open, a later session with the
   same key, type, and clock key takes it over only after the commits of the earlier
   writer are durable. At a handoff, the gainer takes it over at once, with the loser's
@@ -1357,8 +1362,11 @@ other phase is one PR.
     its own. Before RFC 0120 Phase 50 a clock can be an index channel with a record,
     which Cesium cannot see.
 16. **No segment file on the frame path**: Spares made at open and at a handoff cost one
-    empty file each, and a pause move makes its files in a background step at 48 pauses.
-    Rejected: a file made at a key's first write after a move.
+    empty file each, and a pause move makes its files in a background step at three
+    quarters of P. Keys that pause together move together, and a move reuses a clock
+    that one of their segments names. Rejected: a clock per moved key, which stores the
+    stamps of 20 keys that pause together 20 times. Rejected: a file made at a key's
+    first write after a move.
 
 ## 14 Open questions
 
@@ -1367,5 +1375,5 @@ the sync pool (32); the log file size and the switch trigger (64 MiB, three quar
 the handle budget of readers and background passes (1,024); the pointers before an open
 segment seals (4,096); the part threshold (8 MiB) and the part cache budget (64 MiB);
 the Reserve blocks (16, then 1,024); the dead share that starts a compaction (20%, as
-today); the rate limits; the pauses before a move (64) and the gap of a continued
-stretch (3 steps), both RFC 0120 §8's.
+today); the rate limits; the pauses before a move (64, with its files made at three
+quarters) and the gap of a continued stretch (3 steps), both RFC 0120 §8's.
