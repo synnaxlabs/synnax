@@ -14,6 +14,7 @@ cc_library(
     hdrs = ["testutil.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/ranger",
         "//client/cpp/status",
         "//driver/outbox",
         "//x/cpp/uuid",

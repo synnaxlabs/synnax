@@ -53,6 +53,7 @@ cc_test(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
+        "//freighter/cpp/testutil",
         "//x/cpp/errors",
         "//x/cpp/pb",
         "//x/cpp/testutil",

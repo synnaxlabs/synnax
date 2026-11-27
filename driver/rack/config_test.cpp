@@ -638,6 +638,8 @@ TEST_F(RackConfigTest, OutboxConfigDefaults) {
     const outbox::Config def;
     ASSERT_EQ(cfg.outbox.max_bytes, std::uint64_t{64} * 1024 * 1024);
     ASSERT_EQ(cfg.outbox.max_calls, def.max_calls);
+    ASSERT_EQ(cfg.outbox.max_open_ranges, def.max_open_ranges);
+    ASSERT_EQ(cfg.outbox.max_ends_when_full, def.max_ends_when_full);
     ASSERT_EQ(cfg.outbox.max_payload, def.max_payload);
     ASSERT_EQ(cfg.outbox.compact_share, def.compact_share);
     ASSERT_EQ(cfg.outbox.segment_calls, def.segment_calls);
@@ -689,6 +691,8 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromEnvironmentVariables) {
     const std::vector<std::pair<std::string, std::string>> vars = {
         {"SYNNAX_DRIVER_OUTBOX_SIZE", "2097152"},
         {"SYNNAX_DRIVER_OUTBOX_MAX_CALLS", "300"},
+        {"SYNNAX_DRIVER_OUTBOX_MAX_OPEN_RANGES", "40"},
+        {"SYNNAX_DRIVER_OUTBOX_MAX_ENDS_WHEN_FULL", "50"},
         {"SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD", "2048"},
         {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "0.1"},
         {"SYNNAX_DRIVER_OUTBOX_SEGMENT_CALLS", "20"},
@@ -707,6 +711,8 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromEnvironmentVariables) {
     const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
     ASSERT_EQ(cfg.outbox.max_bytes, 2097152);
     ASSERT_EQ(cfg.outbox.max_calls, 300);
+    ASSERT_EQ(cfg.outbox.max_open_ranges, 40);
+    ASSERT_EQ(cfg.outbox.max_ends_when_full, 50);
     ASSERT_EQ(cfg.outbox.max_payload, 2048);
     ASSERT_EQ(cfg.outbox.compact_share, 0.1);
     ASSERT_EQ(cfg.outbox.segment_calls, 20);

@@ -42,7 +42,11 @@ message CreateRange {
   int64 end = 4;
   // parent is the UUID of the range that holds this range, as text.
   optional string parent = 5;
-  optional Color color = 6;
+  oneof color {
+    Color fixed_color = 6;
+    // named_color is the UUID of the named color of the range, as text.
+    string named_color = 8;
+  }
   // labels are the UUIDs of the labels of the range, as text.
   repeated string labels = 7;
 }

@@ -527,7 +527,7 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
     );
     auto ctx = std::make_shared<driver::task::MockContext>(
         client,
-        ::driver::outbox::testutil::open(client->statuses)
+        ::driver::outbox::testutil::open(client->statuses, client->ranges)
     );
     auto task = ASSERT_NIL_P(
         arc::Task::create(
@@ -544,9 +544,7 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    // The key reaches the channel only after the create node returned it, so
-    // the range exists by the time the first write lands.
-    auto rng = ASSERT_NIL_P(client->ranges.retrieve(name));
+    auto rng = ASSERT_EVENTUALLY_NIL_P(client->ranges.retrieve(name));
     const auto expected = rng.key.to_string();
     bool found = false;
     for (const auto &output_fr: mock_writer->writes->snapshot())
@@ -2127,6 +2125,45 @@ TEST(ArcNoOutbox, FailsToStartFunctionSet) {
         "    k := status.set(\"no_outbox_func\", \"m\", \"info\")\n"
         "}\n"
         "interval(period=50ms) -> set_it()\n"
+    );
+    const auto ctx = std::make_shared<task::MockContext>(client, NO_OUTBOX);
+    ASSERT_OCCURRED_AS_P(
+        Task::create(task_meta, ctx, task_cfg, test_keys()),
+        outbox::CORRUPT
+    );
+}
+
+/// @brief it should fail to start a task whose flow creates a range when the outbox
+/// did not open.
+TEST(ArcNoOutbox, FailsToStartFlowRange) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::task::Task task_meta;
+    const auto task_cfg = set_status_task(
+        client,
+        task_meta,
+        "import ranges\n\n"
+        "interval(period=50ms) -> ranges.create(name=\"no_outbox_range\")\n"
+    );
+    const auto ctx = std::make_shared<task::MockContext>(client, NO_OUTBOX);
+    ASSERT_OCCURRED_AS_P(
+        Task::create(task_meta, ctx, task_cfg, test_keys()),
+        outbox::CORRUPT
+    );
+}
+
+/// @brief it should fail to start a task whose function ends a range when the outbox
+/// did not open.
+TEST(ArcNoOutbox, FailsToStartFunctionRange) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::task::Task task_meta;
+    const auto task_cfg = set_status_task(
+        client,
+        task_meta,
+        "import ranges\n\n"
+        "func end_it() {\n"
+        "    k := ranges.end(\"00000000-0000-0000-0000-000000000000\")\n"
+        "}\n"
+        "interval(period=50ms) -> end_it()\n"
     );
     const auto ctx = std::make_shared<task::MockContext>(client, NO_OUTBOX);
     ASSERT_OCCURRED_AS_P(

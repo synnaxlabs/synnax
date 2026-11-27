@@ -63,11 +63,12 @@ status::Health outbox_stuck(
     return {
         .variant = synnax::status::VARIANT_WARNING,
         .message = OUTBOX_STUCK_MSG,
-        .description = "The Core has not taken an Arc status set for " +
-                       stuck_after.to_string() + ": " + sentence(err) +
-                       " Check that the Driver can reach the Core and that the Core "
-                       "is running. The Driver keeps the sets in " +
-                       dir.string() + " and sends them once the Core takes them.",
+        .description =
+            "The Core has not taken the first Arc status set or range change for " +
+            stuck_after.to_string() + ": " + sentence(err) +
+            " Check that the Driver can reach the Core and that the Core "
+            "is running. The Driver keeps them in " +
+            dir.string() + " and sends them once the Core takes them.",
     };
 }
 
@@ -118,6 +119,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     auto outbox_cfg = cfg.outbox;
     outbox_cfg.dir = data / OUTBOX_DIR;
     outbox_cfg.statuses = client->statuses;
+    outbox_cfg.ranges = client->ranges;
     outbox_cfg.on_stuck =
         [alert = cfg.outbox_alert,
          dir = outbox_cfg.dir,
@@ -130,7 +132,8 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             LOG(WARNING) << health.message << ". " << health.description;
             alert->raise(std::move(health));
         };
-    // The outbox serves only Arc status sets, so the rack runs without it.
+    // The outbox serves only Arc status sets and range calls, so the rack runs
+    // without it.
     auto [outbox, outbox_err] =
         [&]() -> std::pair<std::unique_ptr<outbox::Outbox>, x::errors::Error> {
         std::error_code ec;

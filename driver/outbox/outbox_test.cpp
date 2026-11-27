@@ -21,13 +21,17 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <variant>
 #include <vector>
 
 #include "absl/crc/crc32c.h"
 #include "gtest/gtest.h"
 
+#include "client/cpp/color/types.gen.h"
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/testutil/testutil.h"
+#include "x/cpp/color/color.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -91,6 +95,70 @@ std::vector<std::string> messages_of(const Transport &transport) {
         messages.push_back(req.message());
     return messages;
 }
+
+using Creates = freighter::testutil::
+    UnaryClient<::grpc::ranger::CreateRequest, ::grpc::ranger::CreateResponse>;
+using Retrieves = freighter::testutil::
+    UnaryClient<::grpc::ranger::RetrieveRequest, ::api::ranger::pb::RetrieveResponse>;
+using Dispatches = freighter::testutil::
+    UnaryClient<::grpc::ranger::DispatchRequest, google::protobuf::Empty>;
+
+/// @brief the byte cap of the outboxes that specs fill.
+constexpr std::uint64_t FULL_BYTES = 1024;
+
+/// @brief returns a ranges client whose first create finds the Core unreachable.
+synnax::ranger::Client unreachable_ranges() {
+    return synnax::ranger::Client(
+        nullptr,
+        std::make_shared<Creates>(
+            std::vector<::grpc::ranger::CreateResponse>(1),
+            std::vector{freighter::UNREACHABLE}
+        ),
+        nullptr,
+        {}
+    );
+}
+
+/// @brief returns a range with every field that a create carries set.
+synnax::ranger::Range full_range() {
+    return {
+        .key = x::uuid::UUID::parse("2b6f1c43-3e33-4a4f-9a76-0d8c5d1e7a10").first,
+        .name = "run",
+        .time_range = x::telem::TimeRange(
+            x::telem::TimeStamp(10),
+            x::telem::TimeStamp(20)
+        ),
+        .color =
+            synnax::color::FixedRef{
+                .value = x::color::Color{.r = 1, .g = 2, .b = 3, .a = 4},
+            },
+        .labels = {x::uuid::UUID::parse("6a1e0d55-8f4b-4c51-b0c2-1f7e9a3d2c84").first},
+        .parent = x::uuid::UUID::parse("9d3c7b21-5a6e-4f80-8b19-e4c2a7f05d36").first,
+    };
+}
+
+/// @brief queues sets of new statuses until the outbox refuses one.
+void fill(Outbox &outbox) {
+    for (int i = 0; i < 1000; i++)
+        if (outbox.set_status(set_of("s", std::to_string(i)), nullptr)) return;
+    FAIL() << "the outbox did not fill";
+}
+
+/// @brief asserts that the create sends every field of full_range().
+void expect_full_range(const ::service::ranger::pb::Range &pb) {
+    const auto range = ASSERT_NIL_P(synnax::ranger::Range::from_proto(pb));
+    const auto expected = full_range();
+    EXPECT_EQ(range.key, expected.key);
+    EXPECT_EQ(range.name, expected.name);
+    EXPECT_EQ(range.time_range, expected.time_range);
+    ASSERT_TRUE(range.color.has_value());
+    const auto *fixed = std::get_if<synnax::color::FixedRef>(&range.color.value());
+    ASSERT_NE(fixed, nullptr);
+    const auto &want = std::get<synnax::color::FixedRef>(expected.color.value());
+    EXPECT_EQ(fixed->value, want.value);
+    EXPECT_EQ(range.labels, expected.labels);
+    EXPECT_EQ(range.parent, expected.parent);
+}
 }
 
 class OutboxTest : public ::testing::Test {
@@ -145,6 +213,22 @@ protected:
             max_bytes,
             x::telem::HOUR
         );
+    }
+
+    /// @brief opens an outbox whose first send of any kind finds the Core
+    /// unreachable, and that waits an hour before it retries.
+    [[nodiscard]] std::unique_ptr<Outbox> open_blocked(Config cfg) const {
+        cfg.dir = this->dir;
+        cfg.statuses = synnax::status::Client(
+            nullptr,
+            nullptr,
+            nullptr,
+            transport_of({freighter::UNREACHABLE})
+        );
+        cfg.ranges = unreachable_ranges();
+        cfg.retry.base_interval = x::telem::HOUR;
+        cfg.retry.max_interval = x::telem::HOUR;
+        return ASSERT_NIL_P(Outbox::open(cfg));
     }
 
     [[nodiscard]] std::filesystem::path segment() const {
@@ -332,6 +416,196 @@ TEST_F(OutboxTest, RefusesCallsWhenFull) {
     ASSERT_EQ(outbox->refused(), 1);
     ASSERT_EQ(outbox->size(), 2);
 }
+/// @brief it should take only the first end of a range it took a create of once full.
+TEST_F(OutboxTest, TakesOneRangeEndWhenFull) {
+    const auto outbox = this->open_blocked({.max_bytes = FULL_BYTES});
+    synnax::ranger::Range queued;
+    queued.key = x::uuid::create();
+    ASSERT_NIL(outbox->create_range(queued, nullptr));
+    fill(*outbox);
+    synnax::ranger::Range refused;
+    refused.key = x::uuid::create();
+    ASSERT_OCCURRED_AS(outbox->create_range(refused, nullptr), FULL);
+    const auto refused_before = outbox->refused();
+    const auto size = outbox->size();
+    ASSERT_NIL(outbox->end_range(queued.key, x::telem::TimeStamp(1), nullptr));
+    ASSERT_OCCURRED_AS(
+        outbox->end_range(queued.key, x::telem::TimeStamp(2), nullptr),
+        FULL
+    );
+    ASSERT_OCCURRED_AS(
+        outbox->end_range(refused.key, x::telem::TimeStamp(1), nullptr),
+        FULL
+    );
+    ASSERT_EQ(outbox->refused(), refused_before + 2);
+    ASSERT_EQ(outbox->size(), size + 1);
+}
+
+/// @brief it should take the end of a range whose create it sent once full, for only
+/// the last max_open_ranges ranges it took a create of.
+TEST_F(OutboxTest, TakesEndOfSentCreateWhenFull) {
+    synnax::ranger::Range first;
+    first.key = x::uuid::create();
+    synnax::ranger::Range second;
+    second.key = x::uuid::create();
+    std::vector<::grpc::ranger::CreateResponse> created(2);
+    *created[0].add_ranges() = ASSERT_NIL_P(first.to_proto());
+    *created[1].add_ranges() = ASSERT_NIL_P(second.to_proto());
+    const auto creates = std::make_shared<Creates>(
+        created,
+        std::vector{x::errors::NIL, x::errors::NIL}
+    );
+    Config cfg{
+        .dir = this->dir,
+        .statuses = synnax::status::Client(
+            nullptr,
+            nullptr,
+            nullptr,
+            transport_of({freighter::UNREACHABLE})
+        ),
+        .ranges = synnax::ranger::Client(nullptr, creates, nullptr, {}),
+        .max_bytes = FULL_BYTES,
+        .max_open_ranges = 1,
+    };
+    cfg.retry.base_interval = x::telem::HOUR;
+    cfg.retry.max_interval = x::telem::HOUR;
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    for (const auto &range: {first, second}) {
+        ASSERT_NIL(outbox->create_range(range, nullptr));
+        ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    }
+    ASSERT_EQ(outbox->dropped(), 0);
+    fill(*outbox);
+    ASSERT_NIL(outbox->end_range(second.key, x::telem::TimeStamp(1), nullptr));
+    ASSERT_OCCURRED_AS(
+        outbox->end_range(first.key, x::telem::TimeStamp(1), nullptr),
+        FULL
+    );
+}
+
+/// @brief it should count the ends it took while full toward max_ends_when_full
+/// after a reopen.
+TEST_F(OutboxTest, KeepsEndsWhenFullAfterReopen) {
+    synnax::ranger::Range first;
+    first.key = x::uuid::create();
+    synnax::ranger::Range second;
+    second.key = x::uuid::create();
+    const auto open = [&] {
+        return this->open_blocked({.max_bytes = FULL_BYTES, .max_ends_when_full = 1});
+    };
+    {
+        const auto outbox = open();
+        ASSERT_NIL(outbox->create_range(first, nullptr));
+        ASSERT_NIL(outbox->create_range(second, nullptr));
+        fill(*outbox);
+        ASSERT_NIL(outbox->end_range(first.key, x::telem::TimeStamp(1), nullptr));
+    }
+    const auto outbox = open();
+    ASSERT_OCCURRED_AS(
+        outbox->end_range(second.key, x::telem::TimeStamp(1), nullptr),
+        FULL
+    );
+}
+
+/// @brief it should refuse a range create with a message that says what to do when
+/// range calls alone fill its files.
+TEST_F(OutboxTest, RefusesCreateWhenRangeCallsFill) {
+    const auto outbox = this->open_blocked({.max_bytes = FULL_BYTES});
+    x::errors::Error err;
+    for (int i = 0; i < 1000 && !err; i++) {
+        synnax::ranger::Range range;
+        range.key = x::uuid::create();
+        range.name = "range";
+        err = outbox->create_range(range, nullptr);
+    }
+    ASSERT_OCCURRED_AS(err, FULL);
+    EXPECT_EQ(
+        err.data,
+        "The Driver holds " + std::to_string(FULL_BYTES) +
+            " bytes of changes that the Core has not taken. Check the connection to "
+            "the Core."
+    );
+    EXPECT_EQ(outbox->refused(), 1);
+}
+
+/// @brief it should keep every range call when it compacts its files to the newest
+/// set of each status, and send them all after a reopen.
+TEST_F(OutboxTest, CompactsAndKeepsRangeCalls) {
+    constexpr int ranges = 10;
+    std::vector<synnax::ranger::Range> created;
+    {
+        const auto outbox = this->open_blocked({.max_bytes = 4096});
+        for (int i = 0; i < 300; i++) {
+            if (i % 30 == 0) {
+                synnax::ranger::Range range;
+                range.key = x::uuid::create();
+                range.name = "range";
+                ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+                    outbox->create_range(range, nullptr),
+                    std::chrono::seconds(30),
+                    std::chrono::milliseconds(5)
+                );
+                created.push_back(range);
+            }
+            ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(
+                outbox->set_status(set_of(std::to_string(i), "a"), nullptr),
+                std::chrono::seconds(30),
+                std::chrono::milliseconds(5)
+            );
+        }
+    }
+    ASSERT_EQ(created.size(), ranges);
+    std::vector<::grpc::ranger::CreateResponse> responses(ranges);
+    for (int i = 0; i < ranges; i++)
+        *responses[i].add_ranges() = ASSERT_NIL_P(created[i].to_proto());
+    const auto creates = std::make_shared<Creates>(
+        responses,
+        std::vector<x::errors::Error>(ranges, x::errors::NIL)
+    );
+    const auto transport = transport_of(
+        std::vector<x::errors::Error>(ranges + 1, x::errors::NIL)
+    );
+    Config cfg{
+        .dir = this->dir,
+        .statuses = synnax::status::Client(nullptr, nullptr, nullptr, transport),
+        .ranges = synnax::ranger::Client(nullptr, creates, nullptr, {}),
+    };
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    ASSERT_EQ(outbox->dropped(), 0);
+    ASSERT_EQ(creates->requests.size(), ranges);
+    for (int i = 0; i < ranges; i++)
+        EXPECT_EQ(creates->requests[i].ranges(0).key(), created[i].key.to_string());
+    EXPECT_EQ(messages_of(*transport).back(), "299");
+}
+
+/// @brief it should give each range call the deadline of the config.
+TEST_F(OutboxTest, SendsRangeCallsWithDeadline) {
+    ::grpc::ranger::CreateResponse created;
+    *created.add_ranges() = ASSERT_NIL_P(full_range().to_proto());
+    const auto creates = std::make_shared<Creates>(
+        std::vector{created},
+        std::vector{x::errors::NIL}
+    );
+    const auto dispatches = std::make_shared<Dispatches>(
+        std::vector<google::protobuf::Empty>(1),
+        std::vector{x::errors::NIL}
+    );
+    Config cfg{
+        .dir = this->dir,
+        .ranges = synnax::ranger::Client(nullptr, creates, dispatches, {}),
+    };
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    const auto start = std::chrono::system_clock::now();
+    ASSERT_NIL(outbox->create_range(full_range(), nullptr));
+    ASSERT_NIL(outbox->end_range(full_range().key, x::telem::TimeStamp(30), nullptr));
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    const auto deadline = start + Config{}.send_timeout.chrono();
+    ASSERT_TRUE(creates->deadlines.at(0).has_value());
+    EXPECT_GE(creates->deadlines[0].value(), deadline);
+    ASSERT_TRUE(dispatches->deadlines.at(0).has_value());
+    EXPECT_GE(dispatches->deadlines[0].value(), deadline);
+}
 
 /// @brief it should run a posted function on the send thread.
 TEST_F(OutboxTest, RunsPostedFunctions) {
@@ -339,6 +613,147 @@ TEST_F(OutboxTest, RunsPostedFunctions) {
     std::atomic<bool> ran = false;
     outbox->post([&] { ran = true; });
     ASSERT_EVENTUALLY_TRUE(ran.load());
+}
+
+/// @brief it should send a create again when the Core rejects it and then cannot be
+/// reached to retrieve its key.
+TEST_F(OutboxTest, RetriesCreateWhileRetrieveUnreachable) {
+    synnax::ranger::Range range;
+    range.key = x::uuid::create();
+    range.name = "range";
+    const auto pb = ASSERT_NIL_P(range.to_proto());
+    const auto creates = std::make_shared<freighter::testutil::UnaryClient<
+        ::grpc::ranger::CreateRequest,
+        ::grpc::ranger::CreateResponse>>(
+        std::vector<::grpc::ranger::CreateResponse>(2),
+        std::vector{x::errors::VALIDATION, x::errors::VALIDATION}
+    );
+    ::api::ranger::pb::RetrieveResponse found;
+    *found.add_ranges() = pb;
+    const auto retrieves = std::make_shared<freighter::testutil::UnaryClient<
+        ::grpc::ranger::RetrieveRequest,
+        ::api::ranger::pb::RetrieveResponse>>(
+        std::vector{::api::ranger::pb::RetrieveResponse(), found},
+        std::vector{freighter::UNREACHABLE, x::errors::NIL}
+    );
+    Config cfg{
+        .dir = this->dir,
+        .ranges = synnax::ranger::Client(retrieves, creates, nullptr, {}),
+    };
+    cfg.retry.base_interval = x::telem::MILLISECOND;
+    cfg.retry.max_interval = x::telem::MILLISECOND;
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    std::atomic<bool> done = false;
+    ASSERT_NIL(outbox->create_range(range, [&](const x::errors::Error &err) {
+        EXPECT_NIL(err);
+        done = true;
+    }));
+    ASSERT_EVENTUALLY_TRUE(done.load());
+    ASSERT_EQ(creates->requests.size(), 2);
+    ASSERT_EQ(retrieves->requests.size(), 2);
+    ASSERT_EQ(outbox->dropped(), 0);
+}
+
+/// @brief it should keep range calls across a reopen.
+TEST_F(OutboxTest, KeepsRangeCallsAfterReopen) {
+    {
+        const auto outbox = this->open_unreachable();
+        ASSERT_NIL(outbox->set_status(set_of("first"), nullptr));
+        synnax::ranger::Range range;
+        range.key = x::uuid::create();
+        ASSERT_NIL(outbox->create_range(range, nullptr));
+        ASSERT_NIL(outbox->end_range(range.key, x::telem::TimeStamp(1), nullptr));
+    }
+    const auto outbox = this->open_unreachable();
+    ASSERT_EQ(outbox->size(), 3);
+}
+
+/// @brief it should send every field of a range create, and a range end.
+TEST_F(OutboxTest, SendsRangeCalls) {
+    ::grpc::ranger::CreateResponse created;
+    *created.add_ranges() = ASSERT_NIL_P(full_range().to_proto());
+    const auto creates = std::make_shared<Creates>(
+        std::vector{created},
+        std::vector{x::errors::NIL}
+    );
+    const auto dispatches = std::make_shared<Dispatches>(
+        std::vector<google::protobuf::Empty>(1),
+        std::vector{x::errors::NIL}
+    );
+    Config cfg{
+        .dir = this->dir,
+        .ranges = synnax::ranger::Client(nullptr, creates, dispatches, {}),
+    };
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    std::atomic<int> done = 0;
+    const auto count = [&](const x::errors::Error &err) {
+        EXPECT_NIL(err);
+        ++done;
+    };
+    ASSERT_NIL(outbox->create_range(full_range(), count));
+    ASSERT_NIL(outbox->end_range(full_range().key, x::telem::TimeStamp(30), count));
+    ASSERT_EVENTUALLY_EQ(done.load(), 2);
+    ASSERT_EQ(creates->requests.size(), 1);
+    expect_full_range(creates->requests[0].ranges(0));
+    ASSERT_EQ(dispatches->requests.size(), 1);
+    ASSERT_EQ(dispatches->requests[0].key(), full_range().key.to_string());
+}
+
+/// @brief it should send the named color of a range create.
+TEST_F(OutboxTest, SendsNamedRangeColor) {
+    auto range = full_range();
+    const synnax::color::NamedRef named{.key = x::uuid::create()};
+    range.color = named;
+    ::grpc::ranger::CreateResponse created;
+    *created.add_ranges() = ASSERT_NIL_P(range.to_proto());
+    const auto creates = std::make_shared<Creates>(
+        std::vector{created},
+        std::vector{x::errors::NIL}
+    );
+    Config cfg{
+        .dir = this->dir,
+        .ranges = synnax::ranger::Client(nullptr, creates, nullptr, {}),
+    };
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    std::atomic<int> done = 0;
+    ASSERT_NIL(outbox->create_range(range, [&](const x::errors::Error &err) {
+        EXPECT_NIL(err);
+        ++done;
+    }));
+    ASSERT_EVENTUALLY_EQ(done.load(), 1);
+    ASSERT_EQ(creates->requests.size(), 1);
+    const auto sent = ASSERT_NIL_P(
+        synnax::ranger::Range::from_proto(creates->requests[0].ranges(0))
+    );
+    ASSERT_TRUE(sent.color.has_value());
+    const auto *got = std::get_if<synnax::color::NamedRef>(&sent.color.value());
+    ASSERT_NE(got, nullptr);
+    EXPECT_EQ(got->key, named.key);
+}
+
+/// @brief it should drop a create that the Core rejects when no range has its key.
+TEST_F(OutboxTest, DropsRejectedCreate) {
+    const auto creates = std::make_shared<Creates>(
+        std::vector<::grpc::ranger::CreateResponse>(1),
+        std::vector{x::errors::VALIDATION}
+    );
+    const auto retrieves = std::make_shared<Retrieves>(
+        std::vector<::api::ranger::pb::RetrieveResponse>(1),
+        std::vector{x::errors::NIL}
+    );
+    Config cfg{
+        .dir = this->dir,
+        .ranges = synnax::ranger::Client(retrieves, creates, nullptr, {}),
+    };
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    std::atomic<bool> done = false;
+    ASSERT_NIL(outbox->create_range(full_range(), [&](const x::errors::Error &err) {
+        EXPECT_TRUE(err.matches(x::errors::VALIDATION));
+        done = true;
+    }));
+    ASSERT_EVENTUALLY_TRUE(done.load());
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    ASSERT_EQ(outbox->dropped(), 1);
 }
 
 /// @brief it should keep the calls before a call that a crash cut off, and count the
@@ -444,14 +859,6 @@ TEST_F(OutboxTest, RefusesUnknownCallKind) {
     ASSERT_EQ(std::filesystem::file_size(this->segment()), size);
 }
 
-/// @brief it should refuse to open a range call, which this Driver cannot send.
-TEST_F(OutboxTest, RefusesRangeCall) {
-    pb::Call call;
-    call.mutable_end_range()->set_key("range");
-    this->write_call(call.SerializeAsString());
-    ASSERT_OCCURRED_AS_P(Outbox::open({.dir = this->dir}), UNKNOWN_VERSION);
-}
-
 /// @brief it should remove the temporary files that a crash left, and keep the rest.
 TEST_F(OutboxTest, RemovesStaleTemporaryFiles) {
     {
@@ -514,6 +921,63 @@ TEST_F(OutboxTest, WritesV1Segment) {
     ASSERT_EQ(written.substr(0, 12), fixture.substr(0, 12));
     ASSERT_EQ(written.substr(16, 12), fixture.substr(16, 12));
     ASSERT_EQ(payloads_of(this->segment()), payloads_of(TESTDATA / "v1_segment.bin"));
+}
+
+/// @brief it should send the v1 range calls, which every later Driver must read.
+TEST_F(OutboxTest, SendsV1RangeSegment) {
+    std::filesystem::create_directories(this->dir);
+    std::filesystem::copy_file(TESTDATA / "v1_range_segment.bin", this->segment());
+    ::grpc::ranger::CreateResponse created;
+    *created.add_ranges() = ASSERT_NIL_P(full_range().to_proto());
+    const auto creates = std::make_shared<Creates>(
+        std::vector{created},
+        std::vector{x::errors::NIL}
+    );
+    const auto dispatches = std::make_shared<Dispatches>(
+        std::vector<google::protobuf::Empty>(1),
+        std::vector{x::errors::NIL}
+    );
+    Config cfg{
+        .dir = this->dir,
+        .ranges = synnax::ranger::Client(nullptr, creates, dispatches, {}),
+    };
+    const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    ASSERT_EQ(outbox->dropped(), 0);
+    ASSERT_EQ(creates->requests.size(), 1);
+    expect_full_range(creates->requests[0].ranges(0));
+    ASSERT_EQ(dispatches->requests.size(), 1);
+    ASSERT_EQ(dispatches->requests[0].key(), full_range().key.to_string());
+}
+
+/// @brief it should write the v1 format of range calls.
+TEST_F(OutboxTest, WritesV1RangeSegment) {
+    {
+        const auto creates = std::make_shared<Creates>(
+            std::vector<::grpc::ranger::CreateResponse>(1),
+            std::vector{freighter::UNREACHABLE}
+        );
+        Config cfg{
+            .dir = this->dir,
+            .ranges = synnax::ranger::Client(nullptr, creates, nullptr, {}),
+        };
+        cfg.retry.base_interval = x::telem::HOUR;
+        cfg.retry.max_interval = x::telem::HOUR;
+        const auto outbox = ASSERT_NIL_P(Outbox::open(cfg));
+        ASSERT_NIL(outbox->create_range(full_range(), nullptr));
+        ASSERT_NIL(
+            outbox->end_range(full_range().key, x::telem::TimeStamp(30), nullptr)
+        );
+    }
+    // Each file has its own salt, so only the bytes before it match the fixture.
+    const auto written = read_file(this->segment());
+    const auto fixture = read_file(TESTDATA / "v1_range_segment.bin");
+    ASSERT_EQ(written.size(), fixture.size());
+    ASSERT_EQ(written.substr(0, 12), fixture.substr(0, 12));
+    ASSERT_EQ(
+        payloads_of(this->segment()),
+        payloads_of(TESTDATA / "v1_range_segment.bin")
+    );
 }
 
 /// @brief it should remove each segment once the Core took all of its calls.
