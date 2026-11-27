@@ -92,6 +92,7 @@ export { sift } from "@/sift";
 export { status, type StatusZodObject } from "@/status";
 export { table } from "@/table";
 export { task } from "@/task";
+export { tcp } from "@/tcp";
 export { user } from "@/user";
 export { view } from "@/view";
 export {
