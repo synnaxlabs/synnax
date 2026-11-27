@@ -1147,6 +1147,14 @@ class TestChannelUses:
         )
         assert client.channels.retrieve(ch.key).uses is None
 
+    def test_retrieved_channel_reads_built_in(self, client: sy.Synnax) -> None:
+        """Should read the built-in flag on each channel that a retrieve returns."""
+        assert client.channels.retrieve("sy_task_cmd").built_in is True
+        made = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        assert client.channels.retrieve(made.key).built_in is False
+
     def test_retrieve_built_in(self, client: sy.Synnax) -> None:
         """Should retrieve the built-in channels through the built-in filter."""
         cmd = client.channels.retrieve("sy_task_cmd")

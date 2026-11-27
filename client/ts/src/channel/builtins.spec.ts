@@ -54,6 +54,23 @@ const pageToEnd = async (client: Synnax, prefix: string): Promise<number> => {
   return window.records.length;
 };
 
+describe("The built-in flag of a retrieved channel", () => {
+  it("should read built-in on a channel that a Core service makes", async () => {
+    const cmd = await remote.channels.retrieve("sy_task_cmd");
+    expect(cmd.builtIn).toBe(true);
+  });
+
+  it("should read not built-in on a channel that a user makes", async () => {
+    const made = await remote.channels.create({
+      name: `builtin_flag_${id.create()}`,
+      dataType: "float32",
+      virtual: true,
+    });
+    const retrieved = await remote.channels.retrieve(made.key);
+    expect(retrieved.builtIn).toBe(false);
+  });
+});
+
 describe("Lists with a built-in line", () => {
   it("should page to the end once the built-in keys arrived", async () => {
     const prefix = await createPagedChannels();
