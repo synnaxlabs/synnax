@@ -75,7 +75,10 @@ cc_test(
 cc_test(
     name = "open_test",
     size = "small",
-    srcs = ["open_test.cpp"],
+    srcs = ["open_test.cpp"] + select({
+        "@platforms//os:windows": ["open_windows_test.cpp"],
+        "//conditions:default": ["open_posix_test.cpp"],
+    }),
     deps = [
         ":serial",
         "//driver/transport",
