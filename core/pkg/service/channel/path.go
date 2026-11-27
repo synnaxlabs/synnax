@@ -208,20 +208,8 @@ func (e AmbiguousNameError) Error() string {
 	)
 }
 
-// quotePath returns path in single quotes, with each quote and backslash escaped.
-func quotePath(path string) string {
-	var b strings.Builder
-	b.Grow(len(path) + 2)
-	b.WriteByte('\'')
-	for i := range len(path) {
-		if path[i] == '\'' || path[i] == '\\' {
-			b.WriteByte('\\')
-		}
-		b.WriteByte(path[i])
-	}
-	b.WriteByte('\'')
-	return b.String()
-}
+// quotePath returns path in single quotes, as display text.
+func quotePath(path string) string { return "'" + path + "'" }
 
 // ambiguousName returns the query.MultipleResults error that holds the
 // AmbiguousNameError of name and holders.
