@@ -162,7 +162,7 @@ export const createWrapper = async ({
   installMiddleware,
   secure = false,
 }: CreateWrapperParams = {}): Promise<FC<PropsWithChildren>> => {
-  const core = createCore("Local", { secure });
+  const core = createCore("Local", { insecure: !secure });
   const { wrapper: Console } = await createStatusConsoleWrapper({
     client,
     status: coreVersion == null ? undefined : createStatus(coreVersion),

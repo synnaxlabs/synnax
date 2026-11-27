@@ -23,7 +23,7 @@ const client = new Synnax({
   port: 9090,
   username: "synnax",
   password: "seldon",
-  secure: false,
+  insecure: true,
 });
 
 // We can just specify the names of the channels we'd like to stream from.

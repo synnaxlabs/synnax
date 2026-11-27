@@ -17,7 +17,7 @@ const BASE: Omit<Core.Core, "key"> = {
   port: 9090,
   username: "",
   password: "",
-  secure: false,
+  insecure: true,
 };
 
 const ALPHA: Core.Core = { ...BASE, key: "alpha", name: "Alpha" };
@@ -93,7 +93,7 @@ describe("set", () => {
   it.each([
     ["host", { host: "elsewhere.com" }],
     ["port", { port: 9099 }],
-    ["scheme", { secure: true }],
+    ["scheme", { insecure: false }],
   ])("should keep the cached cluster when the %s changes", (_, change) => {
     const state = reduce(
       withCores({ ...ALPHA, clusterKey: "cluster-1" }),
@@ -178,7 +178,7 @@ describe("sliceStateZ", () => {
     key: "DEMO",
     name: "Demo",
     host: "demo.synnaxlabs.com",
-    secure: true,
+    insecure: false,
   };
 
   it("should drop the retired demo Core from saved state", () => {
@@ -313,21 +313,28 @@ describe("coreZ", () => {
       port: "9090",
       username: "synnax",
       password: "seldon",
-      secure: false,
+      insecure: true,
     });
     expect(parsed.port).toBe(9090);
   });
 
-  it("should read a stored record with no secure as insecure", () => {
-    const parsed = Core.coreZ.parse({
+  it.each<[string, object, boolean]>([
+    ["no TLS field", {}, true],
+    ["secure false", { secure: false }, true],
+    ["secure true", { secure: true }, false],
+    ["insecure over secure", { insecure: false, secure: false }, false],
+  ])("should read a stored record with %s", (_, tls, insecure) => {
+    const parsed = Core.storedCoreZ.parse({
       key: "k",
       name: "Alpha",
       host: "localhost",
       port: 9090,
       username: "synnax",
       password: "seldon",
+      ...tls,
     });
-    expect(parsed.secure).toBe(false);
+    expect(parsed.insecure).toBe(insecure);
+    expect(parsed).not.toHaveProperty("secure");
   });
 
   // The client's params carry behavioral fields; only the address may reach the disk.
@@ -335,13 +342,13 @@ describe("coreZ", () => {
     expect(Object.keys(Core.coreZ.shape).sort()).toEqual([
       "clusterKey",
       "host",
+      "insecure",
       "key",
       "lastLogin",
       "name",
       "oidc",
       "password",
       "port",
-      "secure",
       "user",
       "username",
     ]);
@@ -349,6 +356,24 @@ describe("coreZ", () => {
 });
 
 describe("PERSIST_EXCLUDE", () => {
+  it("should write secure as the inverse of insecure in each stored Core", () => {
+    const state = {
+      [Core.SLICE_NAME]: withCores(
+        { ...ALPHA, insecure: true },
+        { ...BRAVO, insecure: false },
+      ),
+    };
+    const stored = Core.PERSIST_EXCLUDE.reduce((s, exclude) => exclude(s), state);
+    const cores = Object.values(stored[Core.SLICE_NAME].cores);
+    expect(cores.map((c) => [c.insecure, "secure" in c && c.secure])).toEqual([
+      [true, false],
+      [false, true],
+    ]);
+    const read = Core.sliceStateZ.parse(stored[Core.SLICE_NAME]);
+    expect(read.cores.alpha.insecure).toBe(true);
+    expect(read.cores.bravo.insecure).toBe(false);
+  });
+
   it("should keep every password out of the stored state", () => {
     const state = {
       [Core.SLICE_NAME]: withCores(

@@ -45,7 +45,7 @@ export const TokenKeeper = (): null => {
     // the client outlives a rename of its user, so the username stays out
     core.host === client.params.host &&
     core.port === Number(client.params.port) &&
-    core.secure === client.params.secure;
+    core.insecure === client.params.insecure;
   const rejected =
     current && status.variant === "error" && status.details.reason === "auth";
   const token = current && status.details.authenticated ? client.auth.token : undefined;

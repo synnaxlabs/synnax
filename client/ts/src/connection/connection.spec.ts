@@ -42,7 +42,7 @@ const liveUnary = (): UnaryClient => {
       host: testClientParams().host,
       port: Number(testClientParams().port),
     }),
-    secure: false,
+    insecure: true,
   });
   const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
   transport.use(client.middleware());
@@ -267,7 +267,7 @@ describe("connection", () => {
       const status = await connection.check({
         host: testClientParams().host,
         port: testClientParams().port,
-        secure: false,
+        insecure: true,
         name: "test-cluster",
       });
       expect(status.variant).toEqual("success");
@@ -279,7 +279,7 @@ describe("connection", () => {
       const status = await connection.check({
         host: testClientParams().host,
         port: testClientParams().port,
-        secure: false,
+        insecure: true,
       });
       expect(status.details.clientVersion).toBeDefined();
       expect(status.details.clientServerCompatible).toBe(true);
@@ -298,15 +298,38 @@ describe("connection", () => {
       const status = await connection.check({
         host: testClientParams().host,
         port: 9999,
-        secure: false,
+        insecure: true,
       });
       expect(status.variant).toEqual("error");
     });
 
-    it("should use TLS when secure is left out", async () => {
+    it("should use TLS when insecure is left out", async () => {
       const { host, port } = testClientParams();
       const status = await connection.check({ host, port });
       expect(status.variant).toEqual("error");
+    });
+
+    it.each([
+      ["alone", { secure: false }, 1],
+      ["next to an agreeing insecure", { insecure: true, secure: false }, 0],
+    ])(
+      "should read the deprecated secure %s as its inverse",
+      async (_, tls, warnings) => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const { host, port } = testClientParams();
+        const status = await connection.check({ host, port, ...tls });
+        expect(status.variant).toEqual("success");
+        expect(warn).toHaveBeenCalledTimes(warnings);
+        warn.mockRestore();
+      },
+    );
+
+    it("should reject insecure and the deprecated secure that disagree", async () => {
+      const { host, port } = testClientParams();
+      const tls = { insecure: true, secure: true };
+      await expect(connection.check({ host, port, ...tls })).rejects.toThrow(
+        "insecure and secure disagree",
+      );
     });
   });
 

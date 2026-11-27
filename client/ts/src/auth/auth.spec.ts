@@ -45,7 +45,7 @@ describe("auth", () => {
         host: testClientParams().host,
         port: Number(testClientParams().port),
       }),
-      secure: false,
+      insecure: true,
     });
     const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
     const mw = client.middleware();
@@ -59,7 +59,7 @@ describe("auth", () => {
         host: testClientParams().host,
         port: Number(testClientParams().port),
       }),
-      secure: false,
+      insecure: true,
     });
     const client = new auth.Client(transport.unary, {
       credentials: { username: TEST_CREDENTIALS.username, password: "wrong" },
@@ -79,7 +79,7 @@ describe("auth", () => {
             host: testClientParams().host,
             port: Number(testClientParams().port),
           }),
-          secure: false,
+          insecure: true,
         });
         const onFailure = vi.fn();
         const client = new auth.Client(
@@ -113,7 +113,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       const onFailure = vi.fn();
       const client = new auth.Client(
@@ -137,7 +137,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       const onFailure = vi.fn();
       const client = new auth.Client(
@@ -160,7 +160,7 @@ describe("auth", () => {
     const client = auth.createTokenlessClient({
       host: testClientParams().host,
       port: Number(testClientParams().port),
-      secure: false,
+      insecure: true,
     });
     it("should list the methods the Core accepts without logging in", async () => {
       const methods = await auth.retrieveMethods(client);
@@ -174,10 +174,36 @@ describe("auth", () => {
       expect(second).toEqual(first);
       expect(await auth.retrieveMethods(client)).toEqual(first);
     });
-    it("should use TLS when secure is left out", async () => {
+    it("should use TLS when insecure is left out", async () => {
       const { host, port } = testClientParams();
       const tls = auth.createTokenlessClient({ host, port });
       await expect(auth.retrieveMethods(tls)).rejects.toThrow();
+    });
+
+    it.each([
+      ["alone", { secure: false }, 1],
+      ["next to an agreeing insecure", { insecure: true, secure: false }, 0],
+    ])(
+      "should read the deprecated secure %s as its inverse",
+      async (_, tls, warnings) => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const { host, port } = testClientParams();
+        const cleartext = auth.createTokenlessClient({ host, port, ...tls });
+        expect((await auth.retrieveMethods(cleartext)).toSorted()).toEqual([
+          "api_key",
+          "password",
+        ]);
+        expect(warn).toHaveBeenCalledTimes(warnings);
+        warn.mockRestore();
+      },
+    );
+
+    it("should reject insecure and the deprecated secure that disagree", () => {
+      const { host, port } = testClientParams();
+      const tls = { insecure: true, secure: true };
+      expect(() => auth.createTokenlessClient({ host, port, ...tls })).toThrow(
+        "insecure and secure disagree",
+      );
     });
   });
 
@@ -185,7 +211,7 @@ describe("auth", () => {
     const tokenless = auth.createTokenlessClient({
       host: testClientParams().host,
       port: Number(testClientParams().port),
-      secure: false,
+      insecure: true,
     });
     it("should open a session without a logged-in client", async () => {
       const { token, session } = await auth.createSession(tokenless, {
@@ -213,7 +239,7 @@ describe("auth", () => {
         auth.createTokenlessClient({
           host: testClientParams().host,
           port: Number(testClientParams().port),
-          secure: false,
+          insecure: true,
         }),
       );
       expect(providers).toEqual([]);
@@ -230,7 +256,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       const client = new auth.Client(transport.unary, { credentials }, observer);
       transport.use(client.middleware());
@@ -242,7 +268,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       const client = new auth.Client(transport.unary, { token }, observer);
       transport.use(client.middleware());
@@ -396,7 +422,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       let succeeded = false;
       let username: string | undefined;
@@ -424,7 +450,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       let failure: Error | undefined;
       const client = new auth.Client(
@@ -445,7 +471,7 @@ describe("auth", () => {
       const transport = new Transport({
         url: new url.URL({ host: "localhost", port: 1 }),
         retry: { maxRetries: 0 },
-        secure: false,
+        insecure: true,
       });
       let failure: Error | undefined;
       const client = new auth.Client(
@@ -477,7 +503,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       const client = new auth.Client(transport.unary, { cookie: true });
       await expect(
@@ -576,7 +602,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       let key: string | undefined;
       const client = new auth.Client(
@@ -601,7 +627,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       const client = new auth.Client(transport.unary, {
         credentials: TEST_CREDENTIALS,
@@ -835,7 +861,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       const client = new auth.Client(transport.unary, authority);
       transport.use(client.middleware());
@@ -960,7 +986,7 @@ describe("auth", () => {
           host: testClientParams().host,
           port: Number(testClientParams().port),
         }),
-        secure: false,
+        insecure: true,
       });
       let username: string | undefined;
       const client = new auth.Client(

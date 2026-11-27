@@ -86,15 +86,15 @@ const useProviders = (
 ): auth.OIDCLogin[] | undefined => {
   const host = core?.host;
   const port = core?.port;
-  const secure = core?.secure;
+  const insecure = core?.insecure;
   const key =
-    !oidc || host == null || port == null ? null : `${host}:${port}:${secure}`;
+    !oidc || host == null || port == null ? null : `${host}:${port}:${insecure}`;
   const [found, setFound] = useState<{ key: string; providers: auth.OIDCLogin[] }>();
   const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async (signal) => {
       if (key == null || host == null || port == null) return;
-      const tokenless = auth.createTokenlessClient({ host, port, secure });
+      const tokenless = auth.createTokenlessClient({ host, port, insecure });
       handleError(async () => {
         const providers = await auth.retrieveProviders(tokenless);
         if (!signal.aborted) setFound({ key, providers });
@@ -184,7 +184,7 @@ export const Login = (): ReactElement => {
         if (
           current?.host !== core.host ||
           current.port !== core.port ||
-          current.secure !== core.secure
+          current.insecure !== core.insecure
         )
           throw new Error("The Core's address changed during the login. Log in again.");
         // a user who left the login surface has moved on

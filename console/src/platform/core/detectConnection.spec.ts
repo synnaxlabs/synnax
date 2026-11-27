@@ -44,18 +44,18 @@ describe("detectConnection", () => {
       name: "Core",
       host: "example.com",
       port: 8080,
-      secure: false,
+      insecure: true,
     });
   });
 
-  it("should default an https origin without a port to 443 and mark it secure", () => {
+  it("should default an https origin without a port to 443 and use TLS", () => {
     pinLocationOrigin("https://example.com");
     expect(Core.detectConnection()).toEqual({
       key: Session.Core.SERVED_KEY,
       name: "Core",
       host: "example.com",
       port: 443,
-      secure: true,
+      insecure: false,
     });
   });
 
@@ -66,7 +66,7 @@ describe("detectConnection", () => {
       name: "Core",
       host: "example.com",
       port: 80,
-      secure: false,
+      insecure: true,
     });
   });
 });
@@ -93,7 +93,7 @@ describe("detectConnection on the dev server", () => {
       name: "Core",
       host: "localhost",
       port: 9401,
-      secure: false,
+      insecure: true,
     });
   });
 

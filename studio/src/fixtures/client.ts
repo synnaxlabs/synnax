@@ -29,4 +29,4 @@ export const connect = ({
   username = "synnax",
   password = "seldon",
 }: ConnectionOptions = {}): Synnax =>
-  new Synnax({ host, port, username, password, secure: false });
+  new Synnax({ host, port, username, password, insecure: true });

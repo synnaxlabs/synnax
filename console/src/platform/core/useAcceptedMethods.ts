@@ -35,13 +35,13 @@ interface Read {
 export const useAcceptedMethods = (core?: auth.TokenlessParams): AcceptedMethods => {
   const host = core?.host;
   const port = core?.port;
-  const secure = core?.secure;
-  const address = `${host}:${port}:${secure}`;
+  const insecure = core?.insecure;
+  const address = `${host}:${port}:${insecure}`;
   const [read, setRead] = useState<Read | null>(null);
   useAsyncEffect(
     async (signal) => {
       if (host == null || port == null) return;
-      const tokenless = auth.createTokenlessClient({ host, port, secure });
+      const tokenless = auth.createTokenlessClient({ host, port, insecure });
       const methods = await auth.retrieveMethods(tokenless).catch(() => null);
       if (methods == null || signal.aborted) return;
       setRead({
@@ -52,7 +52,7 @@ export const useAcceptedMethods = (core?: auth.TokenlessParams): AcceptedMethods
         },
       });
     },
-    [host, port, secure],
+    [host, port, insecure],
   );
   return read?.address === address ? read.methods : DEFAULT_ACCEPTED;
 };

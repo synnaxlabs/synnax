@@ -13,7 +13,7 @@ import { Core } from "@/session/core";
 import { createCore } from "@/session/core/testutil";
 
 const CORE_A = createCore("Alpha", { host: "a.example.com" });
-const CORE_B = createCore("Beta", { host: "b.example.com", secure: true });
+const CORE_B = createCore("Beta", { host: "b.example.com", insecure: false });
 
 const KEY_A = CORE_A.key;
 const KEY_B = CORE_B.key;

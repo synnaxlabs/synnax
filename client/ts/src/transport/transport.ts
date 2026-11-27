@@ -24,8 +24,8 @@ export interface TransportConfig {
   url: url.URL;
   /** How the unary client retries a request that fails. Defaults to the breaker's. */
   retry?: breaker.Config;
-  /** Whether to connect with TLS. */
-  secure: boolean;
+  /** Whether to connect without TLS, to a Core that runs with --insecure. */
+  insecure: boolean;
   /** Receives each failed attempt that the unary client retries. */
   onRetry?: (error: Error) => void;
   /**
@@ -45,10 +45,9 @@ export class Transport {
   readonly unaryNoRetry: UnaryClient;
   readonly file: FileTransport;
   readonly stream: WebSocketClient;
-  readonly secure: boolean;
 
-  constructor({ url, retry = {}, secure, onRetry, connector }: TransportConfig) {
-    this.secure = secure;
+  constructor({ url, retry = {}, insecure, onRetry, connector }: TransportConfig) {
+    const secure = !insecure;
     this.url = url.child("/api/v1/");
     const codec = new binary.JSONCodec();
     // The streaming file client and the unary client share one HTTPClient, so

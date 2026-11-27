@@ -86,12 +86,14 @@ export const synnaxParamsZ = z.object({
   sessionPersistent: z.boolean().default(false),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
-  secure: z.boolean().default(true),
+  /** Whether to connect without TLS, to a Core that runs with --insecure. */
+  insecure: z.boolean().default(false),
+  /** @deprecated Use insecure. Removed in 0.64. */
+  secure: z.boolean().optional(),
   /**
    * The PEM text of a CA certificate that signs the Core's certificate, trusted along
-   * with the runtime's default certificates. Turns on secure unless secure is false,
-   * which is an error. Node.js and Bun only: in Deno, leave it out and start Deno with
-   * --cert.
+   * with the runtime's default certificates. Insecure true with it is an error.
+   * Node.js and Bun only: in Deno, leave it out and start Deno with --cert.
    */
   caCert: z
     .string()
@@ -145,19 +147,27 @@ const constructorParamsZ = synnaxParamsZ
       path: ["apiKey"],
     },
   )
-  .refine((p) => p.caCert == null || p.secure, {
-    message: "caCert requires secure; leave secure out or set it to true",
-    path: ["secure"],
+  .refine((p) => p.caCert == null || !p.insecure, {
+    message: "caCert requires TLS; leave insecure out or set it to false",
+    path: ["insecure"],
   });
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
+interface ClientParams extends Omit<
+  ParsedSynnaxParams,
+  "password" | "apiKey" | "token" | "oidc" | "secure"
+> {
+  /** @deprecated Use insecure, its inverse. Removed in 0.64. */
+  readonly secure: boolean;
+}
+
 /**
  * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
- * SYNNAX_API_KEY, SYNNAX_SECURE, and SYNNAX_CA_CERT environment variables fill the
- * fields left out.
- * With no host from either, Synnax Desktop on this computer fills them.
+ * SYNNAX_API_KEY, SYNNAX_CLIENT_INSECURE, and SYNNAX_CA_CERT environment variables fill
+ * the fields left out, and so does the deprecated SYNNAX_SECURE. With no host from
+ * either, Synnax Desktop on this computer fills them.
  */
 export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
   host?: string;
@@ -258,7 +268,7 @@ export default class Synnax extends framer.Client {
   readonly key: string;
   readonly createdAt: TimeStamp;
   /** The parameters the client connects with. Credentials stay in auth. */
-  readonly params: Omit<ParsedSynnaxParams, "password" | "apiKey" | "token" | "oidc">;
+  readonly params: ClientParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client;
@@ -318,26 +328,30 @@ export default class Synnax extends framer.Client {
    * open, for a caller that saves the session token.
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
-   * @param props.secure - Whether to connect to the cluster using TLS. Set it to false
-   * for a Core that runs with --insecure. Defaults to true with props.caCert, else to
-   * SYNNAX_SECURE (true with SYNNAX_CA_CERT), then the value of Synnax Desktop when it
-   * gives the host, then true.
-   * A Synnax client must be closed when it is no longer needed. This stops the
+   * @param props.insecure - Whether to connect without TLS. Set it to true for a Core
+   * that runs with --insecure. Defaults to false with props.caCert, else to
+   * SYNNAX_CLIENT_INSECURE (false with SYNNAX_CA_CERT), then the value of Synnax
+   * Desktop when it gives the host, then false.
+   * @param props.secure - Deprecated, and removed in 0.64: the opposite of
+   * props.insecure. Alone, it logs a warning; it throws if props.insecure disagrees.
+   * SYNNAX_SECURE logs a warning, and applies only when SYNNAX_CLIENT_INSECURE is
+   * unset. A Synnax client must be closed when it is no longer needed. This stops the
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
-   * certificate. Turns on props.secure when it is not given. When props.secure and
-   * props.caCert are both left out, defaults to the text of the file at SYNNAX_CA_CERT,
-   * except in Deno, where TLS trusts the store that --cert or DENO_CERT fills.
+   * certificate. When props.insecure and props.caCert are both left out, defaults to
+   * the text of the file at SYNNAX_CA_CERT, except in Deno, where TLS trusts the store
+   * that --cert or DENO_CERT fills.
    * The key helper of Synnax Desktop runs before the first login. If it is gone or
    * fails, that login rejects with an APIKeyUnavailableError, and the connection status
    * gives the reason "auth".
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
-   * SYNNAX_PORT or SYNNAX_SECURE is not valid, if SYNNAX_CA_CERT is set with
-   * SYNNAX_SECURE false, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
-   * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
-   * Desktop is too old.
-   * @throws {Error} if props.caCert is set with props.secure false, in a browser, or in
-   * Deno.
+   * SYNNAX_PORT, SYNNAX_CLIENT_INSECURE, or the SYNNAX_SECURE it reads is not valid, if
+   * insecure and secure disagree, if SYNNAX_CA_CERT is set with SYNNAX_CLIENT_INSECURE
+   * true, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or cannot be
+   * read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax Desktop is
+   * too old.
+   * @throws {Error} if props.caCert is set with props.insecure true, in a browser, or
+   * in Deno.
    * @throws {Error} in Node, if HTTP_PROXY or HTTPS_PROXY is set to a value that is not
    * an http or https URL.
    */
@@ -349,8 +363,14 @@ export default class Synnax extends framer.Client {
       system,
     );
     const parsedParams = zod.parse(constructorParamsZ, resolved);
-    const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
-      parsedParams;
+    const {
+      host,
+      port,
+      connectivityPollFrequency,
+      clockSkewThreshold,
+      insecure,
+      retry,
+    } = parsedParams;
     const address = new url.URL({ host, port: Number(port) });
     const { caCert } = parsedParams;
     // Deno's WebSocket cannot use the CA, so the client's change stream never opens.
@@ -362,12 +382,12 @@ export default class Synnax extends framer.Client {
     const transport = new Transport({
       url: address,
       retry,
-      secure,
+      insecure,
       onRetry: parsedParams.onRetry,
       connector,
     });
     transport.use(errorsMiddleware);
-    const tokenless = new Transport({ url: address, secure, connector });
+    const tokenless = new Transport({ url: address, insecure, connector });
     tokenless.use(errorsMiddleware);
     // The arrow reads this.channels only when called, after construction completes.
     const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {
@@ -436,7 +456,12 @@ export default class Synnax extends framer.Client {
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();
-    this.params = record.omit(parsedParams, "password", "apiKey", "token", "oidc");
+    // Built apart from the field so the deprecated key does not flag the build.
+    const clientParams = {
+      ...record.omit(parsedParams, "password", "apiKey", "token", "oidc", "secure"),
+      secure: !parsedParams.insecure,
+    };
+    this.params = clientParams;
     this.transport = transport;
     const unary = this.transport.unary;
     this.batch = new batch.Client(unary);

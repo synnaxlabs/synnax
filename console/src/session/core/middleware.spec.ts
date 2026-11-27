@@ -23,7 +23,7 @@ const BASE: Omit<Core.Core, "key"> = {
   port: 9090,
   username: "",
   password: "",
-  secure: false,
+  insecure: true,
 };
 
 const ALPHA: Core.Core = { ...BASE, key: "alpha", name: "Alpha" };

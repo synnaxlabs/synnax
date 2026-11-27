@@ -13,14 +13,14 @@ import { parse } from "./coreURL.ts";
 
 describe("parse", () => {
   it("should read a bare port as an insecure localhost Core", () => {
-    expect(parse("9097")).toEqual({ host: "localhost", port: 9097, secure: false });
+    expect(parse("9097")).toEqual({ host: "localhost", port: 9097, insecure: true });
   });
 
-  it("should read an https URL with no port as a secure Core on 443", () => {
+  it("should read an https URL with no port as a Core with TLS on 443", () => {
     expect(parse("https://pr-1.52-44-81-137.sslip.io")).toEqual({
       host: "pr-1.52-44-81-137.sslip.io",
       port: 443,
-      secure: true,
+      insecure: false,
     });
   });
 
@@ -28,7 +28,7 @@ describe("parse", () => {
     expect(parse("http://core.local")).toEqual({
       host: "core.local",
       port: 80,
-      secure: false,
+      insecure: true,
     });
   });
 
@@ -36,7 +36,7 @@ describe("parse", () => {
     expect(parse("https://localhost:9090/")).toEqual({
       host: "localhost",
       port: 9090,
-      secure: true,
+      insecure: false,
     });
   });
 

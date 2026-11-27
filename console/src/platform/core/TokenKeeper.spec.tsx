@@ -275,7 +275,7 @@ describe("Core.TokenKeeper", () => {
     const client = new Client({
       host: "127.0.0.1",
       port,
-      secure: false,
+      insecure: true,
       oidc: CODE,
       sessionCookie: token === "",
     });
@@ -284,7 +284,7 @@ describe("Core.TokenKeeper", () => {
     const core = createCore("Local", {
       host: "127.0.0.1",
       port,
-      secure: false,
+      insecure: true,
       username: "",
       password: "",
       oidc: CODE,

@@ -11,7 +11,7 @@ import { Session } from "@/session";
 
 export interface ConnectionParams extends Pick<
   Session.Core.Core,
-  "key" | "name" | "host" | "port" | "secure"
+  "key" | "name" | "host" | "port" | "insecure"
 > {}
 
 /**
@@ -34,7 +34,7 @@ const devConnection = (): ConnectionParams | null => {
     name: "Core",
     host: "localhost",
     port,
-    secure: false,
+    insecure: true,
   };
 };
 
@@ -45,7 +45,7 @@ const pageConnection = (origin: string): ConnectionParams => {
     name: "Core",
     host: url.hostname,
     port: url.port ? parseInt(url.port, 10) : url.protocol === "https:" ? 443 : 80,
-    secure: url.protocol === "https:",
+    insecure: url.protocol !== "https:",
   };
 };
 

@@ -18,7 +18,7 @@ export const CONNECTION_PARAMS: Omit<Core, "key" | "name"> = {
   ...testCoreAddress(),
   username: "synnax",
   password: "seldon",
-  secure: false,
+  insecure: true,
 };
 
 /** The keychain account that holds the token of a Core. */

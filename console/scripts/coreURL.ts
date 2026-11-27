@@ -10,7 +10,7 @@
 export interface Core {
   host: string;
   port: number;
-  secure: boolean;
+  insecure: boolean;
 }
 
 /**
@@ -21,11 +21,11 @@ export interface Core {
  */
 export const parse = (address: string): Core => {
   if (/^\d+$/.test(address))
-    return { host: "localhost", port: Number(address), secure: false };
+    return { host: "localhost", port: Number(address), insecure: true };
   const url = new URL(address);
   if (url.protocol !== "http:" && url.protocol !== "https:")
     throw new Error(`${address} is not an http or https URL`);
-  const secure = url.protocol === "https:";
-  const port = url.port === "" ? (secure ? 443 : 80) : Number(url.port);
-  return { host: url.hostname, port, secure };
+  const insecure = url.protocol !== "https:";
+  const port = url.port === "" ? (insecure ? 80 : 443) : Number(url.port);
+  return { host: url.hostname, port, insecure };
 };

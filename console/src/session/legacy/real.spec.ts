@@ -84,7 +84,7 @@ describe("Legacy.migrate over a real 0.56 store", () => {
       username: "synnax",
       password: "seldon",
       port: 9090,
-      secure: false,
+      insecure: true,
     });
   });
 

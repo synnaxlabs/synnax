@@ -22,10 +22,16 @@ import { synnax } from "@/synnax/aether";
 
 interface State {
   client: Synnax | null;
+  /** The params that the client was built from. */
+  params: SynnaxParams | null;
   status: connection.Status;
 }
 
-const ZERO_STATE: State = { client: null, status: connection.DEFAULT_STATUS };
+const ZERO_STATE: State = {
+  client: null,
+  params: null,
+  status: connection.DEFAULT_STATUS,
+};
 
 // The status changes on each connection check. Its own context keeps that change from
 // re-rendering every reader of the client.
@@ -133,16 +139,16 @@ export const Provider = ({
   const { client: pageClient } = state;
   // for a moment after a switch, the page client still belongs to the previous Core
   const current =
-    pageClient != null &&
-    connParams != null &&
-    pageClient.params.host === connParams.host &&
-    Number(pageClient.params.port) === Number(connParams.port) &&
-    pageClient.params.secure === (connParams.secure ?? true);
+    pageClient != null && connParams != null && state.params === connParams;
   const token =
     current && state.status.details.authenticated ? pageClient.auth.token : undefined;
   let workerParams: SynnaxParams | null = null;
-  if (connParams != null && token != null) {
-    const shared = record.omit(connParams, "username", "password", "oidc", "token");
+  if (current && token != null) {
+    const shared = {
+      ...record.omit(connParams, "username", "password", "oidc", "token", "secure"),
+      // resolved, so the worker joins over the same TLS choice as the page client
+      insecure: pageClient.params.insecure,
+    };
     workerParams =
       token === "" ? { ...shared, sessionCookie: true } : { ...shared, token };
   }
@@ -184,7 +190,7 @@ export const Provider = ({
       ...connParams,
       onInternalError: (e) => handleErrorRef.current(e, heading),
     });
-    setState({ client, status: client.connection.status });
+    setState({ client, params: connParams, status: client.connection.status });
     setResetKey((key) => key + 1);
     const detach = client.connection.onChange((connStatus) =>
       handleChangeRef.current(connStatus),

@@ -257,7 +257,7 @@ describe("Auth login", () => {
     const client = auth.createTokenlessClient({
       host: "127.0.0.1",
       port,
-      secure: false,
+      insecure: true,
     });
     expect(await auth.retrieveMethods(client)).toEqual(["api_key"]);
   });

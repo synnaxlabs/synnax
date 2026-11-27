@@ -79,7 +79,7 @@ const renderGuard = async (
   client: Synnax | null = null,
   location: Version.GuardProps["location"] = ELSEWHERE,
 ): Promise<StatusHarness> => {
-  const core = createCore(CORE_NAME, { secure });
+  const core = createCore(CORE_NAME, { insecure: !secure });
   return await renderWithStatus(
     <PlatformVersion.Provider>
       <Auth.Guard>

@@ -38,7 +38,7 @@ export interface ConnectionCore {
   name: string;
   host: string;
   port: number | string;
-  secure?: boolean;
+  insecure?: boolean;
 }
 
 export interface ConnectionProps {
@@ -59,11 +59,11 @@ export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
     core != null &&
     client.params.host === core.host &&
     Number(client.params.port) === Number(core.port) &&
-    (core.secure ?? true) === client.params.secure;
+    (core.insecure ?? false) === client.params.insecure;
   const checked = Synnax.useCheckConnection(
     isActive || core == null
       ? null
-      : { host: core.host, port: core.port, secure: core.secure },
+      : { host: core.host, port: core.port, insecure: core.insecure },
   );
   if (core == null) return null;
   const { variant, label } = summarize(isActive ? live : checked);

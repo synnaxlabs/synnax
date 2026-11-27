@@ -21,7 +21,7 @@ const client = new Synnax({
   port: 9090,
   username: "synnax",
   password: "seldon",
-  secure: false,
+  insecure: true,
 });
 
 const CHANNEL_COUNT = 100;

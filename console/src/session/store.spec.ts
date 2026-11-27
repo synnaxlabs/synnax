@@ -56,7 +56,7 @@ const REMOTE: Session.Core.SetPayload = {
   port: 9090,
   username: "synnax",
   password: "seldon",
-  secure: true,
+  insecure: false,
 };
 const REMOTE_KEY = "REMOTE";
 const LOCAL_KEY = "LOCAL";
@@ -185,7 +185,7 @@ describe("createStore", () => {
         name: "Staging",
         host: "somewhere.com",
         port: 9090,
-        secure: false,
+        insecure: true,
         username: "",
         password: "",
       }),

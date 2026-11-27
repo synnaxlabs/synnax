@@ -89,7 +89,7 @@ const SideEffect = (): null => {
         port,
         username,
         password: "",
-        secure: false,
+        insecure: true,
       }),
     );
     dispatch(Session.Core.select(key));

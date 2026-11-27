@@ -73,7 +73,7 @@ describe("constructor", () => {
     vi.stubEnv("SYNNAX_HOST", "core.env");
     vi.stubEnv("SYNNAX_PORT", "9091");
     vi.stubEnv("SYNNAX_API_KEY", "syk_env");
-    vi.stubEnv("SYNNAX_SECURE", "true");
+    vi.stubEnv("SYNNAX_CLIENT_INSECURE", "true");
   });
 
   afterEach(() => {
@@ -85,7 +85,7 @@ describe("constructor", () => {
     expect(client.params).toMatchObject({
       host: "core.env",
       port: 9091,
-      secure: true,
+      insecure: true,
     });
     await client.close();
   });
@@ -95,7 +95,7 @@ describe("constructor", () => {
     expect(client.params).toMatchObject({
       host: "rig",
       port: 1,
-      secure: true,
+      insecure: true,
     });
     await client.close();
   });
@@ -145,7 +145,7 @@ describe.skipIf(process.platform === "win32")("constructor with Synnax Desktop",
     }
     writeFileSync(
       join(home, ".synnax", "desktop.json"),
-      JSON.stringify({ host, port, secure: false, api_key_helper: helper }),
+      JSON.stringify({ host, port, insecure: true, api_key_helper: helper }),
     );
   };
 
@@ -242,6 +242,7 @@ const PEM = "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n";
 
 describe("constructor with caCert", () => {
   beforeEach(() => {
+    vi.stubEnv("SYNNAX_CLIENT_INSECURE", "");
     vi.stubEnv("SYNNAX_SECURE", "");
   });
 
@@ -250,25 +251,25 @@ describe("constructor with caCert", () => {
     vi.unstubAllGlobals();
   });
 
-  it("should reject a CA certificate with secure false", () => {
+  it("should reject a CA certificate with insecure true", () => {
     expect(
-      () => new Synnax({ host: "localhost", port: 9090, secure: false, caCert: PEM }),
-    ).toThrow("caCert requires secure; leave secure out or set it to true");
+      () => new Synnax({ host: "localhost", port: 9090, insecure: true, caCert: PEM }),
+    ).toThrow("caCert requires TLS; leave insecure out or set it to false");
   });
 
-  it("should use TLS when nothing gives secure", async () => {
+  it("should use TLS when nothing gives insecure", async () => {
     const client = new Synnax({ host: "localhost", port: 9090 });
-    expect(client.params.secure).toBe(true);
+    expect(client.params.insecure).toBe(false);
     await client.close();
   });
 
-  it("should not use TLS with secure false", async () => {
-    const client = new Synnax({ host: "localhost", port: 9090, secure: false });
-    expect(client.params.secure).toBe(false);
+  it("should not use TLS with insecure true", async () => {
+    const client = new Synnax({ host: "localhost", port: 9090, insecure: true });
+    expect(client.params.insecure).toBe(true);
     await client.close();
   });
 
-  it("should name a Core that does not use TLS when secure is left out", async () => {
+  it("should name a Core that does not use TLS when insecure is left out", async () => {
     const server = createHTTPServer((_, res) => res.end());
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
@@ -284,14 +285,14 @@ describe("constructor with caCert", () => {
     });
     await expect(client.channels.retrieve(["ch"])).rejects.toThrow(
       `The Core at 127.0.0.1:${port} does not use TLS. If it runs with --insecure, ` +
-        "set secure: false or SYNNAX_SECURE=false.",
+        "set insecure: true or SYNNAX_CLIENT_INSECURE=true.",
     );
     await client.close();
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   });
 
-  it("should name an insecure Core when secure is left out", async () => {
+  it("should name an insecure Core when insecure is left out", async () => {
     const { host, port } = testCoreAddress();
     const client = new Synnax({
       host,
@@ -303,7 +304,7 @@ describe("constructor with caCert", () => {
     });
     await expect(client.channels.retrieve(["ch"])).rejects.toThrow(
       `The Core at ${host}:${port} does not use TLS. If it runs with --insecure, ` +
-        "set secure: false or SYNNAX_SECURE=false.",
+        "set insecure: true or SYNNAX_CLIENT_INSECURE=true.",
     );
     await client.close();
   });
@@ -334,7 +335,7 @@ describe("constructor with caCert", () => {
     const client = new Synnax({
       host: "127.0.0.1",
       port: address.port,
-      secure: false,
+      insecure: true,
       oidc: CODE,
       retry: FAST_RETRY,
       onRetry: () => {},
@@ -351,31 +352,36 @@ describe("constructor with caCert", () => {
     });
   });
 
-  it("should use TLS for a CA certificate with SYNNAX_SECURE false", async () => {
-    vi.stubEnv("SYNNAX_SECURE", "false");
+  it("should use TLS for a CA certificate with SYNNAX_CLIENT_INSECURE true", async () => {
+    vi.stubEnv("SYNNAX_CLIENT_INSECURE", "true");
     const client = new Synnax({ host: "localhost", port: 9090, caCert: PEM });
-    expect(client.params.secure).toBe(true);
+    expect(client.params.insecure).toBe(false);
     await client.close();
   });
 
   it("should reject a CA certificate that is not PEM text", () => {
     expect(
       () =>
-        new Synnax({ host: "localhost", port: 9090, secure: true, caCert: "ca.crt" }),
+        new Synnax({
+          host: "localhost",
+          port: 9090,
+          insecure: false,
+          caCert: "ca.crt",
+        }),
     ).toThrow("The CA certificate must be PEM text");
   });
 
   it("should throw for a CA certificate in a browser", () => {
     vi.stubGlobal("process", undefined);
     expect(
-      () => new Synnax({ host: "localhost", port: 9090, secure: true, caCert: PEM }),
+      () => new Synnax({ host: "localhost", port: 9090, insecure: false, caCert: PEM }),
     ).toThrow("browser");
   });
 
   it("should tell a Deno user to leave out caCert", () => {
     vi.stubGlobal("Deno", {});
     expect(
-      () => new Synnax({ host: "localhost", port: 9090, secure: true, caCert: PEM }),
+      () => new Synnax({ host: "localhost", port: 9090, insecure: false, caCert: PEM }),
     ).toThrow("Deno cannot use caCert. Leave it out and start Deno with --cert");
   });
 
@@ -383,23 +389,24 @@ describe("constructor with caCert", () => {
     vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
     vi.stubGlobal("Deno", {});
     const client = new Synnax({ host: "localhost", port: 9090 });
-    expect(client.params.secure).toBe(true);
+    expect(client.params.insecure).toBe(false);
     expect(client.params.caCert).toBeUndefined();
     await client.close();
   });
 
-  it("should reject SYNNAX_CA_CERT with SYNNAX_SECURE false in Deno", () => {
-    vi.stubEnv("SYNNAX_SECURE", "false");
+  it("should reject SYNNAX_CA_CERT with SYNNAX_CLIENT_INSECURE true in Deno", () => {
+    vi.stubEnv("SYNNAX_CLIENT_INSECURE", "true");
     vi.stubEnv("SYNNAX_CA_CERT", join(tmpdir(), "synnax-missing-ca.pem"));
     vi.stubGlobal("Deno", {});
     expect(() => new Synnax({ host: "localhost", port: 9090 })).toThrow(
-      "SYNNAX_CA_CERT requires SYNNAX_SECURE",
+      "SYNNAX_CA_CERT requires TLS",
     );
   });
 });
 
 describe("caCert", () => {
   beforeEach(() => {
+    vi.stubEnv("SYNNAX_CLIENT_INSECURE", "");
     vi.stubEnv("SYNNAX_SECURE", "");
   });
 
@@ -445,21 +452,21 @@ describe("caCert", () => {
   });
 
   it.each([
-    ["no secure", {}],
-    ["secure true", { secure: true }],
-  ])("should connect with TLS and the CA certificate with %s", async (_, secure) => {
+    ["no insecure", {}],
+    ["insecure false", { insecure: false }],
+  ])("should connect with TLS and the CA certificate with %s", async (_, tls) => {
     requests.length = 0;
     const client = new Synnax({
       host: "127.0.0.1",
       port,
-      ...secure,
+      ...tls,
       caCert,
       ...TEST_CREDENTIALS,
       retry: FAST_RETRY,
       onRetry: () => {},
       onInternalError: () => {},
     });
-    expect(client.params.secure).toBe(true);
+    expect(client.params.insecure).toBe(false);
     await expect(client.connect()).rejects.toThrow("HTTP 500");
     expect(requests).toContain("/api/v1/auth/session/create");
     await client.close();
@@ -468,11 +475,23 @@ describe("caCert", () => {
   it("should open a transport stream through the CA certificate", async () => {
     const transport = new Transport({
       url: new url.URL({ host: "127.0.0.1", port }),
-      secure: true,
+      insecure: false,
       connector: trustCA(caCert),
     });
     const stream = await transport.stream.stream("/stream", z.unknown(), z.unknown());
     stream.closeSend();
+  });
+});
+
+describe("params", () => {
+  it("should keep the deprecated secure as the inverse of insecure", () => {
+    // A plain type for the deprecated field keeps lint from flagging each read.
+    const secureOf = ({ params }: { params: { secure: boolean } }): boolean =>
+      params.secure;
+    const plain = createTestClient({ insecure: true });
+    const tls = createTestClient({ insecure: false });
+    expect(secureOf(plain)).toBe(false);
+    expect(secureOf(tls)).toBe(true);
   });
 });
 

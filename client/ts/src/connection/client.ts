@@ -33,6 +33,7 @@ import {
   type Info,
   type Status,
 } from "@/connection/status";
+import { env } from "@/env";
 import {
   AccessDeniedError,
   AuthError,
@@ -78,6 +79,9 @@ const sendCheck = async (unary: UnaryClient): Promise<Info> => {
 export interface CheckParams {
   host: string;
   port: number | string;
+  /** Whether to connect without TLS, to a Core that runs with --insecure. */
+  insecure?: boolean;
+  /** @deprecated Use insecure. Removed in 0.64. */
   secure?: boolean;
   /** Human-readable cluster name for status messages. */
   name?: string;
@@ -85,12 +89,14 @@ export interface CheckParams {
 
 /**
  * Runs a one-shot connectivity check against the given cluster address and folds the
- * result into a status. Never throws: failures land in the returned status.
+ * result into a status. Failures of the check land in the returned status.
+ * @throws {ValidationError} if insecure and the deprecated secure disagree.
  */
 export const check = async (params: CheckParams): Promise<Status> => {
-  const { host, port, secure = true, name } = params;
+  const { host, port, name } = params;
+  const insecure = env.resolveInsecure(params) ?? false;
   const endpoint = new url.URL({ host, port: Number(port) });
-  const transport = new Transport({ url: endpoint, secure });
+  const transport = new Transport({ url: endpoint, insecure });
   transport.use(errorsMiddleware);
   const cfg: Config = {
     clientVersion: __VERSION__,

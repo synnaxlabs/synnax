@@ -100,7 +100,7 @@ const parseCallback = (query: string, state: string): string => {
  * refuses, or the Core rejects the code.
  */
 export const loginDesktop = async (
-  core: Pick<Session.Core.Core, "key" | "host" | "port" | "secure">,
+  core: Pick<Session.Core.Core, "key" | "host" | "port" | "insecure">,
   login: auth.OIDCLogin,
 ): Promise<void> => {
   const { verifier, challenge } = await createPKCE();

@@ -126,7 +126,7 @@ export const asTLSFailure = (
   if (causedBy(err, isNoTLS))
     return new NoTLS(
       `The Core at ${target.host}:${target.port} does not use TLS. If it runs with ` +
-        "--insecure, set secure: false or SYNNAX_SECURE=false.",
+        "--insecure, set insecure: true or SYNNAX_CLIENT_INSECURE=true.",
       { cause: err },
     );
   return null;
