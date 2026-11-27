@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -149,7 +150,9 @@ func (r *symbolResolver) visible(
 	}), nil
 }
 
-// Search fuzzy-searches non-internal cluster channels by name.
+// Search fuzzy-searches non-internal cluster channels by name. The name of each symbol
+// is the path of its channel. A channel in a folder that the subject of r cannot
+// retrieve is left out, since its path names that folder.
 func (r *symbolResolver) Search(
 	ctx context.Context,
 	name string,
@@ -165,9 +168,29 @@ func (r *symbolResolver) Search(
 		Entries(&results).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {
-		return toSymbol(item)
-	}), nil
+	paths, err := Paths(ctx, r.snap, results)
+	if err != nil {
+		return nil, err
+	}
+	folderAllowed := func(group.Group) bool { return true }
+	if r.access != nil {
+		allowed, err := r.access(ctx)
+		if err != nil {
+			return nil, err
+		}
+		folderAllowed = func(g group.Group) bool { return allowed(g.ResourceID()) }
+	}
+	texts := PathTexts(paths)
+	symbols := make([]*symbol.Symbol, 0, len(results))
+	for i, ch := range results {
+		if !lo.EveryBy(paths[i].Folders, folderAllowed) {
+			continue
+		}
+		sym := toSymbol(ch)
+		sym.Name = texts[i]
+		symbols = append(symbols, sym)
+	}
+	return symbols, nil
 }
 
 // NewConsistentResolver returns a resolver that answers each name and key the way r
