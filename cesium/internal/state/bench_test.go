@@ -10,6 +10,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -45,30 +46,79 @@ func history(n uint32) *state.Snapshot {
 	}
 }
 
-// BenchmarkCommit measures the replay of a commit that extends the open segment of a
-// key, after a history of sealed segments of that key.
+// extendOpen sets c to the commit of sample i on the open segment of history(n).
+func extendOpen(c *log.Commit, n, i uint32) {
+	c.Samples = 1
+	c.Alignment = uint64(telem.NewAlignment(n+1, i))
+	c.First = int64(n+1)*10 + int64(i)
+	c.Last = c.First
+	c.Slots[0] = log.Slot{Segment: uint64(n) + 1, Length: 8 * (i + 1)}
+}
+
+// BenchmarkCommit measures a commit that extends the open segment of a key, after a
+// history of sealed segments of that key. The replay case applies it to the durable
+// view. The writer case commits it through a Writer, which publishes the key, with an
+// executor that runs each step at once.
 func BenchmarkCommit(b *testing.B) {
 	for _, n := range []uint32{1, 100, 10_000} {
-		b.Run(fmt.Sprintf("segments=%d", n), func(b *testing.B) {
-			s, err := state.Open(config(&appended{}), history(n))
-			if err != nil {
-				b.Fatal(err)
-			}
-			c := &log.Commit{Samples: 1, Slots: []log.Slot{{Segment: uint64(n) + 1}}}
-			records := []log.Record{c}
-			start := int64(n+1) * 10
-			var i uint32
-			b.ReportAllocs()
-			for b.Loop() {
-				c.Alignment = uint64(telem.NewAlignment(n+1, i))
-				c.First = start + int64(i)
-				c.Last = c.First
-				c.Slots[0].Length = 8 * (i + 1)
-				if err = s.Replay(uint64(i)+1, records); err != nil {
-					b.Fatal(err)
-				}
-				i++
-			}
+		b.Run(fmt.Sprintf("replay/segments=%d", n), func(b *testing.B) {
+			commitReplay(b, n)
 		})
+		b.Run(fmt.Sprintf("writer/segments=%d", n), func(b *testing.B) {
+			commitWriter(b, n)
+		})
+	}
+}
+
+func commitReplay(b *testing.B, n uint32) {
+	b.Helper()
+	s, err := state.Open(config(&appended{}), history(n))
+	if err != nil {
+		b.Fatal(err)
+	}
+	c := &log.Commit{Slots: make([]log.Slot, 1)}
+	records := []log.Record{c}
+	var i uint32
+	b.ReportAllocs()
+	for b.Loop() {
+		extendOpen(c, n, i)
+		if err = s.Replay(uint64(i)+1, records); err != nil {
+			b.Fatal(err)
+		}
+		i++
+	}
+}
+
+func commitWriter(b *testing.B, n uint32) {
+	b.Helper()
+	cfg := config(&appended{})
+	cfg.Executor = func(f func()) { f() }
+	s, err := state.Open(cfg, history(n))
+	if err != nil {
+		b.Fatal(err)
+	}
+	ran := make(chan error, 1)
+	go func() { ran <- s.Run(context.Background()) }()
+	b.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			b.Error(err)
+		}
+		if err := <-ran; err != nil {
+			b.Error(err)
+		}
+	})
+	w, err := s.OpenWriter(context.Background(), clockWriter(int64(n+1)*10, false, 5))
+	if err != nil {
+		b.Fatal(err)
+	}
+	c := &log.Commit{Slots: make([]log.Slot, 1)}
+	var i uint32
+	b.ReportAllocs()
+	for b.Loop() {
+		extendOpen(c, n, i)
+		if err = w.Commit(c); err != nil {
+			b.Fatal(err)
+		}
+		i++
 	}
 }
