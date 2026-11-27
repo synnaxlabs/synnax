@@ -48,7 +48,7 @@ TEST(ResourceID, testParseMalformed) {
     const auto [_, err] = ID::parse("malformed");
     ASSERT_MATCHES(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "[resource] - failed to parse id 'malformed': expected format 'type:key'"
     );
 }
@@ -57,14 +57,14 @@ TEST(ResourceID, testParseMalformed) {
 TEST(ResourceID, testParseOnlyColon) {
     const auto [_, err] = ID::parse(":");
     ASSERT_MATCHES(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "[resource] - failed to parse id ':': type is empty");
+    EXPECT_EQ(err.data(), "[resource] - failed to parse id ':': type is empty");
 }
 
 /// @brief it should fail to parse an ID with empty type.
 TEST(ResourceID, testParseEmptyType) {
     const auto [_, err] = ID::parse(":42");
     ASSERT_MATCHES(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "[resource] - failed to parse id ':42': type is empty");
+    EXPECT_EQ(err.data(), "[resource] - failed to parse id ':42': type is empty");
 }
 
 /// @brief it should support round-trip string conversion: parse(id.string()) == id.
@@ -119,7 +119,7 @@ TEST(ResourceID, testParseIDsWithInvalid) {
     const auto [_, err] = parse_ids(strs);
     ASSERT_MATCHES(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "[resource] - failed to parse id 'malformed': expected format 'type:key'"
     );
 }

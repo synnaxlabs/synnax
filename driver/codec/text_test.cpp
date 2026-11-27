@@ -108,7 +108,7 @@ TEST(TextEncoder, RejectMissingSample) {
     std::vector<std::uint8_t> payload;
     const auto err = enc.encode(series_of(none()), payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message cmd: field a: no value and no default");
+    EXPECT_EQ(err.data(), "message cmd: field a: no value and no default");
 }
 
 /// @brief it should accept a field at the last position, 65535.
@@ -144,7 +144,7 @@ TEST(TextEncoder, CheckSample) {
     ASSERT_NIL(enc.check(1, s, 0));
     const auto err = enc.check(1, s, 1);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "message cmd: field b: NaN is not finite");
+    EXPECT_EQ(err.data(), "message cmd: field b: NaN is not finite");
 }
 
 /// @brief it should be ready when each field has a sample or a default.
@@ -166,7 +166,7 @@ void assert_check_refuses(
 ) {
     const auto err = enc.check(binding, s, 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 }
 

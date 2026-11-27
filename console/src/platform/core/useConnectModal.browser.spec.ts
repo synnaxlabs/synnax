@@ -11,6 +11,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Core } from "@/platform/core";
+import { connectNameInput, fillConnectForm } from "@/platform/core/testutil";
 import {
   findButton,
   type ModalOpenerHandle,
@@ -18,7 +19,7 @@ import {
 } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { type ConsolePreloadedState, getBySelector } from "@/testutil";
+import type { ConsolePreloadedState } from "@/testutil";
 
 const openConnect = async (
   args: [] | [Core.ConnectModalParams],
@@ -31,30 +32,12 @@ const openConnect = async (
   return handle;
 };
 
-const nameInput = (): HTMLInputElement =>
-  screen.getByPlaceholderText<HTMLInputElement>("Synnax Core");
-
-// The port field carries its default rather than a placeholder, so it is reached by
-// the field class instead.
-const portInput = (): HTMLInputElement =>
-  getBySelector<HTMLInputElement>(document.body, ".lyra-field__port input");
-
-const fillForm = (name: string, host: string, port: string): void => {
-  fireEvent.change(nameInput(), { target: { value: name } });
-  fireEvent.change(screen.getByPlaceholderText("localhost"), {
-    target: { value: host },
-  });
-  fireEvent.change(portInput(), { target: { value: port } });
-  // A numeric input commits on blur, not per keystroke.
-  fireEvent.blur(portInput());
-};
-
 describe("useConnectModal", () => {
   describe("edit mode", () => {
     it("should prefill the form from the edited Core", async () => {
       const alpha = createCore("Alpha", { host: "alpha.host" });
       await openConnect([{ coreKey: alpha.key }], createCoreState([alpha]));
-      expect(nameInput().value).toEqual("Alpha");
+      expect(connectNameInput().value).toEqual("Alpha");
       expect(screen.getByPlaceholderText<HTMLInputElement>("localhost").value).toEqual(
         "alpha.host",
       );
@@ -80,7 +63,7 @@ describe("useConnectModal", () => {
         [],
         createCoreState([createCore("c1", { name: "Existing" })]),
       );
-      fillForm("Existing", "localhost", "9090");
+      fillConnectForm("Existing", "localhost", "9090");
       fireEvent.click(findButton("Connect"));
       await waitFor(() =>
         expect(
@@ -93,7 +76,7 @@ describe("useConnectModal", () => {
   describe("submission", () => {
     it("should add the Core and close the modal after connecting", async () => {
       const { store } = await openConnect([]);
-      fillForm("SubmitTest", "localhost", "9091");
+      fillConnectForm("SubmitTest", "localhost", "9091");
       fireEvent.click(findButton("Connect"));
       await waitFor(() => {
         const created = Object.values(
@@ -118,7 +101,7 @@ describe("useConnectModal", () => {
         [{ coreKey: alpha.key }],
         createCoreState([alpha], alpha.key),
       );
-      fireEvent.change(nameInput(), { target: { value: "Alpha_Edited" } });
+      fireEvent.change(connectNameInput(), { target: { value: "Alpha_Edited" } });
       fireEvent.click(findButton("Save"));
       await waitFor(() => {
         const edited = Session.Core.selectState(store.getState(), alpha.key);

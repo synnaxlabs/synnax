@@ -246,11 +246,11 @@ std::string unapplied(
 }
 
 x::errors::Error Engine::start_error(
-    x::errors::Error err,
+    const x::errors::Error &err,
     const std::map<uint16_t, slave::Refusal> &refused,
     const std::map<uint16_t, LeftOut> &left_out
 ) {
-    err.data = errors::sentence(std::move(err.data));
+    auto data = errors::sentence(err.data());
     std::vector<std::string_view> advice;
     const auto add_advice = [&advice](const slave::Refusal &refusal) {
         if (!refusal.advice.empty() &&
@@ -260,13 +260,13 @@ x::errors::Error Engine::start_error(
     for (const auto &[_, refusal]: refused)
         add_advice(refusal);
     for (const auto &[pos, left]: left_out) {
-        err.data += " The Driver left out module " + std::to_string(pos) +
-                    " because it " + left.refusal.reason + ".";
+        data += " The Driver left out module " + std::to_string(pos) + " because it " +
+                left.refusal.reason + ".";
         add_advice(left.refusal);
     }
     for (const auto a: advice)
-        err.data.append(" ").append(a);
-    return err;
+        data.append(" ").append(a);
+    return {err, std::move(data)};
 }
 
 Engine::Input::Input(
@@ -592,7 +592,7 @@ void Engine::run() {
                              << err.message();
             // The reason can change during a run of failures, such as late frames that
             // turn into a dead link.
-            if (!err.matches(stored_err) || err.data != stored_err.data) {
+            if (!err.matches(stored_err) || err.data() != stored_err.data()) {
                 stored_err = err;
                 std::lock_guard lock(this->cycle_err_mu);
                 this->cycle_err = err;
@@ -918,7 +918,7 @@ x::errors::Error Engine::start_locked(
             return start_error(err, refused, this->left_out);
         LOG(WARNING) << "[ethercat] failed to start " << this->iface
                      << ", trying again in " << wait << ": " << err.message();
-        const auto why = errors::sentence(err.data);
+        const auto why = errors::sentence(err.data());
         report(
             start,
             {
@@ -1150,20 +1150,21 @@ x::errors::Error Engine::cycle_error() const {
         err = this->cycle_err;
     }
     if (!err.matches(errors::WORKING_COUNTER_ERROR)) return err;
+    auto data = err.data();
     const auto &slaves = this->image.slaves;
     for (const auto &h: this->health()) {
         if (h.refusal || h.operational()) continue;
         const auto slave = std::ranges::find(slaves, h.position, [](const auto &s) {
             return s.properties.position;
         });
-        err.data += std::format(
+        data += std::format(
             ". Module {} ({}) is not in OP: {}",
             h.position,
             slave == slaves.end() ? "" : slave->properties.name,
             h.to_string()
         );
     }
-    return err;
+    return {err, std::move(data)};
 }
 
 void Engine::close_input(const std::shared_ptr<Input> &input) {
@@ -1286,8 +1287,12 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
         if (started)
             this->stop_locked();
         else if (err.matches(errors::PDO_NOT_MAPPED))
-            err.data += " Stop every task on " + this->network_name +
-                        ", then start them again.";
+            return {
+                {},
+                {err,
+                 err.data() + " Stop every task on " + this->network_name +
+                     ", then start them again."},
+            };
         return {{}, err};
     }
     // A reader that the running bus cannot map must leave the slaves as they are.

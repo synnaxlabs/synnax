@@ -21,7 +21,7 @@ export const openDiscover = async (
   await session.click(form.getByRole("button", { name: label, exact: true }).first());
   const dialog = page
     .locator(capture.MODAL)
-    .filter({ has: page.getByRole("button", { name: "JSON topics", exact: true }) })
+    .filter({ has: page.getByRole("button", { name: "Topics", exact: true }) })
     .first();
   await session.waitFor(dialog);
   await session.zoom(dialog);

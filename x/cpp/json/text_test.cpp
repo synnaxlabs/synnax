@@ -61,7 +61,7 @@ TEST(Unquote, RejectsLoneHighSurrogate) {
     std::string dst;
     const auto err = unquote(R"("\ud800")", dst);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid surrogate in escape sequence in string literal");
+    ASSERT_EQ(err.data(), "invalid surrogate in escape sequence in string literal");
 }
 
 /// @brief it should reject a low surrogate on its own.
@@ -69,7 +69,7 @@ TEST(Unquote, RejectsLoneLowSurrogate) {
     std::string dst;
     const auto err = unquote(R"("\udc00\udc00")", dst);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid surrogate in escape sequence in string literal");
+    ASSERT_EQ(err.data(), "invalid surrogate in escape sequence in string literal");
 }
 
 /// @brief it should reject an escape that JSON does not define.
@@ -77,7 +77,7 @@ TEST(Unquote, RejectsUnknownEscape) {
     std::string dst;
     const auto err = unquote(R"("\x41")", dst);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid escape sequence in string literal");
+    ASSERT_EQ(err.data(), "invalid escape sequence in string literal");
 }
 
 /// @brief it should reject bytes that are not valid UTF-8.
@@ -85,7 +85,7 @@ TEST(Unquote, RejectsInvalidUTF8) {
     std::string dst;
     const auto err = unquote("\"\xed\xa0\x80\"", dst);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid UTF-8 in string literal");
+    ASSERT_EQ(err.data(), "invalid UTF-8 in string literal");
 }
 
 /// @brief it should reject a control character that is not escaped.
@@ -93,7 +93,7 @@ TEST(Unquote, RejectsControlCharacter) {
     std::string dst;
     const auto err = unquote("\"a\nb\"", dst);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid control character in string literal");
+    ASSERT_EQ(err.data(), "invalid control character in string literal");
 }
 
 /// @brief it should reject a literal with no closing quote.
@@ -101,7 +101,7 @@ TEST(Unquote, RejectsUnterminatedLiteral) {
     std::string dst;
     const auto err = unquote(R"("abc\")", dst);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "unexpected EOF in string literal");
+    ASSERT_EQ(err.data(), "unexpected EOF in string literal");
 }
 
 /// @brief it should reject data after the closing quote.
@@ -109,7 +109,7 @@ TEST(Unquote, RejectsTrailingData) {
     std::string dst;
     const auto err = unquote(R"("a"b)", dst);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "unexpected data after the string literal");
+    ASSERT_EQ(err.data(), "unexpected data after the string literal");
 }
 
 /// @brief it should reject text that is not a string literal.
@@ -117,7 +117,7 @@ TEST(Unquote, RejectsNonString) {
     std::string dst;
     const auto err = unquote("12", dst);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "expected a JSON string literal");
+    ASSERT_EQ(err.data(), "expected a JSON string literal");
 }
 
 /// @brief it should append text as a JSON string after what out holds.
@@ -147,7 +147,7 @@ TEST(AppendQuoted, RejectsInvalidUTF8) {
     std::string out = "x";
     const auto err = append_quoted("a\xff", out);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid UTF-8");
+    ASSERT_EQ(err.data(), "invalid UTF-8");
     ASSERT_EQ(out, "x");
 }
 }

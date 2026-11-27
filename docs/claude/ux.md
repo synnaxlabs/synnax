@@ -125,7 +125,8 @@ in a color picker has no "+".
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
-- Numbers that change, or that people compare, use `font-variant-numeric: tabular-nums`.
+- Numbers that change, or that people compare, use `variant="numeric"`: Inter with
+  tabular digits.
 - Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
   tabular digits, through `variant: "numeric"` in `theme.fontString`.
 
@@ -327,6 +328,9 @@ bound, a log precision, or the line plot X channel.
   message is "Failed to deploy changes", and the footer description starts with "The
   task still runs its last deployed config." Rejected: "Failed to start task" there,
   which reads as if the task stopped.
+- A failed deploy or a reply to a task command toasts only while no focused window shows
+  the task's tab. Where the tab shows, the footer shows the failure, and a toast would
+  cover it. When the Console cannot check, it toasts.
 - The header stays compact: the rack name hangs under the utility buttons and adds no
   height.
 - A disabled channel dims to half strength. Its enabled dot stays at full strength, as
@@ -437,7 +441,7 @@ bound, a log precision, or the line plot X channel.
   Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
   on Custom while the value is a fixed color.
 - One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
-  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+  Swatches are 21 px with 8 px gaps across and down. Eight across set the width: 242 px.
 - Library has the select dialog's search under the tab bar's hairline, with a hairline
   under it. Each palette sits under its title, which ends with the name of the color an
   open swatch menu acts on, else the hovered color, else the focused color, else the
@@ -454,7 +458,7 @@ bound, a log precision, or the line plot X channel.
   each edge. An edit saves at once.
 - The saturation and brightness plane has the tiny radius.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
-  icon. Hex codes use the code font, so every code takes the same width and fits.
+  icon. Hex codes are Inter, and the inputs fit the widest hex.
 
 ### Symbol motion
 

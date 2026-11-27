@@ -137,6 +137,16 @@ var _ = Describe("LiftMessage", func() {
 		}))
 	})
 
+	It("Should keep the stored data type for a channel with no data type", func() {
+		found = map[channel.Key]v0.Channel{7: {Name: "level"}}
+		f, read := lift(inlineField(telem.Int16T), false)
+		as[v0.IntegerJSONField](f.Variant)
+		Expect(read.Bindings).To(Equal([]v0.ReadBinding{
+			{Field: f.Base().Key, Channel: 7},
+		}))
+		Expect(changes).To(BeEmpty())
+	})
+
 	It("Should lift a field with a time format on a timestamp channel", func() {
 		found = map[channel.Key]v0.Channel{
 			7: {Name: "time", DataType: telem.TimestampT, Index: true},

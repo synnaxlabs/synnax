@@ -15,6 +15,7 @@ from pydantic import ValidationError
 import synnax as sy
 from synnax import log
 from synnax.exceptions import NotFoundError
+from x.strings import random_name
 
 
 class TestLog:
@@ -209,6 +210,173 @@ class TestClient:
         log = client.logs.create(sy.Log(name="Before", project=project.key))
         client.logs.rename(log.key, "After")
         assert client.logs.retrieve(key=log.key).name == "After"
+
+    def test_dispatch_add_channel(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should add a channel once with the default display configuration."""
+        lg = client.logs.create(name="Add", project=project.key)
+        add = log.add_channel(log.AddChannelPayload(channel=virtual_channel.key))
+        client.logs.dispatch(lg.key, [add, add])
+        assert client.logs.retrieve(key=lg.key).channels == [
+            log.ChannelEntry(channel=virtual_channel.key)
+        ]
+
+    def test_dispatch_remove_channel(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should remove a channel from a log."""
+        lg = client.logs.create(name="Remove", project=project.key)
+        ch = virtual_channel.key
+        client.logs.dispatch(
+            lg.key,
+            [
+                log.add_channel(log.AddChannelPayload(channel=ch)),
+                log.remove_channel(log.RemoveChannelPayload(channel=ch)),
+            ],
+        )
+        assert client.logs.retrieve(key=lg.key).channels == []
+
+    def test_dispatch_channel_fields(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should set the display fields of a channel."""
+        lg = client.logs.create(name="Edit", project=project.key)
+        ch = virtual_channel.key
+        color = sy.color.FixedRef(value=sy.Color("#FF0000"))
+        client.logs.dispatch(
+            lg.key,
+            [
+                log.add_channel(log.AddChannelPayload(channel=ch)),
+                log.set_channel_color(
+                    log.SetChannelColorPayload(channel=ch, color=color)
+                ),
+                log.set_channel_alias(
+                    log.SetChannelAliasPayload(channel=ch, alias="pressure")
+                ),
+                log.set_channel_notation(
+                    log.SetChannelNotationPayload(channel=ch, notation="scientific")
+                ),
+                log.set_channel_precision(
+                    log.SetChannelPrecisionPayload(channel=ch, precision=3)
+                ),
+                log.set_channel_timestamp_format(
+                    log.SetChannelTimestampFormatPayload(channel=ch, format="ISO")
+                ),
+                log.set_channel_timestamp_time_zone(
+                    log.SetChannelTimestampTimeZonePayload(channel=ch, time_zone="UTC")
+                ),
+            ],
+        )
+        [entry] = client.logs.retrieve(key=lg.key).channels
+        assert entry.color == color
+        assert entry.alias == "pressure"
+        assert entry.notation == "scientific"
+        assert entry.precision == 3
+        assert entry.timestamp_config == log.TimestampConfig(
+            format="ISO", time_zone="UTC"
+        )
+
+    def test_dispatch_clear_channel_precision(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should clear the precision of a channel when it is absent."""
+        lg = client.logs.create(name="Clear", project=project.key)
+        ch = virtual_channel.key
+        client.logs.dispatch(
+            lg.key,
+            [
+                log.add_channel(log.AddChannelPayload(channel=ch)),
+                log.set_channel_precision(
+                    log.SetChannelPrecisionPayload(channel=ch, precision=2)
+                ),
+                log.set_channel_precision(log.SetChannelPrecisionPayload(channel=ch)),
+            ],
+        )
+        assert client.logs.retrieve(key=lg.key).channels[0].precision is None
+
+    def test_dispatch_set_channel_entry(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should add a channel entry, then replace it in place."""
+        lg = client.logs.create(name="Entry", project=project.key)
+        entry = log.ChannelEntry(channel=virtual_channel.key, alias="first")
+        client.logs.dispatch(
+            lg.key, log.set_channel_entry(log.SetChannelEntryPayload(entry=entry))
+        )
+        assert client.logs.retrieve(key=lg.key).channels == [entry]
+        replaced = entry.model_copy(update={"alias": "second", "precision": 4})
+        client.logs.dispatch(
+            lg.key, log.set_channel_entry(log.SetChannelEntryPayload(entry=replaced))
+        )
+        assert client.logs.retrieve(key=lg.key).channels == [replaced]
+
+    def test_dispatch_swap_channel(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should replace a channel and keep its display configuration."""
+        other = client.channels.create(
+            name=f"test_{random_name()}_swap",
+            virtual=True,
+            data_type=sy.DataType.FLOAT64,
+        )
+        lg = client.logs.create(name="Swap", project=project.key)
+        ch = virtual_channel.key
+        client.logs.dispatch(
+            lg.key,
+            [
+                log.add_channel(log.AddChannelPayload(channel=ch)),
+                log.set_channel_alias(
+                    log.SetChannelAliasPayload(channel=ch, alias="kept")
+                ),
+                log.swap_channel(log.SwapChannelPayload(from_=ch, to=other.key)),
+            ],
+        )
+        [entry] = client.logs.retrieve(key=lg.key).channels
+        assert entry.channel == other.key
+        assert entry.alias == "kept"
+
+    def test_dispatch_display_settings(
+        self, client: sy.Synnax, project: sy.Project
+    ) -> None:
+        """Should set the timestamp precision, hidden flags, and time zone."""
+        lg = client.logs.create(name="Display", project=project.key)
+        client.logs.dispatch(
+            lg.key,
+            [
+                log.set_timestamp_precision(
+                    log.SetTimestampPrecisionPayload(timestamp_precision=3)
+                ),
+                log.set_channel_names_hidden(
+                    log.SetChannelNamesHiddenPayload(channel_names_hidden=True)
+                ),
+                log.set_timestamps_hidden(
+                    log.SetTimestampsHiddenPayload(timestamps_hidden=True)
+                ),
+                log.set_time_zone(log.SetTimeZonePayload(time_zone="UTC")),
+            ],
+        )
+        res = client.logs.retrieve(key=lg.key)
+        assert res.timestamp_precision == 3
+        assert res.channel_names_hidden
+        assert res.timestamps_hidden
+        assert res.time_zone == "UTC"
+
+    def test_dispatch_missing_channel(
+        self, client: sy.Synnax, project: sy.Project, virtual_channel: sy.Channel
+    ) -> None:
+        """Should leave a log unchanged when it does not show the channel."""
+        lg = client.logs.create(name="Missing", project=project.key)
+        payload = log.SetChannelAliasPayload(
+            channel=virtual_channel.key, alias="ignored"
+        )
+        client.logs.dispatch(lg.key, log.set_channel_alias(payload))
+        assert client.logs.retrieve(key=lg.key).channels == []
+
+    def test_dispatch_missing_log(self, client: sy.Synnax) -> None:
+        """Should raise when no log has the key."""
+        with pytest.raises(NotFoundError):
+            client.logs.rename(uuid4(), "Missing")
 
     def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should delete a log."""

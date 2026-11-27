@@ -15,6 +15,7 @@ export const LabJack = wrapSVGIcon(
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 96 96"
       fill="currentColor"
+      strokeWidth={0}
       {...props}
     >
       <path

@@ -54,9 +54,9 @@ TEST(ErrorsTest, LibraryInfoWithoutURL) {
     auto err = missing_lib(no_url);
 
     ASSERT_MATCHES(err, x::lib::LOAD_ERROR);
-    EXPECT_NE(err.data.find("Test Library"), std::string::npos);
-    EXPECT_NE(err.data.find("is not installed"), std::string::npos);
-    EXPECT_EQ(err.data.find("Download here:"), std::string::npos);
+    EXPECT_NE(err.data().find("Test Library"), std::string::npos);
+    EXPECT_NE(err.data().find("is not installed"), std::string::npos);
+    EXPECT_EQ(err.data().find("Download here:"), std::string::npos);
 }
 
 /// @brief it should ask for a Driver restart only for a library that does not load on
@@ -64,7 +64,7 @@ TEST(ErrorsTest, LibraryInfoWithoutURL) {
 TEST(ErrorsTest, RestartOnlyForEagerLibrary) {
     const LibraryInfo eager = {.name = "Test", .url = "https://example.com"};
     EXPECT_EQ(
-        missing_lib(eager).data,
+        missing_lib(eager).data(),
         "Test library is not installed. Download here: https://example.com. Restart "
         "Driver after installation."
     );
@@ -74,7 +74,7 @@ TEST(ErrorsTest, RestartOnlyForEagerLibrary) {
         .lazy = true,
     };
     EXPECT_EQ(
-        missing_lib(lazy).data,
+        missing_lib(lazy).data(),
         "Test library is not installed. Download here: https://example.com."
     );
 }
@@ -85,12 +85,12 @@ TEST(ErrorsTest, WrapChannelError) {
 
     auto wrapped = wrap_channel_error(base_err, "my_channel", "AIN0");
 
-    EXPECT_EQ(wrapped.type, base_err.type);
-    EXPECT_NE(wrapped.data.find("my_channel"), std::string::npos)
-        << "Expected channel name in error. Got: " << wrapped.data;
-    EXPECT_NE(wrapped.data.find("AIN0"), std::string::npos)
-        << "Expected hardware location in error. Got: " << wrapped.data;
-    EXPECT_NE(wrapped.data.find("some hardware error"), std::string::npos)
-        << "Expected original error message in error. Got: " << wrapped.data;
+    EXPECT_EQ(wrapped.type(), base_err.type());
+    EXPECT_NE(wrapped.data().find("my_channel"), std::string::npos)
+        << "Expected channel name in error. Got: " << wrapped.data();
+    EXPECT_NE(wrapped.data().find("AIN0"), std::string::npos)
+        << "Expected hardware location in error. Got: " << wrapped.data();
+    EXPECT_NE(wrapped.data().find("some hardware error"), std::string::npos)
+        << "Expected original error message in error. Got: " << wrapped.data();
 }
 }
