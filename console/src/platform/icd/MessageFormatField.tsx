@@ -27,6 +27,7 @@ import { type ReactElement, useEffect, useRef } from "react";
 
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
+import { useFormats } from "@/platform/icd/Formats";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { FORMAT_KINDS } from "@/platform/icd/payload";
 import { Task } from "@/platform/task";
@@ -104,8 +105,9 @@ export interface MessageFormatFieldProps extends Pick<
   /** The formats of the messages that the field lists and creates. Defaults to JSON. */
   formats?: readonly payload.Format[];
   /**
-   * Creates an empty message of the format. When given, the field offers a pinned
-   * create item, such as "New text message", for each format that it lists.
+   * Creates an empty message of the format in the ICD of icdKey. When given, the field
+   * offers a pinned create item, such as "New text message", for each format that it
+   * lists, unless the ICD's form is in preview.
    */
   onCreate?: (format: payload.Format) => void;
   /** Empties the pick. When given, the field offers a pinned "No message format". */
@@ -132,8 +134,11 @@ export const MessageFormatField = ({
   ...rest
 }: MessageFormatFieldProps): ReactElement => {
   const icds = PICD.useList();
+  const forms = useFormats();
   const listed = FLAGS.textMessages ? formats : JSON_ONLY;
-  const creates = FLAGS.textMessages && onCreate != null ? listed : [];
+  // A user who cannot update the ICD gets its form in preview.
+  const editable = icdKey != null && forms.get(icdKey)?.mode === "normal";
+  const creates = onCreate != null && editable ? listed : [];
   // List readers need one choice object for as long as its ICD stays the same.
   const cache = useInitializerRef(() => new WeakMap<icd.ICD, Map<string, Choice>>());
   const choicesOf = (parent: icd.ICD): Map<string, Choice> => {

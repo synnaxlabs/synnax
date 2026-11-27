@@ -2335,6 +2335,25 @@ describe("MQTT read form", () => {
       );
     });
 
+    it.each([
+      ["New text message", { format: "text", delimiter: ",", prefix: "", fields: [] }],
+      ["New binary message", { format: "binary", fields: [] }],
+    ] as const)("should read an empty message from %s", async (item, payload) => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await renderRead({ entries: [entry] });
+      await openTopic();
+      // The Core reads only JSON messages over MQTT, so it would undo the read.
+      holdRequests(client, "/task/create");
+      await pickNewMessage(TOPIC, item);
+      await findDialogTriggerByText(`${TOPIC} 2`);
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages[1]).toMatchObject({ name: `${TOPIC} 2`, payload });
+      });
+    });
+
     it("should delete a message with no fields that the task made when a new message replaces it", async () => {
       const { draft } = await renderRead();
       const entry = await addTopic(draft.key, TOPIC);

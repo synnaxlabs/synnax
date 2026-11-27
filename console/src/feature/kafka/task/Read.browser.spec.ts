@@ -46,7 +46,12 @@ import {
 } from "@/feature/kafka/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
-import { pickMessageFormat, pickNewMessage, retype } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  pickNewMessage,
+  retype,
+  searchMessageFormats,
+} from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -2302,6 +2307,20 @@ describe("Kafka read form", () => {
           { message: messages[1].key, bindings: [] },
         ]);
       });
+    });
+
+    it("should offer no new message to a user who cannot update the ICD", async () => {
+      const reader = await createICDReaderClient();
+      const { draft } = await renderRead({
+        fields: [createField("temperature", "float")],
+        as: reader,
+      });
+      const [rec] = await retrieveRecords(draft.key);
+      const { name } = await client.icds.retrieve({ key: rec.icd });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*Any key/ }));
+      const dialog = await searchMessageFormats("Any key", name);
+      await dialog.findByRole("option", { name: new RegExp(name) });
+      expect(dialog.queryByRole("option", { name: "New JSON message" })).toBeNull();
     });
 
     it("should read a message of another ICD with each of its fields", async () => {
