@@ -9,6 +9,7 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
+import type { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -259,8 +260,18 @@ export interface ValuesProps {
   onChange?: (value: string[]) => void;
 }
 
+/** @returns the style that sizes the Type column to the longest text of groups in it. */
+const typeStyle = (groups: ValueGroup[]): PCSS.VarProperties => ({
+  "--console-type-length": Math.max(
+    0,
+    ...groups.flatMap(({ values }) =>
+      values.map(({ dataType, lock }) => (lock?.label ?? dataType).length),
+    ),
+  ),
+});
+
 export const Values = ({ noun, groups, value, onChange }: ValuesProps) => (
-  <div className={CSS.BE("icd-picker", "values")}>
+  <div className={CSS.BE("icd-picker", "values")} style={typeStyle(groups)}>
     <Head noun={noun} />
     {groups.map(({ title, note, dimmed, values }) => (
       <Fragment key={title ?? ""}>
