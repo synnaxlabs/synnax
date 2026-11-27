@@ -55,11 +55,26 @@ type Iterator struct {
 	limited   bool
 	chunkSize int64
 	frame     Frame
-	closed    bool
+	// failed holds the failures of the last Next or Prev. stopped is true for each
+	// iterator in internal whose failure is already reported.
+	failed  []ReadFailure
+	stopped []bool
+	closed  bool
 }
 
-// Next reads all data occupying the next span of time, returning true if the iterator
-// has not been exhausted and has not accumulated an error. Note: If the internal
+// ReadFailure is the failure of the read of one channel in a Next or a Prev. The read
+// goes on for the other channels.
+type ReadFailure struct {
+	// Channel is the key of the channel.
+	Channel ChannelKey
+	// TimeRange is the time range that the read of the channel covered.
+	TimeRange telem.TimeRange
+	// Err is the error of the read.
+	Err error
+}
+
+// Next reads all data occupying the next span of time, returning true if any channel
+// read data. Failed returns the channels whose read failed. Note: If the internal
 // iterators have different views, then they will each read the next span of time,
 // ending at different times. For example, if the iterator on channel 1 has view [00:01,
 // 00:02) while the iterator on channel 2 has view [00:03, 00:04), then they will read
@@ -78,7 +93,7 @@ func (i *Iterator) Prev(span telem.TimeSpan) bool {
 // NextChunks reads the next span of time as Next does, and hands the data to emit in
 // chunks, in time order, instead of keeping it as Value. WithChunkSize and
 // AutoChunkSize set the size of a chunk. It returns whether any channel moved, and the
-// error of emit or of a read.
+// error of emit or of an index lookup.
 func (i *Iterator) NextChunks(
 	ctx context.Context,
 	span telem.TimeSpan,
@@ -101,26 +116,26 @@ func (i *Iterator) PrevChunks(
 // channel holds data there.
 func (i *Iterator) SeekFirst() bool {
 	ctx := context.Background()
-	return i.each(func(u *unary.Iterator) bool { return u.SeekFirst(ctx) })
+	return i.seek(func(u *unary.Iterator) bool { return u.SeekFirst(ctx) })
 }
 
 // SeekLast moves the iterator to the end of its bounds, returning true if any channel
 // holds data there.
 func (i *Iterator) SeekLast() bool {
 	ctx := context.Background()
-	return i.each(func(u *unary.Iterator) bool { return u.SeekLast(ctx) })
+	return i.seek(func(u *unary.Iterator) bool { return u.SeekLast(ctx) })
 }
 
 // SeekLE moves the iterator to the last sample at or before ts.
 func (i *Iterator) SeekLE(ts telem.TimeStamp) bool {
 	ctx := context.Background()
-	return i.each(func(u *unary.Iterator) bool { return u.SeekLE(ctx, ts) })
+	return i.seek(func(u *unary.Iterator) bool { return u.SeekLE(ctx, ts) })
 }
 
 // SeekGE moves the iterator to the first sample at or after ts.
 func (i *Iterator) SeekGE(ts telem.TimeStamp) bool {
 	ctx := context.Background()
-	return i.each(func(u *unary.Iterator) bool { return u.SeekGE(ctx, ts) })
+	return i.seek(func(u *unary.Iterator) bool { return u.SeekGE(ctx, ts) })
 }
 
 // Valid returns true if any channel's iterator points to data.
@@ -135,11 +150,6 @@ func (i *Iterator) Error() error {
 		return ErrIteratorClosed
 	}
 	i.frame = Frame{}
-	return i.readErr()
-}
-
-// readErr returns the first error of a channel's iterator.
-func (i *Iterator) readErr() error {
 	for _, u := range i.internal {
 		if err := u.Error(); err != nil {
 			return err
@@ -151,11 +161,16 @@ func (i *Iterator) readErr() error {
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
 // valid until a seeking call is made.
 func (i *Iterator) SetBounds(bounds telem.TimeRange) {
-	i.each(func(u *unary.Iterator) bool { u.SetBounds(bounds); return true })
+	i.seek(func(u *unary.Iterator) bool { u.SetBounds(bounds); return true })
 }
 
 // Value returns the data that the last Next or Prev read.
 func (i *Iterator) Value() Frame { return i.frame }
+
+// Failed returns the channels whose read failed in the last Next or Prev. A failed
+// channel reads nothing more, and it reports its failure once, until a seek or
+// SetBounds clears it.
+func (i *Iterator) Failed() []ReadFailure { return i.failed }
 
 // Close closes the iterator and returns the error that stopped it, unless a seek or
 // SetBounds has cleared that error since. Closing a closed iterator returns nil.
@@ -187,6 +202,29 @@ func (i *Iterator) each(f func(*unary.Iterator) bool) (ok bool) {
 	return ok
 }
 
+// seek runs each with f, which clears the error of each channel's iterator.
+func (i *Iterator) seek(f func(*unary.Iterator) bool) bool {
+	clear(i.stopped)
+	return i.each(f)
+}
+
+// report notes the failure of the iterator at index j of internal, unless it is already
+// noted.
+func (i *Iterator) report(j int) {
+	u := i.internal[j]
+	if i.stopped[j] {
+		return
+	}
+	if err := u.Error(); err != nil {
+		i.stopped[j] = true
+		i.failed = append(i.failed, ReadFailure{
+			Channel:   u.Channel.Key,
+			TimeRange: u.View(),
+			Err:       err,
+		})
+	}
+}
+
 func (i *Iterator) collect(fr Frame) error {
 	i.frame = i.frame.Extend(fr)
 	return nil
@@ -204,6 +242,7 @@ func (i *Iterator) read(
 		return false, ErrIteratorClosed
 	}
 	i.frame = Frame{}
+	i.failed = i.failed[:0]
 	i.cache.Reset()
 	if !i.limited && span != AutoSpan {
 		return i.readInChunks(ctx, span, prev, emit)
@@ -212,20 +251,19 @@ func (i *Iterator) read(
 		fr Frame
 		ok bool
 	)
-	for _, u := range i.internal {
+	for j, u := range i.internal {
 		var moved bool
 		if prev {
 			moved = u.Prev(ctx, span)
 		} else {
 			moved = u.Next(ctx, span)
 		}
-		if moved {
-			ok = true
-			fr = fr.Extend(u.Value())
+		if !moved {
+			i.report(j)
+			continue
 		}
-	}
-	if err := i.readErr(); err != nil {
-		return false, err
+		ok = true
+		fr = fr.Extend(u.Value())
 	}
 	if err := emitFrame(emit, fr); err != nil {
 		return false, err
@@ -280,13 +318,15 @@ func (i *Iterator) readInChunks(
 		var chunk Frame
 		for j, u := range i.internal {
 			stop := min(end, ends[j])
-			if stop > u.View().End && u.Continue(ctx, stop) {
-				ok = true
-				chunk = chunk.Extend(u.Value())
+			if stop <= u.View().End {
+				continue
 			}
-		}
-		if err = i.readErr(); err != nil {
-			return false, err
+			if !u.Continue(ctx, stop) {
+				i.report(j)
+				continue
+			}
+			ok = true
+			chunk = chunk.Extend(u.Value())
 		}
 		if err = emitFrame(emit, chunk); err != nil {
 			return false, err
