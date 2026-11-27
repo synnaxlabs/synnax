@@ -107,7 +107,7 @@ interface Meta {
   appended: number;
   // The appended count that streamedLines already holds the samples before.
   counted: number;
-  // Whether a snapshot without an error was read, so later samples streamed in.
+  // Whether the channel's first read has ended, so later samples streamed in.
   read: boolean;
   // Whether the channel stores samples, so that older pages can read them.
   stored: boolean;
@@ -762,7 +762,7 @@ export class StreamMultiChannelLog
       skip = Math.max(0, skip - s.length);
     }
     [meta.snapshot, meta.appended] = [snapshot, appended];
-    if (snapshot.status.variant !== "error") meta.read = true;
+    if (snapshot.reading === false) meta.read = true;
   }
 
   // Turns the queued samples that have times into entries. A sample that waits past

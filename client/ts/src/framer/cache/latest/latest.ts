@@ -252,13 +252,20 @@ export class Latest {
     if (this.snapshot == null || this.props.now().valueOf() >= this.leavesAt())
       return this.rebuild();
     const status = this.status();
-    if (this.unserved === 0 && status === this.snapshot.status) return this.snapshot;
+    const reading = this.running != null;
+    if (
+      this.unserved === 0 &&
+      status === this.snapshot.status &&
+      reading === this.snapshot.reading
+    )
+      return this.snapshot;
     this.unserved = 0;
     this.snapshot = {
       series: this.snapshot.series,
       status,
       time: this.time(),
       appended: this.appended,
+      reading,
     };
     return this.snapshot;
   }
@@ -277,6 +284,7 @@ export class Latest {
       status: this.status(),
       time: this.time(),
       appended: this.appended,
+      reading: this.running != null,
     };
     return this.snapshot;
   }
@@ -537,7 +545,10 @@ export class Latest {
         this.failure = status.fromException(e, READ_FAILED);
         this.notify();
         if (isDefinitive(e)) return this.land([]);
-        if (!(await brk.wait())) return;
+        if (!(await brk.wait())) {
+          if (this.running === run) this.land([]);
+          return this.notify();
+        }
       }
   }
 

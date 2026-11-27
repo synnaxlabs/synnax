@@ -29,7 +29,7 @@ import { join } from "@/framer/cache/join";
 import { latest as cacheLatest } from "@/framer/cache/latest";
 import { store as cacheStore } from "@/framer/cache/store";
 import { streamer as cacheStreamer } from "@/framer/cache/streamer";
-import { UnsupportedError } from "@/index";
+import { AccessDeniedError, UnsupportedError } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
 const START = TimeStamp.seconds(1_000_000);
@@ -42,6 +42,7 @@ const createLatest = (
   onRead: (key: channel.Key) => void | Promise<void> = () => {},
   readOf: (key: channel.Key, read: MultiSeries) => MultiSeries = (_, read) => read,
   onRetrieve: () => void | Promise<void> = () => {},
+  maxRetries = Infinity,
 ) => {
   const store = new cacheStore.Store({ now: core.now });
   const streamer = new cacheStreamer.Multiplexed({
@@ -60,7 +61,7 @@ const createLatest = (
       return await core.retrieveChannels(keys);
     },
     now: core.now,
-    breaker: { baseInterval: TimeSpan.milliseconds(10) },
+    breaker: { baseInterval: TimeSpan.milliseconds(10), maxRetries },
     readLatest: async (keys, count, tr) => {
       const frame = new framer.Frame();
       for (const key of keys) {
@@ -268,9 +269,13 @@ describe("Latest", () => {
       await expect.poll(() => waiting, POLL).toBe(true);
       core.advance(TimeSpan.milliseconds(100));
       await expect.poll(() => latest.value().series.length, POLL).toBe(10);
-      expect(latest.value().status.variant).toBe("loading");
+      expect(latest.value()).toMatchObject({
+        status: { variant: "loading" },
+        reading: true,
+      });
       release();
       await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      expect(latest.value().reading).toBe(false);
       const times = timesOf(latest);
       expect(times).toHaveLength(1000);
       const steps = new Set(times.slice(1).map((t, i) => t - times[i]));
@@ -326,6 +331,57 @@ describe("Latest", () => {
         variant: "error",
         message: "Failed to read channel data",
       });
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should keep reading while a failed read retries", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(core, () => {
+      throw new Error("stream closed unexpectedly");
+    });
+    const latest = open(1000, undefined, core.index.key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("error");
+      expect(latest.value().reading).toBe(true);
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should end the read once it fails for good", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(core, () => {
+      throw new AccessDeniedError("no access");
+    });
+    const latest = open(1000, undefined, core.index.key);
+    try {
+      await expect.poll(() => latest.value().reading, POLL).toBe(false);
+      expect(latest.value().status.variant).toBe("error");
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should end the read once it runs out of retries", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(
+      core,
+      () => {
+        throw new Error("stream closed unexpectedly");
+      },
+      undefined,
+      undefined,
+      2,
+    );
+    const latest = open(1000, undefined, core.index.key);
+    try {
+      await expect.poll(() => latest.value().reading, POLL).toBe(false);
+      expect(latest.value().status.variant).toBe("error");
     } finally {
       latest.close();
       await close();
