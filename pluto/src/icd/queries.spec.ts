@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd, NotFoundError } from "@synnaxlabs/client";
+import { access, framer, icd, NotFoundError, user } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithPolicy,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -160,6 +161,37 @@ describe("ICD queries", () => {
     it("should leave no ICD when the import fails", async () => {
       const name = `icd-${id.create()}`;
       expect(await importNew(name, "color\n")).toEqual([]);
+    });
+
+    it("should name the ICD that stays when it cannot be deleted", async () => {
+      const as = await createTestClientWithPolicy(client, {
+        name: uuid.create(),
+        objects: [
+          icd.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+          framer.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve", "create", "update"],
+      });
+      const asWrapper = await createAsyncSynnaxWrapper({ client: as });
+      const { result } = renderHook(() => ICD.useImportNew(), { wrapper: asWrapper });
+      const name = `icd-${id.create()}`;
+      await act(async () => {
+        await result.current.updateAsync({
+          name,
+          format: "csv",
+          data: new TextEncoder().encode("color\n"),
+        });
+      });
+      expect(result.current.status.description).toMatch(
+        new RegExp(
+          `^data: row 1: unknown column "color": .*\\. The empty ICD "${name}" stays`,
+        ),
+      );
+      const named = (await client.icds.retrieve({})).filter((ic) => ic.name === name);
+      expect(named).toHaveLength(1);
     });
   });
 

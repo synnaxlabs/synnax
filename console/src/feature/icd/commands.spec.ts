@@ -10,14 +10,19 @@
 import { icd } from "@synnaxlabs/client";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { ICD } from "@/feature/icd";
 import { client, ENGINE_CSV } from "@/feature/icd/testutil";
 import { Session } from "@/session";
-import { fakePickedFile, interceptFilePicker, resolveFocusedTab } from "@/testutil";
+import {
+  createTestClientWithGrants,
+  fakePickedFile,
+  interceptFilePicker,
+  resolveFocusedTab,
+} from "@/testutil";
 
 /** Opens the palette in a new project, capturing raised statuses. */
 const openPalette = async () => {
@@ -72,6 +77,20 @@ describe("ICD commands", () => {
     const created = await retrieveFocusedICD(palette);
     expect(created.name).toBe(name);
     expect(created.messages.map((m) => m.name)).toEqual(["Engine"]);
+  });
+
+  it("should hide Import ICD from a user who cannot update ICDs", async () => {
+    const creator = await createTestClientWithGrants(client, {
+      retrieve: [icd.TYPE_RESOURCE_ID],
+      create: [icd.TYPE_RESOURCE_ID],
+    });
+    const { openCommandPalette } = await renderPalette({
+      commands: ICD.COMMANDS,
+      client: creator,
+    });
+    await openCommandPalette();
+    await screen.findByText("Create ICD");
+    expect(screen.queryByText("Import ICD")).toBeNull();
   });
 
   it("should list the accepted columns of a file with an unknown column", async () => {

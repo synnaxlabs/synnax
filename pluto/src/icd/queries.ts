@@ -98,7 +98,10 @@ export interface ImportNewParams extends Omit<ImportParams, "key"> {
   name: string;
 }
 
-/** Creates an ICD named name from imported data. A failed import leaves no ICD. */
+/**
+ * Creates an ICD named name from imported data, and deletes it when the import fails.
+ * When the delete fails too, the error names the ICD that stays.
+ */
 export const { useUpdate: useImportNew } = Flux.createUpdate<ImportNewParams, icd.ICD>({
   name: RESOURCE_NAME,
   verbs: IMPORT_VERBS,
@@ -107,8 +110,17 @@ export const { useUpdate: useImportNew } = Flux.createUpdate<ImportNewParams, ic
     try {
       return await client.icds.import(key, data, format);
     } catch (e) {
-      await client.icds.delete(key).catch(console.error);
-      throw errors.fromUnknown(e);
+      const failure = errors.fromUnknown(e);
+      try {
+        await client.icds.delete(key);
+      } catch (d) {
+        throw new Error(
+          `${failure.message}. The empty ICD "${name}" stays, because it could not ` +
+            `be deleted: ${errors.fromUnknown(d).message}`,
+          { cause: d },
+        );
+      }
+      throw failure;
     }
   },
 });

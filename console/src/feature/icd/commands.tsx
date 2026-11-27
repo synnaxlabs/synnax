@@ -23,11 +23,18 @@ const CreateCommand = Command.create({
   useOnSelect: useCreate,
 });
 
+// An import into the new ICD needs the update grant too.
+const useImportVisible = (): boolean => {
+  const created = Access.useCreateGranted(icd.TYPE_RESOURCE_ID);
+  const updated = Access.useUpdateGranted(icd.TYPE_RESOURCE_ID);
+  return created && updated;
+};
+
 const ImportCommand = Command.create({
   key: "import_icd",
   name: "Import ICD",
   icon: <Icon.Import />,
-  useVisible: () => Access.useCreateGranted(icd.TYPE_RESOURCE_ID),
+  useVisible: useImportVisible,
   useOnSelect: useImportNew,
 });
 
