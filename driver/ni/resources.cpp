@@ -118,7 +118,7 @@ namespace {
 /// @brief passes each resource that a set series holds to set, and logs the samples
 /// that do not parse.
 template<typename D, typename F>
-void each_set(const x::telem::Series &series, F &&set) {
+void each_set(const x::telem::Series &series, const F &set) {
     for (const auto &sample: series.strings()) {
         x::json::Parser parser(sample);
         const auto res = D::parse(parser);
