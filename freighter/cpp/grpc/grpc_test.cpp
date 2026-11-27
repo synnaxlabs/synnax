@@ -509,7 +509,7 @@ TEST(testGRPC, testErrFromStatusKeepsPayloadTypeOfAnyCode) {
     ASSERT_EQ(err.data(), "panic");
 }
 
-/// @brief it should map a status with no payload to the freighter error of its code.
+/// @brief it should map a status with no payload to the Freighter error of its code.
 TEST(testGRPC, testErrFromStatusMapsCodes) {
     const std::vector<std::pair<::grpc::StatusCode, x::errors::Error>> cases = {
         {::grpc::StatusCode::UNAVAILABLE, UNREACHABLE},

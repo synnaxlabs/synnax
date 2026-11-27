@@ -449,6 +449,90 @@ TEST(HTTPReadTask, BinaryMessage) {
     EXPECT_EQ(fr.at<double>(ep.channels[0].key, 0), 42.5);
 }
 
+/// @brief it should name each text field that is missing or does not convert, and
+/// write nothing for their index group.
+TEST(HTTPReadTask, TextFieldFailures) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .path = "/api/data",
+                .response_body = "T,abc,21.5",
+                .content_type = "text/plain",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    const auto client = new_test_client();
+    synnax::icd::TextPayload payload{.prefix = "T"};
+    const auto add = [&payload](const std::string &name, const std::uint32_t position) {
+        synnax::icd::DelimitedTextField f;
+        f.key = x::uuid::create();
+        f.name = name;
+        f.position = position;
+        payload.fields.emplace_back(f);
+    };
+    add("bad", 1);
+    add("good", 2);
+    add("gone", 3);
+    const auto ep = create_message_endpoint(
+        client,
+        "/api/data",
+        payload,
+        {x::telem::FLOAT64_T, x::telem::FLOAT64_T, x::telem::FLOAT64_T}
+    );
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Failed to read some data");
+    EXPECT_EQ(
+        res.warning.description,
+        "Failed to convert bad for channel " + ep.channels[0].name +
+            R"(: field bad: invalid number "abc"; )" +
+            "Field gone not found in response from /api/data"
+    );
+    EXPECT_EQ(fr.size(), 0);
+}
+
+/// @brief it should name a binary field that the response body is too short for, and
+/// write nothing for its index group.
+TEST(HTTPReadTask, BinaryFieldMissing) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .path = "/api/data",
+                .response_body = std::string("\x07", 1),
+                .content_type = "application/octet-stream",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    const auto client = new_test_client();
+    synnax::icd::UnsignedBinaryField first;
+    first.key = x::uuid::create();
+    first.name = "first";
+    first.bit_length = 8;
+    synnax::icd::UnsignedBinaryField second;
+    second.key = x::uuid::create();
+    second.name = "second";
+    second.start_bit = 8;
+    second.bit_length = 8;
+    const auto ep = create_message_endpoint(
+        client,
+        "/api/data",
+        synnax::icd::BinaryPayload{.fields = {first, second}},
+        {x::telem::UINT8_T, x::telem::UINT8_T}
+    );
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Failed to read some data");
+    EXPECT_EQ(
+        res.warning.description,
+        "Field second not found in response from /api/data"
+    );
+    EXPECT_EQ(fr.size(), 0);
+}
+
 /// @brief it should write the midpoint of the request to the index channel of a
 /// message with no index field.
 TEST(HTTPReadTask, SoftwareTimingIndex) {
@@ -1441,7 +1525,7 @@ TEST(HTTPReadTask, BuildReadersReadsEachEndpoint) {
     const auto b = create_float_endpoint(client, "/b", "/v");
     auto readers = ASSERT_NIL_P(build_readers(client, {a.endpoint, b.endpoint}));
     ASSERT_EQ(readers.endpoints.size(), 2);
-    EXPECT_EQ(readers.pointers.at(b.channels[0].key), "/v");
+    EXPECT_EQ(readers.fields.at(b.channels[0].key), "/v");
     EXPECT_EQ(readers.channels.at(b.channels[0].key).name, b.channels[0].name);
     const x::telem::TimeStamp received(1000);
     x::telem::Frame fr;

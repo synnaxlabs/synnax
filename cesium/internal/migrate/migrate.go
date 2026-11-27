@@ -20,7 +20,7 @@ import (
 // structure is passed into migration functions on bootup.
 type DBState struct {
 	// FS is the file-system for that channel in the DB. This is not the
-	// top level cesium directory, but the channel-specific directory itself.
+	// top level Cesium directory, but the channel-specific directory itself.
 	FS fs.FS
 	// Channel is the channel specification for the DB.
 	Channel channel.Channel

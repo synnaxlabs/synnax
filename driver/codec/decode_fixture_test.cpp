@@ -91,7 +91,7 @@ nlohmann::json sample_json(const x::telem::Series &s) {
 }
 
 /// @brief decodes case c with dec: the frame of its hex, with its CAN identifier when
-/// it has an id, or else its text or document.
+/// it has an id, or else its text or document. A Text decode returns no error.
 template<typename Decoder>
 std::pair<std::optional<std::size_t>, x::errors::Error>
 decode_input(Decoder &dec, const std::string &doc, const std::string &c) {
@@ -104,6 +104,8 @@ decode_input(Decoder &dec, const std::string &doc, const std::string &c) {
             raw_at(doc, c + "/extended") == "true",
             frame
         );
+    } else if constexpr (std::is_same_v<Decoder, Text>) {
+        return {dec.decode(string_at(doc, c + "/text")), x::errors::NIL};
     } else {
         if (raw_at(doc, c + "/text").has_value())
             return dec.decode(string_at(doc, c + "/text"));
@@ -153,18 +155,14 @@ void check_case(
     const auto failures = nlohmann::json::parse(
         raw_at(doc, c + "/failures").value_or("[]")
     );
-    if constexpr (std::is_same_v<Decoder, JSON>) {
-        const auto &actual = dec.failures(want);
-        ASSERT_EQ(actual.size(), failures.size());
-        for (std::size_t j = 0; j < actual.size(); j++) {
-            SCOPED_TRACE("failure " + std::to_string(j));
-            EXPECT_EQ(actual[j].binding, failures[j].at("binding").get<std::size_t>());
-            EXPECT_EQ(actual[j].missing, failures[j].at("missing").get<bool>());
-            check_error(actual[j].error, failures[j].at("error").get<std::string>());
-            EXPECT_TRUE(expected.at(actual[j].binding).is_null());
-        }
-    } else {
-        ASSERT_TRUE(failures.empty()) << "only the JSON decoder reports failed fields";
+    const auto &actual = dec.failures(want);
+    ASSERT_EQ(actual.size(), failures.size());
+    for (std::size_t j = 0; j < actual.size(); j++) {
+        SCOPED_TRACE("failure " + std::to_string(j));
+        EXPECT_EQ(actual[j].binding, failures[j].at("binding").get<std::size_t>());
+        EXPECT_EQ(actual[j].missing, failures[j].at("missing").get<bool>());
+        check_error(actual[j].error, failures[j].at("error").get<std::string>());
+        EXPECT_TRUE(expected.at(actual[j].binding).is_null());
     }
     const auto &samples = dec.samples(want);
     ASSERT_EQ(samples.size(), expected.size());

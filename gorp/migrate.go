@@ -37,7 +37,7 @@ type Migration interface {
 type MigrateConfig struct {
 	// Instrumentation is used for migration logging.
 	alamos.Instrumentation
-	// DB is the gorp DB to migrate.
+	// DB is the Gorp DB to migrate.
 	DB *DB
 	// Namespace scopes the applied-migrations record key. Must be stable across runs so
 	// previously applied migrations are not re-run.

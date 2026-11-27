@@ -103,7 +103,7 @@ const (
 // Directory Vite emits content-hashed files into, at the bundle root and under pluto/.
 const hashedAssetDir = "assets"
 
-// BindTo binds the console UI service to the provided Fiber app. It serves the desktop
+// BindTo binds the Console UI service to the provided Fiber app. It serves the desktop
 // Console update manifest at /console/update/latest.json and each file that the
 // manifest names at /console/update/<name>. Both answer 404 when the Core embeds no
 // update.

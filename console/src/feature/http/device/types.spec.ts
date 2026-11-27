@@ -375,6 +375,23 @@ describe("HTTP Device Properties", () => {
       expect(result.healthCheck.path).toBe("/health");
     });
 
+    it("should accept a stored health check header with an empty name or value", () => {
+      const headers = [
+        { name: "X-Key", value: "" },
+        { name: "", value: "abc" },
+      ];
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        healthCheck: {
+          method: "GET",
+          path: "/health",
+          headers,
+          validateResponse: false,
+        },
+      });
+      expect(result.healthCheck.headers).toEqual(headers);
+    });
+
     it("should reject validateResponse true without response field", () => {
       const result = HTTP.Device.healthCheckZ.safeParse({
         method: "GET",

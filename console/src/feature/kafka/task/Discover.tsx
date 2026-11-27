@@ -33,9 +33,12 @@ import type { Device } from "@/feature/kafka/device";
 import {
   carriedFields,
   defaultPicks,
+  freeShapes,
   isExtendable,
+  isReusable,
   type Picks,
   type Reads,
+  sourceKey,
   splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
@@ -71,6 +74,10 @@ export interface Params {
   reads?: (topic: string) => Reads;
   /** Names the Kafka key of a record, such as "Any key" for the empty key. */
   label: (recordKey: string) => string;
+  /** The forms of the ICDs whose messages new records can read. */
+  formats?: ICD.Formats;
+  /** The ICD that the most records of the task read. */
+  home?: icd.Key;
 }
 
 /** The fields picked from the shapes of a sample of one topic. */
@@ -78,6 +85,8 @@ export interface TopicPick {
   topic: string;
   shapes: json.Shape[];
   picks: Picks;
+  /** The ICD that the new records of the topic read. Absent for no fit or a tie. */
+  reading?: ICD.Reuse.Reading;
 }
 
 /** A topic picked whole. */
@@ -112,6 +121,8 @@ const FORMAT_HELP = "Optional. A topic with no format gets one from its records.
 const NO_READS: Reads = { messages: new Map(), jsonless: new Set() };
 
 const readNothing = (): Reads => NO_READS;
+
+const NO_FORMATS: ICD.Formats = new Map();
 
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
 
@@ -174,12 +185,18 @@ const parse = (payload: string): unknown => {
   }
 };
 
-/** @returns the parsed JSON records of a shape's keys, newest first. */
-const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] =>
-  sample.records
+/**
+ * @returns the parsed JSON records of a shape, newest first: the records of its keys
+ * that hold its present field, if it has one.
+ */
+const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] => {
+  const present = shape.present == null ? undefined : shape.fields[shape.present];
+  return sample.records
     .filter(({ key, format }) => format === "json" && shape.sources.includes(key))
     .sort((a, b) => Number(b.time.valueOf() - a.time.valueOf()))
-    .map(({ payload }) => parse(payload));
+    .map(({ payload }) => parse(payload))
+    .filter((doc) => present == null || valueAt(doc, present.pointer) !== undefined);
+};
 
 /** @returns the value of a field in the newest record that holds it. */
 const newestValue = (records: unknown[], pointer: string): unknown => {
@@ -193,6 +210,84 @@ const newestValue = (records: unknown[], pointer: string): unknown => {
 const show = (value: unknown): string | null => {
   if (value === undefined) return null;
   return typeof value === "string" ? value : JSON.stringify(value);
+};
+
+/** @returns the ICD messages that the new records of a sampled topic read. */
+const findReading = (
+  topic: string,
+  sample: kafka.SampledTopic,
+  reads: Reads,
+  device: Device.Device,
+  icds: Pick<icd.ICD, "key" | "name" | "messages">[],
+  home?: icd.Key,
+): ICD.Reuse.Result => {
+  const shapes = freeShapes(sample.shapes, reads);
+  const isStored = (message: icd.MessageKey) =>
+    shapes.some(({ sources }) =>
+      sources.some(
+        (k) =>
+          device.properties.read[ICD.Stored.key(sourceKey(topic, k), message)] != null,
+      ),
+    );
+  const stored = new Set(
+    icds.flatMap(({ messages }) => messages.map(({ key }) => key)).filter(isStored),
+  );
+  const source = {
+    shapes: shapes.map((shape) => ICD.Reuse.shapeOf(shape, newestFirst(sample, shape))),
+    stored,
+  };
+  return ICD.Reuse.find(source, icds, home);
+};
+
+/**
+ * @returns the fit whose message the new records of a shape read, by the position of
+ * the shape in the free shapes of its sample.
+ */
+const reusedFit = (
+  { reading }: ICD.Reuse.Result,
+  shape: json.Shape,
+  i: number,
+): ICD.Reuse.Fit | undefined => {
+  const fit = reading?.fits[i];
+  return fit != null && isReusable(shape, fit) ? fit : undefined;
+};
+
+/**
+ * @returns the reading of found when it reuses a message for a shape of free that
+ * picks holds fields of.
+ */
+const reusedReading = (
+  found: ICD.Reuse.Result,
+  free: json.Shape[],
+  picks: Picks,
+): ICD.Reuse.Reading | undefined =>
+  free.some(
+    (shape, i) =>
+      (picks.get(json.shapeKey(shape))?.size ?? 0) > 0 &&
+      reusedFit(found, shape, i) != null,
+  )
+    ? found.reading
+    : undefined;
+
+/**
+ * @returns what the new records of a shape read, by the position of the shape in the
+ * free shapes of its sample.
+ */
+const readingNote = (
+  found: ICD.Reuse.Result,
+  shape: json.Shape,
+  i: number,
+): string | undefined => {
+  if (i < 0) return undefined;
+  const { reading, candidates } = found;
+  const fit = reusedFit(found, shape, i);
+  if (reading != null && fit != null)
+    return `Reads ${fit.message.name} of ${reading.name}`;
+  const tied = candidates
+    .filter(({ icd: k }) => reading == null || k === reading.icd)
+    .flatMap(({ fits }) => fits[i] ?? [])
+    .filter((f) => isReusable(shape, f)).length;
+  return tied < 2 ? undefined : `Fits ${tied} messages`;
 };
 
 /** A partition that the browse could not measure can hide records. */
@@ -331,6 +426,8 @@ interface TopicValuesProps {
   warning: string | null;
   sample: kafka.SampledTopic;
   reads: Reads;
+  /** The ICD messages that the new records of the topic read. */
+  found: ICD.Reuse.Result;
   label: Params["label"];
   value: Picks;
   onChange: (value: Picks) => void;
@@ -343,11 +440,13 @@ const TopicValues = ({
   warning,
   sample,
   reads,
+  found,
   label,
   value,
   onChange,
 }: TopicValuesProps) => {
   const { shapes } = sample;
+  const free = freeShapes(shapes, reads);
   // Shapes can share a pointer, so each field takes the index of its shape too.
   const fields = new Map<string, [shape: string, pointer: string]>();
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
@@ -358,7 +457,10 @@ const TopicValues = ({
     const carried = carriedFields(shape, reads);
     return {
       title: titleOf(shape, label),
-      note: split == null ? undefined : ICD.Picker.splitNote(split),
+      note:
+        split == null
+          ? readingNote(found, shape, free.indexOf(shape))
+          : ICD.Picker.splitNote(split),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
@@ -463,10 +565,13 @@ const Content = ({
   topics: held,
   reads: readsOf = readNothing,
   label,
+  formats = NO_FORMATS,
+  home,
   close,
   kind,
 }: ContentProps) => {
   const { whole = false } = kind;
+  const icds = ICD.useValues(formats);
   const [term, setTerm] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [entered, setEntered] = useState<string[]>([]);
@@ -724,6 +829,7 @@ const Content = ({
           warning={warning === "" ? null : warning}
           sample={data}
           reads={readsOf(topic)}
+          found={findReading(topic, data, readsOf(topic), device, icds, home)}
           label={label}
           value={picks.get(topic)?.picks ?? new Map()}
           onChange={(value) =>
@@ -756,7 +862,17 @@ const Content = ({
     : [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
   const finish = (record: string | null) =>
     close({
-      topics: [...picks.values()].sort(compare.by(({ topic }) => topic)),
+      topics: [...picks.values()]
+        .map((pick): TopicPick => {
+          const sample = reads.get(pick.topic);
+          if (sample?.variant !== "success") return pick;
+          const held = readsOf(pick.topic);
+          const found = findReading(pick.topic, sample.data, held, device, icds, home);
+          const free = freeShapes(sample.data.shapes, held);
+          const reading = reusedReading(found, free, pick.picks);
+          return reading == null ? pick : { ...pick, reading };
+        })
+        .sort(compare.by(({ topic }) => topic)),
       record,
       whole: [...wholePicks]
         .map(([topic, shape]): WholePick => ({ topic, shape }))
