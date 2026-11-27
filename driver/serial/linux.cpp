@@ -65,6 +65,12 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
 }
 
 namespace native {
+void unlock(const Handle handle) {
+    // A pseudo-terminal keeps TIOCEXCL after its last close while its controller is
+    // open, so the port clears it.
+    ::ioctl(static_cast<int>(handle), TIOCNXCL);
+}
+
 std::pair<bool, std::error_code> exclusive(const int fd) {
     int flag = 0;
     if (::ioctl(fd, TIOCGEXCL, &flag) != 0)

@@ -33,9 +33,9 @@ std::error_code last_error() {
     return {errno, std::generic_category()};
 }
 
-/// @brief refuses the port at fd when another program holds it, then locks it. macOS
-/// cannot read TIOCEXCL, so a root Driver there opens a port that another program holds
-/// with TIOCEXCL alone.
+/// @brief refuses the port at fd when another program holds it, then locks it. A macOS
+/// pseudo-terminal lets TIOCEXCL stop only root, so a Driver without root opens one
+/// that another program holds with TIOCEXCL alone.
 x::errors::Error lock(const int fd, const std::string &context) {
     const auto busy = std::make_error_code(std::errc::device_or_resource_busy);
     // Root gets past TIOCEXCL, and the port must not clear a flag that it did not set.
@@ -117,12 +117,6 @@ x::errors::Error open(asio::serial_port &device, const std::string &port) {
 namespace native {
 x::errors::Error failed(const std::string &setting, const std::string &port) {
     return translate("failed to set " + setting + " on " + port, last_error());
-}
-
-void unlock(const Handle handle) {
-    // A pseudo-terminal keeps TIOCEXCL after its last close while its controller is
-    // open, so the port clears it.
-    ::ioctl(static_cast<int>(handle), TIOCNXCL);
 }
 
 void discard_output(const Handle handle) {
