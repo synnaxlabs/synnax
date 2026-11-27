@@ -151,6 +151,7 @@ TEST(ControlPipeline, SetChannelsWhileWaitingForCore) {
                 .read_errors = std::make_shared<std::vector<x::errors::Error>>(
                     std::vector{freighter::UNREACHABLE}
                 ),
+                .close_err = freighter::UNREACHABLE,
                 .set_channels_err = x::errors::VALIDATION,
             }}
         )

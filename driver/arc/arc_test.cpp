@@ -3922,6 +3922,52 @@ public:
     }
 };
 
+/// @brief opens a control streamer that rejects every channel set and fails its read
+/// once fail is set, and then streamers that accept every channel set.
+class RejectingStreamerFactory final : public pipeline::StreamerFactory {
+    class Streamer final : public pipeline::Streamer {
+        RejectingStreamerFactory &factory;
+        bool rejects;
+        std::atomic<bool> closed = false;
+
+    public:
+        Streamer(RejectingStreamerFactory &factory, const bool rejects):
+            factory(factory), rejects(rejects) {}
+
+        std::pair<x::telem::Frame, x::errors::Error> read() override {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            if (this->closed) return {x::telem::Frame{}, freighter::STREAM_CLOSED};
+            if (this->rejects && this->factory.fail)
+                return {x::telem::Frame{}, freighter::UNREACHABLE};
+            return {x::telem::Frame{}, x::errors::NIL};
+        }
+
+        x::errors::Error close() override {
+            return this->rejects ? freighter::UNREACHABLE : x::errors::NIL;
+        }
+
+        void close_send() override { this->closed = true; }
+
+        x::errors::Error
+        set_channels(const std::vector<synnax::channel::Key> &channels) override {
+            if (this->rejects) return x::errors::VALIDATION;
+            this->factory.sets->push(channels);
+            return x::errors::NIL;
+        }
+    };
+
+public:
+    std::atomic<int> opens = 0;
+    std::atomic<bool> fail = false;
+    std::shared_ptr<pipeline::testutil::ChannelSets>
+        sets = std::make_shared<pipeline::testutil::ChannelSets>();
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        return {std::make_unique<Streamer>(*this, ++this->opens == 1), x::errors::NIL};
+    }
+};
+
 /// @brief runs Arc tasks whose Core streamer is always unreachable, so their input
 /// comes only from the bypass bus.
 class OutageTest : public ::testing::Test {
@@ -3975,7 +4021,8 @@ protected:
         const std::string &source,
         const std::vector<synnax::channel::Key> &inputs,
         const std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET,
-        std::shared_ptr<pipeline::StreamerFactory> watch_factory = nullptr
+        std::shared_ptr<pipeline::StreamerFactory> watch_factory = nullptr,
+        std::shared_ptr<pipeline::StreamerFactory> control_factory = nullptr
     ) const {
         synnax::arc::AutomationArc arc_prog{
             {.name = make_unique_channel_name("outage_test")}
@@ -3997,6 +4044,19 @@ protected:
         auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(this->client, parser));
         task_cfg.loop_budget = loop_budget;
         this->bus->register_channels(inputs);
+        if (control_factory == nullptr)
+            control_factory = std::make_shared<bypass::pipeline::StreamerFactory>(
+                this->unreachable,
+                this->bus,
+                x::control::Subject{},
+                x::breaker::Config{
+                    .name = "arc_test",
+                    .base_interval = x::telem::MILLISECOND,
+                    .max_retries = 2,
+                    .scale = 1,
+                    .max_interval = x::telem::MILLISECOND,
+                }
+            );
         return ASSERT_NIL_P(
             arc::Task::create(
                 task_meta,
@@ -4008,18 +4068,7 @@ protected:
                     std::make_shared<control::States>(),
                     0
                 ),
-                std::make_shared<bypass::pipeline::StreamerFactory>(
-                    this->unreachable,
-                    this->bus,
-                    x::control::Subject{},
-                    x::breaker::Config{
-                        .name = "arc_test",
-                        .base_interval = x::telem::MILLISECOND,
-                        .max_retries = 2,
-                        .scale = 1,
-                        .max_interval = x::telem::MILLISECOND,
-                    }
-                ),
+                std::move(control_factory),
                 nullptr,
                 std::move(watch_factory)
             )
@@ -4341,6 +4390,37 @@ TEST_F(OutageTest, KeepsCalculationThatNoLongerCompiles) {
     ASSERT_EVENTUALLY_EQ(this->warning(), "Failed to reload calculations");
     this->publish(a.key, 4.0f);
     ASSERT_EVENTUALLY_TRUE(this->wrote(out.key, 8.0f));
+    task->stop("test_stop", true);
+}
+
+/// @brief it should retry a failed reload when the control streamer opens again.
+TEST_F(OutageTest, RetriesFailedReloadWhenControlReopens) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto b = this->create_channel("b", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto inner = this->create_calculated("inner", a.name + " * 2");
+    const auto outer = this->create_calculated("outer", inner.name + " + 1");
+    const auto control = std::make_shared<RejectingStreamerFactory>();
+    const auto task = this->create_task(
+        outer.name + " -> " + out.name,
+        {a.key, b.key},
+        ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET,
+        nullptr,
+        control
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(control->opens.load(), 1);
+    this->set_expression(inner, b.name + " * 3");
+    ASSERT_EVENTUALLY_EQ(this->warning(), "Failed to reload calculations");
+    control->fail = true;
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            const auto sets = control->sets->snapshot();
+            return std::ranges::find(sets, std::vector{b.key}) != sets.end();
+        }(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
     task->stop("test_stop", true);
 }
 
