@@ -127,6 +127,34 @@ var _ = Describe("Clash upgrade breaker", func() {
 			))
 		})
 
+	It("Should report a read of a renamed channel in a folder that Arc cannot read "+
+		"bare yet", func(ctx SpecContext) {
+		n := testutil.NewNode(ctx)
+		stand := folder("Stand A")
+		// A v0.62 Core bound "pt" to the user's channel, the higher key, which the
+		// built-in of the name in its folder takes from it.
+		stored := storeV062(
+			ctx,
+			n,
+			[]string{"pt", "pt", "doubled"},
+			func(cs []channelv1.Channel) {
+				cs[0].Internal, cs[0].Group = true, &stand.Key
+				cs[1].Group = &stand.Key
+				cs[2].Expression = "return pt * 2"
+			},
+			stand,
+		)
+		MustOpen(svctestutil.OpenLayer(ctx, n))
+		Expect(namesOf(ctx, n, stored)[stored[1].Key()]).To(Equal("pt_2"))
+		Expect(expressionOf(ctx, n, stored[2].Key())).To(Equal("return pt * 2"))
+		Expect(renameStatuses(ctx, n)["doubled"].Description).To(Equal(
+			`The upgrade renamed channel "pt" to "pt_2", but the text of calculated ` +
+				`channel "doubled" still reads the old name at line 1, column 8, ` +
+				`because its folder cannot be read in Arc yet. Rename the folder so ` +
+				`that Arc can read it, then edit the text so that it reads the channel.`,
+		))
+	})
+
 	It("Should leave a graph function body that reads its own input of the old name",
 		func(ctx SpecContext) {
 			n := testutil.NewNode(ctx)
