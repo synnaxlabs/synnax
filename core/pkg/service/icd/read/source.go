@@ -10,6 +10,7 @@
 package read
 
 import (
+	"bytes"
 	"slices"
 	"strconv"
 
@@ -89,13 +90,15 @@ type decoder interface {
 	) (message int, ok bool, failures []codec.Failure, err error)
 }
 
-// text is a codec.Text decoder. A line never fails as a whole.
+// text is a codec.Text decoder of payloads that each hold one line, with or without its
+// line end. A line never fails as a whole.
 type text struct{ codec *codec.Text }
 
 func (t text) Decode(
 	line []byte,
 	samples [][][]byte,
 ) (int, bool, []codec.Failure, error) {
+	line = bytes.TrimSuffix(line, []byte("\n"))
 	message, ok, failures := t.codec.Decode(line, samples)
 	return message, ok, failures, nil
 }
@@ -133,8 +136,6 @@ func newSource(
 		jsonMessages   []codec.JSONMessage
 		textMessages   []codec.TextMessage
 		binaryMessages []codec.BinaryMessage
-		// first is the name of the first message, whose format every message shares.
-		first string
 	)
 	for r, rm := range rd.Messages {
 		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(r)})
@@ -145,13 +146,7 @@ func newSource(
 			panic(errors.Newf("read: message %s is not in ICD %s", rm.Message, ic.Name))
 		}
 		msg := ic.Messages[i]
-		if r == 0 {
-			first, s.format = msg.Name, msg.Payload.Format()
-		} else if msg.Payload.Format() != s.format {
-			return nil, validate.PathedError(validate.Errorf(
-				"messages %s and %s have different formats", first, msg.Name,
-			), path...)
-		}
+		s.format = msg.Payload.Format()
 		if len(rm.Bindings) == 0 {
 			return nil, validate.PathedError(
 				validate.Errorf("message %s binds no fields", msg.Name),

@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Source", func() {
@@ -329,15 +328,22 @@ var _ = Describe("Source", func() {
 			})
 		)
 
-		It("Should decode a line of a text message", func(ctx SpecContext) {
+		DescribeTable("Should decode a line of a text message", func(
+			ctx SpecContext,
+			line string,
+		) {
 			src := bindRead(ctx, plant, lineRead)
 			Expect(src.Format()).To(Equal(payload.FormatText))
-			samples, ok := MustSucceed2(src.Decode([]byte("L,2.5")))
+			samples, ok := MustSucceed2(src.Decode([]byte(line)))
 			Expect(ok).To(BeTrue())
 			Expect(samples).To(Equal([]read.Sample{
 				{Group: 0, Data: [][]byte{f64(2.5)}},
 			}))
-		})
+		},
+			Entry("with no line end", "L,2.5"),
+			Entry("with a newline", "L,2.5\n"),
+			Entry("with a carriage return and a newline", "L,2.5\r\n"),
+		)
 
 		It("Should drop the group of a text field that does not decode", func(
 			ctx SpecContext,
@@ -374,22 +380,6 @@ var _ = Describe("Source", func() {
 
 		It("Should give the format of a read of JSON messages", func(ctx SpecContext) {
 			Expect(newSource(ctx, mixedRead).Format()).To(Equal(payload.FormatJSON))
-		})
-
-		It("Should reject a read of messages of different formats", func(
-			ctx SpecContext,
-		) {
-			rd := readAt(0, plant.Key, lineRead, frameRead)
-			c := MustSucceed(resolver.NewChecker(
-				ctx, db, []read.Read{rd}, nil, map[icd.Key]icd.ICD{plant.Key: plant},
-			))
-			Expect(c.Read(rd)).To(Succeed())
-			Expect(c.Bind(rd)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(
-					"reads.0.messages.1: messages Line and Frame have different formats",
-				),
-			))
 		})
 	})
 

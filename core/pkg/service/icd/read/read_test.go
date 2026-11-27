@@ -302,24 +302,44 @@ var _ = Describe("Read", func() {
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
-			It("Should accept a read of binary and text messages", func(
+			It("Should accept a read of binary messages and a read of text messages",
+				func(ctx SpecContext) {
+					Expect(check(ctx,
+						readAt(0, plant.Key, readOf(
+							frame,
+							icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
+							icd.ReadBinding{
+								Field:    count.Base().Key,
+								DataType: telem.Uint8T,
+							},
+							icd.ReadBinding{Field: level.Base().Key, Channel: valueKey},
+							icd.ReadBinding{
+								Field:    wide.Base().Key,
+								DataType: telem.Int16T,
+							},
+						)),
+						readAt(1, plant.Key, readOf(line, icd.ReadBinding{
+							Field: volts.Base().Key, Channel: levelKey,
+						})),
+					)).To(Succeed())
+				},
+			)
+
+			It("Should reject a read of messages of different formats", func(
 				ctx SpecContext,
 			) {
 				Expect(check(ctx, readAt(0, plant.Key,
-					readOf(
-						frame,
-						icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
-						icd.ReadBinding{
-							Field:    count.Base().Key,
-							DataType: telem.Uint8T,
-						},
-						icd.ReadBinding{Field: level.Base().Key, Channel: valueKey},
-						icd.ReadBinding{Field: wide.Base().Key, DataType: telem.Int16T},
-					),
 					readOf(line, icd.ReadBinding{
 						Field: volts.Base().Key, Channel: levelKey,
 					}),
-				))).To(Succeed())
+					readOf(frame, icd.ReadBinding{
+						Field: count.Base().Key, Channel: totalKey,
+					}),
+				))).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("reads.0.messages.1.message: messages Line and Frame "+
+						"have different formats"),
+				))
 			})
 
 			DescribeTable("Should reject a framed read with the path of the problem",

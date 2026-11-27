@@ -190,16 +190,25 @@ type Checker struct {
 
 // Read checks each message of rd against its ICD and the channels of its bindings, and
 // claims each channel of a binding. It returns a validation error at the path of the
-// first problem.
+// first problem, such as two messages of different formats.
 func (c Checker) Read(rd Read) error {
 	ic, ok := c.icds[rd.ICD]
 	if !ok {
 		return nil
 	}
+	var first icd.Message
 	for j, rm := range rd.Messages {
 		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
-		if err := c.message(rm, ic, path); err != nil {
+		msg, err := c.message(rm, ic, path)
+		if err != nil {
 			return err
+		}
+		if j == 0 {
+			first = msg
+		} else if msg.Payload.Format() != first.Payload.Format() {
+			return validate.PathedError(validate.Errorf(
+				"messages %s and %s have different formats", first.Name, msg.Name,
+			), slices.Concat(path, []string{"message"})...)
 		}
 	}
 	return nil
@@ -249,8 +258,8 @@ func (c Checker) Tag(
 // config, so that a claim error is at the path of the message that does not bind the
 // index channel. Bind returns a validation error at the path of the problem when the
 // ICD of rd or the channel of a binding does not exist, a binding has no channel, rd
-// reads no messages, a message binds no fields, two messages have different formats, or
-// the decoder cannot tell two messages apart.
+// reads no messages, a message binds no fields, or the decoder cannot tell two messages
+// apart.
 func (c Checker) Bind(rd Read) (*Source, error) {
 	ic, ok := c.icds[rd.ICD]
 	if !ok {
@@ -324,8 +333,12 @@ func (c Checker) BindTag(key channel.Key, path []string) (icdv0.Channel, error) 
 }
 
 // message checks rm, at path, against its message in ic and the channels of its
-// bindings, and claims each channel of a binding.
-func (c Checker) message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
+// bindings, claims each channel of a binding, and returns the message.
+func (c Checker) message(
+	rm icd.ReadMessage,
+	ic icd.ICD,
+	path []string,
+) (icd.Message, error) {
 	at := func(err error, segment string) error {
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
@@ -333,7 +346,7 @@ func (c Checker) message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
 		return m.Key == rm.Message
 	})
 	if i < 0 {
-		return at(validate.Errorf(
+		return icd.Message{}, at(validate.Errorf(
 			"message %s does not exist in ICD %s", rm.Message, ic.Name,
 		), "message")
 	}
@@ -341,23 +354,23 @@ func (c Checker) message(rm icd.ReadMessage, ic icd.ICD, path []string) error {
 	fields := fieldsOf(msg.Payload)
 	if rm.Index != nil {
 		if err := checkIndex(rm, fields, msg.Name); err != nil {
-			return at(err, "index")
+			return icd.Message{}, at(err, "index")
 		}
 	}
 	for j, b := range rm.Bindings {
 		f, ok := fields[b.Field]
 		bindingPath := slices.Concat(path, []string{"bindings", strconv.Itoa(j)})
 		if !ok {
-			return validate.PathedError(validate.Errorf(
+			return icd.Message{}, validate.PathedError(validate.Errorf(
 				"field %s does not exist in message %s", b.Field, msg.Name,
 			), slices.Concat(bindingPath, []string{"field"})...)
 		}
 		isIndex := rm.Index != nil && *rm.Index == b.Field
 		if err := c.checkBinding(b, f, isIndex, bindingPath); err != nil {
-			return err
+			return icd.Message{}, err
 		}
 	}
-	return nil
+	return msg, nil
 }
 
 // checkIndex checks the index field of rm, which has one, against fields, the fields
