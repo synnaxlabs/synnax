@@ -9,9 +9,11 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/channel/types.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "client/cpp/serial/json.gen.h"
 #include "client/cpp/serial/types.gen.h"
@@ -56,17 +58,21 @@ protected:
         ASSERT_NIL(this->client->devices.create(this->dev));
     }
 
-    /// @returns the status of a commanded configure of a read task with entry.
-    synnax::task::Status configure(const synnax::icd::ReadEntry &entry) {
+    /// @returns the task of a commanded configure of a read task named name with
+    /// entry, or nullptr when the configure fails.
+    std::unique_ptr<task::Task> configure_task(
+        const synnax::icd::ReadEntry &entry,
+        const std::string &name = "serial read"
+    ) {
         synnax::serial::ReadConfig cfg;
         cfg.device = this->dev.key;
         cfg.entries = {entry};
         this->cancel.start();
-        const auto [tsk, handled] = this->factory.configure_task(
+        auto [tsk, handled] = this->factory.configure_task(
             this->ctx,
             synnax::task::Task{
                 .key = x::uuid::create(),
-                .name = "serial read",
+                .name = name,
                 .type = READ_TASK_TYPE,
                 .config = cfg.to_json(),
             },
@@ -75,10 +81,52 @@ protected:
         );
         this->cancel.stop();
         EXPECT_TRUE(handled);
-        EXPECT_EQ(tsk, nullptr);
+        return std::move(tsk);
+    }
+
+    /// @returns the status of a commanded configure of a read task with entry that
+    /// fails.
+    synnax::task::Status configure(const synnax::icd::ReadEntry &entry) {
+        EXPECT_EQ(this->configure_task(entry), nullptr);
         const auto statuses = this->ctx->snapshot();
-        EXPECT_EQ(statuses.size(), 1);
-        return statuses.empty() ? synnax::task::Status{} : statuses.front();
+        EXPECT_FALSE(statuses.empty());
+        return statuses.empty() ? synnax::task::Status{} : statuses.back();
+    }
+
+    /// @returns an entry that reads lines of one text field into the channel with key,
+    /// on an ICD that it creates.
+    synnax::icd::ReadEntry lines(const synnax::channel::Key key) {
+        synnax::icd::DelimitedTextField v;
+        v.key = x::uuid::create();
+        v.name = "v";
+        synnax::icd::Message m;
+        m.key = x::uuid::create();
+        m.name = "reading";
+        m.payload = synnax::icd::TextPayload{.fields = {v}};
+        synnax::icd::ICD ic;
+        ic.key = x::uuid::create();
+        ic.name = "sensor";
+        ic.framing = synnax::icd::DelimitedFraming{};
+        ic.messages = {m};
+        EXPECT_NIL(this->client->icds.create(ic));
+        return {
+            .icd = ic.key,
+            .messages = {{
+                .message = m.key,
+                .bindings = {{.field = v.key, .channel = key}},
+            }},
+        };
+    }
+
+    /// @returns a virtual float64 channel that it creates.
+    synnax::channel::Channel channel() {
+        synnax::channel::Channel ch{
+            .name = make_unique_channel_name("serial_value"),
+            .data_type = x::telem::FLOAT64_T,
+            .is_virtual = true,
+        };
+        EXPECT_NIL(this->client->channels.create(ch));
+        return ch;
     }
 };
 }
@@ -101,38 +149,30 @@ TEST_F(SerialConfigure, NamesMissingICD) {
 /// @brief it should fail to configure a binding to a channel that does not exist, and
 /// name the channel.
 TEST_F(SerialConfigure, NamesChannelOfBadBinding) {
-    synnax::channel::Channel ch{
-        .name = make_unique_channel_name("serial_value"),
-        .data_type = x::telem::FLOAT64_T,
-        .is_virtual = true,
-    };
-    ASSERT_NIL(this->client->channels.create(ch));
-    const auto missing = ch.key + 1000000;
-    synnax::icd::DelimitedTextField v;
-    v.key = x::uuid::create();
-    v.name = "v";
-    synnax::icd::Message m;
-    m.key = x::uuid::create();
-    m.name = "reading";
-    m.payload = synnax::icd::TextPayload{.fields = {v}};
-    synnax::icd::ICD ic;
-    ic.key = x::uuid::create();
-    ic.name = "sensor";
-    ic.framing = synnax::icd::DelimitedFraming{};
-    ic.messages = {m};
-    ASSERT_NIL(this->client->icds.create(ic));
-    const auto status = this->configure({
-        .icd = ic.key,
-        .messages = {{
-            .message = m.key,
-            .bindings = {{.field = v.key, .channel = missing}},
-        }},
-    });
+    const auto missing = this->channel().key + 1000000;
+    const auto status = this->configure(this->lines(missing));
     EXPECT_EQ(status.message, "Failed to configure task");
     EXPECT_EQ(
         status.description,
         "entry 0: message reading: channel " + std::to_string(missing) +
             " does not exist"
     );
+}
+
+/// @brief it should refuse a second read task on the port of a device and name the
+/// first, and configure the second once the first is gone.
+TEST_F(SerialConfigure, RefusesSecondReadTaskOnPort) {
+    const auto entry = this->lines(this->channel().key);
+    auto first = this->configure_task(entry, "oven");
+    ASSERT_NE(first, nullptr);
+    const auto status = this->configure(entry);
+    EXPECT_EQ(status.message, "Failed to configure task");
+    EXPECT_EQ(
+        status.description,
+        "A serial port runs one read task at a time, and the task 'oven' reads from "
+        "/dev/synnax-missing-port. Add these entries to that task."
+    );
+    first.reset();
+    EXPECT_NE(this->configure_task(entry), nullptr);
 }
 }

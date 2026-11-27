@@ -21,16 +21,16 @@
 
 namespace driver::serial {
 Source::Source(
-    std::shared_ptr<transport::Connections> connections,
-    std::string device,
-    synnax::serial::Properties props,
+    std::shared_ptr<Ports> ports,
+    Device device,
+    std::unique_ptr<Ports::Claim> claim,
     icd::Receiver receiver,
     std::vector<synnax::channel::Channel> bound,
     const bool data_saving_disabled
 ):
-    connections(std::move(connections)),
+    ports(std::move(ports)),
     device(std::move(device)),
-    props(std::move(props)),
+    claim(std::move(claim)),
     receiver(std::move(receiver)),
     bound(std::move(bound)),
     data_saving_disabled(data_saving_disabled) {}
@@ -47,19 +47,19 @@ std::vector<synnax::channel::Channel> Source::channels() const {
 }
 
 x::errors::Error Source::start(const std::string &, x::breaker::Breaker &) {
-    auto [conn, err] = acquire(*this->connections, this->device, this->props);
-    this->conn = std::move(conn);
+    auto [lease, err] = this->ports->acquire(this->device);
+    this->lease = std::move(lease);
     this->opens = 0;
     return err;
 }
 
 x::errors::Error Source::stop() {
-    this->conn.reset();
+    this->lease = {};
     return x::errors::NIL;
 }
 
 common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
-    auto guard = this->conn->lock();
+    auto guard = this->lease.conn->lock();
     const auto [t, err] = guard.transport();
     if (err) return {.error = err};
     if (const auto opens = guard.opens(); opens != this->opens) {
@@ -74,7 +74,7 @@ common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<transport::Connections> &connections
+    const std::shared_ptr<Ports> &ports
 ) {
     x::json::Parser parser(task.config);
     const auto cfg = synnax::serial::ReadConfig::parse(parser);
@@ -82,8 +82,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     if (cfg.entries.empty())
         parser.field_err("entries", "at least one entry is required");
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
-    auto [props, props_err] = retrieve_properties(ctx->client->devices, cfg.device);
-    if (props_err) return {common::ConfigureResult{}, props_err};
+    auto [dev, dev_err] = retrieve_device(ctx->client->devices, cfg.device);
+    if (dev_err) return {common::ConfigureResult{}, dev_err};
     std::set<synnax::icd::Key> icds;
     std::set<synnax::channel::Key> channels;
     for (const auto &entry: cfg.entries) {
@@ -101,6 +101,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         false
     );
     if (receiver_err) return {common::ConfigureResult{}, receiver_err};
+    auto [claim, claim_err] = ports->claim_read(dev.props.port, task);
+    if (claim_err) return {common::ConfigureResult{}, claim_err};
     std::vector<synnax::channel::Channel> bound;
     bound.reserve(resources.channels.size());
     for (const auto &[_, ch]: resources.channels)
@@ -112,9 +114,9 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
                 ctx,
                 common::unlimited_retry_config(task.name),
                 std::make_unique<Source>(
-                    connections,
-                    cfg.device,
-                    std::move(props),
+                    ports,
+                    std::move(dev),
+                    std::move(claim),
                     std::move(receiver),
                     std::move(bound),
                     cfg.data_saving_disabled
