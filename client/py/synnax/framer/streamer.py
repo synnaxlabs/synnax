@@ -171,8 +171,12 @@ class Streamer:
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
         # non-keep-alive response.
-        while self._receive_with_deadline().keep_alive:
-            pass
+        try:
+            while self._receive_with_deadline().keep_alive:
+                pass
+        except BaseException:
+            self._stream.close()
+            raise
 
     @overload
     def read(self, *, timeout: CrudeTimeSpan) -> Frame | None:
@@ -353,8 +357,12 @@ class AsyncStreamer:
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
         # non-keep-alive response.
-        while (await self._receive_with_deadline()).keep_alive:
-            pass
+        try:
+            while (await self._receive_with_deadline()).keep_alive:
+                pass
+        except BaseException:
+            await self._stream.close()
+            raise
 
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while

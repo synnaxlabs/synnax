@@ -547,6 +547,22 @@ class TestStreamerKeepAlive:
         ):
             s.read()
 
+    def test_stall_before_open_ack(
+        self,
+        virtual_channel: sy.Channel,
+        stalled_proxy: Proxy,
+        stalled_proxied_client: sy.Synnax,
+    ) -> None:
+        """Should raise Unreachable and close the connection when the link stalls
+        before the open ack"""
+        with pytest.raises(
+            Unreachable, match=f"streamer received no response for {DEADLINE}"
+        ):
+            stalled_proxied_client.open_streamer(
+                virtual_channel.key, keep_alive=KEEP_ALIVE
+            )
+        assert stalled_proxy.blackholed_closed_by_client == 1
+
     def test_disabled(
         self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
     ) -> None:
@@ -655,6 +671,23 @@ class TestAsyncStreamerKeepAlive:
         ):
             await s.read()
 
+    @pytest.mark.asyncio
+    async def test_stall_before_open_ack(
+        self,
+        virtual_channel: sy.Channel,
+        stalled_proxy: Proxy,
+        stalled_proxied_client: sy.Synnax,
+    ) -> None:
+        """Should raise Unreachable and close the connection when the link stalls
+        before the open ack"""
+        with pytest.raises(
+            Unreachable, match=f"streamer received no response for {DEADLINE}"
+        ):
+            await stalled_proxied_client.open_async_streamer(
+                virtual_channel.key, keep_alive=KEEP_ALIVE
+            )
+        assert stalled_proxy.blackholed_closed_by_client == 1
+
 
 @pytest.mark.framer
 @pytest.mark.streamer
@@ -700,6 +733,9 @@ class _FakeStream[S: BaseModel]:
     def close_send(self) -> None:
         pass
 
+    def close(self) -> None:
+        pass
+
 
 class _FakeAsyncStream[S: BaseModel]:
     """Replays responses as the Core sends them."""
@@ -718,6 +754,9 @@ class _FakeAsyncStream[S: BaseModel]:
         return False
 
     async def close_send(self) -> None:
+        pass
+
+    async def close(self) -> None:
         pass
 
 
