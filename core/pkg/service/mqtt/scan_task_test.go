@@ -1131,6 +1131,31 @@ var _ = Describe("Scan task", func() {
 			Expect(shape.Fields[shape.Index].Pointer.String()).To(Equal("/time"))
 		})
 
+		It("Should give the format and payload of each sampled message",
+			func(ctx SpecContext) {
+				broker.publish("plant/binary", "\xff\xfe", true)
+				broker.publish("plant/json", `{"v":1}`, true)
+				broker.publish("plant/text", "open", true)
+				res := sample(ctx, msgpack.EncodedJSON{
+					"topics": []string{"plant/binary", "plant/json", "plant/text"},
+					"count":  1,
+				})
+				Expect(res.Topics).To(HaveLen(3))
+				formats := make([]payload.Format, len(res.Topics))
+				payloads := make([]string, len(res.Topics))
+				for i, t := range res.Topics {
+					Expect(t.Messages).To(HaveLen(1))
+					formats[i], payloads[i] = t.Messages[0].Format, t.Messages[0].Payload
+				}
+				Expect(formats).To(Equal([]payload.Format{
+					payload.FormatBinary,
+					payload.FormatJSON,
+					payload.FormatText,
+				}))
+				Expect(payloads).To(Equal([]string{"fffe", `{"v":1}`, "open"}))
+			},
+		)
+
 		It("Should keep at most the count of each topic of a wildcard",
 			func(ctx SpecContext) {
 				publishUntilDone(broker, "line/a", `{"v":1}`)

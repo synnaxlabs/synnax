@@ -66,25 +66,66 @@ describe("getBlockedReason", () => {
 
     it("should block when the only rack with the integration is not running", () => {
       const racks = [createRack(1, ["opc"], false), createRack(2, [], true)];
-      expect(Rack.getBlockedReason(racks, OPC)).toBe(
-        "No running Driver has OPC UA enabled",
-      );
+      expect(Rack.getBlockedReason(racks, OPC)).toEqual({
+        message: "No running Driver has OPC UA enabled",
+        description: "Start a Driver with OPC UA enabled.",
+      });
     });
   });
 
   describe("scoped to one rack", () => {
     it("should block when that rack lacks the integration, even if another has it", () => {
       const racks = [createRack(1, [], true), createRack(2, ["opc"], true)];
-      expect(Rack.getBlockedReason(racks, { ...OPC, rack: 1 })).toBe(
-        "Rack 1 does not have OPC UA enabled",
-      );
+      expect(Rack.getBlockedReason(racks, { ...OPC, rack: 1 })).toEqual({
+        message: "Rack 1 does not have OPC UA enabled",
+        description:
+          "Enable OPC UA in the Driver config on Rack 1, then restart the Driver.",
+      });
     });
 
     it("should block when that rack is not running", () => {
       const racks = [createRack(1, ["opc"], false), createRack(2, ["opc"], true)];
-      expect(Rack.getBlockedReason(racks, { ...OPC, rack: 1 })).toBe(
-        "Rack 1 is not running",
-      );
+      expect(Rack.getBlockedReason(racks, { ...OPC, rack: 1 })).toEqual({
+        message: "Driver not running",
+        description: "Start the Driver on Rack 1.",
+      });
+    });
+
+    const createDownRack = (
+      variant: status.Variant,
+      message: string,
+      description: string,
+    ) =>
+      rack.payloadZ.parse({
+        key: 1,
+        name: "Rack 1",
+        role: uuid.create(),
+        integrations: ["opc"],
+        status: status.create<typeof rack.statusDetailsZ>({
+          variant,
+          message,
+          description,
+          details: { running: false },
+        }),
+      });
+
+    it("should say that the Driver of a rack with a warning is not running", () => {
+      const r = createDownRack("warning", "Rack status unknown", "");
+      expect(Rack.getBlockedReason([r], { ...OPC, rack: 1 })).toEqual({
+        message: "Driver not running",
+        description: "Start the Driver on Rack 1.",
+      });
+    });
+
+    it("should give the status of a rack on a Core without its Driver", () => {
+      const description =
+        "The Core runs without its embedded Driver, because it started with " +
+        "--no-driver or was built without the Driver.";
+      const r = createDownRack("disabled", "Driver disabled", description);
+      expect(Rack.getBlockedReason([r], { ...OPC, rack: 1 })).toEqual({
+        message: "Driver disabled",
+        description,
+      });
     });
 
     it("should name the error of a rack whose Driver reports one", () => {
@@ -96,12 +137,14 @@ describe("getBlockedReason", () => {
         status: status.create<typeof rack.statusDetailsZ>({
           variant: "error",
           message: "Driver 0.59.3 cannot work with Core 0.60.1",
+          description: "Update the Driver to 0.60.1.",
           details: { running: true },
         }),
       });
-      expect(Rack.getBlockedReason([r], { ...OPC, rack: 1 })).toBe(
-        "Driver 0.59.3 cannot work with Core 0.60.1",
-      );
+      expect(Rack.getBlockedReason([r], { ...OPC, rack: 1 })).toEqual({
+        message: "Driver 0.59.3 cannot work with Core 0.60.1",
+        description: "Update the Driver to 0.60.1.",
+      });
     });
 
     it("should return null when that rack runs the integration", () => {
@@ -111,9 +154,10 @@ describe("getBlockedReason", () => {
 
     it("should block when that rack no longer exists", () => {
       const racks = [createRack(2, ["opc"], true)];
-      expect(Rack.getBlockedReason(racks, { ...OPC, rack: 1 })).toBe(
-        "This Driver no longer exists",
-      );
+      expect(Rack.getBlockedReason(racks, { ...OPC, rack: 1 })).toEqual({
+        message: "This Driver no longer exists",
+        description: "Pick another Driver.",
+      });
     });
   });
 });

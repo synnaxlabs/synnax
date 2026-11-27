@@ -11,6 +11,7 @@ package serial_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -177,6 +178,28 @@ var _ = Describe("Service", func() {
 					"entries.0.messages.0.message: message " + gone.String() +
 						" does not exist in ICD Pump",
 				)))
+		})
+
+		It("Should refuse two entries that write one index channel", func(
+			ctx SpecContext,
+		) {
+			other := entry(nil)
+			other["messages"] = []any{map[string]any{
+				"message": reading.Key,
+				"bindings": []any{map[string]any{
+					"field": levelField.Base().Key, "channel": valve.Key(),
+				}},
+			}}
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "Pump", msgpack.EncodedJSON{
+				"entries": []any{entry(nil), other},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(fmt.Sprintf(
+					"entries.1.messages.0: channel %d is also written by "+
+						"entries.0.messages.0",
+					level.Index(),
+				)),
+			))
 		})
 
 		DescribeTable("Should refuse an entry at the path of the problem",

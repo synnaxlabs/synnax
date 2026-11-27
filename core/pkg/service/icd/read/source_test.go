@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Source", func() {
@@ -225,7 +224,9 @@ var _ = Describe("Source", func() {
 		ctx SpecContext,
 	) {
 		Expect(newSource(ctx, mixedRead).Decode([]byte("on"))).
-			Error().To(MatchError(validate.ErrValidation))
+			Error().To(MatchError(
+			"jsontext: invalid character 'o' at start of value: validation error",
+		))
 	})
 
 	It("Should return no samples and no error for a document that meets no rule",
