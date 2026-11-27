@@ -309,6 +309,21 @@ export class Client {
     this.observer.onUser?.(undefined);
   }
 
+  /**
+   * Replaces every proof with the token of a session to resume, such as one another
+   * client opened, and clears auth state so the next request resumes it.
+   */
+  setToken(token: string): void {
+    this.credentials = undefined;
+    this.apiKey = undefined;
+    this.oidcCredentials = undefined;
+    this.loadAPIKey = undefined;
+    this.resumeToken = token;
+    this.authState = { authenticated: false };
+    this.authenticating = undefined;
+    this.generation += 1;
+  }
+
   get authenticated(): boolean {
     return this.authState.authenticated;
   }
