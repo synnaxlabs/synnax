@@ -230,7 +230,13 @@ Rewire struct {
 - **Before the flip**: Phase 9 registers the sibling space, and Phase 4 a hand-written
   unique index on the channel name alone, so names stay unique across the Core. Phase 31
   deletes that index. `RetrieveIfNameExists` (`writer.go:66`) with a folder matches
-  (folder, name); with none it matches the name in any folder and fails on several.
+  (folder, name). With none, it keeps `main`'s match until Phase 31: the name in any
+  folder. Under the Core-wide index a name has one holder, apart from repeats that
+  `core/v0.62.0` stored, which keep `main`'s pick, the highest key. So the match is not
+  ambiguous. A match by path can only fail there: when a channel of that name sits in a
+  folder, the Core finds nothing at the root, and the index refuses its create, so a
+  service fails to open. Phase 31 makes the match exact by path, in the PR that deletes
+  the index.
 - **Naming rules** (Phase 32): A folder holds `name_rule string?`, an RE2 expression
   that must match the whole name of each direct member of the folder, of every folder
   type (channels, devices, racks, projects, colors, schematic symbols, and the line
@@ -247,22 +253,39 @@ Rewire struct {
 
 - **Compute**: `channel.Service` builds paths over `group.Service.Ancestors`
   (`core/pkg/service/group/service.go:165-209`), only when `include_path` asks. The API
-  leaves `path` absent when the subject cannot retrieve every folder on it, and a
-  `paths` lookup through such a folder matches nothing.
-- **Two filters**: `paths` (NEW `MatchPaths`) is exact from the root: the walk splits
-  the text at `.` and probes the sibling space once per segment, with no record read,
-  and `pt_01` is the root channel only. `names` (`MatchNames`,
-  `core/pkg/service/channel/retrieve.gen.go:188`) matches the local name in any folder.
-- **Several matches**: A retrieve by name returns every match. A name that resolves a
-  channel to act on it (writer, streamer, delete, rename) fails and lists every path.
-- **Client shorthand** (the number rule): A number is a key. A string with a `.` is a
-  path, and a string with none is a name; the `paths` parameter names a root channel
-  exactly. No string falls back to a key: a channel named `2024` would change what a
-  call returns. The rule covers lookups only. A stored value that the schema types as a
-  channel key still parses from text: a JSON object key, and the TypeScript key schema
-  that accepts a numeric string (`client/ts/src/channel/types.gen.ts:20-25`). Until the
-  quotes land, a digit-only string is still a key, as on `main`: a default Core accepts
-  no channel name that starts with a digit (§4.1).
+  leaves `path` absent when the subject cannot retrieve every folder on it, and a lookup
+  through such a folder matches nothing.
+- **Display paths**: The TypeScript client builds each channel's path from its name and
+  the cached folders that the Core sent, so a rename or a move shows with no fetch. The
+  path is for display only: no request sends it, and every request names a channel by
+  key or by the text that the user typed. A missing folder or a cycle leaves the path
+  absent, never partial. One set of cases (names, nesting, NFC) runs in the Core's path
+  spec and in the client's, so the two joins cannot drift.
+- **Lookup**: Every channel lookup is a key or a path. A request takes each channel as
+  the user typed it, and the Core applies the whole rule in one place: key or path, NFC,
+  and the folders that the caller cannot retrieve. The name is the last segment of a
+  path. A string with no `.` is the channel of that name at the root. A path is exact
+  from the root (NEW `MatchPaths`): the walk splits the text at `.` and probes the
+  sibling space once per segment, with no record read. No lookup matches a name in any
+  folder: a delete, a data delete, a rename, a retrieve that acts, a writer, a streamer,
+  and `RetrieveIfNameExists` with no folder take keys or paths (§4.1 has its order). So
+  no lookup is ambiguous.
+- **Clients**: Clients keep no lookup code. No client splits, resolves, or normalizes
+  the channels of a request. A delete and a data delete look up and act in one
+  transaction. A stream does one lookup before it opens, since the client needs the data
+  type of each channel for the frame codec, and that lookup takes the same input.
+- **Not found**: The error names the fix: "pt_01 does not exist. Did you mean
+  stand_a.pt_01?" It lists only channels that the caller can retrieve.
+- **Search**: The explorer's search filter, `names` (`MatchNames`,
+  `core/pkg/service/channel/retrieve.gen.go:188`), matches the local name in any folder.
+  It returns every match and never acts.
+- **Number rule**: A number is a key, and a string is a path. No string falls back to a
+  key: a channel named `2024` would change what a call returns. The rule covers lookups
+  only. A stored value that the schema types as a channel key still parses from text: a
+  JSON object key, and the TypeScript key schema that accepts a numeric string
+  (`client/ts/src/channel/types.gen.ts:20-25`). Until the quotes land, a digit-only
+  string is still a key, as on `main`: a default Core accepts no channel name that
+  starts with a digit (§4.1).
 - **Arc**: From Phase 31, a bare name is a channel at the root, and a channel in a
   folder needs its path: a new channel in another folder must never change what a
   working program means. Files, export, and import use exact paths only. Until the
@@ -511,7 +534,7 @@ Export and import pass one JSON codec for `channel.Key` (NEW), so each channel k
 exported type follows the rule below, with or without a reference. The Arc service
 remaps the channel inputs of graph nodes itself. Export writes each channel link as its
 exact path, a JSON string, and a dead link as no channel. Import reads a link value by
-its JSON type, as the clients do (§4.2): a number is a raw key, which every file of
+its JSON type, as every lookup does (§4.2): a number is a raw key, which every file of
 `core/v0.62.0` and older holds, and a string is a path. A JSON object key that the
 schema types as a channel key is a key. A file's shape does not change, so no exported
 type mints a version for the switch (`core/pkg/service/imex/imex.go:39-42`). Import
@@ -639,14 +662,15 @@ no old field, and its `virtual` filter means the stored field from Phase 3. Five
 go in the release notes, and the first, second, and last come with the quotes (§5). A
 start with the old flag fails. A digit-only string no longer means a key, except that a
 frame record still reads an all-digit key as a key unless the writer holds a channel by
-that name. A lookup that acts on a duplicate name fails where it picked one. A Core with
-name validation off refuses a `.` and invalid UTF-8 in a new channel name. On a Core
-that ran with the old flag, an Arc program or calculation that gives a dashed name to a
-variable, function, parameter, or stage fails its compile, and the error names the
-place: the one exception to the rule that stored data migrates (founder, 2026-11-22).
-The release notes also say that every client and Driver upgrades with the Core. A
-release that holds Phase 4 and not Phase 31 also notes that it refuses a second channel
-with a taken name anywhere in the Core, with or without the flag.
+that name. A string with no `.` names only the root channel of that name, where `main`
+matched the name in any folder. A Core with name validation off refuses a `.` and
+invalid UTF-8 in a new channel name. On a Core that ran with the old flag, an Arc
+program or calculation that gives a dashed name to a variable, function, parameter, or
+stage fails its compile, and the error names the place: the one exception to the rule
+that stored data migrates (founder, 2026-11-22). The release notes also say that every
+client and Driver upgrades with the Core. A release that holds Phase 4 and not Phase 31
+also notes that it refuses a second channel with a taken name anywhere in the Core, with
+or without the flag.
 
 ### 4.10 Amendments to prior RFCs
 
@@ -854,13 +878,13 @@ Each phase is a piece with its own issue. PRs group the pieces along the plan's 
 lines, about 2,000 hand-written lines each. Phase 13 landed on `main` in #6416
 (SY-5020); its row keeps the numbers that other RFCs cite. Phase 31 is a small switch,
 Phase 39 is documentation, Phases 40 and 41 split the impact service, and Phase 42
-brings the number rule to the clients.
+brings the number rule to every lookup.
 
 - **Names**: Phase 5 gives Arc the quoted token, and Phase 10 the path filter. Phases 25
   to 30 add bare paths, the two lists, the lookup at each compile, the text pass, the
   key lookup, and files by path. The specs of Phases 11 and 12 pin that a stored config
   that holds a key as a numeric string parses to the key, and Phase 42's specs pin that
-  a lookup by a digit-only string resolves as a name or a path.
+  a lookup by a digit-only string resolves as a path.
 - **The quotes**: Phase 5, Phase 8, the quoting of dashed text in Phase 7, the quoted
   Form of Phase 29, the free-text rule for channel names (Phase 8), and the number rule
   of §4.2 (Phase 42) land last, as one group after Phase 38. Until then every text pass
@@ -951,7 +975,7 @@ RFC 0121 moves the storage half of create, rename, and delete out of the commit 
 | 39    | Document the new model                                      | `site/docs`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 3, 31, 32      |
 | 40    | Move folder changes and heal policies to the path service   | `core/pkg/service/path`, `core/pkg/service/impact`, `schemas/synnax/path.oracle`, `core/pkg/api/impact`, `client/ts/src/impact`, `client/py/synnax/impact`                                                                                                                                                                                                                                                                                                                                                                                                                | 15, 16, 18     |
 | 41    | Route path writes through the path service and gate them    | `core/pkg/service/channel`, `core/pkg/service/group`, `core/pkg/service`, `core/pkg/service/path`, `core/pkg/api/channel`, `core/pkg/api/arc`, `core/pkg/api/group`                                                                                                                                                                                                                                                                                                                                                                                                       | 40             |
-| 42    | Read a digit-only string as a name in every client          | `client/ts/src/channel`, `client/ts/src/framer`, `client/py/synnax/channel`, `client/cpp/channel`, `console/src/feature/labjack/task`, `console/src/feature/modbus/task`, `console/src/feature/ni/task`                                                                                                                                                                                                                                                                                                                                                                   | 12, 38         |
+| 42    | Read a digit-only string as a path in every lookup          | `core/pkg/service/channel`, `client/ts/src/channel`, `client/ts/src/framer`, `client/py/synnax/channel`, `client/cpp/channel`, `console/src/feature/labjack/task`, `console/src/feature/modbus/task`, `console/src/feature/ni/task`                                                                                                                                                                                                                                                                                                                                       | 12, 38         |
 
 ## 6 Resolved decisions
 
@@ -1000,11 +1024,13 @@ quote per segment needs a lexer rule per segment and a rewrite of several tokens
 `math.sqrt` stops a program that calls `math.sqrt`. The other option lets the module
 member win with a warning, so that the channel needs the quoted form. Not taken.
 
-**6.8 No fallback, and a bare name in a client matches any folder.** Root first, then
-any folder, lets a new root channel take a name with no error; a digit string that falls
-back to a key has the same fault. A root-only shorthand breaks a script each time a
-person moves its channel into a folder. With any folder, the script runs until someone
-repeats the name, and then fails with every path. `paths` is exact.
+**6.8 Every lookup is a key or a path, in the Core.** A string with no `.` is the root
+channel of that name. A match in any folder lets a channel made in another folder change
+what a working script means, or fail it; a digit string that falls back to a key has the
+same fault. One rule in one place keeps every client and Arc the same, and a delete that
+looks up and acts in one transaction acts on what it found. The cost: a script breaks
+when a person moves its channel into a folder, and the error names the new path.
+Rejected: a bare name that matches any folder, and lookup code in each client.
 
 **6.9 Exact names in NFC, no invisible characters, no stored path.** A case-blind rule
 renames legal names on upgrade. Only `Cc` lets two names look the same. The cost: a
