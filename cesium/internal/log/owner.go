@@ -169,9 +169,13 @@ type Log struct {
 	prevEnd  int64
 	lastEnd  int64
 	needMark bool
-	buf      []byte
-	wbuf     []byte
-	frame    Frame
+	// fencedFull is true once a fenced entry did not fit in the log. The log then
+	// refuses each later fenced entry until it switches, so the durable entries stay a
+	// prefix of the queue.
+	fencedFull bool
+	buf        []byte
+	wbuf       []byte
+	frame      Frame
 }
 
 // Start writes both header copies of the prepared log of cfg, syncs it, and returns the
@@ -443,7 +447,9 @@ func (l *Log) write(queue []pending) {
 			start, size = l.nextStart(), int64(FrameHeaderSize+len(p.entry))
 		}
 		if err := l.fits(p, start, size); err != nil {
-			l.refuse(p, err)
+			// Each entry ahead of a refusal gets its answer first.
+			flush()
+			l.refuseUnfit(p, err, failed)
 			continue
 		}
 		l.buf = append(l.buf, p.entry...)
@@ -452,10 +458,30 @@ func (l *Log) write(queue []pending) {
 	flush()
 }
 
+// refuseUnfit refuses p, which does not fit, with err, or with failed when the frame of
+// the entries ahead of p failed. A fenced p refused with err makes the log refuse each
+// later fenced entry until it switches.
+func (l *Log) refuseUnfit(p pending, err, failed error) {
+	if failed != nil {
+		l.refuse(p, failed)
+		return
+	}
+	l.fencedFull = l.fencedFull || p.fenced
+	l.refuse(p, err)
+}
+
 // fits returns an error that wraps errFull when a frame of size bytes at start, which
-// ends with entry p, passes its end limit. An idle mark and the clean mark of Close
-// must still fit after the frame.
+// ends with entry p, passes its end limit, or when p is fenced and a fenced entry did
+// not fit in the log before it. An idle mark and the clean mark of Close must still fit
+// after the frame.
 func (l *Log) fits(p pending, start, size int64) error {
+	if p.fenced && l.fencedFull {
+		return errors.Wrapf(
+			errFull,
+			"log %d refuses each fenced entry after one that did not fit",
+			l.gen,
+		)
+	}
 	limit := l.size - 2*BlockSize
 	if p.fenced {
 		limit = l.size - DeleteReserve

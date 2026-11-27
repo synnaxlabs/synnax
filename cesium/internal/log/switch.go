@@ -52,6 +52,7 @@ func (l *Log) advance() error {
 		l.fail(err)
 		return l.failure()
 	}
+	l.fencedFull = false
 	if err := old.Close(); err != nil {
 		l.fail(err)
 		return l.failure()

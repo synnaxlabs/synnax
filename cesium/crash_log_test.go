@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
@@ -36,6 +37,14 @@ func runLog(
 	opts := []func() cesium.Option{
 		cesium.WithPointerLog,
 		func() cesium.Option { return cesium.WithRandom(rand.NewPCG(1, 2)) },
+	}
+	// The smallest log keeps the scan of the log at each recovery short. Mixed keeps
+	// the default log: a failed log sync fails each later commit, so its full disk
+	// fires only on the prepare of the next log.
+	if profile != crash.Mixed {
+		opts = append(opts, func() cesium.Option {
+			return cesium.WithLogFileSize(log.MinFileSize)
+		})
 	}
 	if faultsReads(profile) {
 		opts = append(opts, cesium.WithReadsChecked)
