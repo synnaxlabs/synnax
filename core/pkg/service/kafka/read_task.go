@@ -337,7 +337,7 @@ func (t *readTask) open(
 		return nil, err
 	}
 	t.client = cl
-	t.skips = driver.NewSkips("record", driver.SkipHold)
+	t.skips = driver.NewSkips("record", t.factoryCfg.SkipHold.Duration())
 	t.skipped = make(set.Set[recordID])
 	t.disconnected = false
 	return func(ctx context.Context) (err error) {

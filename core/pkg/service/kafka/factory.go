@@ -69,6 +69,10 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 5 seconds.
 	FetchMaxWait telem.TimeSpan
+	// SkipHold is how long a read task warns after it last skips a record.
+	//
+	// [OPTIONAL] - Defaults to driver.SkipHold.
+	SkipHold telem.TimeSpan
 	alamos.Instrumentation
 }
 
@@ -77,6 +81,7 @@ var (
 	DefaultFactoryConfig                              = FactoryConfig{
 		PingTimeout:  10 * telem.Second,
 		FetchMaxWait: 5 * telem.Second,
+		SkipHold:     telem.TimeSpan(driver.SkipHold),
 	}
 )
 
@@ -91,6 +96,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.PingTimeout = override.Numeric(c.PingTimeout, other.PingTimeout)
 	c.FetchMaxWait = override.Numeric(c.FetchMaxWait, other.FetchMaxWait)
+	c.SkipHold = override.Numeric(c.SkipHold, other.SkipHold)
 	return c
 }
 
@@ -105,6 +111,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("icd", c.ICD)
 	v.Positive("ping_timeout", c.PingTimeout)
 	v.Positive("fetch_max_wait", c.FetchMaxWait)
+	v.Positive("skip_hold", c.SkipHold)
 	return v.Error()
 }
 
