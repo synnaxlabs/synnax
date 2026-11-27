@@ -4842,7 +4842,7 @@ TEST(NextCompletionTest, FlushesTheWritesOfTheLastStage) {
          {"dst", x::telem::FLOAT32_T}}
     );
     h.trigger("start_cmd");
-    h.flush();
+    static_cast<void>(h.flush());
     h.push("src", x::telem::Series(10.0f));
     EXPECT_EQ(last<float>(h.flush(), h.key("dst")), 10.0f);
     h.push("src", x::telem::Series(20.0f));
