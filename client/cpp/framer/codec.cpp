@@ -9,9 +9,11 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <exception>
 #include <iterator>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
@@ -125,8 +127,15 @@ union_of(const std::vector<channel::Key> &a, const std::vector<channel::Key> &b)
 }
 
 /// @brief a decode failure, which decode returns as a validation error.
-struct Invalid {
+class Invalid final : public std::exception {
+public:
     std::string message;
+
+    explicit Invalid(std::string message): message(std::move(message)) {}
+
+    [[nodiscard]] const char *what() const noexcept override {
+        return this->message.c_str();
+    }
 };
 
 /// @brief reads a frame, failing on any read past its end.
