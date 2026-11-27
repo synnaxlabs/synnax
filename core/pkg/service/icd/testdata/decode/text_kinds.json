@@ -137,7 +137,15 @@
         "id": "nope",
         "blob": ""
       },
-      "error": "field id: invalid UUID \"nope\": validation error"
+      "message": "reading",
+      "samples": ["run", 1, null, ""],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": false,
+          "error": "field id: invalid UUID \"nope\": validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -146,7 +154,15 @@
         "id": 1,
         "blob": ""
       },
-      "error": "field id: expected a UUID string, got a number: validation error"
+      "message": "reading",
+      "samples": ["run", 1, null, ""],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": false,
+          "error": "field id: expected a UUID string, got a number: validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -155,11 +171,27 @@
         "id": "6ba7b810-9dad-41d1-80b4-00c04fd430c8",
         "blob": "a*b="
       },
-      "error": "field blob: not canonical base64: validation error"
+      "message": "reading",
+      "samples": ["run", 1, "6ba7b810-9dad-41d1-80b4-00c04fd430c8", null],
+      "failures": [
+        {
+          "binding": 3,
+          "missing": false,
+          "error": "field blob: not canonical base64: validation error"
+        }
+      ]
     },
     {
       "text": "{\"state\": \"run\", \"doc\": {\"a\": 1, \"a\": 2}, \"id\": \"6ba7b810-9dad-41d1-80b4-00c04fd430c8\", \"blob\": \"\"}",
-      "error": "field doc: jsontext: duplicate object member name \"a\": validation error"
+      "message": "reading",
+      "samples": ["run", null, "6ba7b810-9dad-41d1-80b4-00c04fd430c8", ""],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field doc: jsontext: duplicate object member name \"a\": validation error"
+        }
+      ]
     }
   ]
 }

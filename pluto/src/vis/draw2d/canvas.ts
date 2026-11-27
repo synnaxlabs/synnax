@@ -293,7 +293,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   clip(fillRule?: CanvasFillRule | undefined): void;
   clip(path: Path2D, fillRule?: CanvasFillRule | undefined): void;
   clip(path?: unknown, fillRule?: unknown): void {
-    // @ts-expect-error - typescript overloads cause issues here
+    // @ts-expect-error - TypeScript overloads cause issues here
     this.wrapped.clip(path, fillRule);
   }
 
@@ -301,7 +301,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   fill(path: Path2D, fillRule?: CanvasFillRule | undefined): void;
   fill(path?: unknown, fillRule?: unknown): void {
     if (path == null) return this.wrapped.fill();
-    // @ts-expect-error - typescript overloads cause issues here
+    // @ts-expect-error - TypeScript overloads cause issues here
     this.wrapped.fill(path, fillRule);
   }
 
@@ -313,14 +313,14 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     fillRule?: CanvasFillRule | undefined,
   ): boolean;
   isPointInPath(path: unknown, x: unknown, y?: unknown, fillRule?: unknown): boolean {
-    // @ts-expect-error - typescript overloads cause issues here
+    // @ts-expect-error - TypeScript overloads cause issues here
     return this.wrapped.isPointInPath(path, x, y, fillRule);
   }
 
   isPointInStroke(x: number, y: number): boolean;
   isPointInStroke(path: Path2D, x: number, y: number): boolean;
   isPointInStroke(path: unknown, x: unknown, y?: unknown): boolean {
-    // @ts-expect-error - typescript overloads cause issues here
+    // @ts-expect-error - TypeScript overloads cause issues here
     return this.wrapped.isPointInStroke(path, x, y);
   }
 
@@ -375,7 +375,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   ): ImageData;
   createImageData(imagedata: ImageData): ImageData;
   createImageData(sw: unknown, sh?: unknown, settings?: unknown): ImageData {
-    // @ts-expect-error - typescript overloads cause issues here
+    // @ts-expect-error - TypeScript overloads cause issues here
     return this.wrapped.createImageData(sw, sh, settings);
   }
 
@@ -409,7 +409,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     dirtyHeight?: unknown,
   ): void {
     this.wrapped.putImageData(
-      // @ts-expect-error - typescript overloads cause issues here
+      // @ts-expect-error - TypeScript overloads cause issues here
       imagedata,
       dx,
       dy,

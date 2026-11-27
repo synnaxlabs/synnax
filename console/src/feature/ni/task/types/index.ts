@@ -362,7 +362,7 @@ const deployReadRateShape = {
 
 const deployStateRateZ = z.number().positive().max(50000);
 
-// DAQmx refuses a channel whose minimum is not below its maximum.
+// NI-DAQmx refuses a channel whose minimum is not below its maximum.
 const validateRanges = ({
   value: channels,
   issues,

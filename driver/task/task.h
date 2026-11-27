@@ -16,6 +16,8 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <ranges>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -120,6 +122,10 @@ public:
     /// @brief returns true when a status write failed, a re-send included, and no
     /// re-send has started since.
     [[nodiscard]] virtual bool statuses_stale() = 0;
+
+    /// @brief returns the latest status of the task that this Driver sent, or nullopt.
+    [[nodiscard]] virtual std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -141,6 +147,15 @@ public:
     x::errors::Error resend_statuses() override { return x::errors::NIL; }
 
     bool statuses_stale() override { return false; }
+
+    std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) override {
+        std::lock_guard lock(this->mu);
+        const auto owner = synnax::task::resource_id(key);
+        for (const auto &status: std::views::reverse(this->statuses))
+            if (status.owner == owner) return status;
+        return std::nullopt;
+    }
 
     /// @brief returns a copy of the statuses, safe to read while tasks send more.
     std::vector<synnax::task::Status> snapshot() {
@@ -223,6 +238,11 @@ public:
 
     bool statuses_stale() override { return this->statuses->stale(); }
 
+    std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) override {
+        return this->statuses->latest(key);
+    }
+
     /// @brief opens an operation that runs cmd on task, which is called name. The
     /// statuses that answer cmd go through it until end. The operation must not
     /// outlive this context.
@@ -290,6 +310,12 @@ public:
 /// as at boot. Nothing is waiting on the outcome.
 inline constexpr auto NO_COMMAND = "";
 
+/// @brief the cmd_key given to configure_task when the task manager replaces a live
+/// instance on its own, as after a lost Core connection. The task must not start on its
+/// own: the manager starts it if the instance it replaces ran. It answers no command,
+/// so no status carries it.
+inline constexpr auto REDEPLOY = "redeploy";
+
 class Factory {
 public:
     /// @brief creates the tasks this factory runs on every rack, such as a scanner.
@@ -309,7 +335,8 @@ public:
     virtual std::string name() { return ""; }
 
     /// @brief builds a live instance of the task if this factory handles its type.
-    /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot.
+    /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot, or
+    /// REDEPLOY.
     /// @param cancel stops when a stop cancels the start, or when the task manager
     /// stops its tasks. A factory should end a long wait when it stops. Valid only
     /// during the call.
@@ -634,12 +661,15 @@ private:
     /// a save of a record that its hash covers, such as an ICD, moves the stored hash
     /// during the configure. Refuses a pinned start instead. When the hash moves, the
     /// starts that joined operation run again as their own commands, and a task that
-    /// the save moved to another rack is released with a warning. A failed read fails
-    /// the deploy. tsk ends as the revision last configured.
+    /// the save moved to another rack is released with a warning, along with its live
+    /// instance. A failed read fails the deploy. tsk ends as the revision last
+    /// configured.
+    /// @param cmd_key the cmd_key given to the factory.
     /// @returns the configured task, or nullptr, and whether a factory handles tsk.
     std::pair<std::unique_ptr<Task>, bool> configure(
         synnax::task::Task &tsk,
         const Op &op,
+        const std::string &cmd_key,
         const std::shared_ptr<Entry> &entry,
         Operation &operation
     );

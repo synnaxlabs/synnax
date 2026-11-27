@@ -157,7 +157,7 @@ func ServeFreighter(ctx context.Context, cfgs ...Config) (err error) {
 	<-conn.Done()
 	// Fence the adapter before returning: freighter writes its own close frames
 	// after the handler exits, and a republish notification still in flight would
-	// race them on the websocket. Shutdown then stops the external change observer
+	// race them on the WebSocket. Shutdown then stops the external change observer
 	// and drains the republish goroutine, whose writes now fail fast at the fence.
 	err = errors.Combine(conn.Err(), adapter.Close())
 	return errors.Combine(err, cfg.Server.Shutdown(ctx))
