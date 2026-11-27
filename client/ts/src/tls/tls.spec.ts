@@ -14,25 +14,28 @@ import { tls } from "@/tls";
 const CERTIFICATE = "33333333-3333-4333-8333-333333333333";
 
 describe("tlsZ", () => {
-  it("should apply the defaults", () => {
-    expect(tls.tlsZ.parse({})).toEqual({ certificateValidationDisabled: false });
+  it("should trust the system roots by default", () => {
+    expect(tls.tlsZ.parse({})).toEqual({ serverTrust: { type: "system_roots" } });
   });
 
-  it("should parse both certificates", () => {
-    expect(
-      tls.tlsZ.parse({
-        caCertificate: CERTIFICATE,
-        clientCertificate: CERTIFICATE,
-        certificateValidationDisabled: true,
-      }),
-    ).toEqual({
-      caCertificate: CERTIFICATE,
+  it("should parse a certificate authority and a client certificate", () => {
+    const value = {
+      serverTrust: { type: "certificate_authority", certificate: CERTIFICATE },
       clientCertificate: CERTIFICATE,
-      certificateValidationDisabled: true,
-    });
+    };
+    expect(tls.tlsZ.parse(value)).toEqual(value);
+  });
+
+  it("should parse disabled validation", () => {
+    const value = { serverTrust: { type: "validation_disabled" } };
+    expect(tls.tlsZ.parse(value)).toEqual(value);
   });
 
   it("should reject a certificate that is not a key", () => {
-    expect(tls.tlsZ.safeParse({ caCertificate: "ca.pem" }).success).toBe(false);
+    expect(
+      tls.tlsZ.safeParse({
+        serverTrust: { type: "certificate_authority", certificate: "ca.pem" },
+      }).success,
+    ).toBe(false);
   });
 });

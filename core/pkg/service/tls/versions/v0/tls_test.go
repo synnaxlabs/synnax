@@ -38,10 +38,14 @@ var _ = Describe("TLS", func() {
 			Expect(fromMsgpack).To(Equal(t))
 		},
 		Entry("with no certificates", v0.TLS{}),
-		Entry("with every field", v0.TLS{
-			CaCertificate:                 new(uuid.New()),
-			ClientCertificate:             new(uuid.New()),
-			CertificateValidationDisabled: true,
+		Entry("with a certificate authority and a client certificate", v0.TLS{
+			ServerTrust: v0.ServerTrust{Variant: v0.CertificateAuthorityServerTrust{
+				Certificate: uuid.New(),
+			}},
+			ClientCertificate: new(uuid.New()),
+		}),
+		Entry("with validation disabled", v0.TLS{
+			ServerTrust: v0.ServerTrust{Variant: v0.ValidationDisabledServerTrust{}},
 		}),
 	)
 })

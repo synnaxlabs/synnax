@@ -11,23 +11,52 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Annotated, Literal
 
-from synnax import certificate
+from pydantic import BaseModel, Field
+
+from synnax import certificate as certificate_
+
+
+class SystemRootsServerTrust(BaseModel):
+    """Trusts the server certificates that the system roots sign."""
+
+    type: Literal["system_roots"] = "system_roots"
+
+
+class CertificateAuthorityServerTrust(BaseModel):
+    """Trusts only the server certificates that one authority signs."""
+
+    type: Literal["certificate_authority"] = "certificate_authority"
+    certificate: certificate_.Key
+
+
+class ValidationDisabledServerTrust(BaseModel):
+    """Accepts any server certificate."""
+
+    type: Literal["validation_disabled"] = "validation_disabled"
+
+
+# Is which server certificates the client trusts. A certificate authority replaces
+# the system roots.
+ServerTrust = Annotated[
+    SystemRootsServerTrust
+    | CertificateAuthorityServerTrust
+    | ValidationDisabledServerTrust,
+    Field(discriminator="type"),
+]
 
 
 class TLS(BaseModel):
     """Configures a TLS connection to a server.
 
     Attributes:
-        ca_certificate: Is the certificate authority that signs the certificate of the
-            server. Absent trusts the system roots.
+        server_trust: Is which server certificates the client trusts.
         client_certificate: Is the certificate and private key that the client presents
             to the server. Absent presents no certificate.
-        certificate_validation_disabled: Is true when the client accepts any server
-            certificate.
     """
 
-    ca_certificate: certificate.Key | None = None
-    client_certificate: certificate.Key | None = None
-    certificate_validation_disabled: bool = False
+    server_trust: ServerTrust = Field(
+        default_factory=lambda: SystemRootsServerTrust(type="system_roots")
+    )
+    client_certificate: certificate_.Key | None = None
