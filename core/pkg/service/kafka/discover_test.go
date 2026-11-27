@@ -124,8 +124,7 @@ var _ = Describe("Discover", func() {
 	}
 
 	// createUncertified creates a cluster device whose CA certificate is not PEM, so
-	// its
-	// settings cannot open a client.
+	// its settings cannot open a client.
 	createUncertified := func(ctx context.Context) device.Device {
 		GinkgoHelper()
 		return createDevice(ctx, kafka.Properties{
