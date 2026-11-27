@@ -46,3 +46,68 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "tasks",
+    srcs = ["factory.cpp"],
+    hdrs = ["udp.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":udp",
+        "//client/cpp/udp",
+        "//driver/bus:device",
+        "//driver/bus:holders",
+        "//driver/bus:tasks",
+        "//driver/common",
+        "//driver/task",
+        "//driver/transport",
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "tasks_test",
+    size = "small",
+    srcs = ["tasks_test.cpp"],
+    deps = [
+        ":tasks",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//client/cpp/udp",
+        "//driver/bus:holders",
+        "//driver/bus:tasks",
+        "//driver/common",
+        "//driver/icd:receiver",
+        "//driver/icd:sender",
+        "//driver/pipeline/testutil",
+        "//driver/task",
+        "//driver/transport",
+        "//x/cpp/breaker",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "configure_test",
+    srcs = ["configure_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":tasks",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//client/cpp/testutil",
+        "//client/cpp/udp",
+        "//driver/task",
+        "//x/cpp/breaker",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)

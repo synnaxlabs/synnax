@@ -25,6 +25,7 @@
 #include "driver/secret/secret.h"
 #include "driver/serial/serial.h"
 #include "driver/tcp/tcp.h"
+#include "driver/udp/udp.h"
 #include "driver/version/version.h"
 
 namespace driver::rack {
@@ -175,6 +176,12 @@ void configure_tcp(const Config &config, FactoryList &factories) {
     });
 }
 
+void configure_udp(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, udp::INTEGRATION_NAME, []() {
+        return std::make_unique<udp::Factory>();
+    });
+}
+
 std::unique_ptr<task::Factory> Config::new_factory(
     const std::shared_ptr<synnax::Synnax> &client,
     const std::shared_ptr<x::thread::rt::Manager> &rt_manager
@@ -195,6 +202,7 @@ std::unique_ptr<task::Factory> Config::new_factory(
     configure_modbus(*this, factories);
     configure_serial(*this, factories);
     configure_tcp(*this, factories);
+    configure_udp(*this, factories);
     return std::make_unique<task::MultiFactory>(std::move(factories));
 }
 }
