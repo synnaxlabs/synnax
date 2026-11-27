@@ -95,4 +95,24 @@ describe("TYPED_ADAPTER", () => {
       expect(got.ports).toEqual(dev.ports);
     });
   });
+
+  it("should change the identifier and keep the name and ports", async () => {
+    const dev = await createDevice("dev1");
+    let change:
+      ReturnType<typeof LabJack.Device.TYPED_ADAPTER.useChangeIdentifier> | undefined;
+    const Change = () => {
+      change = LabJack.Device.TYPED_ADAPTER.useChangeIdentifier();
+      return null;
+    };
+    await renderMenuItem(<Change />, { client });
+    await act(async () => {
+      await change?.updateAsync({ key: dev.key, identifier: "dev2" });
+    });
+    await waitFor(async () => {
+      const got = await client.labjack.devices.retrieve({ key: dev.key });
+      expect(got.identifier).toBe("dev2");
+      expect(got.name).toBe(dev.name);
+      expect(got.ports).toEqual(dev.ports);
+    });
+  });
 });

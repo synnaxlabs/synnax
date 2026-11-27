@@ -11,7 +11,7 @@ import { labjack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
@@ -21,6 +21,7 @@ import {
   createResource,
   findTreeRow,
   HOST_ID,
+  openTreeRowContextMenu,
   renderLiveTree,
 } from "@/platform/tree/testutil";
 
@@ -28,7 +29,7 @@ const client = createTestClient();
 
 describe("LabJack device tree item", async () => {
   const rack = await client.racks.create({ name: uniqueName("labjack_rack") });
-  const renderDeviceTree = async (): Promise<string> => {
+  const renderDeviceTree = async (identifier = ""): Promise<string> => {
     const name = uniqueName("labjack_dev");
     await client.labjack.devices.create({
       rack: rack.key,
@@ -37,6 +38,7 @@ describe("LabJack device tree item", async () => {
       connection: "LJM_ctUSB",
       model: "t7",
       ports: { model: "t7" },
+      identifier,
     });
     await renderLiveTree({
       client,
@@ -72,6 +74,21 @@ describe("LabJack device tree item", async () => {
       labjack.device.set({ path: ["name"], value: renamed }),
     );
     await waitFor(async () => expect(await findTreeRow(renamed)).not.toBeNull());
+  });
+
+  it("should open the typed configure form from the context menu", async () => {
+    const name = await renderDeviceTree();
+    await openTreeRowContextMenu(name);
+    expect(screen.queryByText("Change identifier")).toBeNull();
+    fireEvent.click(await screen.findByText("Configure"));
+    expect(await screen.findByDisplayValue(name)).toBeTruthy();
+  });
+
+  it("should offer to change the identifier of a configured device", async () => {
+    const name = await renderDeviceTree("dev1");
+    await openTreeRowContextMenu(name);
+    await screen.findByText("Change identifier");
+    expect(screen.queryByText("Configure")).toBeNull();
   });
 
   it("should preview a dragged device with its type name", () => {

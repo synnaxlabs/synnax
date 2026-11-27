@@ -34,12 +34,12 @@ export const ADAPTER = Device.createLegacyAdapter({
 });
 
 const useConfigurable = (key: labjack.device.Key): Device.Configurable => {
-  const { name, identifier, serial, model } = useSuspended({ key });
+  const { name, identifier, serial, model, connection } = useSuspended({ key });
   return {
     key,
     name,
     identifier,
-    location: "",
+    location: connection,
     configured: identifier !== "",
     suggestIdentifiers: () => suggestIdentifiers({ key: String(serial), model }),
   };
