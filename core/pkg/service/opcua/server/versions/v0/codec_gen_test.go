@@ -75,6 +75,7 @@ var _ = Describe("Codec", func() {
 				ClientTimeout:         telem.TimeSpan(5),
 				SecureChannelLifetime: telem.TimeSpan(6),
 				SessionTimeout:        telem.TimeSpan(7),
+				ReadNodeTimeout:       new(telem.TimeSpan(8)),
 			}),
 			Entry("zero values", v0.Connection{
 				Endpoint:              "",
@@ -83,6 +84,7 @@ var _ = Describe("Codec", func() {
 				ClientTimeout:         telem.TimeSpan(0),
 				SecureChannelLifetime: telem.TimeSpan(0),
 				SessionTimeout:        telem.TimeSpan(0),
+				ReadNodeTimeout:       nil,
 			}),
 		)
 	})
@@ -168,16 +170,17 @@ var _ = Describe("Codec", func() {
 					ClientTimeout:         telem.TimeSpan(9),
 					SecureChannelLifetime: telem.TimeSpan(10),
 					SessionTimeout:        telem.TimeSpan(11),
+					ReadNodeTimeout:       new(telem.TimeSpan(12)),
 				},
 				Reads: []v0.Read{
 					{
-						Node:    "test_12",
-						Field:   "test_13",
-						Index:   channel.Key(15),
-						Channel: channel.Key(16),
+						Node:    "test_13",
+						Field:   "test_14",
+						Index:   channel.Key(16),
+						Channel: channel.Key(17),
 					},
 				},
-				Writes: []v0.Write{{Node: "test_17", Channel: channel.Key(19)}},
+				Writes: []v0.Write{{Node: "test_18", Channel: channel.Key(20)}},
 			}),
 			Entry("zero values", v0.Server{
 				Key:  uuid.Nil(),
@@ -190,6 +193,7 @@ var _ = Describe("Codec", func() {
 					ClientTimeout:         telem.TimeSpan(0),
 					SecureChannelLifetime: telem.TimeSpan(0),
 					SessionTimeout:        telem.TimeSpan(0),
+					ReadNodeTimeout:       nil,
 				},
 				Reads:  []v0.Read{},
 				Writes: []v0.Write{},
@@ -205,6 +209,7 @@ var _ = Describe("Codec", func() {
 					ClientTimeout:         telem.TimeSpan(9),
 					SecureChannelLifetime: telem.TimeSpan(10),
 					SessionTimeout:        telem.TimeSpan(11),
+					ReadNodeTimeout:       new(telem.TimeSpan(12)),
 				},
 				Reads:  []v0.Read{},
 				Writes: []v0.Write{},
@@ -271,6 +276,7 @@ func BenchmarkEncodeDecodeConnection(b *testing.B) {
 		ClientTimeout:         telem.TimeSpan(5),
 		SecureChannelLifetime: telem.TimeSpan(6),
 		SessionTimeout:        telem.TimeSpan(7),
+		ReadNodeTimeout:       new(telem.TimeSpan(8)),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -355,16 +361,17 @@ func BenchmarkEncodeDecodeServer(b *testing.B) {
 			ClientTimeout:         telem.TimeSpan(9),
 			SecureChannelLifetime: telem.TimeSpan(10),
 			SessionTimeout:        telem.TimeSpan(11),
+			ReadNodeTimeout:       new(telem.TimeSpan(12)),
 		},
 		Reads: []v0.Read{
 			{
-				Node:    "test_12",
-				Field:   "test_13",
-				Index:   channel.Key(15),
-				Channel: channel.Key(16),
+				Node:    "test_13",
+				Field:   "test_14",
+				Index:   channel.Key(16),
+				Channel: channel.Key(17),
 			},
 		},
-		Writes: []v0.Write{{Node: "test_17", Channel: channel.Key(19)}},
+		Writes: []v0.Write{{Node: "test_18", Channel: channel.Key(20)}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -476,6 +483,7 @@ func FuzzDecodeConnection(f *testing.F) {
 			ClientTimeout:         telem.TimeSpan(5),
 			SecureChannelLifetime: telem.TimeSpan(6),
 			SessionTimeout:        telem.TimeSpan(7),
+			ReadNodeTimeout:       new(telem.TimeSpan(8)),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -491,6 +499,7 @@ func FuzzDecodeConnection(f *testing.F) {
 			ClientTimeout:         telem.TimeSpan(0),
 			SecureChannelLifetime: telem.TimeSpan(0),
 			SessionTimeout:        telem.TimeSpan(0),
+			ReadNodeTimeout:       nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -672,16 +681,17 @@ func FuzzDecodeServer(f *testing.F) {
 				ClientTimeout:         telem.TimeSpan(9),
 				SecureChannelLifetime: telem.TimeSpan(10),
 				SessionTimeout:        telem.TimeSpan(11),
+				ReadNodeTimeout:       new(telem.TimeSpan(12)),
 			},
 			Reads: []v0.Read{
 				{
-					Node:    "test_12",
-					Field:   "test_13",
-					Index:   channel.Key(15),
-					Channel: channel.Key(16),
+					Node:    "test_13",
+					Field:   "test_14",
+					Index:   channel.Key(16),
+					Channel: channel.Key(17),
 				},
 			},
-			Writes: []v0.Write{{Node: "test_17", Channel: channel.Key(19)}},
+			Writes: []v0.Write{{Node: "test_18", Channel: channel.Key(20)}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -701,6 +711,7 @@ func FuzzDecodeServer(f *testing.F) {
 				ClientTimeout:         telem.TimeSpan(0),
 				SecureChannelLifetime: telem.TimeSpan(0),
 				SessionTimeout:        telem.TimeSpan(0),
+				ReadNodeTimeout:       nil,
 			},
 			Reads:  []v0.Read{},
 			Writes: []v0.Write{},
@@ -723,6 +734,7 @@ func FuzzDecodeServer(f *testing.F) {
 				ClientTimeout:         telem.TimeSpan(9),
 				SecureChannelLifetime: telem.TimeSpan(10),
 				SessionTimeout:        telem.TimeSpan(11),
+				ReadNodeTimeout:       new(telem.TimeSpan(12)),
 			},
 			Reads:  []v0.Read{},
 			Writes: []v0.Write{},

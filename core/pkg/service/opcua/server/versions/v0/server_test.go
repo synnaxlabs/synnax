@@ -128,6 +128,11 @@ var _ = Describe("Server", func() {
 			"session_timeout",
 		),
 		Entry(
+			"a read node timeout of zero",
+			func(s *v0.Server) { s.Connection.ReadNodeTimeout = new(telem.TimeSpan(0)) },
+			"read_node_timeout",
+		),
+		Entry(
 			"a user name login without a user name",
 			func(s *v0.Server) { s.Connection.Auth = v0.Auth{Variant: v0.UsernameAuth{}} },
 			"username",

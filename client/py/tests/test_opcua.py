@@ -504,10 +504,12 @@ class TestOPCServerResource:
             {"auth": {"type": "username", "username": ""}},
             {"client_timeout": 99 * sy.TimeSpan.MILLISECOND},
             {"session_timeout": 999 * sy.TimeSpan.MILLISECOND},
+            {"read_node_timeout": 0},
+            {"read_node_timeout": -1},
         ],
     )
     def test_rejects_an_invalid_connection(self, change: dict[str, Any]) -> None:
-        """Should reject a bad policy, an empty user name, and short timeouts."""
+        """Should reject a bad policy, an empty user name, and bad timeouts."""
         with pytest.raises(ValidationError):
             sy.opcua.server.Server.model_validate(
                 {**self.SERVER, "connection": {**self.SERVER["connection"], **change}}

@@ -31,6 +31,7 @@ describe("serverZ", () => {
     expect(server.connection.auth).toEqual({ type: "anonymous" });
     expect(server.connection.security).toEqual({ mode: "none" });
     expect(server.connection.clientTimeout).toEqual(TimeSpan.seconds(5).nanoseconds);
+    expect(server.connection.readNodeTimeout).toBeUndefined();
     expect(server.reads).toEqual([]);
     expect(server.writes).toEqual([]);
   });
@@ -91,6 +92,14 @@ describe("serverZ", () => {
           sessionTimeout: TimeSpan.milliseconds(999).nanoseconds,
         },
       },
+    ],
+    [
+      "a read node timeout of zero",
+      { connection: { ...SERVER.connection, readNodeTimeout: 0 } },
+    ],
+    [
+      "a negative read node timeout",
+      { connection: { ...SERVER.connection, readNodeTimeout: -1 } },
     ],
     ["a read without an index", { reads: [{ node: "i=85", channel: 2 }] }],
     ["a write without a node", { writes: [{ node: "", channel: 3 }] }],

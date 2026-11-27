@@ -309,6 +309,11 @@ export const connectionZ = z.object({
   sessionTimeout: telem.numericTimeSpanZ
     .check(z.gte(1000000000))
     .default(1200000000000),
+  /**
+   * readNodeTimeout is the longest time that reading the details of one node may take.
+   * Absent for the Driver default of 20 seconds.
+   */
+  readNodeTimeout: telem.numericTimeSpanZ.check(z.gt(0)).optional(),
 });
 export interface Connection extends z.infer<typeof connectionZ> {}
 

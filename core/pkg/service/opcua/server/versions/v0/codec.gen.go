@@ -97,6 +97,12 @@ func (c Connection) EncodeOrc(w *orc.Writer) error {
 	w.Int64(int64(c.ClientTimeout))
 	w.Int64(int64(c.SecureChannelLifetime))
 	w.Int64(int64(c.SessionTimeout))
+	if c.ReadNodeTimeout != nil {
+		w.Bool(true)
+		w.Int64(int64(*c.ReadNodeTimeout))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -132,6 +138,23 @@ func (c *Connection) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		c.SessionTimeout = telem.TimeSpan(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv telem.TimeSpan
+			{
+				rawV, err := r.Int64()
+				if err != nil {
+					return err
+				}
+				hv = telem.TimeSpan(rawV)
+			}
+			c.ReadNodeTimeout = &hv
+		}
 	}
 	return nil
 }

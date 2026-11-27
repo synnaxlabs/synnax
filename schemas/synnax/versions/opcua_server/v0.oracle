@@ -123,7 +123,7 @@ Security union on mode {
 }
 
 Connection struct {
-    endpoint                string         {
+    endpoint                string          {
         @doc value   "is the endpoint URL of the server."
         @go validate pattern "^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:[0-9]{1,5})?(/[^[:space:]]*)?$" "Endpoint must be an opc.tcp:// URL with a host and an optional port and path"
     }
@@ -141,6 +141,12 @@ Connection struct {
     }
     session_timeout         telem.TimeSpan = 1200000000000 {
         @doc value "is the timeout of the session."
+    }
+    read_node_timeout       telem.TimeSpan? {
+        @doc value """
+            is the longest time that reading the details of one node may take. Absent
+            for the Driver default of 20 seconds.
+        """
     }
 
     @doc value  "holds the settings that the Driver connects to a server with."

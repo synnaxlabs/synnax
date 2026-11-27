@@ -589,6 +589,9 @@ type Connection struct {
 	SecureChannelLifetime telem.TimeSpan `json:"secure_channel_lifetime" msgpack:"secure_channel_lifetime"`
 	// SessionTimeout is the timeout of the session.
 	SessionTimeout telem.TimeSpan `json:"session_timeout" msgpack:"session_timeout"`
+	// ReadNodeTimeout is the longest time that reading the details of one node may
+	// take. Absent for the Driver default of 20 seconds.
+	ReadNodeTimeout *telem.TimeSpan `json:"read_node_timeout,omitzero" msgpack:"read_node_timeout,omitempty"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -628,6 +631,9 @@ func (c Connection) Validate() error {
 	v.GreaterThanEq("client_timeout", c.ClientTimeout, 100000000)
 	v.GreaterThanEq("secure_channel_lifetime", c.SecureChannelLifetime, 1000000000)
 	v.GreaterThanEq("session_timeout", c.SessionTimeout, 1000000000)
+	if c.ReadNodeTimeout != nil {
+		v.GreaterThan("read_node_timeout", *c.ReadNodeTimeout, 0)
+	}
 	v.Exec(func() error { return validate.PathedError(c.Auth.Validate(), "auth") })
 	v.Exec(func() error { return validate.PathedError(c.Security.Validate(), "security") })
 	return v.Error()

@@ -68,6 +68,9 @@ inline Connection Connection::parse(x::json::Parser parser) {
             "session_timeout",
             ::x::telem::TimeSpan(1200000000000)
         ),
+        .read_node_timeout = parser.field<std::optional<::x::telem::TimeSpan>>(
+            "read_node_timeout"
+        ),
     };
 }
 
@@ -79,6 +82,8 @@ inline x::json::json Connection::to_json() const {
     j["client_timeout"] = this->client_timeout.nanoseconds();
     j["secure_channel_lifetime"] = this->secure_channel_lifetime.nanoseconds();
     j["session_timeout"] = this->session_timeout.nanoseconds();
+    if (this->read_node_timeout.has_value())
+        j["read_node_timeout"] = this->read_node_timeout->nanoseconds();
     return j;
 }
 
