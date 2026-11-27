@@ -155,7 +155,7 @@ class DriverNIDigitalWrite(Latency):
 
         self.log(f"Total samples: {len(latencies_core)}")
 
-        # Convert to numpy arrays and milliseconds
+        # Convert to NumPy arrays and milliseconds
         latencies_core_ms = np.array(latencies_core)
         latencies_loop_ms = np.array(latencies_loop)
 

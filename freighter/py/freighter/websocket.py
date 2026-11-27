@@ -106,7 +106,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
 
 
 class AsyncWebsocketStream(AsyncStream[RQ, RS]):
-    """An implementation of AsyncStream that is backed by a websocket."""
+    """An implementation of AsyncStream that is backed by a WebSocket."""
 
     _encoder: Codec
     _registry: Registry
@@ -440,7 +440,7 @@ class _Base:
 
 
 class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
-    """An implementation of AsyncStreamClient that is backed by a websocket"""
+    """An implementation of AsyncStreamClient that is backed by a WebSocket"""
 
     def __init__(
         self,
