@@ -12,8 +12,8 @@
 //
 //	@go	output paths so that versioned packages emit into versions/vN/ sub-packages.
 //
-// Version-laid-out packages (those containing a gorp entry) emit their current version
-// into versions/vN and re-export it from the package root; value-type packages (no gorp
+// Version-laid-out packages (those containing a Gorp entry) emit their current version
+// into versions/vN and re-export it from the package root; value-type packages (no Gorp
 // entry) keep their current code at the root and gain versions/vN packages only for
 // frozen historical shapes.
 package versioning

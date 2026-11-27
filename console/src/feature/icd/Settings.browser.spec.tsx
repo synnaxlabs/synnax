@@ -27,6 +27,7 @@ import { describe, expect, it } from "vitest";
 import { ICD } from "@/feature/icd";
 import { client, createICD } from "@/feature/icd/testutil";
 import { Task } from "@/feature/task";
+import { createdIn } from "@/platform/icd/testutil";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
 import { createActiveState } from "@/platform/project/testutil";
@@ -43,18 +44,28 @@ import {
 
 const TAB_TYPES = [project.TYPE_RESOURCE_ID, panel.TYPE_RESOURCE_ID];
 
+interface RenderSettingsOptions {
+  /** Other resources that the user reads. */
+  retrieve?: resource.ID[];
+  canCreate?: boolean;
+}
+
 // The page lists every ICD its user can read, and other specs leave theirs on the
-// Core. A user that reads only the ICDs of the test sees the same rows on any Core.
-// The user also reads what retrieve names.
+// Core. A user that reads only the ICDs of the test sees the same rows on any Core. A
+// user that creates ICDs reads them all.
 const renderSettings = async (
   shown: icd.ICD | icd.ICD[],
-  retrieve: resource.ID[] = [],
+  { retrieve = [], canCreate = false }: RenderSettingsOptions = {},
 ): Promise<{ store: TestStore; subject: Synnax }> => {
   const proj = await client.projects.create({ name: uniqueName("project") });
   const keys = (Array.isArray(shown) ? shown : [shown]).map(({ key }) => key);
   const subject = await createTestClientWithGrants(client, {
-    retrieve: [...icd.resourceID(keys), ...retrieve, ...TAB_TYPES],
-    create: TAB_TYPES,
+    retrieve: [
+      ...(canCreate ? [icd.TYPE_RESOURCE_ID] : icd.resourceID(keys)),
+      ...retrieve,
+      ...TAB_TYPES,
+    ],
+    create: canCreate ? [icd.TYPE_RESOURCE_ID, ...TAB_TYPES] : TAB_TYPES,
     update: [icd.TYPE_RESOURCE_ID, ...TAB_TYPES],
     delete: [icd.TYPE_RESOURCE_ID],
   });
@@ -117,6 +128,15 @@ describe("ICD.Settings", () => {
     expect(within(item).getByText("0")).toBeTruthy();
   });
 
+  it("should open a created ICD in a tab, marked to focus its name", async () => {
+    const ic = await createICD();
+    const { store } = await renderSettings(ic, { canCreate: true });
+    fireEvent.click(await screen.findByRole("button", { name: "Create ICD" }));
+    const key = await focusedResourceKey(store);
+    expect(key).not.toBe(ic.key);
+    expect(createdIn(store, key)).toBe(true);
+  });
+
   it("should open an ICD in a tab on click", async () => {
     const ic = await createICD();
     const { store } = await renderSettings(ic);
@@ -163,7 +183,7 @@ describe("ICD.Settings", () => {
 
     it("should name the tasks that use an ICD and offer no delete", async () => {
       const { ic, used } = await createUsedICD();
-      await renderSettings(ic, [task.resourceID(used.key)]);
+      await renderSettings(ic, { retrieve: [task.resourceID(used.key)] });
       await openDelete(ic.name);
       await screen.findByText(`${ic.name} is in use`);
       expect(screen.getByText("Remove it from these tasks first.")).toBeTruthy();
@@ -174,7 +194,9 @@ describe("ICD.Settings", () => {
     it("should say that some of several ICDs are in use", async () => {
       const { ic, used } = await createUsedICD();
       const unused = await createICD();
-      await renderSettings([ic, unused], [task.resourceID(used.key)]);
+      await renderSettings([ic, unused], {
+        retrieve: [task.resourceID(used.key)],
+      });
       for (const { name } of [ic, unused]) {
         const option = await screen.findByRole("option", { name });
         fireEvent.click(within(option).getByRole("checkbox", { name: "Select" }));
@@ -188,7 +210,9 @@ describe("ICD.Settings", () => {
 
     it("should open a task from the delete dialog and close the dialog", async () => {
       const { ic, used } = await createUsedICD();
-      const { store } = await renderSettings(ic, [task.resourceID(used.key)]);
+      const { store } = await renderSettings(ic, {
+        retrieve: [task.resourceID(used.key)],
+      });
       await openDelete(ic.name);
       fireEvent.click(await screen.findByText(used.name));
       expect(await focusedResourceKey(store)).toBe(task.resourceID(used.key).key);

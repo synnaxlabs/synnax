@@ -71,7 +71,7 @@ const setStale = ({ props }: Entry, stale: boolean): void => {
 };
 
 // TimeSpan.z reads a bare number as nanoseconds. Take the number branch first so a
-// plain number means milliseconds here, matching how the rest of pluto accepts a
+// plain number means milliseconds here, matching how the rest of Pluto accepts a
 // CrudeTimeSpan.
 const sweepIntervalZ = z.union([
   z.number().transform((ms) => TimeSpan.milliseconds(ms)),
@@ -212,7 +212,7 @@ interface StatefulLeaf<S extends z.infer<typeof stateZ>> {
 }
 
 /**
- * Registers a source that reports staleness through its aether state, where the DOM
+ * Registers a source that reports staleness through its Aether state, where the DOM
  * half reads it. See {@link useRegistration} for reuse semantics.
  * @param onTransition - Runs after each transition. A component that draws itself must
  * ask for a repaint here: with the source quiet, nothing else asks the canvas to

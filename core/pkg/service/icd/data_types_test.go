@@ -39,6 +39,7 @@ type dataTypeTable struct {
 	Reads    map[string][]dataTypeCase `json:"reads"`
 	Writes   []dataTypeCase            `json:"writes"`
 	Defaults map[string][]dataTypeCase `json:"defaults"`
+	Indexes  map[string][]dataTypeCase `json:"indexes"`
 }
 
 // dataTypeCase is a field, a data type, and whether the Core accepts them. A default
@@ -71,20 +72,32 @@ func payloadOf(
 }
 
 func caseName(format string, c dataTypeCase) string {
-	return fmt.Sprintf("a %s field %v and %s", format, c.Field, c.DataType)
+	name := fmt.Sprintf("a %s field %v", format, c.Field)
+	if c.DataType == "" {
+		return name
+	}
+	return name + " and " + string(c.DataType)
 }
 
 // checkRead returns the error of a read of the field of c into a channel of its data
-// type.
+// type. When indexed is true, the field is also the index of the read.
 func checkRead(
 	ctx context.Context,
 	t dataTypeTable,
 	format string,
 	c dataTypeCase,
+	indexed bool,
 ) error {
 	GinkgoHelper()
 	p, key := payloadOf(t, format, c)
-	msg := icd.Message{Key: uuid.New(), Name: "message", Payload: p}
+	rm := icd.ReadMessage{
+		Message:  uuid.New(),
+		Bindings: []icd.ReadBinding{{Field: key, DataType: c.DataType}},
+	}
+	if indexed {
+		rm.Index = &key
+	}
+	msg := icd.Message{Key: rm.Message, Name: "message", Payload: p}
 	ic := icd.ICD{Key: uuid.New(), Name: "ICD", Messages: []icd.Message{msg}}
 	resolver := read.NewResolver(svc, func(
 		context.Context,
@@ -97,11 +110,8 @@ func checkRead(
 		Path: []string{"reads", "0"},
 		ICD:  ic.Key,
 		// Only a framed read takes a message that is not JSON.
-		Framed: format != "json",
-		Messages: []icd.ReadMessage{{
-			Message:  msg.Key,
-			Bindings: []icd.ReadBinding{{Field: key, DataType: c.DataType}},
-		}},
+		Framed:   format != "json",
+		Messages: []icd.ReadMessage{rm},
 	}}, map[icd.Key]icd.ICD{ic.Key: ic})
 }
 
@@ -138,7 +148,9 @@ var _ = Describe("Data types", func() {
 		MustSucceed(os.ReadFile("testdata/data_types.json")),
 		&t,
 	)).To(Succeed())
-	reads, defaults := entries(t.Reads), entries(t.Defaults)
+	reads := entries(t.Reads)
+	defaults := entries(t.Defaults)
+	indexes := entries(t.Indexes)
 	writes := make([]TableEntry, len(t.Writes))
 	for i, c := range t.Writes {
 		writes[i] = Entry(caseName("json", c), c)
@@ -146,7 +158,7 @@ var _ = Describe("Data types", func() {
 
 	DescribeTable("Should read a field into the data types of the table",
 		func(ctx SpecContext, format string, c dataTypeCase) {
-			err := checkRead(ctx, t, format, c)
+			err := checkRead(ctx, t, format, c, false)
 			if c.Accepted {
 				Expect(err).To(Succeed())
 				return
@@ -181,11 +193,27 @@ var _ = Describe("Data types", func() {
 
 	DescribeTable("Should accept the default data type of a field",
 		func(ctx SpecContext, format string, c dataTypeCase) {
-			Expect(checkRead(ctx, t, format, c)).To(Succeed())
+			Expect(checkRead(ctx, t, format, c, false)).To(Succeed())
 			if format == "json" {
 				Expect(checkWrite(t, c)).To(Succeed())
 			}
 		},
 		defaults,
+	)
+
+	DescribeTable("Should index a read on a field only when the table accepts it",
+		func(ctx SpecContext, format string, c dataTypeCase) {
+			c.DataType = telem.TimestampT
+			err := checkRead(ctx, t, format, c, true)
+			if c.Accepted {
+				Expect(err).To(Succeed())
+				return
+			}
+			Expect(err).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("index: the index field value ")),
+			))
+		},
+		indexes,
 	)
 })

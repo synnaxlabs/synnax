@@ -30,7 +30,7 @@ func (s *Service) Type() resource.Type { return resource.TypeTask }
 
 // Export retrieves the task identified by id from snap and serializes it as an
 // imex.Envelope. The task's type-specific config is merged flat into the envelope body
-// — the driver reads a task file directly as its config, so the config is not nested
+// — the Driver reads a task file directly as its config, so the config is not nested
 // under a `config` field; version, the fine-grained task type (e.g. "opc_read"), and
 // name are stamped on top. The version is the config type's own number line, taken from
 // its config store. Routing to this exporter still happens under the coarse "task"

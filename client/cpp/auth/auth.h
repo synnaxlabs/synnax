@@ -293,7 +293,7 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief implements freighter::Middleware, ensuring that all requests to the
+    /// @brief implements `freighter::Middleware`, ensuring that all requests to the
     /// Synnax Core are appropriately authenticated.
     std::pair<freighter::Context, x::errors::Error>
     operator()(freighter::Context context, freighter::Next &next) override {

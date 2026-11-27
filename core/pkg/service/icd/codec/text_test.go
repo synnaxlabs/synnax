@@ -38,14 +38,14 @@ func (f decodeFixture) textMessages() []codec.TextMessage {
 	})
 }
 
-// textDecode adapts the Decode of dec, which has no failed fields, to a decodeFunc.
+// textDecode adapts the Decode of dec, which returns no error, to a decodeFunc.
 func textDecode(dec *codec.Text) decodeFunc {
 	return func(
 		line []byte,
 		samples [][][]byte,
 	) (int, bool, []codec.Failure, error) {
-		message, ok, err := dec.Decode(line, samples)
-		return message, ok, nil, err
+		message, ok, failures := dec.Decode(line, samples)
+		return message, ok, failures, nil
 	}
 }
 
@@ -113,7 +113,7 @@ var _ = Describe("Text", func() {
 		bare := []byte("1,2,3,0.000123456789012")
 		var (
 			first, second int
-			err           error
+			failures      []codec.Failure
 		)
 		decode := func() {
 			for _, s := range samples {
@@ -121,13 +121,13 @@ var _ = Describe("Text", func() {
 					s[i] = s[i][:0]
 				}
 			}
-			if first, _, err = dec.Decode(gga, samples); err != nil {
+			if first, _, failures = dec.Decode(gga, samples); failures != nil {
 				return
 			}
-			second, _, err = dec.Decode(bare, samples)
+			second, _, failures = dec.Decode(bare, samples)
 		}
 		Expect(testing.AllocsPerRun(100, decode)).To(BeZero())
-		Expect(err).ToNot(HaveOccurred())
+		Expect(failures).To(BeNil())
 		Expect(first).To(Equal(0))
 		Expect(second).To(Equal(1))
 		Expect(samples[0][0]).To(Equal(telem.NewSeriesV(-122.4194155).Data))

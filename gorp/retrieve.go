@@ -56,7 +56,7 @@ type Retrieve[K Key, E Entry[K]] struct {
 	// validators run after entries are collected; a non-nil return
 	// aborts Exec with that error.
 	validators []Validator[K, E]
-	// keyPrefix is the gorp key prefix for entry type E.
+	// keyPrefix is the Gorp key prefix for entry type E.
 	keyPrefix []byte
 	// missingKeysSkipped is true when Exec treats a key with no entry as a non-match.
 	missingKeysSkipped bool

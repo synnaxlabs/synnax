@@ -15,7 +15,7 @@ import type { UpdateCall } from "@/aether/testutil/Leaf";
 export const compositeStateZ = z.record(z.string(), z.unknown());
 export type CompositeState = z.infer<typeof compositeStateZ>;
 
-/** Bundled aether `Composite` stub for tests. Same shape as {@link Leaf} but
+/** Bundled Aether `Composite` stub for tests. Same shape as {@link Leaf} but
  * accepts arbitrary descendants — drop it into a registry to stand in for a real
  * Composite parent while keeping its children under the harness's normal child
  * registry. */

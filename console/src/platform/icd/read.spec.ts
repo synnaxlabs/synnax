@@ -66,27 +66,9 @@ describe("ICD", () => {
   });
 
   describe("isIndexable", () => {
-    it.each([
-      ["a JSON timestamp field", timestamp, true],
-      [
-        "a JSON timestamp field with a default",
-        jsonFieldOf({
-          type: "timestamp",
-          timeFormat: "unix_ms",
-          default: { type: "now" },
-        }),
-        false,
-      ],
-      ["a JSON float field", jsonFieldOf({ type: "float" }), false],
-      ["a text field", textField, false],
-      ["a binary field", binaryField, false],
-      ["no field", undefined, false],
-    ] as const)(
-      "should report whether a read can index on %s",
-      (_, field, expected) => {
-        expect(ICD.isIndexable(field)).toBe(expected);
-      },
-    );
+    it("should report that a read cannot index on no field", () => {
+      expect(ICD.isIndexable(undefined)).toBe(false);
+    });
   });
 
   describe("suit", () => {
