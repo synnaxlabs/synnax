@@ -375,6 +375,25 @@ TEST(Reader, AppendsToSeriesInFrame) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0, 9.0}));
 }
 
+/// @brief it should add the samples of a read to the series of a frame that holds them
+/// in another order than the frame of the read before.
+TEST(Reader, AppendsToSeriesInReorderedFrame) {
+    auto r = ASSERT_NIL_P(frame().create());
+    x::telem::Frame first;
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{7}, RECEIVED, first, 2));
+    ASSERT_EQ(*first.channels, (std::vector<std::uint32_t>{1, 2}));
+    x::telem::Frame fr;
+    fr.emplace(2, x::telem::Series(x::telem::FLOAT64_T, 2));
+    fr.emplace(1, x::telem::Series(x::telem::TIMESTAMP_T, 2));
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{9}, RECEIVED, fr, 2));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{2, 1}));
+    ASSERT_EQ(fr.series->at(0).values<double>(), (std::vector{9.0}));
+    ASSERT_EQ(
+        fr.series->at(1).values<std::int64_t>(),
+        (std::vector{RECEIVED.nanoseconds()})
+    );
+}
+
 /// @brief it should stamp the samples of a message with the value of its index field.
 TEST(Reader, StampsSamplesWithIndexField) {
     auto r = ASSERT_NIL_P(indexed().create());
