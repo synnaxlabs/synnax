@@ -102,11 +102,11 @@ TEST(testFreighter, testCancelerEndsEveryHeldRequest) {
     int first = 0;
     int second = 0;
     int released = 0;
-    const auto a = canceler.hold([&] { first++; });
-    const auto b = canceler.hold([&] { second++; });
+    ASSERT_TRUE(canceler.hold([&] { first++; }).has_value());
+    ASSERT_TRUE(canceler.hold([&] { second++; }).has_value());
     const auto c = canceler.hold([&] { released++; });
-    ASSERT_TRUE(a.has_value() && b.has_value() && c.has_value());
-    canceler.release(*c);
+    ASSERT_TRUE(c.has_value());
+    canceler.release(c.value_or(0));
     canceler.cancel();
     ASSERT_EQ(first, 1);
     ASSERT_EQ(second, 1);
