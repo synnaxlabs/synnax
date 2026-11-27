@@ -91,7 +91,7 @@ func mergeAndValidateOptions(o *options) error {
 	return v.Error()
 }
 
-// WithFS sets the file system that cesium will use to store data. This defaults to the
+// WithFS sets the file system that Cesium will use to store data. This defaults to the
 // OS file system.
 func WithFS(fs xfs.FS) Option { return func(o *options) { o.fs = fs } }
 

@@ -16,7 +16,9 @@ import { documentIn } from "@/session/window/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 /**
- * Opens the message format field that shows current, and searches for an ICD name.
+ * Opens the message format field that shows current, searches for an ICD name, and
+ * waits for the search to answer. Until then the list shows its first page, and the
+ * answer replaces those rows, so a row found there can be detached by the next read.
  * @returns the dialog.
  */
 export const searchMessageFormats = async (current: string, icdName: string) => {
@@ -26,15 +28,18 @@ export const searchMessageFormats = async (current: string, icdName: string) => 
   fireEvent.change(await dialog.findByPlaceholderText("Search message formats..."), {
     target: { value: icdName },
   });
+  await waitFor(() => {
+    const options = within(dialog.getByRole("listbox")).queryAllByRole("option");
+    if (
+      options.length === 0 ||
+      options.some((o) => o.textContent?.includes(icdName) !== true)
+    )
+      throw new Error(`the search for ${icdName} has not answered`);
+  });
   return dialog;
 };
 
-/**
- * Picks the message next of the ICD named icdName in the message format field that
- * shows current, once the search answers. Until then the list shows its first page,
- * which unmounts a row out of view once the list measures its height, so a row found
- * there can be gone by the click.
- */
+/** Picks the message next of the ICD named icdName in the field that shows current. */
 export const pickMessageFormat = async (
   current: string,
   next: string,
@@ -43,8 +48,6 @@ export const pickMessageFormat = async (
   const dialog = await searchMessageFormats(current, icdName);
   const option = await waitFor(() => {
     const options = within(dialog.getByRole("listbox")).queryAllByRole("option");
-    if (options.some((o) => o.textContent?.includes(icdName) !== true))
-      throw new Error(`the search for ${icdName} has not answered`);
     const match = options.find((o) => within(o).queryByText(next) != null);
     if (match == null) throw new Error(`no ${next} of ${icdName}`);
     return match;

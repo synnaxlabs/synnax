@@ -301,8 +301,8 @@ endpoint, as the [examples](#create-an-http-read-task) do.
 <Problem.Item message={"Failed to read the response from ..."}>
 <Problem.Cause>
 
-The response is not JSON, or it matches more than one message. The task records nothing
-from the response.
+The response matches more than one message, or it is not JSON and no field or match rule
+of the endpoint has an empty pointer. The task records nothing from the response.
 
 </Problem.Cause>
 <Problem.Fix>

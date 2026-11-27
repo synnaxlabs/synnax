@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <filesystem>
 #include <string>
 #include <thread>
 
@@ -25,25 +24,6 @@
 
 namespace driver::serial {
 namespace {
-/// @brief Link is a symlink in the temporary directory, as /dev/serial/by-id holds,
-/// which it removes on destruction.
-struct Link {
-    std::filesystem::path path = std::filesystem::temp_directory_path() /
-                                 ("synnax-port-" + x::uuid::create().to_string());
-
-    Link() = default;
-    explicit Link(const std::string &target) { this->point(target); }
-    Link(const Link &) = delete;
-    Link &operator=(const Link &) = delete;
-    ~Link() { std::filesystem::remove(this->path); }
-
-    /// @brief points the link at target.
-    void point(const std::string &target) const {
-        std::filesystem::remove(this->path);
-        std::filesystem::create_symlink(target, this->path);
-    }
-};
-
 /// @returns a device with name on the port at path.
 Device device(const std::string &name, const std::string &path) {
     Device dev{.key = name + "_key", .name = name};

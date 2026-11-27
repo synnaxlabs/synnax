@@ -49,6 +49,28 @@ import {
 } from "@/platform/task/testutil";
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
+const flags = vi.hoisted((): { textMessages: boolean } => ({ textMessages: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
+  return {
+    FLAGS: {
+      ...FLAGS,
+      get textMessages() {
+        return flags.textMessages;
+      },
+    },
+  };
+});
+
+/** Takes only JSON messages in the task for the rest of the test, as a release does. */
+const hideTextMessages = () => {
+  flags.textMessages = false;
+  onTestFinished(() => {
+    flags.textMessages = true;
+  });
+};
+
 const client = createTestClient();
 
 /** The reply of the Core when it cannot reach the broker. */
@@ -272,6 +294,31 @@ const selectField = async (name: string) =>
   fireEvent.click(
     await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
   );
+
+/** Renders a topic whose message, once the task exists, has the payload. */
+const renderPayload = async (value: icd.Message["payload"]) => {
+  const entry = await createEntry({
+    fields: [createField("temperature", "float")],
+    bound: {},
+  });
+  const { icd: key, message } = messageOf(entry);
+  await renderRead({
+    entries: [entry],
+    beforeRender: async () =>
+      await client.icds.dispatch(
+        key,
+        icd.set({ path: ["messages", message, "payload"], value }),
+      ),
+  });
+  return async () =>
+    (await client.icds.retrieve(key)).messages.find((m) => m.key === message)?.payload;
+};
+
+const edit = async (label: string | RegExp, value: string) => {
+  const input = await screen.findByLabelText(label);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+};
 
 const retrieveRead = async (key: string) =>
   (await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS })).properties
@@ -1483,6 +1530,7 @@ describe("MQTT read form", () => {
   });
 
   it("should show the format and the message of a topic whose message is text", async () => {
+    hideTextMessages();
     const entry = await createEntry({ fields: [createField("temperature", "float")] });
     await renderRead({ entries: [entry], beforeRender: () => setTextFormat(entry) });
     await screen.findByText(NOT_JSON_NOTE);
@@ -1497,6 +1545,7 @@ describe("MQTT read form", () => {
   ])(
     "should mark a topic whose message is $name in the tree",
     async ({ mark, change }) => {
+      hideTextMessages();
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
       });
@@ -1526,6 +1575,7 @@ describe("MQTT read form", () => {
   });
 
   it("should mark a later message that is not JSON and its topic", async () => {
+    hideTextMessages();
     const entry = await createEntry({ fields: [createField("temperature", "float")] });
     const status = await addMessage(
       entry,
@@ -1556,6 +1606,7 @@ describe("MQTT read form", () => {
   ])(
     "should not offer Add field for a topic whose message is $name",
     async ({ note, change }) => {
+      hideTextMessages();
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
       });
@@ -1799,6 +1850,7 @@ describe("MQTT read form", () => {
     );
 
     it("should open the editor at a message that is not JSON", async () => {
+      hideTextMessages();
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
       });
@@ -1813,6 +1865,7 @@ describe("MQTT read form", () => {
     });
 
     it("should open the editor at a later message that is not JSON", async () => {
+      hideTextMessages();
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
       });
@@ -2184,6 +2237,233 @@ describe("MQTT read form", () => {
       await waitFor(() => expect(screen.queryByText("Units")).toBeNull());
       expect(screen.queryByText("Scale")).toBeNull();
       expect(screen.getByText("Enum mapping")).toBeTruthy();
+    });
+
+    it("should edit where each field of a text message sits", async () => {
+      const retrievePayload = await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [
+          icd.textFieldZ.parse({
+            key: uuid.create(),
+            name: "temperature",
+            encoding: "delimited",
+            position: 1,
+          }),
+          icd.textFieldZ.parse({
+            key: uuid.create(),
+            name: "pressure",
+            encoding: "tagged",
+            tag: "P",
+          }),
+        ],
+      });
+      await selectField("temperature");
+      await edit("Position", "2");
+      expect(screen.queryByLabelText("Tag")).toBeNull();
+      await selectField("pressure");
+      await edit("Tag", "PR");
+      expect(screen.getByText("Units")).toBeTruthy();
+      expect(screen.queryByText(NOT_JSON_NOTE)).toBeNull();
+      await waitFor(async () =>
+        expect(await retrievePayload()).toMatchObject({
+          fields: [{ position: 2 }, { tag: "PR" }],
+        }),
+      );
+    });
+
+    it("should read a text field by its tag instead of its position", async () => {
+      const retrievePayload = await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [
+          icd.textFieldZ.parse({
+            key: uuid.create(),
+            name: "temperature",
+            encoding: "delimited",
+            position: 2,
+            units: "°C",
+          }),
+        ],
+      });
+      await selectField("temperature");
+      fireEvent.click(await screen.findByRole("button", { name: "Tag" }));
+      await edit("Tag", "T");
+      expect(screen.queryByLabelText("Position")).toBeNull();
+      await waitFor(async () =>
+        expect(await retrievePayload()).toMatchObject({
+          fields: [{ name: "temperature", encoding: "tagged", tag: "T", units: "°C" }],
+        }),
+      );
+    });
+
+    it("should read a field of a text message", async () => {
+      await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [
+          icd.textFieldZ.parse({
+            key: uuid.create(),
+            name: "temperature",
+            encoding: "delimited",
+          }),
+        ],
+      });
+      // The Core reads only JSON messages over MQTT, so it would undo the read.
+      holdRequests(client, "/task/create");
+      const read = await screen.findByRole<HTMLInputElement>("checkbox", {
+        name: "Read temperature",
+      });
+      fireEvent.click(read);
+      await waitFor(() => expect(read.checked).toBe(true));
+    });
+
+    it("should edit the bits and the type of a field of a binary message", async () => {
+      const retrievePayload = await renderPayload({
+        format: "binary",
+        fields: [
+          icd.binaryFieldZ.parse({
+            key: uuid.create(),
+            name: "gear",
+            kind: "unsigned",
+            bitLength: 16,
+            default: "200",
+          }),
+        ],
+      });
+      await selectField("gear");
+      await edit("Start bit", "8");
+      fireEvent.click(await screen.findByText("Unsigned integer"));
+      fireEvent.click(await screen.findByText("Signed integer"));
+      fireEvent.click(await screen.findByText("Little endian"));
+      fireEvent.click(await screen.findByText("Big endian"));
+      await waitFor(async () =>
+        expect(await retrievePayload()).toMatchObject({
+          fields: [
+            {
+              startBit: 8,
+              bitLength: 16,
+              kind: "integer",
+              default: "200",
+              byteOrder: "big_endian",
+            },
+          ],
+        }),
+      );
+    });
+  });
+
+  describe("text and binary messages", () => {
+    const openText = async () =>
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: new RegExp(`TEXT.*${TOPIC}`) }),
+      );
+
+    it("should add a field to a text message at the next free position", async () => {
+      const retrievePayload = await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [
+          icd.textFieldZ.parse({
+            key: uuid.create(),
+            name: "temperature",
+            encoding: "delimited",
+            position: 1,
+          }),
+        ],
+      });
+      await openText();
+      // The Core reads only JSON messages over MQTT, so it would undo the read.
+      holdRequests(client, "/task/create");
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await screen.findByLabelText("Position");
+      await waitFor(async () =>
+        expect((await retrievePayload())?.fields).toMatchObject([
+          { name: "temperature" },
+          { name: "Field 2", encoding: "delimited", position: 2 },
+        ]),
+      );
+    });
+
+    it("should add 8 unsigned bits after the last bit of a binary message", async () => {
+      const retrievePayload = await renderPayload({
+        format: "binary",
+        fields: [
+          icd.binaryFieldZ.parse({
+            key: uuid.create(),
+            name: "gear",
+            kind: "unsigned",
+            startBit: 8,
+            bitLength: 16,
+          }),
+        ],
+      });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: new RegExp(`BINARY.*${TOPIC}`) }),
+      );
+      holdRequests(client, "/task/create");
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await screen.findByLabelText("Start bit");
+      await waitFor(async () =>
+        expect((await retrievePayload())?.fields).toMatchObject([
+          { name: "gear" },
+          { name: "Field 2", kind: "unsigned", startBit: 24, bitLength: 8 },
+        ]),
+      );
+    });
+
+    it("should edit the frame of a text message, whose time is its arrival", async () => {
+      const retrievePayload = await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [],
+      });
+      await openText();
+      await screen.findByText(
+        "A text message has no timestamp field to read the time from.",
+      );
+      await edit("Prefix", "$GP");
+      await edit(/^Delimiter/, ";");
+      await waitFor(async () =>
+        expect(await retrievePayload()).toMatchObject({
+          prefix: "$GP",
+          delimiter: ";",
+        }),
+      );
+    });
+
+    it("should name a text message of a topic that reads several", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+        bound: {},
+      });
+      const status = await addMessage(entry, "status", [], KIND_MATCH);
+      await renderRead({
+        entries: [entry],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            entry.icd,
+            icd.set({
+              path: ["messages", status.key, "payload"],
+              value: { format: "text", delimiter: ",", prefix: "$ST", fields: [] },
+            }),
+          ),
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^status/ }));
+      const name = await screen.findByDisplayValue("status");
+      fireEvent.change(name, { target: { value: "pump status" } });
+      fireEvent.blur(name);
+      expect(screen.getByRole("button", { name: "Add field" })).toBeTruthy();
+      expect(screen.queryByText("Documents")).toBeNull();
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages.find((m) => m.key === status.key)?.name).toBe("pump status");
+      });
     });
   });
 

@@ -372,7 +372,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && (
+                {encoding != null && ICD.isTaskFormat(encoding) && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
@@ -603,7 +603,9 @@ const Records: FC<RecordsProps> = ({
       }
       for (const { icd: icdKey, message, fields, bindings } of extensions) {
         const format = ICD.formatOf(formats, icdKey);
-        let after = ICD.fieldsOf(formats, icdKey, message).at(-1)?.key;
+        let after = ICD.jsonFields(ICD.heldMessage(formats, icdKey, message)).at(
+          -1,
+        )?.key;
         format.batch(() => {
           for (const field of fields) {
             format.insert(ICD.fieldsPath(message), field, after);

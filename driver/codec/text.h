@@ -67,10 +67,14 @@ class Text {
         );
         [[nodiscard]] x::errors::Error
         append_float(double v, x::telem::Series &dst) const;
-        /// @brief appends the sample of the field in items, the items of one line, or
-        /// its default, to dst.
+        /// @brief returns the value of the field in items, the items of one line, or
+        /// an empty view when the line has none.
+        [[nodiscard]] std::string_view
+        value(const std::vector<std::string_view> &items) const;
+        /// @brief appends the sample of value, or the field's default when value is
+        /// empty, to dst.
         [[nodiscard]] x::errors::Error
-        decode(const std::vector<std::string_view> &items, x::telem::Series &dst) const;
+        decode(std::string_view value, x::telem::Series &dst) const;
     };
 
     struct Message {
@@ -78,6 +82,7 @@ class Text {
         std::string delimiter;
         std::vector<Field> fields;
         std::vector<x::telem::Series> samples;
+        std::vector<Failure> failures;
     };
 
     /// @brief Prefixed is a message whose lines start with prefix.
@@ -116,23 +121,27 @@ public:
     /// its message. A delimited field reads the item at its position, and a tagged
     /// field reads the rest of the first item whose longest tag of the message is its
     /// tag. A value is a decimal number, with any spaces, tabs, or carriage returns
-    /// around it. An empty or missing item has no value.
+    /// around it. An empty or missing item has no value. A field with no value and no
+    /// default, a value that is not a number, or a value that does not fit its channel
+    /// gets no sample and goes into its failures.
     /// @returns the index of the message in create order, or nothing when line belongs
     /// to no message. A line of only spaces, tabs, and carriage returns belongs to
     /// none.
-    /// @returns VALIDATION, with the message, when a field with no default has no value
-    /// in line, a value is not a number, or a scaled value does not fit its channel.
-    /// The error names the field, and also the message when the decoder holds more than
-    /// one.
-    std::pair<std::optional<std::size_t>, x::errors::Error>
-    decode(std::string_view line);
+    std::optional<std::size_t> decode(std::string_view line);
 
     /// @brief returns the samples of the last decode of message: one series for each
-    /// binding, in binding order, each holding one sample. They are unspecified after a
-    /// decode that does not return message, or returns an error.
+    /// binding, in binding order, each holding one sample, or none for a field in its
+    /// failures. They are unspecified after a decode that does not return message.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
+    }
+
+    /// @brief returns the fields that the last decode of message could not decode, in
+    /// binding order. They are unspecified after a decode that does not return message.
+    [[nodiscard]] const std::vector<Failure> &
+    failures(const std::size_t message) const {
+        return this->messages[message].failures;
     }
 };
 /// @brief TextEncoder encodes samples into the line of one text message. It is not safe
