@@ -666,11 +666,10 @@ const Records: FC<RecordsProps> = ({
         records,
         messagesOf,
         nameOf,
+        appends,
       );
       extend(extensions, kinds);
       for (const { icd: k, message } of kinds) make(k, [message]);
-      for (const { message, fields } of extensions)
-        appends.set(message, [...(appends.get(message) ?? []), ...fields]);
       const target = reading?.icd ?? home;
       const added = createAdditions(
         shapes,

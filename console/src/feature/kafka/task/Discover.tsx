@@ -249,7 +249,9 @@ const reusedFit = (
   i: number,
 ): ICD.Reuse.Fit | undefined => {
   const fit = reading?.fits[i];
-  return fit != null && isReusable(shape, fit) ? fit : undefined;
+  return fit != null && isReusable(shape, ICD.jsonFields(fit.message))
+    ? fit
+    : undefined;
 };
 
 /**
@@ -286,7 +288,7 @@ const readingNote = (
   const tied = candidates
     .filter(({ icd: k }) => reading == null || k === reading.icd)
     .flatMap(({ fits }) => fits[i] ?? [])
-    .filter((f) => isReusable(shape, f)).length;
+    .filter(({ message }) => isReusable(shape, ICD.jsonFields(message))).length;
   return tied < 2 ? undefined : `Fits ${tied} messages`;
 };
 

@@ -181,20 +181,23 @@ const readOf = (
     bindings: fields.map((field) => ({ field })),
   });
 
-/** The fields that messages gain in one add, by message key. */
+/** The fields that messages gain in one add and the forms do not hold yet, by key. */
 export type Appends = Map<icd.MessageKey, icd.JSONField[]>;
 
 /**
- * @returns whether the new records of shape can read the message of fit. They cannot
- * when the message holds the timestamp of the shape in a field of another type.
+ * @returns whether the new records of shape can read a message of fields. They cannot
+ * when a field holds a field of the shape but cannot read its values, or holds the
+ * timestamp of the shape in a field of another type.
  */
-export const isReusable = (shape: json.Shape, { message }: ICD.Reuse.Fit): boolean => {
+export const isReusable = (shape: json.Shape, fields: icd.JSONField[]): boolean => {
   const stamp = shape.index == null ? undefined : shape.fields[shape.index];
-  return (
-    stamp == null ||
-    !ICD.jsonFields(message).some(
-      ({ pointer, type }) => pointer === stamp.pointer && type !== "timestamp",
-    )
+  return shape.fields.every((f) =>
+    fields.every((h) => {
+      if (!ICD.Reuse.covers(h, f.pointer)) return true;
+      if (f === stamp && h.pointer === f.pointer && h.type !== "timestamp")
+        return false;
+      return ICD.Reuse.reads(h, f);
+    }),
   );
 };
 
@@ -263,9 +266,11 @@ export const uniqueName = (base: string, taken: icd.Message[]): string => {
  * its keys carry, and its timestamp. A new message takes the name that nameOf gives its
  * first key. A shape that is one of several kinds adds the name of its present field,
  * and its message matches the documents that hold that field.
- * @param held - The messages whose names a new message must not take.
+ * @param held - The messages of the ICD that the new records read, as the forms hold
+ * them now. A new message takes none of their names.
  * @param reading - The ICD that the new records read, with a fit for each free shape
- * that reuses a message of it.
+ * that reuses a message of it. A shape gets a new message instead when its message
+ * gains a field in this add that cannot read the shape.
  * @param appends - What messages gain in this add. A held message gains the fields
  * that its new records read and it lacks.
  */
@@ -285,7 +290,16 @@ export const createAdditions = (
     if (pointers == null || pointers.size === 0) return [];
     const carried = carriedFields(shape, reads);
     const fit = reading?.fits[i];
-    if (fit != null) return [reuse(shape, fit, pointers, carried, recordKeys, appends)];
+    if (fit != null) {
+      const message = held.find(({ key }) => key === fit.message.key);
+      if (message == null)
+        throw new Error(`No held message has the key ${fit.message.key}`);
+      const gained = appends.get(message.key) ?? [];
+      if (isReusable(shape, [...ICD.jsonFields(message), ...gained]))
+        return [
+          reuse(shape, { ...fit, message }, pointers, carried, recordKeys, appends),
+        ];
+    }
     const indexField = shape.index == null ? undefined : shape.fields[shape.index];
     const picked = shape.fields.filter(
       (f) => f === indexField || (pointers.has(f.pointer) && !carried.has(f.pointer)),
@@ -373,6 +387,8 @@ export interface KindMessage {
  * does not hold, once for all of its records. A record starts to read each picked
  * field that it does not read in that message. When no message of a record takes a
  * shape, the records of its ICD start to read a new message for the kind.
+ * @param appends - What messages gain in this add. A message holds the fields that it
+ * gains.
  * @throws if a picked shape is not extendable.
  */
 export const createExtensions = (
@@ -381,6 +397,7 @@ export const createExtensions = (
   records: ReadRecord[],
   messagesOf: MessagesOf,
   nameOf: (recordKey: string) => string,
+  appends: Appends,
 ): { extensions: Extension[]; kinds: KindMessage[] } => {
   const drafts = new Map<icd.MessageKey, Draft>();
   const kinds = new Map<string, KindMessage>();
@@ -427,6 +444,7 @@ export const createExtensions = (
         a.picks.push(...picked.filter(({ pointer }) => pointer === a.field.pointer));
       const holds = [
         ...ICD.jsonFields(held.find(({ key }) => key === message)),
+        ...(appends.get(message) ?? []),
         ...draft.added.map(({ field }) => field),
       ];
       const missing = picked.filter((f) => !holds.some((h) => h.pointer === f.pointer));
