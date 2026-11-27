@@ -13,10 +13,12 @@ import { Device } from "@/feature/device";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
 import { Kafka } from "@/feature/kafka";
+import { LabJack } from "@/feature/labjack";
 import { MQTT } from "@/feature/mqtt";
 import { Rack } from "@/feature/rack";
 import { Sift } from "@/feature/sift";
 import { Task } from "@/feature/task";
+import { FLAGS } from "@/flags";
 import { FileBrowser } from "@/platform/file-browser";
 import { Notifications } from "@/platform/notifications";
 import { Panel } from "@/platform/panel";
@@ -25,6 +27,7 @@ import { Version } from "@/platform/version";
 const NOTIFICATIONS: Notifications.Notification[] = [
   ...EtherCAT.Device.NOTIFICATIONS,
   ...Device.NOTIFICATIONS,
+  ...(FLAGS.typedLabJackDevices ? LabJack.Device.NOTIFICATIONS : []),
   ...Version.NOTIFICATIONS,
 ];
 
@@ -32,6 +35,9 @@ const RULES: Notifications.Rules = {
   arc: Arc.NOTIFICATION_RULE,
   channel: Channel.NOTIFICATION_RULE,
   device: Device.NOTIFICATION_RULE,
+  ...(FLAGS.typedLabJackDevices
+    ? { labjack_device: LabJack.Device.NOTIFICATION_RULE }
+    : {}),
   rack: Rack.NOTIFICATION_RULE,
   task: Task.createNotificationRule(Device.INTEGRATIONS, [
     FileBrowser.TASK_TYPE,

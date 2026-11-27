@@ -12,6 +12,7 @@ import { Channel } from "@/feature/channel";
 import { Core } from "@/feature/core";
 import { Device } from "@/feature/device";
 import { ICD } from "@/feature/icd";
+import { LabJack } from "@/feature/labjack";
 import { LinePlot } from "@/feature/lineplot";
 import { Link } from "@/feature/link";
 import { Log } from "@/feature/log";
@@ -20,7 +21,14 @@ import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { FLAGS } from "@/flags";
 import { Session } from "@/session";
+
+const useTypedLabJackDeviceLinks = () => ({ labjack_device: LabJack.Device.useLink() });
+const useNoLinks = () => ({});
+const useLabJackDeviceLinks = FLAGS.typedLabJackDevices
+  ? useTypedLabJackDeviceLinks
+  : useNoLinks;
 
 // Keyed by the resource type, the segment after the cluster key in a deep link.
 const useLinks = (): void => {
@@ -29,6 +37,7 @@ const useLinks = (): void => {
     channel: Channel.useLink(),
     device: Device.useLink(),
     icd: ICD.useLink(),
+    ...useLabJackDeviceLinks(),
     lineplot: LinePlot.useLink(),
     log: Log.useLink(),
     project: Project.useLink(),
