@@ -215,13 +215,13 @@ jobs:
           tags: ${{ steps.tag.outputs.image }}
           build-contexts:
             ${{ inputs.prebuilt && format('binary={0}/binary', runner.temp) || '' }}
-          # A prebuilt binary leaves no layer worth a cache. Only main saves one.
+          # A prebuilt binary leaves no layer worth a cache.
           cache-from:
             ${{ !inputs.prebuilt && format('type=gha,scope=synnax-docker-{0}',
             inputs.module) || '' }}
           cache-to:
-            ${{ !inputs.prebuilt && github.ref == 'refs/heads/main' &&
-            format('type=gha,mode=max,scope=synnax-docker-{0}', inputs.module) || '' }}
+            ${{ !inputs.prebuilt && format('type=gha,mode=max,scope=synnax-docker-{0}',
+            inputs.module) || '' }}
 
       - name: Name the artifact of the image
         id: artifact
