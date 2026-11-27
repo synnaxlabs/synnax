@@ -39,12 +39,11 @@ type TextSite struct {
 	Line   int `json:"line"`
 	Column int `json:"column"`
 	// Captured is true when a symbol that the text declares takes the old or the new
-	// name at the reference. FolderUnreadable is true when the channel sits in a folder
-	// whose name Arc cannot read bare yet, and Folder is the first such folder on its
-	// path. All are unset when the text does not parse or bind.
-	Captured         bool   `json:"captured"`
-	FolderUnreadable bool   `json:"folder_unreadable,omitempty"`
-	Folder           string `json:"folder,omitempty"`
+	// name at the reference. Folder is the first folder on the path of the channel that
+	// Arc cannot read bare yet, or empty. Both are unset when the text does not parse
+	// or bind.
+	Captured bool   `json:"captured"`
+	Folder   string `json:"folder,omitempty"`
 }
 
 func textSiteKey(s TextSite) []byte {

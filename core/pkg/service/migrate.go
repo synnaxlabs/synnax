@@ -331,7 +331,7 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 	switch {
 	case site.Captured:
 		why = "a symbol that the text declares holds one of these names there"
-	case site.FolderUnreadable:
+	case site.Folder != "":
 		why = fmt.Sprintf(
 			"the folder %q on its path cannot be read in Arc yet",
 			site.Folder,

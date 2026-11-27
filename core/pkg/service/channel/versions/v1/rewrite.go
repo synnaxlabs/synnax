@@ -680,15 +680,14 @@ func StageKept(
 			continue
 		}
 		if err := resource.StageTextSite(ctx, tx, resource.TextSite{
-			Holder:           holder,
-			Function:         function,
-			Name:             r.Name,
-			NewName:          r.NewName,
-			Line:             r.Line,
-			Column:           r.Column,
-			Captured:         r.Captured,
-			FolderUnreadable: r.FolderUnreadable,
-			Folder:           r.Folder,
+			Holder:   holder,
+			Function: function,
+			Name:     r.Name,
+			NewName:  r.NewName,
+			Line:     r.Line,
+			Column:   r.Column,
+			Captured: r.Captured,
+			Folder:   r.Folder,
 		}); err != nil {
 			return err
 		}
