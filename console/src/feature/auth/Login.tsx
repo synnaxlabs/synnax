@@ -10,7 +10,7 @@
 import "@/feature/auth/Login.css";
 
 import {
-  auth,
+  type auth,
   type connection,
   ExpiredTokenError,
   InvalidCredentialsError,
@@ -22,14 +22,13 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import type { Input } from "@synnaxlabs/lyra/input";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Triggers } from "@synnaxlabs/lyra/triggers";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Credential, Synnax } from "@synnaxlabs/pluto";
 import { deep, errors } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import { z } from "zod";
@@ -79,60 +78,73 @@ const errorMessage = (status: connection.Status): string | undefined => {
   return error.message;
 };
 
-// Undefined while the providers load, or after their request fails.
-const useProviders = (
-  core: auth.TokenlessParams | undefined,
-  oidc: boolean,
-): auth.OIDCLogin[] | undefined => {
-  const host = core?.host;
-  const port = core?.port;
-  const secure = core?.secure;
-  const key =
-    !oidc || host == null || port == null ? null : `${host}:${port}:${secure}`;
-  const [found, setFound] = useState<{ key: string; providers: auth.OIDCLogin[] }>();
-  const handleError = Status.useErrorHandler();
-  useAsyncEffect(
-    async (signal) => {
-      if (key == null || host == null || port == null) return;
-      const tokenless = auth.createTokenlessClient({ host, port, secure });
-      handleError(async () => {
-        const providers = await auth.retrieveProviders(tokenless);
-        if (!signal.aborted) setFound({ key, providers });
-      }, "Failed to retrieve the login providers");
-    },
-    [key],
-  );
-  if (key == null) return [];
-  return found?.key === key ? found.providers : undefined;
-};
-
 /**
- * Finishes a browser login the provider redirected back from, before any guard chooses
- * between the login surface and a session the browser already holds.
+ * Finishes a provider redirect, before any guard chooses between the login surface and
+ * a session the browser already holds. A login replaces the session. A link keeps it,
+ * and waits for the client to link the account to the logged-in user.
  */
 export const useCompleteBrowserLogin = (): void => {
+  const client = Synnax.use();
   const cores = Session.Core.useSelectMany();
+  const selected = Session.Core.useSelectSelectedKey();
   const servingCore = Core.detectConnection();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
+  const addStatus = Status.useAdder();
   const reportUnfinished = Core.useReportUnfinished();
+  // a link waits here until the client connects
+  const pendingLink = useRef<Core.CompletedLogin>(undefined);
+  const link = Credential.OIDC.useLink();
   useEffect(() => {
-    handleError(() => {
-      let completed: Core.CompletedLogin | undefined;
-      try {
-        completed = Core.completeBrowserLogin();
-      } catch (e) {
-        reportUnfinished(e, "Login not finished");
-        return;
-      }
-      if (completed == null) return;
-      const core = cores.find((c) => c.key === completed.core) ?? servingCore;
-      if (core == null) return;
-      const oidc = completed.credentials;
-      dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
-      dispatch(Session.Core.select(core.key));
-    }, "Failed to log in");
+    const purpose = Core.pendingPurpose();
+    handleError(
+      () => {
+        let completed: Core.CompletedLogin | undefined;
+        try {
+          completed = Core.completeBrowserLogin();
+        } catch (e) {
+          reportUnfinished(
+            e,
+            purpose === "link" ? "Link not finished" : "Login not finished",
+          );
+          return;
+        }
+        if (completed == null) return;
+        if (completed.purpose === "link") {
+          if (completed.core !== selected)
+            throw new Error(
+              "The Console left the Core that started the link. Log in and try again.",
+            );
+          pendingLink.current = completed;
+          return;
+        }
+        const core = cores.find((c) => c.key === completed.core) ?? servingCore;
+        if (core == null) return;
+        const oidc = completed.credentials;
+        dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
+        dispatch(Session.Core.select(core.key));
+      },
+      purpose === "link" ? "Failed to link account" : "Failed to log in",
+    );
   }, []);
+  useEffect(() => {
+    const pending = pendingLink.current;
+    if (pending == null || client == null) return;
+    pendingLink.current = undefined;
+    handleError(async () => {
+      // the session cookie is shared, so another tab can change the user mid-redirect
+      await client.auth.sessions.retrieve();
+      if (client.auth.subject?.key !== pending.subject)
+        throw new Error("Another user logged in during the link. Please try again.");
+      const { provider } = pending.credentials;
+      if (await link.updateAsync(pending.credentials))
+        addStatus({
+          variant: "success",
+          name: provider,
+          message: "Linked account",
+        });
+    }, "Failed to link account");
+  }, [client]);
 };
 
 /**
@@ -154,7 +166,7 @@ export const Login = (): ReactElement => {
   const target = servingCore ?? selectedCore;
   const { password: passwordAccepted, oidc: oidcAccepted } =
     Core.useAcceptedMethods(target);
-  const loadedProviders = useProviders(target, oidcAccepted);
+  const loadedProviders = Core.useProviders(target, oidcAccepted);
   const providers = loadedProviders ?? [];
   // a provider list that is still loading, or failed to load, says nothing yet
   const noLogin = !passwordAccepted && (!oidcAccepted || loadedProviders?.length === 0);

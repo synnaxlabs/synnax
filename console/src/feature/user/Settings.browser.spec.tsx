@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, user } from "@synnaxlabs/client";
+import { type auth, type Synnax, user } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientAs,
   createTestUser,
 } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createScriptClient } from "@/feature/embedded/testutil";
 import { User } from "@/feature/user";
@@ -29,6 +30,7 @@ import {
   clickAndSettle,
   type ConsolePreloadedState,
   createConsoleWrapper,
+  getIconButton,
   openContextMenu,
 } from "@/testutil";
 
@@ -145,6 +147,71 @@ describe("User.ProfileSettings", () => {
     await renderAs(as, <User.ProfileSettings />);
     expect(await screen.findByText("Create password")).toBeTruthy();
     expect(screen.queryByPlaceholderText("Current password")).toBeNull();
+  });
+});
+
+describe("User.ProfileSettings sign-in", () => {
+  const LINKED: auth.OIDCLogin = {
+    provider: "company-sso",
+    issuer: "https://sso.example.com",
+    authorizationEndpoint: "https://sso.example.com/authorize",
+    clientId: "synnax",
+  };
+  const UNLINKED: auth.OIDCLogin = {
+    ...LINKED,
+    provider: "other-sso",
+    issuer: "https://other.example.com",
+  };
+
+  // No provider backs the test Core, so the client reads and unlinks a stand-in link.
+  const renderEngineer = async () => {
+    answerMethods(["password", "api_key", "oidc"], [LINKED, UNLINKED]);
+    const { u, as } = await loginAs("Engineer");
+    const link: auth.oidc.Link = {
+      key: uuid.create(),
+      user: u.key,
+      issuer: LINKED.issuer,
+      account: "1234567890",
+      label: "ada@example.com",
+    };
+    vi.spyOn(as.auth.oidc, "retrieve").mockResolvedValue([link]);
+    const unlink = vi.spyOn(as.auth.oidc, "unlink").mockResolvedValue();
+    await renderAs(
+      as,
+      <>
+        <User.ProfileSettings />
+        <Modals.Stack />
+      </>,
+    );
+    await screen.findByText("ada@example.com");
+    return { link, unlink };
+  };
+
+  it("should show an Engineer their password form and provider accounts", async () => {
+    await renderEngineer();
+    expect(screen.getByText("Sign-in")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("Current password")).toBeTruthy();
+    // the providers load after the links
+    expect(await screen.findByText(`Link ${UNLINKED.provider}`)).toBeTruthy();
+    expect(screen.getByText(LINKED.provider)).toBeTruthy();
+    expect(screen.queryByText(`Link ${LINKED.provider}`)).toBeNull();
+  });
+
+  it("should let an Engineer unlink their own account", async () => {
+    const { link, unlink } = await renderEngineer();
+    fireEvent.click(getIconButton(document.body, "delete"));
+    await screen.findByText("Are you sure you want to unlink ada@example.com?");
+    fireEvent.click(findButton("Unlink"));
+    await screen.findByText("Successfully unlinked account");
+    expect(unlink).toHaveBeenCalledWith(link.key);
+  });
+
+  it("should hide provider accounts when the Core refuses OIDC", async () => {
+    answerMethods(["password", "api_key"]);
+    const { as } = await loginAs("Engineer");
+    await renderAs(as, <User.ProfileSettings />);
+    await screen.findByPlaceholderText("Current password");
+    expect(screen.queryByText("Provider accounts")).toBeNull();
   });
 });
 

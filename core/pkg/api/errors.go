@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/freighter/recovery"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -28,6 +29,7 @@ func NewErrorCodec() *errors.Codec {
 		freighter.ErrorProvider(),
 		recovery.ErrorProvider(),
 		query.ErrorProvider(),
+		oidc.ErrorProvider(),
 		validate.ErrorProvider(),
 		control.ErrorProvider(),
 		arc.ErrorProvider(),

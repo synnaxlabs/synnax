@@ -33,5 +33,10 @@ export const linkZ = z.object({
   issuer: z.string().min(1, "Issuer is required"),
   /** account is the provider's permanent ID for the account, its `sub` claim. */
   account: z.string().min(1, "Account is required"),
+  /**
+   * label names the account for people: its `email`, `name`, or `preferred_username`
+   * claim when the account linked. It is empty when the provider sent none.
+   */
+  label: z.string(),
 });
 export interface Link extends z.infer<typeof linkZ> {}

@@ -39,12 +39,14 @@ var _ = Describe("Codec", func() {
 				User:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
 				Issuer:  "test_3",
 				Account: "test_4",
+				Label:   "test_5",
 			}),
 			Entry("zero values", v0.Link{
 				Key:     uuid.Nil(),
 				User:    uuid.Nil(),
 				Issuer:  "",
 				Account: "",
+				Label:   "",
 			}),
 		)
 	})
@@ -56,6 +58,7 @@ func BenchmarkEncodeDecodeLink(b *testing.B) {
 		User:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
 		Issuer:  "test_3",
 		Account: "test_4",
+		Label:   "test_5",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -79,6 +82,7 @@ func FuzzDecodeLink(f *testing.F) {
 			User:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
 			Issuer:  "test_3",
 			Account: "test_4",
+			Label:   "test_5",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -92,6 +96,7 @@ func FuzzDecodeLink(f *testing.F) {
 			User:    uuid.Nil(),
 			Issuer:  "",
 			Account: "",
+			Label:   "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

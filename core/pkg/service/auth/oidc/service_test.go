@@ -172,10 +172,35 @@ var _ = Describe("Service", func() {
 				svc.Verify(ctx, credentials("idp", "verify", "v")),
 			).To(Equal(oidc.Account{
 				Provider: "idp", Issuer: provider.Issuer(),
-				ID:   "ada",
-				Name: "Ada Lovelace",
+				ID:    "ada",
+				Name:  "Ada Lovelace",
+				Label: "Ada Lovelace",
 			}))
 		})
+		DescribeTable(
+			"Should label the account by its first claim present",
+			func(ctx SpecContext, g testutil.Grant, label string) {
+				g.Subject, g.Verifier, g.RedirectURI = "ada", "v", redirect
+				code := uuid.New().String()
+				provider.Grant(code, g)
+				Expect(svc.Verify(ctx, credentials("idp", code, "v"))).
+					To(HaveField("Label", label))
+			},
+			Entry("email", testutil.Grant{
+				Email: "ada@example.com", Name: "Ada", PreferredUsername: "ada",
+			}, "ada@example.com"),
+			Entry(
+				"name without an email",
+				testutil.Grant{Name: "Ada", PreferredUsername: "ada"},
+				"Ada",
+			),
+			Entry(
+				"preferred username alone",
+				testutil.Grant{PreferredUsername: "ada"},
+				"ada",
+			),
+			Entry("no claim", testutil.Grant{}, ""),
+		)
 		It("Should reject an unknown provider", func(ctx SpecContext) {
 			Expect(svc.Verify(ctx, credentials("nope", "c", "v"))).Error().
 				To(MatchError(validate.ErrValidation))
@@ -403,6 +428,7 @@ var _ = Describe("Service", func() {
 					Exec(ctx, db)).To(Succeed())
 				Expect(link.Issuer).To(Equal(provider.Issuer()))
 				Expect(link.Account).To(Equal(sub))
+				Expect(link.Label).To(Equal("Ada Lovelace"))
 				Expect(user.ResourceID(link.User)).To(Equal(identity.Subject))
 			},
 		)
@@ -588,7 +614,7 @@ var _ = Describe("Service", func() {
 			}
 			MustSucceed(link(ctx, svc, subject, account))
 			Expect(link(ctx, svc, createUser(ctx), account)).Error().
-				To(MatchError(validate.ErrValidation))
+				To(MatchError(ContainSubstring("provider account is linked to another user")))
 		})
 		It("Should refuse a second link from one user to a provider", func(
 			ctx SpecContext,
@@ -598,7 +624,19 @@ var _ = Describe("Service", func() {
 			}))
 			Expect(link(ctx, svc, subject, oidc.Account{
 				Provider: "idp", Issuer: provider.Issuer(), ID: uuid.New().String(),
-			})).Error().To(MatchError(validate.ErrValidation))
+			})).Error().To(MatchError(ContainSubstring("user already has an account of the provider linked")))
+		})
+		It("Should report a provider linked when the user holds the account", func(
+			ctx SpecContext,
+		) {
+			account := oidc.Account{
+				Provider: "idp",
+				Issuer:   provider.Issuer(),
+				ID:       uuid.New().String(),
+			}
+			MustSucceed(link(ctx, svc, subject, account))
+			Expect(link(ctx, svc, subject, account)).Error().
+				To(MatchError(ContainSubstring("user already has an account of the provider linked")))
 		})
 		It("Should refuse the second of two links to one account made at once", func(
 			ctx SpecContext,
@@ -617,7 +655,12 @@ var _ = Describe("Service", func() {
 				})
 			}
 			wg.Wait()
-			Expect(errs).To(ConsistOf(Succeed(), MatchError(validate.ErrValidation)))
+			Expect(errs).To(ConsistOf(
+				Succeed(),
+				MatchError(
+					ContainSubstring("provider account is linked to another user"),
+				),
+			))
 			var links []oidc.Link
 			Expect(svc.NewRetrieve().Where(oidc.MatchUsers(subjects...)).
 				Entries(&links).Exec(ctx, db)).To(Succeed())

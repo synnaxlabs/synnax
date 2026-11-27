@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, connection, ProviderLinkedError } from "@synnaxlabs/client";
 import {
   createProxiedTestClient,
   createTestClient,
   createTestUser,
   FAST_RETRY,
 } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { uniqueName } from "@synnaxlabs/x/testutil";
+import { expectAlways, uniqueName } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import {
   act,
@@ -39,6 +40,11 @@ vi.mock("@/session/runtime", async (importOriginal) => {
 
 import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
+import {
+  LOCAL_SUBJECT,
+  type OIDCServer,
+  serveOIDC,
+} from "@/platform/core/server/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
@@ -47,8 +53,10 @@ import {
   createCoreState,
 } from "@/session/core/testutil";
 import {
+  CaptureStatuses,
   createConsoleWrapper,
   createSessionConsoleWrapper,
+  createStatusConsoleWrapper,
   pinLocationOrigin,
   renderSuspended,
   renderWithConsole,
@@ -155,6 +163,7 @@ describe("auth guard", () => {
     sessionStorage.setItem(
       "synnax-oidc-login",
       JSON.stringify({
+        purpose: "login",
         core: CORE_KEY,
         provider: "company-sso",
         verifier: "verifier",
@@ -177,6 +186,173 @@ describe("auth guard", () => {
       }),
     );
     expect(window.location.search).toBe("");
+  });
+
+  describe("a provider link's return", () => {
+    const PROVIDER = "company-sso";
+    const VERIFIER = "verifier";
+    const REDIRECT_URI = "https://core.example.com/";
+
+    const returnFromProvider = (
+      search: string,
+      core = CORE_KEY,
+      subject = LOCAL_SUBJECT.key,
+    ): void => {
+      sessionStorage.setItem(
+        "synnax-oidc-login",
+        JSON.stringify({
+          purpose: "link",
+          subject,
+          core,
+          provider: PROVIDER,
+          verifier: VERIFIER,
+          state: "state",
+          redirectUri: REDIRECT_URI,
+        }),
+      );
+      window.history.replaceState(null, "", search);
+      onTestFinished(() => {
+        sessionStorage.clear();
+        window.history.replaceState(null, "", "/");
+      });
+    };
+
+    const renderReturn = async ({ address }: OIDCServer) => {
+      let statuses: Status.NotificationSpec[] = [];
+      const { wrapper, store } = await createStatusConsoleWrapper({
+        client: createTestClient(address),
+        status: connection.DEFAULT_STATUS,
+        preloadedState: {
+          [Session.Core.SLICE_NAME]: { ...CoreState(TYPED), selected: CORE_KEY },
+        },
+      });
+      render(
+        <>
+          <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+          <Auth.Guard>
+            <span>authenticated content</span>
+          </Auth.Guard>
+        </>,
+        { wrapper },
+      );
+      return {
+        store,
+        statuses: () => statuses.map((s) => s.message),
+        failed: () => statuses.find((s) => s.message === "Failed to link account"),
+        unfinished: () => statuses.find((s) => s.message === "Link not finished"),
+      };
+    };
+
+    it("should clear a saved login that is not valid without a status", async () => {
+      const server = await serveOIDC();
+      sessionStorage.setItem("synnax-oidc-login", JSON.stringify({ core: CORE_KEY }));
+      onTestFinished(() => sessionStorage.clear());
+      const { statuses } = await renderReturn(server);
+      await screen.findByText("authenticated content");
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+      await expectAlways(() => expect(statuses()).toEqual([]));
+    });
+
+    it("should report a redirect for a saved login that is not valid", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state");
+      sessionStorage.setItem("synnax-oidc-login", "{");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Failed to log in"));
+      expect(window.location.search).toBe("");
+      expect(sessionStorage.getItem("synnax-oidc-login")).toBeNull();
+      expect(server.linked).toEqual([]);
+    });
+
+    it("should link the account and keep the session", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state");
+      const { store, statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Linked account"));
+      expect(server.linked).toEqual([
+        {
+          provider: PROVIDER,
+          code: "abc",
+          verifier: VERIFIER,
+          redirect_uri: REDIRECT_URI,
+        },
+      ]);
+      const core = store.getState()[Session.Core.SLICE_NAME].cores[CORE_KEY];
+      expect(core.oidc).toBeUndefined();
+      expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY);
+      expect(window.location.search).toBe("");
+      expect(screen.getByText("authenticated content")).toBeTruthy();
+    });
+
+    it("should report a link the Core refuses", async () => {
+      const server = await serveOIDC({ linkRefusal: "sy.validation" });
+      returnFromProvider("/?code=abc&state=state");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Failed to link account"));
+      expect(statuses()).not.toContain("Linked account");
+    });
+
+    it("should name the provider when the user already has its account", async () => {
+      const server = await serveOIDC({
+        linkRefusal: ProviderLinkedError.TYPE,
+      });
+      returnFromProvider("/?code=abc&state=state");
+      const { failed } = await renderReturn(server);
+      await waitFor(() =>
+        expect(failed()).toMatchObject({
+          description: `You already have a ${PROVIDER} account linked.`,
+        }),
+      );
+    });
+
+    it("should report a cancelled link as not finished and keep the session", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?error=access_denied&state=state");
+      const { store, statuses, unfinished } = await renderReturn(server);
+      await waitFor(() =>
+        expect(unfinished()).toMatchObject({
+          variant: "info",
+          description: "You cancelled the login, or the provider refused it.",
+        }),
+      );
+      expect(statuses()).not.toContain("Failed to link account");
+      expect(server.linked).toEqual([]);
+      expect(Session.Core.selectSelectedKey(store.getState())).toBe(CORE_KEY);
+      expect(screen.getByText("authenticated content")).toBeTruthy();
+    });
+
+    it("should give the provider's reason for a link it denied", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?error=access_denied&error_description=Denied&state=state");
+      const { unfinished } = await renderReturn(server);
+      await waitFor(() =>
+        expect(unfinished()).toMatchObject({ variant: "info", description: "Denied" }),
+      );
+    });
+
+    it("should report a provider error as a failed link", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?error=server_error&state=state");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Failed to link account"));
+      expect(server.linked).toEqual([]);
+    });
+
+    it("should refuse a link another user started", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state", CORE_KEY, "another-user");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Failed to link account"));
+      expect(server.linked).toEqual([]);
+    });
+
+    it("should refuse a link that another Core started", async () => {
+      const server = await serveOIDC();
+      returnFromProvider("/?code=abc&state=state", "another-core");
+      const { statuses } = await renderReturn(server);
+      await waitFor(() => expect(statuses()).toContain("Failed to link account"));
+      expect(server.linked).toEqual([]);
+    });
   });
 
   it("should render the login screen when no Core is selected", async () => {

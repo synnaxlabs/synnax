@@ -10,6 +10,7 @@
 import "@/feature/user/Settings.css";
 
 import { user } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -23,18 +24,25 @@ import { Page } from "@/platform/page";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { Session } from "@/session";
 
-const Password = ({ userKey }: { userKey: user.Key }): ReactElement | null => {
+// Any user may change their own password and link or unlink their own accounts.
+const SignIn = ({ userKey }: { userKey: user.Key }): ReactElement | null => {
   const client = Synnax.use();
-  const { password } = Core.useAcceptedMethods(client?.params);
+  const { password, oidc } = Core.useAcceptedMethods(client?.params);
   const [message, setMessage] = useState<string | null>(null);
-  if (!password) return null;
+  if (!password && !oidc) return null;
+  const subject = user.resourceID(userKey);
   return (
-    <Page.Card title="Password">
+    <Page.Card title="Sign-in">
       <PlatformSettings.Body>
-        <Credential.Password.Form
-          subject={user.resourceID(userKey)}
-          onMessage={setMessage}
-        />
+        <Flex.Box y gap="large">
+          {password && (
+            <Flex.Box y>
+              <Text.Text level="h5">Password</Text.Text>
+              <Credential.Password.Form subject={subject} onMessage={setMessage} />
+            </Flex.Box>
+          )}
+          {oidc && <Credential.OIDC.Section subject={subject} onMessage={setMessage} />}
+        </Flex.Box>
         {message != null && <Status.Summary variant="success" message={message} />}
       </PlatformSettings.Body>
     </Page.Card>
@@ -70,7 +78,7 @@ const Name = ({ current }: NameProps): ReactElement => {
   );
 };
 
-/** The logged-in user's name, username, and password. */
+/** The logged-in user's name, username, password, and provider accounts. */
 export const ProfileSettings = (): ReactElement | null => {
   const { data: current } = User.useResult({});
   const core = Session.Core.useSelectSelected();
@@ -85,7 +93,7 @@ export const ProfileSettings = (): ReactElement | null => {
           </PlatformSettings.Entry>
         )}
       </Page.Card>
-      <Password userKey={current.key} />
+      <SignIn userKey={current.key} />
     </>
   );
 };

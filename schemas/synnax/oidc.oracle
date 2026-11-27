@@ -43,6 +43,12 @@ Link struct {
         @index lookup
         @validate required
     }
+    label   string   {
+        @doc value """
+            names the account for people: its `email`, `name`, or `preferred_username`
+            claim when the account linked. It is empty when the provider sent none.
+        """
+    }
 
     @doc value  """
         links an OpenID Connect provider account to a user. A user holds one link per

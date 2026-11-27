@@ -33,6 +33,7 @@ export { device } from "@/device";
 export { enumeration } from "@/enumeration";
 export {
   AccessDeniedError,
+  AccountLinkedError,
   APIKeyUnavailableError,
   AuthError,
   ContiguityError,
@@ -53,6 +54,7 @@ export {
   NotCachedError,
   NotFoundError,
   PathError,
+  ProviderLinkedError,
   QueryError,
   RouteError,
   SessionEndedError,

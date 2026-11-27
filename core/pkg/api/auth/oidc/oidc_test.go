@@ -38,6 +38,7 @@ func grantAccount(sub string) auth.OIDCCredentials {
 	code := uuid.New().String()
 	provider.Grant(code, testutil.Grant{
 		Subject:     sub,
+		Email:       sub + "@example.com",
 		Verifier:    "v",
 		RedirectURI: callbackURL,
 	})
@@ -148,6 +149,7 @@ var _ = Describe("OIDC links", func() {
 				link := linkAccount(ctx, bobToken, sub)
 				Expect(link.User).To(Equal(bob.Key))
 				Expect(link.Account).To(Equal(sub))
+				Expect(link.Label).To(Equal(sub + "@example.com"))
 				session, _ := MustSucceed2(authSvc.Login(ctx, auth.Proof{
 					Variant: auth.OIDCProof{OIDCCredentials: grantAccount(sub)},
 				}))
@@ -184,7 +186,14 @@ var _ = Describe("OIDC links", func() {
 			Expect(linkOIDC(
 				authed(ctx, rootToken),
 				apioidc.LinkRequest{Credentials: grantAccount(sub)},
-			)).Error().To(MatchError(validate.ErrValidation))
+			)).Error().To(MatchError(ContainSubstring("provider account is linked to another user")))
+		})
+		It("Should refuse a second account of one provider", func(ctx SpecContext) {
+			linkAccount(ctx, bobToken, uuid.New().String())
+			Expect(linkOIDC(
+				authed(ctx, bobToken),
+				apioidc.LinkRequest{Credentials: grantAccount(uuid.New().String())},
+			)).Error().To(MatchError(ContainSubstring("user already has an account of the provider linked")))
 		})
 	})
 

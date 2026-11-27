@@ -13,6 +13,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   AccessDeniedError,
+  AccountLinkedError,
   APIKeyUnavailableError,
   AuthError,
   ContiguityError,
@@ -29,6 +30,7 @@ import {
   NotCachedError,
   NotFoundError,
   PathError,
+  ProviderLinkedError,
   QueryError,
   RouteError,
   UnauthorizedError,
@@ -104,6 +106,15 @@ describe("error", () => {
       const decoded = errors.decode(errors.encode(new APIKeyUnavailableError("gone")));
       expect(APIKeyUnavailableError.matches(decoded)).toBe(true);
       expect(decoded?.message).toEqual("gone");
+    });
+
+    test.each([
+      ["provider linked", ProviderLinkedError],
+      ["account linked", AccountLinkedError],
+    ])("round trips a %s error as a validation error", (_, Err) => {
+      const decoded = errors.decode(errors.encode(new Err("linked")));
+      expect(Err.matches(decoded)).toBe(true);
+      expect(ValidationError.matches(decoded)).toBe(true);
     });
 
     test("round trips a path error through the registry", () => {

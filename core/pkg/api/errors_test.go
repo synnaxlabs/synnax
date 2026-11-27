@@ -83,6 +83,22 @@ var _ = Describe("NewErrorCodec", func() {
 		Entry("license fingerprint", license.ErrFingerprint, "sy.license.fingerprint"),
 		Entry("too many channels", license.ErrTooMany, "sy.license.too_many"),
 	)
+	DescribeTable(
+		"Should keep the wire type of a link refusal",
+		func(pld errors.Payload) {
+			err := codec.Decode(pld)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(codec.Encode(err, false)).To(Equal(pld))
+		},
+		Entry("provider linked", errors.Payload{
+			Type: "sy.validation.provider_linked",
+			Data: "user already has an account of the provider linked",
+		}),
+		Entry("account linked", errors.Payload{
+			Type: "sy.validation.account_linked",
+			Data: "provider account is linked to another user",
+		}),
+	)
 	It("Should encode an Arc compile error", func() {
 		Expect(codec.Encode(arc.CompileError{}, false).Type).To(Equal("arc"))
 	})

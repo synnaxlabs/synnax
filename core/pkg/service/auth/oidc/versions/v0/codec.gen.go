@@ -19,6 +19,7 @@ func (lv Link) EncodeOrc(w *orc.Writer) error {
 	w.Write(lv.User[:])
 	w.String(lv.Issuer)
 	w.String(lv.Account)
+	w.String(lv.Label)
 	return nil
 }
 
@@ -35,6 +36,9 @@ func (lv *Link) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if lv.Account, err = r.String(); err != nil {
+		return err
+	}
+	if lv.Label, err = r.String(); err != nil {
 		return err
 	}
 	return nil

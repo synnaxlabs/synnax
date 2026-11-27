@@ -49,6 +49,12 @@ export class PathError extends ValidationError.sub("path") {
   }
 }
 
+/** Raised when a user already has an account of a provider linked. */
+export class ProviderLinkedError extends ValidationError.sub("provider_linked") {}
+
+/** Raised when a provider account is linked to another user. */
+export class AccountLinkedError extends ValidationError.sub("account_linked") {}
+
 /** AuthError is raised when an authentication error occurs. */
 export class AuthError extends SynnaxError.sub("auth") {}
 
@@ -158,6 +164,10 @@ const decode = (payload: errors.Payload): Error | null => {
   if (!payload.type.startsWith(SynnaxError.TYPE)) return null;
   if (payload.type.startsWith(ValidationError.TYPE)) {
     if (payload.type === PathError.TYPE) return PathError.decode(payload);
+    if (payload.type === ProviderLinkedError.TYPE)
+      return new ProviderLinkedError(payload.data);
+    if (payload.type === AccountLinkedError.TYPE)
+      return new AccountLinkedError(payload.data);
     return new ValidationError(payload.data);
   }
 

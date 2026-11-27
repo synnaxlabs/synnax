@@ -93,6 +93,18 @@ var _ = Describe("Provider", func() {
 				To(HaveKeyWithValue("aud", "other"))
 		},
 	)
+	It("Should put only the profile claims the grant sets", func() {
+		p.Grant("code", testutil.Grant{
+			Email: "ada@example.com", Verifier: "v", RedirectURI: "r",
+		})
+		_, body := redeem(url.Values{
+			"code": {"code"}, "code_verifier": {"v"}, "redirect_uri": {"r"},
+		})
+		c := claims(body)
+		Expect(c).To(HaveKeyWithValue("email", "ada@example.com"))
+		Expect(c).ToNot(HaveKey("name"))
+		Expect(c).ToNot(HaveKey("preferred_username"))
+	})
 	It("Should leave the ID token out when the grant says so", func() {
 		p.Grant(
 			"code",
