@@ -17,10 +17,11 @@ script compares all open CodeQL alerts on <ref>, such as refs/pull/<number>/merg
 the open alerts on <base>, such as refs/heads/main. It matches alerts by number, because
 GitHub gives an alert the same number on each ref. It first waits until <ref> has an
 analysis of <sha> for each category. For each category with a new alert, it then waits
-until the newest analysis of <base> is of a commit that contains the first parent of
-<sha>, so a base that has not analyzed its own new alert yet does not fail <ref>. An
-empty analysis of a language that a pull request does not change opens no alert, so it
-cannot fail the check.
+until the newest analysis of <base> is of a commit that contains the merge base of <sha>
+and <base>, so a base that has not analyzed its own new alert yet does not fail <ref>.
+The first parent of <sha> is not on <base> when the pull request is in a stack. An empty
+analysis of a language that a pull request does not change opens no alert, so it cannot
+fail the check.
 
 An alert that <base> fixed in a commit that <sha> does not contain is stale, not new:
 the fix landed after GitHub built <sha>. The script warns about it and does not fail.
@@ -137,19 +138,19 @@ def lagging(
     api: Api,
     repo: str,
     base: str,
-    parent: str,
+    fork: str,
     categories: set[str],
     contained: Callable[[str, str], bool],
 ) -> list[str]:
     """Returns the categories whose newest analysis on base is of a commit that does
-    not contain parent. contained(commit, head) returns True if head contains commit."""
+    not contain fork. contained(commit, head) returns True if head contains commit."""
     newest: dict[str, str] = {}
     for a in analyses(api, repo, base):
         newest.setdefault(a["category"], a["commit_sha"])
     return [
         c
         for c in sorted(categories)
-        if c not in newest or not contained(parent, newest[c])
+        if c not in newest or not contained(fork, newest[c])
     ]
 
 
@@ -222,7 +223,9 @@ def check(
             known[commit, head] = contains(api, repo, head, commit)
         return known[commit, head]
 
-    parent = api(f"repos/{repo}/commits/{sha}", "--jq", ".parents[0].sha").strip()
+    fork = api(
+        f"repos/{repo}/compare/{base}...{sha}", "--jq", ".merge_base_commit.sha"
+    ).strip()
     while True:
         analyzed = {
             a["category"] for a in analyses(api, repo, ref) if a["commit_sha"] == sha
@@ -230,7 +233,7 @@ def check(
         waits = [f"{c} on {ref}" for c in sorted(categories - analyzed)]
         if not waits:
             new, stale = compare(api, repo, ref, base, sha)
-            lag = lagging(api, repo, base, parent, {a.category for a in new}, contained)
+            lag = lagging(api, repo, base, fork, {a.category for a in new}, contained)
             waits = [f"{c} on {base}" for c in lag]
         if not waits:
             break
