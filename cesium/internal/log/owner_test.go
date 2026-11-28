@@ -16,7 +16,6 @@ import (
 	"io"
 	"os"
 	"sync"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -315,7 +314,7 @@ var _ = Describe("Log", func() {
 				e.Reset()
 				e.Add(&log.Drop{Key: 9})
 				fs.Unhold()
-				release <- struct{}{}
+				Eventually(release).Should(BeSent(struct{}{}))
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(decodeAll(walk(fileBytes(fs))[1].Entries)).
@@ -347,7 +346,7 @@ var _ = Describe("Log", func() {
 				second := l.Append(of(&log.Drop{Key: 2}))
 				third := l.Append(of(&log.Drop{Key: 3}))
 				fs.Unhold()
-				release <- struct{}{}
+				Eventually(release).Should(BeSent(struct{}{}))
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(third.Wait()).To(Equal(uint64(7)))
@@ -366,12 +365,12 @@ var _ = Describe("Log", func() {
 				a := l.Append(of(&log.Drop{Key: 3}))
 				Eventually(fs.Held()).Should(Receive())
 				b := l.Append(of(&log.Drop{Key: 3}))
-				release <- struct{}{}
+				Eventually(release).Should(BeSent(struct{}{}))
 				Expect(a.Wait()).To(Equal(uint64(5)))
 				Eventually(fs.Held()).Should(Receive())
 				c := l.Append(of(&log.Drop{Key: 3}))
 				fs.Unhold()
-				release <- struct{}{}
+				Eventually(release).Should(BeSent(struct{}{}))
 				Expect(b.Wait()).To(Equal(uint64(6)))
 				Expect(c.Wait()).To(Equal(uint64(7)))
 				Expect(writes(fs.Ops())[:3]).
@@ -387,7 +386,7 @@ var _ = Describe("Log", func() {
 				second := l.Append(bigEntry(10 << 20))
 				third := l.Append(bigEntry(10 << 20))
 				fs.Unhold()
-				release <- struct{}{}
+				Eventually(release).Should(BeSent(struct{}{}))
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(third.Wait()).To(Equal(uint64(7)))
@@ -412,14 +411,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				release := fs.Hold()
 				// A failed check must not leave a sync held for closeLog.
-				DeferCleanup(func() {
-					fs.Unhold()
-					close(release)
-					select {
-					case <-fs.Held():
-					case <-time.After(time.Second):
-					}
-				})
+				DeferCleanup(fs.Free)
 				first := l.Append(of(&log.Drop{Key: 1}))
 				Eventually(fs.Held()).Should(Receive())
 				small := l.Append(commitEntry(64))
@@ -432,12 +424,12 @@ var _ = Describe("Log", func() {
 					_, err := big.Wait()
 					refused <- err
 				}()
-				release <- struct{}{}
+				Eventually(release).Should(BeSent(struct{}{}))
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Eventually(fs.Held()).Should(Receive())
 				Consistently(refused).ShouldNot(Receive())
 				fs.Unhold()
-				release <- struct{}{}
+				Eventually(release).Should(BeSent(struct{}{}))
 				Expect(small.Wait()).To(Equal(uint64(6)))
 				Eventually(refused).Should(Receive(
 					MatchError(ContainSubstring("log file is full")),
