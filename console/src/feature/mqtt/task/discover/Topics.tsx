@@ -171,8 +171,8 @@ interface ShapeTaken {
   pointers: Set<string>;
   /** The position of the held message that the Core gives the shape's messages. */
   read?: number;
-  /** The pointer of the value that tells the messages of the shape apart. */
-  split?: string;
+  /** Why a pick cannot take the values of the shape. */
+  block?: ICD.Picker.Block;
 }
 
 /** What the task takes of each shape of a topic, by shape key. */
@@ -197,11 +197,12 @@ const takenBy = (
     const takenOf = (shape: Shape): ShapeTaken => {
       // A target holds a whole topic, so one in the task takes all its values.
       if (whole) return { pointers: new Set(shape.leaves.map((l) => l.pointer)) };
-      const { message, split } = ICD.route(shape.leaves, entry.messages, ({ fields }) =>
+      const route = ICD.route(shape.leaves, entry.messages, ({ fields }) =>
         fields.map(({ pointer }) => pointer),
       );
+      const { message } = route;
       const pointers = new Set(message?.fields.map((f) => f.pointer));
-      if (message == null) return { pointers, split };
+      if (message == null) return { pointers, block: ICD.Picker.blockOf(route) };
       return { pointers, read: entry.messages.indexOf(message) };
     };
     taken.set(topic, new Map(shapes.map((s) => [s.key, takenOf(s)])));
@@ -230,7 +231,7 @@ const freeLeaves = (
   taken: ShapeTaken | undefined,
   indexed: boolean,
 ): Leaf[] => {
-  if (taken?.split != null) return [];
+  if (taken?.block != null) return [];
   const index = lockedIndex(shape.leaves, indexOf(shape, taken, indexed));
   return shape.leaves.filter(
     (l) => l.pointer !== index && taken?.pointers.has(l.pointer) !== true,
@@ -359,18 +360,17 @@ const TopicValues = ({
   const format = whole && shapes.length > 1 ? formatOf(free)?.shape : undefined;
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
     const own = taken?.get(shape.key);
-    const split = own?.split;
+    const block = own?.block;
     const locked = lockedIndex(shape.leaves, indexOf(shape, own, indexed));
-    let note: string | undefined;
-    if (split != null) note = ICD.Picker.splitNote(split);
-    else if (shape === format) note = "Used for the format";
+    let note = block?.note;
+    if (note == null && shape === format) note = "Used for the format";
     return {
-      title: shapes.length > 1 || split != null ? titleOf(shape) : undefined,
+      title: shapes.length > 1 || block != null ? titleOf(shape) : undefined,
       note,
       dimmed: format != null && shape !== format,
       values: shape.leaves.map((l): ICD.Picker.Value => {
         let lock: ICD.Picker.Lock | undefined;
-        if (split != null) lock = ICD.Picker.SPLIT;
+        if (block != null) lock = block.lock;
         else if (l.pointer === locked) lock = ICD.Picker.INDEX;
         else if (own?.pointers.has(l.pointer) === true) lock = ICD.Picker.TAKEN;
         return {

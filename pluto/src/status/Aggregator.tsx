@@ -47,7 +47,7 @@ const WorkerBridge = ({ children }: PropsWithChildren): ReactElement => {
 export interface AggregatorProps extends Base.AggregatorProps {}
 
 /**
- * The lyra aggregator plus a bridge that forwards statuses reported on the aether
+ * The lyra aggregator plus a bridge that forwards statuses reported on the Aether
  * worker thread. Mount one near the root of the app, inside the Aether provider.
  */
 export const Aggregator = ({ children, ...rest }: AggregatorProps): ReactElement => (

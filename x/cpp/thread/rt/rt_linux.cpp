@@ -268,10 +268,10 @@ void apply_config(const Config &cfg) {
     // mlockall is process-wide: it pins every page (current and future) in physical RAM
     // so that RT threads never hit page faults. MCL_FUTURE means all future allocations
     // from any thread (including non-RT ones like logging, networking, task management)
-    // also get pinned. This is acceptable because the driver is a purpose-built process
+    // also get pinned. This is acceptable because the Driver is a purpose-built process
     // with a bounded memory footprint. The main cost is thread stacks (~8 MB each,
-    // fully faulted in), but the driver creates a fixed number of threads, so total
-    // locked memory stays predictable. If the driver's memory usage grows
+    // fully faulted in), but the Driver creates a fixed number of threads, so total
+    // locked memory stays predictable. If the Driver's memory usage grows
     // significantly, consider switching to MCL_CURRENT only (locks code/libraries
     // without pinning future allocations) plus targeted mlock() on RT-specific buffers.
     if (cfg.lock_memory) {

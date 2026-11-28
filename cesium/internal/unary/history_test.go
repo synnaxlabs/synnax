@@ -24,7 +24,9 @@ import (
 )
 
 var _ = Describe("OnHistoryChange", func() {
-	It("Should report a write into the past and a delete", func(ctx SpecContext) {
+	It("Should report a write into the past, and return the range of a delete", func(
+		ctx SpecContext,
+	) {
 		var changes []telem.TimeRange
 		db := MustOpen(unary.Open(ctx, unary.Config{
 			FS:        fs.NewMem(),
@@ -50,10 +52,11 @@ var _ = Describe("OnHistoryChange", func() {
 		write(20, 21)
 		write(10, 11)
 		deleted := (20 * telem.SecondTS).Range(21 * telem.SecondTS)
-		Expect(deleteRange(ctx, db, deleted)).To(Succeed())
+		del, release := MustSucceed2(db.OpenDelete(deleted))
+		Expect(del(ctx)).To(Equal([]telem.TimeRange{deleted}))
+		release()
 		Expect(changes).To(Equal([]telem.TimeRange{
 			(10 * telem.SecondTS).Range(11*telem.SecondTS + 1),
-			deleted,
 		}))
 	})
 })

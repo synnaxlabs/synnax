@@ -250,11 +250,11 @@ var _ = Describe("Service", func() {
 		}
 
 		// format is an ICD with a Status message of a timestamp, a float, a string, and
-		// a bytes field at the root, a Stamped message of a timestamp with a default, a
-		// binary Frame message, and channels on one index to bind them to.
+		// a bytes field at the root, a Stamped message of a timestamp with a default,
+		// and channels on one index to bind them to.
 		type format struct {
 			ic                icd.ICD
-			m, stamped, frame icd.Message
+			m, stamped        icd.Message
 			idx, value, stamp channel.Channel
 		}
 
@@ -277,12 +277,7 @@ var _ = Describe("Service", func() {
 					},
 				},
 			))
-			frame := icd.Message{
-				Key:     uuid.New(),
-				Name:    "Frame",
-				Payload: icd.Payload{Variant: icd.BinaryPayload{}},
-			}
-			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m, stamped, frame}}
+			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{m, stamped}}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return icds.NewWriter(tx).Create(ctx, &ic)
 			})).To(Succeed())
@@ -291,7 +286,6 @@ var _ = Describe("Service", func() {
 				ic:      ic,
 				m:       m,
 				stamped: stamped,
-				frame:   frame,
 				idx:     idx,
 				value:   createChannel(ctx, telem.Float64T, idx),
 				stamp:   createChannel(ctx, telem.TimestampT, idx),
@@ -354,10 +348,6 @@ var _ = Describe("Service", func() {
 				read := readMessage(other, binding(other, 0, f.value))
 				return []map[string]any{icdRecord("", f.ic, read)}
 			}, "topics.0.records.0.messages.0.message", "does not exist in ICD Plant"),
-			Entry("a message that is not JSON", func(f format) []map[string]any {
-				read := readMessage(f.frame, map[string]any{"field": uuid.New()})
-				return []map[string]any{icdRecord("", f.ic, read)}
-			}, "topics.0.records.0.messages.0.message", "message Frame is not a JSON message"),
 			Entry("a field that the message lacks", func(f format) []map[string]any {
 				read := readMessage(f.m, map[string]any{
 					"field": uuid.New(), "channel": f.value.Key(),

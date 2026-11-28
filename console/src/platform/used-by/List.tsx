@@ -136,7 +136,16 @@ const Entry = ({ resource: r, select, onSelect }: EntryProps): ReactElement => {
         {content}
       </Text.Text>
     );
-  return <Item.OnSelect>{(open) => renderButton(() => open(r))}</Item.OnSelect>;
+  return (
+    <Item.OnSelect>
+      {(open) =>
+        renderButton(() => {
+          onSelect?.();
+          open(r);
+        })
+      }
+    </Item.OnSelect>
+  );
 };
 
 interface SectionProps extends PropsWithChildren {
@@ -286,7 +295,7 @@ export interface ListProps {
   uses: Use[];
   /** Selects a use of a resource type in place of its tree item. Keyed by the type. */
   selects?: Selects;
-  /** Runs before a select from selects. */
+  /** Runs before a use opens. */
   onSelect?: () => void;
 }
 

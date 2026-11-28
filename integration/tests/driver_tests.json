@@ -65,6 +65,10 @@
       ]
     },
     {
+      "sequence_name": "Bus",
+      "tests": [{ "case": "driver/serial_read" }]
+    },
+    {
       "sequence_name": "HTTP",
       "tests": [
         { "case": "driver/http_read" },

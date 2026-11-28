@@ -95,13 +95,14 @@ var kindTypes = map[payload.Kind]telem.DataType{
 	payload.KindBytes:     telem.BytesT,
 }
 
-// codecRejects reports whether the Go codec rejects the JSON or the text messages of ic
-// under the binding it refuses least: each field binds to the data type of its kind, or
-// to float64 when it scales or is text.
+// codecRejects reports whether the Go codec rejects the JSON, text, or binary messages
+// of ic under the binding it refuses least: each field binds to the data type of its
+// kind, or to float64 when it scales or is text.
 func codecRejects(ic icd.ICD) bool {
 	var (
-		jsonMessages []codec.JSONMessage
-		textMessages []codec.TextMessage
+		jsonMessages   []codec.JSONMessage
+		textMessages   []codec.TextMessage
+		binaryMessages []codec.BinaryMessage
 	)
 	for _, m := range ic.Messages {
 		switch p := m.Payload.Variant.(type) {
@@ -123,6 +124,17 @@ func codecRejects(ic icd.ICD) bool {
 			textMessages = append(textMessages, codec.TextMessage{
 				Name: m.Name, Payload: p, Bindings: bindings,
 			})
+		case icd.BinaryPayload:
+			bindings := lo.Map(p.Fields, func(f icd.BinaryField, _ int) codec.Binding {
+				b, dt := f.Base(), kindTypes[payload.Kind(f.Kind())]
+				if b.Scale != 1 || b.Offset != 0 {
+					dt = telem.Float64T
+				}
+				return codec.Binding{Field: b.Key, DataType: dt}
+			})
+			binaryMessages = append(binaryMessages, codec.BinaryMessage{
+				Name: m.Name, Payload: p, Bindings: bindings,
+			})
 		}
 	}
 	if len(jsonMessages) > 0 {
@@ -135,17 +147,26 @@ func codecRejects(ic icd.ICD) bool {
 			return true
 		}
 	}
+	if len(binaryMessages) > 0 {
+		if _, err := codec.NewBinary(binaryMessages); err != nil {
+			return true
+		}
+	}
 	return false
 }
 
 func anyFixture(checkFixture) bool { return true }
 
-// hasGoCodec reports whether f holds no framing and no binary message, since Go has no
-// framer and no binary codec.
+// hasGoCodec reports whether f holds no framing and no CAN identifier, since Go has no
+// framer and reads no CAN frames.
 func hasGoCodec(f checkFixture) bool {
 	return f.ICD.Framing == nil && !lo.SomeBy(f.ICD.Messages, func(m icd.Message) bool {
-		_, binary := m.Payload.Variant.(icd.BinaryPayload)
-		return binary
+		p, binary := m.Payload.Variant.(icd.BinaryPayload)
+		if !binary || p.Identifier == nil {
+			return false
+		}
+		_, can := p.Identifier.Variant.(icd.CanIdentifier)
+		return can
 	})
 }
 

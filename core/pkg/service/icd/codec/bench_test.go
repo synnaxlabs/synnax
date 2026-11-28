@@ -484,8 +484,9 @@ func BenchmarkTextDecode(b *testing.B) {
 					for i := range samples[0] {
 						samples[0][i] = samples[0][i][:0]
 					}
-					if _, ok, err := dec.Decode(line, samples); err != nil || !ok {
-						b.Fatalf("decode: ok %t, err %v", ok, err)
+					if _, ok, failures := dec.Decode(line, samples); failures != nil ||
+						!ok {
+						b.Fatalf("decode: ok %t, failures %v", ok, failures)
 					}
 				}
 				decode()
@@ -498,6 +499,76 @@ func BenchmarkTextDecode(b *testing.B) {
 				b.SetBytes(int64(len(line)))
 				for b.Loop() {
 					decode()
+				}
+			})
+		}
+	})
+}
+
+func BenchmarkTextEncode(b *testing.B) {
+	b.Run("fields", func(b *testing.B) {
+		for _, n := range []uint32{1, 10, 100} {
+			b.Run(strconv.Itoa(int(n)), func(b *testing.B) {
+				m, line := textBenchMessage(n)
+				enc, err := codec.NewTextEncoder(m)
+				if err != nil {
+					b.Fatal(err)
+				}
+				samples := make([][]byte, n)
+				for i := range samples {
+					samples[i] = benchFloat
+				}
+				out, err := enc.Encode(nil, samples)
+				if err != nil || !bytes.Equal(out, line) {
+					b.Fatalf("encode: %q, %v", out, err)
+				}
+				b.ReportAllocs()
+				b.SetBytes(int64(len(line)))
+				for b.Loop() {
+					if out, err = enc.Encode(out[:0], samples); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		}
+	})
+}
+
+// binaryBenchMessage returns a message of n little-endian 16-bit integer fields, each
+// scaled by 0.1 and bound to a float64 channel, and the payload of samples of 1000.
+func binaryBenchMessage(n int) (codec.BinaryMessage, []byte) {
+	fields := make([]icd.BinaryField, n)
+	for i := range fields {
+		b := bitsAt("f"+strconv.Itoa(i), uint16(i*16), 16)
+		b.Scale = 0.1
+		fields[i] = icd.BinaryField{Variant: icd.IntegerBinaryField{BinaryBaseField: b}}
+	}
+	return frame(telem.Float64T, fields...), bytes.Repeat([]byte{0x10, 0x27}, n)
+}
+
+func BenchmarkBinaryEncode(b *testing.B) {
+	b.Run("fields", func(b *testing.B) {
+		for _, n := range []int{1, 10, 100} {
+			b.Run(strconv.Itoa(n), func(b *testing.B) {
+				m, want := binaryBenchMessage(n)
+				enc, err := codec.NewBinaryEncoder(m)
+				if err != nil {
+					b.Fatal(err)
+				}
+				samples := make([][]byte, n)
+				for i := range samples {
+					samples[i] = float64Sample(1000)
+				}
+				out, err := enc.Encode(nil, samples)
+				if err != nil || !bytes.Equal(out, want) {
+					b.Fatalf("encode: %x, %v", out, err)
+				}
+				b.ReportAllocs()
+				b.SetBytes(int64(len(want)))
+				for b.Loop() {
+					if out, err = enc.Encode(out[:0], samples); err != nil {
+						b.Fatal(err)
+					}
 				}
 			})
 		}

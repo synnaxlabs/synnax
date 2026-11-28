@@ -52,6 +52,7 @@ import type { Integration } from "@/platform/task/integration";
 import type { PlotChannels } from "@/platform/task/plot";
 import { type Registry, RegistryProvider } from "@/platform/task/registry";
 import type { CreateParams, UseCreate } from "@/platform/task/useCreate";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -127,7 +128,7 @@ export const createRegistry = ({
 const DEFAULT_REGISTRY = createRegistry();
 
 /**
- * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
+ * Renders a real Pluto Form context seeded with `values` and invokes `useValue` with
  * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
  * exercised in isolation without mounting the full task Form UI.
  */
@@ -332,7 +333,7 @@ interface PanelScopesProps extends PropsWithChildren {
 }
 
 /**
- * Provides the pluto panel and tab scopes the way the panel mosaic does, so
+ * Provides the Pluto panel and tab scopes the way the panel mosaic does, so
  * tab-scoped hooks (Session.Panel.useSelectIsFocused, panel view args) resolve.
  */
 const PanelScopes = ({ panelKey, tabKey, children }: PanelScopesProps) => (
@@ -392,7 +393,7 @@ export interface RenderInTaskFormWithClientResult extends RenderInTaskFormResult
 }
 
 /**
- * Like renderInTaskForm, but backs the console provider stack with the given client so
+ * Like renderInTaskForm, but backs the Console provider stack with the given client so
  * components that reach for Synnax.use() (e.g. Controls issuing task commands) see it.
  */
 export const renderInTaskFormWithClient = async (
@@ -441,9 +442,9 @@ export const renderInTaskFormWithClient = async (
 };
 
 export interface RenderTaskFormTabOptions extends Pick<RenderOptions, "onCaughtError"> {
-  /** Client backing the console wrapper; falls back to a shared test client. */
+  /** Client backing the Console wrapper; falls back to a shared test client. */
   client?: Client | null;
-  /** Client the console renders as; the panel and task are created with `client`. */
+  /** Client the Console renders as; the panel and task are created with `client`. */
   as?: Client;
   /** Key of the task row the form edits. */
   taskKey?: task.Key;
@@ -511,7 +512,7 @@ const step = async <T,>(name: string, run: () => Promise<T>): Promise<T> => {
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside the
  * panel and tab scopes within the full console provider stack. The drag and drop
- * provider and a modal stack render around the panel, as in a window.
+ * provider, a resource tree, and a modal stack render around the panel, as in a window.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -547,11 +548,13 @@ const renderTaskFormTabSteps = async (
     <Analytics.Provider sink={analytics}>
       <RegistryProvider registry={DEFAULT_REGISTRY}>
         <HaulProvider>
-          <Modals.Stack />
-          <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-            <Form taskKey={taskKey} />
-            {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-          </PanelScopes>
+          <Tree.Provider items={{}}>
+            <Modals.Stack />
+            <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+              <Form taskKey={taskKey} />
+              {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+            </PanelScopes>
+          </Tree.Provider>
         </HaulProvider>
       </RegistryProvider>
     </Analytics.Provider>,
@@ -671,6 +674,25 @@ export const getAddChannelButton = (): HTMLElement => {
   assertDefined(list, "channel list not found");
   return within(list).getByRole("button", { name: "Add channel" });
 };
+
+/**
+ * Finds the button with name under the list of a task form's panes. The empty details
+ * pane shows an action of the same name.
+ */
+export const findListButton = async (name: string): Promise<HTMLElement> => {
+  const list = await waitFor(() =>
+    getBySelector<HTMLElement>(document, ".console-panes__list"),
+  );
+  return await within(list).findByRole("button", { name });
+};
+
+/** Finds the details pane of a task form's panes. */
+export const findDetailsPane = async (): Promise<HTMLElement> =>
+  await waitFor(() => getBySelector<HTMLElement>(document, ".console-panes__details"));
+
+/** Finds the button with name in the details pane of a task form's panes. */
+export const findDetailsButton = async (name: string): Promise<HTMLElement> =>
+  await within(await findDetailsPane()).findByRole("button", { name });
 
 /** Finds the note under the channel list that shows the message, and its variant. */
 export const findChannelListNote = async (
@@ -799,8 +821,8 @@ export const reportTaskRunning = async (
 };
 
 /**
- * Writes the status a driver reports once a task has stopped. Specs run without a
- * driver, so a start command otherwise leaves the task mid-start forever and the
+ * Writes the status a Driver reports once a task has stopped. Specs run without a
+ * Driver, so a start command otherwise leaves the task mid-start forever and the
  * form offers no way to deploy again.
  */
 export const reportTaskStopped = async (
