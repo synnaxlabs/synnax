@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -25,6 +26,11 @@
 #include "core/pkg/transport/grpc/ni/chassis/chassis.pb.h"
 
 namespace synnax::ni::chassis {
+/// @brief the channel on which the Core publishes each NI chassis that a write sets.
+const std::string SET_CHANNEL = "sy_ni_chassis_set";
+/// @brief the channel on which the Core publishes the key of each deleted NI chassis.
+const std::string DELETE_CHANNEL = "sy_ni_chassis_delete";
+
 /// @brief the transport that creates NI chassis.
 using CreateClient = freighter::
     UnaryClient<grpc::ni_chassis::CreateRequest, grpc::ni_chassis::CreateResponse>;
