@@ -24,13 +24,10 @@ type readCount struct {
 	reads int
 }
 
-// register registers the publish count of the state for a read and returns it. The read
-// then loads with State.Load, which returns a count at or past it. A segment leaves
-// what a load sees at its Dead count, so the load sees no dead segment but one whose
-// count is past the registered one, which uncover keeps until unregister. The count is
-// read under the lock of uncover. A segment that uncover freed before came from a
-// TakeDead that ran after the step that took it out began, so the count is at most one
-// below that of the segment, and the Load waits for the step to end.
+// register registers the publish count of the state for a read, which then loads with
+// State.Load, and returns it. Until unregister, cover keeps each dead segment whose
+// Count is past the count. A segment that free took before the call has a Count at most
+// one past it, and Load waits out that step.
 func (e *engine) register() uint64 {
 	e.cover.Lock()
 	defer e.cover.Unlock()
