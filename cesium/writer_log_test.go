@@ -777,9 +777,8 @@ var _ = Describe("Drop on the pointer log", func() {
 	})
 })
 
-// removeCountFS counts the removes of each segment file of its tree. It holds the first
-// remove of each file until a second remove of it comes, or for at most a fifth of a
-// second.
+// removeCountFS counts the removes of each segment file of its tree. Once armed, it
+// holds each remove of a segment file until freeRemoves.
 type removeCountFS struct {
 	xfs.FS
 	dir string
@@ -789,13 +788,17 @@ type removeCountFS struct {
 type removeCount struct {
 	mu      sync.Mutex
 	removes map[string]int
-	second  map[string]chan struct{}
+	armed   bool
+	// entered closes at the first remove that the hold keeps, and release frees them.
+	entered, release chan struct{}
+	enter, free      sync.Once
 }
 
 func newRemoveCountFS(fs xfs.FS) *removeCountFS {
 	return &removeCountFS{FS: fs, c: &removeCount{
 		removes: map[string]int{},
-		second:  map[string]chan struct{}{},
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
 	}}
 }
 
@@ -814,23 +817,25 @@ func (f *removeCountFS) Remove(name string) error {
 	}
 	f.c.mu.Lock()
 	f.c.removes[full]++
-	n := f.c.removes[full]
-	second, ok := f.c.second[full]
-	if !ok {
-		second = make(chan struct{})
-		f.c.second[full] = second
-	}
-	if n == 2 {
-		close(second)
-	}
+	armed := f.c.armed
 	f.c.mu.Unlock()
-	if n == 1 {
-		select {
-		case <-second:
-		case <-time.After(200 * time.Millisecond):
-		}
+	if armed {
+		f.c.enter.Do(func() { close(f.c.entered) })
+		<-f.c.release
 	}
 	return f.FS.Remove(name)
+}
+
+// arm makes each later remove of a segment file wait for freeRemoves.
+func (f *removeCountFS) arm() {
+	f.c.mu.Lock()
+	defer f.c.mu.Unlock()
+	f.c.armed = true
+}
+
+// freeRemoves lets each held remove go on, and every later one pass.
+func (f *removeCountFS) freeRemoves() {
+	f.c.free.Do(func() { close(f.c.release) })
 }
 
 // counts returns the removes of each segment file.
