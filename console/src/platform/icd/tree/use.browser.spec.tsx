@@ -428,6 +428,22 @@ describe("ICD.Tree.use", () => {
       await screen.findByText("Delete this field from this message?");
     });
 
+    it("should say this ICD for a blank ICD name", async () => {
+      const status = createMessage("Status", ["temperature"]);
+      const alarm = createMessage("Alarm", ["level"]);
+      const ic = await createICD(status, alarm);
+      await renderSources([ic, status], [ic, alarm]);
+      await dispatchElsewhere(ic.key, icd.set({ path: ["name"], value: " " }));
+      const [temperature] = await findField("temperature");
+      const [level] = await findField("level");
+      await openMenu(temperature, level);
+      await clickDelete();
+      await screen.findByText("Delete 2 fields from this ICD?");
+      screen.getByText(
+        "This deletes them from this ICD. Tasks that bind them lose those channels.",
+      );
+    });
+
     it("should offer no delete for fields of several ICDs", async () => {
       const first = createMessage("Status", ["temperature"]);
       const second = createMessage("Status", ["pressure"]);
