@@ -32,9 +32,10 @@ type FS struct {
 	syncErr  map[string]error
 	dirErr   error
 	writeErr error
-	// held receives the name of each sync that waits, while release is set.
-	held    chan string
-	release chan struct{}
+	// held receives the name of each sync that waits, while release is set. Free closes
+	// freed, which lets every waiting sync go on.
+	held           chan string
+	release, freed chan struct{}
 }
 
 // New returns an FS over fs that records each operation of the kinds in record: "open",
@@ -97,15 +98,25 @@ func (f *FS) MaxSyncs() int {
 func (f *FS) Hold() chan struct{} {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.release = make(chan struct{})
+	f.release, f.freed = make(chan struct{}), make(chan struct{})
 	return f.release
 }
 
-// Unhold lets every later sync return at once.
+// Unhold lets every later sync return at once. A held sync still waits for its release.
 func (f *FS) Unhold() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.release = nil
+}
+
+// Free lets every held sync, and every later sync, return at once.
+func (f *FS) Free() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.freed != nil {
+		close(f.freed)
+	}
+	f.release, f.freed = nil, nil
 }
 
 // Held returns the channel that receives the name of each held sync.
@@ -166,7 +177,7 @@ func (f *FS) SyncDir(name string) error {
 // is nil.
 func (f *FS) sync(name, kind string, err error, do func() error) error {
 	f.mu.Lock()
-	release := f.release
+	release, freed := f.release, f.freed
 	f.inSync++
 	f.maxSyncs = max(f.maxSyncs, f.inSync)
 	f.mu.Unlock()
@@ -176,8 +187,15 @@ func (f *FS) sync(name, kind string, err error, do func() error) error {
 		f.mu.Unlock()
 	}()
 	if release != nil {
-		f.held <- name
-		<-release
+		// A sync that read the hold just before Free must not wait on held.
+		select {
+		case f.held <- name:
+			select {
+			case <-release:
+			case <-freed:
+			}
+		case <-freed:
+		}
 	}
 	if err != nil {
 		return err
