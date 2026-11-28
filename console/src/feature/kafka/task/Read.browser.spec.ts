@@ -2638,8 +2638,6 @@ describe("Kafka read form", () => {
     });
 
     interface StoredElsewhereParams {
-      /** The key of the other ICD. */
-      key?: icd.Key;
       /** The fields of twin. */
       fields?: icd.JSONField[];
       /** The client that renders the task. */
@@ -2651,7 +2649,6 @@ describe("Kafka read form", () => {
      * device stores channels at the key oven-2 for twin, a message of another ICD.
      */
     const renderStoredElsewhere = async ({
-      key = createFirstKey(),
       fields = [createField("temperature", "float")],
       as,
     }: StoredElsewhereParams = {}) => {
@@ -2665,7 +2662,7 @@ describe("Kafka read form", () => {
         payload: { format: "json", fields },
       };
       const elsewhere = await client.icds.create({
-        key,
+        key: createSecondKey(),
         name: uniqueName("elsewhere"),
         messages: [twin],
       });
@@ -2679,6 +2676,11 @@ describe("Kafka read form", () => {
         as,
         beforeRender: async (d) =>
           await storeChannels(d.key, stored, { index: 0, channels: {} }),
+      });
+      // The Core deletes no ICD that a task uses.
+      onTestFinished(async () => {
+        await client.tasks.delete(rendered.draft.key);
+        await client.icds.delete(elsewhere.key);
       });
       await screen.findByRole("treeitem", { name: /^temperature/ });
       return { ...rendered, rec, twin, elsewhere };
@@ -2781,10 +2783,7 @@ describe("Kafka read form", () => {
         const { fresh, list } = createFresh();
         const retrieve = vi.spyOn(list, "retrieve");
         const more = vi.spyOn(list, "more");
-        const { dev, elsewhere } = await renderStoredElsewhere({
-          key: createSecondKey(),
-          as: fresh,
-        });
+        const { dev, elsewhere } = await renderStoredElsewhere({ as: fresh });
         expect(retrieve).not.toHaveBeenCalled();
         const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
         await dialog.findByText(`Reads twin of ${elsewhere.name}`);
@@ -2828,7 +2827,6 @@ describe("Kafka read form", () => {
           return await read(size);
         });
         const { draft, dev, twin, elsewhere } = await renderStoredElsewhere({
-          key: createSecondKey(),
           as: fresh,
         });
         const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });

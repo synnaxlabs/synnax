@@ -18,11 +18,12 @@ import { findDialogTriggerByText } from "@/testutil";
 /**
  * @returns an ICD key that the Core lists before random keys. The Core compares keys
  * from the last byte to the first, and these keys differ only in their first bytes.
+ * Give an ICD at this key no messages: other specs expect none ahead of theirs.
  */
 export const createFirstKey = (): icd.Key =>
   `${uuid.create().slice(0, 19)}8000-000000000000`;
 
-/** @returns an ICD key that the Core lists after every key of createFirstKey. */
+/** @returns an ICD key that the Core lists after each key that ends in six 0 bytes. */
 export const createSecondKey = (): icd.Key =>
   `${uuid.create().slice(0, 19)}8000-000000000001`;
 

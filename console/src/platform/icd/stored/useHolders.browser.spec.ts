@@ -9,7 +9,7 @@
 
 import type { icd } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { compare, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { waitFor } from "@testing-library/react";
 import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -40,7 +40,7 @@ describe("useHolders", () => {
       Array.from({ length: LIST.limit }, () => ({
         key: createFirstKey(),
         name: uniqueName("first"),
-        messages: [createMessage()],
+        messages: [],
       })),
     );
   });
@@ -63,18 +63,21 @@ describe("useHolders", () => {
   const keysOf = ({ icds }: ICD.Stored.Holders): icd.Key[] =>
     icds.map(({ key }) => key);
 
-  it("should return an ICD past the first page that holds a message", async () => {
+  it("should read pages only until it finds each message", async () => {
     const holder = await client.icds.create({
       key: createSecondKey(),
       name: uniqueName("holder"),
       messages: [createMessage()],
     });
     onTestFinished(async () => await client.icds.delete(holder.key));
-    const { result, more } = await renderHolders([holder.messages[0].key]);
+    const { result, rerender, more } = await renderHolders([holder.messages[0].key]);
     expect(result.current.searching).toBe(true);
     await waitFor(() => expect(keysOf(result.current)).toEqual([holder.key]));
     expect(result.current.searching).toBe(false);
     expect(more).toHaveBeenCalled();
+    const reads = more.mock.calls.length;
+    rerender();
+    expect(more).toHaveBeenCalledTimes(reads);
   });
 
   it(
@@ -112,15 +115,6 @@ describe("useHolders", () => {
     },
     2 * EVERY_PAGE_TIMEOUT,
   );
-
-  it("should read only the first page when it holds each message", async () => {
-    const [first] = [...firstPage].sort((a, b) => compare.uuids(a.key, b.key));
-    const { result, rerender, more } = await renderHolders([first.messages[0].key]);
-    await waitFor(() => expect(keysOf(result.current)).toEqual([first.key]));
-    expect(result.current.searching).toBe(false);
-    rerender();
-    expect(more).not.toHaveBeenCalled();
-  });
 
   it("should read only the first page for no messages", async () => {
     const { result, rerender, list, more } = await renderHolders([]);
