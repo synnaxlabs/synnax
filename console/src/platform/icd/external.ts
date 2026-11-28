@@ -19,6 +19,7 @@ export * from "@/platform/icd/Formats";
 export * from "@/platform/icd/FormattedField";
 export * from "@/platform/icd/Identifier";
 export * from "@/platform/icd/inferred";
+export * from "@/platform/icd/LastPayload";
 export * from "@/platform/icd/Match";
 export * from "@/platform/icd/MessageFormatField";
 export * from "@/platform/icd/number";
