@@ -778,6 +778,45 @@ var _ = Describe("Framer", func() {
 				return authorized
 			}
 
+			It(
+				"Should open a writer that errs on no control beside a task that holds its "+
+					"index",
+				func(ctx SpecContext) {
+					openTask(ctx, channel.Keys{index.Key(), data.Key()}, 200)
+					client, server := newStreams(ctx)
+					done := make(chan error, 1)
+					go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
+					Expect(client.Send(apiframer.WriterRequest{
+						Config: apiframer.WriterConfig{
+							Keys:              channel.Keys{pressure.Key()},
+							Start:             telem.SecondTS,
+							ErrOnUnauthorized: true,
+							ControlSubject: control.Subject{
+								Key: UniqueChannelName(),
+							},
+						},
+					})).To(Succeed())
+					// A refused open ends Write before it sends a response.
+					opened := make(chan error, 1)
+					go func() {
+						_, err := client.Receive()
+						opened <- err
+					}()
+					var err error
+					select {
+					case err = <-done:
+					case err = <-opened:
+					}
+					Expect(err).ToNot(HaveOccurred())
+					Expect(client.CloseSend()).To(Succeed())
+					Eventually(
+						done,
+					).WithTimeout(5 * time.Second).
+						Should(Receive(BeNil()))
+				},
+				SpecTimeout(10*time.Second),
+			)
+
 			It("Should name the index of each group in the open response", func(
 				ctx SpecContext,
 			) {
