@@ -26,6 +26,8 @@
 #include "x/cpp/telem/telem.h"
 
 namespace x::json {
+using details::TimeFormat;
+
 namespace {
 constexpr std::int64_t NANOS_PER_SECOND = 1000000000;
 constexpr std::int64_t MAX_NANOS = std::numeric_limits<std::int64_t>::max();
@@ -199,7 +201,7 @@ std::pair<telem::TimeStamp, errors::Error> parse_iso8601(std::string &text) {
 }
 
 std::pair<telem::TimeStamp, errors::Error>
-parse_unix(std::string_view text, const TimeFormat format) {
+details::parse_unix(std::string_view text, const TimeFormat format) {
     text = trim_space(text);
     std::optional<std::int64_t> nanos;
     if (const auto d = parse_decimal(text, nanos_exponent(format)); d.has_value()) {
@@ -226,7 +228,7 @@ parse_unix(std::string_view text, const TimeFormat format) {
     return {telem::TimeStamp(*nanos), errors::NIL};
 }
 
-void append_timestamp(
+void details::append_timestamp(
     const telem::TimeStamp ts,
     const TimeFormat format,
     std::string &out
