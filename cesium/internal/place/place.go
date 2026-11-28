@@ -79,14 +79,21 @@ func Log(db, generation, offset uint64, version uint16) Place {
 	}
 }
 
-// Head returns the place of bytes at offset in the head of generation.
-func Head(db, generation, offset uint64) Place {
-	return Place{db: db, file: generation, offset: offset, kind: kindHead, version: 1}
+// Head returns the place of bytes at offset in the head of generation, whose format is
+// version.
+func Head(db, generation, offset uint64, version uint16) Place {
+	return Place{
+		db:      db,
+		file:    generation,
+		offset:  offset,
+		kind:    kindHead,
+		version: version,
+	}
 }
 
-// Part returns the place of bytes at offset in part file.
-func Part(db, file, offset uint64) Place {
-	return Place{db: db, file: file, offset: offset, kind: kindPart, version: 1}
+// Part returns the place of bytes at offset in part file, whose format is version.
+func Part(db, file, offset uint64, version uint16) Place {
+	return Place{db: db, file: file, offset: offset, kind: kindPart, version: version}
 }
 
 // Start returns the CRC state after p, from which Update continues over the covered

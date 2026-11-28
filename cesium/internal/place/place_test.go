@@ -72,8 +72,8 @@ var _ = Describe("Place", func() {
 		),
 		Entry("check file", place.Check(8, 9, 16, 0), encoded(8, 9, 16, 2, 0, 0, 0)),
 		Entry("log", place.Log(7, 3, 8_192, 1), encoded(7, 3, 8_192, 3, 0, 1, 0)),
-		Entry("head", place.Head(5, 3, 0), encoded(5, 3, 0, 4, 0, 1, 0)),
-		Entry("part", place.Part(7, 12, 4_096), encoded(7, 12, 4_096, 5, 0, 1, 0)),
+		Entry("head", place.Head(5, 3, 0, 2), encoded(5, 3, 0, 4, 0, 2, 0)),
+		Entry("part", place.Part(7, 12, 4_096, 3), encoded(7, 12, 4_096, 5, 0, 3, 0)),
 	)
 
 	DescribeTable(
