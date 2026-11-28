@@ -11,7 +11,7 @@ import type { channel, schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { deep, notation } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import type { PropsWithChildren, ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
@@ -20,12 +20,15 @@ import { Staleness } from "@/vis/staleness";
 type ValueTelemFormT = Pick<
   schematic.NumericTelemConfig,
   "channel" | "rollingAverage" | "precision" | "notation"
->;
+> & { units: string };
 
 const path = deep.path<ValueTelemFormT>();
 
-/** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
-export const TelemForm = (): ReactElement => {
+/**
+ * TelemForm renders telemetry sections; place it inside `Form.Sections`. The children
+ * are sections that go after the source.
+ */
+export const TelemForm = ({ children }: PropsWithChildren): ReactElement => {
   const { value, onChange } = Form.useField(path);
 
   const handleSourceChange = (key: channel.Key | null): void =>
@@ -59,6 +62,7 @@ export const TelemForm = (): ReactElement => {
           />
         </Input.Item>
       </Form.Section>
+      {children}
       <Form.Section title="Format">
         <Input.Item label="Notation" padHelpText={false}>
           <Notation.Select value={value.notation} onChange={handleNotationChange} />
@@ -71,6 +75,12 @@ export const TelemForm = (): ReactElement => {
             bounds={notation.PRECISION_BOUNDS}
           />
         </Input.Item>
+        <Form.TextField
+          path={path.units}
+          label="Units"
+          align="start"
+          padHelpText={false}
+        />
       </Form.Section>
       <Form.Section title="Staleness">
         <Staleness.TimeoutField />

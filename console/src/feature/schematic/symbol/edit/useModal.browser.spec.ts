@@ -104,6 +104,34 @@ const loadSVG = async (
   await screen.findByText("Parts");
 };
 
+// zoomOf reads the zoom of the preview from the transform of its wrapper.
+const zoomOf = (wrapper: HTMLElement): number => {
+  const match = /scale\(([\d.]+)\)/.exec(wrapper.style.transform);
+  assertDefined(match, "the preview has no zoom");
+  return Number(match[1]);
+};
+
+// fitViewport sizes the viewport so the editor fits it until the test ends. A smaller
+// viewport squeezes the preview, so a fit or a pointer has no room.
+const fitViewport = async (): Promise<void> => {
+  const { width, height } = server.config.browser.viewport;
+  onTestFinished(async () => await page.viewport(width, height));
+  await page.viewport(1300, 900);
+};
+
+// fitZoom waits for the preview to fit its drawing on open, and returns the zoom. No
+// drawing of this spec fits at exactly 100%. Call fitViewport before the editor opens.
+const fitZoom = async (container: ParentNode = document.body): Promise<number> => {
+  const wrapper = getPreviewTransformWrapper(container);
+  await waitFor(() => expect(zoomOf(wrapper)).not.toBe(1));
+  return zoomOf(wrapper);
+};
+
+// percent is the zoom as the preview shows it.
+const percent = (zoom: number): string => `${Math.round(zoom * 100)}%`;
+
+const ZOOM_STEP = 1.2;
+
 const findNameInput = (): HTMLInputElement =>
   screen.getByPlaceholderText<HTMLInputElement>("Symbol name");
 
@@ -135,7 +163,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await waitFor(() => expect(findNameInput().value).toBe("Flow Meter"));
       expect(screen.getByText("States")).toBeDefined();
       expect(screen.getByText("Handles")).toBeDefined();
-      expect(screen.getByText("Properties")).toBeDefined();
+      expect(screen.getByLabelText("Scale")).toBeDefined();
       expect(screen.getByText("Scale stroke")).toBeDefined();
     });
 
@@ -212,7 +240,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
       fireEvent.click(screen.getByLabelText("Stroke"));
-      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.click(await screen.findByLabelText("Color"));
       fireEvent.change(await screen.findByLabelText("Hex"), {
         target: { value: "ff0000" },
       });
@@ -242,9 +270,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ),
       ).toBeDefined();
       fireEvent.click(screen.getByLabelText("Fill"));
-      expect(findButton("State color").getAttribute("aria-disabled")).toBe("true");
-      expect(findButton("Contrast").getAttribute("aria-disabled")).toBe("true");
-      fireEvent.click(screen.getByText("Node color"));
+      expect(
+        (await screen.findByLabelText("State color")).getAttribute("aria-disabled"),
+      ).toBe("true");
+      expect(screen.getByLabelText("Contrast").getAttribute("aria-disabled")).toBe(
+        "true",
+      );
+      fireEvent.click(screen.getByLabelText("Node color"));
       fireEvent.change(findNameInput(), {
         target: { value: uniqueName("node_colored_symbol") },
       });
@@ -288,11 +320,12 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("offers the loop motions in a Loop group", async () => {
+    it("offers the loop motions under no group name", async () => {
       await createWithPart();
-      expect(screen.getByText("Loop")).toBeDefined();
       expect(screen.getByText("Spin")).toBeDefined();
       expect(screen.getByText("Flow")).toBeDefined();
+      // A group names itself only beside another group.
+      expect(screen.queryByText("Loop")).toBeNull();
       expect(screen.queryByText("Follow a value")).toBeNull();
     });
 
@@ -353,22 +386,27 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("zooms the preview with keyboard shortcuts", async () => {
+      await fitViewport();
       const { picker } = await openCreateModal();
       await loadSVG(picker);
-      await screen.findByText("100%");
-      // Bare keys, since a browser reserves the Control chords for its own zoom.
-      pressKey("Equal");
-      expect(await screen.findByText("120%")).toBeDefined();
-      pressKey("Digit0");
-      expect(await screen.findByText("100%")).toBeDefined();
+      const fit = await fitZoom();
+      // Bare keys, since a browser reserves the Control chords for its own zoom. A fit
+      // can sit at the most zoom, so the keys zoom out first.
       pressKey("Minus");
-      expect(await screen.findByText("83%")).toBeDefined();
+      expect(await screen.findByText(percent(fit / ZOOM_STEP))).toBeDefined();
+      pressKey("Equal");
+      expect(await screen.findByText(percent(fit))).toBeDefined();
+      pressKey("Minus");
+      expect(await screen.findByText(percent(fit / ZOOM_STEP))).toBeDefined();
+      pressKey("Digit0");
+      expect(await screen.findByText(percent(fit))).toBeDefined();
     });
 
     it("pans the preview while shift-dragging", async () => {
+      await fitViewport();
       const { picker, handle } = await openCreateModal();
       await loadSVG(picker);
-      await screen.findByText("100%");
+      await fitZoom(handle.baseElement);
       const wrapper = getPreviewTransformWrapper(handle.baseElement);
       const container = wrapper.parentElement;
       if (container == null) throw new Error("preview container not found");
@@ -388,16 +426,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("zooms the preview with the scroll wheel", async () => {
+      await fitViewport();
       const { picker, handle } = await openCreateModal();
       await loadSVG(picker);
-      await screen.findByText("100%");
+      const fit = await fitZoom(handle.baseElement);
       const wrapper = getPreviewTransformWrapper(handle.baseElement);
       const container = wrapper.parentElement;
       if (container == null) throw new Error("preview container not found");
-      fireEvent.wheel(container, { deltaY: -1 });
-      expect(await screen.findByText("110%")).toBeDefined();
       fireEvent.wheel(container, { deltaY: 1 });
-      expect(await screen.findByText("99%")).toBeDefined();
+      expect(await screen.findByText(percent(fit * 0.9))).toBeDefined();
+      fireEvent.wheel(container, { deltaY: -1 });
+      expect(await screen.findByText(percent(fit * 0.9 * 1.1))).toBeDefined();
     });
 
     it("selects a handle from the preview overlay and re-orients it", async () => {
@@ -537,7 +576,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, used, unbound };
     };
 
-    it("zooms and saves the preview of a symbol with no preview viewport", async () => {
+    it("fits and saves the preview of a symbol with no preview viewport", async () => {
+      await fitViewport();
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("unzoomed"));
       const { previewViewport: _, ...data } = payload.data;
@@ -552,22 +592,21 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         [{ symbolKey: symbol.key, group: grp.key }],
         { client, additionalRegistry: theming.REGISTRY },
       );
-      expect(await screen.findByText("100%")).toBeDefined();
-      pressKey("Equal");
-      expect(await screen.findByText("120%")).toBeDefined();
+      const fit = await fitZoom();
+      pressKey("Minus");
+      expect(await screen.findByText(percent(fit / ZOOM_STEP))).toBeDefined();
       fireEvent.click(findButton("Save"));
-      await waitFor(async () =>
-        expect((await retrieveStored(symbol.key)).data.previewViewport).toEqual({
-          zoom: 1.2,
-          position: { x: 0, y: 0 },
-        }),
-      );
+      await waitFor(async () => {
+        const { previewViewport } = (await retrieveStored(symbol.key)).data;
+        expect(previewViewport?.zoom).toBeCloseTo(fit / ZOOM_STEP);
+        expect(previewViewport?.position).toEqual({ x: 0, y: 0 });
+      });
     });
 
     it("saves a new part and its stroke on a symbol with no state", async () => {
       const { symbol } = await openEditModal();
       fireEvent.click(screen.getByLabelText("Stroke"));
-      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.click(await screen.findByLabelText("Color"));
       fireEvent.change(await screen.findByLabelText("Hex"), {
         target: { value: "ff0000" },
       });
@@ -669,7 +708,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByLabelText("Remove Vent"));
       fireEvent.click(findButton("Save"));
       await screen.findByText("Vessel 1 loses the Vent binding.");
-      fireEvent.click(findButton("Cancel"));
+      fireEvent.click(findLastButton("Cancel"));
       await waitFor(() =>
         expect(screen.queryByText("Vessel 1 loses the Vent binding.")).toBeNull(),
       );
@@ -680,10 +719,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves a zoom and a rename of a symbol in use without asking", async () => {
+      await fitViewport();
       const { symbol } = await openUsedSymbol();
-      await screen.findByText("100%");
-      pressKey("Equal");
-      await screen.findByText("120%");
+      const fit = await fitZoom();
+      pressKey("Minus");
+      await screen.findByText(percent(fit / ZOOM_STEP));
       const renamed = uniqueName("renamed_vessel");
       fireEvent.change(findNameInput(), { target: { value: renamed } });
       fireEvent.click(findButton("Save"));
@@ -691,7 +731,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         expect((await retrieveStored(symbol.key)).name).toBe(renamed),
       );
       const stored = await retrieveStored(symbol.key);
-      expect(stored.data.previewViewport?.zoom).toBeCloseTo(1.2);
+      expect(stored.data.previewViewport?.zoom).toBeCloseTo(fit / ZOOM_STEP);
     });
 
     it("loads the existing symbol and renames it on save", async () => {
@@ -767,11 +807,30 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
     });
 
-    it("closes at once on Escape after a zoom of the preview", async () => {
+    it("closes at once on Cancel with no edits", async () => {
       await openStored();
-      pressKey("Equal");
+      fireEvent.click(findButton("Cancel"));
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before Cancel drops unsaved edits", async () => {
+      await openStored();
+      fireEvent.change(findNameInput(), { target: { value: uniqueName("renamed") } });
+      fireEvent.click(findButton("Cancel"));
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+      expect(findNameInput()).toBeDefined();
+    });
+
+    it("closes at once on Escape after a zoom of the preview", async () => {
+      await fitViewport();
+      await openStored();
+      const fit = await fitZoom();
+      pressKey("Minus");
       // A modal takes an Escape only from an element inside it.
-      const zoom = await screen.findByText("120%");
+      const zoom = await screen.findByText(percent(fit / ZOOM_STEP));
       fireEvent.keyDown(zoom, { code: "Escape", key: "Escape" });
       fireEvent.keyUp(zoom, { code: "Escape", key: "Escape" });
       await waitFor(() =>
@@ -871,7 +930,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await openPainted({ looks: [{ key: "node", fill: { type: "node" } }] });
       fireEvent.click(screen.getByLabelText("Fill"));
       await waitFor(() =>
-        expect(findButton("Drawing").getAttribute("aria-disabled")).toBe("true"),
+        expect(screen.getByLabelText("Drawing").getAttribute("aria-disabled")).toBe(
+          "true",
+        ),
       );
     });
 
@@ -900,7 +961,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         assertDefined(el);
         return el;
       });
-      fireEvent.click(within(dialog).getByText("Whole drawing"));
+      fireEvent.click(within(dialog).getByLabelText("Drawing"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
         expect((await retrieveStored(symbol.key)).data.looks).toEqual([node]),
@@ -941,7 +1002,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await pick("Preview value", "1");
       const fill = screen.getByLabelText("Fill");
       fireEvent.click(fill);
-      fireEvent.click(await screen.findByText("State color"));
+      fireEvent.click(await screen.findByLabelText("State color"));
       await waitFor(() =>
         expect(fill.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(GREEN)),
       );
@@ -1129,7 +1190,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       expect(stroke.getAttribute("aria-disabled")).toBeNull();
       fireEvent.click(stroke);
-      fireEvent.click(await screen.findByText("Node color"));
+      fireEvent.click(await screen.findByLabelText("Node color"));
       const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
       await waitFor(() => {
         const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
@@ -1143,7 +1204,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await previewFault();
       fireEvent.click(screen.getByLabelText("Stroke by state"));
       fireEvent.click(await screen.findByLabelText("Stroke while Trip"));
-      fireEvent.click(await screen.findByText("Node color"));
+      fireEvent.click(await screen.findByLabelText("Node color"));
       const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
       await waitFor(() => {
         const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
@@ -1194,7 +1255,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         states: [createState(enumeration.key)],
       });
       fireEvent.click(screen.getByLabelText("Fill"));
-      fireEvent.click(await screen.findByText("Contrast"));
+      fireEvent.click(await screen.findByLabelText("Contrast"));
       await waitFor(() =>
         expect(queryIcon(screen.getByLabelText("Fill"), "contrast")).not.toBeNull(),
       );
@@ -1546,7 +1607,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("keeps a state and its looks on a cancel", async () => {
       const symbol = await openFaulted();
       fireEvent.click(screen.getByLabelText("Remove Fault"));
-      fireEvent.click(await screen.findByText("Cancel"));
+      await screen.findByText("Its uses go with it: 1 look, 1 command, and 1 click.");
+      fireEvent.click(findLastButton("Cancel"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
@@ -1621,6 +1683,32 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return await openPainted({ states: [createState(), fault], commands: [go] });
     };
 
+    it("names an enumeration for a selected state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("pump"),
+        entries: [
+          { key: "off", value: 0, name: "Off" },
+          { key: "on", value: 1, name: "On" },
+        ],
+      });
+      const symbol = await openPainted({
+        states: [{ ...createState(), key: "fault", name: "Fault" }],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      await screen.findByRole("heading", { name: "Fault" });
+      const options = await openSelect("Enumeration");
+      fireEvent.change(screen.getByPlaceholderText("Search enumerations..."), {
+        target: { value: enumeration.name },
+      });
+      fireEvent.click(await options.findByRole("option", { name: enumeration.name }));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.states).toEqual([
+          expect.objectContaining({ key: "fault", enumeration: enumeration.key }),
+        ]),
+      );
+    });
+
     it("edits the state and the entry that a selected command sends", async () => {
       const symbol = await openFault();
       fireEvent.click(screen.getByText("Go"));
@@ -1674,6 +1762,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await openFault();
       // The state list comes before the preview bar, which also names Fault.
       fireEvent.click(screen.getAllByText("Fault")[0]);
+      await within(getValueBar()).findByRole("button", { name: "Preview state Fault" });
+      fireEvent.click(getPartListItem("Body"));
+      await screen.findByRole("heading", { name: "Body" });
       byState("Fill");
       expect(await screen.findByLabelText("Fill while Trip")).toBeDefined();
     });
@@ -1744,11 +1835,11 @@ describe("Schematic.Symbol.Edit.useModal", () => {
               o.className.includes("lyra--hovered"),
           )
           .map((o) => o.textContent);
-      // The pointer moves to each item, as a hover can outlast it. A state moves the
-      // preview, and the inspector keeps the part.
+      // The pointer moves to each item, as a hover can outlast it. A state also moves
+      // the preview.
       await userEvent.click(screen.getByText("Fault"));
       await within(getValueBar()).findByRole("button", { name: "Preview state Fault" });
-      expect(lit()).toEqual([expect.stringMatching(/^Body/)]);
+      expect(lit()).toEqual([expect.stringMatching(/^Fault/)]);
       await userEvent.click(screen.getByText("Go"));
       await screen.findByRole("heading", { name: "Go" });
       expect(lit()).toEqual([expect.stringMatching(/^Go/)]);
@@ -2365,7 +2456,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
       fireEvent.click(screen.getByLabelText("Fill while Base"));
-      fireEvent.click(await screen.findByText("Drawing"));
+      fireEvent.click(await screen.findByLabelText("Drawing"));
       expect(screen.getByLabelText("Fill while Active")).toBeDefined();
       fireEvent.click(findButton("Save"));
       await waitFor(async () =>
@@ -2391,7 +2482,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         },
       });
       fireEvent.click(screen.getByLabelText("Fill"));
-      fireEvent.click(await screen.findByText("Color"));
+      fireEvent.click(await screen.findByLabelText("Color"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
@@ -2669,10 +2760,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("keeps the mark of a filled selected shape under the pointer", async () => {
-      const { width, height } = server.config.browser.viewport;
-      onTestFinished(async () => await page.viewport(width, height));
-      // The pointer reaches the shape only when the editor fits the viewport.
-      await page.viewport(1300, 900);
+      await fitViewport();
       await openPainted({
         drawing: {
           type: "svg",

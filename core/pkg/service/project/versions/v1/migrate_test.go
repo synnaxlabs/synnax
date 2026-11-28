@@ -65,7 +65,7 @@ var _ = Describe("Workspace to project migration", func() {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
 
-			// Seed two legacy workspace records under the "Workspace" gorp prefix.
+			// Seed two legacy workspace records under the "Workspace" Gorp prefix.
 			wsA, wsB := uuid.New(), uuid.New()
 			wsTable := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[v0.Key, v0.Workspace]{DB: db},

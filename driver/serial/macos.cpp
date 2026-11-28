@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 
@@ -87,6 +88,12 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
 }
 
 namespace native {
+std::string node(const std::string &path) {
+    constexpr std::string_view dial_in = "/dev/tty.";
+    if (!path.starts_with(dial_in)) return path;
+    return "/dev/cu." + path.substr(dial_in.size());
+}
+
 // The port cannot prove that TIOCEXCL is its own, and the last close clears it.
 void unlock(Handle) {}
 

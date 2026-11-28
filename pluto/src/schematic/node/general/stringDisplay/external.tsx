@@ -28,7 +28,7 @@ const Preview = ({
       <Text.Text
         level={level}
         color={resolve(textColor)}
-        variant="code"
+        variant="numeric"
         overflow="fade"
       >
         Hello world!

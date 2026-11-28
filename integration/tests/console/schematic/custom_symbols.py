@@ -209,13 +209,13 @@ class CustomSymbols(ConsoleCase):
 
     def _create_actuator(self, toolbar: SymbolToolbar) -> None:
         """Create an actuator symbol in the editor, whose click toggles between the
-        commands Off and On of its Active state.
+        commands Off and On of its state.
         """
         editor = toolbar.create_symbol()
         editor.upload_svg(TEST_SYMBOL_SVG)
         editor.set_name(self.actuator_symbol_name)
-        editor.add_command("Off", state="Active", value="Base")
-        editor.add_command("On", state="Active", value="Active")
+        editor.add_command("Off", state="State", value="Base")
+        editor.add_command("On", state="State", value="Active")
         editor.add_toggle_click()
         editor.save()
 

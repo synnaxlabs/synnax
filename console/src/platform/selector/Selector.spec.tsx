@@ -93,6 +93,45 @@ describe("Selector.create", () => {
     expect(screen.getByRole("button", { name: "Cat food" }).textContent).toBe("Food");
   });
 
+  describe("group logos", () => {
+    const renderShop = async () => {
+      const search = await renderSelector([
+        {
+          key: "shop",
+          groups: [
+            {
+              key: "ni",
+              title: "NI",
+              icon: <Icon.Logo.NI />,
+              selectables: [createSelectable("Analog read")],
+            },
+            {
+              key: "mqtt",
+              title: "MQTT",
+              icon: <Icon.Logo.MQTT />,
+              selectables: [createSelectable("Sparkplug")],
+            },
+          ],
+        },
+      ]);
+      const logo = (name: string): string | undefined =>
+        screen.getByText(name).querySelector("svg")?.style.color;
+      return { search, logo };
+    };
+
+    it("should draw the logo of a group in its brand color", async () => {
+      const { logo } = await renderShop();
+      expect(logo("NI")).toEqual("rgb(3, 181, 133)");
+    });
+
+    it("should draw the logo of a dimmed group in the text color", async () => {
+      const { search, logo } = await renderShop();
+      fireEvent.change(search, { target: { value: "sparkplug" } });
+      expect(logo("NI")).toEqual("");
+      expect(logo("MQTT")).toEqual("rgb(102, 0, 102)");
+    });
+  });
+
   describe("search", () => {
     const renderAnimals = async () => {
       const animals = ["Cat", "Camel", "Dog"].map((title) => createSelectable(title));

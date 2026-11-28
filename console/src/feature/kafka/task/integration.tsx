@@ -15,17 +15,11 @@ import { PREFIX, READ_TYPE } from "@/feature/kafka/task/types";
 import { Task } from "@/platform/task";
 
 const readPlotChannels: Task.PlotChannels = (config) =>
-  Task.enabledChannels(
-    kafka.readConfigZ
-      .parse(config)
-      .topics.flatMap(({ records }) => records)
-      .filter(({ disabled }) => !disabled)
-      .flatMap(({ messages }) =>
-        messages.flatMap(({ bindings }) =>
-          bindings.map(({ channel }) => ({ channel, disabled: false })),
-        ),
-      ),
-  );
+  kafka.readConfigZ
+    .parse(config)
+    .topics.flatMap(({ records }) => records)
+    .filter(({ disabled }) => !disabled)
+    .flatMap(({ icd, messages }) => Task.readChannels(icd, messages));
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,

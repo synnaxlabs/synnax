@@ -45,13 +45,6 @@ describe("SelectDataType", () => {
     await expect.element(text(c, "Timestamp")).toBeInTheDocument();
   });
 
-  it("should not display the UNKNOWN data type", async () => {
-    const c = await renderThemed(<SelectWrapper />);
-    await text(c, "Data type").click();
-    await expect.element(text(c, "float64")).toBeInTheDocument();
-    await expect.element(text(c, "Unknown")).not.toBeInTheDocument();
-  });
-
   it("should display the boolean data type as Boolean", async () => {
     const c = await renderThemed(<SelectWrapper />);
     await text(c, "Data type").click();

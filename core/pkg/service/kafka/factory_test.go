@@ -40,17 +40,22 @@ var _ = Describe("Factory", func() {
 	BeforeEach(func() { f = newFactory() })
 
 	Describe("NewFactory", func() {
+		// services returns a config that holds every required service.
+		services := func() kafka.FactoryConfig {
+			return kafka.FactoryConfig{
+				DB:      db,
+				Device:  deviceSvc,
+				Channel: channelSvc,
+				Framer:  framerSvc,
+				Status:  statusSvc,
+				ICD:     icdSvc,
+			}
+		}
+
 		DescribeTable(
 			"Should reject a config with a missing service",
 			func(unset func(*kafka.FactoryConfig), msg string) {
-				cfg := kafka.FactoryConfig{
-					DB:      db,
-					Device:  deviceSvc,
-					Channel: channelSvc,
-					Framer:  framerSvc,
-					Status:  statusSvc,
-					ICD:     icdSvc,
-				}
+				cfg := services()
 				unset(&cfg)
 				Expect(kafka.NewFactory(cfg)).Error().To(MatchError(msg))
 			},
@@ -83,6 +88,30 @@ var _ = Describe("Factory", func() {
 				"icd",
 				func(c *kafka.FactoryConfig) { c.ICD = nil },
 				"icd: must be non-nil",
+			),
+		)
+
+		DescribeTable(
+			"Should reject a duration that is not positive",
+			func(set func(*kafka.FactoryConfig), msg string) {
+				cfg := services()
+				set(&cfg)
+				Expect(kafka.NewFactory(cfg)).Error().To(MatchError(msg))
+			},
+			Entry(
+				"ping timeout",
+				func(c *kafka.FactoryConfig) { c.PingTimeout = -telem.Second },
+				"ping_timeout: must be positive",
+			),
+			Entry(
+				"fetch max wait",
+				func(c *kafka.FactoryConfig) { c.FetchMaxWait = -telem.Second },
+				"fetch_max_wait: must be positive",
+			),
+			Entry(
+				"skip hold",
+				func(c *kafka.FactoryConfig) { c.SkipHold = -telem.Second },
+				"skip_hold: must be positive",
 			),
 		)
 	})

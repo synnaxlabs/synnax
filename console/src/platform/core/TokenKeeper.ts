@@ -17,13 +17,12 @@ import { deleteToken, readToken, writeToken } from "@/platform/core/token";
 import { Session } from "@/session";
 
 /**
- * Keeps the keychain in step with the connection: saves the session token once the
- * Core accepts it and forgets it once the Core rejects it. When the keychain holds a
- * newer token, such as one another window saved after its user set their own password,
- * the client resumes that session instead. On the web, where the
- * session lives in a cookie, it instead removes a spent OpenID Connect code from the
- * Core's record once the cookie holds the session, so no later client logs in with it.
- * Renders nothing.
+ * Keeps the saved session token in step with the connection: saves it once the Core
+ * accepts it and forgets it once the Core rejects it. When a newer token is saved, such
+ * as one another window saved after its user set their own password, the client
+ * resumes that session instead. On a page a Core serves, where the session lives in a
+ * cookie, it instead removes a spent OpenID Connect code from the Core's record once
+ * the cookie holds the session, so no later client logs in with it. Renders nothing.
  */
 export const TokenKeeper = (): null => {
   const client = Synnax.use();
@@ -59,7 +58,7 @@ export const TokenKeeper = (): null => {
     if (core == null) return;
     if (client != null && token != null && token !== "")
       held.current = { client, token };
-    if (Session.Runtime.ENGINE !== "tauri") {
+    if (!Session.Runtime.CORE_SELECTABLE) {
       // a cookie session has an empty token. Only a cookie keeps the session for the
       // client that replaces this one; a Core on another origin keeps it here alone.
       if (token === "" && core.oidc != null)
@@ -90,6 +89,9 @@ export const TokenKeeper = (): null => {
           if (savedToken.current === token) savedToken.current = undefined;
           throw errors.fromUnknown(e);
         }
+        // a spent code outranks a saved token, so the next client would log in with it
+        if (core.oidc != null)
+          dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
       }, "Failed to save the session");
     }
   }, [client, core, rejected, status, token, handleError]);

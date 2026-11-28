@@ -86,12 +86,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
             allowDoubleClick={false}
           />
         </Flex.Box>
-        <Telem.Text.TimeSpanSince
-          level="small"
-          format="semantic"
-          variant="code"
-          color={9}
-        >
+        <Telem.Text.TimeSpanSince level="small" format="semantic" color={9}>
           {time}
         </Telem.Text.TimeSpanSince>
       </Flex.Box>

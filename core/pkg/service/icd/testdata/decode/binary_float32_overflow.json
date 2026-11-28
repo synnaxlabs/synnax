@@ -31,7 +31,15 @@
   "cases": [
     {
       "hex": "9c7500883ce4377e",
-      "error": "field v: 1e+300 overflows float32: validation error"
+      "message": "frame",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: 1e+300 overflows float32: validation error"
+        }
+      ]
     }
   ]
 }

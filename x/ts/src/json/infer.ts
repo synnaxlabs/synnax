@@ -24,6 +24,8 @@ export const inferredFieldZ = z.object({
   timeFormat: payload.timeFormatZ.optional(),
   /** enum holds the labels of a string field with few distinct values. */
   enum: z.array(z.string()),
+  /** optional is true when some documents lack the field or hold null at it. */
+  optional: z.boolean(),
 });
 
 export interface InferredField extends z.infer<typeof inferredFieldZ> {}

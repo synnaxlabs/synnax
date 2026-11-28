@@ -218,7 +218,7 @@ public:
                         err,
                         "WASM execution failed in node " + this->ir.key +
                             " at sample " + std::to_string(i) + "/" +
-                            std::to_string(max_length) + ": " + err.data
+                            std::to_string(max_length) + ": " + err.data()
                     )
                 );
                 // A trap drops the cycle, so output never depends on where it landed.

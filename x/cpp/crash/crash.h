@@ -13,7 +13,7 @@
 
 /// @brief crash implements process-wide handlers that dump a stack trace to stderr
 /// when the process is about to die abnormally, so that field failures leave a
-/// diagnosable trace in the driver logs instead of a silent exit.
+/// diagnosable trace in the Driver logs instead of a silent exit.
 namespace x::crash {
 /// @brief maximum number of stack frames captured in a trace.
 constexpr int MAX_FRAMES = 64;

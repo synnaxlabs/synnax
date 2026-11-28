@@ -249,6 +249,13 @@ class TestWithCodec:
 @pytest.mark.ws
 @pytest.mark.asyncio
 class TestAsyncWebsocket:
+    async def test_close(self, async_client: AsyncWebsocketClient) -> None:
+        """Should close the connection without waiting for the server."""
+        stream = await async_client.stream("/echo", Message, Message)
+        await stream.close()
+        with pytest.raises(freighter.EOF):
+            await stream.send(Message(id=1, message="hello"))
+
     async def test_basic_exchange(self, async_client: AsyncWebsocketClient) -> None:
         """Should exchange ten echo messages that increment the ID."""
         stream = await async_client.stream("/echo", Message, Message)
@@ -338,6 +345,13 @@ class TestAsyncWebsocket:
 
 @pytest.mark.ws
 class TestSyncWebsocket:
+    def test_close(self, sync_client: WebsocketClient) -> None:
+        """Should close the connection without waiting for the server."""
+        stream = sync_client.stream("/echo", Message, Message)
+        stream.close()
+        with pytest.raises(freighter.EOF):
+            stream.send(Message(id=1, message="hello"))
+
     def test_basic_exchange(self, sync_client: WebsocketClient) -> None:
         stream = sync_client.stream("/echo", Message, Message)
         for i in range(10):

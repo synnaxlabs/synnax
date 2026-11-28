@@ -23,7 +23,7 @@ series = sy.Series([1, 2, 3, 4, 5], data_type=sy.DataType.FLOAT32)
 # automatically be of type string.
 series = sy.Series(["apple", "banana", "cherry"])
 
-# Construct a series from a numpy array. This is the most efficient way to construct a
+# Construct a series from a NumPy array. This is the most efficient way to construct a
 # series from a large amount of data.
 series = sy.Series(np.array([1, 2, 3, 4, 5], dtype=np.float32))
 
@@ -37,7 +37,7 @@ print(series[0])  # 1
 print(series[-1])  # 5
 
 series = sy.Series([1, 2, 3, 4, 5])
-# Access the underlying numpy array
+# Access the underlying NumPy array
 arr = np.array(series)
 print(arr)  # [1 2 3 4 5]
 
