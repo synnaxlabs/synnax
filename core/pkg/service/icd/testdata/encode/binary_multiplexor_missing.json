@@ -1,0 +1,31 @@
+{
+  "description": "A multiplexor must be a field of the message.",
+  "message": {
+    "name": "frame",
+    "payload": {
+      "format": "binary",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [1],
+          "start_bit": 8,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "kind": "unsigned",
+          "multiplexor": "00000000-0000-4000-8000-000000000009"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "uint8"
+      }
+    ]
+  },
+  "error": "message frame: field a: multiplexor 00000000-0000-4000-8000-000000000009 does not exist: validation error"
+}

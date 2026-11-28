@@ -7,18 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, NotFoundError, panel, project } from "@synnaxlabs/client";
+import {
+  icd,
+  mqtt,
+  NotFoundError,
+  panel,
+  project,
+  type resource,
+  type Synnax,
+  task,
+} from "@synnaxlabs/client";
+import { failRequests, holdRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/feature/icd";
 import { client, createICD } from "@/feature/icd/testutil";
+import { Task } from "@/feature/task";
 import { createdIn } from "@/platform/icd/testutil";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
 import { createActiveState } from "@/platform/project/testutil";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
   awaitTextEditing,
@@ -31,17 +44,25 @@ import {
 
 const TAB_TYPES = [project.TYPE_RESOURCE_ID, panel.TYPE_RESOURCE_ID];
 
+interface RenderSettingsOptions {
+  /** Other resources that the user reads. */
+  retrieve?: resource.ID[];
+  canCreate?: boolean;
+}
+
 // The page lists every ICD its user can read, and other specs leave theirs on the
-// Core. A user that reads only the ICD of the test sees the same rows on any Core. A
+// Core. A user that reads only the ICDs of the test sees the same rows on any Core. A
 // user that creates ICDs reads them all.
 const renderSettings = async (
-  shown: icd.ICD,
-  canCreate = false,
-): Promise<{ store: TestStore }> => {
+  shown: icd.ICD | icd.ICD[],
+  { retrieve = [], canCreate = false }: RenderSettingsOptions = {},
+): Promise<{ store: TestStore; subject: Synnax }> => {
   const proj = await client.projects.create({ name: uniqueName("project") });
+  const keys = (Array.isArray(shown) ? shown : [shown]).map(({ key }) => key);
   const subject = await createTestClientWithGrants(client, {
     retrieve: [
-      canCreate ? icd.TYPE_RESOURCE_ID : icd.resourceID(shown.key),
+      ...(canCreate ? [icd.TYPE_RESOURCE_ID] : icd.resourceID(keys)),
+      ...retrieve,
       ...TAB_TYPES,
     ],
     create: canCreate ? [icd.TYPE_RESOURCE_ID, ...TAB_TYPES] : TAB_TYPES,
@@ -52,15 +73,46 @@ const renderSettings = async (
     client: subject,
     preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
   });
+  // The delete dialog lists the tasks that use an ICD as tree items.
   render(
-    <>
+    <Tree.Provider items={Task.TREE_ITEMS}>
       <ICD.Settings />
       <Modals.Stack />
-    </>,
+    </Tree.Provider>,
     { wrapper },
   );
-  return { store };
+  return { store, subject };
 };
+
+// Creates an ICD with one message, and a write task that sends it.
+const createUsedICD = async (): Promise<{ ic: icd.ICD; used: task.Task }> => {
+  const message = icd.messageZ.parse({
+    key: uuid.create(),
+    name: "Command",
+    payload: { format: "json", fields: [] },
+  });
+  const ic = await createICD([message]);
+  const target = mqtt.plainWriteTargetZ.parse({
+    type: "plain",
+    topic: "plant/valve/set",
+    icd: ic.key,
+    message: { message: message.key, bindings: [] },
+  });
+  const used = await client.tasks.create({
+    name: uniqueName("task"),
+    type: "mqtt_write",
+    config: mqtt.writeConfigZ.parse({ targets: [target] }),
+  });
+  return { ic, used };
+};
+
+const openDelete = async (name: string): Promise<void> => {
+  fireEvent.contextMenu(await screen.findByText(name));
+  fireEvent.click(await screen.findByText("Delete"));
+};
+
+const deleteDisabled = (): boolean =>
+  findLastButton("Delete").getAttribute("aria-disabled") === "true";
 
 const focusedResourceKey = async (store: TestStore): Promise<string> => {
   const tab = await resolveFocusedTab(store, client);
@@ -78,7 +130,7 @@ describe("ICD.Settings", () => {
 
   it("should open a created ICD in a tab, marked to focus its name", async () => {
     const ic = await createICD();
-    const { store } = await renderSettings(ic, true);
+    const { store } = await renderSettings(ic, { canCreate: true });
     fireEvent.click(await screen.findByRole("button", { name: "Create ICD" }));
     const key = await focusedResourceKey(store);
     expect(key).not.toBe(ic.key);
@@ -117,9 +169,9 @@ describe("ICD.Settings", () => {
     it("should delete an ICD after confirmation", async () => {
       const ic = await createICD();
       await renderSettings(ic);
-      fireEvent.contextMenu(await screen.findByText(ic.name));
-      fireEvent.click(await screen.findByText("Delete"));
+      await openDelete(ic.name);
       await screen.findByText(`Are you sure you want to delete ${ic.name}?`);
+      await waitFor(() => expect(deleteDisabled()).toBe(false));
       fireEvent.click(findLastButton("Delete"));
       await waitFor(
         async () =>
@@ -127,6 +179,78 @@ describe("ICD.Settings", () => {
             NotFoundError.matches(e),
           ),
       );
+    });
+
+    it("should name the tasks that use an ICD and offer no delete", async () => {
+      const { ic, used } = await createUsedICD();
+      await renderSettings(ic, { retrieve: [task.resourceID(used.key)] });
+      await openDelete(ic.name);
+      await screen.findByText(`${ic.name} is in use`);
+      expect(screen.getByText("Remove it from these tasks first.")).toBeTruthy();
+      expect(await screen.findByText(used.name)).toBeTruthy();
+      expect(deleteDisabled()).toBe(true);
+    });
+
+    it("should say that some of several ICDs are in use", async () => {
+      const { ic, used } = await createUsedICD();
+      const unused = await createICD();
+      await renderSettings([ic, unused], {
+        retrieve: [task.resourceID(used.key)],
+      });
+      for (const { name } of [ic, unused]) {
+        const option = await screen.findByRole("option", { name });
+        fireEvent.click(within(option).getByRole("checkbox", { name: "Select" }));
+      }
+      fireEvent.contextMenu(await screen.findByText(unused.name));
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText("Some of these ICDs are in use");
+      expect(screen.getByText("Remove them from these tasks first.")).toBeTruthy();
+      expect(deleteDisabled()).toBe(true);
+    });
+
+    it("should open a task from the delete dialog and close the dialog", async () => {
+      const { ic, used } = await createUsedICD();
+      const { store } = await renderSettings(ic, {
+        retrieve: [task.resourceID(used.key)],
+      });
+      await openDelete(ic.name);
+      fireEvent.click(await screen.findByText(used.name));
+      expect(await focusedResourceKey(store)).toBe(task.resourceID(used.key).key);
+      await waitFor(() =>
+        expect(screen.queryByText(`${ic.name} is in use`)).toBeNull(),
+      );
+    });
+
+    it("should say why it cannot find the tasks that use an ICD and offer no delete", async () => {
+      const ic = await createICD();
+      const { subject } = await renderSettings(ic);
+      await screen.findByText(ic.name);
+      failRequests(subject, "/task/retrieve", new Error("task lookup failed"));
+      await openDelete(ic.name);
+      expect(
+        await screen.findByText("Failed to retrieve tasks: task lookup failed"),
+      ).toBeTruthy();
+      expect(deleteDisabled()).toBe(true);
+    });
+
+    it("should offer delete only once it knows that no task uses the ICD", async () => {
+      const ic = await createICD();
+      const { subject } = await renderSettings(ic);
+      await screen.findByText(ic.name);
+      const { release } = holdRequests(subject, "/task/retrieve");
+      await openDelete(ic.name);
+      await screen.findByText(`Are you sure you want to delete ${ic.name}?`);
+      expect(deleteDisabled()).toBe(true);
+      release();
+      await waitFor(() => expect(deleteDisabled()).toBe(false));
+    });
+
+    it("should offer delete when the user cannot see the task that uses an ICD", async () => {
+      const { ic } = await createUsedICD();
+      await renderSettings(ic);
+      await openDelete(ic.name);
+      await screen.findByText(`Are you sure you want to delete ${ic.name}?`);
+      await waitFor(() => expect(deleteDisabled()).toBe(false));
     });
   });
 });

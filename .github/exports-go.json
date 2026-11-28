@@ -44,6 +44,39 @@
       "caller": "sy-6979-text-binary-writes"
     },
     {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "BinaryEncoder",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "NewBinaryEncoder",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "BinaryEncoder",
+      "name": "Encode",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "BinaryEncoder",
+      "name": "Check",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "BinaryEncoder",
+      "name": "Ready",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium",
       "name": "ErrChannelNotFound",
@@ -66,6 +99,20 @@
       "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
       "name": "Writeback",
       "caller": "https://linear.app/synnax/issue/SY-6385"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "UniqueIndex",
+      "name": "Holder",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/8019"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "UniqueIndex",
+      "name": "FilterFunc",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/8019"
     },
     {
       "module": "arc/go",
@@ -136,56 +183,6 @@
       "package": "github.com/synnaxlabs/x/query",
       "name": "NotFound",
       "caller": "sy-6599-name-every-path-describe-and-refuse-ambiguous-names"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "TextMessage",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "Text",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "NewText",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "Text",
-      "name": "Decode",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "BinaryMessage",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "Binary",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "NewBinary",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "Binary",
-      "name": "Decode",
-      "caller": "sy-6979-text-reads"
     },
     {
       "module": "arc/go",

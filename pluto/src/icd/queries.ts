@@ -71,7 +71,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 export type DeleteParams = icd.Key | icd.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
-  name: PLURAL_RESOURCE_NAME,
+  name: RESOURCE_NAME,
   verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.icds.delete(data, {

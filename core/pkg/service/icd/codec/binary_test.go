@@ -50,27 +50,13 @@ func (f decodeFixture) can() bool {
 	})
 }
 
-// multiplexed reports whether a field of f has a multiplexor, which Go does not decode
-// yet.
-func (f decodeFixture) multiplexed() bool {
-	return lo.SomeBy(f.Messages, func(m fixtureMessage) bool {
-		p, ok := m.Payload.Variant.(icd.BinaryPayload)
-		return ok && lo.SomeBy(p.Fields, func(f icd.BinaryField) bool {
-			return f.Base().Multiplexor != nil
-		})
-	})
-}
-
 // binaryFixtureEntries returns an entry for each binary decode fixture with no CAN
-// identifier and no multiplexor.
+// identifier.
 func binaryFixtureEntries() []TableEntry {
 	GinkgoHelper()
 	paths := lo.Filter(
 		fixturePaths("decode", payload.FormatBinary),
-		func(path string, _ int) bool {
-			f := readDecodeFixture(path)
-			return !f.can() && !f.multiplexed()
-		},
+		func(path string, _ int) bool { return !readDecodeFixture(path).can() },
 	)
 	return lo.Map(paths, func(path string, _ int) TableEntry {
 		return fixtureEntry(path)
@@ -112,12 +98,48 @@ var _ = Describe("Binary", func() {
 		))
 	})
 
-	It("Should reject a bound field with a multiplexor", func() {
-		f := readDecodeFixture("../testdata/decode/binary_multiplexed.json")
-		Expect(codec.NewBinary(f.binaryMessages())).Error().To(SatisfyAll(
+	It("Should name the message of a payload too short for its multiplexors when "+
+		"the decoder holds more than one", func() {
+		// identified returns a message named name that kind with value identifies.
+		identified := func(
+			name string,
+			value int32,
+			fields ...icd.BinaryField,
+		) codec.BinaryMessage {
+			kind := byteField("kind", 0)
+			return codec.BinaryMessage{
+				Name: name,
+				Payload: icd.BinaryPayload{
+					Identifier: &icd.Identifier{Variant: icd.FieldIdentifier{
+						Field: kind.Base().Key,
+						Value: value,
+					}},
+					Fields: append([]icd.BinaryField{kind}, fields...),
+				},
+				Bindings: []codec.Binding{
+					{Field: fields[len(fields)-1].Base().Key, DataType: telem.Uint8T},
+				},
+			}
+		}
+		mode := byteField("mode", 2)
+		selected := byteField("a", 1)
+		b := selected.Base()
+		b.Multiplexor, b.MultiplexValues = new(mode.Base().Key), []int32{1}
+		selected.SetBase(b)
+		dec := MustSucceed(codec.NewBinary([]codec.BinaryMessage{
+			identified("muxed", 1, mode, selected),
+			identified("plain", 2, byteField("v", 1)),
+		}))
+		samples := [][][]byte{make([][]byte, 1), make([][]byte, 1)}
+		message, ok, failures, err := dec.Decode([]byte{1, 0}, samples)
+		Expect(err).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("multiplexors are not supported")),
+			MatchError("message muxed: field mode: the payload has 2 bytes and the "+
+				"field needs 3: validation error"),
 		))
+		Expect(message).To(BeZero())
+		Expect(ok).To(BeTrue())
+		Expect(failures).To(BeNil())
 	})
 
 	It("Should route and decode payloads without allocating", func() {
