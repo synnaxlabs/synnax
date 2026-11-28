@@ -176,11 +176,11 @@ TEST_F(FSTest, ReadFileRelativePath) {
 
 /// @brief it should define the correct error types.
 TEST_F(FSTest, ErrorTypeVerification) {
-    ASSERT_EQ(FS_ERROR.type, "fs");
-    ASSERT_EQ(NOT_FOUND.type, "fs.not_found");
-    ASSERT_EQ(INVALID_PATH.type, "fs.invalid_path");
-    ASSERT_EQ(PERMISSION_DENIED.type, "fs.permission_denied");
-    ASSERT_EQ(READ_ERROR.type, "fs.read_error");
+    ASSERT_EQ(FS_ERROR.type(), "fs");
+    ASSERT_EQ(NOT_FOUND.type(), "fs.not_found");
+    ASSERT_EQ(INVALID_PATH.type(), "fs.invalid_path");
+    ASSERT_EQ(PERMISSION_DENIED.type(), "fs.permission_denied");
+    ASSERT_EQ(READ_ERROR.type(), "fs.read_error");
 }
 
 /// @brief it should correctly read a file with different newline styles.

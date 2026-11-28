@@ -170,7 +170,7 @@ func storeTask(ctx context.Context, name string, cfg pd.TaskConfig) task.Task {
 	return t
 }
 
-// encodeConfig converts a config into the msgpack.EncodedJSON shape the driver
+// encodeConfig converts a config into the msgpack.EncodedJSON shape the Driver
 // receives as task.Task.Config.
 func encodeConfig(cfg pd.TaskConfig) msgpack.EncodedJSON {
 	GinkgoHelper()

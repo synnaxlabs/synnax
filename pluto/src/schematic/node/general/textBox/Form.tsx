@@ -35,7 +35,7 @@ export const TextBoxForm = (): ReactElement => {
   const autoFitDisabled = Base.useField(path.autoFitDisabled);
   return (
     <Base.Sections x>
-      <Base.Section title="Text">
+      <Base.Section title="Content">
         <Base.TextField path={path.value} label="Text" padHelpText={false} />
         <Base.Field path={path.level} label="Size" padHelpText={false}>
           {({ value, onChange }) => (
@@ -74,8 +74,8 @@ export const TextBoxForm = (): ReactElement => {
             </Input.Numeric>
           )}
         </Base.Field>
+        <Orientation.Field path={path} hideOuter label="Orientation" />
       </Base.Section>
-      <Orientation.Section path={path} />
     </Base.Sections>
   );
 };

@@ -136,7 +136,7 @@ export interface StageParams<
   /** Component type, matched against the worker-side registry. */
   type: string;
   /**
-   * Component path in the aether tree; its flattened form is the component's identity.
+   * Component path in the Aether tree; its flattened form is the component's identity.
    */
   path: readonly string[];
   /** Zod schema validating both `initialState` and worker-pushed state. */
@@ -198,7 +198,7 @@ export interface StoreConfig {
 }
 
 /**
- * Single source of truth for aether component state on the main thread. One store is
+ * Single source of truth for Aether component state on the main thread. One store is
  * owned per {@link Aether.Provider} and shared across all components in its tree.
  * Components stage on render, attach on commit, subscribe via `useSyncExternalStore`,
  * and detach on unmount; worker pushes land in the store and notify listeners outside

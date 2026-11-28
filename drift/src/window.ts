@@ -66,7 +66,7 @@ export const windowPropsZ = z.object({
 });
 export interface WindowProps extends z.infer<typeof windowPropsZ> {}
 
-/** What drift tracks about a window on top of the properties it was created with. */
+/** What Drift tracks about a window on top of the properties it was created with. */
 const windowStateExtensionPropsZ = z.object({
   /** Lifecycle stage */
   stage: windowStageZ,
@@ -94,7 +94,7 @@ export interface WindowStateExtensionProps extends z.infer<
   typeof windowStateExtensionPropsZ
 > {}
 
-/** State of a window managed by drift  */
+/** State of a window managed by Drift */
 export const windowStateZ = windowPropsZ.extend(windowStateExtensionPropsZ.shape);
 export interface WindowState extends z.infer<typeof windowStateZ> {}
 

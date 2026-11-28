@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/errors"
@@ -43,12 +44,12 @@ type target interface {
 	String() string
 }
 
-// messageTarget publishes the documents of one ICD message to one topic.
+// messageTarget publishes the payloads of one ICD message to one topic.
 type messageTarget struct {
 	topic    string
 	qos      byte
 	retained bool
-	docs     *write.Documents
+	payloads *write.Payloads
 }
 
 var _ target = (*messageTarget)(nil)
@@ -58,7 +59,7 @@ var _ target = (*messageTarget)(nil)
 func newMessageTarget(
 	target PlainWriteTarget,
 	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
+	channels map[channel.Key]icdv0.Channel,
 ) (*messageTarget, error) {
 	path := "target " + target.Topic
 	qos, err := qosLevel(target.Qos)
@@ -68,7 +69,7 @@ func newMessageTarget(
 	if err = validateTopic(target.Topic); err != nil {
 		return nil, err
 	}
-	docs, err := write.NewDocuments(target.Message, ic, channels, path)
+	payloads, err := write.NewPayloads(target.Message, ic, channels, path)
 	if err != nil {
 		return nil, errors.Wrap(err, path)
 	}
@@ -76,7 +77,7 @@ func newMessageTarget(
 		topic:    target.Topic,
 		qos:      qos,
 		retained: target.Retained,
-		docs:     docs,
+		payloads: payloads,
 	}, nil
 }
 
@@ -84,7 +85,7 @@ func newMessageTarget(
 func (t *messageTarget) String() string { return "target " + t.topic }
 
 // reset implements target.
-func (t *messageTarget) reset() { t.docs.Reset() }
+func (t *messageTarget) reset() { t.payloads.Reset() }
 
 // publications implements target.
 func (t *messageTarget) publications(
@@ -92,9 +93,9 @@ func (t *messageTarget) publications(
 	skips *driver.Skips,
 ) iter.Seq[publication] {
 	return func(yield func(publication) bool) {
-		for _, doc := range t.docs.From(fr, skips) {
+		for _, payload := range t.payloads.From(fr, skips) {
 			if !yield(publication{
-				topic: t.topic, payload: doc, qos: t.qos, retained: t.retained,
+				topic: t.topic, payload: payload, qos: t.qos, retained: t.retained,
 			}) {
 				return
 			}

@@ -13,6 +13,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/serial/port.h"
+#include "driver/serial/posix.h"
 #include "driver/serial/pty.h"
 #include "driver/transport/errors.h"
 
@@ -25,8 +26,8 @@ TEST_F(PtyTest, RejectsACustomBaudRateThePortCannotSet) {
     const auto [port, err] = Port::open(p);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
     EXPECT_TRUE(
-        err.data.starts_with("failed to set baud rate 250000 on " + p.port + ": ")
-    ) << err.data;
+        err.data().starts_with("failed to set baud rate 250000 on " + p.port + ": ")
+    ) << err.data();
 }
 
 /// @brief it should apply the line settings to the terminal.
@@ -62,5 +63,13 @@ TEST_F(PtyTest, AppliesSoftwareFlowControlAndNoParity) {
     EXPECT_FALSE(tio.c_cflag & CRTSCTS);
     EXPECT_TRUE(tio.c_iflag & IXON);
     EXPECT_TRUE(tio.c_iflag & IXOFF);
+}
+
+/// @brief it should name the port of a dial-in node by its callout node, since macOS
+/// gives each port both.
+TEST(Node, NamesDialInNodeByItsCalloutNode) {
+    EXPECT_EQ(native::node("/dev/tty.usbserial-A"), "/dev/cu.usbserial-A");
+    EXPECT_EQ(native::node("/dev/cu.usbserial-A"), "/dev/cu.usbserial-A");
+    EXPECT_EQ(native::node("/dev/ttys003"), "/dev/ttys003");
 }
 }

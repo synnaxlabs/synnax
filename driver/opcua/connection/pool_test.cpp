@@ -810,7 +810,14 @@ TEST_F(ConnectionPoolTest, AcquireStopsWaitingAtDeadline) {
     Pool pool(testutil::create_store());
     server->probe_delay = 200 * x::telem::MILLISECOND;
     std::thread first([&] { ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] ")); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // A created session shows that the first caller is mid-connect, which the slow
+    // server keeps it in for several more requests.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        server->sessions_created.load(),
+        size_t{1},
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(1)
+    );
     ASSERT_OCCURRED_AS_P(
         pool.acquire(
             conn_cfg,
@@ -865,7 +872,7 @@ TEST_F(ConnectionPoolTest, BrowseSplitsAtServerLimit) {
     EXPECT_EQ(names(results[0]), std::vector<std::string>({"V0", "Inner"}));
     ASSERT_OCCURRED_AS(results[1].err, errors::CRITICAL.sub("BadNodeIdUnknown"));
     EXPECT_EQ(
-        results[1].err.data,
+        results[1].err.data(),
         "The node id refers to a node that does not exist in the server address space."
     );
     EXPECT_TRUE(results[1].references.empty());
@@ -1003,7 +1010,7 @@ TEST_F(SessionLimitPoolTest, DroppedConnectionStaysLost) {
         UA_Client_run_iterate(conn.get(), 50);
     const auto err = lost(conn.get());
     ASSERT_OCCURRED_AS(err, errors::NO_CONNECTION);
-    EXPECT_EQ(err.data, "The connection to the server is lost.");
+    EXPECT_EQ(err.data(), "The connection to the server is lost.");
 }
 
 /// @brief it should double the cooldown each time the breaker opens again.
@@ -1021,7 +1028,7 @@ TEST_F(SessionLimitPoolTest, CooldownDoubles) {
     ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg, "[test] "), errors::UNREACHABLE);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
     auto [conn, err] = pool.acquire(conn_cfg, "[test] ");
-    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
+    EXPECT_EQ(err.data(), BREAKER_OPEN_TEXT);
 }
 
 /// @brief it should close a connection that no one used for the idle timeout, with no
@@ -1121,7 +1128,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
         << "Breaker should reject instantly, but took " << elapsed.count() << "ms";
 
     // Error message should mention circuit breaker
-    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
+    EXPECT_EQ(err.data(), BREAKER_OPEN_TEXT);
 }
 
 /// @brief it should reject an acquire at once after the breaker opens, even when the
@@ -1155,7 +1162,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     EXPECT_LT(elapsed.count(), 500)
         << "Breaker should reject before reconnecting, but took " << elapsed.count()
         << "ms";
-    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
+    EXPECT_EQ(err.data(), BREAKER_OPEN_TEXT);
 }
 
 /// @brief After the circuit breaker trips and the cooldown expires, a
@@ -1183,7 +1190,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     {
         auto [conn, err] = pool.acquire(conn_cfg, "[test] ");
         ASSERT_OCCURRED_AS(err, errors::NO_CONNECTION);
-        EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
+        EXPECT_EQ(err.data(), BREAKER_OPEN_TEXT);
     }
 
     // Restart server

@@ -122,7 +122,15 @@
     },
     {
       "document": { "id": -3, "v": "hot" },
-      "error": "message small: field v: invalid number \"hot\": validation error"
+      "message": "small",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "message small: field v: invalid number \"hot\": validation error"
+        }
+      ]
     },
     {
       "document": { "id": -3.0, "v": 2 },

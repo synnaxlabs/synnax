@@ -24,6 +24,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -64,8 +65,8 @@ type testConnectionArgs struct {
 // first stage that fails. A broker whose tasks hold a connection with the same settings
 // reports that connection instead. A test does not connect with the client ID of a
 // connection that tasks hold, because the broker would drop that connection. It
-// returns a validation error when the properties of args are not valid, and an error
-// when a certificate file fails to load.
+// returns a validation error when the properties of args are not valid, an error when
+// a certificate file fails to load, and the error of ctx when ctx ends first.
 func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	dev := device.Device{
 		Key:        args.Device,
@@ -80,11 +81,6 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if err != nil {
 		return err
 	}
-	u, err := url.Parse(cfg.url)
-	if err != nil {
-		return err
-	}
-	addr := u.Host
 	held, connected, inUse := s.pool.running(args.Device)
 	if inUse && held.equal(cfg) {
 		if !connected {
@@ -101,29 +97,36 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if props.ClientID == "" {
 		cfg.clientID = deriveClientID(uuid.New().String())
 	}
-	if err = dialBroker(ctx, addr, cfg); err != nil {
-		return err
-	}
-	if inUse && held.clientID == cfg.clientID {
-		return driver.Failure{
-			Message: "Client ID in use",
-			Description: fmt.Sprintf(
-				"A running task of this broker connects with client ID %q. The broker "+
-					"would drop that task to let the test log in with the same ID. "+
-					"Stop the tasks of this broker to test these settings.",
-				cfg.clientID,
-			),
+	if err = dialBroker(ctx, cfg); err == nil {
+		if inUse && held.clientID == cfg.clientID {
+			return driver.Failure{
+				Message: "Client ID in use",
+				Description: fmt.Sprintf(
+					"A running task of this broker connects with client ID %q. The "+
+						"broker would drop that task to let the test log in with the "+
+						"same ID. Stop the tasks of this broker to test these settings.",
+					cfg.clientID,
+				),
+			}
+		}
+		if err = probe(ctx, s.ins, cfg); err != nil {
+			err = connectFailure(err)
 		}
 	}
-	if err = probe(ctx, s.ins, cfg); err != nil {
-		return connectFailure(err)
+	if err != nil && ctx.Err() != nil {
+		return ctx.Err()
 	}
-	return nil
+	return err
 }
 
-// dialBroker dials addr and, when cfg uses TLS, completes a handshake. It returns a
-// driver.Failure when the broker is not reachable.
-func dialBroker(ctx context.Context, addr string, cfg clientConfig) error {
+// dialBroker dials the broker of cfg and, when cfg uses TLS, completes a handshake. It
+// returns a driver.Failure when the broker is not reachable.
+func dialBroker(ctx context.Context, cfg clientConfig) error {
+	u, err := url.Parse(cfg.url)
+	if err != nil {
+		return err
+	}
+	addr := u.Host
 	dialCtx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
 	conn, err := proxy.Dial(dialCtx, "tcp", addr)
@@ -144,6 +147,38 @@ func dialBroker(ctx context.Context, addr string, cfg clientConfig) error {
 		return cErr
 	}
 	return err
+}
+
+// connect dials the broker of cfg, as a connection test does, and then opens a client
+// with opts. It returns a driver.Failure when the broker is not reachable or refuses
+// the client, and the error of ctx when ctx ends first.
+func connect(
+	ctx context.Context,
+	ins alamos.Instrumentation,
+	cfg clientConfig,
+	opts *paho.ClientOptions,
+) (*session, func(), error) {
+	err := dialBroker(ctx, cfg)
+	if err == nil {
+		client, disconnect, oErr := open(ctx, ins, paho.NewClient, opts)
+		if oErr == nil {
+			return client, disconnect, nil
+		}
+		err = connectFailure(oErr)
+	}
+	if ctx.Err() != nil {
+		return nil, nil, ctx.Err()
+	}
+	return nil, nil, err
+}
+
+// settingsFailure returns the failure of a browse whose broker settings are not valid.
+func settingsFailure(err error) error {
+	return driver.Failure{
+		Message: "Invalid broker settings",
+		Description: errors.MessageWithout(err, validate.ErrValidation) +
+			". Edit the broker settings.",
+	}
 }
 
 func connectFailure(err error) error {
@@ -218,6 +253,7 @@ func newBrowsedShape(s xjson.SampledShape) browsedShape {
 			Sample:     s.Samples[i],
 			Kind:       f.Kind,
 			TimeFormat: f.TimeFormat,
+			Enum:       f.Enum,
 		}
 	}
 	if s.Index >= 0 {
@@ -510,7 +546,7 @@ func (s *scanner) listen(
 			once.Do(func() { close(stopped) })
 		}
 	})
-	client, disconnect, err := open(ctx, s.ins, paho.NewClient, opts)
+	client, disconnect, err := connect(ctx, s.ins, cfg, opts)
 	if err != nil {
 		return err
 	}

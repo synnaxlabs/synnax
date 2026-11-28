@@ -19,7 +19,7 @@
 #include "client/cpp/icd/types.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/types.gen.h"
+#include "x/cpp/telem/telem.h"
 
 namespace synnax::http {
 

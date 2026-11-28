@@ -15,6 +15,38 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "http";
 
+type Request = Pick<http.ReadEndpoint, "disabled" | "headers" | "queryParams">;
+
+const required = (input: Request[], path: PropertyKey[], message: string) => ({
+  continue: true,
+  code: "custom" as const,
+  input,
+  message,
+  path,
+});
+
+/**
+ * Refuses each header with an empty name or value and each query parameter with an
+ * empty name, as the Driver does. With skipDisabled, a disabled endpoint passes, as the
+ * Driver skips a disabled read endpoint.
+ */
+const validateRequests =
+  (skipDisabled: boolean) => (payload: z.core.ParsePayload<Request[]>) =>
+    payload.value.forEach(({ disabled, headers, queryParams }, i) => {
+      if (skipDisabled && disabled) return;
+      Device.validateHeaders(payload, headers, [i, "headers"]);
+      queryParams.forEach(({ parameter }, j) => {
+        if (parameter === "")
+          payload.issues.push(
+            required(
+              payload.value,
+              [i, "queryParams", j, "parameter"],
+              "Parameter is required",
+            ),
+          );
+      });
+    });
+
 export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadEndpoint extends http.ReadEndpoint {}
@@ -32,7 +64,7 @@ const deployReadEndpointZ = http.readEndpointZ.extend({
 export const deployReadConfigZ = http.readConfigZ.extend({
   device: Task.deviceKeyZ,
   rate: z.number().positive("Rate must be positive"),
-  endpoints: deployReadEndpointZ.array(),
+  endpoints: deployReadEndpointZ.array().check(validateRequests(true)),
 });
 
 const readStatusDataZ = z
@@ -80,7 +112,10 @@ const validateMessages = ({
 
 export const deployWriteConfigZ = writeConfigZ.extend({
   device: Task.deviceKeyZ,
-  endpoints: deployWriteEndpointZ.array().check(validateMessages),
+  endpoints: deployWriteEndpointZ
+    .array()
+    .check(validateMessages)
+    .check(validateRequests(false)),
 });
 
 export const WRITE_SCHEMAS = {
