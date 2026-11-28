@@ -78,11 +78,11 @@ func reference(c segment.Config, stream []byte, starts []int64) []byte {
 			continue
 		}
 		var pos uint32
-		off := segment.NoStart
+		off := noStart
 		for _, s := range starts {
 			if s < int64(lo) {
 				pos++
-			} else if s < int64(hi) && off == segment.NoStart {
+			} else if s < int64(hi) && off == noStart {
 				off = uint32(s - int64(lo))
 			}
 		}
@@ -134,7 +134,8 @@ func batchOf(r *rand.Rand, c segment.Config, at int, n *int) ([]byte, []int64) {
 
 var _ = Describe("Write model check", func() {
 	DescribeTable(
-		"Should write the reference bytes over random writes, commits, and short writes",
+		"Should write the reference bytes over random writes, commits, and short "+
+			"writes",
 		func(c segment.Config) {
 			for runKey := range uint64(48) {
 				r := rand.New(rand.NewPCG(runKey, 1))

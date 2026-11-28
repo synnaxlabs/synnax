@@ -26,14 +26,18 @@ import (
 
 var _ = Describe("Round 2 check", func() {
 	DescribeTable(
-		"Should refuse a header copy that passes the check of the caller's log but "+
-			"holds another database or generation",
+		"Should refuse a header copy of another database or generation as one that "+
+			"fails its check",
 		func(change func(*log.Header)) {
 			h := header
 			change(&h)
-			b := sealedHeader(h.Encode(0))
-			Expect(log.DecodeHeader(b, db, generation, 0)).Error().
-				To(MatchError(place.ErrCorrupt))
+			Expect(log.DecodeHeader(h.Encode(0), db, generation, 0)).Error().
+				To(SatisfyAll(
+					MatchError(place.ErrCorrupt),
+					MatchError(ContainSubstring(
+						"log header at 0 fails its check for generation 3",
+					)),
+				))
 		},
 		Entry("another database", func(h *log.Header) { h.DB = 1 }),
 		Entry("another generation", func(h *log.Header) { h.Generation = 4 }),
