@@ -299,6 +299,13 @@ class JSONEncoder {
     std::string text;
 
 public:
+    JSONEncoder() = default;
+    JSONEncoder(JSONEncoder &&) noexcept = default;
+    JSONEncoder &operator=(JSONEncoder &&) noexcept = default;
+    /// @brief a JSONEncoder holds scratch space that a copy cannot share.
+    JSONEncoder(const JSONEncoder &) = delete;
+    JSONEncoder &operator=(const JSONEncoder &) = delete;
+
     /// @brief creates an encoder of message. Each binding names a field that takes a
     /// sample, in sample order, and every other field takes its default. A document
     /// holds the value of the message's value rule and each field at its pointer. The

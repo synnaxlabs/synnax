@@ -327,11 +327,9 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 		narrow: dt == telem.Float32T,
 	}
 	kind := jf.Type()
-	sample, err := sampleField(jf, dt)
+	sample := sampleField(jf, dt)
+	err := CheckWrite(kind, f.scaled, dt)
 	if err != nil {
-		return encodeField{}, err
-	}
-	if err = CheckWrite(kind, f.scaled, dt); err != nil {
 		return encodeField{}, err
 	}
 	bounded := b.Min != nil || b.Max != nil
@@ -348,7 +346,7 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 }
 
 // sampleField returns the xjson field that writes a sample of dt as a value of jf.
-func sampleField(jf icd.JSONField, dt telem.DataType) (xjson.Field, error) {
+func sampleField(jf icd.JSONField, dt telem.DataType) xjson.Field {
 	f := xjson.Field{DataType: dt, Enums: enumsOf(jf), Type: xjson.Number}
 	switch v := jf.Variant.(type) {
 	case icd.StringJSONField, icd.UuidJSONField, icd.BytesJSONField:
@@ -358,7 +356,7 @@ func sampleField(jf icd.JSONField, dt telem.DataType) (xjson.Field, error) {
 	case icd.TimestampJSONField:
 		f.TimeFormat = v.TimeFormat
 	}
-	return f, nil
+	return f
 }
 
 // converted reports whether a field of kind k changes or checks the number that an
