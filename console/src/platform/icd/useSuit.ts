@@ -25,8 +25,8 @@ export interface UseSuitParams<V, F extends Field> {
   message: icd.Message | null;
   /** @returns the fields that value must suit, or null when it suits none. */
   fieldsOf: (message: icd.Message) => F[] | null;
-  /** @returns value, changed to suit fields. */
-  suit: (value: V, fields: F[]) => V;
+  /** @returns value, changed to suit fields, which fieldsOf gives of message. */
+  suit: (value: V, fields: F[], message: icd.Message) => V;
   /** @returns the channels that value binds. */
   bound: (value: V) => channel.Key[];
   /** @returns value, with each channel that its field does not take unbound. */
@@ -71,7 +71,7 @@ export const useSuit = <V, F extends Field>({
         sent.current = { message, value: next };
         set(path, next);
       };
-      correct(suit(get(path).value, fields));
+      correct(suit(get(path).value, fields, message));
       if (client == null) return;
       await handleError(async () => {
         const channels = await client.channels.retrieve(bound(get(path).value));

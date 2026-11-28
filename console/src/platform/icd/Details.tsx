@@ -40,6 +40,7 @@ import {
   reindex,
   type TreeField,
 } from "@/platform/icd/read";
+import { bindable } from "@/platform/icd/write/write";
 import { Task } from "@/platform/task";
 
 export interface AddFieldProps {
@@ -317,8 +318,8 @@ export interface MessageWarningProps {
   message: icd.Message | null;
   /** Says why the ICD has no such message, and what to do now. */
   missingDescription: string;
-  /** The task takes only JSON messages, as a write task does. */
-  jsonOnly?: boolean;
+  /** A write task sends the message, so a binary identifier field is not a field. */
+  written?: boolean;
 }
 
 interface MessageStatusProps extends MessageWarningProps {
@@ -343,17 +344,24 @@ const NO_FIELDS: Problem = {
     "A task cannot deploy a message with no fields. Add a field to the message.",
 };
 
+const ONLY_IDENTIFIER: Problem = {
+  message: "Message has only its identifier field",
+  description:
+    "A write task sets the identifier field itself. Add another field to the message.",
+};
+
 /** @returns what is wrong with the message, or null when nothing is. */
 const problemOf = ({
   message,
   missingDescription,
-  jsonOnly = false,
+  written = false,
 }: MessageWarningProps): Problem | null => {
   if (message == null)
     return { message: "Message not found", description: missingDescription };
   const { format } = message.payload;
-  if (jsonOnly ? format !== "json" : !isTaskFormat(format)) return NOT_JSON;
-  return message.payload.fields.length > 0 ? null : NO_FIELDS;
+  if (!isTaskFormat(format)) return NOT_JSON;
+  if (message.payload.fields.length === 0) return NO_FIELDS;
+  return written && bindable(message)?.length === 0 ? ONLY_IDENTIFIER : null;
 };
 
 const warningOf = (props: MessageWarningProps): ReactElement | null => {
@@ -365,28 +373,30 @@ const warningOf = (props: MessageWarningProps): ReactElement | null => {
 
 /**
  * Warns when the ICD has no such message, when the message is not JSON, or when it has
- * no fields. Place it in the section that holds the message.
+ * no fields that the task fills. Place it in the section that holds the message.
  */
 export const MessageWarning = (props: MessageWarningProps): ReactElement | null =>
   warningOf(props);
 
-export interface MessageMarkProps extends Pick<MessageWarningProps, "jsonOnly"> {
+export interface MessageMarkProps {
   icdKey: icd.Key;
   /** The messages of the item. The mark shows the problem of the first bad one. */
   messages: icd.MessageKey[];
   /** @returns why the ICD lacks the message at the index, and what to do now. */
   missingDescription: (index: number) => string;
+  /** A write task sends the messages, so a binary identifier field is not a field. */
+  written?: boolean;
 }
 
 /**
  * Marks a tree item when the ICD has no such message, when the message is not JSON, or
- * when it has no fields. Its tooltip says which.
+ * when it has no fields that the task fills. Its tooltip says which.
  */
 export const MessageMark = ({
   icdKey,
   messages,
   missingDescription,
-  jsonOnly,
+  written = false,
 }: MessageMarkProps): ReactElement | null => {
   const held = PForm.useFieldValue(PICD.formPath.messages, {
     optional: true,
@@ -398,7 +408,7 @@ export const MessageMark = ({
         problemOf({
           message: held?.find((m) => m.key === key) ?? null,
           missingDescription: missingDescription(i),
-          jsonOnly,
+          written,
         }),
       )
       .find((p) => p != null) ?? null;

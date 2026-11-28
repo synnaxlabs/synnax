@@ -448,7 +448,7 @@ export const renamedPointer = (
 };
 
 /** @returns a float field named apart from fields, at a pointer none of them reads. */
-export const createJSONField = (fields: icd.JSONField[]): icd.JSONField => {
+const createJSONField = (fields: icd.JSONField[]): icd.JSONField => {
   const { name, pointer } = freeNameAndPointer(
     fields.map((f) => f.name),
     fields.map((f) => f.pointer),
@@ -844,11 +844,14 @@ export const JSONField = ({
   );
 };
 
-export interface TextFieldProps {
+export interface TextFieldProps extends Pick<
+  JSONFieldProps,
+  "actions" | "autoFocus" | "commanded"
+> {
   /** The form path of the field. */
   path: deep.Path<icd.TextField>;
-  /** Actions in the header of the field's section. */
-  actions?: ReactNode;
+  /** A write task sends the field, so its labels say how the task writes it. */
+  written?: boolean;
 }
 
 /** A text field read the other way keeps its name, conversion, and limits. */
@@ -864,7 +867,13 @@ const withTextEncoding = (
 };
 
 /** Edits one field of a text message: its name, where it sits, and its conversion. */
-export const TextField = ({ path, actions }: TextFieldProps): ReactElement => {
+export const TextField = ({
+  path,
+  actions,
+  autoFocus = false,
+  commanded = false,
+  written = false,
+}: TextFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const encoding = Form.useFieldValue(path.encoding);
   const handleEncoding = (next: icd.TextFieldType) => {
@@ -872,8 +881,13 @@ export const TextField = ({ path, actions }: TextFieldProps): ReactElement => {
   };
   return (
     <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
-      <Input.Item label="Read by" padHelpText={false}>
+      <Form.TextField
+        path={path.name}
+        label="Name"
+        padHelpText={false}
+        inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+      />
+      <Input.Item label={written ? "Written by" : "Read by"} padHelpText={false}>
         <Select.Buttons<icd.TextFieldType>
           value={encoding}
           onChange={handleEncoding}
@@ -896,20 +910,26 @@ export const TextField = ({ path, actions }: TextFieldProps): ReactElement => {
           padHelpText={false}
         />
       )}
-      <Conversion path={path} />
+      <Conversion path={path} commanded={commanded} />
     </Form.Section>
   );
 };
 
-export interface BinaryFieldProps {
+export interface BinaryFieldProps extends Pick<
+  JSONFieldProps,
+  "actions" | "autoFocus" | "commanded"
+> {
   /** The form path of the field. */
   path: deep.Path<icd.BinaryField>;
-  /** Actions in the header of the field's section. */
-  actions?: ReactNode;
 }
 
 /** Edits one field of a binary message: its name, bits, type, and conversion. */
-export const BinaryField = ({ path, actions }: BinaryFieldProps): ReactElement => {
+export const BinaryField = ({
+  path,
+  actions,
+  autoFocus = false,
+  commanded = false,
+}: BinaryFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const kind = Form.useFieldValue(path.kind);
   const handleKind = (next: NumberKind) => {
@@ -917,7 +937,12 @@ export const BinaryField = ({ path, actions }: BinaryFieldProps): ReactElement =
   };
   return (
     <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.name}
+        label="Name"
+        padHelpText={false}
+        inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+      />
       <Form.NumericField path={path.startBit} label="Start bit" padHelpText={false} />
       <Form.NumericField path={path.bitLength} label="Bit length" padHelpText={false} />
       <Form.Field<icd.ByteOrder>
@@ -938,7 +963,7 @@ export const BinaryField = ({ path, actions }: BinaryFieldProps): ReactElement =
           preview={mode === "preview"}
         />
       </Input.Item>
-      <Conversion path={path} />
+      <Conversion path={path} commanded={commanded} />
     </Form.Section>
   );
 };

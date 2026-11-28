@@ -16,7 +16,7 @@ import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id, type json, unique } from "@synnaxlabs/x";
+import { deep, id, type json, payload, unique } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/kafka/device";
@@ -136,7 +136,7 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
         icdKey={icdKey}
         messages={[message]}
         missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
-        jsonOnly
+        written
       />
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
@@ -181,7 +181,7 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
           actions={
             <ICD.AddField
               onClick={onAddField}
-              disabled={message?.payload.format !== "json"}
+              disabled={ICD.Write.bindable(message) == null}
             />
           }
         >
@@ -189,12 +189,13 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
             icdKey={target.icd}
             message={target.message.message}
             onChange={handleFormatChange}
+            formats={payload.FORMATS}
             preview={isPreview}
           />
           <ICD.MessageWarning
             message={message}
             missingDescription={ICD.Write.MISSING_DESCRIPTION}
-            jsonOnly
+            written
           />
         </PForm.Section>
       </PForm.Sections>

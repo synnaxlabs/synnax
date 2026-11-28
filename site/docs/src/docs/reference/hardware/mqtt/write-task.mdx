@@ -24,9 +24,12 @@ value back from the device with a [read task](/reference/hardware/mqtt/read-task
 
 ## Message formats
 
-A plain target publishes the JSON payload of one message of an
-[interface control document (ICD)](/reference/hardware/icds) to one topic. Each field of
-the message sends a command from a command channel, a fixed value, or its
+A plain target publishes the payload of one message of an
+[interface control document (ICD)](/reference/hardware/icds) to one topic. A message can
+be [JSON](/reference/hardware/icds/reference#json-messages),
+[text](/reference/hardware/icds/reference#text-messages), or
+[binary](/reference/hardware/icds/reference#binary-messages). Each field of the message
+sends a command from a command channel, a fixed value, or its
 [default](/reference/hardware/icds/reference#defaults).
 
 - **Commands** -> commands written at the same time go out in one payload. A field with
@@ -36,6 +39,8 @@ the message sends a command from a command channel, a fixed value, or its
 - **Dropped commands** -> the task drops a command that its field cannot hold, such as
   NaN in a JSON number or a value outside the min and max of its field, and shows a
   warning.
+- **Text and binary fields** -> a channel of numbers fills a text or binary field. The
+  identifier field of a binary message sends the value of the identifier.
 
 For a message where `/position` has a command channel, `/source` has the fixed value
 `synnax`, and `/id` has a random UUID default, a command of 42 publishes:

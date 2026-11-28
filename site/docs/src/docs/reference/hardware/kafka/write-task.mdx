@@ -26,8 +26,11 @@ topic with a [Kafka read task](/reference/hardware/kafka/read-task).
 
 A target of the task sends one message of an
 [interface control document (ICD)](/reference/hardware/icds) to one topic. The value of
-each record is the JSON payload of the message. Each field of the message sends a
-command from a command channel, a fixed value, or its
+each record is the payload of the message, which can be
+[JSON](/reference/hardware/icds/reference#json-messages),
+[text](/reference/hardware/icds/reference#text-messages), or
+[binary](/reference/hardware/icds/reference#binary-messages). Each field of the message
+sends a command from a command channel, a fixed value, or its
 [default](/reference/hardware/icds/reference#defaults).
 
 - **Commands** -> record 1 holds the first new command of each channel of the message,
@@ -38,6 +41,8 @@ command from a command channel, a fixed value, or its
 - **Dropped commands** -> the task drops a command that its field cannot hold, such as
   NaN in a JSON number or a value outside the min and max of its field, and shows a
   warning.
+- **Text and binary fields** -> a channel of numbers fills a text or binary field. The
+  identifier field of a binary message sends the value of the identifier.
 
 For a message where `/speed` has a command channel, `/unit` has the fixed value `rpm`,
 and `/id` has a random UUID default, a command of 1200 sends this record value:

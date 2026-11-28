@@ -94,7 +94,7 @@ const createTarget = async (
     key: "t1",
     topic: "plant.pumps",
     icd: ic.key,
-    message: { message: message.key, bindings: ICD.Write.suit([], fields) },
+    message: { message: message.key, bindings: ICD.Write.suit([], message) },
     ...overrides,
   });
   return { ic, message, target };
@@ -613,6 +613,37 @@ describe("Kafka Write form", () => {
     fireEvent.click(await select.findByText("No message format"));
     await dialog.findByText("/mode");
     expect(dialog.queryByText(note)).toBeNull();
+  });
+
+  it("should send a text message picked in the pane of a target", async () => {
+    const { target, message } = await createTarget([createField("speed", "float")]);
+    const level = icd.textFieldZ.parse({
+      name: "level",
+      encoding: "delimited",
+      position: 1,
+    });
+    const text = icd.messageZ.parse({
+      name: uniqueName("line"),
+      payload: { format: "text", fields: [level] },
+    });
+    const textICD = await client.icds.create({
+      name: uniqueName("line"),
+      messages: [text],
+    });
+    const { draft } = await renderWrite([target]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
+    await pickMessageFormat(message.name, text.name, textICD.name);
+    await waitFor(async () =>
+      expect(await retrieveTargets(draft.key)).toMatchObject([
+        {
+          icd: textICD.key,
+          message: {
+            message: text.key,
+            bindings: [{ type: "channel", field: level.key, channel: 0 }],
+          },
+        },
+      ]),
+    );
   });
 
   it("should show the topic and record key of a target", async () => {

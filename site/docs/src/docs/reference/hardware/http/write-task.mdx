@@ -23,9 +23,13 @@ The task has no state channels. To see the value on the server, read it back wit
 
 ## Request body
 
-The body of each endpoint is the JSON payload of one message of an
-[interface control document (ICD)](/reference/hardware/icds). Each field of the message
-sends a command from a command channel, a fixed value, or its
+The body of each endpoint is the payload of one message of an
+[interface control document (ICD)](/reference/hardware/icds). A message can be
+[JSON](/reference/hardware/icds/reference#json-messages),
+[text](/reference/hardware/icds/reference#text-messages), or
+[binary](/reference/hardware/icds/reference#binary-messages), sent as
+`application/json`, `text/plain`, or `application/octet-stream`. Each field of the
+message sends a command from a command channel, a fixed value, or its
 [default](/reference/hardware/icds/reference#defaults).
 
 - **Commands** -> request 1 holds the first new command of each channel of the message,
@@ -36,6 +40,8 @@ sends a command from a command channel, a fixed value, or its
   no default has a command.
 - **Dropped commands** -> the task drops a command that its field cannot hold, such as
   NaN in a JSON number, and shows a warning.
+- **Text and binary fields** -> a channel of numbers fills a text or binary field. The
+  identifier field of a binary message sends the value of the identifier.
 
 For a message where `/setpoint` has a command channel, `/unit` has the fixed value
 `psi`, and `/id` has a random UUID default, a command of 42 sends this body:
