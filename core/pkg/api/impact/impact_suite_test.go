@@ -38,6 +38,23 @@ func planOf[RQ freighter.Payload](
 	}
 }
 
+// folderPlanOf returns a handler that answers as h does, with the plan of the folder
+// delete that the response of h carries.
+func folderPlanOf[RQ freighter.Payload](
+	h freighter.UnaryHandler[RQ, apiimpact.Response],
+) freighter.UnaryHandler[RQ, impact.Plan] {
+	return func(ctx context.Context, req RQ) (impact.Plan, error) {
+		GinkgoHelper()
+		res, err := h(ctx, req)
+		if err != nil {
+			return impact.Plan{}, err
+		}
+		deleted, ok := res.Variant.(apiimpact.DeleteGroupsResponse)
+		Expect(ok).To(BeTrue())
+		return deleted.Plan, nil
+	}
+}
+
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 func TestImpact(t *testing.T) {
