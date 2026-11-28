@@ -39,9 +39,9 @@ func (e OutOfRangeError) Error() string {
 	)
 }
 
-// ConversionError is returned by Convert and ValueAs when the samples of one data type
+// conversionError is the error of Convert and ValueAs when the samples of one data type
 // do not convert to another.
-type ConversionError struct {
+type conversionError struct {
 	// From is the data type of the series.
 	From DataType
 	// To is the data type that the series does not convert to.
@@ -49,7 +49,7 @@ type ConversionError struct {
 }
 
 // Error implements error.
-func (e ConversionError) Error() string {
+func (e conversionError) Error() string {
 	return fmt.Sprintf("cannot convert %s series to %s", withArticle(e.From), e.To)
 }
 
@@ -66,9 +66,8 @@ func withArticle(dt DataType) string {
 // zero for an integer type. A boolean is 1 or 0 as a number, and a number is true as a
 // boolean unless it is 0. A uuid converts to a string as the canonical text of each
 // value. It returns s when dt is its data type. It returns an OutOfRangeError when a
-// sample is out of the range of dt or is a NaN for an integer type, and a
-// ConversionError for any other pair of types that are not numbers, timestamps, or
-// booleans.
+// sample is out of the range of dt or is a NaN for an integer type, and an error for
+// any other pair of types that are not numbers, timestamps, or booleans.
 func Convert(s Series, dt DataType) (Series, error) {
 	if s.DataType == dt {
 		return s, nil
@@ -79,7 +78,7 @@ func Convert(s Series, dt DataType) (Series, error) {
 	}
 	t, ok := targetOf(dt)
 	if _, from := targetOf(s.DataType); !ok || !from {
-		return Series{}, ConversionError{From: s.DataType, To: dt}
+		return Series{}, conversionError{From: s.DataType, To: dt}
 	}
 	var (
 		data []byte
@@ -127,7 +126,7 @@ func ValueAs[T NumericSample](s Series, i int) (T, error) {
 	}
 	t, ok := targetOf(dt)
 	if !ok {
-		return 0, ConversionError{From: s.DataType, To: dt}
+		return 0, conversionError{From: s.DataType, To: dt}
 	}
 	switch s.DataType {
 	case Uint8T, BooleanT:
@@ -152,7 +151,7 @@ func ValueAs[T NumericSample](s Series, i int) (T, error) {
 		return valueAs[float64, T](s.ValueAt[float64](i), s.DataType, t)
 	case UnknownT, UUIDT, StringT, BytesT, JSONT:
 	}
-	return 0, ConversionError{From: s.DataType, To: dt}
+	return 0, conversionError{From: s.DataType, To: dt}
 }
 
 // target is a type that numbers convert to: its kind ('u', 'i', 'f', or 'b' for a
@@ -261,14 +260,14 @@ func outOfRange[S NumericSample](v S, from DataType, t target) error {
 
 // ValueAsBool returns sample i of s as a boolean, converted as Convert converts it: a
 // number is true when it is not zero. It reads with no allocation, and a negative i
-// counts from the end. It returns a ConversionError for a series that holds no numbers.
+// counts from the end. It returns an error for a series that holds no numbers.
 func ValueAsBool(s Series, i int) (bool, error) {
 	if s.DataType == BooleanT {
 		return isTrue(s.ValueAt[uint8](i)), nil
 	}
 	v, err := ValueAs[float64](s, i)
 	if err != nil {
-		return false, ConversionError{From: s.DataType, To: BooleanT}
+		return false, conversionError{From: s.DataType, To: BooleanT}
 	}
 	return isTrue(v), nil
 }
@@ -337,7 +336,7 @@ func convertFrom[S NumericSample](
 		return dst, nil
 	case UnknownT, UUIDT, StringT, BytesT, JSONT:
 	}
-	return nil, ConversionError{From: from, To: t.dataType}
+	return nil, conversionError{From: from, To: t.dataType}
 }
 
 func convertTo[S, T NumericSample](src []S) []byte {
