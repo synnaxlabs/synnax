@@ -63,6 +63,20 @@ const inSource = (at: string, source: string): boolean => {
 };
 
 /**
+ * @returns the keys of the messages that stored holds channels for at the source with
+ * key source.
+ */
+export const messagesAt = (
+  stored: Record<string, unknown>,
+  source: string,
+): icd.MessageKey[] =>
+  Object.keys(stored)
+    .filter((at) => inSource(at, source))
+    .map((at) => at.slice(source.length + 1))
+    // A legacy key whose record key holds "#" can pass as one.
+    .filter((message) => icd.messageKeyZ.safeParse(message).success);
+
+/**
  * @returns stored with the channels under each legacy key of sources moved to the keys
  * of the messages that read it. One message, the owner, gets them all with their index:
  * the first enabled message that binds one of them, else the first disabled one, else

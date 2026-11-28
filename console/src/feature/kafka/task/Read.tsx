@@ -52,6 +52,7 @@ import {
   planAdd,
   type TopicAdditions,
   type TopicPick,
+  withFields,
 } from "@/feature/kafka/task/plan";
 import {
   deployReadConfigZ,
@@ -408,6 +409,39 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   );
 };
 
+const NO_HOLDERS: icd.ICD[] = [];
+
+/** @returns the ICD of holders with the given key. */
+const holderOf = (holders: icd.ICD[], key: icd.Key): icd.ICD => {
+  const holder = holders.find((h) => h.key === key);
+  if (holder == null) throw new Error(`The form of ICD ${key} is not open`);
+  return holder;
+};
+
+/**
+ * Puts the new messages of added in an ICD that holds held, then the fields that each
+ * reused message gains.
+ */
+const writeAdditions = (
+  to: ICD.Inserter,
+  held: icd.Message[],
+  added: Addition[],
+): void => {
+  let after = held.at(-1)?.key;
+  for (const { message, reused } of added) {
+    if (reused === true) continue;
+    to.insert(PICD.formPath.messages, message, after);
+    after = message.key;
+  }
+  const messages = new Map(held.map((m) => [m.key, m]));
+  for (const { message, appended } of added) {
+    if (appended == null || appended.length === 0) continue;
+    const prior = messages.get(message.key);
+    if (prior == null) throw new Error(`No held message has the key ${message.key}`);
+    messages.set(message.key, withFields(prior, ICD.appendFields(to, prior, appended)));
+  }
+};
+
 interface RecordsProps {
   device: Device.Device;
   /** The key of each selected tree item. */
@@ -515,46 +549,49 @@ const Records: FC<RecordsProps> = ({
   };
 
   /**
-   * Puts the new messages of each topic in the ICD that the topic reads, else in the
-   * ICD that the most records read, else in a new ICD named after the device. Then it
-   * adds the records that read them to their topics.
-   * @param additions - The additions of each topic, by topic name.
+   * Makes an ICD named after the device for the new messages of additions that read no
+   * ICD, when no record reads one.
+   * @returns the key of the new ICD, or undefined when the add needs none.
    */
-  const addRecords = async (additions: Map<string, TopicAdditions>) => {
+  const createIcd = async (
+    additions: Map<string, TopicAdditions>,
+  ): Promise<icd.Key | undefined> => {
     if (client == null) throw new DisconnectedError();
+    const homeless = [...additions.values()].filter(({ icd: k }) => k == null);
+    if (homeless.length === 0 || ICD.mostRead(records) != null) return undefined;
+    const messages = homeless.flatMap(({ added }) =>
+      added.filter(({ reused }) => reused !== true).map(({ message }) => message),
+    );
+    return (await client.icds.create({ name: device.name, messages })).key;
+  };
+
+  /**
+   * Puts the new messages of each topic in the ICD that the topic reads, else in the
+   * ICD that the most records read, else in created. Then it adds the records that read
+   * them to their topics.
+   * @param additions - The additions of each topic, by topic name.
+   * @param created - The ICD that createIcd made for the additions, if any.
+   */
+  const addRecords = (
+    additions: Map<string, TopicAdditions>,
+    holders: icd.ICD[],
+    created?: icd.Key,
+  ) => {
     const home = ICD.mostRead(records);
     const addedIn = (target?: icd.Key): Addition[] =>
       [...additions.values()]
         .filter(({ icd: k }) => (k ?? home) === target)
         .flatMap(({ added }) => added);
-    const newIn = (target?: icd.Key): icd.Message[] =>
-      addedIn(target)
-        .filter(({ reused }) => reused !== true)
-        .map(({ message }) => message);
-    const created =
-      home == null
-        ? (await client.icds.create({ name: device.name, messages: newIn() })).key
-        : undefined;
     const targets = unique.unique(
       [...additions.values()].map(({ icd: k }) => k ?? home),
     );
+    const dispatched = new Set(holders.map(({ key }) => key));
     for (const target of targets) {
-      if (target == null) continue;
+      if (target == null || dispatched.has(target)) continue;
       const format = ICD.formatOf(formats, target);
-      let after = format.value().messages.at(-1)?.key;
-      format.batch(() => {
-        for (const message of newIn(target)) {
-          format.insert(PICD.formPath.messages, message, after);
-          after = message.key;
-        }
-        for (const { message, appended } of addedIn(target)) {
-          if (appended == null || appended.length === 0) continue;
-          const held = format.value().messages.find(({ key }) => key === message.key);
-          if (held == null)
-            throw new Error(`ICD ${target} has no message ${message.key}`);
-          ICD.appendFields(format, held, appended);
-        }
-      });
+      format.batch(() =>
+        writeAdditions(format, format.value().messages, addedIn(target)),
+      );
     }
     for (const { added } of additions.values())
       for (const { message, reused } of added)
@@ -582,8 +619,33 @@ const Records: FC<RecordsProps> = ({
   const topicRecords = (name: string): ReadRecord[] =>
     topics.find((t) => t.name === name)?.records ?? [];
 
-  const messagesOf: MessagesOf = (icdKey) =>
-    ICD.formatOf(formats, icdKey).value().messages;
+  /** @returns the messages of each ICD that a form opens, or that holders holds. */
+  const messagesIn =
+    (holders: icd.ICD[]): MessagesOf =>
+    (icdKey) =>
+      formats.get(icdKey)?.value().messages ?? holderOf(holders, icdKey).messages;
+
+  const messagesOf = messagesIn(NO_HOLDERS);
+
+  /**
+   * Puts the additions in each ICD of holders, through one dispatch per ICD.
+   * @param holders - ICDs that no form opens.
+   */
+  const dispatchAdditions = async (
+    additions: Map<string, TopicAdditions>,
+    holders: icd.ICD[],
+  ) => {
+    if (client == null) throw new DisconnectedError();
+    for (const holder of holders) {
+      const added = [...additions.values()]
+        .filter(({ icd: k }) => k === holder.key)
+        .flatMap(({ added }) => added);
+      if (added.length === 0) continue;
+      const actions: icd.Action[] = [];
+      writeAdditions(ICD.actionInserter(actions), holder.messages, added);
+      await client.icds.dispatch(holder.key, actions);
+    }
+  };
 
   /**
    * Puts new fields in messages that records read, and messages for new kinds in the
@@ -629,12 +691,16 @@ const Records: FC<RecordsProps> = ({
    * @returns what an add of the picks of topics, and of an empty record of record,
    * puts in the ICDs and the task.
    */
-  const plan = (picked: TopicPick[], record: string | null = null): Plan =>
+  const plan = (
+    picked: TopicPick[],
+    holders: icd.ICD[] = NO_HOLDERS,
+    record: string | null = null,
+  ): Plan =>
     planAdd({
       topics: picked,
       record,
       recordsOf: topicRecords,
-      messagesOf,
+      messagesOf: messagesIn(holders),
       home: ICD.mostRead(records),
       nameOf: topicMessageName,
     });
@@ -652,7 +718,7 @@ const Records: FC<RecordsProps> = ({
       plan,
     });
     if (result == null) return;
-    const planned = plan(result.topics, result.record);
+    const planned = plan(result.topics, result.holders, result.record);
     // The dialog closes only when every Default input spells a default.
     const problem = findProblem(planned);
     if (problem != null)
@@ -660,9 +726,13 @@ const Records: FC<RecordsProps> = ({
         `The default of ${problem.pointer} in ${problem.topic} is invalid: ${problem.message}`,
       );
     const { extensions, kinds, additions } = planned;
+    // The dispatches are the last steps that can fail, so a failed add leaves each
+    // found ICD as it was.
+    const created = await createIcd(additions);
+    await dispatchAdditions(additions, result.holders);
     extend(extensions, kinds);
     if (additions.size === 0) return;
-    await addRecords(additions);
+    addRecords(additions, result.holders, created);
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.

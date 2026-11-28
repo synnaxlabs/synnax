@@ -8,12 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { icd, type Synnax } from "@synnaxlabs/client";
-import type { payload } from "@synnaxlabs/x";
+import { type payload, uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 import { findDialogTriggerByText } from "@/testutil";
+
+/**
+ * @returns an ICD key that the Core lists before random keys. The Core compares keys
+ * from the last byte to the first, and these keys differ only in their first bytes.
+ * Give an ICD at this key no messages: other specs expect none ahead of theirs.
+ */
+export const createFirstKey = (): icd.Key =>
+  `${uuid.create().slice(0, 19)}8000-000000000000`;
+
+/** @returns an ICD key that the Core lists after each key that ends in six 0 bytes. */
+export const createSecondKey = (): icd.Key =>
+  `${uuid.create().slice(0, 19)}8000-000000000001`;
 
 /**
  * Opens the message format field that shows current, searches for an ICD name, and

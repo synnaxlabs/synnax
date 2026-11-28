@@ -98,6 +98,12 @@ export const heldMessage = (
 /** Inserts entries into the lists of one ICD. */
 export type Inserter = Pick<FormatForm, "insert">;
 
+/** @returns an inserter that adds each insert to actions, for a dispatch to an ICD. */
+export const actionInserter = (actions: icd.Action[]): Inserter => ({
+  insert: (path, value, after) =>
+    actions.push(icd.insert({ path: String(path).split("."), value, after })),
+});
+
 /**
  * Appends each field whose pointer the message lacks.
  * @returns the fields it appends.

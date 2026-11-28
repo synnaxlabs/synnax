@@ -328,11 +328,7 @@ const addTopics = async ({
   const actions = new Map<icd.Key, icd.Action[]>();
   const inserterOf = (key: icd.Key): ICD.Inserter => {
     if (key === format.key) return format.form;
-    const pending = map.getOrInsert(actions, key, () => []);
-    return {
-      insert: (path, value, after) =>
-        pending.push(icd.insert({ path: String(path).split("."), value, after })),
-    };
+    return ICD.actionInserter(map.getOrInsert(actions, key, () => []));
   };
   const result: AddTopicsResult = { added: [], held: [] };
   const reads: [topic: string, Read][] = [];

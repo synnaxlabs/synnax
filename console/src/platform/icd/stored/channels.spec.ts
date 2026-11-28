@@ -99,6 +99,29 @@ describe("ICD.Stored", () => {
     });
   });
 
+  describe("messagesAt", () => {
+    it("should return the keys of the messages stored at a source", () => {
+      const message = uuid.create();
+      expect(
+        ICD.Stored.messagesAt(
+          {
+            [ICD.Stored.key("plant#oven-1", message)]: {},
+            [ICD.Stored.key("plant#oven-2", uuid.create())]: {},
+          },
+          "plant#oven-1",
+        ),
+      ).toEqual([message]);
+    });
+
+    it("should not read a legacy key that ends in a record key", () => {
+      const recordKey = uuid.create();
+      const stored = { [`plant#${recordKey}`]: {}, "plant#oven#1": {} };
+      expect(ICD.Stored.messagesAt(stored, `plant#${recordKey}`)).toEqual([]);
+      expect(ICD.Stored.messagesAt(stored, "plant#")).toEqual([]);
+      expect(ICD.Stored.messagesAt(stored, "plant#oven")).toEqual([]);
+    });
+  });
+
   describe("sources", () => {
     const [m1, m2] = [uuid.create(), uuid.create()];
     const props = (index: channel.Key, channels: Record<string, channel.Key>) => ({
