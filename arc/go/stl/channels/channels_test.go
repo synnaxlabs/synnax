@@ -11,6 +11,7 @@ package channels_test
 
 import (
 	"math"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -885,8 +886,7 @@ var _ = Describe("Channel", func() {
 				}))
 			}
 			// next runs the source once and returns whether it emitted and the errors
-			// it
-			// reported.
+			// it reported.
 			next := func(ctx SpecContext, source rnode.Node) (bool, []error) {
 				var (
 					emitted bool
@@ -914,6 +914,22 @@ var _ = Describe("Channel", func() {
 				Expect(errs).To(BeEmpty())
 				Expect(*progState.Node("source").Output(0)).
 					To(MatchSeries(telem.NewSeriesV[float32](-1, 300)))
+			})
+
+			It("Should emit a uuid series as the canonical text of each value", func(
+				ctx SpecContext,
+			) {
+				source := createSource(10, types.String())
+				id := uuid.New()
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(10, telem.NewSeriesV(id))
+				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100))
+				channelState.Ingest(fr)
+				emitted, errs := next(ctx, source)
+				Expect(errs).To(BeEmpty())
+				Expect(emitted).To(BeTrue())
+				Expect(*progState.Node("source").Output(0)).
+					To(MatchSeriesData(telem.NewSeriesV(id.String())))
 			})
 
 			// D-116: a sample out of the output's range, or a NaN to an integer, fails

@@ -735,6 +735,16 @@ TEST(CodecTests, RejectsDeclaredClockErrors) {
     );
 }
 
+/// @brief it should reject a frame shorter than the length it declares for a series.
+TEST(CodecTests, RejectsSeriesPastFrameEnd) {
+    auto short_frame = from_hex("BF 01000000 01 09 01000000 0000803F");
+    put_u32(short_frame, 7, 0xFFFFFFFF);
+    Codec dec({1}, {x::telem::FLOAT32_T});
+    const auto err = dec.decode(short_frame).second;
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data(), "remote sent a frame that ends early");
+}
+
 /// @brief it should declare an unrequested time series that no requested series names
 /// as its clock.
 TEST(CodecTests, DeclaresAnUnnamedClock) {

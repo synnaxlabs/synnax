@@ -64,12 +64,17 @@ func withArticle(dt DataType) string {
 // Convert returns s with its samples converted to dt and every other field kept.
 // Numbers and timestamps convert as a Go conversion does, with a float truncated toward
 // zero for an integer type. A boolean is 1 or 0 as a number, and a number is true as a
-// boolean unless it is 0. It returns s when dt is its data type. It returns an
-// OutOfRangeError when a sample is out of the range of dt or is a NaN for an integer
-// type, and a ConversionError when either type is not a number, a timestamp, or a
-// boolean.
+// boolean unless it is 0. A uuid converts to a string as the canonical text of each
+// value. It returns s when dt is its data type. It returns an OutOfRangeError when a
+// sample is out of the range of dt or is a NaN for an integer type, and a
+// ConversionError for any other pair of types that are not numbers, timestamps, or
+// booleans.
 func Convert(s Series, dt DataType) (Series, error) {
 	if s.DataType == dt {
+		return s, nil
+	}
+	if s.DataType == UUIDT && dt == StringT {
+		s.DataType, s.Data = StringT, uuidText(s.Data)
 		return s, nil
 	}
 	t, ok := targetOf(dt)
@@ -266,6 +271,18 @@ func ValueAsBool(s Series, i int) (bool, error) {
 		return false, ConversionError{From: s.DataType, To: BooleanT}
 	}
 	return isTrue(v), nil
+}
+
+// uuidText returns string series data that holds the canonical text of each UUID in
+// data.
+func uuidText(data []byte) []byte {
+	size := int(UUIDT.Density())
+	b := make([]byte, 0, len(data)/size*(variableLengthPrefixSize+uuidTextSize))
+	for i := 0; i+size <= len(data); i += size {
+		b = ByteOrder.AppendUint32(b, uuidTextSize)
+		b = appendUUIDText(b, data[i:i+size])
+	}
+	return b
 }
 
 // isTrue returns the boolean of the number v.

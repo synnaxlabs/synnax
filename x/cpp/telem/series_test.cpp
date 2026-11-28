@@ -1195,6 +1195,37 @@ TEST(TestSeries, testFillFromString) {
     ASSERT_EQ(values, source_strings);
 }
 
+/// @brief it should build a fixed series from the bytes of its samples.
+TEST(SeriesFromBytes, Fixed) {
+    const std::vector<float> values = {1.5f, -2};
+    const auto *bytes = reinterpret_cast<const std::uint8_t *>(values.data());
+    const auto n = Series::byte_count(FLOAT32_T, values.size());
+    ASSERT_EQ(n, 8);
+    const auto s = Series::from_bytes(FLOAT32_T, values.size(), {bytes, n});
+    ASSERT_EQ(s.data_type(), FLOAT32_T);
+    ASSERT_EQ(s.values<float>(), values);
+}
+
+/// @brief it should build a variable series from its length-prefixed samples.
+TEST(SeriesFromBytes, Variable) {
+    const std::vector<std::uint8_t> bytes = {2, 0, 0, 0, 'h', 'i', 1, 0, 0, 0, 'x'};
+    ASSERT_EQ(Series::byte_count(STRING_T, bytes.size()), bytes.size());
+    const auto s = Series::from_bytes(STRING_T, bytes.size(), bytes);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"hi", "x"}));
+}
+
+/// @brief it should build a boolean series from samples packed one to a bit, lowest bit
+/// first.
+TEST(SeriesFromBytes, PackedBoolean) {
+    const std::vector<std::uint8_t> bytes = {0b0000'0101, 0b0000'0010};
+    ASSERT_EQ(Series::byte_count(BOOLEAN_T, 10), 2);
+    const auto s = Series::from_bytes(BOOLEAN_T, 10, bytes);
+    ASSERT_EQ(
+        s.values<std::uint8_t>(),
+        (std::vector<std::uint8_t>{1, 0, 1, 0, 0, 0, 0, 0, 0, 1})
+    );
+}
+
 /// @brief it should fill series partially when capacity is less than data.
 TEST(TestSeries, testFillFromPartial) {
     std::vector<uint16_t> source_data = {1, 2, 3, 4, 5};

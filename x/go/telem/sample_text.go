@@ -50,11 +50,7 @@ func AppendSampleText(dst []byte, dt DataType, sample []byte) ([]byte, error) {
 	case Uint8T, BooleanT:
 		return strconv.AppendUint(dst, uint64(sample[0]), 10), nil
 	case UUIDT:
-		dst = hex.AppendEncode(dst, sample[:4])
-		dst = hex.AppendEncode(append(dst, '-'), sample[4:6])
-		dst = hex.AppendEncode(append(dst, '-'), sample[6:8])
-		dst = hex.AppendEncode(append(dst, '-'), sample[8:10])
-		return hex.AppendEncode(append(dst, '-'), sample[10:16]), nil
+		return appendUUIDText(dst, sample), nil
 	case StringT, JSONT:
 		return append(dst, sample...), nil
 	case BytesT:
@@ -64,4 +60,16 @@ func AppendSampleText(dst []byte, dt DataType, sample []byte) ([]byte, error) {
 	default:
 		return nil, errors.Newf("data type %s has no text form", dt)
 	}
+}
+
+// uuidTextSize is the size of the canonical text of a UUID.
+const uuidTextSize = 36
+
+// appendUUIDText appends the canonical text of the UUID in sample to dst.
+func appendUUIDText(dst, sample []byte) []byte {
+	dst = hex.AppendEncode(dst, sample[:4])
+	dst = hex.AppendEncode(append(dst, '-'), sample[4:6])
+	dst = hex.AppendEncode(append(dst, '-'), sample[6:8])
+	dst = hex.AppendEncode(append(dst, '-'), sample[8:10])
+	return hex.AppendEncode(append(dst, '-'), sample[10:16])
 }
