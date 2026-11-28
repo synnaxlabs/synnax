@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Middleware } from "@synnaxlabs/freighter";
-import { DataType, id, TimeSpan } from "@synnaxlabs/x";
+import { DataType, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
 
 import type { channel } from "@/channel";
@@ -55,21 +55,23 @@ const connectCounting = async (): Promise<{
   return { client, retrieves: () => count };
 };
 
-/** The most runs of a scenario, to see past the writes of other spec files. */
-const ATTEMPTS = 3;
+/** How long a scenario runs again, to see past the writes of other spec files. */
+const RETRY_FOR = TimeSpan.seconds(10);
 
 /**
- * @returns the fewest extra retrieves that the scenario sends in ATTEMPTS runs. Other
- * spec files write channels and folders on the same Core, which can only add retrieves,
- * so the fewest is the count that the scenario itself causes. It stops early at want.
+ * @returns the fewest extra retrieves that the scenario sends in the runs that start
+ * within RETRY_FOR. Other spec files write channels and folders on the same Core, which
+ * can only add retrieves, so the fewest is the count that the scenario itself causes.
+ * It stops early at want.
  */
 const fewestRetrieves = async (
   want: number,
   scenario: () => Promise<number>,
 ): Promise<number> => {
+  const deadline = TimeStamp.now().add(RETRY_FOR);
   let fewest = Infinity;
-  for (let i = 0; i < ATTEMPTS && fewest > want; i++)
-    fewest = Math.min(fewest, await scenario());
+  do fewest = Math.min(fewest, await scenario());
+  while (fewest > want && TimeStamp.now().before(deadline));
   return fewest;
 };
 
