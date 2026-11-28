@@ -975,7 +975,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Properties: map[string]func(msgpack.EncodedJSON) error{
 			serial.Make: device.CheckProperties[serial.Properties](),
 			tcp.Make:    device.CheckProperties[tcp.Properties](),
-			udp.Make:    device.CheckProperties[udp.Properties](),
+			udp.Make:    device.CheckProperties(udp.Properties.CheckLocal),
 		},
 	}); !ok(err, l.Device) {
 		return nil, err

@@ -37,14 +37,24 @@ type Writer struct {
 }
 
 // CheckProperties returns a check of the properties of a device that decodes them into
-// P and validates the result.
-func CheckProperties[P interface{ Validate() error }]() func(msgpack.EncodedJSON) error {
+// P, validates the result, and then runs each of checks on it.
+func CheckProperties[P interface{ Validate() error }](
+	checks ...func(P) error,
+) func(msgpack.EncodedJSON) error {
 	return func(props msgpack.EncodedJSON) error {
 		var p P
 		if err := props.Unmarshal(&p); err != nil {
 			return errors.Wrap(validate.ErrValidation, err.Error())
 		}
-		return p.Validate()
+		if err := p.Validate(); err != nil {
+			return err
+		}
+		for _, check := range checks {
+			if err := check(p); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 }
 

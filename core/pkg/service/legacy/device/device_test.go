@@ -71,6 +71,9 @@ var _ = Describe("Device", func() {
 			Rack:   rackSvc,
 			Properties: map[string]func(msgpack.EncodedJSON) error{
 				checkedMake: device.CheckProperties[checkedProperties](),
+				unreservedMake: device.CheckProperties(
+					checkedProperties.CheckUnreserved,
+				),
 			},
 		}))
 		tx = DeferClose(db.OpenTx())
@@ -452,6 +455,38 @@ var _ = Describe("Device", func() {
 			err := w.Create(ctx, &d)
 			Expect(err).To(MatchError(validate.ErrValidation))
 			Expect(err).To(MatchError(ContainSubstring("properties: ")))
+		})
+
+		It("Should create a device whose properties pass each check of its make", func(
+			ctx SpecContext,
+		) {
+			d := newDevice(unreservedMake, msgpack.EncodedJSON{"port": 5020})
+			Expect(w.Create(ctx, &d)).To(Succeed())
+		})
+
+		It(
+			"Should refuse a device whose properties fail a check after validation",
+			func(
+				ctx SpecContext,
+			) {
+				d := newDevice(unreservedMake, msgpack.EncodedJSON{"port": 502})
+				err := w.Create(ctx, &d)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(
+					ContainSubstring("properties.port: must not be reserved"),
+				))
+			},
+		)
+
+		It("Should not run the checks of a make when validation fails", func(
+			ctx SpecContext,
+		) {
+			d := newDevice(unreservedMake, msgpack.EncodedJSON{"port": 0})
+			err := w.Create(ctx, &d)
+			Expect(err).To(MatchError(
+				ContainSubstring("properties.port: must be greater than 0"),
+			))
+			Expect(err).ToNot(MatchError(ContainSubstring("must not be reserved")))
 		})
 
 		It("Should store any properties on a device of a make with no check", func(
@@ -1561,6 +1596,17 @@ type checkedProperties struct {
 func (p checkedProperties) Validate() error {
 	v := validate.New("properties")
 	v.GreaterThan("port", p.Port, 0)
+	return v.Error()
+}
+
+// unreservedMake is the make whose devices the specs check with checkedProperties and
+// then CheckUnreserved.
+const unreservedMake = "unreserved"
+
+// CheckUnreserved refuses a port below 1024.
+func (p checkedProperties) CheckUnreserved() error {
+	v := validate.New("properties")
+	v.Ternary("port", p.Port < 1024, "must not be reserved")
 	return v.Error()
 }
 
