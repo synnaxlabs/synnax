@@ -35,6 +35,7 @@ import {
   defaultPicks,
   type FieldDefaults,
   freeShapes,
+  type Inputs,
   isExtendable,
   isReusable,
   type Picks,
@@ -43,7 +44,7 @@ import {
   splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
-import type { Plan, TopicPick } from "@/feature/kafka/task/plan";
+import { findProblem, type Plan, type TopicPick } from "@/feature/kafka/task/plan";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
@@ -308,67 +309,6 @@ const plannedFit = (
     : reusedFit(found, shape, i);
 
 /**
- * @returns whether a field of a shape takes a default: some records lack it, or it
- * adds to the message of fit.
- */
-const takesDefault = (
-  shape: json.Shape,
-  f: json.InferredField,
-  fit: ICD.Reuse.Fit | undefined,
-): boolean =>
-  shape.fields.indexOf(f) !== shape.index &&
-  (f.optional || fit?.missing.includes(f.pointer) === true);
-
-/** @returns why text spells no default of a field, or undefined when it spells one. */
-const problemOf = (f: json.InferredField, text: string): string | undefined => {
-  try {
-    ICD.parseDefault(ICD.createReadField(f, f.pointer), text);
-    return undefined;
-  } catch (e) {
-    return e instanceof Error ? e.message : String(e);
-  }
-};
-
-/** @returns the Default input texts of the picked fields of pick that take one. */
-const appliedDefaults = (
-  pick: TopicPick,
-  texts: FieldDefaults,
-  found: ICD.Reuse.Result,
-  free: json.Shape[],
-  reused: Set<string> | undefined,
-): FieldDefaults => {
-  const applied: FieldDefaults = new Map();
-  for (const shape of pick.shapes) {
-    const key = json.shapeKey(shape);
-    const pointers = pick.picks.get(key);
-    const shapeTexts = texts.get(key);
-    if (pointers == null || shapeTexts == null) continue;
-    const fit = plannedFit(found, shape, free.indexOf(shape), true, reused);
-    const entries = shape.fields.flatMap((f): [string, string][] => {
-      const text = shapeTexts.get(f.pointer);
-      if (text == null || !pointers.has(f.pointer) || !takesDefault(shape, f, fit))
-        return [];
-      return [[f.pointer, text]];
-    });
-    if (entries.length > 0) applied.set(key, new Map(entries));
-  }
-  return applied;
-};
-
-/** @returns whether a Default input of pick spells no default of its field. */
-const hasProblem = ({ shapes, defaults }: TopicPick): boolean =>
-  shapes.some((shape) => {
-    const texts = defaults?.get(json.shapeKey(shape));
-    return (
-      texts != null &&
-      shape.fields.some((f) => {
-        const text = texts.get(f.pointer);
-        return text != null && problemOf(f, text) != null;
-      })
-    );
-  });
-
-/**
  * @returns defaults with the text of the Default input of the field at pointer of a
  * shape of topic. Empty text drops it.
  */
@@ -389,11 +329,13 @@ const withDefault = (
 
 const NO_DEFAULTS: FieldDefaults = new Map();
 
-/** The picks of a topic that an add makes, with what the topic fits. */
-interface Adding {
-  pick: TopicPick;
-  found?: ICD.Reuse.Result;
-  free?: json.Shape[];
+/** A request to focus the Default input of the field at pointer of a shape of topic. */
+interface Focus {
+  topic: string;
+  shape: string;
+  pointer: string;
+  /** Counts the requests, so each new one focuses the input again. */
+  request: number;
 }
 
 /** A partition that the browse could not measure can hide records. */
@@ -542,9 +484,12 @@ interface TopicValuesProps {
   label: Params["label"];
   value: Picks;
   onChange: (value: Picks) => void;
-  /** The text of the Default input of each field. */
+  /** The text of each Default input. */
   defaults: FieldDefaults;
+  /** The Default inputs of the fields that the planned add creates. */
+  inputs?: Inputs;
   onDefaultChange: (shape: string, pointer: string, text: string) => void;
+  focus?: Omit<Focus, "topic">;
 }
 
 /** The fields of each shape of a sample of a topic, to pick. */
@@ -560,7 +505,9 @@ const TopicValues = ({
   value,
   onChange,
   defaults: texts,
+  inputs,
   onDefaultChange,
+  focus,
 }: TopicValuesProps) => {
   const { shapes } = sample;
   const free = freeShapes(shapes, reads);
@@ -600,10 +547,10 @@ const TopicValues = ({
         ];
         const shown = { ...valueOf(key, f, ICD.readKind(f), newest), lock };
         if (notes.length > 0) shown.note = notes.join(" · ");
-        if (lock == null && takesDefault(shape, f, fit)) {
-          const text = texts.get(shapeKey)?.get(f.pointer) ?? "";
-          shown.default = text;
-          const problem = text === "" ? undefined : problemOf(f, text);
+        const input = inputs?.get(shapeKey);
+        if (input?.has(f.pointer) === true) {
+          shown.default = texts.get(shapeKey)?.get(f.pointer) ?? "";
+          const problem = input.get(f.pointer);
           if (problem != null) shown.problem = problem;
         }
         return shown;
@@ -624,6 +571,7 @@ const TopicValues = ({
     onChange(next);
   };
   const defaults = defaultsOf(shapes, reads);
+  const focused = shapes.findIndex((shape) => json.shapeKey(shape) === focus?.shape);
   return (
     <>
       <ICD.Picker.PaneHeader
@@ -645,6 +593,11 @@ const TopicValues = ({
           if (field == null) throw new Error(`No field has the key ${key}`);
           onDefaultChange(field[0], field[1], text);
         }}
+        focus={
+          focus == null || focused < 0
+            ? undefined
+            : { key: `${focused}${focus.pointer}`, request: focus.request }
+        }
       />
     </>
   );
@@ -719,6 +672,12 @@ const Content = ({
   const [entered, setEntered] = useState<string[]>([]);
   const [picks, setPicks] = useState<Map<string, TopicPick>>(() => new Map());
   const [defaults, setDefaults] = useState<Map<string, FieldDefaults>>(() => new Map());
+  const [focus, setFocus] = useState<Focus | null>(null);
+  // A topic that the user selects takes no focus from a refused add.
+  const select = (topic: string) => {
+    setSelected(topic);
+    setFocus(null);
+  };
   const [wholePicks, setWholePicks] = useState<WholePicks>(() => new Map());
   const [format, setFormat] = useState<Format | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -786,10 +745,9 @@ const Content = ({
       void loadSample(activeEntry.name);
   }, [activeEntry, activeSample, loadSample]);
 
-  // The picks that the add makes, with what their topics fit. A shape that its pane
-  // locks picks nothing.
-  const adding = [...picks.values()]
-    .flatMap((pick): Adding[] => {
+  // The picks that the add makes. A shape that its pane locks picks nothing.
+  const added = [...picks.values()]
+    .flatMap((pick): TopicPick[] => {
       const held = readsOf(pick.topic);
       const extendable = new Set(
         pick.shapes.filter((s) => isExtendable(s, held)).map(json.shapeKey),
@@ -798,16 +756,20 @@ const Content = ({
         [...pick.picks].filter(([key]) => extendable.has(key)),
       );
       if (kept.size === 0) return [];
-      const next = { ...pick, picks: kept };
+      const texts = defaults.get(pick.topic);
+      const next = {
+        ...pick,
+        picks: kept,
+        ...(texts == null ? {} : { defaults: texts }),
+      };
       const sample = reads.get(pick.topic);
-      if (sample?.variant !== "success") return [{ pick: next }];
+      if (sample?.variant !== "success") return [next];
       const found = findReading(pick.topic, sample.data, held, device, icds, home);
       const free = freeShapes(sample.data.shapes, held);
       const reading = reusedReading(found, free, kept);
-      return [{ pick: reading == null ? next : { ...next, reading }, found, free }];
+      return [reading == null ? next : { ...next, reading }];
     })
-    .sort(compare.by(({ pick }) => pick.topic));
-  const added = adding.map(({ pick }) => pick);
+    .sort(compare.by(({ topic }) => topic));
   const addedOf = (topic: string): Picks | undefined =>
     added.find((pick) => pick.topic === topic)?.picks;
   const planned = plan?.(added);
@@ -871,7 +833,7 @@ const Content = ({
   };
 
   const handlePick = async (topic: string) => {
-    setSelected(topic);
+    select(topic);
     if (whole) {
       await pickWhole(topic);
       return;
@@ -889,7 +851,7 @@ const Content = ({
 
   const handleTerm = () => {
     setEntered((prev) => unique.unique([...prev, trimmed]));
-    setSelected(trimmed);
+    select(trimmed);
     setTerm("");
     if (whole) void pickWhole(trimmed);
   };
@@ -920,7 +882,7 @@ const Content = ({
         nodes={visible.map(({ name }) => ({ key: name }))}
         items={items}
         active={active}
-        onActivate={setSelected}
+        onActivate={select}
         onPick={(topic) => void handlePick(topic)}
         emptyContent={
           <ICD.Picker.Notice
@@ -1014,9 +976,11 @@ const Content = ({
             setPicks((prev) => withTopic(prev, topic, data.shapes, value))
           }
           defaults={defaults.get(topic) ?? NO_DEFAULTS}
+          inputs={planned?.inputs.get(topic)}
           onDefaultChange={(shape, pointer, text) =>
             setDefaults((prev) => withDefault(prev, topic, shape, pointer, text))
           }
+          focus={focus?.topic === topic ? focus : undefined}
         />
       );
   } else if (whole && activeSample.data.missing)
@@ -1042,21 +1006,30 @@ const Content = ({
   const count = whole
     ? wholePicks.size
     : added.reduce((n, p) => n + countOf(p.picks), 0);
-  const finished = adding.map(({ pick, found, free }): TopicPick => {
-    const texts = defaults.get(pick.topic);
-    if (texts == null || found == null || free == null) return pick;
-    const applied = appliedDefaults(pick, texts, found, free, reusedIn(pick.topic));
-    return { ...pick, defaults: applied };
-  });
-  const finish = (record: string | null) =>
+  // An add refuses while a Default input spells no default, and focuses that input.
+  const finish = (record: string | null) => {
+    const problem = planned == null ? undefined : findProblem(planned);
+    if (problem != null) {
+      const { topic, shape, pointer } = problem;
+      setSelected(topic);
+      if (!visible.some(({ name }) => name === topic)) setTerm("");
+      setFocus((prev) => ({
+        topic,
+        shape,
+        pointer,
+        request: (prev?.request ?? 0) + 1,
+      }));
+      return;
+    }
     close({
-      topics: finished,
+      topics: added,
       record,
       whole: [...wholePicks]
         .map(([topic, shape]): WholePick => ({ topic, shape }))
         .sort(compare.by(({ topic }) => topic)),
       format,
     });
+  };
 
   let emptyRecord: ReactNode = null;
   if (
@@ -1115,7 +1088,6 @@ const Content = ({
       <ICD.Picker.Footer
         counts={[[kind.noun, count]]}
         idle={kind.noun}
-        disabled={finished.some(hasProblem)}
         onAdd={() => finish(null)}
         onCancel={() => close()}
       >

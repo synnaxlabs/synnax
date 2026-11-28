@@ -17,7 +17,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Skeleton } from "@synnaxlabs/lyra/skeleton";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Fragment, type SyntheticEvent } from "react";
+import { Fragment, type SyntheticEvent, useEffect, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 import { useHint } from "@/platform/icd/picker/hint";
@@ -61,7 +61,20 @@ export interface Value {
 /** Called with the key of a value and the new text of its Default input. */
 type DefaultChange = (key: string, text: string) => void;
 
-const [DefaultContext, useDefaultContext] = context.create<DefaultChange | null>({
+/** A request to focus the Default input of a value. */
+export interface DefaultFocus {
+  /** The key of the value. */
+  key: string;
+  /** Counts the requests, so each new one focuses the input again. */
+  request: number;
+}
+
+interface DefaultContextValue {
+  onChange: DefaultChange;
+  focus: DefaultFocus | undefined;
+}
+
+const [DefaultContext, useDefaultContext] = context.create<DefaultContextValue | null>({
   defaultValue: null,
   displayName: "Picker.DefaultContext",
 });
@@ -151,32 +164,40 @@ const Head = ({ noun, defaults = false }: HeadProps) => (
 
 const stopPropagation = (e: SyntheticEvent) => e.stopPropagation();
 
-interface DefaultInputProps {
+interface DefaultInputProps extends DefaultContextValue {
   value: Value;
-  onChange: DefaultChange;
 }
 
 /** The Default input of a value. Clicks and keys in it do not pick the value. */
 const DefaultInput = ({
   value: { key, name, default: text = "", problem },
   onChange,
-}: DefaultInputProps) => (
-  <div onClick={stopPropagation} onKeyDown={stopPropagation}>
-    <Input.Text
-      size="small"
-      value={text}
-      onChange={(next) => onChange(key, next)}
-      placeholder="None"
-      status={problem == null ? undefined : "error"}
-      tooltip={problem}
-      aria-label={`Default of ${name}`}
-    />
-  </div>
-);
+  focus,
+}: DefaultInputProps) => {
+  const ref = useRef<HTMLInputElement>(null);
+  const request = focus?.key === key ? focus.request : null;
+  useEffect(() => {
+    if (request != null) ref.current?.focus();
+  }, [request]);
+  return (
+    <div onClick={stopPropagation} onKeyDown={stopPropagation}>
+      <Input.Text
+        ref={ref}
+        size="small"
+        value={text}
+        onChange={(next) => onChange(key, next)}
+        placeholder="None"
+        status={problem == null ? undefined : "error"}
+        tooltip={problem}
+        aria-label={`Default of ${name}`}
+      />
+    </div>
+  );
+};
 
 const Cells = ({ value }: { value: Value }) => {
   const { name, sample, dataType, lock, note } = value;
-  const onDefaultChange = useDefaultContext();
+  const defaults = useDefaultContext();
   return (
     <>
       <Flex.Box y gap="tiny" className={CSS.BE("icd-picker", "value-name")}>
@@ -200,11 +221,11 @@ const Cells = ({ value }: { value: Value }) => {
       <Text.Text level="small" color={9} overflow="fade">
         {lock?.label ?? dataType}
       </Text.Text>
-      {onDefaultChange != null &&
+      {defaults != null &&
         (value.default == null ? (
           <span />
         ) : (
-          <DefaultInput value={value} onChange={onDefaultChange} />
+          <DefaultInput value={value} {...defaults} />
         ))}
     </>
   );
@@ -295,6 +316,8 @@ export interface ValuesProps {
   onChange?: (value: string[]) => void;
   /** Adds a Default column for the values that take a default. */
   onDefaultChange?: DefaultChange;
+  /** Focuses the Default input of a value. */
+  focus?: DefaultFocus;
 }
 
 export const Values = ({
@@ -303,6 +326,7 @@ export const Values = ({
   value,
   onChange,
   onDefaultChange,
+  focus,
 }: ValuesProps) => {
   const defaults =
     onDefaultChange != null &&
@@ -312,7 +336,7 @@ export const Values = ({
       className={CSS.cls(CSS.BE("icd-picker", "values"), defaults && CSS.M("defaults"))}
     >
       <Head noun={noun} defaults={defaults} />
-      <DefaultContext value={defaults ? onDefaultChange : null}>
+      <DefaultContext value={defaults ? { onChange: onDefaultChange, focus } : null}>
         {groups.map(({ title, note, dimmed, values }) => (
           <Fragment key={title ?? ""}>
             {title != null && (
