@@ -90,14 +90,6 @@ pack_bool_bits(const std::byte *src, const std::size_t n_samples) {
     return dst;
 }
 
-std::vector<std::uint8_t>
-unpack_bool_bits(const std::uint8_t *src, const std::size_t n_samples) {
-    std::vector<std::uint8_t> dst(n_samples);
-    for (std::size_t i = 0; i < n_samples; i++)
-        dst[i] = (src[i / BITS_PER_BYTE] >> (i % BITS_PER_BYTE)) & 1;
-    return dst;
-}
-
 bool is_int64_like(const x::telem::DataType &dt) {
     return dt == x::telem::INT64_T || dt == x::telem::TIMESTAMP_T;
 }
@@ -644,21 +636,8 @@ Codec::decode(const uint8_t *data, const size_t size) {
                     " under a shared length"
                 };
             const std::uint32_t len = flags.equal_lens ? shared_len : r.u32();
-            const bool packed = dt == x::telem::BOOLEAN_T;
-            std::size_t n = len;
-            if (packed)
-                n = bit_packed_byte_count(len);
-            else if (!dt.is_variable())
-                n = len * dt.density();
-            const auto *body = r.bytes(n);
-            auto s = x::telem::Series(dt, len);
-            if (packed) {
-                const auto unpacked = unpack_bool_bits(body, len);
-                s.write(unpacked.data(), len);
-            } else {
-                x::binary::Reader sub(body, n);
-                s.fill_from(sub);
-            }
+            const auto n = x::telem::Series::byte_count(dt, len);
+            auto s = x::telem::Series::from_bytes(dt, len, {r.bytes(n), n});
             s.time_range = ref_tr;
             s.alignment = ref_alignment;
             s.clock = clock;
