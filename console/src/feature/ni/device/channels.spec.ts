@@ -184,6 +184,46 @@ describe("NI.Device read channels with typed devices", () => {
     expect(target.channels).toEqual({ stateIndex, channels });
   });
 
+  it("should keep a command and state pair another write stored since the snapshot", async () => {
+    const dev = await createDevice();
+    const stateIndex = await createIndex();
+    const [a, b, c] = await Promise.all(
+      [1, 2, 3].map(async () => ({
+        command: await createData(await createIndex()),
+        state: await createData(stateIndex),
+      })),
+    );
+    const empty: NI.Device.WriteChannels = { stateIndex: 0, channels: {} };
+    const snapshot = { stateIndex, channels: { "0": a } };
+    await NI.Device.writeChannels(client, dev.key, "analogOutput", empty, snapshot);
+    await NI.Device.writeChannels(client, dev.key, "analogOutput", snapshot, {
+      stateIndex,
+      channels: { "0": b },
+    });
+    await NI.Device.writeChannels(client, dev.key, "analogOutput", snapshot, {
+      stateIndex,
+      channels: { "0": { ...a }, "1": c },
+    });
+    const { analogOutput } = await client.ni.devices.retrieve({ key: dev.key });
+    expect(analogOutput).toEqual({
+      0: { stateIndex, ...b },
+      1: { stateIndex, ...c },
+    });
+  });
+
+  it("should delete a state index that has no lines to hold it", async () => {
+    const dev = await createDevice();
+    const stateIndex = await createIndex();
+    await NI.Device.writeChannels(
+      client,
+      dev.key,
+      "digitalOutput",
+      { stateIndex: 0, channels: {} },
+      { stateIndex, channels: {} },
+    );
+    await expect(client.channels.retrieve(stateIndex)).rejects.toThrow(NotFoundError);
+  });
+
   it("should store digital output lines by port with the state index", async () => {
     const dev = await createDevice();
     const stateIndex = await createIndex();
