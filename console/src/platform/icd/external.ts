@@ -9,6 +9,7 @@
 
 export * from "@/platform/icd/Bindings";
 export * from "@/platform/icd/configure";
+export * from "@/platform/icd/Confirm";
 export * from "@/platform/icd/dataType";
 export * from "@/platform/icd/Details";
 export * from "@/platform/icd/EnumValues";

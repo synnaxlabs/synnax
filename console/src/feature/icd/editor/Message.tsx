@@ -12,6 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { ICD as PICD, Panel } from "@synnaxlabs/pluto";
 import { type CrudeTimeSpan, deep, type payload, TimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
@@ -66,19 +67,45 @@ export interface MessageProps {
 
 const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true, selectOnFocus: true } as const;
 
+const FORMAT_NAMES: Record<payload.Format, string> = {
+  binary: "Binary",
+  text: "Text",
+  json: "JSON",
+};
+
+const formatChangeDescription = (count: number): string =>
+  count === 1
+    ? "This removes its field. Tasks that bind it lose that channel."
+    : `This removes its ${count} fields. Tasks that bind them lose those channels.`;
+
 /**
  * Edits a message: its format, its cycle time, how frames match it, and its fields. A
- * format switch replaces the payload with an empty one of the new format.
+ * format switch replaces the payload with an empty one of the new format. When the
+ * message has fields, the switch asks first.
  */
 export const Message = ({ path, autoFocus = false }: MessageProps): ReactElement => {
   const payloadPath = path.payload;
   const binary = deep.variant(payloadPath, "format", "binary");
   const text = deep.variant(payloadPath, "format", "text");
   const json = deep.variant(payloadPath, "format", "json");
-  const { set, mode } = Form.useContext();
+  const { get, set, mode } = Form.useContext();
   const format = Form.useFieldValue(payloadPath.format);
-  const handleFormatChange = (next: payload.Format) => {
-    if (next !== format) set(payloadPath, ICD.createPayload(next));
+  const { key } = Panel.useTabResource();
+  const confirm = ICD.useConfirm();
+  const handleFormatChange = async (next: payload.Format) => {
+    if (next === format) return;
+    const { fields } = get<icd.Payload>(payloadPath).value;
+    if (fields.length > 0) {
+      const confirmed = await confirm({
+        icd: { key, name: get<string>(PICD.formPath.name).value },
+        title: "ICD.Change format",
+        message: `Change ${get<string>(path.name).value} to ${FORMAT_NAMES[next]}?`,
+        description: formatChangeDescription(fields.length),
+        confirm: { label: "Change format" },
+      });
+      if (confirmed !== true) return;
+    }
+    set(payloadPath, ICD.createPayload(next));
   };
   return (
     <Form.Sections className={CSS.BE("icd-editor", "details")}>
@@ -92,7 +119,7 @@ export const Message = ({ path, autoFocus = false }: MessageProps): ReactElement
           <Input.Item label="Format" padHelpText>
             <Select.Buttons<payload.Format>
               value={format}
-              onChange={handleFormatChange}
+              onChange={(next: payload.Format) => void handleFormatChange(next)}
               preview={mode === "preview"}
             >
               <Select.Item<payload.Format> itemKey="binary">Binary</Select.Item>
