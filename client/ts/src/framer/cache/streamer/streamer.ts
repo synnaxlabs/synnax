@@ -590,7 +590,12 @@ export class Multiplexed {
         frame.forEach((k, s) => {
           map.getOrInsert(grouped, k as channel.Key, () => []).push(s);
         });
-        onWait(joins.write(grouped));
+        const { waiting, refused } = joins.write(grouped);
+        onWait(waiting);
+        refused.forEach((failure, k) => {
+          grouped.delete(k);
+          this.setStatus(k, failure);
+        });
         grouped.forEach((_, k) => this.setStatus(k, STREAMING));
         if (grouped.size !== 0)
           this.entries.forEach((e) => {

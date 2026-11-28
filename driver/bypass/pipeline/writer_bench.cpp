@@ -72,12 +72,16 @@ struct Rig {
         const bool subscribed,
         int threads) {
         std::vector<synnax::channel::Key> all;
+        std::vector<synnax::channel::Channel> records;
         for (int t = 0; t < threads; t++)
             for (uint32_t c = 0; c < channels; c++) {
                 all.push_back(base_key(t) + c);
+                synnax::channel::Channel ch;
+                ch.key = base_key(t) + c;
+                records.push_back(ch);
                 this->states->apply(transfer(base_key(t) + c, writer_subject(t)));
             }
-        this->bus->register_channels(all);
+        this->bus->register_channels(records);
         if (subscribed) {
             this->sub = this->bus->subscribe(all);
             this->drainer = std::thread([this] {

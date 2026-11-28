@@ -146,6 +146,7 @@ export class Store {
   private readonly streamed = new Map<channel.Key, Series>();
   private bytes = 0;
   private readonly calculated = new Set<channel.Key>();
+  private readonly names = new Map<channel.Key, string>();
   // leaseholders holds the node of each stored channel.
   private readonly leaseholders = new Map<channel.Key, number>();
   private readonly liveSamples: number;
@@ -291,6 +292,11 @@ export class Store {
     );
   }
 
+  /** @returns the name of a channel that setChannel recorded. */
+  nameOf(ch: channel.Key): string | undefined {
+    return this.names.get(ch);
+  }
+
   /** @returns true when the Core stores the channel's samples. */
   stored(ch: channel.Key): boolean {
     return this.leaseholders.has(ch);
@@ -316,6 +322,7 @@ export class Store {
    * index's floor its raw samples follow.
    */
   setChannel(p: channel.Payload): void {
+    this.names.set(p.key, p.name);
     const index = p.isIndex ? p.key : p.index;
     if (index !== 0) {
       this.indexOf.set(p.key, index);

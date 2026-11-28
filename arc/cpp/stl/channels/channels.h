@@ -121,17 +121,24 @@ public:
         auto [data, index_data, ok] = this->state.read_series(this->curr_key);
         if (!ok) return x::errors::NIL;
 
-        for (size_t i = 0; i < data.series.size(); i++) {
-            auto &ser = data.series[i];
+        for (auto &ser: data.series) {
             auto lower = ser.alignment;
             const auto upper_val = lower.uint64() + (!ser.empty() ? ser.size() - 1 : 0);
 
             if (lower.uint64() < this->high_water_mark.uint64()) continue;
 
-            const bool generate_synthetic = index_data.empty();
-            if (!generate_synthetic && i >= index_data.series.size()) {
+            // A data series pairs with the time series of its clock at its alignment.
+            const bool generate_synthetic = ser.clock == 0;
+            const auto paired = std::ranges::find_if(
+                index_data.series,
+                [&](const ::x::telem::Series &t) {
+                    return t.clock == ser.clock && t.alignment == ser.alignment;
+                }
+            );
+            if (!generate_synthetic && paired == index_data.series.end()) {
                 LOG_FIRST_N(WARNING, 10) << "[arc.channels] channel " << this->curr_key
-                                         << ": no index series for data series " << i;
+                                         << ": no time series on clock " << ser.clock
+                                         << " at data alignment " << lower.uint64();
                 return x::errors::NIL;
             }
 
@@ -140,7 +147,7 @@ public:
                                                      ::x::telem::TIMESTAMP_T,
                                                      ser.size()
                                                  )
-                                               : std::move(index_data.series[i]);
+                                               : std::move(*paired);
 
             if (generate_synthetic) {
                 const auto first = ctx.reserve_stamps(ser.size());
@@ -151,12 +158,6 @@ public:
                         )
                     );
                 time_series.alignment = ser.alignment;
-            } else if (time_series.alignment != ser.alignment) {
-                LOG_FIRST_N(WARNING, 10)
-                    << "[arc.channels] channel " << this->curr_key
-                    << ": index alignment " << time_series.alignment.uint64()
-                    << " does not match data alignment " << lower.uint64();
-                return x::errors::NIL;
             }
 
             const size_t first = generate_synthetic

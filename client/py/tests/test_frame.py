@@ -19,7 +19,7 @@ import pytest
 
 import synnax as sy
 from freighter.mock import MockUnaryClient
-from synnax.channel.payload import Payload
+from synnax.channel.payload import Payload as ChannelPayload
 from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import RetrieveResponse
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
@@ -792,6 +792,42 @@ class TestReadFrameAdapter:
         adapter.update([data_ch.name])
         assert adapter.keys == [data_ch.key, idx_ch.key]
 
+    def test_adapt_takes_indexes_from_clocks(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        """Should take the index of each channel from the clock of its series."""
+        idx_ch, data_ch = indexed_pair
+        adapter = ReadFrameAdapter(client.channels._retriever)
+        adapter.update([idx_ch.key, data_ch.key])
+        fr = adapter.adapt(
+            sy.Frame(
+                [idx_ch.key, data_ch.key],
+                [
+                    sy.Series([1], data_type=sy.DataType.TIMESTAMP, clock=idx_ch.key),
+                    sy.Series([1.0], data_type=sy.DataType.FLOAT32, clock=99),
+                ],
+            )
+        )
+        assert fr.indexes == {idx_ch.key: idx_ch.key, data_ch.key: 99}
+
+    def test_adapt_gives_no_index_to_a_series_with_no_clock(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        """Should give no index to a channel whose series carry no clock."""
+        idx_ch, data_ch = indexed_pair
+        adapter = ReadFrameAdapter(client.channels._retriever)
+        adapter.update([idx_ch.key, data_ch.key])
+        fr = adapter.adapt(
+            sy.Frame(
+                [idx_ch.key, data_ch.key],
+                [
+                    sy.Series([1], data_type=sy.DataType.TIMESTAMP, clock=idx_ch.key),
+                    sy.Series([1.0], data_type=sy.DataType.FLOAT32),
+                ],
+            )
+        )
+        assert fr.indexes == {idx_ch.key: idx_ch.key}
+
     def test_update_with_keys(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
     ) -> None:
@@ -1227,13 +1263,61 @@ class TestFramePandasLoading:
         assert result.stdout.strip() == "False"
 
 
+_A = ChannelPayload(
+    key=1, name="a_time", data_type=sy.DataType.TIMESTAMP, is_index=True
+)
+_B = ChannelPayload(
+    key=2, name="b_time", data_type=sy.DataType.TIMESTAMP, is_index=True
+)
+_D = ChannelPayload(key=3, name="d", data_type=sy.DataType.FLOAT64, index=1)
+
+
+def _stamps(values: list[int], alignment: int, clock: int) -> sy.Series:
+    return sy.Series(
+        values,
+        data_type=sy.DataType.TIMESTAMP,
+        alignment=sy.Alignment(0, alignment),
+        clock=clock,
+    )
+
+
+def _values(values: list[float], alignment: int, clock: int) -> sy.Series:
+    return sy.Series(
+        values,
+        data_type=sy.DataType.FLOAT64,
+        alignment=sy.Alignment(0, alignment),
+        clock=clock,
+    )
+
+
+@pytest.mark.framer
+class TestReadFrameAdapterClocks:
+    def test_refuses_a_channel_on_two_clocks(self) -> None:
+        """Should refuse a frame that holds the series of one channel on two clocks,
+        since a channel's samples pair with one index."""
+        client = MockUnaryClient(responses=[RetrieveResponse(channels=[_A, _B, _D])])
+        adapter = ReadFrameAdapter(Retriever(client=client))
+        adapter.update([1, 2, 3])
+        frame = sy.Frame(
+            [1, 2, 3, 3],
+            [
+                _stamps([100], 0, 1),
+                _stamps([500, 600], 0, 2),
+                _values([1.0], 0, 1),
+                _values([2.0], 1, 2),
+            ],
+        )
+        with pytest.raises(ValueError, match="channel 3 has series on clocks 1 and 2"):
+            adapter.adapt(frame)
+
+
 @pytest.mark.framer
 class TestWriteFrameAdapterRepeatedKeys:
     """Adapts frames without a Core."""
 
     def test_frame_with_two_series_for_one_channel(self) -> None:
         """It should keep every series of a channel that a frame holds twice."""
-        ch = Payload(
+        ch = ChannelPayload(
             key=65537,
             name="repeated",
             data_type=sy.DataType.FLOAT64,

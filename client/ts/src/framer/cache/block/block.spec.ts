@@ -71,6 +71,17 @@ describe("block", () => {
       expect(Array.from(aligned)).toEqual([1, 2]);
     });
 
+    it("should keep the clock of a series", () => {
+      const ts = createTimestamps(500n, 1, 2);
+      const values = new Series({
+        data: new Float32Array([1]),
+        alignment: 501n,
+        clock: 7,
+      });
+      const [aligned] = cacheBlock.align(0, 0, [ts], [values]);
+      expect(aligned.clock).toBe(7);
+    });
+
     it("should join index series with consecutive Core alignments", () => {
       const ts = [createTimestamps(500n, 1, 2), createTimestamps(502n, 3, 4)];
       const [aligned] = cacheBlock.align(0, 0, ts, [createValues(501n, [1, 2, 3])]);
@@ -276,6 +287,19 @@ describe("block", () => {
         expect(tail.alignment).toBe(blockAlignment(0, 1));
         expect(tail.timeRange).toEqual(seconds(2).range(seconds(5)));
         expect(tail.data.buffer).toBe(whole.data.buffer);
+      });
+
+      it("should keep the clock of the series in both views", () => {
+        const block = new cacheBlock.Raw(1, 0);
+        const whole = new Series({
+          data: new Float32Array([1, 2]),
+          alignment: blockAlignment(0, 0),
+          timeRange: seconds(1).range(seconds(3)),
+          clock: 7,
+        });
+        block.fill([whole], seconds(3), 2);
+        block.split(blockAlignment(0, 1), seconds(2));
+        expect(block.fetched.map((s) => s.clock)).toEqual([7, 7]);
       });
     });
 

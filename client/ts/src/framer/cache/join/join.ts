@@ -13,6 +13,7 @@ import type { channel } from "@/channel";
 import { block as cacheBlock } from "@/framer/cache/block";
 import { grid } from "@/framer/cache/grid";
 import type { store as cacheStore } from "@/framer/cache/store";
+import { status } from "@/status";
 
 // A run of a streamed index series' samples that falls in one raw block. The offset is
 // the block offset of the run's first sample. The samples from fresh on are new to the
@@ -318,17 +319,41 @@ export class Joins {
   /**
    * Writes the series of joined channels in a streamed frame, holding those of members
    * that wait. Other channels' series stay out of the store.
+   * @returns waiting, the index channels of the joins that wait, and refused, each data
+   * channel whose series in the frame include one that does not pair with the time of
+   * its index, with its error status. A refused channel's series stay out of the store.
    */
-  write(frame: Map<channel.Key, Series[]>): Set<channel.Key> {
+  write(frame: Map<channel.Key, Series[]>): {
+    waiting: Set<channel.Key>;
+    refused: Map<channel.Key, status.Status>;
+  } {
     frame.forEach((series, ch) => {
       const j = this.joins.get(ch);
       if (j != null) this.writeIndex(j, series);
     });
+    const refused = new Map<channel.Key, status.Status>();
     frame.forEach((series, ch) => {
       const m = this.members.get(ch);
-      if (m != null && !this.joins.has(ch)) this.writeData(m, series);
+      if (m == null || this.joins.has(ch)) return;
+      if (series.every((s) => s.clock === m.join.index)) this.writeData(m, series);
+      else refused.set(ch, this.unpaired(ch, m.join.index));
     });
-    return this.drain();
+    return { waiting: this.drain(), refused };
+  }
+
+  // Returns the error status of data channel ch, whose samples do not pair with the
+  // time of its index. A channel the store has no name for goes by its key.
+  private unpaired(ch: channel.Key, index: channel.Key): status.Status {
+    const name = this.store.nameOf(ch) ?? ch.toString();
+    const indexName = this.store.nameOf(index);
+    const of =
+      indexName == null ? "its index channel" : `its index channel ${indexName}`;
+    return status.create({
+      variant: "error",
+      name,
+      message: "Samples do not pair with time",
+      description: `Channel ${name} has samples that do not pair with the time of ${of}.`,
+    });
   }
 
   /**
@@ -416,13 +441,14 @@ export class Joins {
   private copy(s: Series): Series {
     let copy = this.copies.get(s);
     if (copy != null) return copy;
-    const { data, dataType, sampleOffset, timeRange } = s;
+    const { data, dataType, sampleOffset, timeRange, clock } = s;
     copy = new Series({
       data,
       dataType,
       sampleOffset,
       timeRange,
       alignment: HELD_ALIGNMENT + s.alignment,
+      clock,
     });
     this.copies.set(s, copy);
     return copy;
@@ -452,6 +478,7 @@ export class Joins {
         sampleOffset: sub.sampleOffset,
         timeRange: s.timeRange.isZero ? s.timeRange : new TimeRange(start, end),
         alignment: s.alignment,
+        clock: s.clock,
       }),
     ];
   }
@@ -640,5 +667,6 @@ const piece = (
     sampleOffset: sub.sampleOffset,
     timeRange: new TimeRange(start, end),
     alignment: cacheBlock.alignmentOf(block, offset),
+    clock: s.clock,
   });
 };

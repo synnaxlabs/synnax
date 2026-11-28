@@ -32,13 +32,16 @@ const createIndex = (seconds: number[], alignment: bigint): Series =>
     dataType: DataType.TIMESTAMP,
     alignment,
     timeRange: spanOf(seconds),
+    clock: INDEX,
   });
 
 const createData = (
   values: number[],
   alignment: bigint,
   timeRange: TimeRange = TimeRange.ZERO,
-): Series => new Series({ data: new Float32Array(values), alignment, timeRange });
+): Series =>
+  // The Core stamps each streamed series with the clock of its channel.
+  new Series({ data: new Float32Array(values), alignment, timeRange, clock: INDEX });
 
 const createFrame = (...entries: Array<[channel.Key, Series]>) =>
   new Map(entries.map(([k, s]) => [k, [s]]));
@@ -106,7 +109,7 @@ describe("Joins", () => {
   describe("landed", () => {
     it("should hold the series of waiting members until the join lands", () => {
       const { store, joins } = createJoins();
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame(
           [INDEX, createIndex([1, 2, 3], 0n)],
           [DATA, createData([10, 20, 30], 0n)],
@@ -298,7 +301,10 @@ describe("Joins", () => {
       const { store, joins } = createJoined();
       const other = 3;
       const series = createData([1, 2], 0n, spanOf([1, 2]));
-      expect(joins.write(createFrame([other, series]))).toEqual(new Set());
+      expect(joins.write(createFrame([other, series]))).toEqual({
+        waiting: new Set(),
+        refused: new Map(),
+      });
       expect(store.open(other)).toBeNull();
       expect(store.findRaw(other, BLOCK)).toBeUndefined();
     });
@@ -307,6 +313,70 @@ describe("Joins", () => {
       const { store } = createJoined();
       expect(streamed(store, DATA)).toEqual([10, 20]);
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(2).add(1));
+    });
+
+    // A data series on another clock than its index fails, and the status names the
+    // channels and no clock key.
+    const unpaired = {
+      variant: "error",
+      name: "pressure",
+      message: "Samples do not pair with time",
+      description:
+        "Channel pressure has samples that do not pair with the time of its index " +
+        "channel pressure_time.",
+    };
+
+    // Records the names of DATA and INDEX in the store.
+    const name = (store: cacheStore.Store): void => {
+      store.setChannel(
+        new channel.Channel({
+          key: INDEX,
+          name: "pressure_time",
+          dataType: DataType.TIMESTAMP,
+          isIndex: true,
+        }).payload,
+      );
+      store.setChannel(
+        new channel.Channel({
+          key: DATA,
+          name: "pressure",
+          dataType: DataType.FLOAT32,
+          index: INDEX,
+        }).payload,
+      );
+    };
+
+    it("should refuse a data series whose clock is not its index", () => {
+      const { store, joins } = createJoined();
+      name(store);
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      const { refused } = joins.write(
+        createFrame([INDEX, createIndex([3], 2n)], [DATA, other]),
+      );
+      expect(refused).toEqual(new Map([[DATA, expect.objectContaining(unpaired)]]));
+      expect(streamed(store, DATA)).toEqual([10, 20]);
+    });
+
+    it("should name a channel the store has no record of by its key", () => {
+      const { joins } = createJoined();
+      const other = new Series({
+        data: new Float32Array([30]),
+        alignment: 2n,
+        clock: INDEX + 10,
+      });
+      const { refused } = joins.write(
+        createFrame([INDEX, createIndex([3], 2n)], [DATA, other]),
+      );
+      expect(refused.get(DATA)).toEqual(
+        expect.objectContaining({
+          name: `${DATA}`,
+          description: `Channel ${DATA} has samples that do not pair with the time of its index channel.`,
+        }),
+      );
     });
 
     it("should place data written in the same frame ahead of its index", () => {
@@ -321,9 +391,8 @@ describe("Joins", () => {
       const { store, joins } = createJoined();
       joins.write(createFrame([INDEX, createIndex([3, 4], 2n)]));
       joins.write(createFrame([INDEX, createIndex([5, 6], 4n)]));
-      expect(joins.write(createFrame([DATA, createData([30, 40], 2n)]))).toEqual(
-        new Set(),
-      );
+      const { waiting } = joins.write(createFrame([DATA, createData([30, 40], 2n)]));
+      expect(waiting).toEqual(new Set());
       joins.write(createFrame([DATA, createData([50, 60], 4n)]));
       expect(streamed(store, DATA)).toEqual([10, 20, 30, 40, 50, 60]);
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(6).add(1));
@@ -349,7 +418,7 @@ describe("Joins", () => {
 
     it("should send the join back to wait on a gap in its index stream", () => {
       const { store, joins } = createJoined();
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame([INDEX, createIndex([4, 5], 5n)], [DATA, createData([40, 50], 5n)]),
       );
       expect(waiting).toEqual(new Set([INDEX]));
@@ -360,12 +429,13 @@ describe("Joins", () => {
 
     it("should continue the index stream into a new Core domain", () => {
       const { joins } = createJoined();
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame([INDEX, createIndex([3], block.alignmentOf(1, 0))]),
       );
       expect(waiting.size).toBe(0);
       expect(
-        joins.write(createFrame([INDEX, createIndex([4], block.alignmentOf(2, 5))])),
+        joins.write(createFrame([INDEX, createIndex([4], block.alignmentOf(2, 5))]))
+          .waiting,
       ).toEqual(new Set([INDEX]));
     });
 
@@ -462,16 +532,21 @@ describe("Joins", () => {
       joins.write(
         createFrame([INDEX, createIndex([1, 2], 0n)], [DATA, createData([10, 20], 0n)]),
       );
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame([INDEX, createIndex([3], 6n)], [DATA, createData([30], 6n)]),
       );
       expect(waiting.size).toBe(0);
       expect(streamed(store, DATA)).toEqual([10, 20, 30]);
     });
 
+    it("should keep the clock of the streamed samples", () => {
+      const { store } = createJoined();
+      expect(leadingOf(store, DATA)?.clock).toBe(INDEX);
+    });
+
     it("should send back only a data member whose alignment has no index samples", () => {
       const { store, joins } = createJoined();
-      const waiting = joins.write(createFrame([DATA, createData([90], 50n)]));
+      const { waiting } = joins.write(createFrame([DATA, createData([90], 50n)]));
       expect(waiting).toEqual(new Set([INDEX]));
       expect(keysOf(joins)).toEqual([DATA]);
       expect(joins.joined(INDEX)).toBe(true);
@@ -480,10 +555,13 @@ describe("Joins", () => {
 
     it("should send back a member when the stream changes its data type", () => {
       const { store, joins } = createJoined();
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
-          [DATA, new Series({ data: new Float64Array([30]), alignment: 2n })],
+          [
+            DATA,
+            new Series({ data: new Float64Array([30]), alignment: 2n, clock: INDEX }),
+          ],
         ),
       );
       expect(waiting).toEqual(new Set([INDEX]));
@@ -494,10 +572,13 @@ describe("Joins", () => {
     it("should send back a member when a read changed its data type", () => {
       const { store, joins } = createJoined();
       store.retainDataType(DATA, DataType.FLOAT64);
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
-          [DATA, new Series({ data: new Float64Array([30]), alignment: 2n })],
+          [
+            DATA,
+            new Series({ data: new Float64Array([30]), alignment: 2n, clock: INDEX }),
+          ],
         ),
       );
       expect(waiting).toEqual(new Set([INDEX]));
@@ -685,6 +766,24 @@ describe("Joins", () => {
       expect(joins.has(INDEX)).toBe(false);
       expect(store.open(DATA)).toBeNull();
       expect(keysOf(joins)).toEqual([]);
+    });
+  });
+
+  describe("clocks", () => {
+    it("should keep the clock of held series that end cuts", () => {
+      const { joins } = createJoins();
+      joins.write(
+        createFrame(
+          [INDEX, createIndex([1, 2, 3], 0n)],
+          [DATA, createData([10, 20, 30], 0n)],
+        ),
+      );
+      const whole = joins.held(DATA);
+      const cut = joins.held(DATA, at(2));
+      expect(whole.map((s) => s.clock)).toEqual([INDEX]);
+      expect(cut.map((s) => s.length)).toEqual([1]);
+      expect(cut.map((s) => s.clock)).toEqual([INDEX]);
+      expect(joins.held(INDEX, at(2)).map((s) => s.clock)).toEqual([INDEX]);
     });
   });
 });

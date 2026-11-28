@@ -70,6 +70,7 @@ const derive = (
     sampleOffset: s.sampleOffset,
     alignment,
     alignmentMultiple: s.alignmentMultiple,
+    clock: s.clock,
   });
 
 // A run of index samples with consecutive Core alignments.
