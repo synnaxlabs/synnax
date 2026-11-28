@@ -28,7 +28,6 @@ var _ = Describe("Invariants", func() {
 		func(
 			ctx SpecContext,
 			headEnd telem.TimeStamp,
-			endOffset telem.Size,
 			tailStart telem.TimeStamp,
 			panicText string,
 		) {
@@ -50,28 +49,25 @@ var _ = Describe("Invariants", func() {
 					ctx,
 					(12 * telem.SecondTS).Range(14*telem.SecondTS),
 					fixedOffsetAndTimeStamp(2, headEnd),
-					fixedOffsetAndTimeStamp(endOffset, tailStart),
+					fixedOffsetAndTimeStamp(6, tailStart),
 				)).To(Succeed())
 			}).To(PanicWith(MatchError(ContainSubstring(panicText))))
 		},
 		Entry(
 			"a kept head that ends before it starts",
 			5*telem.SecondTS,
-			telem.Size(6),
 			14*telem.SecondTS,
 			"ends before it starts",
 		),
 		Entry(
 			"a kept tail that ends before it starts",
 			12*telem.SecondTS,
-			telem.Size(6),
 			25*telem.SecondTS,
 			"ends before it starts",
 		),
 		Entry(
 			"a kept head that ends after the kept tail starts",
 			35*telem.SecondTS,
-			telem.Size(6),
 			14*telem.SecondTS,
 			"are not sorted and apart",
 		),
