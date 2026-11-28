@@ -89,7 +89,15 @@
           "psi": 1
         }
       },
-      "error": "message reading: field pressure: expected a number or boolean, got an object: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "message reading: field pressure: expected a number or boolean, got an object: validation error"
+        }
+      ]
     },
     {
       "document": {

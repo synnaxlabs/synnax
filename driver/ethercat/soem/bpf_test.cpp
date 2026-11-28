@@ -58,7 +58,7 @@ TEST(BPFTest, CheckAccessReportsPermission) {
     const auto err = check_bpf_access("en0", std::ref(open));
     ASSERT_OCCURRED_AS(err, errors::PERMISSION_DENIED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "The Driver does not have permission to open /dev/bpf1 for en0. To give it "
         "access, install the ChmodBPF package that comes with Wireshark, or give your "
         "user read and write access to /dev/bpf*. Then log out, log in again, and "
@@ -73,7 +73,7 @@ TEST(BPFTest, CheckAccessReportsEveryDeviceBusy) {
     const auto err = check_bpf_access("en0", std::ref(open));
     ASSERT_OCCURRED_AS(err, errors::INTERFACE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Every BPF device is in use, so the Driver cannot open one for en0. Close "
         "other packet capture programs, such as Wireshark, to free one."
     );
@@ -84,6 +84,9 @@ TEST(BPFTest, CheckAccessReportsMissingDevice) {
     FakeOpen open{.errnos = {ENOENT}};
     const auto err = check_bpf_access("en0", std::ref(open));
     ASSERT_OCCURRED_AS(err, errors::INTERFACE_ERROR);
-    EXPECT_EQ(err.data, "Failed to open /dev/bpf0 for en0: No such file or directory");
+    EXPECT_EQ(
+        err.data(),
+        "Failed to open /dev/bpf0 for en0: No such file or directory"
+    );
 }
 }

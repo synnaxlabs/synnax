@@ -154,6 +154,24 @@ cc_test(
 )
 
 cc_test(
+    name = "receiver_fixture_test",
+    srcs = ["receiver_fixture_test.cpp"],
+    data = ["//core/pkg/service/icd:task_fixtures"],
+    deps = [
+        ":receiver",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//driver/codec/testutil",
+        "//driver/errors",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
     name = "sender_test",
     srcs = ["sender_test.cpp"],
     deps = [

@@ -16,7 +16,9 @@ export interface Configurable {
   key: string;
   name: string;
   identifier: string;
-  /** Where the device sits, such as a DAQmx alias. Empty when it has no location. */
+  /**
+   * Where the device sits, such as an NI-DAQmx alias. Empty when it has no location.
+   */
   location: string;
   /** Whether the user has named the device and set its identifier. */
   configured: boolean;

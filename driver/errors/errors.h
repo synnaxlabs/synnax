@@ -57,7 +57,7 @@ inline x::errors::Error wrap_channel_error(
 ) {
     return x::errors::Error(
         err,
-        channel_name + " (" + hardware_location + "): " + err.data
+        channel_name + " (" + hardware_location + "): " + err.data()
     );
 }
 

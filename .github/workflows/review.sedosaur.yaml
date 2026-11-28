@@ -86,6 +86,14 @@ jobs:
       check: ${{ steps.check.outputs.id }}
     timeout-minutes: 10
     steps:
+      - name: Check out the scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            scripts/agent
+
       - name: Read the pull request
         id: pr
         env:
@@ -108,21 +116,13 @@ jobs:
             exit 1
           fi
           set -o pipefail
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" |
+          .github/scripts/gh_api.sh "repos/$GITHUB_REPOSITORY/pulls/$PR" |
             jq -r --arg head "$HEAD" --arg base "$BASE" '
               "head=\(if $head == "" then .head.sha else $head end)",
               "base=\(if $base == "" then .base.sha else $base end)",
               "fork=\(.head.repo.full_name != .base.repo.full_name)",
               "key=\(.number):\(.base.ref)"
             ' >> "$GITHUB_OUTPUT"
-
-      - name: Check out the scripts
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          sparse-checkout: |
-            .github/scripts
-            scripts/agent
 
       - name: Decide whether to review
         id: skip
@@ -158,10 +158,34 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.head }}
           KEY: ${{ steps.pr.outputs.key }}
         run: |
-          id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
+          id=$(.github/scripts/gh_api.sh -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
             -f name="Sedosaur Review" -f head_sha="$HEAD_SHA" -f external_id="$KEY" \
             -f status=queued -f details_url="$RUN_URL" --jq .id)
           echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      # A retried POST can land twice. The gate reads only the newest check run, so a
+      # stray is only noise on the pull request, and a failure here keeps the review.
+      - name: Cancel the stray check runs
+        if: steps.check.outputs.id != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT: ${{ steps.app.outputs.app-slug }}
+          HEAD_SHA: ${{ steps.pr.outputs.head }}
+          KEY: ${{ steps.pr.outputs.key }}
+          ID: ${{ steps.check.outputs.id }}
+        run: |
+          api=.github/scripts/gh_api.sh
+          runs="repos/$GITHUB_REPOSITORY/check-runs"
+          ours="repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs"
+          ours+="?check_name=Sedosaur%20Review&filter=all&per_page=100"
+          strays=$("$api" "$ours" --jq '.check_runs[] | select(.app.slug == env.BOT
+            and .external_id == env.KEY and .details_url == env.RUN_URL
+            and .status == "queued" and .id != (env.ID | tonumber)) | .id')
+          for stray in $strays; do
+            "$api" -X PATCH "$runs/$stray" -f status=completed \
+              -f conclusion=cancelled --silent
+          done
 
       # A push that leaves the diff the same, as a merge of the base does, gets the last
       # review of the diff instead of a new one. A carry only saves a review, so when it
@@ -208,12 +232,21 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
+      # The runner keeps the clone between jobs, so each fetch is small. This checkout
+      # holds the scripts and the policy: the pull request and its base are not trusted.
+      - name: Check out the scripts and the policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
       - name: Start the check run
         if: ${{ !inputs.replay }}
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
+          .github/scripts/gh_api.sh -X PATCH \
+            "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_RUN" \
             -f status=in_progress --silent
 
       # Eyes on the pull request description show that Sedosaur is reviewing it. The
@@ -227,14 +260,6 @@ jobs:
         run: |
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/reactions" \
             -f content=eyes --silent
-
-      # The runner keeps the clone between jobs, so each fetch is small. This checkout
-      # holds the scripts and the policy: the pull request and its base are not trusted.
-      - name: Check out the scripts and the policy
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-          fetch-depth: 0
 
       # A policy ref can change the prompt, the rules, and the settings of the config
       # that do not reach outside the checkout: the tools, the context documents, and
@@ -439,17 +464,6 @@ jobs:
       pull-requests: read
     timeout-minutes: 10
     steps:
-      - name: Read the pull request
-        id: pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ inputs.pr }}
-        run: |
-          set -o pipefail
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
-            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
-          ' >> "$GITHUB_OUTPUT"
-
       - name: Check out the scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -457,6 +471,17 @@ jobs:
           sparse-checkout: |
             .github/scripts
             scripts/agent
+
+      - name: Read the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          set -o pipefail
+          .github/scripts/gh_api.sh "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
+            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
+          ' >> "$GITHUB_OUTPUT"
 
       - name: Mint the GitHub App token
         id: app

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import { deep, errors, verbs } from "@synnaxlabs/x";
+import { deep, verbs } from "@synnaxlabs/x";
 import type { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -71,7 +71,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
 export type DeleteParams = icd.Key | icd.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
-  name: PLURAL_RESOURCE_NAME,
+  name: RESOURCE_NAME,
   verbs: verbs.DELETE,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.icds.delete(data, {
@@ -98,31 +98,12 @@ export interface ImportNewParams extends Omit<ImportParams, "key"> {
   name: string;
 }
 
-/**
- * Creates an ICD named name from imported data, and deletes it when the import fails.
- * When the delete fails too, the error names the ICD that stays.
- */
+/** Creates an ICD named name from imported data. A failed import creates no ICD. */
 export const { useUpdate: useImportNew } = Flux.createUpdate<ImportNewParams, icd.ICD>({
   name: RESOURCE_NAME,
   verbs: IMPORT_VERBS,
-  update: async ({ client, data: { name, format, data } }) => {
-    const { key } = await client.icds.create({ name, messages: [] });
-    try {
-      return await client.icds.import(key, data, format);
-    } catch (e) {
-      const failure = errors.fromUnknown(e);
-      try {
-        await client.icds.delete(key);
-      } catch (d) {
-        throw new Error(
-          `${failure.message}. The empty ICD "${name}" stays, because it could not ` +
-            `be deleted: ${errors.fromUnknown(d).message}`,
-          { cause: d },
-        );
-      }
-      throw failure;
-    }
-  },
+  update: async ({ client, data: { name, format, data } }) =>
+    await client.icds.import({ name }, data, format),
 });
 
 export const formSchema = icd.icdZ.pick({ name: true, messages: true, framing: true });

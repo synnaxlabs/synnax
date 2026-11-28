@@ -14,6 +14,7 @@ import { CSS } from "@/css";
 const TAG = CSS.B("tag");
 const DOT_ICON = CSS.BM("icon", "dot");
 const MORE = CSS.BE("tags", "more");
+const UNSTACKED = CSS.BM("tags", "unstacked");
 // React owns class names and rewrites them on render, so the step marks its state with
 // data attributes instead.
 const LAST = "data-last";
@@ -425,14 +426,16 @@ export class Steps {
     // The narrowest group sets the room every group shares.
     const room = Math.min(...widths);
     const most = Math.max(...fits.map((f) => f.measures.length));
+    // An unstacked group shows each tag at full width or folds it.
+    const unstacked = fitted.map((el) => el.classList.contains(UNSTACKED));
+    const fitsStep = (f: Fit, i: number, step: number): boolean => {
+      const k = Math.min(step, f.measures.length);
+      return unstacked[i]
+        ? full(f, k, count) <= room
+        : stacks(f, k, count, room, SLIVER * rem);
+    };
     let shown = most;
-    while (
-      shown > 0 &&
-      !fits.every((f) =>
-        stacks(f, Math.min(shown, f.measures.length), count, room, SLIVER * rem),
-      )
-    )
-      shown--;
+    while (shown > 0 && !fits.every((f, i) => fitsStep(f, i, shown))) shown--;
     // A lifted tag gives back the width it had, which a refit may change.
     this.drop();
     const alone = ALONE_COUNT * rem;

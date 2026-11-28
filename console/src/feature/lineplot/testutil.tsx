@@ -34,7 +34,7 @@ let projectKey: string | undefined;
 export const project = async (): Promise<string> =>
   (projectKey ??= (await client.projects.create({ name: id.create() })).key);
 
-// loadLinePlot primes key's flux cache through the production retrieve path. The
+// loadLinePlot primes key's Flux cache through the production retrieve path. The
 // single-hook bootstrap keeps the suspending useEnsure from being followed by
 // other hooks, a shape that trips a React 19 concurrent-replay error.
 const loadLinePlot = async (
@@ -93,7 +93,7 @@ export const pickNamedColor = async (
 
 /**
  * Creates a line plot on the Core, and a Console wrapper with the plot loaded into the
- * flux cache.
+ * Flux cache.
  */
 export const createLinePlotWrapper = async ({
   linePlot: overrides,
@@ -117,7 +117,7 @@ export const createLinePlotWrapper = async ({
 
 // renderLinePlot creates a line plot on the server, mounts Component inside the panel
 // and tab scopes of a seeded resource tab (the way the mosaic renders a tab) with the
-// plot loaded into the flux cache and a live Modals.Stack, and returns the render
+// plot loaded into the Flux cache and a live Modals.Stack, and returns the render
 // result plus the Redux store and plot key.
 export const renderLinePlot = async (
   Component: ComponentType,

@@ -128,11 +128,11 @@ export const closeOf = (
     .close;
 
 export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtError"> {
-  /** Client backing the console wrapper; null (default) for Core-free specs. */
+  /** Client backing the Console wrapper; null (default) for Core-free specs. */
   client?: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
-  /** Extra aether components merged over the default console test registry. */
+  /** Extra Aether components merged over the default Console test registry. */
   additionalRegistry?: aether.ComponentRegistry;
   /** Receives every event the modal reports; discards them by default. */
   analytics?: Analytics.Sink;
@@ -280,7 +280,7 @@ export const findDismissButton = (): HTMLButtonElement => {
   return btn as HTMLButtonElement;
 };
 
-/** Finds the checkbox input backing the pluto switch field with the given label. */
+/** Finds the checkbox input backing the Pluto switch field with the given label. */
 export const getSwitch = (label: string): HTMLInputElement => {
   const input = screen
     .getByText(label)

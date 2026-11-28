@@ -38,8 +38,4 @@
         font-size: var(--pluto-small-size);
         color: var(--pluto-gray-l10);
     }
-
-    .console-mqtt-discover__code {
-        font-family: var(--pluto-code-font-family);
-    }
 }

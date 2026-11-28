@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 """NI tasks on the C Series modules of the cRIO-9041, run by the Driver built for NI
-Linux RT.
+Linux Real-Time.
 
 Slot | Device | Module
 -----|--------|-----------------------------------------------------------------

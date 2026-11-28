@@ -171,6 +171,59 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
+    it("should reject each header and query parameter the Driver refuses at deploy", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            headers: [
+              { name: "Accept", value: "application/json" },
+              { name: "X-Key", value: "" },
+              { name: "", value: "abc" },
+            ],
+            queryParams: [{ parameter: "", value: "10" }],
+          },
+        ],
+      };
+      expect(HTTP.Task.deployReadConfigZ.safeParse(config).error?.issues).toMatchObject(
+        [
+          {
+            message: "Value is required",
+            path: ["endpoints", 0, "headers", 1, "value"],
+          },
+          { message: "Name is required", path: ["endpoints", 0, "headers", 2, "name"] },
+          {
+            message: "Parameter is required",
+            path: ["endpoints", 0, "queryParams", 0, "parameter"],
+          },
+        ],
+      );
+    });
+
+    it("should accept a header with an empty value on a disabled endpoint at deploy", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          { key: "ep1", method: "GET", path: "/api" },
+          {
+            key: "ep2",
+            method: "GET",
+            path: "/off",
+            disabled: true,
+            headers: [{ name: "X-Key", value: "" }],
+          },
+        ],
+      };
+      expect(
+        HTTP.Task.deployReadConfigZ.safeParse(config).error?.issues,
+      ).toBeUndefined();
+    });
+
     it("should reject duplicate query parameter names on an endpoint at deploy", () => {
       const config = {
         device: "dev-001",
@@ -332,6 +385,28 @@ describe("HTTP Task Types", () => {
         ],
       };
       expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
+    });
+
+    it("should reject a header the Driver refuses on a disabled write endpoint", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            disabled: true,
+            headers: [{ name: "", value: "" }],
+            ...SENDS,
+          },
+        ],
+      };
+      expect(
+        HTTP.Task.deployWriteConfigZ.safeParse(config).error?.issues,
+      ).toMatchObject([
+        { message: "Name is required", path: ["endpoints", 0, "headers", 0, "name"] },
+        { message: "Value is required", path: ["endpoints", 0, "headers", 0, "value"] },
+      ]);
     });
 
     it("should reject duplicate query parameters on a write endpoint at deploy", () => {

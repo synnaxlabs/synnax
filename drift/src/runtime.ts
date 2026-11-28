@@ -13,7 +13,7 @@ import type { dimensions, xy } from "@synnaxlabs/x";
 import type { StoreState } from "@/state";
 import type { WindowProps } from "@/window";
 
-/** An event emitted by drift to communicate state changes. */
+/** An event emitted by Drift to communicate state changes. */
 export interface Event<S extends StoreState, A extends Action = UnknownAction> {
   /** The key of the window that emitted the event */
   emitter: string;

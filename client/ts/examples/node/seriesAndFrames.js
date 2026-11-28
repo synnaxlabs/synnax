@@ -148,7 +148,7 @@ console.log(multiSeries.at(0)); // 1
 // Access a value from a specific series
 console.log(multiSeries.series[0].at(0)); // 1
 
-// Construct a Javascript array from the MultiSeries
+// Construct a JavaScript array from the MultiSeries
 jsArray = [...multiSeries];
 console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
 

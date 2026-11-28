@@ -33,10 +33,16 @@ const nextSecond = (now: XTimeStamp): XTimeStamp => now.add(XTimeSpan.SECOND);
 export const useTimeSpanSince = (stamp: CrudeTimeStamp): XTimeSpan =>
   useNow(nextSecond).span(stamp);
 
+/** Draws the time elapsed since the stamp, with tabular digits by default. */
 export const TimeSpanSince = <E extends Generic.ElementType = "p">({
   children,
+  variant = "numeric",
   ...rest
 }: TimeSpanSinceProps<E>): ReactElement => {
   const span = useTimeSpanSince(children);
-  return <TimeSpan {...rest}>{span}</TimeSpan>;
+  return (
+    <TimeSpan variant={variant} {...rest}>
+      {span}
+    </TimeSpan>
+  );
 };

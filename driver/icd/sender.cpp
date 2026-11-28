@@ -43,7 +43,7 @@ std::pair<Sender, x::errors::Error> Sender::create(
         const auto &target = targets[i];
         const auto context = "target " + std::to_string(i) + ": ";
         const auto refuse = [&context](const x::errors::Error &err) {
-            return std::pair{Sender{}, x::errors::Error(err, context + err.data)};
+            return std::pair{Sender{}, x::errors::Error(err, context + err.data())};
         };
         const auto ic = std::ranges::find(icds, target.icd, &synnax::icd::ICD::key);
         if (ic == icds.end())
@@ -96,7 +96,7 @@ Sender::write(transport::Transport &t, const x::telem::Frame &fr) {
     }
     common::Warning warning;
     if (refused)
-        warning = {.message = "Skipped invalid command", .description = refused.data};
+        warning = {.message = "Skipped invalid command", .description = refused.data()};
     return {warning, error};
 }
 

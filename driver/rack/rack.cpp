@@ -84,7 +84,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         while (const auto check_err = cfg.check_core()) {
             if (check_err.matches(CORE_CHANGED))
                 LOG(ERROR) << "Core changed cluster or version, restarting: "
-                           << check_err.data;
+                           << check_err.data();
             if (this->should_exit(check_err, on_shutdown, true)) return;
         }
     }

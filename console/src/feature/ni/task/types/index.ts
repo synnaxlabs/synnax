@@ -56,7 +56,7 @@ export type CJC = ni.CJC;
 export type CJCType = ni.CJCType;
 
 // Cross-field scale validation is not generated; re-attach it to the map and table
-// scale schemas the console exposes.
+// scale schemas the Console exposes.
 const mapScaleZ = ni.mapScaleZ
   .refine(({ preScaledMin, preScaledMax }) => preScaledMin < preScaledMax, {
     message: "Pre-scaled min must be less than pre-scaled max",
@@ -362,7 +362,7 @@ const deployReadRateShape = {
 
 const deployStateRateZ = z.number().positive().max(50000);
 
-// DAQmx refuses a channel whose minimum is not below its maximum.
+// NI-DAQmx refuses a channel whose minimum is not below its maximum.
 const validateRanges = ({
   value: channels,
   issues,
