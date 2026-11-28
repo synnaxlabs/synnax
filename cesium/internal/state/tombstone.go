@@ -176,13 +176,19 @@ func (c *core) tombstone(t *log.Tombstone) error {
 		return err
 	}
 	ch := c.channels[t.Key]
-	ch.cuts++
+	gone := false
 	for _, s := range slices.Clone(ch.segs) {
-		s.vis.Pointers = cut(s.vis.ID, s.vis.Pointers, t)
+		vis := cut(s.vis.ID, s.vis.Pointers, t)
+		gone = gone || samples(vis) < samples(s.vis.Pointers)
+		s.vis.Pointers = vis
 		s.dur.pointers = cut(s.vis.ID, s.dur.pointers, t)
 		c.bury(s)
 	}
-	ch.publish()
+	if gone {
+		ch.cut()
+	} else {
+		ch.publish()
+	}
 	return nil
 }
 

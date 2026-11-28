@@ -663,7 +663,11 @@ func (s *State) takeBack(w *Writer, unknown bool) []log.Seal {
 	seals := make([]log.Seal, 0, len(w.held))
 	for _, seg := range w.held {
 		ch := s.core.channels[seg.key]
-		if !seg.dur.created && unknown {
+		// Visible data that is not durable is a suffix of vis, so samples leave when
+		// vis runs past the durable length.
+		gone := seg.vis.Length > seg.dur.length
+		switch {
+		case !seg.dur.created && unknown:
 			seg.vis = Segment{
 				ID:       seg.vis.ID,
 				Clock:    seg.vis.Clock,
@@ -673,22 +677,20 @@ func (s *State) takeBack(w *Writer, unknown bool) []log.Seal {
 			}
 			seg.holder = nil
 			delete(w.held, seg.key)
-			ch.cuts++
-			ch.publish()
-			continue
-		}
-		if !seg.dur.created {
+		case !seg.dur.created:
 			delete(w.held, seg.key)
-			ch.cuts++
 			s.drop(seg)
-			continue
+		default:
+			seg.vis.Pointers = slices.Clone(seg.dur.pointers)
+			seg.vis.Length, seg.vis.TailCRC = seg.dur.length, seg.dur.tailCRC
+			ch.checkViews()
+			seals = append(seals, s.sealVisible(w, seg))
 		}
-		seg.vis.Pointers = slices.Clone(seg.dur.pointers)
-		seg.vis.Length, seg.vis.TailCRC = seg.dur.length, seg.dur.tailCRC
-		ch.checkViews()
-		seals = append(seals, s.sealVisible(w, seg))
-		ch.cuts++
-		ch.publish()
+		if gone {
+			ch.cut()
+		} else {
+			ch.publish()
+		}
 	}
 	sortSeals(seals)
 	return seals
@@ -716,6 +718,7 @@ func (r *switchRequest) run(s *State) {
 		}
 		if !seg.dur.created {
 			s.drop(seg)
+			s.core.channels[seg.key].publish()
 			continue
 		}
 		seg.vis.Sealed = true
@@ -741,13 +744,11 @@ func (r *switchRequest) run(s *State) {
 func (*switchRequest) fail(error) {}
 
 // drop takes seg, which has no durable byte, out of the state, for the database to
-// unlink its file.
+// unlink its file. The caller publishes the channel of seg.
 func (s *State) drop(seg *segState) {
-	ch := s.core.channels[seg.key]
-	ch.remove(seg.vis.ID)
+	s.core.channels[seg.key].remove(seg.vis.ID)
 	s.core.removeSegment(seg)
 	s.core.addDead(Dead{Segment: seg.vis.ID, Key: seg.key})
-	ch.publish()
 }
 
 // Switch queues the switch of the state to the log of generation, which the log owner

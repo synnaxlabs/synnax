@@ -130,6 +130,21 @@ func (c *chanState) checkViews() {
 	}
 }
 
+// cut counts a change that took visible samples out of c, and publishes c.
+func (c *chanState) cut() {
+	c.cuts++
+	c.publish()
+}
+
+// samples returns the samples of ptrs.
+func samples(ptrs []Pointer) uint64 {
+	var n uint64
+	for _, p := range ptrs {
+		n += uint64(p.Samples)
+	}
+	return n
+}
+
 // publish stores a new visible Channel of c for readers.
 func (c *chanState) publish() {
 	ch := &Channel{Key: c.key, Cuts: c.cuts, Segments: make([]Segment, 0, len(c.segs))}
