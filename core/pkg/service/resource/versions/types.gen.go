@@ -84,6 +84,8 @@ const (
 	TypeICD Type = v0.TypeICD
 	// TypeEnumeration identifies an enumeration.
 	TypeEnumeration Type = v0.TypeEnumeration
+	// TypeMqttBroker identifies an MQTT broker.
+	TypeMqttBroker Type = v0.TypeMqttBroker
 )
 
 // ID is a unique identifier for a Resource. An example:

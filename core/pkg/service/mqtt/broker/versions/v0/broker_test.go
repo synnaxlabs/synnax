@@ -1,0 +1,283 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v0_test
+
+import (
+	"encoding/json/v2"
+	"uuid"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/mqtt/broker/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
+)
+
+var _ = Describe("Broker", func() {
+	broker := func() v0.Broker {
+		return v0.Broker{
+			Key:       uuid.MustParse("22222222-2222-4222-8222-222222222222"),
+			Rack:      1,
+			Name:      "Plant Broker",
+			Host:      "mqtt.example.com",
+			Transport: v0.Transport{Variant: v0.TcpTransport{}},
+			Auth:      v0.Auth{Variant: v0.NoneAuth{}},
+			KeepAlive: 30 * telem.Second,
+			Sparkplug: v0.Sparkplug{
+				Mode: v0.SparkplugMode{Variant: v0.PassiveSparkplugMode{}},
+			},
+		}
+	}
+
+	plainRead := func() v0.PlainRead {
+		return v0.PlainRead{
+			Topic:   "plant/temp",
+			Message: uuid.New(),
+			Index:   1,
+			Channel: 2,
+		}
+	}
+
+	sparkplugRead := func() v0.SparkplugRead {
+		return v0.SparkplugRead{
+			Group:    "Plant",
+			EdgeNode: "Line1",
+			Tag:      "Pressure",
+			Index:    1,
+			Channel:  2,
+		}
+	}
+
+	It("Should have a table prefix of its own", func() {
+		Expect(types.Name[v0.Broker]()).To(Equal("mqtt_broker"))
+	})
+
+	It("Should identify itself by its key", func() {
+		b := broker()
+		Expect(b.GorpKey()).To(Equal(b.Key))
+		Expect(b.ResourceID()).To(Equal(resource.ID{
+			Type: resource.TypeMqttBroker,
+			Key:  b.Key.String(),
+		}))
+	})
+
+	It("Should apply the defaults", func() {
+		var b v0.Broker
+		Expect(json.Unmarshal([]byte(`{
+			"key": "22222222-2222-4222-8222-222222222222",
+			"rack": 1,
+			"name": "Plant Broker",
+			"host": "mqtt.example.com"
+		}`), &b)).To(Succeed())
+		Expect(b).To(Equal(broker()))
+		Expect(b.Validate()).To(Succeed())
+	})
+
+	It("Should round trip a broker through JSON", func() {
+		b := broker()
+		b.Port = new(uint16(8883))
+		b.ClientID = new("plant-core")
+		b.Transport = v0.Transport{Variant: v0.TlsTransport{
+			CaCertificate:                 new(uuid.New()),
+			ClientCertificate:             new(uuid.New()),
+			CertificateValidationDisabled: true,
+		}}
+		b.Auth = v0.Auth{Variant: v0.UsernameAuth{
+			Username: "admin",
+			Password: new(uuid.New()),
+		}}
+		b.Sparkplug = v0.Sparkplug{
+			Mode:   v0.SparkplugMode{Variant: v0.PrimarySparkplugMode{HostID: "scada"}},
+			Groups: []string{"Plant"},
+		}
+		b.Reads = []v0.Read{{Variant: plainRead()}, {Variant: sparkplugRead()}}
+		b.Writes = []v0.Write{
+			{Variant: v0.PlainWrite{
+				Topic:   "plant/valve",
+				Field:   uuid.New(),
+				Channel: 3,
+			}},
+			{Variant: v0.SparkplugWrite{
+				Group:    "Plant",
+				EdgeNode: "Line1",
+				Device:   "Pump",
+				Tag:      "Speed",
+				Channel:  4,
+			}},
+		}
+		b.EdgeCommands = []v0.EdgeCommand{{
+			Group:    "Plant",
+			EdgeNode: "Synnax",
+			Tag:      "Setpoint",
+			Channel:  5,
+		}}
+		Expect(b.Validate()).To(Succeed())
+		var decoded v0.Broker
+		Expect(json.Unmarshal(MustSucceed(json.Marshal(b)), &decoded)).To(Succeed())
+		Expect(decoded).To(Equal(b))
+	})
+
+	DescribeTable(
+		"Should reject an invalid broker",
+		func(change func(*v0.Broker), path string) {
+			b := broker()
+			change(&b)
+			Expect(b.Validate()).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(path)),
+			))
+		},
+		Entry("no name", func(b *v0.Broker) { b.Name = "" }, "name"),
+		Entry("no host", func(b *v0.Broker) { b.Host = "" }, "host"),
+		Entry("a host with a scheme", func(b *v0.Broker) {
+			b.Host = "mqtt://mqtt.example.com"
+		}, "host"),
+		Entry("a host with a port", func(b *v0.Broker) {
+			b.Host = "mqtt.example.com:1883"
+		}, "host"),
+		Entry("port 0", func(b *v0.Broker) { b.Port = new(uint16(0)) }, "port"),
+		Entry("an empty client ID", func(b *v0.Broker) {
+			b.ClientID = new("")
+		}, "client_id"),
+		Entry("a keep alive under 1 s", func(b *v0.Broker) {
+			b.KeepAlive = 999 * telem.Millisecond
+		}, "keep_alive"),
+		Entry("a keep alive over 65535 s", func(b *v0.Broker) {
+			b.KeepAlive = 65536 * telem.Second
+		}, "keep_alive"),
+		Entry(
+			"no transport",
+			func(b *v0.Broker) { b.Transport = v0.Transport{} },
+			"type",
+		),
+		Entry("no auth", func(b *v0.Broker) { b.Auth = v0.Auth{} }, "type"),
+		Entry("a user name auth with no user name", func(b *v0.Broker) {
+			b.Auth = v0.Auth{Variant: v0.UsernameAuth{}}
+		}, "username"),
+		Entry("a primary host with no ID", func(b *v0.Broker) {
+			b.Sparkplug.Mode = v0.SparkplugMode{Variant: v0.PrimarySparkplugMode{}}
+		}, "host_id"),
+		Entry("a primary host ID with a wildcard", func(b *v0.Broker) {
+			b.Sparkplug.Mode = v0.SparkplugMode{
+				Variant: v0.PrimarySparkplugMode{HostID: "scada/+"},
+			}
+		}, "host_id"),
+		Entry("a plain read topic with NUL", func(b *v0.Broker) {
+			r := plainRead()
+			r.Topic = "plant/\x00"
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "topic"),
+		Entry("a plain write topic that starts with $", func(b *v0.Broker) {
+			b.Writes = []v0.Write{{Variant: v0.PlainWrite{
+				Topic:   "$SYS/valve",
+				Field:   uuid.New(),
+				Channel: 3,
+			}}}
+		}, "topic"),
+		Entry("a Sparkplug tag with NUL", func(b *v0.Broker) {
+			r := sparkplugRead()
+			r.Tag = "Pressure\x00"
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "tag"),
+		Entry("a plain read with a wildcard topic", func(b *v0.Broker) {
+			r := plainRead()
+			r.Topic = "plant/#"
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "topic"),
+		Entry("a plain read with no message", func(b *v0.Broker) {
+			r := plainRead()
+			r.Message = uuid.Nil()
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "message"),
+		Entry("a plain read pointer with no leading slash", func(b *v0.Broker) {
+			r := plainRead()
+			r.Pointer = "temp"
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "pointer"),
+		Entry("a plain read with no index", func(b *v0.Broker) {
+			r := plainRead()
+			r.Index = 0
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "index"),
+		Entry("a Sparkplug read with no group", func(b *v0.Broker) {
+			r := sparkplugRead()
+			r.Group = ""
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "group"),
+		Entry("a Sparkplug read with a slash in its edge node", func(b *v0.Broker) {
+			r := sparkplugRead()
+			r.EdgeNode = "Line/1"
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "edge_node"),
+		Entry("a Sparkplug read with a wildcard device", func(b *v0.Broker) {
+			r := sparkplugRead()
+			r.Device = "#"
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "device"),
+		Entry("a Sparkplug read with no tag", func(b *v0.Broker) {
+			r := sparkplugRead()
+			r.Tag = ""
+			b.Reads = []v0.Read{{Variant: r}}
+		}, "tag"),
+		Entry("a plain write with no field", func(b *v0.Broker) {
+			b.Writes = []v0.Write{{Variant: v0.PlainWrite{Topic: "a", Channel: 3}}}
+		}, "field"),
+		Entry("a Sparkplug write with no channel", func(b *v0.Broker) {
+			b.Writes = []v0.Write{{Variant: v0.SparkplugWrite{
+				Group:    "Plant",
+				EdgeNode: "Line1",
+				Tag:      "Speed",
+			}}}
+		}, "channel"),
+		Entry("an edge command with no channel", func(b *v0.Broker) {
+			b.EdgeCommands = []v0.EdgeCommand{{
+				Group:    "Plant",
+				EdgeNode: "Synnax",
+				Tag:      "Setpoint",
+			}}
+		}, "channel"),
+		Entry("an edge command with a wildcard group", func(b *v0.Broker) {
+			b.EdgeCommands = []v0.EdgeCommand{{
+				Group:    "+",
+				EdgeNode: "Synnax",
+				Tag:      "Setpoint",
+				Channel:  5,
+			}}
+		}, "group"),
+	)
+
+	DescribeTable("Should accept a valid broker",
+		func(change func(*v0.Broker)) {
+			b := broker()
+			change(&b)
+			Expect(b.Validate()).To(Succeed())
+		},
+		Entry("an IPv4 host", func(b *v0.Broker) { b.Host = "192.168.1.10" }),
+		Entry("an IPv6 host", func(b *v0.Broker) { b.Host = "fe80::1" }),
+		Entry("a single label host", func(b *v0.Broker) { b.Host = "localhost" }),
+		Entry("TLS with no certificates", func(b *v0.Broker) {
+			b.Transport = v0.Transport{Variant: v0.TlsTransport{}}
+		}),
+		Entry("a user name with no password", func(b *v0.Broker) {
+			b.Auth = v0.Auth{Variant: v0.UsernameAuth{Username: "admin"}}
+		}),
+		Entry("a Sparkplug tag whose name holds a slash", func(b *v0.Broker) {
+			r := sparkplugRead()
+			r.Tag = "Node Control/Rebirth"
+			b.Reads = []v0.Read{{Variant: r}}
+		}),
+		Entry("a whole message pointer", func(b *v0.Broker) {
+			b.Reads = []v0.Read{{Variant: plainRead()}}
+		}),
+	)
+})

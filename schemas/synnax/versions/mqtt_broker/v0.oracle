@@ -1,0 +1,282 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/certificate/v1"
+import "schemas/synnax/versions/channel/v1"
+import "schemas/synnax/versions/icd/v1"
+import "schemas/synnax/versions/rack/v3"
+import "schemas/synnax/versions/secret/v1"
+import "schemas/synnax/versions/status/v2"
+import "schemas/x/versions/telem/v0"
+
+Key = uuid {
+    @doc value "uniquely identifies an MQTT broker."
+}
+
+Transport union on type {
+    tcp {
+        @doc value "connects over plain TCP."
+    }
+    tls {
+        ca_certificate                  certificate.Key? {
+            @doc value """
+                is the certificate authority that signs the certificate of the broker.
+                Absent trusts the system roots.
+            """
+        }
+        client_certificate              certificate.Key? {
+            @doc value """
+                is the certificate and private key that the Core presents to the broker.
+                Absent presents no certificate.
+            """
+        }
+        certificate_validation_disabled bool = false {
+            @doc value "is true when the Core accepts any broker certificate."
+        }
+
+        @doc value "connects over TLS."
+    }
+
+    @doc value  "is the transport that the Core connects to a broker over."
+    @go marshal
+}
+
+Auth union on type {
+    none {
+        @doc value "sends no credentials."
+    }
+    username {
+        username string      {
+            @doc value "is the user name to authenticate with."
+        }
+        password secret.Key? {
+            @doc value """
+                is the secret that holds the password. Absent sends no password.
+            """
+        }
+
+        @doc value "sends a user name and an optional password."
+    }
+
+    @doc value  "holds the credentials that the Core connects to a broker with."
+    @go marshal
+}
+
+SparkplugMode union on type {
+    passive {
+        @doc value "subscribes to Sparkplug B topics as an observer."
+    }
+    primary {
+        host_id string {
+            @doc value """
+                is the ID that the Core publishes its host application state as.
+            """
+        }
+
+        @doc value "publishes the state of a primary host application."
+    }
+
+    @doc value  "is the role that the Core takes in a Sparkplug B system."
+    @go marshal
+}
+
+Sparkplug struct {
+    mode   SparkplugMode = passive {
+        @doc value "is the role that the Core takes in the Sparkplug B system."
+    }
+    groups string[] = [] {
+        @doc value "are the Sparkplug group IDs that a browse lists. Empty lists all."
+    }
+
+    @doc value  "configures how the Core takes part in a Sparkplug B system."
+    @go marshal
+}
+
+Read union on type {
+    plain {
+        topic   string         {
+            @doc value "is the topic to subscribe to. It holds no wildcards."
+        }
+        message icd.MessageKey {
+            @doc value "is the ICD message that the payloads of the topic hold."
+        }
+        pointer string = "" {
+            @doc value "is the JSON Pointer to the value in the message."
+        }
+        index   channel.Key    {
+            @doc value "is the index channel of the channel."
+        }
+        channel channel.Key    {
+            @doc value "is the channel that holds the samples of the value."
+        }
+
+        @doc value "binds a value in the JSON payloads of a topic to a channel."
+    }
+    sparkplug {
+        group     string      {
+            @doc value "is the Sparkplug group ID of the edge node."
+        }
+        edge_node string      {
+            @doc value "is the Sparkplug edge node ID."
+        }
+        device    string = "" {
+            @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
+        }
+        tag       string      {
+            @doc value "is the name of the tag."
+        }
+        index     channel.Key {
+            @doc value "is the index channel of the channel."
+        }
+        channel   channel.Key {
+            @doc value "is the channel that holds the samples of the tag."
+        }
+
+        @doc value "binds a Sparkplug B tag to a channel."
+    }
+
+    @doc value  "binds a value that a broker delivers to a channel."
+    @go marshal
+}
+
+Write union on type {
+    plain {
+        topic   string       {
+            @doc value """
+                is the topic to publish to. It holds no wildcards and no leading $.
+            """
+        }
+        field   icd.FieldKey {
+            @doc value "is the ICD field that a command sets in the published message."
+        }
+        channel channel.Key  {
+            @doc value "is the channel whose commands publish the message."
+        }
+
+        @doc value "binds a field of a message published to a topic to a channel."
+    }
+    sparkplug {
+        group     string      {
+            @doc value "is the Sparkplug group ID of the edge node."
+        }
+        edge_node string      {
+            @doc value "is the Sparkplug edge node ID."
+        }
+        device    string = "" {
+            @doc value "is the Sparkplug device ID. Empty for a tag of the edge node."
+        }
+        tag       string      {
+            @doc value "is the name of the tag."
+        }
+        channel   channel.Key {
+            @doc value "is the channel whose commands write the tag."
+        }
+
+        @doc value "binds a Sparkplug B tag to the channel whose commands write it."
+    }
+
+    @doc value  "binds a channel to the value that its commands publish to a broker."
+    @go marshal
+}
+
+EdgeCommand struct {
+    group     string      {
+        @doc value "is the Sparkplug group ID of the edge node."
+    }
+    edge_node string      {
+        @doc value "is the Sparkplug edge node ID that the Core publishes as."
+    }
+    tag       string      {
+        @doc value "is the name of the tag."
+    }
+    channel   channel.Key {
+        @doc value "is the command channel of the tag."
+    }
+
+    @doc value  """
+        binds a tag that the Core publishes as an edge node to its command channel.
+    """
+    @go marshal
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the broker belongs to."
+    }
+    broker    Key      {
+        @doc value "is the key of the broker."
+    }
+    connected bool = false {
+        @doc value "is true when the Core is connected to the broker."
+    }
+
+    @doc value "identifies the broker and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a broker."
+}
+
+Broker struct {
+    key           Key = create {
+        @doc value "uniquely identifies the broker."
+        @key
+    }
+    rack          rack.Key       {
+        @doc value "is the key of the rack that connects to the broker."
+    }
+    name          string         {
+        @doc value "is a human-readable name for the broker."
+    }
+    host          string         {
+        @doc value "is the hostname or IP address of the broker."
+    }
+    port          uint16?        {
+        @doc value """
+            is the TCP port. Absent takes 1883, or 8883 when the transport is TLS.
+        """
+    }
+    transport     Transport = tcp {
+        @doc value "is the transport that the Core connects to the broker over."
+    }
+    auth          Auth = none {
+        @doc value "holds the credentials that the Core connects to the broker with."
+    }
+    client_id     string?        {
+        @doc value """
+            is the MQTT client ID. Absent derives one from the key of the broker. A
+            broker only has to accept IDs of 1 to 23 bytes.
+        """
+    }
+    keep_alive    telem.TimeSpan = 30s {
+        @doc value "is the keep alive interval, in whole seconds."
+    }
+    sparkplug     Sparkplug = {} {
+        @doc value "configures how the Core takes part in a Sparkplug B system."
+    }
+    reads         Read[] = [] {
+        @doc value "bind the values that read tasks receive to channels."
+    }
+    writes        Write[] = [] {
+        @doc value "bind the channels whose commands write tasks publish."
+    }
+    edge_commands EdgeCommand[] = [] {
+        @doc value "bind the tags that the Core publishes as an edge node to channels."
+    }
+    status        Status?        {
+        @doc value  "is the current connection status of the broker."
+        @go marshal omit
+    }
+
+    @doc value     "is an MQTT broker that a rack connects to."
+    @go entry      "mqtt_broker"
+    @go marshal
+    @go migrate
+    @resource type "mqtt_broker"
+}

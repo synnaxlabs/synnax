@@ -104,6 +104,9 @@ Type enum {
     enumeration      = "enumeration" {
         @doc value "identifies an enumeration."
     }
+    mqtt_broker      = "mqtt_broker" {
+        @doc value "identifies an MQTT broker."
+    }
 
     @doc value "is the type of the resource."
 }

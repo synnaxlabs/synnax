@@ -89,6 +89,8 @@ TYPE_ICD: Literal["icd"] = "icd"
 
 TYPE_ENUMERATION: Literal["enumeration"] = "enumeration"
 
+TYPE_MQTT_BROKER: Literal["mqtt_broker"] = "mqtt_broker"
+
 
 Type = Literal[
     "arc",
@@ -129,4 +131,5 @@ Type = Literal[
     "color",
     "icd",
     "enumeration",
+    "mqtt_broker",
 ]
