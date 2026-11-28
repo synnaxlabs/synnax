@@ -15,6 +15,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/convert.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
@@ -22,36 +23,58 @@
 using nlohmann::json;
 
 TEST(ParseTimeFormat, ISO8601) {
-    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("iso8601"));
-    ASSERT_EQ(fmt, x::json::TimeFormat::ISO8601);
+    const auto fmt = ASSERT_NIL_P(x::json::details::parse_time_format("iso8601"));
+    ASSERT_EQ(fmt, x::json::details::TimeFormat::ISO8601);
 }
 
 TEST(ParseTimeFormat, UnixSecond) {
-    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("unix_sec"));
-    ASSERT_EQ(fmt, x::json::TimeFormat::UnixSecond);
+    const auto fmt = ASSERT_NIL_P(x::json::details::parse_time_format("unix_sec"));
+    ASSERT_EQ(fmt, x::json::details::TimeFormat::UnixSecond);
 }
 
 TEST(ParseTimeFormat, UnixMillisecond) {
-    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("unix_ms"));
-    ASSERT_EQ(fmt, x::json::TimeFormat::UnixMillisecond);
+    const auto fmt = ASSERT_NIL_P(x::json::details::parse_time_format("unix_ms"));
+    ASSERT_EQ(fmt, x::json::details::TimeFormat::UnixMillisecond);
 }
 
 TEST(ParseTimeFormat, UnixMicrosecond) {
-    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("unix_us"));
-    ASSERT_EQ(fmt, x::json::TimeFormat::UnixMicrosecond);
+    const auto fmt = ASSERT_NIL_P(x::json::details::parse_time_format("unix_us"));
+    ASSERT_EQ(fmt, x::json::details::TimeFormat::UnixMicrosecond);
 }
 
 TEST(ParseTimeFormat, UnixNanosecond) {
-    const auto fmt = ASSERT_NIL_P(x::json::parse_time_format("unix_ns"));
-    ASSERT_EQ(fmt, x::json::TimeFormat::UnixNanosecond);
+    const auto fmt = ASSERT_NIL_P(x::json::details::parse_time_format("unix_ns"));
+    ASSERT_EQ(fmt, x::json::details::TimeFormat::UnixNanosecond);
 }
 
 TEST(ParseTimeFormat, InvalidFormat) {
-    ASSERT_OCCURRED_AS_P(x::json::parse_time_format("invalid"), x::json::BASE_ERROR);
+    ASSERT_OCCURRED_AS_P(
+        x::json::details::parse_time_format("invalid"),
+        x::errors::VALIDATION
+    );
 }
 
 TEST(ParseTimeFormat, EmptyString) {
-    ASSERT_OCCURRED_AS_P(x::json::parse_time_format(""), x::json::BASE_ERROR);
+    ASSERT_OCCURRED_AS_P(
+        x::json::details::parse_time_format(""),
+        x::errors::VALIDATION
+    );
+}
+
+/// @brief it should reject a timestamp value with an unknown time format.
+TEST(ToSampleValue, RejectsUnknownTimeFormatForTimestamp) {
+    ASSERT_OCCURRED_AS_P(
+        x::json::to_sample_value(json(1), x::telem::TIMESTAMP_T, "unix_min"),
+        x::errors::VALIDATION
+    );
+}
+
+/// @brief it should ignore the time format of a data type that is not a timestamp.
+TEST(ToSampleValue, IgnoresTimeFormatForNumber) {
+    const auto sv = ASSERT_NIL_P(
+        x::json::to_sample_value(json(1), x::telem::INT64_T, "unix_min")
+    );
+    ASSERT_EQ(std::get<std::int64_t>(sv), 1);
 }
 
 // --- ToSampleValue (Number) ---
@@ -221,7 +244,7 @@ TEST(ToSampleValue, NumberToTimestampNanosecond) {
         x::json::to_sample_value(
             json(value),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixNanosecond
+            x::payload::TIME_FORMAT_UNIX_NS
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(value));
@@ -233,7 +256,7 @@ TEST(ToSampleValue, NumberToTimestampNanosecondKeepsEveryNanosecond) {
         x::json::to_sample_value(
             json(value),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixNanosecond
+            x::payload::TIME_FORMAT_UNIX_NS
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(value));
@@ -244,7 +267,7 @@ TEST(ToSampleValue, NumberToTimestampMicrosecondKeepsEveryMicrosecond) {
         x::json::to_sample_value(
             json(int64_t{1700000000123457}),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixMicrosecond
+            x::payload::TIME_FORMAT_UNIX_US
         )
     );
     ASSERT_EQ(
@@ -258,7 +281,7 @@ TEST(ToSampleValue, StringToTimestampNanosecondKeepsEveryNanosecond) {
         x::json::to_sample_value(
             json("1700000000123456789"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixNanosecond
+            x::payload::TIME_FORMAT_UNIX_NS
         )
     );
     ASSERT_EQ(
@@ -272,7 +295,7 @@ TEST(ToSampleValue, NumberToTimestampOverflowError) {
         x::json::to_sample_value(
             json(int64_t{10000000000000}),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixSecond
+            x::payload::TIME_FORMAT_UNIX_SEC
         ),
         x::json::CONVERSION_ERROR
     );
@@ -283,7 +306,7 @@ TEST(ToSampleValue, NumberDecimalToTimestampOverflowError) {
         x::json::to_sample_value(
             json(1e13),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixSecond
+            x::payload::TIME_FORMAT_UNIX_SEC
         ),
         x::json::CONVERSION_ERROR
     );
@@ -294,7 +317,7 @@ TEST(ToSampleValue, NumberToTimestampMicrosecond) {
         x::json::to_sample_value(
             json(int64_t(1000000)),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixMicrosecond
+            x::payload::TIME_FORMAT_UNIX_US
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1000000000));
@@ -305,7 +328,7 @@ TEST(ToSampleValue, NumberToTimestampMillisecond) {
         x::json::to_sample_value(
             json(int64_t(1500)),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixMillisecond
+            x::payload::TIME_FORMAT_UNIX_MS
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1500000000));
@@ -316,7 +339,7 @@ TEST(ToSampleValue, NumberToTimestampSecondInteger) {
         x::json::to_sample_value(
             json(int64_t(1000000000)),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixSecond
+            x::payload::TIME_FORMAT_UNIX_SEC
         )
     );
     ASSERT_EQ(
@@ -330,7 +353,7 @@ TEST(ToSampleValue, NumberToTimestampSecondDecimal) {
         x::json::to_sample_value(
             json(1.5),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixSecond
+            x::payload::TIME_FORMAT_UNIX_SEC
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1500000000));
@@ -342,7 +365,7 @@ TEST(ToSampleValue, NumberToTimestampMillisecondDecimal) {
         x::json::to_sample_value(
             json(1500.5),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixMillisecond
+            x::payload::TIME_FORMAT_UNIX_MS
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1500500000));
@@ -354,7 +377,7 @@ TEST(ToSampleValue, NumberToTimestampMicrosecondDecimal) {
         x::json::to_sample_value(
             json(1000000.5),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixMicrosecond
+            x::payload::TIME_FORMAT_UNIX_US
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1000000500));
@@ -365,7 +388,7 @@ TEST(ToSampleValue, NumberToTimestampISO8601Error) {
         x::json::to_sample_value(
             json(42),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -978,7 +1001,7 @@ TEST(ToSampleValue, StringToTimestampUnixNanosecond) {
         x::json::to_sample_value(
             json("1000000000000000000"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixNanosecond
+            x::payload::TIME_FORMAT_UNIX_NS
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(value));
@@ -989,7 +1012,7 @@ TEST(ToSampleValue, StringToTimestampUnixSecond) {
         x::json::to_sample_value(
             json("1000000000"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixSecond
+            x::payload::TIME_FORMAT_UNIX_SEC
         )
     );
     ASSERT_EQ(
@@ -1003,7 +1026,7 @@ TEST(ToSampleValue, StringToTimestampUnixMillisecond) {
         x::json::to_sample_value(
             json("1500"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixMillisecond
+            x::payload::TIME_FORMAT_UNIX_MS
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1500000000));
@@ -1014,7 +1037,7 @@ TEST(ToSampleValue, StringToTimestampUnixMicrosecond) {
         x::json::to_sample_value(
             json("1000000"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixMicrosecond
+            x::payload::TIME_FORMAT_UNIX_US
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1000000000));
@@ -1025,7 +1048,7 @@ TEST(ToSampleValue, StringToTimestampUnixSecondDecimal) {
         x::json::to_sample_value(
             json("1.5"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixSecond
+            x::payload::TIME_FORMAT_UNIX_SEC
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(1500000000));
@@ -1036,7 +1059,7 @@ TEST(ToSampleValue, StringToTimestampNonNumericError) {
         x::json::to_sample_value(
             json("not-a-number"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixNanosecond
+            x::payload::TIME_FORMAT_UNIX_NS
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1047,7 +1070,7 @@ TEST(ToSampleValue, StringISO8601WithUnixFormatError) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::UnixNanosecond
+            x::payload::TIME_FORMAT_UNIX_NS
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1058,7 +1081,7 @@ TEST(ToSampleValue, StringToTimestampISO8601) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40.5Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1073,7 +1096,7 @@ TEST(ToSampleValue, StringToTimestampISO8601WithOffset) {
         x::json::to_sample_value(
             json("2001-09-09T02:46:40.5+01:00"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1087,7 +1110,7 @@ TEST(ToSampleValue, StringToTimestampISO8601WithoutSubSecond) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1103,7 +1126,7 @@ TEST(ToSampleValue, StringToTimestampISO8601Epoch) {
         x::json::to_sample_value(
             json("1970-01-01T00:00:00Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(0));
@@ -1114,7 +1137,7 @@ TEST(ToSampleValue, StringToTimestampISO8601SubSecondThreeDigits) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40.123Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1128,7 +1151,7 @@ TEST(ToSampleValue, StringToTimestampISO8601SubSecondSixDigits) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40.123456Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1142,7 +1165,7 @@ TEST(ToSampleValue, StringToTimestampISO8601SubSecondNineDigits) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40.123456789Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1156,7 +1179,7 @@ TEST(ToSampleValue, StringToTimestampISO8601ExcessDigitsTruncated) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40.1234567891111Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1171,7 +1194,7 @@ TEST(ToSampleValue, StringToTimestampISO8601NegativeOffset) {
         x::json::to_sample_value(
             json("2001-09-09T00:46:40-01:00"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1186,7 +1209,7 @@ TEST(ToSampleValue, StringToTimestampISO8601NegativeOffsetCrossesMidnight) {
         x::json::to_sample_value(
             json("2001-09-08T23:46:40-05:00"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     const int64_t expected = 1000000000000000000 + int64_t(3) * 3600 * 1000000000;
@@ -1198,7 +1221,7 @@ TEST(ToSampleValue, StringToTimestampISO8601ExplicitPlusZero) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40+00:00"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1212,7 +1235,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MinusZero) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40-00:00"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1226,7 +1249,7 @@ TEST(ToSampleValue, StringToTimestampISO8601LowercaseZ) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1240,7 +1263,7 @@ TEST(ToSampleValue, StringToTimestampISO8601LowercaseT) {
         x::json::to_sample_value(
             json("2001-09-09t01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1254,7 +1277,7 @@ TEST(ToSampleValue, StringToTimestampISO8601SpaceSeparator) {
         x::json::to_sample_value(
             json("2001-09-09 01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1268,7 +1291,7 @@ TEST(ToSampleValue, StringToTimestampISO8601LeapYearFeb29) {
         x::json::to_sample_value(
             json("2000-02-29T00:00:00Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1282,7 +1305,7 @@ TEST(ToSampleValue, StringToTimestampISO8601PreEpoch) {
         x::json::to_sample_value(
             json("1969-12-31T23:59:59Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(-1000000000));
@@ -1293,7 +1316,7 @@ TEST(ToSampleValue, StringToTimestampISO8601PreEpochWithFraction) {
         x::json::to_sample_value(
             json("1969-12-31T23:59:59.5Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(std::get<x::telem::TimeStamp>(sv), x::telem::TimeStamp(-500000000));
@@ -1305,7 +1328,7 @@ TEST(ToSampleValue, StringToTimestampISO8601HalfHourOffset) {
         x::json::to_sample_value(
             json("2001-09-09T07:16:40+05:30"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1319,7 +1342,7 @@ TEST(ToSampleValue, StringToTimestampISO8601LeapSecondRejected) {
         x::json::to_sample_value(
             json("2001-09-09T23:59:60Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1332,7 +1355,7 @@ TEST(ToSampleValue, StringToTimestampISO8601EmptyString) {
         x::json::to_sample_value(
             json(""),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1343,7 +1366,7 @@ TEST(ToSampleValue, StringToTimestampISO8601TooShort) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:4"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1354,7 +1377,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MissingTimezone) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1365,7 +1388,7 @@ TEST(ToSampleValue, StringToTimestampISO8601BadSeparator) {
         x::json::to_sample_value(
             json("2001-09-09X01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1376,7 +1399,7 @@ TEST(ToSampleValue, StringToTimestampISO8601NonDigitYear) {
         x::json::to_sample_value(
             json("20X1-09-09T01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1387,7 +1410,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MonthZero) {
         x::json::to_sample_value(
             json("2001-00-09T01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1398,7 +1421,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MonthThirteen) {
         x::json::to_sample_value(
             json("2001-13-09T01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1418,7 +1441,7 @@ TEST(ToSampleValue, StringToTimestampISO8601DayPastEndOfMonth) {
             x::json::to_sample_value(
                 json(input),
                 x::telem::TIMESTAMP_T,
-                x::json::TimeFormat::ISO8601
+                x::payload::TIME_FORMAT_ISO_8601
             ),
             x::json::CONVERSION_ERROR
         );
@@ -1435,7 +1458,7 @@ TEST(ToSampleValue, StringToTimestampISO8601LastDayOfMonth) {
             x::json::to_sample_value(
                 json(input),
                 x::telem::TIMESTAMP_T,
-                x::json::TimeFormat::ISO8601
+                x::payload::TIME_FORMAT_ISO_8601
             )
         );
 }
@@ -1445,7 +1468,7 @@ TEST(ToSampleValue, StringToTimestampISO8601DayZero) {
         x::json::to_sample_value(
             json("2001-09-00T01:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1456,7 +1479,7 @@ TEST(ToSampleValue, StringToTimestampISO8601HourTwentyFour) {
         x::json::to_sample_value(
             json("2001-09-09T24:46:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1467,7 +1490,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MinuteSixty) {
         x::json::to_sample_value(
             json("2001-09-09T01:60:40Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1478,7 +1501,7 @@ TEST(ToSampleValue, StringToTimestampISO8601SecondSixty) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:60Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1489,7 +1512,7 @@ TEST(ToSampleValue, StringToTimestampISO8601InvalidTimezoneChar) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40X"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1500,7 +1523,7 @@ TEST(ToSampleValue, StringToTimestampISO8601OffsetMissingColon) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40+0100"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1511,7 +1534,7 @@ TEST(ToSampleValue, StringToTimestampISO8601OffsetTruncated) {
         x::json::to_sample_value(
             json("2001-09-09T01:46:40+01"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1522,7 +1545,7 @@ TEST(ToSampleValue, StringToTimestampISO8601JustDate) {
         x::json::to_sample_value(
             json("2001-09-09"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1534,7 +1557,7 @@ TEST(ToSampleValue, StringToTimestampISO8601AfterMaxTimestamp) {
         x::json::to_sample_value(
             json("2300-01-01T00:00:00Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1546,7 +1569,7 @@ TEST(ToSampleValue, StringToTimestampISO8601BeforeMinTimestamp) {
         x::json::to_sample_value(
             json("1600-01-01T00:00:00Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1558,7 +1581,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MaxTimestamp) {
         x::json::to_sample_value(
             json("2262-04-11T23:47:16.854775807Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1573,7 +1596,7 @@ TEST(ToSampleValue, StringToTimestampISO8601MinTimestamp) {
         x::json::to_sample_value(
             json("1677-09-21T00:12:43.145224192Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         )
     );
     ASSERT_EQ(
@@ -1588,7 +1611,7 @@ TEST(ToSampleValue, StringToTimestampISO8601JustAfterMaxTimestamp) {
         x::json::to_sample_value(
             json("2262-04-11T23:47:16.854775808Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );
@@ -1600,7 +1623,7 @@ TEST(ToSampleValue, StringToTimestampISO8601JustBeforeMinTimestamp) {
         x::json::to_sample_value(
             json("1677-09-21T00:12:43.145224191Z"),
             x::telem::TIMESTAMP_T,
-            x::json::TimeFormat::ISO8601
+            x::payload::TIME_FORMAT_ISO_8601
         ),
         x::json::CONVERSION_ERROR
     );

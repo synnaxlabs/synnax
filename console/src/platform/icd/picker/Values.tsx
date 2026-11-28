@@ -10,6 +10,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
+import type { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -17,11 +18,13 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Skeleton } from "@synnaxlabs/lyra/skeleton";
 import { Text } from "@synnaxlabs/lyra/text";
+import { strings } from "@synnaxlabs/x";
 import { Fragment, type SyntheticEvent, useEffect, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 import { useHint } from "@/platform/icd/picker/hint";
 import { CheckSkeleton } from "@/platform/icd/picker/Picker";
+import type { Route } from "@/platform/icd/route";
 
 /** Fixes the checkbox of a value that cannot be picked. */
 export interface Lock {
@@ -36,12 +39,39 @@ export const TAKEN: Lock = { checked: true, label: "In task" };
 /** The lock of the timestamp that indexes the picked values. */
 export const INDEX: Lock = { checked: true, label: "Index" };
 
-/** The lock of a value of a shape that no held message is sure to get. */
-export const SPLIT: Lock = { checked: false, label: "Split by value" };
+/** Why a pick cannot take the values of a shape. */
+export interface Block {
+  /** Shows at the end of the title of the shape's group. */
+  note: string;
+  /** The lock of each value of the shape. */
+  lock: Lock;
+}
 
-/** @returns the note of a shape whose messages differ only in the value at pointer. */
-export const splitNote = (pointer: string): string =>
-  `Split by the value at ${pointer}. Add fields in the ICD editor.`;
+const MATCHES_FIX =
+  "The Core refuses these documents. Change a match rule in the ICD editor.";
+
+/**
+ * @returns why a pick cannot take the values of a shape that the Core routes by route,
+ * or undefined when it can.
+ */
+export const blockOf = ({
+  split,
+  matches,
+}: Route<{ name: string }>): Block | undefined => {
+  if (matches != null) {
+    const names = strings.naturalLanguageJoin(matches.map(({ name }) => name));
+    return {
+      note: `Matches messages ${names}. ${MATCHES_FIX}`,
+      lock: { checked: false, label: `Matches ${matches.length} messages` },
+    };
+  }
+  if (split != null)
+    return {
+      note: `Split by the value at ${split}. Add fields in the ICD editor.`,
+      lock: { checked: false, label: "Split by value" },
+    };
+  return undefined;
+};
 
 /** A value the pane offers, such as one field of a message. */
 export interface Value {
@@ -320,6 +350,16 @@ export interface ValuesProps {
   focus?: DefaultFocus;
 }
 
+/** @returns the style that sizes the Type column to its longest text in groups. */
+const typeStyle = (groups: ValueGroup[]): PCSS.VarProperties => ({
+  "--console-type-length": Math.max(
+    0,
+    ...groups.flatMap(({ values }) =>
+      values.map(({ dataType, lock }) => (lock?.label ?? dataType).length),
+    ),
+  ),
+});
+
 export const Values = ({
   noun,
   groups,
@@ -334,6 +374,7 @@ export const Values = ({
   return (
     <div
       className={CSS.cls(CSS.BE("icd-picker", "values"), defaults && CSS.M("defaults"))}
+      style={typeStyle(groups)}
     >
       <Head noun={noun} defaults={defaults} />
       <DefaultContext value={defaults ? { onChange: onDefaultChange, focus } : null}>

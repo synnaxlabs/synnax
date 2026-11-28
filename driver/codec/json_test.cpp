@@ -327,6 +327,30 @@ TEST(JSONEncoder, WritesNowDefault) {
     ASSERT_LE(second, x::telem::TimeStamp::now().nanoseconds());
 }
 
+/// @brief it should write a constant timestamp default in the time format of its field.
+TEST(JSONEncoder, WritesConstantTimestampDefaultInTimeFormat) {
+    auto v = field<icd::TimestampJSONField>("v");
+    v.time_format = "unix_ms";
+    v.default_ = icd::ConstantTimestampDefault{
+        .value = x::telem::TimeStamp(1500000000)
+    };
+    auto enc = ASSERT_NIL_P(JSONEncoder::create(command({v})));
+    ASSERT_EQ(encoded(enc, {})["v"], 1500);
+}
+
+/// @brief it should reject a timestamp field with an unknown time format.
+TEST(JSONEncoder, RejectsUnknownTimeFormat) {
+    auto v = field<icd::TimestampJSONField>("v");
+    v.time_format = "unix_min";
+    const auto err = JSONEncoder::create(command({v}, {x::telem::TIMESTAMP_T})).second;
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    ASSERT_EQ(
+        err.data(),
+        "message command: field v: unknown time format \"unix_min\": expected "
+        "\"iso8601\", \"unix_sec\", \"unix_ms\", \"unix_us\", or \"unix_ns\""
+    );
+}
+
 /// @brief it should write a new UUID at each encode for a random default, bound or not.
 TEST(JSONEncoder, WritesRandomDefault) {
     auto unbound = field<icd::UuidJSONField>("unbound");

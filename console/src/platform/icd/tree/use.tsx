@@ -14,7 +14,14 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep, id, map, type payload, type record, unique, uuid } from "@synnaxlabs/x";
-import type { Dispatch, FC, ReactElement, RefObject, SetStateAction } from "react";
+import type {
+  Dispatch,
+  FC,
+  ReactElement,
+  ReactNode,
+  RefObject,
+  SetStateAction,
+} from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
 import { MessageMark } from "@/platform/icd/Details";
@@ -52,6 +59,7 @@ import {
   type SourceNode,
 } from "@/platform/icd/tree/nodes";
 import { useStructure } from "@/platform/icd/tree/structure";
+import { useDeleteItem } from "@/platform/icd/tree/useDeleteItem";
 import { Task } from "@/platform/task";
 
 /** A source of a read task, such as a topic or a record, in the task's form. */
@@ -355,6 +363,7 @@ export const use = <
 }: UseArgs<S, G>): UseReturn => {
   const ctx = PForm.useContext();
   const formats = useFormats();
+  const deleteItem = useDeleteItem();
   const { groups: grouping } = layout;
   const lists = (): List<S>[] =>
     grouping == null
@@ -714,9 +723,14 @@ export const use = <
     )
       onDuplicate = () => duplicateSources(sources);
     let onRemove: (() => void) | undefined;
-    if (fields.length > 0 && fields.length === chosen.length)
-      onRemove = () => removeFields(fields);
-    else if (isRemovable(chosen)) onRemove = () => removeNodes(chosen);
+    let deleteMenuItem: ReactNode;
+    if (fields.length > 0 && fields.length === chosen.length) {
+      const deleted = fields.map(({ source, read: r, field }) => {
+        const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
+        return { icd: icdKey, message: messages[r].message, field };
+      });
+      deleteMenuItem = deleteItem(deleted, () => removeFields(fields));
+    } else if (isRemovable(chosen)) onRemove = () => removeNodes(chosen);
     const tareChannels = fields.flatMap(({ source, read, field }) => {
       if (ctx.get(disabledPath(source)).value) return [];
       const binding = ctx
@@ -728,6 +742,7 @@ export const use = <
       <Task.Views.ContextMenu
         keys={keys}
         onRemove={onRemove}
+        deleteMenuItem={deleteMenuItem}
         onEnable={
           off.length > 0 && !(bindDisabled && off.some(({ kind }) => kind === "field"))
             ? () => setEnabled(switchable, true)

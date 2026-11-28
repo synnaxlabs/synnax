@@ -294,10 +294,7 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	case icd.UnsignedJSONField:
 		out.sample.Range = telem.Uint64T
 	case icd.TimestampJSONField:
-		format := string(v.TimeFormat)
-		if out.sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
-			return jsonVariant{}, err
-		}
+		out.sample.TimeFormat = v.TimeFormat
 		if err = f.readTimestampDefault(v.Default); err != nil {
 			return jsonVariant{}, err
 		}

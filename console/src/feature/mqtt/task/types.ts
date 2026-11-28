@@ -41,6 +41,7 @@ export const tagKey = (id: SparkplugTagID): string =>
 
 /** What a browse dialog reads from a message of a topic that a task holds. */
 export interface HeldMessage {
+  name: string;
   match?: icd.JSONMatch;
   fields: { pointer: string }[];
 }

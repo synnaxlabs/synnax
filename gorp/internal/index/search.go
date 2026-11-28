@@ -45,11 +45,24 @@ func (t *texts[K]) set(key K, text []string) {
 
 func (t *texts[K]) isEmpty() bool { return len(t.keys) == 0 }
 
+func newTexts[K comparable]() *texts[K] { return &texts[K]{text: make(map[K][]string)} }
+
+// reset empties t for the next scope. It drops the storage of t when it grew past
+// retained, so that one large transaction does not hold it.
+func (t *texts[K]) reset() {
+	if len(t.keys) > retained {
+		t.keys, t.text = nil, make(map[K][]string)
+		return
+	}
+	clear(t.keys)
+	t.keys = t.keys[:0]
+	clear(t.text)
+}
+
 // NewSearch returns an empty Search that waits for its bulk load.
 func NewSearch[S Scope, K comparable]() *Search[S, K] {
 	s := &Search[S, K]{population: newPopulation(), committed: search.New[K]()}
-	s.overlay.create = func() *texts[K] { return &texts[K]{text: make(map[K][]string)} }
-	s.overlay.flush = s.flush
+	s.overlay.create, s.overlay.flush = newTexts[K], s.flush
 	return s
 }
 

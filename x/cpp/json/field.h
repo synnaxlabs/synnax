@@ -38,8 +38,10 @@ struct Enum {
 struct Field {
     /// @brief data_type is the data type of the samples.
     telem::DataType data_type;
-    /// @brief time_format is how a timestamp sample is written in the document.
-    TimeFormat time_format = TimeFormat::ISO8601;
+    /// @brief time_format is the payload time format of a timestamp sample, such as
+    /// payload::TIME_FORMAT_UNIX_MS. A Decoder and an Encoder of a timestamp data type
+    /// need one.
+    std::string time_format;
     /// @brief type is the JSON type an Encoder writes a sample as. Timestamp samples
     /// take time_format instead.
     Type type = Type::Number;
@@ -66,6 +68,7 @@ class Decoder {
     };
 
     Field field;
+    details::TimeFormat time_format = details::TimeFormat::ISO8601;
     std::vector<Label> labels;
     /// @brief text is scratch space for the decoded text of a JSON string.
     std::string text;
@@ -90,8 +93,8 @@ public:
 
     /// @brief creates a Decoder for field.
     /// @returns VALIDATION when no JSON value converts to the data type of field, an
-    /// enum value does not convert to it, or the range of field is not an integer data
-    /// type.
+    /// enum value does not convert to it, the range of field is not an integer data
+    /// type, or a timestamp field has no valid time format.
     static std::pair<Decoder, errors::Error> create(Field field);
 
     /// @brief appends the sample of raw, one valid JSON value, to dst. dst holds the
@@ -131,6 +134,7 @@ class Encoder {
     };
 
     Field field;
+    details::TimeFormat time_format = details::TimeFormat::ISO8601;
     std::vector<Label> labels;
 
 public:
@@ -140,7 +144,7 @@ public:
     /// @brief creates an Encoder for field.
     /// @returns VALIDATION when no JSON value converts from the data type of field, the
     /// type of field cannot hold a sample of it, an enum value does not convert to it,
-    /// or an enum label is not valid UTF-8.
+    /// an enum label is not valid UTF-8, or a timestamp field has no valid time format.
     static std::pair<Encoder, errors::Error> create(Field field);
 
     /// @brief returns the JSON text of the first enum label that v matches, or nullptr

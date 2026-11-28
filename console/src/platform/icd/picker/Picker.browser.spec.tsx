@@ -10,7 +10,8 @@
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { treatment } from "@synnaxlabs/lyra/styletest";
 import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { page, server } from "vitest/browser";
 
 import { ICD } from "@/platform/icd";
 import { renderWithConsole } from "@/testutil";
@@ -58,6 +59,52 @@ describe("ICD.Picker.Values", () => {
     expect(treatment(screen.getByText("temperature"))).toBe("prose");
     expect(treatment(screen.getByText("21.5"))).toBe("numeric");
   });
+
+  it.each([
+    { columns: "without", width: 720, defaults: false },
+    { columns: "with", width: 1280, defaults: true },
+  ])(
+    "should widen the Type column to show its longest lock label in full $columns a Default column",
+    async ({ width: viewport, defaults }) => {
+      const { width, height } = server.config.browser.viewport;
+      onTestFinished(async () => await page.viewport(width, height));
+      // The picker fills this width, which leaves room for the Type column to grow.
+      await page.viewport(viewport, 900);
+      const label = "Matches 2 messages";
+      await renderWithConsole(
+        <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
+          <ICD.Picker.Root value="topics">
+            <ICD.Picker.Frame itemKey="topics" hint="Select the values to read.">
+              <ICD.Picker.Values
+                noun="Field"
+                groups={[
+                  {
+                    title: "plant/oven",
+                    values: [
+                      {
+                        key: "t",
+                        name: "temperature",
+                        sample: "21.5",
+                        dataType: "float64",
+                        lock: { checked: false, label },
+                        default: defaults ? "" : undefined,
+                      },
+                    ],
+                  },
+                ]}
+                value={[]}
+                onChange={() => {}}
+                onDefaultChange={defaults ? () => {} : undefined}
+              />
+            </ICD.Picker.Frame>
+          </ICD.Picker.Root>
+        </Dialog.Frame>,
+      );
+      const cell = screen.getByText(label);
+      expect(cell.scrollWidth).toBeLessThanOrEqual(cell.clientWidth);
+    },
+  );
+
   it("should dim the name and note of each value of a dimmed group", async () => {
     await renderWithConsole(
       <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
