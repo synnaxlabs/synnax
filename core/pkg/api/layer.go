@@ -283,10 +283,16 @@ type Transport struct {
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
 
 	// MQTT BROKER
+	MQTTBrokerCreate freighter.UnaryServer[
+		mqttbroker.CreateRequest,
+		mqttbroker.CreateResponse,
+	]
 	MQTTBrokerRetrieve freighter.UnaryServer[
 		mqttbroker.RetrieveRequest,
 		mqttbroker.RetrieveResponse,
 	]
+	MQTTBrokerUpdate freighter.UnaryServer[mqttbroker.UpdateRequest, struct{}]
+	MQTTBrokerDelete freighter.UnaryServer[mqttbroker.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -625,7 +631,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerDelete,
 
 		// MQTT BROKER
+		t.MQTTBrokerCreate,
 		t.MQTTBrokerRetrieve,
+		t.MQTTBrokerUpdate,
+		t.MQTTBrokerDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -932,7 +941,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
 
 	// MQTT BROKER
+	t.MQTTBrokerCreate.BindHandler(bind.Write(l.binder, l.MQTTBroker.Create))
 	t.MQTTBrokerRetrieve.BindHandler(bind.Read(l.binder, l.MQTTBroker.Retrieve))
+	t.MQTTBrokerUpdate.BindHandler(bind.Write(l.binder, l.MQTTBroker.Update))
+	t.MQTTBrokerDelete.BindHandler(bind.Write(l.binder, l.MQTTBroker.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))

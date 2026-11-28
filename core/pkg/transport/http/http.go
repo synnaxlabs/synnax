@@ -665,10 +665,22 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// MQTT BROKER
+		MQTTBrokerCreate: unary[
+			mqttbroker.CreateRequest,
+			mqttbroker.CreateResponse,
+		](router, "/api/v1/mqtt/broker/create"),
 		MQTTBrokerRetrieve: unary[
 			mqttbroker.RetrieveRequest,
 			mqttbroker.RetrieveResponse,
 		](router, "/api/v1/mqtt/broker/retrieve"),
+		MQTTBrokerUpdate: unary[mqttbroker.UpdateRequest, struct{}](
+			router,
+			"/api/v1/mqtt/broker/update",
+		),
+		MQTTBrokerDelete: unary[mqttbroker.DeleteRequest, struct{}](
+			router,
+			"/api/v1/mqtt/broker/delete",
+		),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](

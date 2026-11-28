@@ -297,6 +297,17 @@ export const sparkplugZ = z.object({
 });
 export interface Sparkplug extends z.infer<typeof sparkplugZ> {}
 
+/** Configuration holds the broker fields that the task forms own. */
+export const configurationZ = z.object({
+  /** reads bind the values that read tasks receive to channels. */
+  reads: readZ.array().default(() => []),
+  /** writes bind the channels whose commands write tasks publish. */
+  writes: writeZ.array().default(() => []),
+  /** edgeCommands bind the tags that the Core publishes as an edge node to channels. */
+  edgeCommands: edgeCommandZ.array().default(() => []),
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
+
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
@@ -314,6 +325,31 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+/** Identity holds the broker fields that the connect form owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack that connects to the broker. */
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
+  /** name is a human-readable name for the broker. */
+  name: z.string().min(1, "Name is required"),
+  /** host is the hostname or IP address of the broker. */
+  host: z.string().min(1, "Host is required"),
+  /** port is the TCP port. Absent takes 1883, or 8883 when the transport is TLS. */
+  port: zod.uint16.min(1).optional(),
+  /** transport is the transport that the Core connects to the broker over. */
+  transport: transportZ.prefault({ type: "tcp" }),
+  /** auth holds the credentials that the Core connects to the broker with. */
+  auth: authZ.prefault({ type: "none" }),
+  /** clientId is the MQTT client ID. Absent derives one from the key of the broker. */
+  clientId: z.string().min(1).optional(),
+  /** keepAlive is the keep alive interval, in whole seconds. */
+  keepAlive: telem.numericTimeSpanZ
+    .check(z.gte(1000000000), z.lte(65535000000000))
+    .default(30000000000),
+  /** sparkplug configures how the Core takes part in a Sparkplug B system. */
+  sparkplug: sparkplugZ.prefault({}),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
 
 /** Broker is an MQTT broker that a rack connects to. */
 export const brokerZ = z.object({
@@ -352,6 +388,39 @@ export const brokerZ = z.object({
   status: statusZ.optional(),
 });
 export interface Broker extends z.infer<typeof brokerZ> {}
+
+/** IdentityUpdate writes the fields of the broker that the connect form owns. */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/**
+ * ConfigurationUpdate replaces the bindings of the broker. A client sends the whole
+ * group, because a field it leaves out is cleared.
+ */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a broker. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 export interface New extends z.input<typeof brokerZ> {}
 
 /** RetrieveResponse holds the brokers a RetrieveRequest selects. */

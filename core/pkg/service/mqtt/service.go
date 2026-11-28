@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
@@ -22,7 +23,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -58,6 +62,22 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ICD *icd.Service
+	// Status stores the status of each broker.
+	//
+	// [REQUIRED]
+	Status *status.Service
+	// Secret holds the password of each broker.
+	//
+	// [REQUIRED]
+	Secret *secret.Service
+	// Certificate holds the TLS certificates of each broker.
+	//
+	// [REQUIRED]
+	Certificate *certificate.Service
+	// Rack holds the racks that connect to brokers.
+	//
+	// [REQUIRED]
+	Rack *rack.Service
 	// Signals publishes broker changes.
 	//
 	// [OPTIONAL]
@@ -72,6 +92,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ICD = override.Nil(c.ICD, other.ICD)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.Secret = override.Nil(c.Secret, other.Secret)
+	c.Certificate = override.Nil(c.Certificate, other.Certificate)
+	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
@@ -83,6 +107,10 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("icd", c.ICD)
+	v.NotNil("status", c.Status)
+	v.NotNil("secret", c.Secret)
+	v.NotNil("certificate", c.Certificate)
+	v.NotNil("rack", c.Rack)
 	return v.Error()
 }
 
@@ -122,6 +150,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.Brokers, err = broker.OpenService(ctx, broker.ServiceConfig{
 		DB:              cfg.DB,
+		Status:          cfg.Status,
+		Secret:          cfg.Secret,
+		Certificate:     cfg.Certificate,
+		Rack:            cfg.Rack,
 		Signals:         cfg.Signals,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.Brokers) {

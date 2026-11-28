@@ -17,12 +17,18 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -60,35 +66,57 @@ var _ = Describe("Service", func() {
 			DB:   db,
 			ImEx: imex.NewService(),
 		}))
+		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:         db,
+			HostKey:    node.Identity.HostKey,
+			Status:     statuses,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles)),
+		}))
+		secrets := secrettestutil.OpenService(
+			ctx,
+			db,
+			secret.ServiceConfig{EncryptionKey: secret.NewEncryptionKey()},
+		)
 		svc = MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
 			DB:      db,
 			Channel: channels,
 			ICD:     icds,
+			Status:  statuses,
+			Secret:  secrets,
+			Certificate: MustOpen(
+				certificate.OpenService(ctx, certificate.ServiceConfig{
+					DB:      db,
+					Secret:  secrets,
+					Status:  statuses,
+					Rack:    racks.EmbeddedKey,
+					HostKey: 1,
+				}),
+			),
+			Rack: racks,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
 			Status: statuses,
+			Rack:   racks,
 			Stores: svc.Stores(),
 		}))
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(mqtt.OpenService(ctx, mqtt.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
-
-		It("Should reject a config missing the channel service", func(ctx SpecContext) {
-			Expect(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db})).Error().
-				To(MatchError(ContainSubstring("channel: must be non-nil")))
-		})
-
-		It("Should reject a config missing the ICD service", func(ctx SpecContext) {
-			Expect(mqtt.OpenService(ctx, mqtt.ServiceConfig{
-				DB:      db,
-				Channel: channels,
-			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
-		})
+		DescribeTable("Should reject a config missing a required field",
+			func(ctx SpecContext, field string) {
+				Expect(mqtt.OpenService(ctx, mqtt.ServiceConfig{})).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db"),
+			Entry("channel", "channel"),
+			Entry("ICD", "icd"),
+			Entry("status", "status"),
+			Entry("secret", "secret"),
+			Entry("certificate", "certificate"),
+			Entry("rack", "rack"),
+		)
 	})
 
 	Describe("Stores", func() {

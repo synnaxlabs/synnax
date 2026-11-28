@@ -242,6 +242,21 @@ class Sparkplug(BaseModel):
     groups: list[str] = Field(default_factory=list)
 
 
+class Configuration(BaseModel):
+    """Holds the broker fields that the task forms own.
+
+    Attributes:
+        reads: Bind the values that read tasks receive to channels.
+        writes: Bind the channels whose commands write tasks publish.
+        edge_commands: Bind the tags that the Core publishes as an edge node to
+            channels.
+    """
+
+    reads: list[Read] = Field(default_factory=list)
+    writes: list[Write] = Field(default_factory=list)
+    edge_commands: list[EdgeCommand] = Field(default_factory=list)
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -263,6 +278,34 @@ class RetrieveRequest(BaseModel):
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
+
+
+class Identity(BaseModel):
+    """Holds the broker fields that the connect form owns.
+
+    Attributes:
+        rack: Is the key of the rack that connects to the broker.
+        name: Is a human-readable name for the broker.
+        host: Is the hostname or IP address of the broker.
+        port: Is the TCP port. Absent takes 1883, or 8883 when the transport is TLS.
+        transport: Is the transport that the Core connects to the broker over.
+        auth: Holds the credentials that the Core connects to the broker with.
+        client_id: Is the MQTT client ID. Absent derives one from the key of the broker.
+        keep_alive: Is the keep alive interval, in whole seconds.
+        sparkplug: Configures how the Core takes part in a Sparkplug B system.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
+    host: str = Field(min_length=1)
+    port: int | None = Field(default=None, ge=1, le=65535)
+    transport: Transport = Field(default_factory=lambda: TcpTransport(type="tcp"))
+    auth: Auth = Field(default_factory=lambda: NoneAuth(type="none"))
+    client_id: str | None = Field(default=None, min_length=1)
+    keep_alive: telem.TimeSpan = Field(
+        default=telem.TimeSpan(30000000000), ge=1000000000, le=65535000000000
+    )
+    sparkplug: Sparkplug = Field(default_factory=lambda: Sparkplug())
 
 
 class Broker(BaseModel):
@@ -307,6 +350,27 @@ class Broker(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields of the broker that the connect form owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the bindings of the broker. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a broker.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 class RetrieveResponse(BaseModel):

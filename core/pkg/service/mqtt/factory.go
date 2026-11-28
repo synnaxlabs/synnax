@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -246,7 +247,7 @@ func (f *Factory) reconfigureEdited(ctx context.Context) error {
 }
 
 // Name implements driver.Factory.
-func (f *Factory) Name() string { return Make }
+func (f *Factory) Name() string { return broker.Integration }
 
 // InitialTasks implements driver.Factory.
 func (f *Factory) InitialTasks() []task.Task {

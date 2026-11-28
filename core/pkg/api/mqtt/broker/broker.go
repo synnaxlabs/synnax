@@ -14,6 +14,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -63,6 +64,69 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{cfg: cfg}, nil
+}
+
+type (
+	// CreateRequest carries the brokers to create.
+	CreateRequest struct {
+		// Brokers are the brokers to store. A nil key mints a new one.
+		Brokers []broker.Broker `json:"brokers" msgpack:"brokers"`
+	}
+	// CreateResponse carries the created brokers with their keys.
+	CreateResponse struct {
+		// Brokers are the stored brokers, without their statuses.
+		Brokers []broker.Broker `json:"brokers" msgpack:"brokers"`
+	}
+)
+
+// Create stores the given brokers.
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	w := s.cfg.Broker.NewWriter(tx)
+	for i := range req.Brokers {
+		req.Brokers[i].Status = nil
+		if err := w.Create(ctx, &req.Brokers[i]); err != nil {
+			return CreateResponse{}, err
+		}
+	}
+	return CreateResponse(req), nil
+}
+
+// UpdateRequest carries one field group to write to a stored broker.
+type UpdateRequest struct {
+	// Update is the field group to write.
+	Update broker.Update `json:"update" msgpack:"update"`
+	// Key selects the broker to update.
+	Key broker.Key `json:"key" msgpack:"key"`
+}
+
+// Update writes the field group of req to the broker stored under req.Key, as
+// broker.Writer.Apply does. It returns a validation error when the request carries no
+// group.
+func (s *Service) Update(
+	ctx context.Context,
+	tx gorp.Tx,
+	req UpdateRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Broker.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+}
+
+// DeleteRequest carries the keys of the brokers to delete.
+type DeleteRequest struct {
+	// Keys selects the brokers to delete.
+	Keys []broker.Key `json:"keys" msgpack:"keys"`
+}
+
+// Delete removes the given brokers with their statuses.
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Broker.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 var _ bind.Named = RetrieveRequest{}
