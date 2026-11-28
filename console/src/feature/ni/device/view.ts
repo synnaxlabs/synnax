@@ -88,6 +88,12 @@ export const useView = (key: device.Key): View | undefined =>
 
 const path = deep.path<{ config: { device: device.Key } }>();
 
+/** The key of the device the form's config names, or no keys when it names none. */
+export const useConfigDeviceKeys = (): device.Key[] => {
+  const key = Form.useFieldValue(path.config.device, { optional: true }) ?? "";
+  return primitive.isNonZero(key) ? [key] : NO_KEYS;
+};
+
 /** The view of the device the form's config names. */
 export const useViewFromConfig = (): View | undefined =>
-  useView(Form.useFieldValue(path.config.device, { optional: true }) ?? "");
+  useViews(useConfigDeviceKeys())?.[0];

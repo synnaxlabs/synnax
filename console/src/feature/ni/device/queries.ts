@@ -12,12 +12,6 @@ import { Device as PDevice, Flux } from "@synnaxlabs/pluto";
 import { verbs } from "@synnaxlabs/x";
 
 import { type Device, SCHEMAS } from "@/feature/ni/device/types";
-import { Device as PlatformDevice } from "@/platform/device";
-
-const { useResult } = PDevice.createRetrieve(SCHEMAS);
-
-/** The device the form's config names, or undefined until it resolves or on failure. */
-export const useFromConfig = PlatformDevice.createUseFromConfig(useResult);
 
 const { useResult: useResultMultiple } = PDevice.createRetrieveMultiple(SCHEMAS);
 

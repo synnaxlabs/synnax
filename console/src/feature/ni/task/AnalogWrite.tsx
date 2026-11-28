@@ -130,13 +130,12 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = Device.useViewFromConfig();
-  const configured = Device.useFromConfig();
+  const dev = Device.useTargetFromConfig("analogOutput");
   PForm.useCheck(root.config, analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
-    if (configured == null || isGenerated(ch)) return null;
+    if (dev == null || isGenerated(ch)) return null;
     const pair =
-      configured.properties.analogOutput.channels[ch.port.toString()] ??
+      dev.channels.channels[ch.port.toString()] ??
       PlatformDevice.ZERO_COMMAND_STATE_PAIR;
     return { cmdChannel: pair.command, stateChannel: pair.state };
   };
@@ -172,24 +171,24 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve({
-    key: config.device,
-    schemas: Device.SCHEMAS,
-  });
-  const before = deep.copy(dev.properties);
+  const targets = await Device.retrieveTargets(client, [config.device], "analogOutput");
+  PlatformDevice.checkFound([config.device], targets);
+  const [dev] = targets;
   PlatformDevice.checkConfigured(dev);
+  const ao = dev.channels;
+  const before = deep.copy(ao);
   const commanded = config.channels.filter(isCommanded);
   if (commanded.length === 0) return [config, dev.rack];
   let modified = false;
-  let shouldCreateStateIndex = primitive.isZero(dev.properties.analogOutput.stateIndex);
+  let shouldCreateStateIndex = primitive.isZero(ao.stateIndex);
   if (!shouldCreateStateIndex)
     try {
-      await client.channels.retrieve(dev.properties.analogOutput.stateIndex);
+      await client.channels.retrieve(ao.stateIndex);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
       else throw errors.fromUnknown(e);
     }
-  const identifier = channel.escapeInvalidName(dev.properties.identifier);
+  const identifier = channel.escapeInvalidName(dev.identifier);
   try {
     if (shouldCreateStateIndex) {
       modified = true;
@@ -198,14 +197,14 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
         dataType: "timestamp",
         isIndex: true,
       });
-      dev.properties.analogOutput.stateIndex = stateIndex.key;
-      dev.properties.analogOutput.channels = {};
+      ao.stateIndex = stateIndex.key;
+      ao.channels = {};
     }
     const commandsToCreate: typeof commanded = [];
     const statesToCreate: typeof commanded = [];
     for (const channel of Task.firstPerPort(commanded, portOf)) {
       const key = portOf(channel);
-      const exPair = dev.properties.analogOutput.channels[key];
+      const exPair = ao.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
         statesToCreate.push(channel);
@@ -229,16 +228,15 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       modified = true;
       const states = await client.channels.create(
         statesToCreate.map((c) => ({
-          name: analogOutputStateName(c, Device.toView(dev)),
-          index: dev.properties.analogOutput.stateIndex,
+          name: analogOutputStateName(c, dev),
+          index: ao.stateIndex,
           dataType: "float32",
         })),
       );
       states.forEach((s, i) => {
         const key = statesToCreate[i].port.toString();
-        if (!(key in dev.properties.analogOutput.channels))
-          dev.properties.analogOutput.channels[key] = { state: s.key, command: 0 };
-        else dev.properties.analogOutput.channels[key].state = s.key;
+        if (!(key in ao.channels)) ao.channels[key] = { state: s.key, command: 0 };
+        else ao.channels[key].state = s.key;
       });
     }
     if (commandsToCreate.length > 0) {
@@ -254,25 +252,24 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       );
       const commands = await client.channels.create(
         commandsToCreate.map((c, i) => ({
-          name: ANALOG_OUTPUT.name(c, Device.toView(dev)),
+          name: ANALOG_OUTPUT.name(c, dev),
           index: commandIndexes[i].key,
           dataType: "float32",
         })),
       );
       commands.forEach((s, i) => {
         const key = commandsToCreate[i].port.toString();
-        if (!(key in dev.properties.analogOutput.channels))
-          dev.properties.analogOutput.channels[key] = { state: 0, command: s.key };
-        else dev.properties.analogOutput.channels[key].command = s.key;
+        if (!(key in ao.channels)) ao.channels[key] = { state: 0, command: s.key };
+        else ao.channels[key].command = s.key;
       });
     }
   } finally {
     if (modified)
-      await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
+      await Device.writeChannels(client, dev.key, "analogOutput", before, ao);
   }
   config.channels = config.channels.map((c) => {
     if (isGenerated(c)) return c;
-    const pair = dev.properties.analogOutput.channels[c.port.toString()];
+    const pair = ao.channels[c.port.toString()];
     return { ...c, cmdChannel: pair.command, stateChannel: pair.state };
   });
   return [config, dev.rack];

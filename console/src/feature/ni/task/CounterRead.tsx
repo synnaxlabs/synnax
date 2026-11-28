@@ -113,7 +113,7 @@ const hasPortList = (devices: Device.View[]): boolean =>
   devices.some(({ hardware }) => hardware != null);
 
 const Form: FC = () => {
-  const devices = Device.useReadTargets(
+  const devices = Device.useTargets(
     Task.useChannelDeviceKeys(root.config.channels),
     "counterInput",
   );
@@ -160,7 +160,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  const allDevices = await Device.retrieveReadTargets(client, devices, "counterInput");
+  const allDevices = await Device.retrieveTargets(client, devices, "counterInput");
   PlatformDevice.checkFound(devices, allDevices);
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1)
@@ -225,7 +225,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
       });
     } finally {
       if (devModified)
-        await Device.writeReadChannels(client, dev.key, "counterInput", before, ci);
+        await Device.writeChannels(client, dev.key, "counterInput", before, ci);
     }
   }
 
