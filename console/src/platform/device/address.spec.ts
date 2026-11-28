@@ -9,22 +9,22 @@
 
 import { describe, expect, it } from "vitest";
 
-import { formatAddress } from "@/platform/device/address";
+import { Device } from "@/platform/device";
 
-describe("formatAddress", () => {
+describe("Device.formatAddress", () => {
   it("should join a host and a port with a colon", () => {
-    expect(formatAddress("192.168.1.20", 502)).toBe("192.168.1.20:502");
+    expect(Device.formatAddress("192.168.1.20", 502)).toBe("192.168.1.20:502");
   });
 
   it("should put brackets around an IPv6 host", () => {
-    expect(formatAddress("fe80::1", 502)).toBe("[fe80::1]:502");
+    expect(Device.formatAddress("fe80::1", 502)).toBe("[fe80::1]:502");
   });
 
   it("should keep the brackets of an IPv6 host that has them", () => {
-    expect(formatAddress("[fe80::1]", 502)).toBe("[fe80::1]:502");
+    expect(Device.formatAddress("[fe80::1]", 502)).toBe("[fe80::1]:502");
   });
 
   it("should give only the port for an empty host", () => {
-    expect(formatAddress("", 5032)).toBe(":5032");
+    expect(Device.formatAddress("", 5032)).toBe(":5032");
   });
 });

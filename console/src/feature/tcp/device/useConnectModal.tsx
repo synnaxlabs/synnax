@@ -47,7 +47,9 @@ const beforeValidate = ({
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
   const { host, port } = get(path.properties).value;
-  set(path.location, PlatformDevice.formatAddress(host, port));
+  const trimmed = host.trim();
+  set(path.properties.host, trimmed);
+  set(path.location, PlatformDevice.formatAddress(trimmed, port));
 };
 
 export const Connect = ({
