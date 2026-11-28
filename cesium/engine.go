@@ -12,9 +12,7 @@ package cesium
 import (
 	"context"
 	"fmt"
-	"maps"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -386,20 +384,6 @@ func (e *engine) closeHandle(key ChannelKey, id uint64) error {
 	return hs.close()
 }
 
-// closeHandles closes the read handles of every segment of key. It waits for the reads
-// that hold them.
-func (e *engine) closeHandles(key ChannelKey) error {
-	e.handles.Lock()
-	sets := slices.Collect(maps.Values(e.handles.m[key]))
-	delete(e.handles.m, key)
-	e.handles.Unlock()
-	var err error
-	for _, hs := range sets {
-		err = errors.Join(err, hs.close())
-	}
-	return err
-}
-
 // run runs the owners until ctx is done, then closes them in order: the log, so that
 // its queued entries and a clean mark reach the file, then the checkpointer, then the
 // state. It runs the orphan pass first.
@@ -460,14 +444,18 @@ func (e *engine) close() error {
 	return e.closeErr
 }
 
-// closeAllHandles closes the read handles of every segment.
+// closeAllHandles closes the read handles of every segment. It waits for the reads that
+// hold them.
 func (e *engine) closeAllHandles() error {
-	e.handles.RLock()
-	keys := slices.Collect(maps.Keys(e.handles.m))
-	e.handles.RUnlock()
+	e.handles.Lock()
+	m := e.handles.m
+	e.handles.m = make(map[ChannelKey]map[uint64]*segmentHandles)
+	e.handles.Unlock()
 	var err error
-	for _, k := range keys {
-		err = errors.Join(err, e.closeHandles(k))
+	for _, segs := range m {
+		for _, hs := range segs {
+			err = errors.Join(err, hs.close())
+		}
 	}
 	return err
 }
