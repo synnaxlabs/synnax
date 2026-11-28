@@ -679,6 +679,7 @@ func (s *State) takeBack(w *Writer, unknown bool) []log.Seal {
 		}
 		if !seg.dur.created {
 			delete(w.held, seg.key)
+			ch.cuts++
 			s.drop(seg)
 			continue
 		}
@@ -746,7 +747,6 @@ func (s *State) drop(seg *segState) {
 	ch.remove(seg.vis.ID)
 	s.core.removeSegment(seg)
 	s.core.addDead(Dead{Segment: seg.vis.ID, Key: seg.key})
-	ch.cuts++
 	ch.publish()
 }
 
