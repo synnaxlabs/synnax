@@ -20,6 +20,7 @@
 #include "driver/rack/rack.h"
 #include "driver/serial/serial.h"
 #include "driver/tcp/tcp.h"
+#include "driver/udp/udp.h"
 #include "driver/version/version.h"
 
 namespace driver::rack {
@@ -286,6 +287,7 @@ read_status(const std::string &type, const std::vector<std::string> &integration
 const std::vector<std::pair<std::string, std::string>> BUS = {
     {serial::INTEGRATION_NAME, serial::READ_TASK_TYPE},
     {tcp::INTEGRATION_NAME, tcp::READ_TASK_TYPE},
+    {udp::INTEGRATION_NAME, udp::READ_TASK_TYPE},
 };
 }
 

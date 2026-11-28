@@ -57,14 +57,17 @@ x::errors::Error translate(const std::string &context, const std::error_code &ec
         ) ||
         native == transport::HOST_DOWN)
         return transport::error(transport::UNREACHABLE_ERROR, context, native);
+    // macOS refuses a datagram over 9216 bytes by default. Like the size check of
+    // write, the refusal leaves the socket usable.
+    if (transport::matches(native, {std::errc::message_size}))
+        return transport::error(x::errors::VALIDATION, context, native);
     if (transport::matches(
             native,
             {std::errc::address_in_use,
              std::errc::permission_denied,
              std::errc::operation_not_permitted,
              std::errc::invalid_argument,
-             std::errc::address_family_not_supported,
-             std::errc::message_size}
+             std::errc::address_family_not_supported}
         ))
         return transport::error(transport::CONFIG_ERROR, context, native);
     return transport::error(transport::CRITICAL_ERROR, context, native);
@@ -196,14 +199,14 @@ x::errors::Error Socket::write(
 ) {
     if (!this->remote)
         return x::errors::Error(
-            transport::CONFIG_ERROR,
+            x::errors::VALIDATION,
             "no remote host is set to send to"
         );
     const auto max = this->remote->address().is_v4() ? MAX_V4_DATAGRAM
                                                      : MAX_V6_DATAGRAM;
     if (data.size() > max)
         return x::errors::Error(
-            transport::CONFIG_ERROR,
+            x::errors::VALIDATION,
             "failed to send to " + to_string(*this->remote) + ": " +
                 std::to_string(data.size()) + " bytes exceed the " +
                 std::to_string(max) + " bytes of a datagram"
