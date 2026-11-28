@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { udp } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
@@ -54,12 +55,15 @@ const beforeValidate = ({
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
   const { localAddress, localPort, remote } = get(path.properties).value;
-  set(
-    path.location,
-    remote == null
-      ? PlatformDevice.formatAddress(localAddress, localPort)
-      : PlatformDevice.formatAddress(remote.host, remote.port),
-  );
+  const address = localAddress.trim();
+  set(path.properties.localAddress, address);
+  if (remote == null) {
+    set(path.location, PlatformDevice.formatAddress(address, localPort));
+    return;
+  }
+  const host = remote.host.trim();
+  set(shownRemote.host, host);
+  set(path.location, PlatformDevice.formatAddress(host, remote.port));
 };
 
 /** Turns the remote on and off. A device with no remote only receives. */
@@ -72,11 +76,11 @@ const RemoteFields = () => {
   };
   return (
     <>
-      <Input.Item label="Send to remote" padHelpText={false}>
-        <Input.Switch value={value != null} onChange={handleChange} />
+      <Input.Item label="Remote address" padHelpText={false}>
+        <Input.Checkbox value={value != null} onChange={handleChange} />
       </Input.Item>
       {value != null && (
-        <>
+        <Flex.Box x>
           <Form.TextField
             path={shownRemote.host}
             label="Host"
@@ -90,7 +94,7 @@ const RemoteFields = () => {
             padHelpText={false}
             required
           />
-        </>
+        </Flex.Box>
       )}
     </>
   );
@@ -136,17 +140,19 @@ export const Connect = ({
           />
           <Form.Sections>
             <Form.Section title="Local">
-              <Form.TextField
-                path={path.properties.localAddress}
-                label="Address"
-                padHelpText={false}
-                inputProps={LOCAL_ADDRESS_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path={path.properties.localPort}
-                label="Port"
-                padHelpText={false}
-              />
+              <Flex.Box x>
+                <Form.TextField
+                  path={path.properties.localAddress}
+                  label="Address"
+                  padHelpText={false}
+                  inputProps={LOCAL_ADDRESS_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path={path.properties.localPort}
+                  label="Port"
+                  padHelpText={false}
+                />
+              </Flex.Box>
               <PlatformDevice.RackField integration={INTEGRATION_KEY} />
             </Form.Section>
             <Form.Section title="Remote">

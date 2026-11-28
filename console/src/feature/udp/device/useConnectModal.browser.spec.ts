@@ -21,7 +21,7 @@ import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 
-const REMOTE_SWITCH = "Send to remote";
+const REMOTE_CHECKBOX = "Remote address";
 
 const createUDPDevice = async (rack?: device.Device["rack"]) =>
   await createTestDevice(client, {
@@ -53,12 +53,12 @@ describe("UDP.Device.useConnectModal", () => {
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("127.0.0.1")).toBeTruthy();
     expect(screen.getByDisplayValue("5032")).toBeTruthy();
-    expect(getSwitchInput(REMOTE_SWITCH).checked).toBe(true);
+    expect(getSwitchInput(REMOTE_CHECKBOX).checked).toBe(true);
     expect(screen.getByDisplayValue("10.0.0.7")).toBeTruthy();
     expect(screen.getByDisplayValue("5031")).toBeTruthy();
   });
 
-  it("should save a device with no remote at its local address", async () => {
+  it("should save a device with no remote at its trimmed local address", async () => {
     const rack = await createRunningRack(client, UDP.Device.INTEGRATION_KEY);
     const { result } = await renderModalOpener(
       UDP.Device.useConnectModal,
@@ -67,14 +67,21 @@ describe("UDP.Device.useConnectModal", () => {
     );
     fireEvent.change(await screen.findByPlaceholderText("Device name"), {
       target: { value: uniqueName("udp") },
+    });
+    fireEvent.change(screen.getByPlaceholderText("All interfaces"), {
+      target: { value: " 127.0.0.1\n" },
     });
     commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("0"), "5032");
     const dev = await saveAndRetrieve(result);
-    expect(dev).toMatchObject({ make: "udp", model: "udp", location: ":5032" });
-    expect(dev.properties).toEqual({ localAddress: "", localPort: 5032 });
+    expect(dev).toMatchObject({
+      make: "udp",
+      model: "udp",
+      location: "127.0.0.1:5032",
+    });
+    expect(dev.properties).toEqual({ localAddress: "127.0.0.1", localPort: 5032 });
   });
 
-  it("should save the remote that the switch turns on as the location", async () => {
+  it("should save the trimmed remote that the checkbox turns on as the location", async () => {
     const rack = await createRunningRack(client, UDP.Device.INTEGRATION_KEY);
     const { result } = await renderModalOpener(
       UDP.Device.useConnectModal,
@@ -84,9 +91,9 @@ describe("UDP.Device.useConnectModal", () => {
     fireEvent.change(await screen.findByPlaceholderText("Device name"), {
       target: { value: uniqueName("udp") },
     });
-    fireEvent.click(getSwitchInput(REMOTE_SWITCH));
+    fireEvent.click(getSwitchInput(REMOTE_CHECKBOX));
     fireEvent.change(await screen.findByPlaceholderText("192.168.1.20"), {
-      target: { value: "10.0.0.7" },
+      target: { value: " 10.0.0.7\n" },
     });
     commitFieldInput(screen.getAllByDisplayValue<HTMLInputElement>("0")[1], "5031");
     const dev = await saveAndRetrieve(result);
@@ -98,7 +105,7 @@ describe("UDP.Device.useConnectModal", () => {
     });
   });
 
-  it("should remove the remote that the switch turns off", async () => {
+  it("should remove the remote that the checkbox turns off", async () => {
     const rack = await createRunningRack(client, UDP.Device.INTEGRATION_KEY);
     const dev = await createUDPDevice(rack.key);
     const { result } = await renderModalOpener(
@@ -107,10 +114,24 @@ describe("UDP.Device.useConnectModal", () => {
       { client },
     );
     await screen.findByDisplayValue(dev.name);
-    fireEvent.click(getSwitchInput(REMOTE_SWITCH));
+    fireEvent.click(getSwitchInput(REMOTE_CHECKBOX));
     expect(screen.queryByDisplayValue("10.0.0.7")).toBeNull();
     const saved = await saveAndRetrieve(result);
     expect(saved.location).toBe("127.0.0.1:5032");
     expect(saved.properties).toEqual({ localAddress: "127.0.0.1", localPort: 5032 });
+  });
+
+  it("should put each address with its port in one row", async () => {
+    const dev = await createUDPDevice();
+    await renderModalOpener(UDP.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByDisplayValue(dev.name);
+    const box = (value: string) =>
+      screen.getByDisplayValue(value).getBoundingClientRect();
+    const sameRow = (a: DOMRect, b: DOMRect) => a.top < b.bottom && b.top < a.bottom;
+    expect(sameRow(box("127.0.0.1"), box("5032"))).toBe(true);
+    expect(sameRow(box("10.0.0.7"), box("5031"))).toBe(true);
+    expect(box("10.0.0.7").top).toBeGreaterThanOrEqual(box("5032").bottom);
   });
 });
