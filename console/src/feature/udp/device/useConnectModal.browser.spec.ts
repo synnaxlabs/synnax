@@ -16,16 +16,12 @@ import { describe, expect, it } from "vitest";
 import { UDP } from "@/feature/udp";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
+import { commitFieldInput } from "@/platform/task/testutil";
 import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 
 const REMOTE_SWITCH = "Send to remote";
-
-const setNumber = (input: HTMLElement, value: string) => {
-  fireEvent.change(input, { target: { value } });
-  fireEvent.blur(input);
-};
 
 const createUDPDevice = async (rack?: device.Device["rack"]) =>
   await createTestDevice(client, {
@@ -72,7 +68,7 @@ describe("UDP.Device.useConnectModal", () => {
     fireEvent.change(await screen.findByPlaceholderText("Device name"), {
       target: { value: uniqueName("udp") },
     });
-    setNumber(screen.getByDisplayValue("0"), "5032");
+    commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("0"), "5032");
     const dev = await saveAndRetrieve(result);
     expect(dev).toMatchObject({ make: "udp", model: "udp", location: ":5032" });
     expect(dev.properties).toEqual({ localAddress: "", localPort: 5032 });
@@ -92,7 +88,7 @@ describe("UDP.Device.useConnectModal", () => {
     fireEvent.change(await screen.findByPlaceholderText("192.168.1.20"), {
       target: { value: "10.0.0.7" },
     });
-    setNumber(screen.getAllByDisplayValue("0")[1], "5031");
+    commitFieldInput(screen.getAllByDisplayValue<HTMLInputElement>("0")[1], "5031");
     const dev = await saveAndRetrieve(result);
     expect(dev.location).toBe("10.0.0.7:5031");
     expect(dev.properties).toEqual({
