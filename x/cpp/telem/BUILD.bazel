@@ -19,6 +19,7 @@ cc_library(
     ],
     hdrs = [
         "clock_skew.h",
+        "code.h",
         "frame.h",
         "mono_clock.h",
         "series.h",

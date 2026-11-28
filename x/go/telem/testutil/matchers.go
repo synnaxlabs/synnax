@@ -22,7 +22,7 @@ import (
 )
 
 // writtenExcluded holds the fields that storage can change in a written series.
-var writtenExcluded = []string{"TimeRange", "Alignment"}
+var writtenExcluded = []string{"TimeRange", "Alignment", "Clock"}
 
 type seriesMatcher struct {
 	excludedFields set.Set[string]
@@ -34,27 +34,28 @@ type seriesMatcher struct {
 // - DataType
 // - TimeRange
 // - Data contents
-// - Alignment and AlignmentMultiple.
+// - Alignment and AlignmentMultiple
+// - Clock.
 func MatchSeries(expected telem.Series) types.GomegaMatcher {
 	return newSeriesMatcher(expected)
 }
 
 // newSeriesMatcher returns a matcher that skips the excluded fields: "DataType",
-// "TimeRange", "Alignment", or "Data".
+// "TimeRange", "Alignment", "Clock", or "Data".
 func newSeriesMatcher(expected telem.Series, excluded ...string) *seriesMatcher {
 	return &seriesMatcher{expected: expected, excludedFields: set.New(excluded...)}
 }
 
 // MatchWrittenSeries returns a Gomega matcher that compares two Series for equality,
-// but excludes TimeRange and Alignment. This is useful when comparing
-// Series that have been written to and read from storage, where these fields might
-// differ but the actual data remains the same.
+// but excludes TimeRange, Alignment, and Clock. This is useful when comparing Series
+// that have been written to and read from storage, where these fields might differ but
+// the actual data remains the same.
 func MatchWrittenSeries(expected telem.Series) types.GomegaMatcher {
 	return newSeriesMatcher(expected, writtenExcluded...)
 }
 
-// MatchSeriesData returns a matcher that only compares the data contents of two Series,
-// ignoring DataType, TimeRange, and Alignment.
+// MatchSeriesData returns a matcher that compares the data type and data contents of
+// two Series, ignoring TimeRange, Alignment, and Clock.
 func MatchSeriesData(expected telem.Series) types.GomegaMatcher {
 	return newSeriesMatcher(expected, writtenExcluded...)
 }
@@ -90,6 +91,9 @@ func (m *seriesMatcher) matches(actual telem.Series) bool {
 	if !m.excludedFields.Contains("Alignment") &&
 		(actual.Alignment != m.expected.Alignment ||
 			actual.Multiple() != m.expected.Multiple()) {
+		return false
+	}
+	if !m.excludedFields.Contains("Clock") && actual.Clock != m.expected.Clock {
 		return false
 	}
 	return m.excludedFields.Contains("Data") ||
@@ -134,6 +138,14 @@ func (m *seriesMatcher) FailureMessage(actual any) string {
 			"AlignmentMultiple:\n\tExpected: %d\n\tActual: %d",
 			m.expected.Multiple(),
 			actualSeries.Multiple(),
+		))
+	}
+	if !m.excludedFields.Contains("Clock") &&
+		actualSeries.Clock != m.expected.Clock {
+		differences = append(differences, fmt.Sprintf(
+			"Clock:\n\tExpected: %d\n\tActual: %d",
+			m.expected.Clock,
+			actualSeries.Clock,
 		))
 	}
 	if dataTypesEqual && !m.excludedFields.Contains("Data") &&

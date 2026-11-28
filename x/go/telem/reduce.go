@@ -97,6 +97,7 @@ func (s Series) ReduceCut(
 		Data:              data,
 		Alignment:         GroupStart(s.Alignment, groupSize),
 		AlignmentMultiple: multiple,
+		Clock:             s.Clock,
 	}, head, tail
 }
 
