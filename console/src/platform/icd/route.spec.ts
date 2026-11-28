@@ -28,7 +28,11 @@ const tableZ = z.object({
       description: z.string(),
       messages: z.object({ name: z.string(), payload: icd.jsonPayloadZ }).array(),
       cases: z
-        .object({ fields: z.string().array(), message: z.string().optional() })
+        .object({
+          fields: z.string().array(),
+          message: z.string().optional(),
+          matches: z.string().array().optional(),
+        })
         .array(),
     })
     .array(),
@@ -67,6 +71,15 @@ describe("route", () => {
     });
   });
 
+  it("should give the message of a met present rule over a value rule that reads more of the fields", () => {
+    const status = kind("status", "/kind", "/temp");
+    const rpm = {
+      match: { type: "present", pointer: "/rpm" } as const,
+      pointers: ["/rpm"],
+    };
+    expect(route(["/kind", "/temp", "/rpm"], [status, rpm])).toEqual({ message: rpm });
+  });
+
   it("should split when two messages read the most of the fields", () => {
     const messages = [kind("status", "/kind", "/code"), kind("fault", "/kind", "/rpm")];
     expect(route(["/kind", "/temp"], messages)).toEqual({ split: "/kind" });
@@ -79,18 +92,20 @@ describe.each(table.groups)("route: $description", ({ messages, cases }) => {
     match: payload.match,
     pointers: payload.fields.map(({ pointer }) => pointer),
   }));
+  const named = (name: string) => routed.find((m) => m.name === name);
   it.each(cases)(
     "should give a shape with fields $fields the message of the Core",
-    ({ fields, message }) => {
+    ({ fields, message, matches }) => {
+      let expected = {};
+      if (matches != null) expected = { matches: matches.map(named) };
+      else if (message != null) expected = { message: named(message) };
       expect(
         ICD.route(
           fields.map((pointer) => ({ pointer })),
           routed,
           ({ pointers }) => pointers,
         ),
-      ).toEqual(
-        message == null ? {} : { message: routed.find((m) => m.name === message) },
-      );
+      ).toEqual(expected);
     },
   );
 });

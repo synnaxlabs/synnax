@@ -61,7 +61,7 @@ type InferredField struct {
 	Type Type `json:"type" msgpack:"type"`
 	// TimeFormat is the format of the values of a timestamp field. Nil for any other
 	// field.
-	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
 	// Enum holds the distinct values, sorted, of a field of only strings that repeats
 	// a few.
 	Enum []string `json:"enum" msgpack:"enum"`
@@ -735,7 +735,7 @@ type fieldStats struct {
 type timeStats struct {
 	// candidate is true while every value fits format near its document time.
 	candidate bool
-	format    TimeFormat
+	format    timeFormat
 	// formatted is true once a value sets format.
 	formatted bool
 	// rising is true while no value is older than the value before it in its source.
@@ -886,7 +886,7 @@ func (s *fieldStats) field(n int) InferredField {
 	}
 	if s.timestamp() {
 		f.Kind = payload.KindTimestamp
-		f.TimeFormat = new(s.time.format)
+		f.TimeFormat = new(payloadTimeFormats[s.time.format])
 		return f
 	}
 	if s.numbers == 0 && s.booleans == 0 && !s.longLabel && len(s.labels) >= 2 &&
@@ -928,7 +928,7 @@ func timeName(name string) bool {
 }
 
 // unixFormats are the numeric time formats, in rising order of resolution.
-var unixFormats = [...]TimeFormat{
+var unixFormats = [...]timeFormat{
 	unixSecond,
 	unixMillisecond,
 	unixMicrosecond,
@@ -938,7 +938,7 @@ var unixFormats = [...]TimeFormat{
 // timeOf parses l as a timestamp. A string holds ISO 8601 or a Unix number, and a
 // number is Unix in the unit that puts it nearest ref. It reports false when the value
 // is not a timestamp within a factor of two of ref.
-func timeOf(l leaf, ref telem.TimeStamp) (telem.TimeStamp, TimeFormat, bool) {
+func timeOf(l leaf, ref telem.TimeStamp) (telem.TimeStamp, timeFormat, bool) {
 	text := l.raw
 	switch l.kind {
 	case '"':

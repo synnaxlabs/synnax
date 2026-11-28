@@ -3362,6 +3362,98 @@ describe("Kafka read form", () => {
       expect(dialog.getAllByText("No JSON message")).toHaveLength(3);
     });
 
+    it("should lock a shape that meets the present rules of two messages of its key", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+        match: { type: "present", pointer: "/temperature" },
+      });
+      await addMessage(rec, "pressure", [createField("pressure", "float")], {
+        type: "present",
+        pointer: "/pressure",
+      });
+      const { dev } = await renderRead({ records: [rec] });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, {
+        data: sampleOf({ ...PRESSURE_SHAPE, sources: ["oven-1"] }),
+      });
+      await dialog.findByText(
+        "Matches messages oven-1 and pressure. The Core refuses these documents. Change a match rule in the ICD editor.",
+      );
+      expect(dialog.getAllByText("Matches 2 messages")).toHaveLength(4);
+      const pressure = dialog.getByRole("checkbox", { name: "Record /pressure" });
+      expect(pressure).toHaveProperty("disabled", true);
+      expect(pressure).toHaveProperty("checked", false);
+    });
+
+    it("should route a shape past a disabled record that reads the message of its key too", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+        match: { type: "present", pointer: "/pressure" },
+      });
+      const disabled = kafka.readRecordZ.parse({
+        ...rec,
+        key: undefined,
+        disabled: true,
+      });
+      const { dev } = await renderRead({ records: [rec, disabled] });
+      await screen.findAllByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, {
+        data: sampleOf({ ...PRESSURE_SHAPE, sources: ["oven-1"] }),
+      });
+      const pressure = await dialog.findByRole("checkbox", {
+        name: "Record /pressure",
+      });
+      expect(pressure).toHaveProperty("disabled", false);
+      expect(dialog.queryByText("Matches 2 messages")).toBeNull();
+    });
+
+    it("should add a field to only the enabled record of a key, past a disabled record with no one message for the shape", async () => {
+      const temperature = createField("temperature", "float");
+      const rec = await createRecord({
+        fields: [temperature],
+        recordKey: "oven-1",
+        match: { type: "present", pointer: "/pressure" },
+      });
+      const disabled = kafka.readRecordZ.parse({
+        ...rec,
+        key: undefined,
+        disabled: true,
+        messages: [...rec.messages],
+      });
+      await addMessage(disabled, "alarm", [], {
+        type: "present",
+        pointer: "/temperature",
+      });
+      const { draft, dev } = await renderRead({ records: [rec, disabled] });
+      await screen.findAllByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, {
+        data: sampleOf({ ...PRESSURE_SHAPE, sources: ["oven-1"] }),
+      });
+      fireEvent.click(
+        await dialog.findByRole("checkbox", { name: "Record /pressure" }),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const fields = await waitFor(async () => {
+        const next = jsonFieldsOf(await client.icds.retrieve(rec.icd));
+        expect(next.map(({ pointer }) => pointer)).toEqual([
+          "/temperature",
+          "/pressure",
+        ]);
+        return next;
+      });
+      await waitFor(async () => {
+        const [enabled, skipped] = await retrieveRecords(draft.key);
+        expect(enabled.messages[0].bindings.map(({ field }) => field)).toEqual(
+          fields.map(({ key }) => key),
+        );
+        expect(skipped.messages[0].bindings.map(({ field }) => field)).toEqual([
+          temperature.key,
+        ]);
+      });
+    });
+
     it("should lock a shape whose fields tie two value rules of its key, and pick none of it", async () => {
       const rec = await createRecord({
         fields: [createField("temperature", "float")],
@@ -3832,12 +3924,13 @@ describe("Kafka read form", () => {
       });
     });
 
-    it("should remove a field from the ICD through the context menu", async () => {
+    it("should delete a field from the ICD through the context menu", async () => {
       const temperature = createField("temperature", "float");
       const pressure = createField("pressure", "float");
       const { draft } = await renderRead({ fields: [temperature, pressure] });
       fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^pressure/ }));
-      fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
       const { icd: icdKey } = (await retrieveRecords(draft.key))[0];
       await waitFor(async () =>
         expect(

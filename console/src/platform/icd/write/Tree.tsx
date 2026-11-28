@@ -209,6 +209,7 @@ export const useTree = <T extends Target>({
 }: UseTreeArgs<T>): UseTreeReturn => {
   const ctx = PForm.useContext();
   const formats = useFormats();
+  const deleteItem = ICDTree.useDeleteItem();
   const all = PForm.useFieldValue(path);
   const [added, setAdded] = useState<icd.FieldKey>();
   const [created, setCreated] = useState<icd.FieldKey[]>([]);
@@ -451,10 +452,16 @@ export const useTree = <T extends Target>({
       const onlyFields = fields.length === keys.length;
       // A field at the whole document leaves no pointer free for a copy.
       const copyable = onlyFields && fields.every(({ field }) => field.pointer !== "");
+      const deleted = fields.map(({ target, field }) => {
+        const { icd: icdKey, message } = sending(target);
+        return { icd: icdKey, message, field };
+      });
       return (
         <Task.Views.ContextMenu
           keys={keys}
-          onRemove={onlyFields ? () => removeFields(fields) : undefined}
+          deleteMenuItem={
+            onlyFields ? deleteItem(deleted, () => removeFields(fields)) : undefined
+          }
           onDuplicate={copyable ? () => duplicateFields(fields) : undefined}
         />
       );

@@ -225,8 +225,10 @@ class JSONEncoder {
     struct Default {
         std::optional<std::string> text;
         Generator generator = Generator::NONE;
-        /// @brief time_format is the format of the time that NOW writes.
-        x::json::TimeFormat time_format = x::json::TimeFormat::ISO8601;
+        /// @brief now writes the time that NOW writes.
+        x::json::Encoder now;
+        /// @brief sample is scratch space for the time that NOW writes.
+        x::telem::Series sample = x::telem::Series(x::telem::TimeStamp(0));
 
         /// @brief returns the default of f, or no default when f has none. Its errors
         /// do not name the default.
@@ -236,7 +238,7 @@ class JSONEncoder {
             return this->text.has_value() || this->generator != Generator::NONE;
         }
         /// @returns VALIDATION when there is no default.
-        [[nodiscard]] x::errors::Error append(std::string &out) const;
+        [[nodiscard]] x::errors::Error append(std::string &out);
     };
 
     struct Field {
@@ -297,6 +299,13 @@ class JSONEncoder {
     std::string text;
 
 public:
+    JSONEncoder() = default;
+    JSONEncoder(JSONEncoder &&) noexcept = default;
+    JSONEncoder &operator=(JSONEncoder &&) noexcept = default;
+    /// @brief a JSONEncoder holds scratch space that a copy cannot share.
+    JSONEncoder(const JSONEncoder &) = delete;
+    JSONEncoder &operator=(const JSONEncoder &) = delete;
+
     /// @brief creates an encoder of message. Each binding names a field that takes a
     /// sample, in sample order, and every other field takes its default. A document
     /// holds the value of the message's value rule and each field at its pointer. The

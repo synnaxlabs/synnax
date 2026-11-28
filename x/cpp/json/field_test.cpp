@@ -22,6 +22,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
 #include "x/cpp/json/field.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
@@ -371,7 +372,8 @@ TEST(Decoder, ConvertsTrueInUnsignedRange) {
 TEST(Decoder, ConvertsISO8601) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2026-01-02T03:04:05.000000006Z")"
         )
             .at<std::int64_t>(0),
@@ -383,7 +385,8 @@ TEST(Decoder, ConvertsISO8601) {
 TEST(Decoder, ConvertsISO8601WithSpaceAndLowercaseZone) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2026-01-02 03:04:05z")"
         )
             .at<std::int64_t>(0),
@@ -395,7 +398,8 @@ TEST(Decoder, ConvertsISO8601WithSpaceAndLowercaseZone) {
 TEST(Decoder, ConvertsISO8601WithOffset) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2026-01-02T03:04:05.5+01:00")"
         )
             .at<std::int64_t>(0),
@@ -407,7 +411,8 @@ TEST(Decoder, ConvertsISO8601WithOffset) {
 TEST(Decoder, TruncatesISO8601PastNanoseconds) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2026-01-02T03:04:05.1234567891Z")"
         )
             .at<std::int64_t>(0),
@@ -419,7 +424,8 @@ TEST(Decoder, TruncatesISO8601PastNanoseconds) {
 TEST(Decoder, ConvertsSmallestISO8601) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("1677-09-21T00:12:43.145224192Z")"
         )
             .at<std::int64_t>(0),
@@ -431,7 +437,8 @@ TEST(Decoder, ConvertsSmallestISO8601) {
 TEST(Decoder, ConvertsLargestISO8601) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2262-04-11T23:47:16.854775807Z")"
         )
             .at<std::int64_t>(0),
@@ -443,7 +450,8 @@ TEST(Decoder, ConvertsLargestISO8601) {
 TEST(Decoder, ConvertsUnixSecondsToNanosecond) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_UNIX_SEC},
             "1767323045.123456789"
         )
             .at<std::int64_t>(0),
@@ -456,7 +464,7 @@ TEST(Decoder, ConvertsUnixMillisecondsInString) {
     ASSERT_EQ(
         decode(
             {.data_type = telem::TIMESTAMP_T,
-             .time_format = TimeFormat::UnixMillisecond},
+             .time_format = payload::TIME_FORMAT_UNIX_MS},
             R"("1767323045123")"
         )
             .at<std::int64_t>(0),
@@ -469,7 +477,7 @@ TEST(Decoder, ConvertsUnixMicrosecondsWithExponent) {
     ASSERT_EQ(
         decode(
             {.data_type = telem::TIMESTAMP_T,
-             .time_format = TimeFormat::UnixMicrosecond},
+             .time_format = payload::TIME_FORMAT_UNIX_US},
             "1.5e3"
         )
             .at<std::int64_t>(0),
@@ -481,7 +489,8 @@ TEST(Decoder, ConvertsUnixMicrosecondsWithExponent) {
 TEST(Decoder, ConvertsNegativeUnixSeconds) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_UNIX_SEC},
             "-1.5"
         )
             .at<std::int64_t>(0),
@@ -494,7 +503,7 @@ TEST(Decoder, TruncatesFractionOfNanosecond) {
     ASSERT_EQ(
         decode(
             {.data_type = telem::TIMESTAMP_T,
-             .time_format = TimeFormat::UnixNanosecond},
+             .time_format = payload::TIME_FORMAT_UNIX_NS},
             "10.9"
         )
             .at<std::int64_t>(0),
@@ -506,7 +515,8 @@ TEST(Decoder, TruncatesFractionOfNanosecond) {
 TEST(Decoder, ConvertsHexUnixSecondsWithWhitespace) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_UNIX_SEC},
             R"(" 0x10\t")"
         )
             .at<std::int64_t>(0),
@@ -518,7 +528,8 @@ TEST(Decoder, ConvertsHexUnixSecondsWithWhitespace) {
 TEST(Decoder, ConvertsTrimmedUnixSecondsToNanosecond) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_UNIX_SEC},
             R"(" 1767323045.123456789 ")"
         )
             .at<std::int64_t>(0),
@@ -531,7 +542,7 @@ TEST(Decoder, TruncatesHexFloatNanoseconds) {
     ASSERT_EQ(
         decode(
             {.data_type = telem::TIMESTAMP_T,
-             .time_format = TimeFormat::UnixNanosecond},
+             .time_format = payload::TIME_FORMAT_UNIX_NS},
             R"("-0x1.8")"
         )
             .at<std::int64_t>(0),
@@ -811,7 +822,7 @@ TEST(Decoder, RejectsInvalidUUID) {
 /// @brief it should reject a number for an ISO 8601 timestamp.
 TEST(Decoder, RejectsNumberForISO8601) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         "1"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -821,7 +832,7 @@ TEST(Decoder, RejectsNumberForISO8601) {
 /// @brief it should reject text that is not ISO 8601.
 TEST(Decoder, RejectsInvalidISO8601) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         R"("now")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -831,7 +842,7 @@ TEST(Decoder, RejectsInvalidISO8601) {
 /// @brief it should reject a day past the end of its month.
 TEST(Decoder, RejectsDayPastMonth) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         R"("2026-02-29T00:00:00Z")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -841,7 +852,7 @@ TEST(Decoder, RejectsDayPastMonth) {
 /// @brief it should reject an ISO 8601 timestamp with no zone.
 TEST(Decoder, RejectsISO8601WithoutZone) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         R"("2026-01-02T03:04:05")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -851,7 +862,7 @@ TEST(Decoder, RejectsISO8601WithoutZone) {
 /// @brief it should reject an ISO 8601 timestamp before the smallest timestamp.
 TEST(Decoder, RejectsISO8601PastTimestamp) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         R"("1677-09-21T00:12:43.145224191Z")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -864,7 +875,7 @@ TEST(Decoder, RejectsISO8601PastTimestamp) {
 /// @brief it should reject a boolean for Unix seconds.
 TEST(Decoder, RejectsBooleanForUnixSeconds) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         "true"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -874,7 +885,7 @@ TEST(Decoder, RejectsBooleanForUnixSeconds) {
 /// @brief it should reject text that is not a number for Unix seconds.
 TEST(Decoder, RejectsWordForUnixSeconds) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         R"("soon")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -884,7 +895,7 @@ TEST(Decoder, RejectsWordForUnixSeconds) {
 /// @brief it should reject Unix seconds past the range of a timestamp.
 TEST(Decoder, RejectsUnixSecondsPastTimestamp) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         "1e12"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -894,7 +905,7 @@ TEST(Decoder, RejectsUnixSecondsPastTimestamp) {
 /// @brief it should reject Unix seconds with an exponent past -2^20.
 TEST(Decoder, RejectsUnixSecondsPastSmallestExponent) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         "1e-1048577"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -904,7 +915,7 @@ TEST(Decoder, RejectsUnixSecondsPastSmallestExponent) {
 /// @brief it should reject infinity in Unix seconds.
 TEST(Decoder, RejectsInfiniteUnixSeconds) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         R"("inf")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -914,7 +925,7 @@ TEST(Decoder, RejectsInfiniteUnixSeconds) {
 /// @brief it should reject hex Unix seconds past the range of a timestamp.
 TEST(Decoder, RejectsHexUnixSecondsPastTimestamp) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         R"("0x7fffffffffffffff")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -927,7 +938,7 @@ TEST(Decoder, RejectsHexUnixSecondsPastTimestamp) {
 /// @brief it should reject hex Unix nanoseconds below an int64.
 TEST(Decoder, RejectsHexUnixNanosecondsBelowInt64) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixNanosecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_NS},
         R"("-0x8000000000000001")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
@@ -1033,6 +1044,27 @@ TEST(Decoder, RejectsUnknownDataType) {
     ASSERT_EQ(err.data(), "cannot convert a JSON value to " + telem::UNKNOWN_T.name());
 }
 
+/// @brief it should reject a timestamp field with no time format or an unknown one.
+TEST(Decoder, RejectsUnknownTimeFormat) {
+    for (const std::string format: {"", "unix_min"}) {
+        const auto err = create_error(
+            {.data_type = telem::TIMESTAMP_T, .time_format = format}
+        );
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(
+            err.data(),
+            "unknown time format \"" + format +
+                "\": expected \"iso8601\", \"unix_sec\", \"unix_ms\", \"unix_us\", or "
+                "\"unix_ns\""
+        );
+    }
+}
+
+/// @brief it should need no time format for a data type that is not a timestamp.
+TEST(Decoder, NeedsNoTimeFormatForInt64) {
+    ASSERT_NIL(create_error({.data_type = telem::INT64_T}));
+}
+
 /// @brief it should reject a range that is not an integer data type.
 TEST(Decoder, RejectsFloatRange) {
     const auto err = create_error(
@@ -1122,9 +1154,11 @@ TEST(Decoder, RejectsStringEnumForNumber) {
 
 /// @brief it should reject an enum for a timestamp.
 TEST(Decoder, RejectsEnumForTimestamp) {
-    const auto err = create_error(
-        {.data_type = telem::TIMESTAMP_T, .enums = {{"EPOCH", std::int64_t{0}}}}
-    );
+    const auto err = create_error({
+        .data_type = telem::TIMESTAMP_T,
+        .time_format = payload::TIME_FORMAT_ISO_8601,
+        .enums = {{"EPOCH", std::int64_t{0}}},
+    });
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
         err.data(),
@@ -1359,10 +1393,13 @@ TEST(Encoder, WritesString) {
 /// @brief it should write a timestamp in the time format of the field.
 TEST(Encoder, WritesTimestamp) {
     expect_encodes({
-        {{.data_type = telem::TIMESTAMP_T, .type = Type::Boolean},
+        {{.data_type = telem::TIMESTAMP_T,
+          .time_format = payload::TIME_FORMAT_ISO_8601,
+          .type = Type::Boolean},
          telem::TimeStamp(1500000006),
          R"("1970-01-01T00:00:01.500000006Z")"},
-        {{.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {{.data_type = telem::TIMESTAMP_T,
+          .time_format = payload::TIME_FORMAT_UNIX_SEC},
          telem::TimeStamp(1767323045123456789),
          "1767323045.123456789"},
     });
@@ -1428,6 +1465,27 @@ TEST(Encoder, RejectsUnknownDataType) {
         err.data(),
         "cannot convert " + telem::UNKNOWN_T.name() + " to a JSON value"
     );
+}
+
+/// @brief it should reject a timestamp field with no time format or an unknown one.
+TEST(Encoder, RejectsUnknownTimeFormat) {
+    for (const std::string format: {"", "unix_min"}) {
+        const auto err = create_encoder_error(
+            {.data_type = telem::TIMESTAMP_T, .time_format = format}
+        );
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(
+            err.data(),
+            "unknown time format \"" + format +
+                "\": expected \"iso8601\", \"unix_sec\", \"unix_ms\", \"unix_us\", or "
+                "\"unix_ns\""
+        );
+    }
+}
+
+/// @brief it should need no time format for a data type that is not a timestamp.
+TEST(Encoder, NeedsNoTimeFormatForInt64) {
+    ASSERT_NIL(create_encoder_error({.data_type = telem::INT64_T}));
 }
 
 /// @brief it should reject an enum value that does not convert to the data type.

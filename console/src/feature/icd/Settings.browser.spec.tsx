@@ -9,7 +9,6 @@
 
 import {
   icd,
-  mqtt,
   NotFoundError,
   panel,
   project,
@@ -19,13 +18,12 @@ import {
 } from "@synnaxlabs/client";
 import { failRequests, holdRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
-import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/feature/icd";
-import { client, createICD } from "@/feature/icd/testutil";
+import { client, createICD, createUsedICD } from "@/feature/icd/testutil";
 import { Task } from "@/feature/task";
 import { createdIn } from "@/platform/icd/testutil";
 import { Modals } from "@/platform/modals";
@@ -82,28 +80,6 @@ const renderSettings = async (
     { wrapper },
   );
   return { store, subject };
-};
-
-// Creates an ICD with one message, and a write task that sends it.
-const createUsedICD = async (): Promise<{ ic: icd.ICD; used: task.Task }> => {
-  const message = icd.messageZ.parse({
-    key: uuid.create(),
-    name: "Command",
-    payload: { format: "json", fields: [] },
-  });
-  const ic = await createICD([message]);
-  const target = mqtt.plainWriteTargetZ.parse({
-    type: "plain",
-    topic: "plant/valve/set",
-    icd: ic.key,
-    message: { message: message.key, bindings: [] },
-  });
-  const used = await client.tasks.create({
-    name: uniqueName("task"),
-    type: "mqtt_write",
-    config: mqtt.writeConfigZ.parse({ targets: [target] }),
-  });
-  return { ic, used };
 };
 
 const openDelete = async (name: string): Promise<void> => {

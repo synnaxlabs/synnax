@@ -32,6 +32,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { Device } from "@/feature/kafka/device";
 import {
+  blockOf,
   carriedFields,
   defaultPicks,
   type FieldDefaults,
@@ -42,7 +43,6 @@ import {
   type Picks,
   type Reads,
   sourceKey,
-  splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
 import { findProblem, type Plan, type TopicPick } from "@/feature/kafka/task/plan";
@@ -549,14 +549,14 @@ const TopicValues = ({
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
     const newest = newestFirst(sample, shape);
     const extendable = isExtendable(shape, reads);
-    const split = splitOf(shape, reads);
+    const block = blockOf(shape, reads);
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
     const shapeKey = json.shapeKey(shape);
     const position = free.indexOf(shape);
     // A search that reads on can still change the reading.
     const waits = searching && position >= 0;
-    const open = split == null && !waits;
+    const open = block == null && !waits;
     const choice = choices.get(shapeKey);
     const chosen = open ? reusedFit(found, shape, position, choice) : undefined;
     // A message that the add appends a field to for another shape can stop fitting.
@@ -564,7 +564,7 @@ const TopicValues = ({
       chosen != null && value.has(shapeKey) && reused != null && !reused.has(shapeKey);
     const fit = unfit ? undefined : chosen;
     let note: string | undefined;
-    if (split != null) note = ICD.Picker.splitNote(split);
+    if (block != null) note = block.note;
     else if (waits) note = SEARCHING;
     else if (unfit) note = `${chosen.message.name} no longer fits`;
     else if (chosen == null && choice !== null) note = tieNote(found, shape, position);
@@ -602,7 +602,7 @@ const TopicValues = ({
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
-        if (split != null) lock = ICD.Picker.SPLIT;
+        if (block != null) lock = block.lock;
         else if (j === shape.index) lock = ICD.Picker.INDEX;
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
