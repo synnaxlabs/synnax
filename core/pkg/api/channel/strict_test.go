@@ -12,6 +12,7 @@ package channel_test
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -177,70 +178,101 @@ var _ = Describe("Strict retrieve", func() {
 		}),
 	)
 
-	It("Should refuse each other field of a where and of its lookup filters", func(
-		ctx SpecContext,
-	) {
-		set := func(v reflect.Value) {
-			switch v.Kind() {
-			case reflect.Pointer:
-				v.Set(reflect.New(v.Type().Elem()))
-			case reflect.Slice:
-				v.Set(reflect.MakeSlice(v.Type(), 1, 1))
-			case reflect.Bool:
-				v.SetBool(true)
-			default:
-				Fail("no non-zero value for kind " + v.Kind().String())
-			}
-		}
-		refused := MatchError(ContainSubstring(
-			"where: a strict retrieve takes only key, name, and path matches",
-		))
-		fields := reflect.TypeFor[channel.Where]()
-		for i := range fields.NumField() {
-			switch fields.Field(i).Name {
-			case "Key", "Name", "Path", "Or":
-				continue
-			}
-			var w channel.Where
-			set(reflect.ValueOf(&w).Elem().Field(i))
-			Expect(retrieve(ctx, w, true)).Error().
-				To(refused, fields.Field(i).Name)
-		}
-		nameFields := reflect.TypeFor[filter.String]()
-		for i := range nameFields.NumField() {
-			switch nameFields.Field(i).Name {
-			case "Eq", "In":
-				continue
-			}
-			w := channel.Where{Name: &filter.String{}}
-			set(reflect.ValueOf(w.Name).Elem().Field(i))
-			Expect(retrieve(ctx, w, true)).Error().
-				To(refused, nameFields.Field(i).Name)
-		}
-		sets := map[string]func() (channel.Where, reflect.Value){
-			"key": func() (channel.Where, reflect.Value) {
-				w := channel.Where{
-					Key: &filter.Set[channel.Key]{Eq: new(inShown.Key())},
-				}
-				return w, reflect.ValueOf(w.Key).Elem()
+	DescribeTable("Should refuse each other field of a where and of its lookup filters",
+		func(ctx SpecContext, w channel.Where) {
+			Expect(retrieve(ctx, w, true)).Error().To(MatchError(ContainSubstring(
+				"where: a strict retrieve takes only key, name, and path matches",
+			)))
+		},
+		otherWhereFields(),
+	)
+
+	DescribeTable("Should refuse a strict retrieve that pages or searches",
+		func(ctx SpecContext, req apichannel.RetrieveRequest, msg string) {
+			where := byName(name)
+			req.Where, req.Strict = &where, true
+			Expect(retrieveChannels(AuthedCtx(ctx, u), req)).Error().
+				To(MatchError(msg))
+		},
+		Entry(
+			"a search term",
+			apichannel.RetrieveRequest{SearchTerm: "x"},
+			"search_term: a strict retrieve takes no search term",
+		),
+		Entry(
+			"an order",
+			apichannel.RetrieveRequest{
+				Order: &apichannel.Order{Field: apichannel.OrderFieldName},
 			},
-			"path": func() (channel.Where, reflect.Value) {
-				w := channel.Where{Path: &filter.Set[string]{Eq: new("x")}}
-				return w, reflect.ValueOf(w.Path).Elem()
-			},
-		}
-		for field, fresh := range sets {
-			_, v := fresh()
-			for i := range v.NumField() {
-				switch v.Type().Field(i).Name {
-				case "Eq", "In":
-					continue
-				}
-				w, fields := fresh()
-				set(fields.Field(i))
-				Expect(retrieve(ctx, w, true)).Error().
-					To(refused, field+" "+v.Type().Field(i).Name)
-			}
-		}
-	})
+			"order: a strict retrieve takes no order",
+		),
+		Entry(
+			"a cursor",
+			apichannel.RetrieveRequest{After: &apichannel.Cursor{}},
+			"after: a strict retrieve takes no cursor",
+		),
+		Entry(
+			"a limit",
+			apichannel.RetrieveRequest{Limit: new(uint32(1))},
+			"limit: a strict retrieve takes no limit",
+		),
+	)
 })
+
+// otherWhereFields returns an entry with a where for each field of a where, and of its
+// key, name, and path filters, that a strict retrieve refuses.
+func otherWhereFields() []TableEntry {
+	set := func(v reflect.Value) {
+		switch v.Kind() {
+		case reflect.Pointer:
+			v.Set(reflect.New(v.Type().Elem()))
+		case reflect.Slice:
+			v.Set(reflect.MakeSlice(v.Type(), 1, 1))
+		case reflect.Bool:
+			v.SetBool(true)
+		default:
+			panic("no non-zero value for kind " + v.Kind().String())
+		}
+	}
+	var entries []TableEntry
+	fields := reflect.TypeFor[channel.Where]()
+	for i := range fields.NumField() {
+		field := fields.Field(i).Name
+		if slices.Contains([]string{"Key", "Name", "Path", "Or"}, field) {
+			continue
+		}
+		var w channel.Where
+		set(reflect.ValueOf(&w).Elem().Field(i))
+		entries = append(entries, Entry(field, w))
+	}
+	lookups := []struct {
+		name  string
+		fresh func() (channel.Where, reflect.Value)
+	}{
+		{"name", func() (channel.Where, reflect.Value) {
+			w := channel.Where{Name: &filter.String{}}
+			return w, reflect.ValueOf(w.Name).Elem()
+		}},
+		{"key", func() (channel.Where, reflect.Value) {
+			w := channel.Where{Key: &filter.Set[channel.Key]{Eq: new(channel.Key(1))}}
+			return w, reflect.ValueOf(w.Key).Elem()
+		}},
+		{"path", func() (channel.Where, reflect.Value) {
+			w := channel.Where{Path: &filter.Set[string]{Eq: new("x")}}
+			return w, reflect.ValueOf(w.Path).Elem()
+		}},
+	}
+	for _, l := range lookups {
+		_, v := l.fresh()
+		for i := range v.NumField() {
+			field := v.Type().Field(i).Name
+			if field == "Eq" || field == "In" {
+				continue
+			}
+			w, lookup := l.fresh()
+			set(lookup.Field(i))
+			entries = append(entries, Entry(l.name+" "+field, w))
+		}
+	}
+	return entries
+}

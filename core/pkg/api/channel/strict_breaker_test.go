@@ -99,43 +99,17 @@ var _ = Describe("Strict retrieve breaker", func() {
 			Strict: true,
 		})
 	}
-	named := func(res apichannel.RetrieveResponse, n string) int {
-		count := 0
-		for _, ch := range res.Channels {
-			if ch.Name == n {
-				count++
-			}
-		}
-		return count
-	}
-	refused := ContainSubstring(
-		"where: a strict retrieve takes only key, name, and path matches",
-	)
-
-	It("Should refuse a strict where that holds no match", func(ctx SpecContext) {
-		res, err := retrieve(ctx, channel.Where{})
-		Expect(err).To(MatchError(refused),
-			"a strict empty where returned %d channels, %d of them named %s",
-			len(res.Channels), named(res, name), name,
-		)
-	})
-
-	It("Should refuse a strict or with an empty branch", func(ctx SpecContext) {
-		res, err := retrieve(ctx, channel.Where{Or: []channel.Where{
-			{Name: &filter.String{In: []string{solo}}},
+	DescribeTable("Should refuse a strict where and return no channel",
+		func(ctx SpecContext, where channel.Where) {
+			Expect(retrieve(ctx, where)).Error().To(MatchError(ContainSubstring(
+				"where: a strict retrieve takes only key, name, and path matches",
+			)))
+		},
+		Entry("that holds no match", channel.Where{}),
+		Entry("of an or with an empty branch", channel.Where{Or: []channel.Where{
+			{Name: &filter.String{In: []string{UniqueChannelName()}}},
 			{},
-		}})
-		Expect(err).To(MatchError(refused),
-			"a strict or with an empty branch returned %d channels, %d of them named %s",
-			len(res.Channels), named(res, name), name,
-		)
-	})
-
-	It("Should refuse a strict where with an empty and", func(ctx SpecContext) {
-		res, err := retrieve(ctx, channel.Where{And: []channel.Where{}})
-		Expect(err).To(MatchError(refused),
-			"a strict where with an empty and returned %d channels, %d of them named %s",
-			len(res.Channels), named(res, name), name,
-		)
-	})
+		}}),
+		Entry("with an empty and", channel.Where{And: []channel.Where{}}),
+	)
 })
