@@ -88,9 +88,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	binder := MustSucceed(
 		bind.NewService(bind.ServiceConfig{
-			DB:   db,
-			RBAC: rbacSvc,
-			Held: apiauth.HeldTables(),
+			DB:      db,
+			RBAC:    rbacSvc,
+			Held:    apiauth.HeldTables(),
+			Mirrors: channel.MirrorTables(),
 		}),
 	)
 	createChannels = bind.Write(binder, apiSvc.Create)

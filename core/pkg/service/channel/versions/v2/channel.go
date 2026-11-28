@@ -40,6 +40,11 @@ func (c Channel) Index() Key {
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
 
+var _ gorp.Entry[Key] = Tombstone{}
+
+// GorpKey implements the gorp.Entry interface.
+func (t Tombstone) GorpKey() Key { return t.Key }
+
 // Free returns true if the channel is not leased to a particular node i.e. it is a
 // non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == node.KeyFree }

@@ -66,6 +66,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -1007,6 +1008,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Held:        auth.HeldTables(),
 		Owned:       append(panel.OwnedTables(), certificate.OwnedTables()...),
 		OwnedPlaces: panel.OwnedPlaces(),
+		Mirrors:     svcchannel.MirrorTables(),
 		Vouched:     secret.Vouched(cfg.Service.Certificate),
 	}); err != nil {
 		return nil, err

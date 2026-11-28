@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -67,9 +68,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group: svc.Group,
 	}))
 	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
-		DB:   db,
-		RBAC: svc.RBAC,
-		Held: apiauth.HeldTables(),
+		DB:      db,
+		RBAC:    svc.RBAC,
+		Held:    apiauth.HeldTables(),
+		Mirrors: channel.MirrorTables(),
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.Write(binder, apiSvc.Delete)
