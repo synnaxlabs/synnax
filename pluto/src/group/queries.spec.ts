@@ -43,7 +43,10 @@ describe("Group queries", () => {
       });
 
     it("should list the groups of a parent in name order", async () => {
-      const parent = await client.groups.create({ scope: "channel", name: "parent" });
+      const parent = await client.groups.create({
+        scope: "channel",
+        name: `parent-${id.create()}`,
+      });
       const b = await client.groups.create({
         parent: group.resourceID(parent.key),
         name: "b",
@@ -91,8 +94,14 @@ describe("Group queries", () => {
     });
 
     it("should move a group between the lists of its parents", async () => {
-      const from = await client.groups.create({ scope: "channel", name: "from" });
-      const to = await client.groups.create({ scope: "channel", name: "to" });
+      const from = await client.groups.create({
+        scope: "channel",
+        name: `from-${id.create()}`,
+      });
+      const to = await client.groups.create({
+        scope: "channel",
+        name: `to-${id.create()}`,
+      });
       const g = await client.groups.create({
         parent: group.resourceID(from.key),
         name: "moving",
@@ -127,7 +136,7 @@ describe("Group queries", () => {
     it("should create a new group", async () => {
       const parent = await client.groups.create({
         scope: "channel",
-        name: "test-parent-create",
+        name: `test-parent-create-${id.create()}`,
       });
 
       const { result } = renderHook(() => Group.useCreate(), {
@@ -157,7 +166,7 @@ describe("Group queries", () => {
     it("should refuse a group whose key exists", async () => {
       const parent = await client.groups.create({
         scope: "channel",
-        name: "test-parent-key",
+        name: `test-parent-key-${id.create()}`,
       });
       const g = await client.groups.create({
         parent: group.resourceID(parent.key),
@@ -187,7 +196,7 @@ describe("Group queries", () => {
     it("should rename an existing group", async () => {
       const parent = await client.groups.create({
         scope: "channel",
-        name: "test-parent-rename",
+        name: `test-parent-rename-${id.create()}`,
       });
       const testGroup = await client.groups.create({
         parent: group.resourceID(parent.key),
@@ -213,7 +222,7 @@ describe("Group queries", () => {
     it("should delete an existing group", async () => {
       const parent = await client.groups.create({
         scope: "channel",
-        name: "test-parent-delete",
+        name: `test-parent-delete-${id.create()}`,
       });
       const testGroup = await client.groups.create({
         parent: group.resourceID(parent.key),
@@ -238,7 +247,7 @@ describe("Group queries", () => {
     it("should run afterOptimistic before the delete commits", async () => {
       const testGroup = await client.groups.create({
         scope: "channel",
-        name: "optimistic-delete",
+        name: `optimistic-delete-${id.create()}`,
       });
       const order: string[] = [];
       const { result } = renderHook(

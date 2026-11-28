@@ -28,11 +28,12 @@ class TestChannelPathBreaker:
         self, client: sy.Synnax
     ) -> None:
         folder = client.groups.create(f"stand_{random_name()}", scope="channel")
+        name = f"pt_{random_name()}"
         ch = client.channels.create(
-            name="pt_01",
+            name=name,
             data_type=sy.DataType.FLOAT32,
             virtual=True,
             group=folder.key,
         )
         got = client.channels.retrieve(ch.key, include_path=True)
-        assert got.path == f"{folder.name}.pt_01"
+        assert got.path == f"{folder.name}.{name}"
