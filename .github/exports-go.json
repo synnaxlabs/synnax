@@ -196,6 +196,31 @@
       "package": "github.com/synnaxlabs/arc/runtime/scheduler",
       "name": "ScopeHandler",
       "caller": "sy-7012-arc-task-scope-status"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "ReferenceID",
+      "caller": "https://linear.app/synnax/issue/SY-6526"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "ReferenceInfo",
+      "caller": "https://linear.app/synnax/issue/SY-6526"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "DB",
+      "name": "References",
+      "caller": "https://linear.app/synnax/issue/SY-6526"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "RetargetOnly",
+      "caller": "https://linear.app/synnax/issue/SY-6526"
     }
   ]
 }
