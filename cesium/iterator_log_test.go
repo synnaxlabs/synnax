@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	alamostestutil "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
@@ -27,6 +28,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // openFS counts the open files of its tree, and refuses to remove a file or directory
@@ -239,9 +242,15 @@ func (f *refuseFS) Remove(name string) error {
 
 var _ = Describe("Reads on the pointer log", func() {
 	It("Should close a read with no error when the unlink of a segment that it kept "+
-		"fails", func(ctx SpecContext) {
+		"fails, and log the failure", func(ctx SpecContext) {
 		fs := newRefuseFS(xfs.NewMem())
-		db := mustOpenDBOnFS(ctx, fs, cesium.WithPointerLog())
+		ins, logs := alamostestutil.ObservedInstrumentation(zapcore.ErrorLevel)
+		db := mustOpenDBOnFS(
+			ctx,
+			fs,
+			cesium.WithPointerLog(),
+			cesium.WithInstrumentation(ins),
+		)
 		idx, data := GenerateChannelKey(), GenerateChannelKey()
 		keys := []cesium.ChannelKey{idx, data}
 		Expect(db.CreateChannel(
@@ -277,6 +286,10 @@ var _ = Describe("Reads on the pointer log", func() {
 		prefix := strconv.FormatUint(uint64(data), 10) + "/"
 		fs.prefix.Store(&prefix)
 		Expect(iter.Close()).To(Succeed())
+		Eventually(func() int {
+			return logs.FilterMessageSnippet("failed to unlink").
+				FilterField(zap.Error(errRemoveRefused)).Len()
+		}).Should(BeNumerically(">=", 1))
 	})
 
 	It("Should give a read of a segment its own open of the file while another read "+
