@@ -18,6 +18,9 @@ import (
 type downsampler struct {
 	confluence.LinearTransform[Response, Response]
 	cfg Config
+	// applied is the Applied of the responses that transform dropped, which the next
+	// response it sends carries.
+	applied int
 }
 
 func newDownsampler(cfg Config) responseSegment {
@@ -36,5 +39,11 @@ func (d *downsampler) transform(
 		in.Frame.SetSeriesAt(i, s.Downsample(d.cfg.DownsampleFactor))
 	}
 	// A frame whose samples all lie off the downsampling grid carries nothing to send.
-	return in, !hadData || in.Frame.HasData(), nil
+	if hadData && !in.Frame.HasData() {
+		d.applied += in.Applied
+		return in, false, nil
+	}
+	in.Applied += d.applied
+	d.applied = 0
+	return in, true, nil
 }

@@ -13,7 +13,7 @@ import pathlib
 import re
 import struct
 from collections.abc import Callable
-from typing import Any
+from typing import Any, override
 
 import numpy as np
 import pytest
@@ -871,6 +871,38 @@ class TestAgreement:
         dec = Codec(keys=[6, 8], data_types=[sy.DataType.FLOAT32, sy.DataType.UINT8])
         with pytest.raises(sy.ValidationError, match=f"^{re.escape(msg)}$"):
             dec.decode(bytes(corrupt(bytearray(_hex(_WORKED_EXAMPLE)))))
+
+    def test_declares_unnamed_clock(self) -> None:
+        """Should declare an unrequested time series that no requested series names."""
+        data = sy.Series(np.array([1], np.float32))
+        stamps = sy.Series(
+            np.array([1], np.int64), data_type=sy.DataType.TIMESTAMP, clock=9
+        )
+        encoded = Codec(keys=[6], data_types=[sy.DataType.FLOAT32]).encode(
+            FramePayload(keys=[6, 9], series=[data, stamps])
+        )
+        assert struct.unpack_from("<II", encoded, 7) == (1, 9)
+
+    def test_rejects_oversized_series(self) -> None:
+        """Should raise on a series whose size a length field cannot hold."""
+
+        class Huge(bytes):
+            @override
+            def __len__(self) -> int:
+                return 2**32
+
+        ser = sy.Series(["a"], data_type=sy.DataType.STRING)
+        # A 4 GiB buffer is too large to allocate in a test, so the series reports one.
+        object.__setattr__(ser, "data", Huge(ser.data))
+        c = Codec(keys=[6], data_types=[sy.DataType.STRING])
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r"^series of channel 6 holds 4294967296 bytes, more than a frame "
+                r"length field holds$"
+            ),
+        ):
+            c.encode(FramePayload(keys=[6], series=[ser]))
 
     def test_rejects_unordered_list(self) -> None:
         """Should reject a list of declared clocks that is not ascending."""

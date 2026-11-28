@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"math"
 	"slices"
 	"sort"
 	"sync"
@@ -158,6 +159,9 @@ type Codec struct {
 		// applied yet, oldest first. pendingMu guards it.
 		pending   []*state
 		pendingMu sync.Mutex
+		// staged holds the states that Stage resolved and Apply has not taken, oldest
+		// first. pendingMu guards it.
+		staged []*state
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
 		seqNum uint32
@@ -181,6 +185,10 @@ type Codec struct {
 	// encoded.
 	declared channel.Keys
 	all      channel.Keys
+	// named holds the clocks that the requested series of the frame being encoded
+	// name, and ownClocks the raw indices of its unrequested own-clock series.
+	named     []uint32
+	ownClocks []int
 }
 
 // Option configures a Codec.
@@ -258,20 +266,59 @@ func newCodec(opts []Option) *Codec {
 // types through the codec's ChannelResolver. It returns an error if the channel
 // resolver does not return exactly one data type per key.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
-	dataTypes, err := c.channelResolver.RetrieveDataTypes(ctx, keys)
+	s, err := c.resolve(ctx, keys)
 	if err != nil {
 		return err
 	}
+	c.update(s)
+	return nil
+}
+
+// Stage resolves the state of keys as Update does, and holds it until Apply takes it,
+// so a stream can swap its state when its relay applies the request. States apply in
+// the order of their stages.
+func (c *Codec) Stage(ctx context.Context, keys []channel.Key) error {
+	s, err := c.resolve(ctx, keys)
+	if err != nil {
+		return err
+	}
+	c.mu.pendingMu.Lock()
+	c.mu.staged = append(c.mu.staged, s)
+	c.mu.pendingMu.Unlock()
+	return nil
+}
+
+// Apply makes the oldest state that Stage holds the state of the next Encode. It
+// returns an error when Stage holds none.
+func (c *Codec) Apply() error {
+	c.mu.pendingMu.Lock()
+	if len(c.mu.staged) == 0 {
+		c.mu.pendingMu.Unlock()
+		return errors.New("framer codec: a request applied that no stage holds")
+	}
+	s := c.mu.staged[0]
+	c.mu.staged = c.mu.staged[1:]
+	c.mu.pendingMu.Unlock()
+	c.update(s)
+	return nil
+}
+
+// resolve returns the state of keys, with their data types from the channel resolver.
+// It returns an error if the resolver does not return exactly one data type per key.
+func (c *Codec) resolve(ctx context.Context, keys []channel.Key) (*state, error) {
+	dataTypes, err := c.channelResolver.RetrieveDataTypes(ctx, keys)
+	if err != nil {
+		return nil, err
+	}
 	if len(dataTypes) != len(keys) {
-		return errors.Wrapf(
+		return nil, errors.Wrapf(
 			query.ErrNotFound,
 			"channel resolver returned %d data types for %d channel keys",
 			len(dataTypes),
 			len(keys),
 		)
 	}
-	c.update(newState(keys, dataTypes))
-	return nil
+	return newState(keys, dataTypes), nil
 }
 
 // Initialized returns true if the codec was initialized using NewStatic or Update
@@ -477,17 +524,20 @@ func (c *Codec) mergeContiguousSeries(
 }
 
 // contiguousRunEnd returns the exclusive end of the run that starts at runStart, where
-// each series is mergeable with the one before it.
+// each series is mergeable with the one before it and the run's data fits a length
+// field.
 func contiguousRunEnd(
 	sortedIndices []int,
 	src framer.Frame,
 	runStart, groupEnd int,
 ) int {
 	runEnd := runStart + 1
+	size := uint64(len(src.RawSeriesAt(sortedIndices[runStart]).Data))
 	for runEnd < groupEnd {
 		prevSeries := src.RawSeriesAt(sortedIndices[runEnd-1])
 		currSeries := src.RawSeriesAt(sortedIndices[runEnd])
-		if !mergeable(prevSeries, currSeries) {
+		size += uint64(len(currSeries.Data))
+		if size > math.MaxUint32 || !mergeable(prevSeries, currSeries) {
 			break
 		}
 		runEnd++
@@ -578,6 +628,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	if err != nil {
 		return err
 	}
+	for _, msi := range mergedSeries {
+		if err = checkLength(msi.key, msi.series); err != nil {
+			return err
+		}
+	}
 	h := newEncodeHeader(
 		mergedSeries,
 		c.frameKeys(ext, currState.keys, &currState.enc),
@@ -628,13 +683,15 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 }
 
 // sortSeries sorts the series in src that currState requests, and the time series under
-// their own clocks, by key and raw index into c.encodeSorter, and returns what they
-// change in the agreement. It drops the series of other keys.
+// their own clocks that a requested series names as its clock, by key and raw index
+// into c.encodeSorter, and returns what they change in the agreement. It drops the
+// series of other keys.
 func (c *Codec) sortSeries(src framer.Frame, currState *state) frameDiff {
 	var (
 		ag   = &currState.enc
 		diff frameDiff
 	)
+	c.named, c.ownClocks = c.named[:0], c.ownClocks[:0]
 	for rawI, s := range src.RawSeries() {
 		if src.ShouldExcludeRaw(rawI) {
 			continue
@@ -645,13 +702,41 @@ func (c *Codec) sortSeries(src framer.Frame, currState *state) frameDiff {
 			diff.clocks |= s.Clock ^ ag.clocks[position]
 			diff.types = diff.types ||
 				needsTypeOverride(ag.dataTypes[position], s.DataType)
+			if s.Clock != 0 && !slices.Contains(c.named, s.Clock) {
+				c.named = append(c.named, s.Clock)
+			}
 		} else if isOwnClock(key, s) {
+			c.ownClocks = append(c.ownClocks, rawI)
+		}
+	}
+	for _, rawI := range c.ownClocks {
+		key := src.RawKeyAt(rawI)
+		if slices.Contains(c.named, uint32(key)) {
 			c.encodeSorter.insert(key, rawI, -1)
 			diff.declared = true
 		}
 	}
 	c.encodeSorter.sort()
 	return diff
+}
+
+// checkLength returns an error when the length field of s, a sample count or a byte
+// size for a variable type, cannot hold its length.
+func checkLength(key channel.Key, s telem.Series) error {
+	n, unit := uint64(s.Size()), "bytes"
+	if !s.DataType.IsVariable() {
+		n, unit = uint64(s.Len()), "samples"
+	}
+	if n <= math.MaxUint32 {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"series of channel %d holds %d %s, more than a frame length field holds",
+		key,
+		n,
+		unit,
+	)
 }
 
 // encodeHeader holds the flags, the shared reference values, and the total byte size

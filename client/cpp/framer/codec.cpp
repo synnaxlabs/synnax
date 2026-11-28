@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <exception>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -257,6 +258,20 @@ x::errors::Error no_code(const channel::Key key, const x::telem::DataType &dt) {
             " has no type code"
     );
 }
+
+/// @brief returns an error when the length field of ser, a sample count or a byte
+/// size for a variable type, cannot hold its length.
+x::errors::Error check_length(const channel::Key key, const x::telem::Series &ser) {
+    const bool variable = ser.data_type().is_variable();
+    const std::size_t length = variable ? ser.byte_size() : ser.size();
+    if (length <= std::numeric_limits<std::uint32_t>::max()) return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "series of channel " + std::to_string(key) + " holds " +
+            std::to_string(length) + (variable ? " bytes" : " samples") +
+            ", more than a frame length field holds"
+    );
+}
 }
 
 x::errors::Error
@@ -281,6 +296,8 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                     " not provided when opening the writer"
             );
     }
+    for (const auto &e: this->entries)
+        if (auto err = check_length(e.key, frame.series->at(e.raw))) return err;
     // Sorting by raw index within a key keeps frame order, as a stable sort would, and
     // needs no buffer.
     std::ranges::sort(this->entries, [](const Entry &a, const Entry &b) {

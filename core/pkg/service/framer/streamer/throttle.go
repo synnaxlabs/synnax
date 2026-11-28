@@ -23,6 +23,8 @@ type throttle struct {
 	confluence.LinearTransform[Response, Response]
 	fr   frame.Frame
 	rate telem.Rate
+	// applied is the sum of Applied over the responses that fr buffers.
+	applied int
 }
 
 func newThrottle(cfg Config) responseSegment {
@@ -57,7 +59,8 @@ func (t *throttle) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-// flush sends the buffered frame, if it holds any samples, and starts a new buffer.
+// flush sends the buffered frame, if it holds any samples, with the Applied of the
+// responses it buffers, and starts a new buffer.
 func (t *throttle) flush(sCtx signal.Context) error {
 	if t.fr.Len() == 0 {
 		return nil
@@ -65,27 +68,25 @@ func (t *throttle) flush(sCtx signal.Context) error {
 	if err := signal.SendUnderContext(
 		sCtx,
 		t.Out.Inlet(),
-		Response{Frame: t.fr},
+		Response{Frame: t.fr, Applied: t.applied},
 	); err != nil {
 		return err
 	}
-	t.fr = frame.Alloc(t.fr.Count())
+	t.fr, t.applied = frame.Alloc(t.fr.Count()), 0
 	return nil
 }
 
 // handle forwards acks, missed markers, and the first empty response, and buffers the
-// frame of any other response. It returns false when the inlet is closed.
+// frame of any other response. It flushes the buffer before an ack, a missed marker, or
+// a response that counts a key update, so a frame from before the update never takes
+// its Applied. It returns false when the inlet is closed.
 func (t *throttle) handle(
 	sCtx signal.Context,
 	res Response,
 	ok bool,
 	first *bool,
 ) (bool, error) {
-	if ok && res.Ack {
-		return true, signal.SendUnderContext(sCtx, t.Out.Inlet(), res)
-	}
-	// The buffered frame came before the drops that the marker reports.
-	if ok && res.Missed {
+	if ok && (res.Ack || res.Missed) {
 		if err := t.flush(sCtx); err != nil {
 			return false, err
 		}
@@ -100,6 +101,12 @@ func (t *throttle) handle(
 	if !ok {
 		return false, nil
 	}
+	if res.Applied > 0 {
+		if err := t.flush(sCtx); err != nil {
+			return false, err
+		}
+	}
 	t.fr = t.fr.Extend(res.Frame)
+	t.applied += res.Applied
 	return true, nil
 }

@@ -33,6 +33,20 @@ const bitPackedByteCount = (nSamples: number): number =>
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 
+// MAX_LENGTH is the largest sample count or byte size that a frame length field holds.
+const MAX_LENGTH = 0xffffffff;
+
+// Returns the error for a series of key whose length, a sample count or a byte size for
+// a variable type, a frame length field cannot hold.
+const lengthError = (
+  key: channel.Key,
+  length: number,
+  variable: boolean,
+): ValidationError =>
+  new ValidationError(
+    `series of channel ${key} holds ${length} ${variable ? "bytes" : "samples"}, more than a frame length field holds`,
+  );
+
 const seriesWireByteLength = (series: SeriesPayload): number => {
   if (series.dataType.equals(DataType.BOOLEAN))
     return bitPackedByteCount(seriesPldLength(series));
@@ -375,13 +389,17 @@ export class Codec {
       n === plan.all.length && entries.keys.every((k, i) => k === plan.all[i]);
     if (!channelFlag) byteArraySize += n * KEY_SIZE;
 
-    for (const series of entries.series) {
+    for (let i = 0; i < n; i++) {
+      const series = entries.series[i];
+      const variable = series.dataType.isVariable;
       const pldLength = seriesPldLength(series);
+      const length = variable ? series.data.byteLength : pldLength;
+      if (length > MAX_LENGTH) throw lengthError(entries.keys[i], length, variable);
       const start = series.timeRange?.start.valueOf() ?? 0n;
       const end = series.timeRange?.end.valueOf() ?? 0n;
       const alignment = BigInt(series.alignment ?? 0n);
       byteArraySize += seriesWireByteLength(series);
-      if (series.dataType.isVariable) equalLengthsFlag = false;
+      if (variable) equalLengthsFlag = false;
       if ((series.alignmentMultiple ?? 1n) > 1n) multiplesPresentFlag = true;
       if (currDataSize === -1) {
         currDataSize = pldLength;

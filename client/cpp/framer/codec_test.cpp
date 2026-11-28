@@ -745,6 +745,23 @@ TEST(CodecTests, RejectsSeriesPastFrameEnd) {
     ASSERT_EQ(err.data(), "remote sent a frame that ends early");
 }
 
+/// @brief it should declare an unrequested time series that no requested series names
+/// as its clock.
+TEST(CodecTests, DeclaresAnUnnamedClock) {
+    Codec c({6}, {x::telem::FLOAT32_T});
+    auto stamps = x::telem::Series(std::vector<int64_t>{1});
+    stamps.clock = 9;
+    x::telem::Frame fr(2);
+    fr.emplace(6, x::telem::Series(std::vector<float>{1}));
+    fr.emplace(9, std::move(stamps));
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(c.encode(fr, encoded));
+    ASSERT_EQ(
+        std::vector<uint8_t>(encoded.begin() + 7, encoded.begin() + 15),
+        from_hex("01000000 09000000")
+    );
+}
+
 /// @brief it should keep a declared clock list unchanged when a frame carries one of
 /// its clocks and the agreed clocks still name the others. The Go encoder sends this
 /// frame with no extension.

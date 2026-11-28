@@ -144,17 +144,41 @@ var _ = Describe("Declared clocks", func() {
 	) {
 		c := codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Float32T})
 		data := telem.NewSeriesV[float32](1)
-		Expect(
-			c.Encode(ctx, multi(keyed{6, data}, keyed{9, timestamps(9, 1)})),
-		).To(Equal(frameBytes(
-			"BF 01000000 09 09 01000000 09000000 01000000 0000803F 0100000000000000",
+		Expect(c.Encode(
+			ctx,
+			multi(keyed{6, clocked(data, 9)}, keyed{9, timestamps(9, 1)}),
+		)).To(Equal(frameBytes(
+			"BF 01000000 0B 09 01000000 09000000 01000000 00000000 02 09000000 " +
+				"FFFFFFFF 0000803F 0100000000000000",
 		)))
 		Expect(c.Encode(ctx, multi(keyed{6, data}))).To(Equal(frameBytes(
-			"BF 01000000 08 00000000 01000000 0000803F",
+			"BF 01000000 0A 00000000 01000000 00000000 02 00000000 FFFFFFFF 0000803F",
 		)))
 		Expect(c.Encode(ctx, multi(keyed{6, data}))).To(
 			Equal(frameBytes("3F 01000000 01000000 0000803F")),
 		)
+	})
+
+	It("Should drop an unrequested time series that no requested series names", func(
+		ctx SpecContext,
+	) {
+		with := codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Float32T})
+		without := codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Float32T})
+		data := telem.NewSeriesV[float32](1)
+		Expect(
+			with.Encode(ctx, multi(keyed{6, data}, keyed{9, timestamps(9, 1)})),
+		).To(Equal(MustSucceed(without.Encode(ctx, multi(keyed{6, data})))))
+	})
+
+	It("Should write one agreed type for a key that the request names twice", func(
+		ctx SpecContext,
+	) {
+		twice := codec.NewStatic(
+			channel.Keys{6, 6},
+			[]telem.DataType{telem.Float32T, telem.Float32T},
+		)
+		Expect(twice.Encode(ctx, multi(keyed{6, telem.NewSeriesV[float32](1)}))).
+			To(Equal(frameBytes("BF 01000000 01 09 01000000 0000803F")))
 	})
 
 	It("Should carry one key on two clocks in one frame", func(ctx SpecContext) {
@@ -192,7 +216,7 @@ var _ = Describe("Declared clocks", func() {
 		c := codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Float32T})
 		decoded := MustSucceed(c.Decode(MustSucceed(c.Encode(ctx, multi(
 			keyed{5, clocked(telem.NewSeriesV[int64](1), 5)},
-			keyed{6, telem.NewSeriesV[float32](1)},
+			keyed{6, clocked(telem.NewSeriesV[float32](1), 5)},
 		)))))
 		Expect(decoded.Get(5).Series[0].DataType).To(Equal(telem.TimestampT))
 	})
@@ -218,7 +242,8 @@ var _ = Describe("Declared clocks", func() {
 				c := codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Float32T})
 				encoded := MustSucceed(c.Encode(ctx, multi(
 					keyed{5, timestamps(5, 1)},
-					keyed{6, telem.NewSeriesV[float32](1)},
+					keyed{6, clocked(telem.NewSeriesV[float32](1), 5)},
+					keyed{6, clocked(telem.NewSeriesV[float32](2), 7)},
 					keyed{7, timestamps(7, 1)},
 				)))
 				// Bytes 7 to 10 hold the count, then the two clocks.

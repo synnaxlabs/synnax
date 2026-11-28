@@ -1469,6 +1469,58 @@ var _ = Describe("Relay", func() {
 			)
 		})
 	})
+
+	Describe("Applied", func() {
+		It(
+			"Should count each request that lists keys on the next response, and no "+
+				"request with none",
+			func(ctx SpecContext) {
+				svc := testutil.NewNode(ctx)
+				chs := MustSucceed(svc.CreateChannels(ctx, []channel.Channel{
+					{Name: "applied_a", Virtual: true, DataType: telem.Int64T},
+					{Name: "applied_b", Virtual: true, DataType: telem.Int64T},
+				}))
+				a, b := chs[0].Key(), chs[1].Key()
+				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+					Keys:        channel.Keys{a},
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				req, res := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				var got relay.Response
+				Eventually(res.Outlet()).Should(Receive(&got))
+				Expect(got.Applied).To(BeZero())
+				req.Inlet() <- relay.Request{Keys: channel.Keys{a, b}}
+				req.Inlet() <- relay.Request{
+					Keys:         channel.Keys{a, b},
+					AckRequested: true,
+				}
+				Eventually(res.Outlet()).Should(Receive(&got))
+				Expect(got.Ack).To(BeTrue())
+				Expect(got.Applied).To(Equal(2))
+				w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  channel.Keys{b},
+					Start: 10 * telem.SecondTS,
+				}))
+				Expect(w.Write(frame.NewMulti(
+					channel.Keys{b},
+					[]telem.Series{telem.NewSeriesV[int64](1)},
+				))).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+				Eventually(res.Outlet()).Should(Receive(&got))
+				Expect(got.Frame.Count()).To(Equal(1))
+				Expect(got.Applied).To(BeZero())
+				req.Inlet() <- relay.Request{AckRequested: true}
+				Eventually(res.Outlet()).Should(Receive(&got))
+				Expect(got.Ack).To(BeTrue())
+				Expect(got.Applied).To(BeZero())
+				req.Close()
+				confluence.Drain(res)
+			},
+		)
+	})
 	// The relay does not validate streamer keys against storage: the service layer
 	// validates at open time, but a channel can be deleted between that check and the
 	// demand reaching the tapper, and mid-stream key updates are never validated. The

@@ -445,6 +445,56 @@ var _ = Describe("Change channels", func() {
 		Expect(received()).To(Equal([]resource.ID{held.ResourceID()}))
 	}, SpecTimeout(10*time.Second))
 
+	It("Should carry a key update past a frame of records that it drops", func(
+		ctx SpecContext,
+	) {
+		readable := newLabel()
+		find(ctx, "sy_label_action_set")
+		createLabels(ctx, readable)
+		open(ctx, newUser(ctx, label.ResourceID(readable.Key)))
+		// With no keys, no frame of ch passes until the next key update applies. The
+		// ack shows that the relay applied the empty keys.
+		Expect(client.Send(apiframer.StreamerRequest{AckRequested: true})).To(Succeed())
+		Expect(MustSucceed(client.Receive()).Ack).To(BeTrue())
+		Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{ch.Key()}})).
+			To(Succeed())
+		responses := make(chan apiframer.StreamerResponse, 16)
+		c := client
+		go func() {
+			defer GinkgoRecover()
+			for {
+				res, err := c.Receive()
+				if err != nil {
+					close(responses)
+					return
+				}
+				responses <- res
+			}
+		}()
+		// The create of a label that the subject cannot retrieve leaves a frame with no
+		// record, which Send drops. The first frame of ch after the key update carries
+		// its Applied, so a dropped one passes it on.
+		for range 10 {
+			createLabels(ctx, newLabel())
+		}
+		var res apiframer.StreamerResponse
+		Eventually(func(g Gomega) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Label.NewWriter(tx).Apply(
+					ctx,
+					readable.Key,
+					label.NewSetAction(label.SetPayload{
+						Path:  []string{"name"},
+						Value: uuid.New().String(),
+					}),
+				)
+			})).To(Succeed())
+			g.Expect(responses).To(Receive(&res))
+		}).WithTimeout(10 * time.Second).WithPolling(20 * time.Millisecond).
+			Should(Succeed())
+		Expect(res.Applied).To(Equal(1))
+	}, SpecTimeout(15*time.Second))
+
 	It("Should stop sending a record once a policy no longer allows it", func(
 		ctx SpecContext,
 	) {

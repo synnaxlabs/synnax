@@ -358,6 +358,68 @@ var _ = Describe("FramerCodec", func() {
 	})
 
 	Describe("Frame Stream Response", func() {
+		It(
+			"Should encode the frames after a later request's Applied under its keys",
+			func(
+				ctx SpecContext,
+			) {
+				channels := []channel.Channel{
+					{Name: UniqueChannelName(), DataType: telem.Int64T, Virtual: true},
+					{Name: UniqueChannelName(), DataType: telem.Int64T, Virtual: true},
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &channels)
+				})).To(Succeed())
+				both := channel.KeysFromChannels(channels)
+				a, b := both[:1], both[1:]
+				server := framer.NewCodec(ctx, codec.NewDynamic(apiChannelSvc))
+				for _, keys := range []channel.Keys{a, both} {
+					encoded := MustSucceed(
+						server.Encode(http.WSMessage[framer.StreamerRequest]{
+							Type:    http.WSMessageTypeData,
+							Payload: framer.StreamerRequest{Keys: keys},
+						}),
+					)
+					var req http.WSMessage[framer.StreamerRequest]
+					Expect(server.Decode(encoded, &req)).To(Succeed())
+				}
+				clientFrames := codec.NewDynamic(apiChannelSvc)
+				Expect(clientFrames.Update(ctx, a)).To(Succeed())
+				Expect(clientFrames.Update(ctx, both)).To(Succeed())
+				client := framer.NewCodec(ctx, clientFrames)
+				roundTrip := func(res framer.StreamerResponse) framer.StreamerResponse {
+					GinkgoHelper()
+					encoded := MustSucceed(
+						server.Encode(http.WSMessage[framer.StreamerResponse]{
+							Type:    http.WSMessageTypeData,
+							Payload: res,
+						}),
+					)
+					var msg http.WSMessage[framer.StreamerResponse]
+					Expect(client.Decode(encoded, &msg)).To(Succeed())
+					return msg.Payload
+				}
+				first := roundTrip(framer.StreamerResponse{
+					Frame: frame.NewMulti(
+						a,
+						[]telem.Series{telem.NewSeriesV[int64](1)},
+					),
+				})
+				Expect(channel.Keys(first.Frame.KeysSlice())).To(Equal(a))
+				second := roundTrip(framer.StreamerResponse{
+					Frame: frame.NewMulti(
+						b,
+						[]telem.Series{telem.NewSeriesV[int64](2)},
+					),
+					Applied: 1,
+				})
+				Expect(channel.Keys(second.Frame.KeysSlice())).To(Equal(b))
+				Expect(
+					second.Frame.SeriesAt(0),
+				).To(MatchSeriesData(telem.NewSeriesV[int64](2)))
+			},
+		)
+
 		It("Should JSON-encode a missed marker", func(ctx SpecContext) {
 			v := framer.NewCodec(
 				ctx,
