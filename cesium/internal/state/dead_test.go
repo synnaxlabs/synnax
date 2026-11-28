@@ -11,6 +11,7 @@ package state_test
 
 import (
 	"context"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -124,4 +125,39 @@ var _ = Describe("Count", func() {
 		Expect(s.Load([]uint32{6}, chs)).To(Equal(count + 2))
 		Expect(chs[0]).To(BeNil())
 	})
+
+	It("Should end after each request that publishes, not after the whole step",
+		func() {
+			a := &appended{}
+			cfg := config(a)
+			// gate, once set, holds the next step until it closes.
+			var gate atomic.Pointer[chan struct{}]
+			cfg.Executor = func(f func()) {
+				go func() {
+					if g := gate.Load(); g != nil {
+						<-*g
+					}
+					f()
+				}()
+			}
+			var (
+				s    *state.State
+				even = make(chan bool, 1)
+			)
+			cfg.OnHead = func(uint64, *state.Snapshot) { even <- s.Count()%2 == 0 }
+			head := sample()
+			head.Channels[0].Segments[1].Sealed = true
+			s = MustSucceed(state.Open(cfg, head))
+			run(s)
+			MustSucceed(s.Snapshot())
+			g := make(chan struct{})
+			gate.Store(&g)
+			Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+			Expect(s.Switch(4)).To(Succeed())
+			gate.Store(nil)
+			close(g)
+			var at bool
+			Eventually(even).Should(Receive(&at))
+			Expect(at).To(BeTrue(), "the switch runs at an even count")
+		})
 })
