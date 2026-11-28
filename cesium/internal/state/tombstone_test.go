@@ -373,6 +373,25 @@ var _ = Describe("Tombstone", func() {
 			Expect(s.TakeDead()).To(BeEmpty())
 		})
 
+	It("Should log the Seal of a segment that a Tombstone empties once the writer "+
+		"that sealed it in view closes with its Seal not logged", func() {
+		a := &appended{}
+		s = MustSucceed(state.Open(config(a), sample()))
+		run(s)
+		w := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
+			Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
+			Clock: 5,
+			Start: 40,
+		}))
+		MustSucceed(w.Seal(6))
+		Expect(w.Close()).To(Succeed())
+		Expect(s.Durable(10, []log.Record{
+			&log.Tombstone{Key: 6, Start: 0, End: 35},
+		})).To(Succeed())
+		MustSucceed(s.Snapshot())
+		Expect(a.seals()).To(Equal([]log.Seal{{Segment: 3, Length: 12, TailCRC: 3}}))
+	})
+
 	It("Should apply a durable tombstone to what readers see", func() {
 		run(s)
 		MustSucceed(s.Snapshot())
