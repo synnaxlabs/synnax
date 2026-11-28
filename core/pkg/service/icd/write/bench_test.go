@@ -24,9 +24,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// benchDocuments returns the Documents of a message with a float field for each of n
+// benchPayloads returns the Payloads of a message with a float field for each of n
 // command channels, and a frame of samples commands to each channel.
-func benchDocuments(b *testing.B, n, samples int) (*write.Documents, frame.Frame) {
+func benchPayloads(b *testing.B, n, samples int) (*write.Payloads, frame.Frame) {
 	b.Helper()
 	var (
 		fields   = make([]icd.JSONField, 0, n)
@@ -49,19 +49,19 @@ func benchDocuments(b *testing.B, n, samples int) (*write.Documents, frame.Frame
 	}
 	m := jsonMessage("bench", fields...)
 	ic := icd.ICD{Name: "bench", Messages: []icd.Message{m}}
-	d, err := write.NewDocuments(writeOf(m, bindings...), ic, channels, "target")
+	d, err := write.NewPayloads(writeOf(m, bindings...), ic, channels, "target")
 	if err != nil {
 		b.Fatal(err)
 	}
 	return d, frame.NewMulti(keys, series)
 }
 
-// checkDocuments checks that d builds the documents of benchDocuments from fr: one for
+// checkPayloads checks that d builds the payloads of benchPayloads from fr: one for
 // each row, with the command of channel i at /fi.
-func checkDocuments(b *testing.B, d *write.Documents, fr frame.Frame, n, samples int) {
+func checkPayloads(b *testing.B, d *write.Payloads, fr frame.Frame, n, samples int) {
 	b.Helper()
-	docs := 0
-	for row, doc := range d.From(fr, driver.NewSkips("command", driver.SkipHold)) {
+	payloads := 0
+	for row, payload := range d.From(fr, driver.NewSkips("command", driver.SkipHold)) {
 		want := []byte{'{'}
 		for i := range n {
 			if i > 0 {
@@ -71,17 +71,17 @@ func checkDocuments(b *testing.B, d *write.Documents, fr frame.Frame, n, samples
 			want = strconv.AppendFloat(want, float64(i*samples+row)+0.5, 'g', -1, 64)
 		}
 		want = append(want, '}')
-		if row != docs || !bytes.Equal(doc, want) {
-			b.Fatalf("document %d is row %d, %s, not %s", docs, row, doc, want)
+		if row != payloads || !bytes.Equal(payload, want) {
+			b.Fatalf("payload %d is row %d, %s, not %s", payloads, row, payload, want)
 		}
-		docs++
+		payloads++
 	}
-	if docs != samples {
-		b.Fatalf("built %d documents, want %d", docs, samples)
+	if payloads != samples {
+		b.Fatalf("built %d payloads, want %d", payloads, samples)
 	}
 }
 
-func BenchmarkDocumentsFrom(b *testing.B) {
+func BenchmarkPayloadsFrom(b *testing.B) {
 	for _, sc := range []struct{ channels, samples int }{
 		{channels: 1, samples: 1},
 		{channels: 1, samples: 100},
@@ -90,21 +90,26 @@ func BenchmarkDocumentsFrom(b *testing.B) {
 	} {
 		name := fmt.Sprintf("channels=%d/samples=%d", sc.channels, sc.samples)
 		b.Run(name, func(b *testing.B) {
-			d, fr := benchDocuments(b, sc.channels, sc.samples)
+			d, fr := benchPayloads(b, sc.channels, sc.samples)
 			skips := driver.NewSkips("command", driver.SkipHold)
-			checkDocuments(b, d, fr, sc.channels, sc.samples)
+			checkPayloads(b, d, fr, sc.channels, sc.samples)
 			b.ReportAllocs()
 			for b.Loop() {
-				docs := 0
+				payloads := 0
 				for range d.From(fr, skips) {
-					docs++
+					payloads++
 				}
-				if docs != sc.samples {
-					b.Fatalf("built %d documents, want %d", docs, sc.samples)
+				if payloads != sc.samples {
+					b.Fatalf("built %d payloads, want %d", payloads, sc.samples)
 				}
 			}
 			b.ReportMetric(
-				float64(b.Elapsed().Nanoseconds())/float64(b.N*sc.samples), "ns/doc",
+				float64(
+					b.Elapsed().Nanoseconds(),
+				)/float64(
+					b.N*sc.samples,
+				),
+				"ns/payload",
 			)
 		})
 	}

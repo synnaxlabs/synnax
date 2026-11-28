@@ -35,7 +35,7 @@ type LegacyUserMapping struct {
 
 // Migration (Phase 1) reads legacy policies with Subjects from the Policy table,
 // persists the user-to-policy mapping in KV, and deletes the legacy entries. This runs
-// before any oracle schema migrations that could re-encode entries and lose the
+// before any Oracle schema migrations that could re-encode entries and lose the
 // Subjects field.
 var Migration = migrate.New(
 	"v0.policy_conversion",

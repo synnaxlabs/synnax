@@ -288,6 +288,148 @@ var _ = Describe("Source", func() {
 		)).To(Equal([]string{"Reading", "Alarm"}))
 	})
 
+	Describe("Text and binary messages", func() {
+		var (
+			level = icd.TextField{Variant: icd.DelimitedTextField{
+				TextBaseField: icd.TextBaseField{
+					BaseField: icd.BaseField{Key: uuid.New(), Name: "level", Scale: 1},
+				},
+				Position: 1,
+			}}
+			line = icd.Message{
+				Key:  uuid.New(),
+				Name: "Line",
+				Payload: icd.Payload{Variant: icd.TextPayload{
+					Delimiter: ",", Prefix: "L", Fields: []icd.TextField{level},
+				}},
+			}
+			flow = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+				BinaryBaseField: icd.BinaryBaseField{
+					BaseField: icd.BaseField{Key: uuid.New(), Name: "flow", Scale: 1},
+					BitLength: 16,
+					ByteOrder: icd.ByteOrderLittleEndian,
+				},
+			}}
+			frame = icd.Message{
+				Key:  uuid.New(),
+				Name: "Frame",
+				Payload: icd.Payload{Variant: icd.BinaryPayload{
+					Fields: []icd.BinaryField{flow},
+				}},
+			}
+			plant = icd.ICD{
+				Key: uuid.New(), Name: "Plant", Messages: []icd.Message{line, frame},
+			}
+			lineRead = readOf(line, icd.ReadBinding{
+				Field: level.Base().Key, Channel: levelCh,
+			})
+			frameRead = readOf(frame, icd.ReadBinding{
+				Field: flow.Base().Key, Channel: flowCh,
+			})
+		)
+
+		DescribeTable("Should decode a line of a text message", func(
+			ctx SpecContext,
+			line string,
+		) {
+			samples, ok := MustSucceed2(
+				bindRead(ctx, plant, lineRead).Decode([]byte(line)),
+			)
+			Expect(ok).To(BeTrue())
+			Expect(samples).To(Equal([]read.Sample{
+				{Group: 0, Data: [][]byte{f64(2.5)}},
+			}))
+		},
+			Entry("with no line end", "L,2.5"),
+			Entry("with a newline", "L,2.5\n"),
+			Entry("with a carriage return and a newline", "L,2.5\r\n"),
+		)
+
+		It("Should drop the group of a text field that does not decode", func(
+			ctx SpecContext,
+		) {
+			samples, ok, err := bindRead(ctx, plant, lineRead).Decode([]byte("L,high"))
+			Expect(ok).To(BeTrue())
+			Expect(err).To(MatchError(
+				`field level: invalid number "high": validation error`,
+			))
+			Expect(samples).To(BeEmpty())
+		})
+
+		It("Should decode a payload of a binary message", func(ctx SpecContext) {
+			samples, ok := MustSucceed2(
+				bindRead(ctx, plant, frameRead).Decode([]byte{0x10, 0x01}),
+			)
+			Expect(ok).To(BeTrue())
+			Expect(samples).To(Equal([]read.Sample{
+				{Group: 0, Data: [][]byte{f64(272)}},
+			}))
+		})
+
+		It(
+			"Should not give the group of a field that the multiplexors of a payload do "+
+				"not select",
+			func(ctx SpecContext) {
+				field := func(
+					name string,
+					offset uint16,
+					mux *icd.FieldKey,
+					values ...int32,
+				) icd.BinaryField {
+					return icd.BinaryField{Variant: icd.UnsignedBinaryField{
+						BinaryBaseField: icd.BinaryBaseField{
+							Key:             uuid.New(),
+							Name:            name,
+							Scale:           1,
+							StartBit:        offset * 8,
+							BitLength:       8,
+							ByteOrder:       icd.ByteOrderLittleEndian,
+							Multiplexor:     mux,
+							MultiplexValues: values,
+						},
+					}}
+				}
+				mode := field("mode", 0, nil)
+				a := field("a", 1, new(mode.Base().Key), 0)
+				b := field("b", 2, new(mode.Base().Key), 1)
+				muxed := icd.Message{
+					Key:  uuid.New(),
+					Name: "Muxed",
+					Payload: icd.Payload{Variant: icd.BinaryPayload{
+						Fields: []icd.BinaryField{mode, a, b},
+					}},
+				}
+				ic := icd.ICD{
+					Key:      uuid.New(),
+					Name:     "Plant",
+					Messages: []icd.Message{muxed},
+				}
+				src := bindRead(ctx, ic, readOf(
+					muxed,
+					icd.ReadBinding{Field: a.Base().Key, Channel: tempCh},
+					icd.ReadBinding{Field: b.Base().Key, Channel: levelCh},
+				))
+				samples, ok := MustSucceed2(src.Decode([]byte{1, 5, 7}))
+				Expect(ok).To(BeTrue())
+				Expect(
+					samples,
+				).To(Equal([]read.Sample{{Group: 1, Data: [][]byte{f64(7)}}}))
+			},
+		)
+
+		It("Should drop the group of a binary field that the payload is too short for",
+			func(ctx SpecContext) {
+				samples, ok, err := bindRead(ctx, plant, frameRead).Decode([]byte{0x10})
+				Expect(ok).To(BeTrue())
+				Expect(err).To(MatchError(
+					"field flow: the payload has 1 bytes and the field needs 2: " +
+						"validation error",
+				))
+				Expect(samples).To(BeEmpty())
+			},
+		)
+	})
+
 	DescribeTable("Should give the keys of a group with its index channel first",
 		func(g read.Group, keys channel.Keys) { Expect(g.Keys()).To(Equal(keys)) },
 		Entry("a group on an index channel",

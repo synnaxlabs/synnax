@@ -10,3 +10,4 @@
 export * from "@/platform/icd/tree/nodes";
 export * from "@/platform/icd/tree/structure";
 export * from "@/platform/icd/tree/use";
+export * from "@/platform/icd/tree/useDeleteItem";

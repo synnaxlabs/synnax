@@ -11,6 +11,7 @@ package codec_test
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
@@ -63,8 +64,9 @@ func documentEntries() []TableEntry {
 	return entries
 }
 
-// encodeFixture is one JSON message from testdata/encode and the documents it encodes.
-// A fixture with an error names the error NewJSONEncoder must return, and has no cases.
+// encodeFixture is one message from testdata/encode and the payloads it encodes. A
+// fixture with an error names the error that the encoder's constructor must return, and
+// has no cases.
 type encodeFixture struct {
 	Description string         `json:"description"`
 	Message     fixtureMessage `json:"message"`
@@ -75,12 +77,61 @@ type encodeFixture struct {
 // encodeCase holds one JSON value for each binding, or null for a missing sample. A
 // case that does not encode names the error, which Check also returns for the one
 // sample that its field cannot hold. Otherwise document is the document of the samples,
-// or text is its exact text.
+// text is its exact text, or hex is its payload in hex.
 type encodeCase struct {
 	Samples  []jsontext.Value `json:"samples"`
 	Document jsontext.Value   `json:"document"`
 	Text     *string          `json:"text"`
+	Hex      *string          `json:"hex"`
 	Error    string           `json:"error"`
+}
+
+// encoder is the encoder of the message of an encode fixture.
+type encoder interface {
+	Encode(dst []byte, samples [][]byte) ([]byte, error)
+	Check(i int, sample []byte) error
+}
+
+// checkCases checks that enc, the encoder of the message of f, encodes each case of f.
+// bindings are the bindings of the message. Each case encodes into the output of the
+// case before it.
+func (f encodeFixture) checkCases(enc encoder, bindings []codec.Binding) {
+	GinkgoHelper()
+	Expect(f.Cases).ToNot(BeEmpty())
+	var out []byte
+	for i, c := range f.Cases {
+		By("case " + strconv.Itoa(i))
+		Expect(c.Samples).To(HaveLen(len(bindings)))
+		samples := make([][]byte, len(c.Samples))
+		var rejected []error
+		for k, raw := range c.Samples {
+			samples[k] = sampleData(bindings[k].DataType, raw)
+			if samples[k] == nil {
+				continue
+			}
+			if err := enc.Check(k, samples[k]); err != nil {
+				rejected = append(rejected, err)
+			}
+		}
+		if c.Error != "" {
+			Expect(enc.Encode(nil, samples)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(c.Error),
+			))
+			Expect(rejected).To(HaveExactElements(MatchError(c.Error)))
+			continue
+		}
+		Expect(rejected).To(BeEmpty())
+		out = MustSucceed(enc.Encode(out[:0], samples))
+		switch {
+		case c.Text != nil:
+			Expect(string(out)).To(Equal(*c.Text))
+		case c.Hex != nil:
+			Expect(out).To(Equal(MustSucceed(hex.DecodeString(*c.Hex))))
+		default:
+			Expect(out).To(MatchJSON([]byte(c.Document)))
+		}
+	}
 }
 
 func readEncodeFixture(path string) encodeFixture {
@@ -93,7 +144,8 @@ func readEncodeFixture(path string) encodeFixture {
 	return f
 }
 
-// sampleData is the sample of dt that a fixture writes as raw, or nil for null.
+// sampleData is the sample of dt that a fixture writes as raw, or nil for null. A float
+// sample can be the string NaN, Infinity, or -Infinity.
 func sampleData(dt telem.DataType, raw jsontext.Value) []byte {
 	GinkgoHelper()
 	if raw.Kind() == 'n' {
@@ -107,6 +159,10 @@ func sampleData(dt telem.DataType, raw jsontext.Value) []byte {
 	var v any
 	// An integer reads without a float64, which holds only 53 bits.
 	switch kind, _ := payload.KindOf(dt); {
+	case raw.Kind() == '"' && kind == payload.KindFloat:
+		var text string
+		Expect(json.Unmarshal(raw, &text)).To(Succeed())
+		v = MustSucceed(strconv.ParseFloat(text, 64))
 	case raw.Kind() == '0' && kind == payload.KindUnsigned:
 		v = MustSucceed(strconv.ParseUint(string(raw), 10, 64))
 	case raw.Kind() == '0' &&
@@ -202,38 +258,7 @@ var _ = Describe("JSONEncoder", func() {
 			))
 			return
 		}
-		enc := MustSucceed(codec.NewJSONEncoder(m))
-		Expect(f.Cases).ToNot(BeEmpty())
-		for i, c := range f.Cases {
-			By("case " + strconv.Itoa(i))
-			Expect(c.Samples).To(HaveLen(len(m.Bindings)))
-			samples := make([][]byte, len(c.Samples))
-			var rejected []error
-			for k, raw := range c.Samples {
-				samples[k] = sampleData(m.Bindings[k].DataType, raw)
-				if samples[k] == nil {
-					continue
-				}
-				if err := enc.Check(k, samples[k]); err != nil {
-					rejected = append(rejected, err)
-				}
-			}
-			if c.Error != "" {
-				Expect(enc.Encode(nil, samples)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(c.Error),
-				))
-				Expect(rejected).To(HaveExactElements(MatchError(c.Error)))
-				continue
-			}
-			Expect(rejected).To(BeEmpty())
-			doc := MustSucceed(enc.Encode(nil, samples))
-			if c.Text != nil {
-				Expect(string(doc)).To(Equal(*c.Text))
-			} else {
-				Expect(doc).To(MatchJSON([]byte(c.Document)))
-			}
-		}
+		f.checkCases(MustSucceed(codec.NewJSONEncoder(m)), m.Bindings)
 	}, fixtureEntries("encode", payload.FormatJSON))
 
 	It("Should write the time of each encode for a now default", func() {

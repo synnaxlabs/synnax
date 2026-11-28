@@ -866,7 +866,7 @@ describe("Panel.Mosaic", () => {
       });
     };
 
-    // Two mosaics under one Haul.Provider stand in for two windows: drift mirrors
+    // Two mosaics under one Haul.Provider stand in for two windows: Drift mirrors
     // the dragging state across real windows, so both see the same haul.
     const renderPair = async (
       a: panel.Panel,

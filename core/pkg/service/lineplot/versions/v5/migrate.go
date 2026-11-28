@@ -25,7 +25,7 @@ import (
 // MigrateLinePlot transforms the previous line plot snapshot (v0) into the v5
 // strongly-typed LinePlot. autoMigrateLinePlot handles the trivially-copyable
 // gorp-entry fields (Key, Name); the body fields are sourced from the per-plot blob the
-// Console used to persist alongside those gorp fields, after legacy.MigrateData walks
+// Console used to persist alongside those Gorp fields, after legacy.MigrateData walks
 // the legacy migration chain up to v4.Data. UI-only fields (viewport, selection, mode,
 // control, toolbar, measure, annotations, the wire-format key, remoteCreated) are
 // dropped; they live on the Console slice and never reach the server. v0 is the last
