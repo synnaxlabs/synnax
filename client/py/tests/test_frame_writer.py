@@ -25,12 +25,14 @@ from synnax.framer.frame import FramePayload
 from synnax.framer.writer import (
     Writer,
     WriterCommand,
+    WriterRequest,
 )
 from tests.channel import RetrieveCounter
 from x.codec import Codec
 from x.exceptions import ExceptionPayload
 from x.strings import random_name
 from x.telem import CrudeSeries, seconds_linspace
+from x.testutil import untyped
 
 
 @pytest.mark.framer
@@ -541,7 +543,7 @@ class TestWriter:
             start=start,
             channels=indexed_pair,
             authorities=100,
-            enable_auto_commit=False,
+            auto_commit_disabled=True,
         ) as low:
             low.write(frame(1))
             # The acknowledged command orders the write before the next writer opens.
@@ -561,6 +563,50 @@ class TestWriter:
         transport.end.ended = True
         with pytest.raises(EOF):
             writer.commit_result()
+
+    @pytest.mark.parametrize("disabled", [False, True])
+    def test_auto_commit_disabled_wire_value(self, disabled: bool) -> None:
+        """Should send the inverse of auto_commit_disabled as enable_auto_commit."""
+        transport = _EndableTransport()
+        _open_endable(transport, auto_commit_disabled=disabled)
+        config = transport.end.sent[0].config
+        assert config is not None
+        assert config.enable_auto_commit is not disabled
+
+    def test_auto_commit_enabled_by_default(self) -> None:
+        """Should auto-commit when auto_commit_disabled is not given."""
+        transport = _EndableTransport()
+        _open_endable(transport)
+        config = transport.end.sent[0].config
+        assert config is not None
+        assert config.enable_auto_commit
+
+    def test_enable_auto_commit_maps_and_warns(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should treat the deprecated enable_auto_commit=False as
+        auto_commit_disabled=True."""
+        idx_ch, data_ch = indexed_pair
+        with (
+            pytest.warns(DeprecationWarning, match="auto_commit_disabled=True"),
+            untyped(client.open_writer)(
+                start=sy.TimeSpan.SECOND,
+                channels=indexed_pair,
+                enable_auto_commit=False,
+            ) as w,
+        ):
+            w.write({idx_ch.key: seconds_linspace(1, count=1), data_ch.key: [1.0]})
+        assert len(client.read(sy.TimeRange.MAX, data_ch.key)) == 0
+
+    def test_enable_auto_commit_and_auto_commit_disabled_raise(self) -> None:
+        """Should reject a call that gives both the old and the new name."""
+        with pytest.raises(TypeError, match="Pass only auto_commit_disabled"):
+            untyped(sy.framer.Client.open_writer)(
+                None,
+                channels=[1],
+                enable_auto_commit=True,
+                auto_commit_disabled=False,
+            )
 
     def test_commit_result_writer_closed(self) -> None:
         writer = _open_endable(_EndableTransport())
@@ -968,6 +1014,9 @@ class _End:
     ended = False
     send_closed = False
 
+    def __init__(self) -> None:
+        self.sent: list[WriterRequest] = []
+
 
 class _EndableStream[RQ: BaseModel, RS: BaseModel]:
     """A writer stream that a spec can end as the Core would."""
@@ -976,7 +1025,9 @@ class _EndableStream[RQ: BaseModel, RS: BaseModel]:
         self._res_t = res_t
         self._end = end
 
-    def send(self, request: RQ) -> None: ...
+    def send(self, request: RQ) -> None:
+        if isinstance(request, WriterRequest):
+            self._end.sent.append(request)
 
     def receive(self, *, timeout: float | None = None) -> RS:
         if self._end.ended or self._end.send_closed:
@@ -1015,10 +1066,13 @@ class _EndableTransport:
         return _EndableStream[RQ, RS](res_t, self.end)
 
 
-def _open_endable(transport: _EndableTransport) -> Writer:
+def _open_endable(
+    transport: _EndableTransport, *, auto_commit_disabled: bool = False
+) -> Writer:
     return Writer(
         start=None,
         client=transport,
         registry=create_registry(),
         adapter=WriteFrameAdapter(retriever=Retriever(client=MockUnaryClient())),
+        auto_commit_disabled=auto_commit_disabled,
     )

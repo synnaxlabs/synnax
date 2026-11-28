@@ -421,7 +421,6 @@ class SimDAQ:
             start=sy.TimeStamp.now(),
             channels=write_channels,
             name="CTS Sim DAQ",
-            enable_auto_commit=True,
         )
         print("  ✓ Data writer opened")
 

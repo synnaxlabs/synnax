@@ -41,7 +41,7 @@ from synnax.telem import (
 from x.control import Authority, CrudeAuthority
 from x.exceptions import Registry
 from x.fs import FilePath
-from x.params import deprecate_positional
+from x.params import deprecate_negated, deprecate_positional
 
 # A str is a Sequence[str], so a list or tuple of names keeps the overloads disjoint.
 _FrameParams: TypeAlias = (
@@ -92,6 +92,7 @@ class Client:
         self.instrumentation = instrumentation
 
     @deprecate_positional("authorities")
+    @deprecate_negated(enable_auto_commit="auto_commit_disabled")
     def open_writer(
         self,
         start: CrudeTimeStamp | None = None,
@@ -104,7 +105,7 @@ class Client:
         suppress_warnings: bool = True,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
-        enable_auto_commit: bool = True,
+        auto_commit_disabled: bool = False,
         auto_index_persist_interval: TimeSpan = TimeSpan.SECOND,
         auto_index: bool = False,
         err_on_extra_chans: bool = True,
@@ -130,10 +131,11 @@ class Client:
         :param mode: sets the persistence and streaming mode of the writer. The default
         mode is WriterModePersistStream. See the WriterMode documentation for more.
         :param err_on_unauthorized: sets whether the writer should return an error if it
-        attempts to write to a channel it does not have control over. :param
-        enable_auto_commit: determines whether the writer will automatically commit. If
-        enable_auto_commit is true, then the writer will commit after each write, and
-        will flush that commit to index after the specified auto_index_persist_interval.
+        attempts to write to a channel it does not have control over.
+        :param auto_commit_disabled: when False, the default, the writer commits after
+        each write and persists that commit to the index after
+        auto_index_persist_interval. When True, call commit to make writes available.
+        The deprecated enable_auto_commit keyword is the opposite of this one.
         :param auto_index_persist_interval: interval at which commits to the index will
         be persisted. To persist every commit to guarantee minimal loss of data, set
         auto_index_persist_interval to AlwaysAutoIndexPersist.
@@ -164,7 +166,7 @@ class Client:
             group=group,
             mode=mode,
             err_on_unauthorized=err_on_unauthorized,
-            enable_auto_commit=enable_auto_commit,
+            auto_commit_disabled=auto_commit_disabled,
             auto_index_persist_interval=auto_index_persist_interval,
             auto_index=auto_index,
         )

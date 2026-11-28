@@ -47,7 +47,6 @@ class Writer:
                 self._writer = self._client.open_writer(
                     start=self._commit_ts,
                     channels=list(channels),
-                    enable_auto_commit=True,
                 )
                 self._channels = channels
             assert self._writer is not None

@@ -109,7 +109,6 @@ class StableFor(ArcCase):
             self.client.open_writer(
                 start=t0,
                 channels=["sf_pt_time", "sf_pt"],
-                enable_auto_commit=True,
             ) as writer,
         ):
 
@@ -157,7 +156,6 @@ class StableFor(ArcCase):
             self.client.open_writer(
                 start=sy.TimeStamp.now(),
                 channels=["sf_vpt"],
-                enable_auto_commit=True,
             ) as writer,
         ):
             # The hold starts once the runtime has read the previous batch.

@@ -1444,9 +1444,7 @@ class TestCalculationsAcrossDomains:
         )
 
         # First domain: write with auto-commit, then close
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -1462,9 +1460,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Second domain: write with auto-commit, then close
-        with client.open_writer(
-            6 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(6 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -1537,9 +1533,7 @@ class TestCalculationsAcrossDomains:
         )
 
         # First domain
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, sensor.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, sensor.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -1557,9 +1551,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Second domain
-        with client.open_writer(
-            6 * sy.TimeSpan.SECOND, [idx.key, sensor.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(6 * sy.TimeSpan.SECOND, [idx.key, sensor.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -1637,9 +1629,7 @@ class TestCalculationsAcrossDomains:
         )
 
         # First domain
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, sensor.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, sensor.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -1657,9 +1647,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Second domain
-        with client.open_writer(
-            6 * sy.TimeSpan.SECOND, [idx.key, sensor.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(6 * sy.TimeSpan.SECOND, [idx.key, sensor.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -1749,9 +1737,7 @@ class TestCalculationsAcrossDomains:
         )
 
         # First domain
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, sensor.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, sensor.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -1769,9 +1755,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Second domain
-        with client.open_writer(
-            6 * sy.TimeSpan.SECOND, [idx.key, sensor.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(6 * sy.TimeSpan.SECOND, [idx.key, sensor.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -1860,7 +1844,6 @@ class TestCalculationsAcrossDomains:
         with client.open_writer(
             1 * sy.TimeSpan.SECOND,
             [idx.key, sensor_1.key, sensor_2.key],
-            enable_auto_commit=True,
         ) as w:
             w.write(
                 {
@@ -1885,7 +1868,6 @@ class TestCalculationsAcrossDomains:
         with client.open_writer(
             6 * sy.TimeSpan.SECOND,
             [idx.key, sensor_1.key, sensor_2.key],
-            enable_auto_commit=True,
         ) as w:
             w.write(
                 {
@@ -1989,9 +1971,7 @@ class TestCalculationsAcrossDomains:
         )
 
         # First domain
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2003,9 +1983,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Second domain
-        with client.open_writer(
-            5 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(5 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2017,9 +1995,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Third domain
-        with client.open_writer(
-            10 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(10 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2081,9 +2057,7 @@ class TestCalculationsAcrossDomains:
         )
 
         # First domain at t=1s
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2099,9 +2073,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Second domain at t=1000s (large gap)
-        with client.open_writer(
-            1000 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1000 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2168,9 +2140,7 @@ class TestCalculationsAcrossDomains:
         )
 
         # First domain
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, sensor.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, sensor.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2182,9 +2152,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Second domain
-        with client.open_writer(
-            5 * sy.TimeSpan.SECOND, [idx.key, sensor.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(5 * sy.TimeSpan.SECOND, [idx.key, sensor.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2266,9 +2234,7 @@ class TestCalculationsAcrossDomains:
         )
 
         # First domain: values below threshold
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2280,9 +2246,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Second domain: values above threshold
-        with client.open_writer(
-            5 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(5 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2294,9 +2258,7 @@ class TestCalculationsAcrossDomains:
             )
 
         # Third domain: mixed values
-        with client.open_writer(
-            10 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(10 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2363,7 +2325,6 @@ class TestCalculationsAcrossDomains:
         with client.open_writer(
             1 * sy.TimeSpan.SECOND,
             [idx.key, sensor_a.key, sensor_b.key],
-            enable_auto_commit=True,
         ) as w:
             w.write(
                 {
@@ -2385,7 +2346,6 @@ class TestCalculationsAcrossDomains:
         with client.open_writer(
             10 * sy.TimeSpan.SECOND,
             [idx.key, sensor_a.key, sensor_b.key],
-            enable_auto_commit=True,
         ) as w:
             w.write(
                 {
@@ -2453,9 +2413,7 @@ class TestStatOperationsAlignment:
         )
 
         # First domain
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2471,9 +2429,7 @@ class TestStatOperationsAlignment:
             )
 
         # Second domain
-        with client.open_writer(
-            6 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(6 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2532,9 +2488,7 @@ class TestStatOperationsAlignment:
         )
 
         # First domain
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2550,9 +2504,7 @@ class TestStatOperationsAlignment:
             )
 
         # Second domain
-        with client.open_writer(
-            6 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(6 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2610,9 +2562,7 @@ class TestStatOperationsAlignment:
         )
 
         # First domain
-        with client.open_writer(
-            1 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2628,9 +2578,7 @@ class TestStatOperationsAlignment:
             )
 
         # Second domain
-        with client.open_writer(
-            6 * sy.TimeSpan.SECOND, [idx.key, data.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(6 * sy.TimeSpan.SECOND, [idx.key, data.key]) as w:
             w.write(
                 {
                     idx.key: np.array(
@@ -2952,9 +2900,7 @@ class TestCalcChannelStress:
         # ── PHASE 1: Multi-domain writes, full read verification ──────────
         # Domain 1: 3 samples on index A
         a1, b1 = [10.0, 20.0, 50.0], [2.0, 4.0, 1.0]
-        with client.open_writer(
-            1 * S, [ts_a.key, alpha.key, beta.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * S, [ts_a.key, alpha.key, beta.key]) as w:
             w.write(
                 {
                     ts_a.key: seconds_linspace(1, count=3),
@@ -2965,9 +2911,7 @@ class TestCalcChannelStress:
 
         # Domain 1 on index B: 2 samples (different count than A)
         g1 = [5.0, 15.0]
-        with client.open_writer(
-            1 * S, [ts_b.key, gamma.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(1 * S, [ts_b.key, gamma.key]) as w:
             w.write(
                 {
                     ts_b.key: seconds_linspace(1, count=2),
@@ -2984,9 +2928,7 @@ class TestCalcChannelStress:
 
         # Domain 2 on index A: 4 samples (different batch size)
         a2, b2 = [100.0, 5.0, 25.0, 40.0], [3.0, 5.0, 2.0, 3.0]
-        with client.open_writer(
-            10 * S, [ts_a.key, alpha.key, beta.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(10 * S, [ts_a.key, alpha.key, beta.key]) as w:
             w.write(
                 {
                     ts_a.key: seconds_linspace(10, count=4),
@@ -2997,9 +2939,7 @@ class TestCalcChannelStress:
 
         # Domain 2 on index B: 5 samples (more than A domain 2)
         g2 = [1.0, 100.0, 50.0, 8.0, 200.0]
-        with client.open_writer(
-            10 * S, [ts_b.key, gamma.key], enable_auto_commit=True
-        ) as w:
+        with client.open_writer(10 * S, [ts_b.key, gamma.key]) as w:
             w.write(
                 {
                     ts_b.key: seconds_linspace(10, count=5),
@@ -3024,7 +2964,6 @@ class TestCalcChannelStress:
             with client.open_writer(
                 20 * S,
                 [ts_a.key, alpha.key, beta.key],
-                enable_auto_commit=True,
             ) as w:
                 w.write(
                     {
@@ -3043,7 +2982,6 @@ class TestCalcChannelStress:
             with client.open_writer(
                 30 * S,
                 [ts_a.key, alpha.key, beta.key],
-                enable_auto_commit=True,
             ) as w:
                 w.write(
                     {
@@ -3064,7 +3002,6 @@ class TestCalcChannelStress:
                 with client.open_writer(
                     t,
                     [ts_a.key, alpha.key, beta.key],
-                    enable_auto_commit=True,
                 ) as w:
                     w.write(
                         {
@@ -3086,7 +3023,6 @@ class TestCalcChannelStress:
             with client.open_writer(
                 70 * S,
                 [ts_a.key, alpha.key, beta.key],
-                enable_auto_commit=True,
             ) as w:
                 # Write in two separate batches within the same writer
                 w.write(
@@ -3118,7 +3054,6 @@ class TestCalcChannelStress:
                 with client.open_writer(
                     80 * S,
                     [ts_a.key, alpha.key, beta.key],
-                    enable_auto_commit=True,
                 ) as wa:
                     wa.write(
                         {
@@ -3131,7 +3066,6 @@ class TestCalcChannelStress:
                 with client.open_writer(
                     80 * S,
                     [ts_b.key, gamma.key],
-                    enable_auto_commit=True,
                 ) as wb:
                     wb.write(
                         {

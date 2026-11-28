@@ -83,7 +83,6 @@ def _assert_driver_rejects_value(
             start=sy.TimeStamp.now(),
             channels=cmd_keys + index_keys,
             name=writer_name,
-            enable_auto_commit=True,
         ) as writer:
             writer.write(
                 {
@@ -375,7 +374,6 @@ def _send_oob_and_assert_state_clamped(
             start=sy.TimeStamp.now(),
             channels=all_writer_keys,
             name=f"{task_name}_oob_writer",
-            enable_auto_commit=True,
         ) as writer:
             cmd_frame = {
                 key: float(v) for key, v in zip(cmd_keys, oob_values, strict=True)

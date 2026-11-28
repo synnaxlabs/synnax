@@ -202,7 +202,7 @@ class Writer:
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
-        enable_auto_commit: bool = True,
+        auto_commit_disabled: bool = False,
         auto_index_persist_interval: TimeSpan = TimeSpan.SECOND,
         auto_index: bool = False,
         group: int = 0,
@@ -219,7 +219,7 @@ class Writer:
             authorities=normalize(authorities),
             mode=_parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
-            enable_auto_commit=enable_auto_commit,
+            enable_auto_commit=not auto_commit_disabled,
             auto_index_persist_interval=auto_index_persist_interval,
             auto_index=auto_index,
         )

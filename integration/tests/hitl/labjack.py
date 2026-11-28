@@ -190,7 +190,6 @@ class LabJackAnalogLoopback(LabJackAnalogRead):
                 self.client.open_writer(
                     sy.TimeStamp.now(),
                     [output.cmd_channel, cmd_idx.key],
-                    enable_auto_commit=True,
                 ) as writer,
             ):
 
