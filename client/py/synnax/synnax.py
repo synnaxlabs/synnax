@@ -143,7 +143,6 @@ class Synnax(framer.Client):
             port=9090,
             username="synnax",
             password="seldon",
-            secure=True,
             ca_cert="/path/to/ca.crt",
         )
 
@@ -177,6 +176,7 @@ class Synnax(framer.Client):
         username: str = "",
         password: str = "",
         secure: bool | None = None,
+        insecure: bool | None = None,
         open_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
         read_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
         keep_alive: CrudeTimeSpan = TimeSpan.SECOND * 30,
@@ -189,17 +189,21 @@ class Synnax(framer.Client):
         """Creates a new client. Each option comes from the argument, then from its
         SYNNAX_* environment variable, then from the default. When neither gives a host,
         the Core that `sy login` saved, or else the Core of Synnax Desktop on this
-        computer, comes before the default. The credentials and the TLS options (secure,
-        ca_cert) each come whole from the first source that sets one of them.
+        computer, comes before the default. The credentials and the TLS options
+        (insecure, ca_cert) each come whole from the first source that sets one of
+        them.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connecting to the Core. None means the
-            choice of the next source, and TLS when no source sets it. The client
-            verifies the Core's certificate against only ca_cert, or against the
-            operating system certificate store when ca_cert is None.
+        :param insecure: Whether to connect without TLS, as to a Core that runs with
+            --insecure. None means the choice of the next source, and TLS when no
+            source sets it. With TLS, the client verifies the Core's certificate against
+            only ca_cert, or against the operating system certificate store when
+            ca_cert is None.
+        :param secure: Deprecated: the inverse of insecure. It stops working in Synnax
+            0.64.
         :param open_timeout: The time to wait for a connection. A bare number is
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.
@@ -221,6 +225,7 @@ class Synnax(framer.Client):
             port=port,
             username=username,
             password=password,
+            insecure=insecure,
             secure=secure,
             ca_cert=ca_cert,
             api_key=api_key,
@@ -251,8 +256,8 @@ class Synnax(framer.Client):
                 raise Unreachable(
                     target=e.target,
                     message=f"The Core at {opts.host}:{opts.port} does not use TLS. "
-                    "If it runs with --insecure, set secure=False or "
-                    "SYNNAX_SECURE=false.",
+                    "If it runs with --insecure, set insecure=True or "
+                    "SYNNAX_CLIENT_INSECURE=true.",
                 ) from e
             if embedded and _connect_failed(e):
                 raise Unreachable(
@@ -467,7 +472,7 @@ def _configure_transport(
         instrumentation=instrumentation,
         registry=registry,
         url=URL(host=opts.host, port=opts.port),
-        secure=opts.secure,
+        secure=not opts.insecure,
         ca_cert=opts.ca_cert,
         open_timeout=open_timeout,
         read_timeout=read_timeout,

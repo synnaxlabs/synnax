@@ -45,13 +45,13 @@ class TestRunScripts:
     def test_should_forward_output_before_the_script_exits(self) -> None:
         assert run(SynnaxConnection()) == [
             f"{SCRIPT}: ca_cert=None",
-            f"{SCRIPT}: secure=False",
+            f"{SCRIPT}: insecure=True",
         ]
 
     def test_should_pass_secure_and_ca_cert(self) -> None:
         assert run(SynnaxConnection(secure=True, ca_cert="/certs/ca.crt")) == [
             f"{SCRIPT}: ca_cert=/certs/ca.crt",
-            f"{SCRIPT}: secure=True",
+            f"{SCRIPT}: insecure=False",
         ]
 
     def test_should_not_inherit_the_ca_cert_of_the_parent(
@@ -60,5 +60,5 @@ class TestRunScripts:
         monkeypatch.setenv("SYNNAX_CA_CERT", "/parent/ca.crt")
         assert run(SynnaxConnection()) == [
             f"{SCRIPT}: ca_cert=None",
-            f"{SCRIPT}: secure=False",
+            f"{SCRIPT}: insecure=True",
         ]

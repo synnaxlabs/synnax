@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from synnax.config.file import File
 from synnax.exceptions import ConfigurationError
-from synnax.options import Options
+from synnax.options import Options, from_stored
 
 
 class Cluster(BaseModel):
@@ -90,7 +90,8 @@ class Clusters:
                 + KEYCHAIN_UNAVAILABLE_MSG
             ) from e
 
-    def _get(self, key: str, opts: dict[str, Any]) -> Cluster:
+    def _get(self, key: str, stored: dict[str, Any]) -> Cluster:
+        opts = from_stored(stored)
         api_key = self.keyring.get_password(
             _API_KEY_SERVICE, _api_key_entry(key, opts["host"], opts["port"])
         )
@@ -100,7 +101,7 @@ class Clusters:
                 options=Options(
                     host=opts["host"],
                     port=opts["port"],
-                    secure=opts.get("secure", False),
+                    insecure=opts["insecure"],
                     ca_cert=opts.get("ca_cert"),
                     api_key=api_key,
                 )
@@ -122,6 +123,8 @@ class Clusters:
     def _set(self, c: Cluster, key: str) -> None:
         prev = self.internal.get(f"clusters.{key}.options")
         p = c.model_dump(exclude={"options": {"username", "password"}})
+        # For readers of Synnax 0.62, which read only secure. Drop it with 0.62 support.
+        p["options"]["secure"] = not c.options.insecure
         entry = _api_key_entry(key, c.options.host, c.options.port)
         prev_api_key = self.keyring.get_password(_API_KEY_SERVICE, entry)
         self.keyring.set_password(_API_KEY_SERVICE, entry, p["options"].pop("api_key"))

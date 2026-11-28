@@ -49,7 +49,7 @@ def client() -> sy.Synnax:
         port=PORT,
         username=USERNAME,
         password=PASSWORD,
-        secure=False,
+        insecure=True,
     )
 
 
@@ -67,7 +67,7 @@ def counted_client() -> tuple[sy.Synnax, RetrieveCounter]:
         port=PORT,
         username=USERNAME,
         password=PASSWORD,
-        secure=False,
+        insecure=True,
     )
     counter = RetrieveCounter()
     c._transport.use(counter)
@@ -80,7 +80,7 @@ def _connect(proxy: Proxy) -> sy.Synnax:
         port=proxy.port,
         username=USERNAME,
         password=PASSWORD,
-        secure=False,
+        insecure=True,
     )
 
 

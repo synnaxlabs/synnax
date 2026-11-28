@@ -235,7 +235,7 @@ class TestClientShutdown:
         script = (
             "import synnax as sy\n"
             f"sy.Synnax(host={host!r}, port={port}, username={username!r}, "
-            f"password={password!r}, secure=False)\n"
+            f"password={password!r}, insecure=True)\n"
         )
         proc = subprocess.run(
             [sys.executable, "-c", script], capture_output=True, timeout=15
@@ -248,7 +248,7 @@ class TestClientShutdown:
         """Should stop the polling thread when an unclosed client is collected."""
         host, port, username, password = login_info
         client = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         thread = client.connectivity._thread
         # Sub-clients refer back to the client, so building one must not pin it.
@@ -264,7 +264,7 @@ class TestClientShutdown:
         """Should tolerate repeated close calls."""
         host, port, username, password = login_info
         client = sy.Synnax(
-            host=host, port=port, username=username, password=password, secure=False
+            host=host, port=port, username=username, password=password, insecure=True
         )
         client.close()
         client.close()

@@ -68,7 +68,7 @@ class SynnaxConnection:
             port=self.port,
             username=self.username,
             password=self.password,
-            secure=self.secure,
+            insecure=not self.secure,
             ca_cert=self.ca_cert,
         )
 

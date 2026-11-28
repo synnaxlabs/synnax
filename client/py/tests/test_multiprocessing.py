@@ -22,7 +22,7 @@ _START_METHODS = [
 def _check(login_info: tuple[str, int, str, str]) -> str:
     host, port, username, password = login_info
     client = sy.Synnax(
-        host=host, port=port, username=username, password=password, secure=False
+        host=host, port=port, username=username, password=password, insecure=True
     )
     try:
         return client.connectivity.check().status

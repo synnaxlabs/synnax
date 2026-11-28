@@ -60,7 +60,7 @@ def report() -> str:
         username="username",
         password="password",
         api_key="api_key",
-        secure=True,
+        insecure=False,
         ca_cert="ca_cert",
     )
     keyring = MemoryKeyring()

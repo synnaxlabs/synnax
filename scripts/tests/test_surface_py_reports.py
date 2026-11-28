@@ -44,6 +44,7 @@ class TestStateReport:
         assert surface_py_state.report().splitlines() == [
             "config.json.clusters.default.options.ca_cert str",
             "config.json.clusters.default.options.host str",
+            "config.json.clusters.default.options.insecure bool",
             "config.json.clusters.default.options.port int",
             "config.json.clusters.default.options.secure bool",
             "keyring synnax.api_key default@host:9090",

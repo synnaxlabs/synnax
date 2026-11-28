@@ -40,7 +40,7 @@ def _prompt_client_options(prompt: Prompt) -> Options:
         port=port,
         username=username,
         password=password,
-        secure=secure,
+        insecure=not secure,
         ca_cert=ca_cert,
     )
 
@@ -63,7 +63,7 @@ def _save_api_key(
                 options=Options(
                     host=opts.host,
                     port=opts.port,
-                    secure=opts.secure,
+                    insecure=opts.insecure,
                     ca_cert=opts.ca_cert,
                     api_key=token,
                 )
