@@ -240,15 +240,11 @@ func toInline(f ReadField, _ int) icdv0.InlineField {
 // labels and the time format of field. It returns an error when fill does not convert
 // to the kind of field, or when it is an infinite float, which no default holds.
 func liftFill(field *icdv1.JSONField, fill any) error {
-	f, err := fillField(*field)
-	if err != nil {
-		return err
-	}
 	raw, err := json.Marshal(fill)
 	if err != nil {
 		return err
 	}
-	d, err := xjson.NewDecoder(f)
+	d, err := xjson.NewDecoder(fillField(*field))
 	if err != nil {
 		return err
 	}
@@ -265,7 +261,7 @@ func liftFill(field *icdv1.JSONField, fill any) error {
 }
 
 // fillField returns the decoder field that reads a fill value into the kind of field.
-func fillField(field icdv1.JSONField) (xjson.Field, error) {
+func fillField(field icdv1.JSONField) xjson.Field {
 	switch v := field.Variant.(type) {
 	case icdv1.FloatJSONField:
 		return xjson.Field{
@@ -273,14 +269,14 @@ func fillField(field icdv1.JSONField) (xjson.Field, error) {
 			Enums: lo.Map(v.EnumValues, func(e payload.FloatEntry, _ int) xjson.Enum {
 				return xjson.NewEnum(e.Label, float64(e.Value))
 			}),
-		}, nil
+		}
 	case icdv1.IntegerJSONField:
 		return xjson.Field{
 			DataType: telem.Int64T,
 			Enums: lo.Map(v.EnumValues, func(e payload.IntegerEntry, _ int) xjson.Enum {
 				return xjson.NewEnum(e.Label, int64(e.Value))
 			}),
-		}, nil
+		}
 	case icdv1.UnsignedJSONField:
 		return xjson.Field{
 			DataType: telem.Uint64T,
@@ -290,24 +286,24 @@ func fillField(field icdv1.JSONField) (xjson.Field, error) {
 					return xjson.NewEnum(e.Label, uint64(e.Value))
 				},
 			),
-		}, nil
+		}
 	case icdv1.BooleanJSONField:
 		return xjson.Field{
 			DataType: telem.BooleanT,
 			Enums: lo.Map(v.EnumValues, func(e payload.BooleanEntry, _ int) xjson.Enum {
 				return xjson.NewEnum(e.Label, boolSample(e.Value))
 			}),
-		}, nil
+		}
 	case icdv1.StringJSONField:
-		return xjson.Field{DataType: telem.StringT}, nil
+		return xjson.Field{DataType: telem.StringT}
 	case icdv1.TimestampJSONField:
-		return xjson.Field{DataType: telem.TimestampT, TimeFormat: v.TimeFormat}, nil
+		return xjson.Field{DataType: telem.TimestampT, TimeFormat: v.TimeFormat}
 	case icdv1.JSONJSONField:
-		return xjson.Field{DataType: telem.JSONT}, nil
+		return xjson.Field{DataType: telem.JSONT}
 	case icdv1.UuidJSONField:
-		return xjson.Field{DataType: telem.UUIDT}, nil
+		return xjson.Field{DataType: telem.UUIDT}
 	case icdv1.BytesJSONField:
-		return xjson.Field{DataType: telem.BytesT}, nil
+		return xjson.Field{DataType: telem.BytesT}
 	default:
 		panic("no default for JSON field " + field.Base().Name)
 	}
