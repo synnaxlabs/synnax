@@ -76,7 +76,7 @@ var _ = Describe("Transactions that stage in turn", func() {
 			gorp.BeforeCommit(tx, func(context.Context) error { return errRefused })
 			Expect(tx.Commit(ctx)).To(MatchError(errRefused))
 			Expect(items.NewCreate().Entry(&txItem{Key: 2, Name: "b"}).Exec(ctx, tx)).
-				To(MatchError(gorp.ErrTxEnded))
+				To(MatchError(txEnded))
 			Expect(tx.Close()).To(Succeed())
 			c := &txItem{Key: 3, Name: "c"}
 			Expect(func() {
