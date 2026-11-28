@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from x.telem.telem import CrudeTimeSpan, TimeSpan, TimeStamp
+from x.telem.quantity import CrudeTimeSpan, TimeSpan, TimeStamp
 
 
 class ClockSkewCalculator:

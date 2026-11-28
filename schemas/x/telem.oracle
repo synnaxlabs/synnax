@@ -34,7 +34,7 @@ TimeSpan int64 {
         telemetry system.
     """
     @py hand
-    @py include  "x/py/x/telem/telem"
+    @py include  "x/py/x/telem/quantity"
     @ts hand
 }
 
@@ -55,7 +55,7 @@ TimeRange struct {
     """
     @go marshal
     @py hand
-    @py include  "x/py/x/telem/telem"
+    @py include  "x/py/x/telem/quantity"
     @ts hand
 }
 
@@ -190,6 +190,95 @@ DataTypeCode enum {
         code never changes once a stable release ships it. Code 255 is reserved for a
         wider code.
     """
+    @pb omit
+}
+
+DataTypeName enum {
+    float64   = "float64" {
+        @doc value "is a 64-bit float."
+    }
+    float32   = "float32" {
+        @doc value "is a 32-bit float."
+    }
+    int64     = "int64" {
+        @doc value "is a signed 64-bit integer."
+    }
+    int32     = "int32" {
+        @doc value "is a signed 32-bit integer."
+    }
+    int16     = "int16" {
+        @doc value "is a signed 16-bit integer."
+    }
+    int8      = "int8" {
+        @doc value "is a signed 8-bit integer."
+    }
+    uint64    = "uint64" {
+        @doc value "is an unsigned 64-bit integer."
+    }
+    uint32    = "uint32" {
+        @doc value "is an unsigned 32-bit integer."
+    }
+    uint16    = "uint16" {
+        @doc value "is an unsigned 16-bit integer."
+    }
+    uint8     = "uint8" {
+        @doc value "is an unsigned 8-bit integer."
+    }
+    timestamp = "timestamp" {
+        @doc value "is a nanosecond timestamp in 64 bits."
+    }
+    uuid      = "uuid" {
+        @doc value "is a 128-bit UUID."
+    }
+    boolean   = "boolean" {
+        @doc value "is a boolean in 8 bits."
+    }
+    string    = "string" {
+        @doc value "is a UTF-8 string of any length."
+    }
+    json      = "json" {
+        @doc value "is a JSON document of any length."
+    }
+    bytes     = "bytes" {
+        @doc value "is a byte array of any length."
+    }
+
+    @doc value "names a data type."
+    @pb omit
+}
+
+FixedWidthDataType enum of DataTypeName {
+    float64
+    float32
+    int64
+    int32
+    int16
+    int8
+    uint64
+    uint32
+    uint16
+    uint8
+    timestamp
+    uuid
+    boolean
+
+    @doc value "is a data type whose samples all have the same byte size."
+    @pb omit
+}
+
+NumericDataType enum of FixedWidthDataType {
+    float64
+    float32
+    int64
+    int32
+    int16
+    int8
+    uint64
+    uint32
+    uint16
+    uint8
+
+    @doc value "is a fixed-width integer or float data type."
     @pb omit
 }
 

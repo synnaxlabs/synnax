@@ -165,6 +165,135 @@ type Size int64
 // variable-density types (String, JSON, Bytes) for flexible data storage.
 type DataType string
 
+// DataTypeName names a data type.
+type DataTypeName string
+
+const (
+	// DataTypeNameFloat64 is a 64-bit float.
+	DataTypeNameFloat64 DataTypeName = "float64"
+	// DataTypeNameFloat32 is a 32-bit float.
+	DataTypeNameFloat32 DataTypeName = "float32"
+	// DataTypeNameInt64 is a signed 64-bit integer.
+	DataTypeNameInt64 DataTypeName = "int64"
+	// DataTypeNameInt32 is a signed 32-bit integer.
+	DataTypeNameInt32 DataTypeName = "int32"
+	// DataTypeNameInt16 is a signed 16-bit integer.
+	DataTypeNameInt16 DataTypeName = "int16"
+	// DataTypeNameInt8 is a signed 8-bit integer.
+	DataTypeNameInt8 DataTypeName = "int8"
+	// DataTypeNameUint64 is an unsigned 64-bit integer.
+	DataTypeNameUint64 DataTypeName = "uint64"
+	// DataTypeNameUint32 is an unsigned 32-bit integer.
+	DataTypeNameUint32 DataTypeName = "uint32"
+	// DataTypeNameUint16 is an unsigned 16-bit integer.
+	DataTypeNameUint16 DataTypeName = "uint16"
+	// DataTypeNameUint8 is an unsigned 8-bit integer.
+	DataTypeNameUint8 DataTypeName = "uint8"
+	// DataTypeNameTimestamp is a nanosecond timestamp in 64 bits.
+	DataTypeNameTimestamp DataTypeName = "timestamp"
+	// DataTypeNameUUID is a 128-bit UUID.
+	DataTypeNameUUID DataTypeName = "uuid"
+	// DataTypeNameBoolean is a boolean in 8 bits.
+	DataTypeNameBoolean DataTypeName = "boolean"
+	// DataTypeNameString is a UTF-8 string of any length.
+	DataTypeNameString DataTypeName = "string"
+	// DataTypeNameJSON is a JSON document of any length.
+	DataTypeNameJSON DataTypeName = "json"
+	// DataTypeNameBytes is a byte array of any length.
+	DataTypeNameBytes DataTypeName = "bytes"
+)
+
+// IsValid reports whether d is one of the defined DataTypeName
+// values.
+func (d DataTypeName) IsValid() bool {
+	switch d {
+	case DataTypeNameFloat64, DataTypeNameFloat32, DataTypeNameInt64, DataTypeNameInt32, DataTypeNameInt16, DataTypeNameInt8, DataTypeNameUint64, DataTypeNameUint32, DataTypeNameUint16, DataTypeNameUint8, DataTypeNameTimestamp, DataTypeNameUUID, DataTypeNameBoolean, DataTypeNameString, DataTypeNameJSON, DataTypeNameBytes:
+		return true
+	default:
+		return false
+	}
+}
+
+// FixedWidthDataType is a data type whose samples all have the same byte size.
+type FixedWidthDataType string
+
+const (
+	// FixedWidthDataTypeFloat64 is a 64-bit float.
+	FixedWidthDataTypeFloat64 FixedWidthDataType = "float64"
+	// FixedWidthDataTypeFloat32 is a 32-bit float.
+	FixedWidthDataTypeFloat32 FixedWidthDataType = "float32"
+	// FixedWidthDataTypeInt64 is a signed 64-bit integer.
+	FixedWidthDataTypeInt64 FixedWidthDataType = "int64"
+	// FixedWidthDataTypeInt32 is a signed 32-bit integer.
+	FixedWidthDataTypeInt32 FixedWidthDataType = "int32"
+	// FixedWidthDataTypeInt16 is a signed 16-bit integer.
+	FixedWidthDataTypeInt16 FixedWidthDataType = "int16"
+	// FixedWidthDataTypeInt8 is a signed 8-bit integer.
+	FixedWidthDataTypeInt8 FixedWidthDataType = "int8"
+	// FixedWidthDataTypeUint64 is an unsigned 64-bit integer.
+	FixedWidthDataTypeUint64 FixedWidthDataType = "uint64"
+	// FixedWidthDataTypeUint32 is an unsigned 32-bit integer.
+	FixedWidthDataTypeUint32 FixedWidthDataType = "uint32"
+	// FixedWidthDataTypeUint16 is an unsigned 16-bit integer.
+	FixedWidthDataTypeUint16 FixedWidthDataType = "uint16"
+	// FixedWidthDataTypeUint8 is an unsigned 8-bit integer.
+	FixedWidthDataTypeUint8 FixedWidthDataType = "uint8"
+	// FixedWidthDataTypeTimestamp is a nanosecond timestamp in 64 bits.
+	FixedWidthDataTypeTimestamp FixedWidthDataType = "timestamp"
+	// FixedWidthDataTypeUUID is a 128-bit UUID.
+	FixedWidthDataTypeUUID FixedWidthDataType = "uuid"
+	// FixedWidthDataTypeBoolean is a boolean in 8 bits.
+	FixedWidthDataTypeBoolean FixedWidthDataType = "boolean"
+)
+
+// IsValid reports whether f is one of the defined FixedWidthDataType
+// values.
+func (f FixedWidthDataType) IsValid() bool {
+	switch f {
+	case FixedWidthDataTypeFloat64, FixedWidthDataTypeFloat32, FixedWidthDataTypeInt64, FixedWidthDataTypeInt32, FixedWidthDataTypeInt16, FixedWidthDataTypeInt8, FixedWidthDataTypeUint64, FixedWidthDataTypeUint32, FixedWidthDataTypeUint16, FixedWidthDataTypeUint8, FixedWidthDataTypeTimestamp, FixedWidthDataTypeUUID, FixedWidthDataTypeBoolean:
+		return true
+	default:
+		return false
+	}
+}
+
+// NumericDataType is a fixed-width integer or float data type.
+type NumericDataType string
+
+const (
+	// NumericDataTypeFloat64 is a 64-bit float.
+	NumericDataTypeFloat64 NumericDataType = "float64"
+	// NumericDataTypeFloat32 is a 32-bit float.
+	NumericDataTypeFloat32 NumericDataType = "float32"
+	// NumericDataTypeInt64 is a signed 64-bit integer.
+	NumericDataTypeInt64 NumericDataType = "int64"
+	// NumericDataTypeInt32 is a signed 32-bit integer.
+	NumericDataTypeInt32 NumericDataType = "int32"
+	// NumericDataTypeInt16 is a signed 16-bit integer.
+	NumericDataTypeInt16 NumericDataType = "int16"
+	// NumericDataTypeInt8 is a signed 8-bit integer.
+	NumericDataTypeInt8 NumericDataType = "int8"
+	// NumericDataTypeUint64 is an unsigned 64-bit integer.
+	NumericDataTypeUint64 NumericDataType = "uint64"
+	// NumericDataTypeUint32 is an unsigned 32-bit integer.
+	NumericDataTypeUint32 NumericDataType = "uint32"
+	// NumericDataTypeUint16 is an unsigned 16-bit integer.
+	NumericDataTypeUint16 NumericDataType = "uint16"
+	// NumericDataTypeUint8 is an unsigned 8-bit integer.
+	NumericDataTypeUint8 NumericDataType = "uint8"
+)
+
+// IsValid reports whether n is one of the defined NumericDataType
+// values.
+func (n NumericDataType) IsValid() bool {
+	switch n {
+	case NumericDataTypeFloat64, NumericDataTypeFloat32, NumericDataTypeInt64, NumericDataTypeInt32, NumericDataTypeInt16, NumericDataTypeInt8, NumericDataTypeUint64, NumericDataTypeUint32, NumericDataTypeUint16, NumericDataTypeUint8:
+		return true
+	default:
+		return false
+	}
+}
+
 // TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
 type TimestampFormat string
 

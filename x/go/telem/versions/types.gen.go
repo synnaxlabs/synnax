@@ -64,6 +64,102 @@ type Size = v0.Size
 // variable-density types (String, JSON, Bytes) for flexible data storage.
 type DataType = v0.DataType
 
+// DataTypeName names a data type.
+type DataTypeName = v0.DataTypeName
+
+const (
+	// DataTypeNameFloat64 is a 64-bit float.
+	DataTypeNameFloat64 DataTypeName = v0.DataTypeNameFloat64
+	// DataTypeNameFloat32 is a 32-bit float.
+	DataTypeNameFloat32 DataTypeName = v0.DataTypeNameFloat32
+	// DataTypeNameInt64 is a signed 64-bit integer.
+	DataTypeNameInt64 DataTypeName = v0.DataTypeNameInt64
+	// DataTypeNameInt32 is a signed 32-bit integer.
+	DataTypeNameInt32 DataTypeName = v0.DataTypeNameInt32
+	// DataTypeNameInt16 is a signed 16-bit integer.
+	DataTypeNameInt16 DataTypeName = v0.DataTypeNameInt16
+	// DataTypeNameInt8 is a signed 8-bit integer.
+	DataTypeNameInt8 DataTypeName = v0.DataTypeNameInt8
+	// DataTypeNameUint64 is an unsigned 64-bit integer.
+	DataTypeNameUint64 DataTypeName = v0.DataTypeNameUint64
+	// DataTypeNameUint32 is an unsigned 32-bit integer.
+	DataTypeNameUint32 DataTypeName = v0.DataTypeNameUint32
+	// DataTypeNameUint16 is an unsigned 16-bit integer.
+	DataTypeNameUint16 DataTypeName = v0.DataTypeNameUint16
+	// DataTypeNameUint8 is an unsigned 8-bit integer.
+	DataTypeNameUint8 DataTypeName = v0.DataTypeNameUint8
+	// DataTypeNameTimestamp is a nanosecond timestamp in 64 bits.
+	DataTypeNameTimestamp DataTypeName = v0.DataTypeNameTimestamp
+	// DataTypeNameUUID is a 128-bit UUID.
+	DataTypeNameUUID DataTypeName = v0.DataTypeNameUUID
+	// DataTypeNameBoolean is a boolean in 8 bits.
+	DataTypeNameBoolean DataTypeName = v0.DataTypeNameBoolean
+	// DataTypeNameString is a UTF-8 string of any length.
+	DataTypeNameString DataTypeName = v0.DataTypeNameString
+	// DataTypeNameJSON is a JSON document of any length.
+	DataTypeNameJSON DataTypeName = v0.DataTypeNameJSON
+	// DataTypeNameBytes is a byte array of any length.
+	DataTypeNameBytes DataTypeName = v0.DataTypeNameBytes
+)
+
+// FixedWidthDataType is a data type whose samples all have the same byte size.
+type FixedWidthDataType = v0.FixedWidthDataType
+
+const (
+	// FixedWidthDataTypeFloat64 is a 64-bit float.
+	FixedWidthDataTypeFloat64 FixedWidthDataType = v0.FixedWidthDataTypeFloat64
+	// FixedWidthDataTypeFloat32 is a 32-bit float.
+	FixedWidthDataTypeFloat32 FixedWidthDataType = v0.FixedWidthDataTypeFloat32
+	// FixedWidthDataTypeInt64 is a signed 64-bit integer.
+	FixedWidthDataTypeInt64 FixedWidthDataType = v0.FixedWidthDataTypeInt64
+	// FixedWidthDataTypeInt32 is a signed 32-bit integer.
+	FixedWidthDataTypeInt32 FixedWidthDataType = v0.FixedWidthDataTypeInt32
+	// FixedWidthDataTypeInt16 is a signed 16-bit integer.
+	FixedWidthDataTypeInt16 FixedWidthDataType = v0.FixedWidthDataTypeInt16
+	// FixedWidthDataTypeInt8 is a signed 8-bit integer.
+	FixedWidthDataTypeInt8 FixedWidthDataType = v0.FixedWidthDataTypeInt8
+	// FixedWidthDataTypeUint64 is an unsigned 64-bit integer.
+	FixedWidthDataTypeUint64 FixedWidthDataType = v0.FixedWidthDataTypeUint64
+	// FixedWidthDataTypeUint32 is an unsigned 32-bit integer.
+	FixedWidthDataTypeUint32 FixedWidthDataType = v0.FixedWidthDataTypeUint32
+	// FixedWidthDataTypeUint16 is an unsigned 16-bit integer.
+	FixedWidthDataTypeUint16 FixedWidthDataType = v0.FixedWidthDataTypeUint16
+	// FixedWidthDataTypeUint8 is an unsigned 8-bit integer.
+	FixedWidthDataTypeUint8 FixedWidthDataType = v0.FixedWidthDataTypeUint8
+	// FixedWidthDataTypeTimestamp is a nanosecond timestamp in 64 bits.
+	FixedWidthDataTypeTimestamp FixedWidthDataType = v0.FixedWidthDataTypeTimestamp
+	// FixedWidthDataTypeUUID is a 128-bit UUID.
+	FixedWidthDataTypeUUID FixedWidthDataType = v0.FixedWidthDataTypeUUID
+	// FixedWidthDataTypeBoolean is a boolean in 8 bits.
+	FixedWidthDataTypeBoolean FixedWidthDataType = v0.FixedWidthDataTypeBoolean
+)
+
+// NumericDataType is a fixed-width integer or float data type.
+type NumericDataType = v0.NumericDataType
+
+const (
+	// NumericDataTypeFloat64 is a 64-bit float.
+	NumericDataTypeFloat64 NumericDataType = v0.NumericDataTypeFloat64
+	// NumericDataTypeFloat32 is a 32-bit float.
+	NumericDataTypeFloat32 NumericDataType = v0.NumericDataTypeFloat32
+	// NumericDataTypeInt64 is a signed 64-bit integer.
+	NumericDataTypeInt64 NumericDataType = v0.NumericDataTypeInt64
+	// NumericDataTypeInt32 is a signed 32-bit integer.
+	NumericDataTypeInt32 NumericDataType = v0.NumericDataTypeInt32
+	// NumericDataTypeInt16 is a signed 16-bit integer.
+	NumericDataTypeInt16 NumericDataType = v0.NumericDataTypeInt16
+	// NumericDataTypeInt8 is a signed 8-bit integer.
+	NumericDataTypeInt8 NumericDataType = v0.NumericDataTypeInt8
+	// NumericDataTypeUint64 is an unsigned 64-bit integer.
+	NumericDataTypeUint64 NumericDataType = v0.NumericDataTypeUint64
+	// NumericDataTypeUint32 is an unsigned 32-bit integer.
+	NumericDataTypeUint32 NumericDataType = v0.NumericDataTypeUint32
+	// NumericDataTypeUint16 is an unsigned 16-bit integer.
+	NumericDataTypeUint16 NumericDataType = v0.NumericDataTypeUint16
+	// NumericDataTypeUint8 is an unsigned 8-bit integer.
+	NumericDataTypeUint8 NumericDataType = v0.NumericDataTypeUint8
+)
+
 // TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
 type TimestampFormat = v0.TimestampFormat
 

@@ -13,7 +13,7 @@ import { math } from "@/math";
 import type { numeric } from "@/numeric";
 import type { primitive } from "@/primitive";
 import type { bounds } from "@/spatial";
-import type { TimestampFormat, TimeZone } from "@/telem/types.gen";
+import { dataTypeNameZ, type TimestampFormat, type TimeZone } from "@/telem/types.gen";
 
 export type CrudeValueExtension<V extends NonNullable<primitive.Value>> = {
   value: V;
@@ -1563,41 +1563,41 @@ export class DataType
   }
 
   /** Represents a 64-bit floating point value. */
-  static readonly FLOAT64 = new DataType("float64");
+  static readonly FLOAT64 = new DataType(dataTypeNameZ.enum.float64);
   /** Represents a 32-bit floating point value. */
-  static readonly FLOAT32 = new DataType("float32");
+  static readonly FLOAT32 = new DataType(dataTypeNameZ.enum.float32);
   /** Represents a 64-bit signed integer value. */
-  static readonly INT64 = new DataType("int64");
+  static readonly INT64 = new DataType(dataTypeNameZ.enum.int64);
   /** Represents a 32-bit signed integer value. */
-  static readonly INT32 = new DataType("int32");
+  static readonly INT32 = new DataType(dataTypeNameZ.enum.int32);
   /** Represents a 16-bit signed integer value. */
-  static readonly INT16 = new DataType("int16");
+  static readonly INT16 = new DataType(dataTypeNameZ.enum.int16);
   /** Represents a 8-bit signed integer value. */
-  static readonly INT8 = new DataType("int8");
+  static readonly INT8 = new DataType(dataTypeNameZ.enum.int8);
   /** Represents a 64-bit unsigned integer value. */
-  static readonly UINT64 = new DataType("uint64");
+  static readonly UINT64 = new DataType(dataTypeNameZ.enum.uint64);
   /** Represents a 32-bit unsigned integer value. */
-  static readonly UINT32 = new DataType("uint32");
+  static readonly UINT32 = new DataType(dataTypeNameZ.enum.uint32);
   /** Represents a 16-bit unsigned integer value. */
-  static readonly UINT16 = new DataType("uint16");
+  static readonly UINT16 = new DataType(dataTypeNameZ.enum.uint16);
   /** Represents a 8-bit unsigned integer value. */
-  static readonly UINT8 = new DataType("uint8");
+  static readonly UINT8 = new DataType(dataTypeNameZ.enum.uint8);
   /** Represents a 64-bit unix epoch. */
-  static readonly TIMESTAMP = new DataType("timestamp");
+  static readonly TIMESTAMP = new DataType(dataTypeNameZ.enum.timestamp);
   /** Represents a UUID data type. */
-  static readonly UUID = new DataType("uuid");
+  static readonly UUID = new DataType(dataTypeNameZ.enum.uuid);
   /** Represents a string data type. Strings have an unknown density and are encoded
    * as uint32-length-prefixed samples. */
-  static readonly STRING = new DataType("string");
+  static readonly STRING = new DataType(dataTypeNameZ.enum.string);
   /** Represents a JSON data type. JSON has an unknown density and is encoded as
    * uint32-length-prefixed samples. */
-  static readonly JSON = new DataType("json");
+  static readonly JSON = new DataType(dataTypeNameZ.enum.json);
   /** Represents a bytes data type for arbitrary byte arrays. Bytes have an unknown
    * density and are encoded as uint32-length-prefixed samples. */
-  static readonly BYTES = new DataType("bytes");
+  static readonly BYTES = new DataType(dataTypeNameZ.enum.bytes);
   /** Represents a boolean data type. Samples are a single byte with canonical values
    * 0x00 (false) and 0x01 (true). */
-  static readonly BOOLEAN = new DataType("boolean");
+  static readonly BOOLEAN = new DataType(dataTypeNameZ.enum.boolean);
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =
     new Map<string, TypedArrayConstructor>([
