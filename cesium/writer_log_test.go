@@ -742,6 +742,32 @@ var _ = Describe("Drop on the pointer log", func() {
 		Expect(fs.counts()).To(HaveEach(1))
 	})
 
+	It("Should return the error of ctx while the unlinks of a Drop are in flight, and "+
+		"leave the directory", func(ctx SpecContext) {
+		fs := newRemoveCountFS(xfs.NewMem())
+		db := mustOpenDBOnFS(ctx, fs, cesium.WithPointerLog())
+		DeferCleanup(fs.freeRemoves)
+		clock := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key: clock, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		})).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{clock},
+			Clock:    clock,
+			Start:    10 * telem.SecondTS,
+		}))
+		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(10)))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		fs.arm()
+		dropCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+		DeferCleanup(cancel)
+		dropped := make(chan error, 1)
+		go func() { dropped <- db.Drop(dropCtx, []cesium.ChannelKey{clock}) }()
+		Eventually(dropped).Should(Receive(MatchError(context.DeadlineExceeded)))
+		Expect(fs.Exists(strconv.Itoa(int(clock)))).To(BeTrue())
+	})
+
 	It("Should remove the files of a key only once the log covers its Drop", func(
 		ctx SpecContext,
 	) {
