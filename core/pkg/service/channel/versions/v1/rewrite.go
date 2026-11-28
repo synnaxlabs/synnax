@@ -38,8 +38,6 @@ import (
 type TextChannel struct {
 	Name     string
 	DataType telem.DataType
-	// Folders are the names of the folders of the channel, from the top level down.
-	Folders []string
 }
 
 // Renames is how text that a v0.62 Core stored reads each channel name, and the new
@@ -79,22 +77,6 @@ func (r *Renames) Resolve(_ context.Context, name string) (*symbol.Symbol, error
 	return r.symbol(name, b.key), nil
 }
 
-// unreadableFolder returns the first folder, from the top level down, of the channel
-// that a v0.62 Core bound name to whose name Arc with cfg cannot read as one bare
-// identifier, and false when Arc reads a path through each of them.
-func (r *Renames) unreadableFolder(name string, cfg parser.Config) (string, bool) {
-	for _, folder := range r.channels[r.bound[name].key].Folders {
-		lexer := parser.NewLexer(folder, cfg)
-		lexer.RemoveErrorListeners()
-		tokens := lexer.GetAllTokens()
-		if len(tokens) != 1 || tokens[0].GetTokenType() != parser.ArcLexerIDENTIFIER ||
-			tokens[0].GetText() != folder {
-			return folder, true
-		}
-	}
-	return "", false
-}
-
 // symbol returns the channel symbol of key under name.
 func (r *Renames) symbol(name string, key Key) *symbol.Symbol {
 	return &symbol.Symbol{
@@ -129,10 +111,21 @@ type Source struct {
 	Text string
 	Form Form
 	// Function, Inputs, and Outputs are the key and the params of the graph function of
-	// a FormBody text, and Functions the keys of every function of its graph.
+	// a FormBody text. Functions are every function of its graph in order, and Index
+	// the position of that function in them. With no Functions, the graph holds that
+	// function alone.
 	Function        string
 	Inputs, Outputs types.Params
-	Functions       []string
+	Functions       []GraphFunction
+	Index           int
+}
+
+// GraphFunction is a function of the graph of a FormBody text.
+type GraphFunction struct {
+	Key string
+	// Bodiless is true when the function has no body yet, which a v0.62 Core declared
+	// with no source.
+	Bodiless bool
 }
 
 // Reference is a bare identifier in stored text that the analyzer reads as the old name
@@ -151,14 +144,9 @@ type Reference struct {
 	// declares takes the old or the new name there: in the scopes that the analyzer has
 	// bound when it reads the reference, or in the finished scopes.
 	Captured bool
-	// FolderUnreadable is true when the reference reads the channel, but the channel
-	// sits in a folder whose name Arc cannot read bare yet, such as one with a space.
-	// Folder is the first such folder on the path of the channel.
-	FolderUnreadable bool
-	Folder           string
 	// Kept is true when the rewrite left the reference on the old name although it may
-	// read the channel: the text does not parse or bind, a reference of it is captured,
-	// or its folder is unreadable.
+	// read the channel: the text does not parse or bind, or a reference of it is
+	// captured.
 	Kept bool
 }
 
@@ -230,15 +218,10 @@ func (w Rewriter) Rewrite(ctx context.Context, src Source) (Result, error) {
 		written = append(written, spans[i])
 		captured = captured || r.Captured
 	}
-	for i, r := range res.References {
-		if !r.Bound || r.Binding != symbol.KindChannel {
-			continue
-		}
-		folder, unreadable := w.Renames.unreadableFolder(r.Name, w.Config)
-		res.References[i].FolderUnreadable, res.References[i].Folder = unreadable, folder
-		res.References[i].Kept = captured || unreadable
-	}
 	if captured {
+		for i, r := range res.References {
+			res.References[i].Kept = r.Bound && r.Binding == symbol.KindChannel
+		}
 		return res, nil
 	}
 	res.Text = write(src.Text, res.References, written)
@@ -330,10 +313,13 @@ func (w Rewriter) reads(
 		return nil, err
 	}
 	p.analyze()
-	if declares(p.scope, pr.name) {
+	if readErr != nil {
 		return nil, readErr
 	}
-	return reads, readErr
+	if declares(p.scope, pr.name) {
+		return nil, nil
+	}
+	return reads, nil
 }
 
 // declares reports whether a symbol in the scopes under scope holds name.
@@ -357,11 +343,11 @@ func bind(
 	at := symbol.ScopeAt(base.scope, r.Line, base.column(r))
 	old, err := lookup(ctx, at, r.Name)
 	if err != nil {
-		return r, err
+		return Reference{}, err
 	}
 	renamed, err := lookup(ctx, at, r.NewName)
 	if err != nil {
-		return r, err
+		return Reference{}, err
 	}
 	all, some := isChannel(old), isChannel(old)
 	declared := renamed != nil && !isChannel(renamed)
@@ -597,16 +583,19 @@ func (w Rewriter) parseBody(
 	if diag != nil {
 		return parsed{}, false, diag
 	}
-	keys := src.Functions
-	if !slices.Contains(keys, src.Function) {
-		keys = append(slices.Clone(keys), src.Function)
+	fns, index := src.Functions, src.Index
+	if len(fns) == 0 {
+		fns, index = []GraphFunction{{Key: src.Function}}, 0
 	}
 	var fn *symbol.Symbol
-	for _, key := range keys {
-		decl := symbol.Symbol{Name: key, Kind: symbol.KindFunction, AST: other}
-		own := key == src.Function && fn == nil
-		if own {
+	for i, f := range fns {
+		decl := symbol.Symbol{Name: f.Key, Kind: symbol.KindFunction}
+		own := i == index
+		switch {
+		case own:
 			decl.AST = block
+		case !f.Bodiless:
+			decl.AST = other
 		}
 		added, err := root.Add(ctx, decl)
 		if err == nil && own {
@@ -687,7 +676,8 @@ func StageKept(
 			Line:     r.Line,
 			Column:   r.Column,
 			Captured: r.Captured,
-			Folder:   r.Folder,
+			// A bound reference that is not captured is kept because another one is.
+			BesideCapture: r.Bound && !r.Captured,
 		}); err != nil {
 			return err
 		}

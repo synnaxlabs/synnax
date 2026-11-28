@@ -12,6 +12,7 @@ package v1_test
 import (
 	"encoding/json"
 	"os"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -204,10 +205,13 @@ var _ = Describe("Text corpus", func() {
 					Ambient: stl.NewSymbols(),
 				}
 				src := v1.Source{
-					Text:      c.Text,
-					Form:      forms[c.Form],
-					Function:  "f",
-					Functions: c.Functions,
+					Text:     c.Text,
+					Form:     forms[c.Form],
+					Function: "f",
+					Index:    slices.Index(c.Functions, "f"),
+				}
+				for _, key := range c.Functions {
+					src.Functions = append(src.Functions, v1.GraphFunction{Key: key})
 				}
 				for _, in := range c.Inputs {
 					src.Inputs = append(

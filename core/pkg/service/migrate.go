@@ -130,11 +130,7 @@ func newArcTextMigration(cfg parser.Config) gorp.Migration {
 				Exec(ctx, tx); err != nil {
 				return err
 			}
-			byKey, err := channelv1.TextChannels(ctx, tx, channels)
-			if err != nil {
-				return err
-			}
-			renames, err := channelv1.TextRename(tx, byKey)
+			renames, err := channelv1.TextRename(tx, channelv1.TextChannels(channels))
 			if err != nil || renames == nil {
 				return err
 			}
@@ -200,9 +196,9 @@ func renameSource(
 			src.Variant, changed = v, true
 		}
 	case arc.GraphSource:
-		keys := make([]string, len(v.Graph.Functions))
+		fns := make([]channelv1.GraphFunction, len(v.Graph.Functions))
 		for i, f := range v.Graph.Functions {
-			keys[i] = f.Key
+			fns[i] = channelv1.GraphFunction{Key: f.Key, Bodiless: f.Body.Raw == ""}
 		}
 		for i, f := range v.Graph.Functions {
 			out, err := rewrite(channelv1.Source{
@@ -211,7 +207,8 @@ func renameSource(
 				Function:  f.Key,
 				Inputs:    f.Inputs,
 				Outputs:   f.Outputs,
-				Functions: keys,
+				Functions: fns,
+				Index:     i,
 			})
 			if err != nil {
 				return false, err
@@ -331,13 +328,9 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 	switch {
 	case site.Captured:
 		why = "a symbol that the text declares holds one of these names there"
-	case site.Folder != "":
-		why = fmt.Sprintf(
-			"the folder %q on its path cannot be read in Arc yet",
-			site.Folder,
-		)
-		fix = "Rename that folder so that Arc can read it, then edit the text so " +
-			"that it reads the channel."
+	case site.BesideCapture:
+		why = "the upgrade keeps a whole text when a symbol that it declares holds " +
+			"the name of one of its reads"
 	}
 	return status.Status[any]{
 		Name:    holder,

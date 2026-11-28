@@ -174,9 +174,9 @@ var _ = Describe("Rewriter", func() {
 	}
 	// bodyOf returns the source of the body of fns[i], as the Arc text pass builds it.
 	bodyOf := func(fns ir.Functions, i int) v1.Source {
-		keys := make([]string, len(fns))
+		graphFns := make([]v1.GraphFunction, len(fns))
 		for j, f := range fns {
-			keys[j] = f.Key
+			graphFns[j] = v1.GraphFunction{Key: f.Key, Bodiless: f.Body.Raw == ""}
 		}
 		return v1.Source{
 			Text:      fns[i].Body.Raw,
@@ -184,7 +184,8 @@ var _ = Describe("Rewriter", func() {
 			Function:  fns[i].Key,
 			Inputs:    fns[i].Inputs,
 			Outputs:   fns[i].Outputs,
-			Functions: keys,
+			Functions: graphFns,
+			Index:     i,
 		}
 	}
 
