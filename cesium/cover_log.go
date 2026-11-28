@@ -11,12 +11,73 @@ package cesium
 
 import (
 	"cmp"
+	"context"
 	"slices"
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
+
+// reap unlinks the file of each segment that left the state once the log covers the
+// record that took it out and no read may use it.
+func (e *engine) reap() error {
+	e.reaping.Lock()
+	dead, err := e.state.TakeDead()
+	free := e.uncover(0, dead)
+	e.reaping.Unlock()
+	return errors.Join(err, e.unlink(free))
+}
+
+// covered unlinks, off the step of the log, the file of each dead segment whose record
+// the log now covers and that no read may use, and asks Run to take the segments that
+// left the state since the last reap.
+func (e *engine) covered(sequence uint64) {
+	e.unlinkLater(e.uncover(sequence, nil))
+	if e.state.HasDead() {
+		e.askReap()
+	}
+}
+
+// askReap asks Run for a reap, and returns at once.
+func (e *engine) askReap() {
+	select {
+	case e.reaps <- struct{}{}:
+	default:
+	}
+}
+
+// uncover raises the covered sequence to covered, adds dead to the segments that wait,
+// and returns those whose record the log covers and that no read may use.
+func (e *engine) uncover(covered uint64, dead []state.Dead) []state.Dead {
+	e.cover.Lock()
+	defer e.cover.Unlock()
+	if covered > e.cover.covered {
+		e.cover.covered = covered
+		close(e.cover.advanced)
+		e.cover.advanced = make(chan struct{})
+	}
+	e.cover.dead = append(e.cover.dead, dead...)
+	return e.free()
+}
+
+// waitCovered returns once the log covers the entry of sequence, or with the error of
+// ctx.
+func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
+	for {
+		e.cover.Lock()
+		covered, advanced := e.cover.covered, e.cover.advanced
+		e.cover.Unlock()
+		if sequence < covered {
+			return nil
+		}
+		select {
+		case <-advanced:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
 
 // readCount is a publish count that reads registered, with the number of them.
 type readCount struct {
