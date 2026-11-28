@@ -10,6 +10,8 @@
 package telem_test
 
 import (
+	"io"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding"
@@ -18,9 +20,23 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 type AltKey int32
+
+// shortWriter takes left bytes, then fails every write with io.ErrShortWrite.
+type shortWriter struct{ left int }
+
+func (w *shortWriter) Write(p []byte) (int, error) {
+	if len(p) > w.left {
+		n := w.left
+		w.left = 0
+		return n, io.ErrShortWrite
+	}
+	w.left -= len(p)
+	return len(p), nil
+}
 
 var _ = Describe("Frame", func() {
 	Describe("UnaryFrame", func() {
@@ -3906,6 +3922,18 @@ var _ = Describe("Frame", func() {
 	})
 
 	Describe("Encode + Decode", func() {
+		It("Should return the error of a msgpack write that fails at any byte", func() {
+			s := telem.NewSeriesV[int64](1, 2)
+			s.TimeRange = telem.TimeRange{Start: 1, End: 3}
+			s.AlignmentMultiple, s.Clock = 2, 7
+			fr := telem.UnaryFrame[int32](1, s)
+			full := MustSucceed(msgpack.Codec.Encode(fr))
+			for n := range len(full) {
+				enc := vmsgpack.NewEncoder(&shortWriter{left: n})
+				Expect(fr.EncodeMsgpack(enc)).To(MatchError(io.ErrShortWrite))
+			}
+		})
+
 		codecs := []encoding.Codec{json.Codec, msgpack.Codec}
 		for _, codec := range codecs {
 			It("Should encode and decode a frame", func() {
