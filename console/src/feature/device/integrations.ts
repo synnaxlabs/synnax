@@ -19,6 +19,7 @@ import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { Serial } from "@/feature/serial";
 import { Sift } from "@/feature/sift";
+import { TCP } from "@/feature/tcp";
 import { FLAGS } from "@/flags";
 import type { Device as PlatformDevice } from "@/platform/device";
 import type { Task } from "@/platform/task";
@@ -56,7 +57,10 @@ export const NETWORK: Network[] = [
   { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.ContextMenuItems },
   { ...Sift.Device.NETWORK, ContextMenuItems: Sift.ContextMenuItems },
   ...(FLAGS.bus
-    ? [{ ...Serial.Device.NETWORK, ContextMenuItems: Serial.ContextMenuItems }]
+    ? [
+        { ...Serial.Device.NETWORK, ContextMenuItems: Serial.ContextMenuItems },
+        { ...TCP.Device.NETWORK, ContextMenuItems: TCP.ContextMenuItems },
+      ]
     : []),
 ];
 

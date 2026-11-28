@@ -102,10 +102,7 @@ const beforeValidate = ({
     set(path.location, connection.serialPort);
     return;
   }
-  const { host, port } = connection;
-  // Brackets keep the colons of an IPv6 host apart from the port's.
-  const shown = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
-  set(path.location, `${shown}:${port}`);
+  set(path.location, PlatformDevice.formatAddress(connection.host, connection.port));
 };
 
 const beforeSave = async ({

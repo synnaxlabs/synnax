@@ -15,6 +15,7 @@ import { MQTT } from "@/feature/mqtt";
 import { OPCUA } from "@/feature/opcua";
 import { Serial } from "@/feature/serial";
 import { Sift } from "@/feature/sift";
+import { TCP } from "@/feature/tcp";
 import { FLAGS } from "@/flags";
 import type { Command } from "@/platform/command";
 
@@ -36,5 +37,5 @@ export const COMMANDS: Command.Command[] = [
   ...MQTT.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,
   ...Sift.Device.COMMANDS,
-  ...(FLAGS.bus ? Serial.Device.COMMANDS : []),
+  ...(FLAGS.bus ? [...Serial.Device.COMMANDS, ...TCP.Device.COMMANDS] : []),
 ];
