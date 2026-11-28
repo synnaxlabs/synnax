@@ -23,9 +23,13 @@ vi.mock("@/flags", async (importOriginal) => {
   };
 });
 
-const BUS_MAKES = ["serial", "tcp"];
+const BUS_MAKES = ["serial", "tcp", "udp"];
 
-const BUS_COMMANDS = ["Connect serial device", "Connect TCP device"];
+const BUS_COMMANDS = [
+  "Connect serial device",
+  "Connect TCP device",
+  "Connect UDP device",
+];
 
 // The lists are built when the module loads, so each case loads it again.
 const load = async () => {
