@@ -83,6 +83,12 @@ var _ = Describe("Device properties", Ordered, func() {
 		Entry("UDP with a remote with no port", udp.Make, msgpack.EncodedJSON{
 			"remote": map[string]any{"host": "127.0.0.1"},
 		}, "properties.remote.port", "must be greater than or equal to 1"),
+		Entry("UDP with a local address that is not an IP address", udp.Make,
+			msgpack.EncodedJSON{"local_address": "localhost", "local_port": 5032},
+			"properties.local_address", "must be an IP address"),
+		Entry("UDP with no local port and no remote", udp.Make, msgpack.EncodedJSON{
+			"local_address": "127.0.0.1",
+		}, "properties.local_port", "required when the device has no remote"),
 	)
 
 	It("Should create bus devices whose properties validate", func(ctx SpecContext) {
@@ -95,6 +101,11 @@ var _ = Describe("Device properties", Ordered, func() {
 			"host": "127.0.0.1",
 			"port": 502,
 		}))).To(Succeed())
-		Expect(create(ctx, newDevice(udp.Make, msgpack.EncodedJSON{}))).To(Succeed())
+		Expect(create(ctx, newDevice(udp.Make, msgpack.EncodedJSON{
+			"local_port": 5032,
+		}))).To(Succeed())
+		Expect(create(ctx, newDevice(udp.Make, msgpack.EncodedJSON{
+			"remote": map[string]any{"host": "127.0.0.1", "port": 5031},
+		}))).To(Succeed())
 	})
 })
