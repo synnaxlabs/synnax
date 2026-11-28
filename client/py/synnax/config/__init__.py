@@ -306,7 +306,7 @@ def load_options(
     a host, the Core that `sy login` saved, or else the Core that Synnax Desktop saved,
     comes before the default. The credentials (api_key, username, password) and the TLS
     options (secure, ca_cert) each come whole from the first source that sets one of
-    them. A ca_cert with no secure turns TLS on.
+    them. When no source sets secure, the client uses TLS.
 
     :param env: The environment variables, such as os.environ. Defaults to none.
     :param clusters: The saved logins. Defaults to those of the current user.
@@ -351,7 +351,9 @@ def load_options(
         if saved is None:
             raise ValidationError(NO_OPTIONS_MSG)
         sources.append(saved.model_dump())
-    opts = Options.model_validate({"port": DEFAULT_PORT, **_merge(sources)})
+    opts = Options.model_validate(
+        {"port": DEFAULT_PORT, "secure": True, **_merge(sources)}
+    )
     if not opts.api_key and not opts.username:
         raise ValidationError(NO_CREDENTIALS_MSG)
     return opts, _saved_by_desktop(opts, desktop_file)
@@ -371,7 +373,4 @@ def _merge(sources: list[Mapping[str, Any]]) -> dict[str, Any]:
             merged.pop(k, None)
         source = next((s for s in sources if any(k in s for k in group)), {})
         merged.update({k: source[k] for k in group if k in source})
-    # A CA certificate has a use only with TLS.
-    if merged.get("ca_cert") is not None:
-        merged.setdefault("secure", True)
     return merged

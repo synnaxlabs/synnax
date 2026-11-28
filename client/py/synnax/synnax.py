@@ -12,12 +12,13 @@
 __lazy_modules__ = ["synnax"]
 
 import os
+import ssl
 import threading
 import weakref
 from collections.abc import Callable
 from typing import Self, overload
 
-from urllib3.exceptions import MaxRetryError
+from urllib3.exceptions import MaxRetryError, SSLError
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
@@ -112,6 +113,18 @@ def _connect_failed(e: BaseException | None) -> bool:
     return False
 
 
+def _plaintext_reply(e: BaseException | None) -> bool:
+    """Reports whether a TLS handshake that caused e got a reply that is not TLS."""
+    while e is not None:
+        if isinstance(e, MaxRetryError) and isinstance(e.reason, SSLError):
+            return any(
+                isinstance(a, ssl.SSLError) and a.reason == "WRONG_VERSION_NUMBER"
+                for a in e.reason.args
+            )
+        e = e.__cause__
+    return False
+
+
 class Synnax(framer.Client):
     """Client to perform operations against a Synnax Core.
 
@@ -183,10 +196,10 @@ class Synnax(framer.Client):
         :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connecting to the Core. None means True
-            with a ca_cert, else the choice of the next source. The client verifies the
-            Core's certificate against only ca_cert, or against the operating system
-            certificate store when ca_cert is None.
+        :param secure: Whether to use TLS when connecting to the Core. None means the
+            choice of the next source, and TLS when no source sets it. The client
+            verifies the Core's certificate against only ca_cert, or against the
+            operating system certificate store when ca_cert is None.
         :param open_timeout: The time to wait for a connection. A bare number is
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.
@@ -234,6 +247,13 @@ class Synnax(framer.Client):
         try:
             self.auth.authenticate()
         except Unreachable as e:
+            if _plaintext_reply(e):
+                raise Unreachable(
+                    target=e.target,
+                    message=f"The Core at {opts.host}:{opts.port} does not use TLS. "
+                    "If it runs with --insecure, set secure=False or "
+                    "SYNNAX_SECURE=false.",
+                ) from e
             if embedded and _connect_failed(e):
                 raise Unreachable(
                     target=e.target, message=DESKTOP_NOT_RUNNING_MSG

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import os
 import subprocess
 import sys
 import threading
@@ -15,6 +16,7 @@ from collections.abc import Iterator
 import pytest
 
 import synnax as sy
+from freighter.exceptions import Unreachable
 
 
 @pytest.fixture
@@ -76,3 +78,25 @@ class TestSubClients:
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "[]"
+
+
+class TestTLS:
+    def test_insecure_core(
+        self, login_info: tuple[str, int, str, str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should name the fix when TLS is on and the Core runs with --insecure."""
+        for name in [n for n in os.environ if n.startswith("SYNNAX_")]:
+            monkeypatch.delenv(name)
+        host, port, username, password = login_info
+        with pytest.raises(Unreachable) as e:
+            sy.Synnax(
+                host=host,
+                port=port,
+                username=username,
+                password=password,
+                max_retries=0,
+            )
+        assert str(e.value) == (
+            f"The Core at {host}:{port} does not use TLS. If it runs with "
+            "--insecure, set secure=False or SYNNAX_SECURE=false."
+        )
