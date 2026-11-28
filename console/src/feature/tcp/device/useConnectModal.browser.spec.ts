@@ -35,7 +35,7 @@ describe("TCP.Device.useConnectModal", () => {
     expect(screen.getByDisplayValue("5030")).toBeTruthy();
   });
 
-  it("should save the server of a new device and report it", async () => {
+  it("should save the trimmed server of a new device and report it", async () => {
     const rack = await createRunningRack(client, TCP.Device.INTEGRATION_KEY);
     const analytics = createTestSink();
     const { result } = await renderModalOpener(
@@ -48,7 +48,7 @@ describe("TCP.Device.useConnectModal", () => {
       target: { value: name },
     });
     fireEvent.change(screen.getByPlaceholderText("192.168.1.20"), {
-      target: { value: "fe80::1" },
+      target: { value: " fe80::1\n" },
     });
     commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("0"), "5030");
     pressSaveTrigger();
@@ -69,13 +69,16 @@ describe("TCP.Device.useConnectModal", () => {
     );
   });
 
-  it("should show the schema error of an empty host at its input", async () => {
+  it("should show the schema error of a blank host at its input", async () => {
     const rack = await createRunningRack(client, TCP.Device.INTEGRATION_KEY);
     await renderModalOpener(TCP.Device.useConnectModal, [{ rack: rack.key }], {
       client,
     });
     fireEvent.change(await screen.findByPlaceholderText("Device name"), {
       target: { value: uniqueName("tcp") },
+    });
+    fireEvent.change(screen.getByPlaceholderText("192.168.1.20"), {
+      target: { value: "   " },
     });
     pressSaveTrigger();
     expect(
