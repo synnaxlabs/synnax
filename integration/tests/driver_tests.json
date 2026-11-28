@@ -69,7 +69,9 @@
       "tests": [
         { "case": "driver/serial_read" },
         { "case": "driver/tcp_read" },
-        { "case": "driver/tcp_write" }
+        { "case": "driver/tcp_write" },
+        { "case": "driver/udp_read" },
+        { "case": "driver/udp_write" }
       ]
     },
     {

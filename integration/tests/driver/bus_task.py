@@ -25,7 +25,7 @@ from tests.driver.task import (
     create_index,
 )
 
-INTEGRATIONS = ["serial", "tcp"]
+INTEGRATIONS = ["serial", "tcp", "udp"]
 """The bus integrations, which the Driver of a run leaves off."""
 DRIVER_UP_TIMEOUT = 30 * sy.TimeSpan.SECOND
 
