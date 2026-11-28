@@ -20,15 +20,14 @@ import (
 // pathSeparator joins the segments of a path. A path segment never holds it.
 const pathSeparator = '.'
 
-// isPathSegment reports whether s can name one segment of a path: valid UTF-8 in NFC,
-// not empty after trimming spaces, and with no '.' and no character that shows as
-// nothing or as a space other than U+0020.
+// isPathSegment reports whether s can name one segment of a path: valid UTF-8, not
+// empty after trimming spaces, and with no '.' and no character that shows as nothing
+// or as a space other than U+0020.
 func isPathSegment(s string) bool {
 	if ascii, ok := asciiPathSegment(s); ascii {
 		return ok
 	}
-	// String returns s itself when s is in NFC, so the check allocates nothing.
-	if !utf8.ValidString(s) || strings.Trim(s, " ") == "" || norm.NFC.String(s) != s {
+	if !utf8.ValidString(s) || strings.Trim(s, " ") == "" {
 		return false
 	}
 	for _, r := range s {
@@ -39,9 +38,9 @@ func isPathSegment(s string) bool {
 	return true
 }
 
-// asciiPathSegment reports whether s is all ASCII, which is always in NFC, and if so
-// whether it passes the rule of isPathSegment. It reports true for a refused byte
-// before it sees the rest of s, since s then fails either way.
+// asciiPathSegment reports whether s is all ASCII, and if so whether it passes the rule
+// of isPathSegment. It reports true for a refused byte before it sees the rest of s,
+// since s then fails either way.
 func asciiPathSegment(s string) (ascii, ok bool) {
 	visible := false
 	for i := range len(s) {
