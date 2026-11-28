@@ -24,6 +24,8 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
+	spatialpb "github.com/synnaxlabs/x/spatial/pb"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // DeviceToPB converts Device to Device.
@@ -45,6 +47,13 @@ func DeviceToPB(r device.Device) (*Device, error) {
 	if r.Chassis != nil {
 		v := r.Chassis.String()
 		pb.Chassis = &v
+	}
+	if r.Hardware != nil {
+		var err error
+		pb.Hardware, err = HardwareToPB(*r.Hardware)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if r.AnalogOutput != nil {
 		pb.AnalogOutput = make(map[uint32]*AnalogOutputChannels, len(r.AnalogOutput))
@@ -129,6 +138,13 @@ func DeviceFromPB(pb *Device) (device.Device, error) {
 			return device.Device{}, err
 		}
 		r.Chassis = &v
+	}
+	if pb.Hardware != nil {
+		val, err := HardwareFromPB(pb.Hardware)
+		if err != nil {
+			return device.Device{}, err
+		}
+		r.Hardware = &val
 	}
 	if pb.AnalogOutput != nil {
 		r.AnalogOutput = make(map[uint16]device.AnalogOutputChannels, len(pb.AnalogOutput))
@@ -519,26 +535,32 @@ func WheresFromPB(pbs []*Where) ([]device.Where, error) {
 
 // CommandStatePairToPB converts CommandStatePair to CommandStatePair.
 func CommandStatePairToPB(r device.CommandStatePair) (*CommandStatePair, error) {
-	pb := &CommandStatePair{
-		Command: uint32(r.Command),
-		State:   uint32(r.State),
+	pb := &CommandStatePair{}
+	if r.Command != nil {
+		v := uint32(*r.Command)
+		pb.Command = &v
+	}
+	if r.State != nil {
+		v := uint32(*r.State)
+		pb.State = &v
 	}
 	return pb, nil
 }
 
 // CommandStatePairFromPB converts CommandStatePair to CommandStatePair.
-//
-// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
-// from a zero one, so a scalar keeps the value that pb holds.
 func CommandStatePairFromPB(pb *CommandStatePair) (device.CommandStatePair, error) {
 	var r device.CommandStatePair
 	if pb == nil {
 		return r, nil
 	}
-	defaults.Prefill(&r)
-	r.Command = channel.Key(pb.Command)
-	r.State = channel.Key(pb.State)
-	defaults.FillGroups(&r)
+	if pb.Command != nil {
+		v := channel.Key(*pb.Command)
+		r.Command = &v
+	}
+	if pb.State != nil {
+		v := channel.Key(*pb.State)
+		r.State = &v
+	}
 	return r, nil
 }
 
@@ -570,9 +592,14 @@ func CommandStatePairsFromPB(pbs []*CommandStatePair) ([]device.CommandStatePair
 
 // AnalogInputPortsToPB converts AnalogInputPorts to AnalogInputPorts.
 func AnalogInputPortsToPB(r device.AnalogInputPorts) (*AnalogInputPorts, error) {
-	pb := &AnalogInputPorts{
-		Index:       uint32(r.Index),
-		Temperature: uint32(r.Temperature),
+	pb := &AnalogInputPorts{}
+	if r.Index != nil {
+		v := uint32(*r.Index)
+		pb.Index = &v
+	}
+	if r.Temperature != nil {
+		v := uint32(*r.Temperature)
+		pb.Temperature = &v
 	}
 	if r.Channels != nil {
 		pb.Channels = make(map[uint32]uint32, len(r.Channels))
@@ -593,8 +620,14 @@ func AnalogInputPortsFromPB(pb *AnalogInputPorts) (device.AnalogInputPorts, erro
 		return r, nil
 	}
 	defaults.Prefill(&r)
-	r.Index = channel.Key(pb.Index)
-	r.Temperature = channel.Key(pb.Temperature)
+	if pb.Index != nil {
+		v := channel.Key(*pb.Index)
+		r.Index = &v
+	}
+	if pb.Temperature != nil {
+		v := channel.Key(*pb.Temperature)
+		r.Temperature = &v
+	}
 	if pb.Channels != nil {
 		r.Channels = make(map[uint16]channel.Key, len(pb.Channels))
 		for k, v := range pb.Channels {
@@ -637,28 +670,40 @@ func AnalogInputPortsListFromPB(pbs []*AnalogInputPorts) ([]device.AnalogInputPo
 
 // AnalogOutputChannelsToPB converts AnalogOutputChannels to AnalogOutputChannels.
 func AnalogOutputChannelsToPB(r device.AnalogOutputChannels) (*AnalogOutputChannels, error) {
-	pb := &AnalogOutputChannels{
-		StateIndex: uint32(r.StateIndex),
-		Command:    uint32(r.Command),
-		State:      uint32(r.State),
+	pb := &AnalogOutputChannels{}
+	if r.StateIndex != nil {
+		v := uint32(*r.StateIndex)
+		pb.StateIndex = &v
+	}
+	if r.Command != nil {
+		v := uint32(*r.Command)
+		pb.Command = &v
+	}
+	if r.State != nil {
+		v := uint32(*r.State)
+		pb.State = &v
 	}
 	return pb, nil
 }
 
 // AnalogOutputChannelsFromPB converts AnalogOutputChannels to AnalogOutputChannels.
-//
-// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
-// from a zero one, so a scalar keeps the value that pb holds.
 func AnalogOutputChannelsFromPB(pb *AnalogOutputChannels) (device.AnalogOutputChannels, error) {
 	var r device.AnalogOutputChannels
 	if pb == nil {
 		return r, nil
 	}
-	defaults.Prefill(&r)
-	r.StateIndex = channel.Key(pb.StateIndex)
-	r.Command = channel.Key(pb.Command)
-	r.State = channel.Key(pb.State)
-	defaults.FillGroups(&r)
+	if pb.StateIndex != nil {
+		v := channel.Key(*pb.StateIndex)
+		r.StateIndex = &v
+	}
+	if pb.Command != nil {
+		v := channel.Key(*pb.Command)
+		r.Command = &v
+	}
+	if pb.State != nil {
+		v := channel.Key(*pb.State)
+		r.State = &v
+	}
 	return r, nil
 }
 
@@ -690,26 +735,32 @@ func AnalogOutputChannelsListFromPB(pbs []*AnalogOutputChannels) ([]device.Analo
 
 // CounterInputChannelsToPB converts CounterInputChannels to CounterInputChannels.
 func CounterInputChannelsToPB(r device.CounterInputChannels) (*CounterInputChannels, error) {
-	pb := &CounterInputChannels{
-		Index:   uint32(r.Index),
-		Channel: uint32(r.Channel),
+	pb := &CounterInputChannels{}
+	if r.Index != nil {
+		v := uint32(*r.Index)
+		pb.Index = &v
+	}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
 	}
 	return pb, nil
 }
 
 // CounterInputChannelsFromPB converts CounterInputChannels to CounterInputChannels.
-//
-// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
-// from a zero one, so a scalar keeps the value that pb holds.
 func CounterInputChannelsFromPB(pb *CounterInputChannels) (device.CounterInputChannels, error) {
 	var r device.CounterInputChannels
 	if pb == nil {
 		return r, nil
 	}
-	defaults.Prefill(&r)
-	r.Index = channel.Key(pb.Index)
-	r.Channel = channel.Key(pb.Channel)
-	defaults.FillGroups(&r)
+	if pb.Index != nil {
+		v := channel.Key(*pb.Index)
+		r.Index = &v
+	}
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
+	}
 	return r, nil
 }
 
@@ -741,8 +792,10 @@ func CounterInputChannelsListFromPB(pbs []*CounterInputChannels) ([]device.Count
 
 // DigitalInputChannelsToPB converts DigitalInputChannels to DigitalInputChannels.
 func DigitalInputChannelsToPB(r device.DigitalInputChannels) (*DigitalInputChannels, error) {
-	pb := &DigitalInputChannels{
-		Index: uint32(r.Index),
+	pb := &DigitalInputChannels{}
+	if r.Index != nil {
+		v := uint32(*r.Index)
+		pb.Index = &v
 	}
 	if r.Lines != nil {
 		pb.Lines = make(map[uint32]uint32, len(r.Lines))
@@ -763,7 +816,10 @@ func DigitalInputChannelsFromPB(pb *DigitalInputChannels) (device.DigitalInputCh
 		return r, nil
 	}
 	defaults.Prefill(&r)
-	r.Index = channel.Key(pb.Index)
+	if pb.Index != nil {
+		v := channel.Key(*pb.Index)
+		r.Index = &v
+	}
 	if pb.Lines != nil {
 		r.Lines = make(map[uint8]channel.Key, len(pb.Lines))
 		for k, v := range pb.Lines {
@@ -806,8 +862,10 @@ func DigitalInputChannelsListFromPB(pbs []*DigitalInputChannels) ([]device.Digit
 
 // DigitalOutputChannelsToPB converts DigitalOutputChannels to DigitalOutputChannels.
 func DigitalOutputChannelsToPB(r device.DigitalOutputChannels) (*DigitalOutputChannels, error) {
-	pb := &DigitalOutputChannels{
-		StateIndex: uint32(r.StateIndex),
+	pb := &DigitalOutputChannels{}
+	if r.StateIndex != nil {
+		v := uint32(*r.StateIndex)
+		pb.StateIndex = &v
 	}
 	if r.Lines != nil {
 		pb.Lines = make(map[uint32]*CommandStatePair, len(r.Lines))
@@ -832,7 +890,10 @@ func DigitalOutputChannelsFromPB(pb *DigitalOutputChannels) (device.DigitalOutpu
 		return r, nil
 	}
 	defaults.Prefill(&r)
-	r.StateIndex = channel.Key(pb.StateIndex)
+	if pb.StateIndex != nil {
+		v := channel.Key(*pb.StateIndex)
+		r.StateIndex = &v
+	}
 	if pb.Lines != nil {
 		r.Lines = make(map[uint8]device.CommandStatePair, len(pb.Lines))
 		for k, v := range pb.Lines {
@@ -939,6 +1000,13 @@ func IdentityToPB(r device.Identity) (*Identity, error) {
 		v := r.Chassis.String()
 		pb.Chassis = &v
 	}
+	if r.Hardware != nil {
+		var err error
+		pb.Hardware, err = HardwareToPB(*r.Hardware)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -962,6 +1030,13 @@ func IdentityFromPB(pb *Identity) (device.Identity, error) {
 			return device.Identity{}, err
 		}
 		r.Chassis = &v
+	}
+	if pb.Hardware != nil {
+		val, err := HardwareFromPB(pb.Hardware)
+		if err != nil {
+			return device.Identity{}, err
+		}
+		r.Hardware = &val
 	}
 	defaults.FillGroups(&r)
 	return r, nil
@@ -1152,6 +1227,433 @@ func ConfigurationsFromPB(pbs []*Configuration) ([]device.Configuration, error) 
 	return result, nil
 }
 
+// AnalogInputPortToPB converts AnalogInputPort to AnalogInputPort.
+func AnalogInputPortToPB(r device.AnalogInputPort) (*AnalogInputPort, error) {
+	terminalConfigsVal, err := lo.MapErr(r.TerminalConfigs, func(v device.TerminalConfig, _ int) (TerminalConfig, error) { return TerminalConfigToPB(v) })
+	if err != nil {
+		return nil, err
+	}
+	typesVal, err := lo.MapErr(r.Types, func(v device.AIChannelType, _ int) (AIChannelType, error) { return AIChannelTypeToPB(v) })
+	if err != nil {
+		return nil, err
+	}
+	pb := &AnalogInputPort{
+		Port:            uint32(r.Port),
+		TerminalConfigs: terminalConfigsVal,
+		Types:           typesVal,
+	}
+	if r.DefaultTerminalConfig != nil {
+		val, err := TerminalConfigToPB(*r.DefaultTerminalConfig)
+		if err != nil {
+			return nil, err
+		}
+		pb.DefaultTerminalConfig = &val
+	}
+	if r.Negative != nil {
+		pb.Negative = r.Negative
+	}
+	return pb, nil
+}
+
+// AnalogInputPortFromPB converts AnalogInputPort to AnalogInputPort.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func AnalogInputPortFromPB(pb *AnalogInputPort) (device.AnalogInputPort, error) {
+	var r device.AnalogInputPort
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.TerminalConfigs, err = lo.MapErr(pb.TerminalConfigs, func(v TerminalConfig, _ int) (device.TerminalConfig, error) { return TerminalConfigFromPB(v) })
+	if err != nil {
+		return device.AnalogInputPort{}, err
+	}
+	r.Types, err = lo.MapErr(pb.Types, func(v AIChannelType, _ int) (device.AIChannelType, error) { return AIChannelTypeFromPB(v) })
+	if err != nil {
+		return device.AnalogInputPort{}, err
+	}
+	r.Port = uint16(pb.Port)
+	if pb.DefaultTerminalConfig != nil {
+		val, err := TerminalConfigFromPB(*pb.DefaultTerminalConfig)
+		if err != nil {
+			return device.AnalogInputPort{}, err
+		}
+		r.DefaultTerminalConfig = &val
+	}
+	if pb.Negative != nil {
+		r.Negative = pb.Negative
+	}
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// AnalogInputPortListToPB converts a slice of AnalogInputPort to AnalogInputPort.
+func AnalogInputPortListToPB(rs []device.AnalogInputPort) ([]*AnalogInputPort, error) {
+	result := make([]*AnalogInputPort, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AnalogInputPortToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AnalogInputPortListFromPB converts a slice of AnalogInputPort to AnalogInputPort.
+func AnalogInputPortListFromPB(pbs []*AnalogInputPort) ([]device.AnalogInputPort, error) {
+	result := make([]device.AnalogInputPort, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AnalogInputPortFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AnalogOutputPortToPB converts AnalogOutputPort to AnalogOutputPort.
+func AnalogOutputPortToPB(r device.AnalogOutputPort) (*AnalogOutputPort, error) {
+	terminalConfigsVal, err := lo.MapErr(r.TerminalConfigs, func(v device.TerminalConfig, _ int) (TerminalConfig, error) { return TerminalConfigToPB(v) })
+	if err != nil {
+		return nil, err
+	}
+	typesVal, err := lo.MapErr(r.Types, func(v device.AOChannelType, _ int) (AOChannelType, error) { return AOChannelTypeToPB(v) })
+	if err != nil {
+		return nil, err
+	}
+	pb := &AnalogOutputPort{
+		Port:            uint32(r.Port),
+		TerminalConfigs: terminalConfigsVal,
+		Types:           typesVal,
+	}
+	return pb, nil
+}
+
+// AnalogOutputPortFromPB converts AnalogOutputPort to AnalogOutputPort.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func AnalogOutputPortFromPB(pb *AnalogOutputPort) (device.AnalogOutputPort, error) {
+	var r device.AnalogOutputPort
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.TerminalConfigs, err = lo.MapErr(pb.TerminalConfigs, func(v TerminalConfig, _ int) (device.TerminalConfig, error) { return TerminalConfigFromPB(v) })
+	if err != nil {
+		return device.AnalogOutputPort{}, err
+	}
+	r.Types, err = lo.MapErr(pb.Types, func(v AOChannelType, _ int) (device.AOChannelType, error) { return AOChannelTypeFromPB(v) })
+	if err != nil {
+		return device.AnalogOutputPort{}, err
+	}
+	r.Port = uint16(pb.Port)
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// AnalogOutputPortsToPB converts a slice of AnalogOutputPort to AnalogOutputPort.
+func AnalogOutputPortsToPB(rs []device.AnalogOutputPort) ([]*AnalogOutputPort, error) {
+	result := make([]*AnalogOutputPort, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = AnalogOutputPortToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// AnalogOutputPortsFromPB converts a slice of AnalogOutputPort to AnalogOutputPort.
+func AnalogOutputPortsFromPB(pbs []*AnalogOutputPort) ([]device.AnalogOutputPort, error) {
+	result := make([]device.AnalogOutputPort, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = AnalogOutputPortFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CounterPortToPB converts CounterPort to CounterPort.
+func CounterPortToPB(r device.CounterPort) (*CounterPort, error) {
+	typesVal, err := lo.MapErr(r.Types, func(v device.CIChannelType, _ int) (CIChannelType, error) { return CIChannelTypeToPB(v) })
+	if err != nil {
+		return nil, err
+	}
+	pb := &CounterPort{
+		Port:  uint32(r.Port),
+		Types: typesVal,
+	}
+	return pb, nil
+}
+
+// CounterPortFromPB converts CounterPort to CounterPort.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func CounterPortFromPB(pb *CounterPort) (device.CounterPort, error) {
+	var r device.CounterPort
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Types, err = lo.MapErr(pb.Types, func(v CIChannelType, _ int) (device.CIChannelType, error) { return CIChannelTypeFromPB(v) })
+	if err != nil {
+		return device.CounterPort{}, err
+	}
+	r.Port = uint16(pb.Port)
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// CounterPortsToPB converts a slice of CounterPort to CounterPort.
+func CounterPortsToPB(rs []device.CounterPort) ([]*CounterPort, error) {
+	result := make([]*CounterPort, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CounterPortToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CounterPortsFromPB converts a slice of CounterPort to CounterPort.
+func CounterPortsFromPB(pbs []*CounterPort) ([]device.CounterPort, error) {
+	result := make([]device.CounterPort, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CounterPortFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DigitalPortToPB converts DigitalPort to DigitalPort.
+func DigitalPortToPB(r device.DigitalPort) (*DigitalPort, error) {
+	pb := &DigitalPort{
+		Port:   uint32(r.Port),
+		Lines:  uint32(r.Lines),
+		Input:  r.Input,
+		Output: r.Output,
+	}
+	return pb, nil
+}
+
+// DigitalPortFromPB converts DigitalPort to DigitalPort.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func DigitalPortFromPB(pb *DigitalPort) (device.DigitalPort, error) {
+	var r device.DigitalPort
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	r.Port = uint16(pb.Port)
+	r.Lines = uint8(pb.Lines)
+	r.Input = pb.Input
+	r.Output = pb.Output
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// DigitalPortsToPB converts a slice of DigitalPort to DigitalPort.
+func DigitalPortsToPB(rs []device.DigitalPort) ([]*DigitalPort, error) {
+	result := make([]*DigitalPort, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = DigitalPortToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DigitalPortsFromPB converts a slice of DigitalPort to DigitalPort.
+func DigitalPortsFromPB(pbs []*DigitalPort) ([]device.DigitalPort, error) {
+	result := make([]device.DigitalPort, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = DigitalPortFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// HardwareToPB converts Hardware to Hardware.
+func HardwareToPB(r device.Hardware) (*Hardware, error) {
+	analogInputsVal, err := AnalogInputPortListToPB(r.AnalogInputs)
+	if err != nil {
+		return nil, err
+	}
+	analogOutputsVal, err := AnalogOutputPortsToPB(r.AnalogOutputs)
+	if err != nil {
+		return nil, err
+	}
+	counterInputsVal, err := CounterPortsToPB(r.CounterInputs)
+	if err != nil {
+		return nil, err
+	}
+	counterOutputsVal, err := CounterPortsToPB(r.CounterOutputs)
+	if err != nil {
+		return nil, err
+	}
+	digitalPortsVal, err := DigitalPortsToPB(r.DigitalPorts)
+	if err != nil {
+		return nil, err
+	}
+	aiVoltageRangesVal, err := spatialpb.ClosedBoundsListToPB(r.AiVoltageRanges)
+	if err != nil {
+		return nil, err
+	}
+	aiCurrentRangesVal, err := spatialpb.ClosedBoundsListToPB(r.AiCurrentRanges)
+	if err != nil {
+		return nil, err
+	}
+	aoVoltageRangesVal, err := spatialpb.ClosedBoundsListToPB(r.AoVoltageRanges)
+	if err != nil {
+		return nil, err
+	}
+	aoCurrentRangesVal, err := spatialpb.ClosedBoundsListToPB(r.AoCurrentRanges)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Hardware{
+		Terminals:       r.Terminals,
+		AiMinRate:       float64(r.AiMinRate),
+		AnalogInputs:    analogInputsVal,
+		AnalogOutputs:   analogOutputsVal,
+		CounterInputs:   counterInputsVal,
+		CounterOutputs:  counterOutputsVal,
+		DigitalPorts:    digitalPortsVal,
+		AiVoltageRanges: aiVoltageRangesVal,
+		AiCurrentRanges: aiCurrentRangesVal,
+		AoVoltageRanges: aoVoltageRangesVal,
+		AoCurrentRanges: aoCurrentRangesVal,
+	}
+	if r.AiMaxSingleChannelRate != nil {
+		v := float64(*r.AiMaxSingleChannelRate)
+		pb.AiMaxSingleChannelRate = &v
+	}
+	if r.AiMaxMultiChannelRate != nil {
+		v := float64(*r.AiMaxMultiChannelRate)
+		pb.AiMaxMultiChannelRate = &v
+	}
+	if r.AoMaxRate != nil {
+		v := float64(*r.AoMaxRate)
+		pb.AoMaxRate = &v
+	}
+	return pb, nil
+}
+
+// HardwareFromPB converts Hardware to Hardware.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func HardwareFromPB(pb *Hardware) (device.Hardware, error) {
+	var r device.Hardware
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.AnalogInputs, err = AnalogInputPortListFromPB(pb.AnalogInputs)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AnalogOutputs, err = AnalogOutputPortsFromPB(pb.AnalogOutputs)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.CounterInputs, err = CounterPortsFromPB(pb.CounterInputs)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.CounterOutputs, err = CounterPortsFromPB(pb.CounterOutputs)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.DigitalPorts, err = DigitalPortsFromPB(pb.DigitalPorts)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AiVoltageRanges, err = spatialpb.ClosedBoundsListFromPB(pb.AiVoltageRanges)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AiCurrentRanges, err = spatialpb.ClosedBoundsListFromPB(pb.AiCurrentRanges)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AoVoltageRanges, err = spatialpb.ClosedBoundsListFromPB(pb.AoVoltageRanges)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.AoCurrentRanges, err = spatialpb.ClosedBoundsListFromPB(pb.AoCurrentRanges)
+	if err != nil {
+		return device.Hardware{}, err
+	}
+	r.Terminals = pb.Terminals
+	r.AiMinRate = telem.Rate(pb.AiMinRate)
+	if pb.AiMaxSingleChannelRate != nil {
+		v := telem.Rate(*pb.AiMaxSingleChannelRate)
+		r.AiMaxSingleChannelRate = &v
+	}
+	if pb.AiMaxMultiChannelRate != nil {
+		v := telem.Rate(*pb.AiMaxMultiChannelRate)
+		r.AiMaxMultiChannelRate = &v
+	}
+	if pb.AoMaxRate != nil {
+		v := telem.Rate(*pb.AoMaxRate)
+		r.AoMaxRate = &v
+	}
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// HardwareListToPB converts a slice of Hardware to Hardware.
+func HardwareListToPB(rs []device.Hardware) ([]*Hardware, error) {
+	result := make([]*Hardware, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = HardwareToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// HardwareListFromPB converts a slice of Hardware to Hardware.
+func HardwareListFromPB(pbs []*Hardware) ([]device.Hardware, error) {
+	result := make([]device.Hardware, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = HardwareFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // UpdateToPB converts Update to Update.
 func UpdateToPB(r device.Update) (*Update, error) {
 	if r.Variant == nil {
@@ -1224,4 +1726,264 @@ func UpdatesFromPB(pbs []*Update) ([]device.Update, error) {
 		}
 	}
 	return result, nil
+}
+
+// AIChannelTypeToPB converts device.AIChannelType to AIChannelType.
+func AIChannelTypeToPB(v device.AIChannelType) (AIChannelType, error) {
+	switch v {
+	case device.AIChannelTypeAiVoltage:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE, nil
+	case device.AIChannelTypeAiAccel:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL, nil
+	case device.AIChannelTypeAiBridge:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_BRIDGE, nil
+	case device.AIChannelTypeAiCurrent:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT, nil
+	case device.AIChannelTypeAiForceBridgeTable:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE, nil
+	case device.AIChannelTypeAiForceBridgeTwoPointLin:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN, nil
+	case device.AIChannelTypeAiForceIepe:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_IEPE, nil
+	case device.AIChannelTypeAiMicrophone:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_MICROPHONE, nil
+	case device.AIChannelTypeAiPressureBridgeTable:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE, nil
+	case device.AIChannelTypeAiPressureBridgeTwoPointLin:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN, nil
+	case device.AIChannelTypeAiResistance:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_RESISTANCE, nil
+	case device.AIChannelTypeAiRtd:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_RTD, nil
+	case device.AIChannelTypeAiStrainGauge:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_STRAIN_GAUGE, nil
+	case device.AIChannelTypeAiTempBuiltin:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_TEMP_BUILTIN, nil
+	case device.AIChannelTypeAiThermocouple:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_THERMOCOUPLE, nil
+	case device.AIChannelTypeAiTorqueBridgeTable:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE, nil
+	case device.AIChannelTypeAiTorqueBridgeTwoPointLin:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN, nil
+	case device.AIChannelTypeAiVelocityIepe:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_VELOCITY_IEPE, nil
+	case device.AIChannelTypeAiAccel4WireDcVoltage:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE, nil
+	case device.AIChannelTypeAiAccelCharge:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_CHARGE, nil
+	case device.AIChannelTypeAiCharge:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_CHARGE, nil
+	case device.AIChannelTypeAiCurrentRms:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT_RMS, nil
+	case device.AIChannelTypeAiForceBridgePolynomial:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL, nil
+	case device.AIChannelTypeAiFreqVoltage:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE, nil
+	case device.AIChannelTypeAiPressureBridgePolynomial:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL, nil
+	case device.AIChannelTypeAiThermistorIex:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_IEX, nil
+	case device.AIChannelTypeAiThermistorVex:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_VEX, nil
+	case device.AIChannelTypeAiTorqueBridgePolynomial:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL, nil
+	case device.AIChannelTypeAiVoltageRms:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_RMS, nil
+	case device.AIChannelTypeAiVoltageWithExcit:
+		return AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT, nil
+	default:
+		return 0, errors.Newf("unrecognized device.AIChannelType value: %v", v)
+	}
+}
+
+// AIChannelTypeFromPB converts AIChannelType to device.AIChannelType.
+func AIChannelTypeFromPB(v AIChannelType) (device.AIChannelType, error) {
+	switch v {
+	case AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE:
+		return device.AIChannelTypeAiVoltage, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL:
+		return device.AIChannelTypeAiAccel, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_BRIDGE:
+		return device.AIChannelTypeAiBridge, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT:
+		return device.AIChannelTypeAiCurrent, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE:
+		return device.AIChannelTypeAiForceBridgeTable, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN:
+		return device.AIChannelTypeAiForceBridgeTwoPointLin, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_IEPE:
+		return device.AIChannelTypeAiForceIepe, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_MICROPHONE:
+		return device.AIChannelTypeAiMicrophone, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE:
+		return device.AIChannelTypeAiPressureBridgeTable, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN:
+		return device.AIChannelTypeAiPressureBridgeTwoPointLin, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_RESISTANCE:
+		return device.AIChannelTypeAiResistance, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_RTD:
+		return device.AIChannelTypeAiRtd, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_STRAIN_GAUGE:
+		return device.AIChannelTypeAiStrainGauge, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_TEMP_BUILTIN:
+		return device.AIChannelTypeAiTempBuiltin, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_THERMOCOUPLE:
+		return device.AIChannelTypeAiThermocouple, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE:
+		return device.AIChannelTypeAiTorqueBridgeTable, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN:
+		return device.AIChannelTypeAiTorqueBridgeTwoPointLin, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_VELOCITY_IEPE:
+		return device.AIChannelTypeAiVelocityIepe, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE:
+		return device.AIChannelTypeAiAccel4WireDcVoltage, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_ACCEL_CHARGE:
+		return device.AIChannelTypeAiAccelCharge, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_CHARGE:
+		return device.AIChannelTypeAiCharge, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_CURRENT_RMS:
+		return device.AIChannelTypeAiCurrentRms, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL:
+		return device.AIChannelTypeAiForceBridgePolynomial, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE:
+		return device.AIChannelTypeAiFreqVoltage, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL:
+		return device.AIChannelTypeAiPressureBridgePolynomial, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_IEX:
+		return device.AIChannelTypeAiThermistorIex, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_THERMISTOR_VEX:
+		return device.AIChannelTypeAiThermistorVex, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL:
+		return device.AIChannelTypeAiTorqueBridgePolynomial, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_RMS:
+		return device.AIChannelTypeAiVoltageRms, nil
+	case AIChannelType_AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT:
+		return device.AIChannelTypeAiVoltageWithExcit, nil
+	default:
+		return device.AIChannelType(""), errors.Newf("unrecognized AIChannelType value: %v", v)
+	}
+}
+
+// AOChannelTypeToPB converts device.AOChannelType to AOChannelType.
+func AOChannelTypeToPB(v device.AOChannelType) (AOChannelType, error) {
+	switch v {
+	case device.AOChannelTypeAoCurrent:
+		return AOChannelType_AO_CHANNEL_TYPE_AO_CURRENT, nil
+	case device.AOChannelTypeAoFuncGen:
+		return AOChannelType_AO_CHANNEL_TYPE_AO_FUNC_GEN, nil
+	case device.AOChannelTypeAoVoltage:
+		return AOChannelType_AO_CHANNEL_TYPE_AO_VOLTAGE, nil
+	default:
+		return 0, errors.Newf("unrecognized device.AOChannelType value: %v", v)
+	}
+}
+
+// AOChannelTypeFromPB converts AOChannelType to device.AOChannelType.
+func AOChannelTypeFromPB(v AOChannelType) (device.AOChannelType, error) {
+	switch v {
+	case AOChannelType_AO_CHANNEL_TYPE_AO_CURRENT:
+		return device.AOChannelTypeAoCurrent, nil
+	case AOChannelType_AO_CHANNEL_TYPE_AO_FUNC_GEN:
+		return device.AOChannelTypeAoFuncGen, nil
+	case AOChannelType_AO_CHANNEL_TYPE_AO_VOLTAGE:
+		return device.AOChannelTypeAoVoltage, nil
+	default:
+		return device.AOChannelType(""), errors.Newf("unrecognized AOChannelType value: %v", v)
+	}
+}
+
+// CIChannelTypeToPB converts device.CIChannelType to CIChannelType.
+func CIChannelTypeToPB(v device.CIChannelType) (CIChannelType, error) {
+	switch v {
+	case device.CIChannelTypeCiFrequency:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_FREQUENCY, nil
+	case device.CIChannelTypeCiEdgeCount:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_EDGE_COUNT, nil
+	case device.CIChannelTypeCiPeriod:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_PERIOD, nil
+	case device.CIChannelTypeCiPulseWidth:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_PULSE_WIDTH, nil
+	case device.CIChannelTypeCiSemiPeriod:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_SEMI_PERIOD, nil
+	case device.CIChannelTypeCiTwoEdgeSep:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP, nil
+	case device.CIChannelTypeCiVelocityLinear:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR, nil
+	case device.CIChannelTypeCiVelocityAngular:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR, nil
+	case device.CIChannelTypeCiPositionLinear:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_LINEAR, nil
+	case device.CIChannelTypeCiPositionAngular:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_ANGULAR, nil
+	case device.CIChannelTypeCiDutyCycle:
+		return CIChannelType_CI_CHANNEL_TYPE_CI_DUTY_CYCLE, nil
+	default:
+		return 0, errors.Newf("unrecognized device.CIChannelType value: %v", v)
+	}
+}
+
+// CIChannelTypeFromPB converts CIChannelType to device.CIChannelType.
+func CIChannelTypeFromPB(v CIChannelType) (device.CIChannelType, error) {
+	switch v {
+	case CIChannelType_CI_CHANNEL_TYPE_CI_FREQUENCY:
+		return device.CIChannelTypeCiFrequency, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_EDGE_COUNT:
+		return device.CIChannelTypeCiEdgeCount, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_PERIOD:
+		return device.CIChannelTypeCiPeriod, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_PULSE_WIDTH:
+		return device.CIChannelTypeCiPulseWidth, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_SEMI_PERIOD:
+		return device.CIChannelTypeCiSemiPeriod, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP:
+		return device.CIChannelTypeCiTwoEdgeSep, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR:
+		return device.CIChannelTypeCiVelocityLinear, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR:
+		return device.CIChannelTypeCiVelocityAngular, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_LINEAR:
+		return device.CIChannelTypeCiPositionLinear, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_POSITION_ANGULAR:
+		return device.CIChannelTypeCiPositionAngular, nil
+	case CIChannelType_CI_CHANNEL_TYPE_CI_DUTY_CYCLE:
+		return device.CIChannelTypeCiDutyCycle, nil
+	default:
+		return device.CIChannelType(""), errors.Newf("unrecognized CIChannelType value: %v", v)
+	}
+}
+
+// TerminalConfigToPB converts device.TerminalConfig to TerminalConfig.
+func TerminalConfigToPB(v device.TerminalConfig) (TerminalConfig, error) {
+	switch v {
+	case device.TerminalConfigCfgDefault:
+		return TerminalConfig_TERMINAL_CONFIG_CFG_DEFAULT, nil
+	case device.TerminalConfigRse:
+		return TerminalConfig_TERMINAL_CONFIG_RSE, nil
+	case device.TerminalConfigNrse:
+		return TerminalConfig_TERMINAL_CONFIG_NRSE, nil
+	case device.TerminalConfigDiff:
+		return TerminalConfig_TERMINAL_CONFIG_DIFF, nil
+	case device.TerminalConfigPseudoDiff:
+		return TerminalConfig_TERMINAL_CONFIG_PSEUDO_DIFF, nil
+	default:
+		return 0, errors.Newf("unrecognized device.TerminalConfig value: %v", v)
+	}
+}
+
+// TerminalConfigFromPB converts TerminalConfig to device.TerminalConfig.
+func TerminalConfigFromPB(v TerminalConfig) (device.TerminalConfig, error) {
+	switch v {
+	case TerminalConfig_TERMINAL_CONFIG_CFG_DEFAULT:
+		return device.TerminalConfigCfgDefault, nil
+	case TerminalConfig_TERMINAL_CONFIG_RSE:
+		return device.TerminalConfigRse, nil
+	case TerminalConfig_TERMINAL_CONFIG_NRSE:
+		return device.TerminalConfigNrse, nil
+	case TerminalConfig_TERMINAL_CONFIG_DIFF:
+		return device.TerminalConfigDiff, nil
+	case TerminalConfig_TERMINAL_CONFIG_PSEUDO_DIFF:
+		return device.TerminalConfigPseudoDiff, nil
+	default:
+		return device.TerminalConfig(""), errors.Newf("unrecognized TerminalConfig value: %v", v)
+	}
 }

@@ -11,16 +11,6 @@ import { describe, expect, it } from "vitest";
 
 import { ni } from "@/ni";
 
-describe("hardwareZ", () => {
-  it.each([-1, Infinity, NaN])("should reject an analog input rate of %s", (rate) => {
-    expect(() => ni.hardwareZ.parse({ aiMinRate: rate })).toThrow();
-  });
-
-  it("should accept an analog input rate of 0", () => {
-    expect(ni.hardwareZ.parse({ aiMinRate: 0 }).aiMinRate).toBe(0);
-  });
-});
-
 const CHANNEL = { type: "ao_func_gen", key: "gen", port: 0 } as const;
 
 describe("aoFuncGenChannelZ", () => {

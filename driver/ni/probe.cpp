@@ -28,11 +28,11 @@
 
 namespace driver::ni {
 namespace {
-using ::synnax::ni::AnalogInputPort;
-using ::synnax::ni::AnalogOutputPort;
-using ::synnax::ni::CounterPort;
-using ::synnax::ni::DigitalPort;
-using ::synnax::ni::Hardware;
+using ::synnax::ni::device::AnalogInputPort;
+using ::synnax::ni::device::AnalogOutputPort;
+using ::synnax::ni::device::CounterPort;
+using ::synnax::ni::device::DigitalPort;
+using ::synnax::ni::device::Hardware;
 using ::x::spatial::ClosedBounds;
 
 /// @brief the channel types of each DAQmx measurement or output type. A DAQmx type with
@@ -97,18 +97,19 @@ const TypeTable CI_TYPES = {
 /// @brief the bits of DAQmx_PhysicalChan_AI_TermCfgs and
 /// DAQmx_PhysicalChan_AO_TermCfgs.
 const std::vector<std::pair<int32, std::string>> TERMINAL_CONFIG_BITS = {
-    {DAQmx_Val_Bit_TermCfg_RSE, ::synnax::ni::TERMINAL_CONFIG_RSE},
-    {DAQmx_Val_Bit_TermCfg_NRSE, ::synnax::ni::TERMINAL_CONFIG_NRSE},
-    {DAQmx_Val_Bit_TermCfg_Diff, ::synnax::ni::TERMINAL_CONFIG_DIFF},
-    {DAQmx_Val_Bit_TermCfg_PseudoDIFF, ::synnax::ni::TERMINAL_CONFIG_PSEUDO_DIFF},
+    {DAQmx_Val_Bit_TermCfg_RSE, ::synnax::ni::device::TERMINAL_CONFIG_RSE},
+    {DAQmx_Val_Bit_TermCfg_NRSE, ::synnax::ni::device::TERMINAL_CONFIG_NRSE},
+    {DAQmx_Val_Bit_TermCfg_Diff, ::synnax::ni::device::TERMINAL_CONFIG_DIFF},
+    {DAQmx_Val_Bit_TermCfg_PseudoDIFF,
+     ::synnax::ni::device::TERMINAL_CONFIG_PSEUDO_DIFF},
 };
 
 /// @brief the values of DAQmx_AI_TermCfg.
 const std::unordered_map<int32, std::string> TERMINAL_CONFIGS = {
-    {DAQmx_Val_RSE, ::synnax::ni::TERMINAL_CONFIG_RSE},
-    {DAQmx_Val_NRSE, ::synnax::ni::TERMINAL_CONFIG_NRSE},
-    {DAQmx_Val_Diff, ::synnax::ni::TERMINAL_CONFIG_DIFF},
-    {DAQmx_Val_PseudoDiff, ::synnax::ni::TERMINAL_CONFIG_PSEUDO_DIFF},
+    {DAQmx_Val_RSE, ::synnax::ni::device::TERMINAL_CONFIG_RSE},
+    {DAQmx_Val_NRSE, ::synnax::ni::device::TERMINAL_CONFIG_NRSE},
+    {DAQmx_Val_Diff, ::synnax::ni::device::TERMINAL_CONFIG_DIFF},
+    {DAQmx_Val_PseudoDiff, ::synnax::ni::device::TERMINAL_CONFIG_PSEUDO_DIFF},
 };
 
 /// @brief a family of devices in which a differential channel on port n uses port n +
@@ -148,8 +149,8 @@ const float64 EXTERNAL_SHUNT_RESISTANCE = 249;
 const std::string PRODUCT_TYPE_PREFIX = "NI ";
 const std::string AI_VOLTAGE = "ai_voltage";
 const std::string AI_CURRENT = "ai_current";
-const std::string RSE = ::synnax::ni::TERMINAL_CONFIG_RSE;
-const std::string DIFF = ::synnax::ni::TERMINAL_CONFIG_DIFF;
+const std::string RSE = ::synnax::ni::device::TERMINAL_CONFIG_RSE;
+const std::string DIFF = ::synnax::ni::device::TERMINAL_CONFIG_DIFF;
 
 /// @brief a physical channel or port and the number at the end of its name.
 struct Port {
@@ -228,9 +229,15 @@ x::errors::Error read_types(
     );
     if (err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED)) return x::errors::NIL;
     if (err) return err;
-    for (const auto code: codes)
-        if (const auto it = table.find(code); it != table.end())
-            types.insert(types.end(), it->second.begin(), it->second.end());
+    for (const auto code: codes) {
+        const auto it = table.find(code);
+        if (it == table.end()) {
+            VLOG(1) << "[ni] skipping DAQmx type " << code << " of " << port.name
+                    << " that no channel type reads";
+            continue;
+        }
+        types.insert(types.end(), it->second.begin(), it->second.end());
+    }
     return x::errors::NIL;
 }
 
@@ -257,13 +264,22 @@ x::errors::Error read_rate(
     daqmx::SugaredAPI &dmx,
     const std::string &device,
     const int32 attribute,
-    x::telem::Rate &rate
+    std::optional<x::telem::Rate> &rate
 ) {
     float64 value = 0;
     const auto err = dmx.GetDeviceAttributeDouble(device.c_str(), attribute, &value);
     if (err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED)) return x::errors::NIL;
     if (err) return err;
-    rate = x::telem::Rate(value);
+    if (value > 0) rate = x::telem::Rate(value);
+    return x::errors::NIL;
+}
+
+/// @brief reads the minimum analog input rate, or leaves 0 when DAQmx reports none.
+x::errors::Error
+read_min_rate(daqmx::SugaredAPI &dmx, const std::string &device, x::telem::Rate &rate) {
+    std::optional<x::telem::Rate> read;
+    if (const auto err = read_rate(dmx, device, DAQmx_Dev_AI_MinRate, read)) return err;
+    rate = read.value_or(x::telem::Rate(0));
     return x::errors::NIL;
 }
 
@@ -336,8 +352,8 @@ x::errors::Error add_readback_channel(
 }
 
 /// @brief reads back what Cfg_Default gives on a port where reads_back_default holds. A
-/// failure returns Cfg_Default and does not fail the probe.
-std::string read_default_terminal_config(
+/// failure returns nothing and does not fail the probe.
+std::optional<std::string> read_default_terminal_config(
     daqmx::SugaredAPI &dmx,
     const Port &port,
     const AnalogInputPort &ai,
@@ -348,7 +364,7 @@ std::string read_default_terminal_config(
     if (const auto err = dmx.CreateTask("", &task)) {
         VLOG(1) << "[ni] failed to create a task to read the default terminal "
                 << "configuration of " << port.name << ": " << err;
-        return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
+        return std::nullopt;
     }
     int32 config = 0;
     auto err = add_readback_channel(dmx, task, port, ai, hw);
@@ -365,10 +381,10 @@ std::string read_default_terminal_config(
     if (err) {
         VLOG(1) << "[ni] failed to read the default terminal configuration of "
                 << port.name << ": " << err;
-        return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
+        return std::nullopt;
     }
     const auto it = TERMINAL_CONFIGS.find(config);
-    if (it == TERMINAL_CONFIGS.end()) return ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
+    if (it == TERMINAL_CONFIGS.end()) return std::nullopt;
     return it->second;
 }
 
@@ -376,8 +392,9 @@ x::errors::Error
 read_analog_inputs(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &hw) {
     auto [ports, err] = read_ports(dmx, device, DAQmx_Dev_AI_PhysicalChans);
     if (err || ports.empty()) return err;
+    if (const auto rate_err = read_min_rate(dmx, device, hw.ai_min_rate))
+        return rate_err;
     for (const auto &[attribute, rate]: {
-             std::pair{DAQmx_Dev_AI_MinRate, &hw.ai_min_rate},
              std::pair{DAQmx_Dev_AI_MaxSingleChanRate, &hw.ai_max_single_channel_rate},
              std::pair{DAQmx_Dev_AI_MaxMultiChanRate, &hw.ai_max_multi_channel_rate},
          })
@@ -529,7 +546,7 @@ void pair_ports(Hardware &hw, const int32 category, std::string type) {
         if (ai.port % (2 * offset) >= offset) continue;
         if (!contains(ai.terminal_configs, RSE) || !contains(ai.terminal_configs, DIFF))
             continue;
-        const auto negative = static_cast<std::uint16_t>(ai.port + offset);
+        const auto negative = static_cast<std::uint32_t>(ai.port + offset);
         if (std::ranges::any_of(hw.analog_inputs, [&](const AnalogInputPort &other) {
                 return other.port == negative;
             }))
@@ -540,8 +557,7 @@ void pair_ports(Hardware &hw, const int32 category, std::string type) {
 
 bool is_complete(const Hardware &hw) {
     return std::ranges::none_of(hw.analog_inputs, [](const AnalogInputPort &ai) {
-        return reads_back_default(ai) &&
-               ai.default_terminal_config == ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT;
+        return reads_back_default(ai) && !ai.default_terminal_config.has_value();
     });
 }
 

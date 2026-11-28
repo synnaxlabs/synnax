@@ -53,6 +53,100 @@ type StatusDetails = versions.StatusDetails
 // Status is the operational status of a device.
 type Status = versions.Status
 
+// TerminalConfig selects the terminal configuration for an analog input channel.
+type TerminalConfig = versions.TerminalConfig
+
+const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
+	TerminalConfigCfgDefault TerminalConfig = versions.TerminalConfigCfgDefault
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = versions.TerminalConfigRse
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = versions.TerminalConfigNrse
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = versions.TerminalConfigDiff
+	// TerminalConfigPseudoDiff is pseudo-differential.
+	TerminalConfigPseudoDiff TerminalConfig = versions.TerminalConfigPseudoDiff
+)
+
+// AIChannelType is the type of an analog input channel.
+type AIChannelType = versions.AIChannelType
+
+const (
+	AIChannelTypeAiVoltage                   AIChannelType = versions.AIChannelTypeAiVoltage
+	AIChannelTypeAiAccel                     AIChannelType = versions.AIChannelTypeAiAccel
+	AIChannelTypeAiBridge                    AIChannelType = versions.AIChannelTypeAiBridge
+	AIChannelTypeAiCurrent                   AIChannelType = versions.AIChannelTypeAiCurrent
+	AIChannelTypeAiForceBridgeTable          AIChannelType = versions.AIChannelTypeAiForceBridgeTable
+	AIChannelTypeAiForceBridgeTwoPointLin    AIChannelType = versions.AIChannelTypeAiForceBridgeTwoPointLin
+	AIChannelTypeAiForceIepe                 AIChannelType = versions.AIChannelTypeAiForceIepe
+	AIChannelTypeAiMicrophone                AIChannelType = versions.AIChannelTypeAiMicrophone
+	AIChannelTypeAiPressureBridgeTable       AIChannelType = versions.AIChannelTypeAiPressureBridgeTable
+	AIChannelTypeAiPressureBridgeTwoPointLin AIChannelType = versions.AIChannelTypeAiPressureBridgeTwoPointLin
+	AIChannelTypeAiResistance                AIChannelType = versions.AIChannelTypeAiResistance
+	AIChannelTypeAiRtd                       AIChannelType = versions.AIChannelTypeAiRtd
+	AIChannelTypeAiStrainGauge               AIChannelType = versions.AIChannelTypeAiStrainGauge
+	AIChannelTypeAiTempBuiltin               AIChannelType = versions.AIChannelTypeAiTempBuiltin
+	AIChannelTypeAiThermocouple              AIChannelType = versions.AIChannelTypeAiThermocouple
+	AIChannelTypeAiTorqueBridgeTable         AIChannelType = versions.AIChannelTypeAiTorqueBridgeTable
+	AIChannelTypeAiTorqueBridgeTwoPointLin   AIChannelType = versions.AIChannelTypeAiTorqueBridgeTwoPointLin
+	AIChannelTypeAiVelocityIepe              AIChannelType = versions.AIChannelTypeAiVelocityIepe
+	AIChannelTypeAiAccel4WireDcVoltage       AIChannelType = versions.AIChannelTypeAiAccel4WireDcVoltage
+	AIChannelTypeAiAccelCharge               AIChannelType = versions.AIChannelTypeAiAccelCharge
+	AIChannelTypeAiCharge                    AIChannelType = versions.AIChannelTypeAiCharge
+	AIChannelTypeAiCurrentRms                AIChannelType = versions.AIChannelTypeAiCurrentRms
+	AIChannelTypeAiForceBridgePolynomial     AIChannelType = versions.AIChannelTypeAiForceBridgePolynomial
+	AIChannelTypeAiFreqVoltage               AIChannelType = versions.AIChannelTypeAiFreqVoltage
+	AIChannelTypeAiPressureBridgePolynomial  AIChannelType = versions.AIChannelTypeAiPressureBridgePolynomial
+	AIChannelTypeAiThermistorIex             AIChannelType = versions.AIChannelTypeAiThermistorIex
+	AIChannelTypeAiThermistorVex             AIChannelType = versions.AIChannelTypeAiThermistorVex
+	AIChannelTypeAiTorqueBridgePolynomial    AIChannelType = versions.AIChannelTypeAiTorqueBridgePolynomial
+	AIChannelTypeAiVoltageRms                AIChannelType = versions.AIChannelTypeAiVoltageRms
+	AIChannelTypeAiVoltageWithExcit          AIChannelType = versions.AIChannelTypeAiVoltageWithExcit
+)
+
+// AOChannelType is the type of an analog output channel.
+type AOChannelType = versions.AOChannelType
+
+const (
+	AOChannelTypeAoCurrent AOChannelType = versions.AOChannelTypeAoCurrent
+	AOChannelTypeAoFuncGen AOChannelType = versions.AOChannelTypeAoFuncGen
+	AOChannelTypeAoVoltage AOChannelType = versions.AOChannelTypeAoVoltage
+)
+
+// CIChannelType is the type of a counter input channel.
+type CIChannelType = versions.CIChannelType
+
+const (
+	CIChannelTypeCiFrequency       CIChannelType = versions.CIChannelTypeCiFrequency
+	CIChannelTypeCiEdgeCount       CIChannelType = versions.CIChannelTypeCiEdgeCount
+	CIChannelTypeCiPeriod          CIChannelType = versions.CIChannelTypeCiPeriod
+	CIChannelTypeCiPulseWidth      CIChannelType = versions.CIChannelTypeCiPulseWidth
+	CIChannelTypeCiSemiPeriod      CIChannelType = versions.CIChannelTypeCiSemiPeriod
+	CIChannelTypeCiTwoEdgeSep      CIChannelType = versions.CIChannelTypeCiTwoEdgeSep
+	CIChannelTypeCiVelocityLinear  CIChannelType = versions.CIChannelTypeCiVelocityLinear
+	CIChannelTypeCiVelocityAngular CIChannelType = versions.CIChannelTypeCiVelocityAngular
+	CIChannelTypeCiPositionLinear  CIChannelType = versions.CIChannelTypeCiPositionLinear
+	CIChannelTypeCiPositionAngular CIChannelType = versions.CIChannelTypeCiPositionAngular
+	CIChannelTypeCiDutyCycle       CIChannelType = versions.CIChannelTypeCiDutyCycle
+)
+
+// AnalogInputPort is an analog input port of an NI device.
+type AnalogInputPort = versions.AnalogInputPort
+
+// AnalogOutputPort is an analog output port of an NI device.
+type AnalogOutputPort = versions.AnalogOutputPort
+
+// CounterPort is a counter of an NI device.
+type CounterPort = versions.CounterPort
+
+// DigitalPort is a digital port of an NI device.
+type DigitalPort = versions.DigitalPort
+
+// Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
+// NI device.
+type Hardware = versions.Hardware
+
 var validatePattern0 = regexp.MustCompile("^$|^[A-Za-z][A-Za-z0-9_]{1,11}$")
 
 // Where is a filter that selects NI devices.
@@ -90,6 +184,9 @@ type Identity struct {
 	Model string `json:"model" msgpack:"model"`
 	// Chassis is the chassis that holds the device. Absent for a standalone device.
 	Chassis *chassis.Key `json:"chassis,omitzero" msgpack:"chassis,omitempty"`
+	// Hardware is what the Driver read from DAQmx about the device. An update without
+	// it keeps the stored value.
+	Hardware *Hardware `json:"hardware,omitzero" msgpack:"hardware,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -99,6 +196,9 @@ func (i Identity) Validate() error {
 	v.NonZero("rack", i.Rack)
 	v.NotEmptyString("resource_name", i.ResourceName)
 	v.NotEmptyString("model", i.Model)
+	if i.Hardware != nil {
+		v.Exec(func() error { return validate.PathedError(i.Hardware.Validate(), "hardware") })
+	}
 	return v.Error()
 }
 

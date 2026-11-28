@@ -62,4 +62,20 @@ inline std::pair<XY, x::errors::Error> XY::from_proto(const ::x::spatial::pb::XY
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::x::spatial::pb::ClosedBounds, x::errors::Error>
+ClosedBounds::to_proto() const {
+    ::x::spatial::pb::ClosedBounds pb;
+    pb.set_lower(this->lower);
+    pb.set_upper(this->upper);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ClosedBounds, x::errors::Error>
+ClosedBounds::from_proto(const ::x::spatial::pb::ClosedBounds &pb) {
+    ClosedBounds cpp;
+    cpp.lower = pb.lower();
+    cpp.upper = pb.upper();
+    return {cpp, x::errors::NIL};
+}
+
 }

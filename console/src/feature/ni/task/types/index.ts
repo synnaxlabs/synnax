@@ -35,9 +35,9 @@ export type ForceSensitivityUnits = ni.ForceSensitivityUnits;
 export type ResistanceConfig = ni.ResistanceConfig;
 export type RTDType = ni.RTDType;
 export type StrainConfig = ni.StrainConfig;
-export type TerminalConfig = ni.TerminalConfig;
+export type TerminalConfig = ni.device.TerminalConfig;
 
-export const TERMINAL_CONFIGS = ni.TERMINAL_CONFIGS;
+export const TERMINAL_CONFIGS = ni.device.TERMINAL_CONFIGS;
 
 export const TERMINAL_CONFIG_NAMES = {
   RSE: "Referenced single ended",
@@ -116,7 +116,7 @@ export const createScale = (type: ScaleType): Scale =>
   SCALE_SCHEMAS[type].parse({ type });
 
 export type AIChannel = ni.AIChannel;
-export type AIChannelType = ni.AIChannelType;
+export type AIChannelType = ni.device.AIChannelType;
 export const AI_CHANNEL_SCHEMAS = ni.AI_CHANNEL_SCHEMAS;
 
 const widest = (
@@ -155,7 +155,7 @@ const TEMPERATURE_RANGES: Record<ni.TemperatureUnits, closedBounds.ClosedBounds>
 export const defaultAIRange = (
   previous: AIChannelType,
   channel: AIChannel,
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): closedBounds.ClosedBounds | undefined => {
   if (channel.type === "ai_current") return widest(hardware?.aiCurrentRanges ?? []);
   if (!isTemperature(channel) || TEMPERATURE_TYPES.has(previous)) return undefined;
@@ -170,7 +170,7 @@ const VOLTAGE_RANGE: closedBounds.ClosedBounds = { lower: -10, upper: 10 };
  * V when the device reports none.
  */
 export const defaultAIVoltageRange = (
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): closedBounds.ClosedBounds =>
   widest(hardware?.aiVoltageRanges ?? []) ?? VOLTAGE_RANGE;
 
@@ -245,7 +245,7 @@ export const AI_CHANNEL_TYPE_ICONS: Record<AIChannelType, Icon.FC> = {
 };
 
 export type CIChannel = ni.CIChannel;
-export type CIChannelType = ni.CIChannelType;
+export type CIChannelType = ni.device.CIChannelType;
 export type CIFreqUnits = ni.CIFreqUnits;
 export type CITimeUnits = ni.CITimeUnits;
 export type CIPeriodUnits = ni.CITimeUnits;
@@ -298,9 +298,9 @@ export const AO_FUNC_GEN_CHAN_TYPE = "ao_func_gen";
 export const AO_VOLTAGE_CHAN_TYPE = "ao_voltage";
 
 export type AOChannel = ni.AOChannel;
-export type AOChannelType = ni.AOChannelType;
+export type AOChannelType = ni.device.AOChannelType;
 export const AO_CHANNEL_SCHEMAS = ni.AO_CHANNEL_SCHEMAS;
-export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
+export const AO_CHANNEL_TYPES = ni.device.AO_CHANNEL_TYPES;
 
 /**
  * The range a channel switched to the type takes on the device: the widest current
@@ -308,7 +308,7 @@ export const AO_CHANNEL_TYPES = ni.AO_CHANNEL_TYPES;
  */
 export const defaultAORange = (
   type: AOChannelType,
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): closedBounds.ClosedBounds | undefined =>
   type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
 

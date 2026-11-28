@@ -33,7 +33,10 @@ import {
 } from "@/feature/ni/task/types";
 import { Task } from "@/platform/task";
 
-const hardwareOf = (devices: Device.Device[], key: string): ni.Hardware | undefined =>
+const hardwareOf = (
+  devices: Device.Device[],
+  key: string,
+): ni.device.Hardware | undefined =>
   devices.find((d) => d.key === key)?.properties.hardware;
 
 const conflictMessage = (port: string, claim: Claim, enabled: Claim[]): string => {
@@ -93,10 +96,10 @@ const checkAnalogRate = (
     if (min !== 0 && config.sampleRate < min)
       return report(["sampleRate"], `${model} samples at least ${formatMinRate(min)}`);
     const single = hardware.aiMaxSingleChannelRate;
-    if (single !== 0 && config.sampleRate > single)
+    if (single != null && config.sampleRate > single)
       return report(["sampleRate"], `${model} samples at most ${formatRate(single)}`);
     const multi = hardware.aiMaxMultiChannelRate;
-    if (multi === 0) return;
+    if (multi == null) return;
     let count = enabled.length;
     if (enabled.some((c) => c.type === THERMOCOUPLE))
       count += SCAN_CHANNELS_PER_THERMOCOUPLE_DEVICE;

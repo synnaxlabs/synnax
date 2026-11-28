@@ -20,9 +20,49 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+func newHardware() *device.Hardware {
+	return &device.Hardware{
+		AnalogInputs: []device.AnalogInputPort{{
+			Port: 1,
+			TerminalConfigs: []device.TerminalConfig{
+				device.TerminalConfigRse,
+				device.TerminalConfigDiff,
+			},
+			DefaultTerminalConfig: new(device.TerminalConfigDiff),
+			Types: []device.AIChannelType{
+				device.AIChannelTypeAiVoltage,
+			},
+			Negative: new(uint32(9)),
+		}},
+		AnalogOutputs: []device.AnalogOutputPort{{
+			Port:            0,
+			TerminalConfigs: []device.TerminalConfig{device.TerminalConfigRse},
+			Types:           []device.AOChannelType{device.AOChannelTypeAoVoltage},
+		}},
+		CounterInputs: []device.CounterPort{
+			{Port: 0, Types: []device.CIChannelType{device.CIChannelTypeCiFrequency}},
+		},
+		CounterOutputs: []device.CounterPort{
+			{Port: 1, Types: []device.CIChannelType{}},
+		},
+		DigitalPorts:           []device.DigitalPort{{Port: 0, Lines: 8, Input: true}},
+		Terminals:              []string{"PFI0"},
+		AiMinRate:              1,
+		AiMaxSingleChannelRate: new(250 * telem.Kilohertz),
+		AiMaxMultiChannelRate:  new(250 * telem.Kilohertz),
+		AoMaxRate:              new(telem.Kilohertz),
+		AiVoltageRanges:        []spatial.ClosedBounds{{Lower: -10, Upper: 10}},
+		AiCurrentRanges:        []spatial.ClosedBounds{{Lower: -0.02, Upper: 0.02}},
+		AoVoltageRanges:        []spatial.ClosedBounds{{Lower: -10, Upper: 10}},
+		AoCurrentRanges:        []spatial.ClosedBounds{},
+	}
+}
 
 var _ = Describe("Translator", func() {
 	It("Should round trip a device with its port maps and status", func() {
@@ -36,26 +76,34 @@ var _ = Describe("Translator", func() {
 			ResourceName: "{GUID}",
 			Model:        "NI 9205",
 			Chassis:      &chassisKey,
+			Hardware:     newHardware(),
 			Identifier:   "mod1",
 			AnalogInput: device.AnalogInputPorts{
-				Index:       1,
-				Temperature: 2,
+				Index:       new(channel.Key(1)),
+				Temperature: new(channel.Key(2)),
 				Channels:    map[uint16]channel.Key{3: 4},
 			},
 			AnalogOutput: map[uint16]device.AnalogOutputChannels{
-				1: {StateIndex: 5, Command: 6, State: 7},
+				1: {
+					StateIndex: new(channel.Key(5)),
+					Command:    new(channel.Key(6)),
+					State:      new(channel.Key(7)),
+				},
 			},
 			CounterInput: map[uint16]device.CounterInputChannels{
-				2: {Index: 8, Channel: 9},
+				2: {Index: new(channel.Key(8)), Channel: new(channel.Key(9))},
 			},
 			DigitalInput: map[uint16]device.DigitalInputChannels{
-				0: {Index: 10, Lines: map[uint8]channel.Key{7: 11}},
+				0: {Index: new(channel.Key(10)), Lines: map[uint8]channel.Key{7: 11}},
 			},
 			DigitalOutput: map[uint16]device.DigitalOutputChannels{
 				1: {
-					StateIndex: 12,
+					StateIndex: new(channel.Key(12)),
 					Lines: map[uint8]device.CommandStatePair{
-						255: {Command: 13, State: 14},
+						255: {
+							Command: new(channel.Key(13)),
+							State:   new(channel.Key(14)),
+						},
 					},
 				},
 			},
@@ -88,6 +136,13 @@ var _ = Describe("Translator", func() {
 			To(MatchError(validate.ErrValidation))
 	})
 
+	It("Should reject an unknown terminal configuration", func() {
+		hw := newHardware()
+		hw.AnalogInputs[0].DefaultTerminalConfig = new(device.TerminalConfig("Bogus"))
+		Expect(pb.HardwareToPB(*hw)).Error().
+			To(MatchError(ContainSubstring("unrecognized device.TerminalConfig value")))
+	})
+
 	DescribeTable("Should round trip an update", func(u device.Update) {
 		translated := MustSucceed(pb.UpdateToPB(u))
 		Expect(pb.UpdateFromPB(translated)).To(Equal(u))
@@ -98,6 +153,7 @@ var _ = Describe("Translator", func() {
 				Serial:       "01A",
 				ResourceName: "{GUID}",
 				Model:        "NI 9205",
+				Hardware:     newHardware(),
 			},
 		}}),
 		Entry("of the configuration group", device.Update{

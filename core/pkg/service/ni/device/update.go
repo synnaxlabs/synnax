@@ -80,9 +80,10 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 }
 
 // Apply replaces the field group that update carries on the device stored under key and
-// keeps the other group as stored. It returns an error wrapping query.ErrNotFound when
-// no device is stored under key and a validation error when update is invalid. A
-// transaction that commits between the read and the write of this one is overwritten.
+// keeps the other group as stored. An identity update without hardware keeps the stored
+// hardware. It returns an error wrapping query.ErrNotFound when no device is stored
+// under key and a validation error when update is invalid. A transaction that commits
+// between the read and the write of this one is overwritten.
 func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 	switch v := update.Variant.(type) {
 	case IdentityUpdate:
@@ -95,6 +96,9 @@ func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
 			d.ResourceName = v.ResourceName
 			d.Model = v.Model
 			d.Chassis = v.Chassis
+			if v.Hardware != nil {
+				d.Hardware = v.Hardware
+			}
 			return d, nil
 		})
 	case ConfigurationUpdate:

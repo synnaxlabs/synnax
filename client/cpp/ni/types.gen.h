@@ -18,14 +18,15 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/key.h"
+#include "client/cpp/ni/device/types.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/spatial/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
 namespace synnax::ni {
 
 struct MinMaxVal;
+struct Terminal;
 struct Sensitivity;
 struct BaseAIChannel;
 struct BaseCIChannel;
@@ -34,8 +35,6 @@ struct DIChannel;
 struct DOChannel;
 struct WriteConfig;
 struct ScanConfig;
-struct CounterPort;
-struct DigitalPort;
 struct CommandedAOChannel;
 struct DigitalReadConfig;
 struct DigitalWriteConfig;
@@ -44,23 +43,13 @@ struct Table;
 struct TwoPointLin;
 struct CurrentExcitation;
 struct VoltageExcitation;
-struct Terminal;
-struct AnalogInputPort;
-struct AnalogOutputPort;
 struct Bridge;
 struct Resistance;
 struct ZIndex;
 struct CustomScale;
-struct Hardware;
 struct AnalogReadConfig;
 struct CounterReadConfig;
 struct AnalogWriteConfig;
-
-constexpr const char *TERMINAL_CONFIG_CFG_DEFAULT = "Cfg_Default";
-constexpr const char *TERMINAL_CONFIG_RSE = "RSE";
-constexpr const char *TERMINAL_CONFIG_NRSE = "NRSE";
-constexpr const char *TERMINAL_CONFIG_DIFF = "Diff";
-constexpr const char *TERMINAL_CONFIG_PSEUDO_DIFF = "PseudoDiff";
 
 constexpr const char *EXCITATION_SOURCE_INTERNAL = "Internal";
 constexpr const char *EXCITATION_SOURCE_EXTERNAL = "External";
@@ -241,6 +230,16 @@ struct MinMaxVal {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Terminal configures the terminal wiring of an analog input channel.
+struct Terminal {
+    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
+    /// ...).
+    std::string terminal_config = ::synnax::ni::device::TERMINAL_CONFIG_CFG_DEFAULT;
+
+    static Terminal parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Sensitivity specifies a sensor's sensitivity rating.
 struct Sensitivity {
     /// @brief sensitivity is the sensor's sensitivity rating.
@@ -357,33 +356,6 @@ struct WriteConfig : public ::synnax::task::WriteConfig {
 struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief CounterPort is a counter of an NI device.
-struct CounterPort {
-    /// @brief port is the number in the DAQmx name of the counter, such as 0 for ctr0.
-    std::uint16_t port = 0;
-    /// @brief types are the channel types that the counter accepts, such as
-    /// ci_frequency.
-    std::vector<std::string> types = {};
-
-    static CounterPort parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief DigitalPort is a digital port of an NI device.
-struct DigitalPort {
-    /// @brief port is the number in the DAQmx name of the port, such as 0 for port0.
-    std::uint16_t port = 0;
-    /// @brief lines is the number of lines in the port.
-    std::uint8_t lines = 0;
-    /// @brief input is true when the port reads digital input.
-    bool input = false;
-    /// @brief output is true when the port writes digital output.
-    bool output = false;
-
-    static DigitalPort parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -611,50 +583,6 @@ struct VoltageExcitation {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Terminal configures the terminal wiring of an analog input channel.
-struct Terminal {
-    /// @brief terminal_config selects the terminal configuration (RSE, NRSE, Diff,
-    /// ...).
-    std::string terminal_config = TERMINAL_CONFIG_CFG_DEFAULT;
-
-    static Terminal parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief AnalogInputPort is an analog input port of an NI device.
-struct AnalogInputPort {
-    /// @brief port is the number in the DAQmx name of the port, such as 3 for ai3.
-    std::uint16_t port = 0;
-    /// @brief terminal_configs are the terminal configurations that the port accepts.
-    std::vector<std::string> terminal_configs = {};
-    /// @brief default_terminal_config is the terminal configuration that Cfg_Default
-    /// gives on the port. The value Cfg_Default means that the Driver did not read it.
-    /// DAQmx always reads back a real configuration.
-    std::string default_terminal_config = TERMINAL_CONFIG_CFG_DEFAULT;
-    /// @brief types are the channel types that the port accepts, such as ai_voltage.
-    std::vector<std::string> types = {};
-    /// @brief negative is the port that a differential channel on this port uses as its
-    /// negative input. 0 means that the port has no pair. Port 0 is never a negative
-    /// port.
-    std::uint16_t negative = 0;
-
-    static AnalogInputPort parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief AnalogOutputPort is an analog output port of an NI device.
-struct AnalogOutputPort {
-    /// @brief port is the number in the DAQmx name of the port, such as 1 for ao1.
-    std::uint16_t port = 0;
-    /// @brief terminal_configs are the terminal configurations that the port accepts.
-    std::vector<std::string> terminal_configs = {};
-    /// @brief types are the channel types that the port accepts, such as ao_voltage.
-    std::vector<std::string> types = {};
-
-    static AnalogOutputPort parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief Bridge configures the wiring and nominal resistance of a bridge-based sensor.
 struct Bridge {
     /// @brief bridge_config selects the physical bridge wiring.
@@ -702,55 +630,12 @@ struct CustomScale {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Hardware is what the Driver reads from DAQmx about the ports, rates, and
-/// ranges of an NI device. The Driver stores it in the device properties under
-/// hardware.
-struct Hardware {
-    /// @brief analog_inputs are the analog input ports of the device.
-    std::vector<AnalogInputPort> analog_inputs = {};
-    /// @brief analog_outputs are the analog output ports of the device.
-    std::vector<AnalogOutputPort> analog_outputs = {};
-    /// @brief counter_inputs are the counters of the device that read input.
-    std::vector<CounterPort> counter_inputs = {};
-    /// @brief counter_outputs are the counters of the device that write output.
-    std::vector<CounterPort> counter_outputs = {};
-    /// @brief digital_ports are the digital ports of the device.
-    std::vector<DigitalPort> digital_ports = {};
-    /// @brief terminals are the terminals of the device, such as PFI0, without the
-    /// device name.
-    std::vector<std::string> terminals = {};
-    /// @brief ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that
-    /// the device does not support the attribute.
-    ::x::telem::Rate ai_min_rate = ::x::telem::Rate(0);
-    /// @brief ai_max_single_channel_rate is the highest analog input sample rate of one
-    /// channel, in Hz. 0 means that the device does not support the attribute.
-    ::x::telem::Rate ai_max_single_channel_rate = ::x::telem::Rate(0);
-    /// @brief ai_max_multi_channel_rate is the highest analog input sample rate of the
-    /// device, in Hz. A task with several channels divides it by the channel count. 0
-    /// means that the device does not support the attribute.
-    ::x::telem::Rate ai_max_multi_channel_rate = ::x::telem::Rate(0);
-    /// @brief ao_max_rate is the highest analog output sample rate, in Hz. 0 means that
-    /// the device does not support the attribute.
-    ::x::telem::Rate ao_max_rate = ::x::telem::Rate(0);
-    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device.
-    std::vector<::x::spatial::ClosedBounds> ai_voltage_ranges = {};
-    /// @brief ai_current_ranges are the analog input current ranges of the device.
-    std::vector<::x::spatial::ClosedBounds> ai_current_ranges = {};
-    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device.
-    std::vector<::x::spatial::ClosedBounds> ao_voltage_ranges = {};
-    /// @brief ao_current_ranges are the analog output current ranges of the device.
-    std::vector<::x::spatial::ClosedBounds> ao_current_ranges = {};
-
-    static Hardware parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief AIVoltageChannel reads a voltage.
 struct AIVoltageChannel : public BaseAIChannel,
                           public MinMaxVal,
                           public Terminal,
                           public CustomScale {
-    std::string type = "ai_voltage";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_VOLTAGE;
 
     static AIVoltageChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -763,7 +648,7 @@ struct AIAccelChannel : public BaseAIChannel,
                         public Sensitivity,
                         public CurrentExcitation,
                         public CustomScale {
-    std::string type = "ai_accel";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_ACCEL;
     /// @brief units are the units of the acceleration measurement.
     std::string units = ACCEL_UNITS_G;
     /// @brief sensitivity_units are the units of the accelerometer sensitivity.
@@ -779,7 +664,7 @@ struct AIBridgeChannel : public BaseAIChannel,
                          public Bridge,
                          public VoltageExcitation,
                          public CustomScale {
-    std::string type = "ai_bridge";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_BRIDGE;
     /// @brief units are the electrical output units of the bridge.
     std::string units = ELECTRICAL_UNITS_M_VOLTS_PER_VOLT;
 
@@ -792,7 +677,7 @@ struct AICurrentChannel : public BaseAIChannel,
                           public MinMaxVal,
                           public Terminal,
                           public CustomScale {
-    std::string type = "ai_current";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_CURRENT;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
     /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
@@ -809,7 +694,7 @@ struct AIForceBridgeTableChannel : public BaseAIChannel,
                                    public VoltageExcitation,
                                    public Table,
                                    public CustomScale {
-    std::string type = "ai_force_bridge_table";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE;
     /// @brief units are the units of the force measurement.
     std::string units = FORCE_UNITS_NEWTONS;
     /// @brief physical_units are the physical units of the calibration table.
@@ -827,7 +712,8 @@ struct AIForceBridgeTwoPointLinChannel : public BaseAIChannel,
                                          public VoltageExcitation,
                                          public TwoPointLin,
                                          public CustomScale {
-    std::string type = "ai_force_bridge_two_point_lin";
+    std::string
+        type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN;
     /// @brief units are the units of the force measurement.
     std::string units = FORCE_UNITS_NEWTONS;
     /// @brief physical_units are the physical units of the two-point calibration.
@@ -844,7 +730,7 @@ struct AIForceIEPEChannel : public BaseAIChannel,
                             public Sensitivity,
                             public CurrentExcitation,
                             public CustomScale {
-    std::string type = "ai_force_iepe";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_FORCE_IEPE;
     /// @brief units are the units of the force measurement.
     std::string units = FORCE_UNITS_NEWTONS;
     /// @brief sensitivity_units are the units of the IEPE sensor sensitivity.
@@ -859,7 +745,7 @@ struct AIMicrophoneChannel : public BaseAIChannel,
                              public Terminal,
                              public CurrentExcitation,
                              public CustomScale {
-    std::string type = "ai_microphone";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_MICROPHONE;
     /// @brief mic_sensitivity is the microphone sensitivity, in mV/Pa.
     double mic_sensitivity = 0;
     /// @brief max_snd_press_level is the maximum expected sound pressure level, in dB.
@@ -877,7 +763,7 @@ struct AIPressureBridgeTableChannel : public BaseAIChannel,
                                       public VoltageExcitation,
                                       public Table,
                                       public CustomScale {
-    std::string type = "ai_pressure_bridge_table";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE;
     /// @brief units are the units of the pressure measurement.
     std::string units = PRESSURE_UNITS_POUNDS_PER_SQUARE_INCH;
     /// @brief physical_units are the physical units of the calibration table.
@@ -895,7 +781,8 @@ struct AIPressureBridgeTwoPointLinChannel : public BaseAIChannel,
                                             public VoltageExcitation,
                                             public TwoPointLin,
                                             public CustomScale {
-    std::string type = "ai_pressure_bridge_two_point_lin";
+    std::string
+        type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN;
     /// @brief units are the units of the pressure measurement.
     std::string units = PRESSURE_UNITS_POUNDS_PER_SQUARE_INCH;
     /// @brief physical_units are the physical units of the two-point calibration.
@@ -911,7 +798,7 @@ struct AIResistanceChannel : public BaseAIChannel,
                              public Resistance,
                              public CurrentExcitation,
                              public CustomScale {
-    std::string type = "ai_resistance";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_RESISTANCE;
 
     static AIResistanceChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -922,7 +809,7 @@ struct AIRTDChannel : public BaseAIChannel,
                       public MinMaxVal,
                       public Resistance,
                       public CurrentExcitation {
-    std::string type = "ai_rtd";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_RTD;
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_DEG_C;
     /// @brief rtd_type selects the RTD resistance-temperature curve.
@@ -939,7 +826,7 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
                               public MinMaxVal,
                               public VoltageExcitation,
                               public CustomScale {
-    std::string type = "ai_strain_gauge";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_STRAIN_GAUGE;
     /// @brief strain_config selects the strain-gauge bridge configuration.
     std::string strain_config = STRAIN_CONFIG_FULL_BRIDGE_I;
     /// @brief gage_factor is the gauge factor of the strain gauge.
@@ -960,7 +847,7 @@ struct AIStrainGaugeChannel : public BaseAIChannel,
 
 /// @brief AITempBuiltinChannel reads temperature from the device's built-in sensor.
 struct AITempBuiltinChannel {
-    std::string type = "ai_temp_builtin";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_TEMP_BUILTIN;
     /// @brief key uniquely identifies the channel within the task.
     std::string key;
     /// @brief name is the human-readable channel name.
@@ -980,7 +867,7 @@ struct AITempBuiltinChannel {
 
 /// @brief AIThermocoupleChannel reads temperature from a thermocouple.
 struct AIThermocoupleChannel : public BaseAIChannel, public MinMaxVal {
-    std::string type = "ai_thermocouple";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_THERMOCOUPLE;
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_DEG_C;
     /// @brief thermocouple_type selects the thermocouple alloy type.
@@ -1000,7 +887,7 @@ struct AITorqueBridgeTableChannel : public BaseAIChannel,
                                     public VoltageExcitation,
                                     public Table,
                                     public CustomScale {
-    std::string type = "ai_torque_bridge_table";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE;
     /// @brief units are the units of the torque measurement.
     std::string units = TORQUE_UNITS_NEWTON_METERS;
     /// @brief physical_units are the physical units of the calibration table.
@@ -1018,7 +905,8 @@ struct AITorqueBridgeTwoPointLinChannel : public BaseAIChannel,
                                           public VoltageExcitation,
                                           public TwoPointLin,
                                           public CustomScale {
-    std::string type = "ai_torque_bridge_two_point_lin";
+    std::string
+        type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN;
     /// @brief units are the units of the torque measurement.
     std::string units = TORQUE_UNITS_NEWTON_METERS;
     /// @brief physical_units are the physical units of the two-point calibration.
@@ -1035,7 +923,7 @@ struct AIVelocityIEPEChannel : public BaseAIChannel,
                                public Sensitivity,
                                public CurrentExcitation,
                                public CustomScale {
-    std::string type = "ai_velocity_iepe";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_VELOCITY_IEPE;
     /// @brief units are the units of the velocity measurement.
     std::string units = VELOCITY_UNITS_METERS_PER_SECOND;
     /// @brief sensitivity_units are the units of the IEPE sensor sensitivity.
@@ -1054,7 +942,7 @@ struct AIAccel4WireDCVoltageChannel : public BaseAIChannel,
                                       public Sensitivity,
                                       public VoltageExcitation,
                                       public CustomScale {
-    std::string type = "ai_accel_4_wire_dc_voltage";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE;
     /// @brief units are the units of the acceleration measurement.
     std::string units = ACCEL_UNITS_G;
     /// @brief sensitivity_units are the units of the accelerometer sensitivity.
@@ -1073,7 +961,7 @@ struct AIAccelChargeChannel : public BaseAIChannel,
                               public Terminal,
                               public Sensitivity,
                               public CustomScale {
-    std::string type = "ai_accel_charge";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_ACCEL_CHARGE;
     /// @brief units are the units of the acceleration measurement.
     std::string units = ACCEL_UNITS_G;
     /// @brief sensitivity_units are the units of the accelerometer sensitivity.
@@ -1088,7 +976,7 @@ struct AIChargeChannel : public BaseAIChannel,
                          public MinMaxVal,
                          public Terminal,
                          public CustomScale {
-    std::string type = "ai_charge";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_CHARGE;
     /// @brief units are the units of the charge measurement.
     std::string units = CHARGE_UNITS_COULOMBS;
 
@@ -1101,7 +989,7 @@ struct AICurrentRMSChannel : public BaseAIChannel,
                              public MinMaxVal,
                              public Terminal,
                              public CustomScale {
-    std::string type = "ai_current_rms";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_CURRENT_RMS;
     /// @brief shunt_resistor_loc selects where the shunt resistor is located.
     std::string shunt_resistor_loc = SHUNT_RESISTOR_LOCATION_DEFAULT;
     /// @brief ext_shunt_resistor_val is the external shunt resistor value, in Ohms.
@@ -1119,7 +1007,7 @@ struct AIForceBridgePolynomialChannel : public BaseAIChannel,
                                         public VoltageExcitation,
                                         public BridgePolynomial,
                                         public CustomScale {
-    std::string type = "ai_force_bridge_polynomial";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL;
     /// @brief units are the units of the force measurement.
     std::string units = FORCE_UNITS_NEWTONS;
     /// @brief physical_units are the physical units of the polynomial calibration.
@@ -1133,7 +1021,7 @@ struct AIForceBridgePolynomialChannel : public BaseAIChannel,
 struct AIFreqVoltageChannel : public BaseAIChannel,
                               public MinMaxVal,
                               public CustomScale {
-    std::string type = "ai_freq_voltage";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE;
     /// @brief threshold_level is the voltage level at which a cycle is counted.
     double threshold_level = 0;
     /// @brief hysteresis is the hysteresis applied around the threshold level.
@@ -1151,7 +1039,8 @@ struct AIPressureBridgePolynomialChannel : public BaseAIChannel,
                                            public VoltageExcitation,
                                            public BridgePolynomial,
                                            public CustomScale {
-    std::string type = "ai_pressure_bridge_polynomial";
+    std::string
+        type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL;
     /// @brief units are the units of the pressure measurement.
     std::string units = PRESSURE_UNITS_POUNDS_PER_SQUARE_INCH;
     /// @brief physical_units are the physical units of the polynomial calibration.
@@ -1166,7 +1055,7 @@ struct AIThermistorIexChannel : public BaseAIChannel,
                                 public MinMaxVal,
                                 public Resistance,
                                 public CurrentExcitation {
-    std::string type = "ai_thermistor_iex";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_THERMISTOR_IEX;
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_DEG_C;
     /// @brief a is the first Steinhart-Hart coefficient.
@@ -1185,7 +1074,7 @@ struct AIThermistorVexChannel : public BaseAIChannel,
                                 public MinMaxVal,
                                 public Resistance,
                                 public VoltageExcitation {
-    std::string type = "ai_thermistor_vex";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_THERMISTOR_VEX;
     /// @brief units are the units of the temperature measurement.
     std::string units = TEMPERATURE_UNITS_DEG_C;
     /// @brief a is the first Steinhart-Hart coefficient.
@@ -1209,7 +1098,8 @@ struct AITorqueBridgePolynomialChannel : public BaseAIChannel,
                                          public VoltageExcitation,
                                          public BridgePolynomial,
                                          public CustomScale {
-    std::string type = "ai_torque_bridge_polynomial";
+    std::string
+        type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL;
     /// @brief units are the units of the torque measurement.
     std::string units = TORQUE_UNITS_NEWTON_METERS;
     /// @brief physical_units are the physical units of the polynomial calibration.
@@ -1224,7 +1114,7 @@ struct AIVoltageRMSChannel : public BaseAIChannel,
                              public MinMaxVal,
                              public Terminal,
                              public CustomScale {
-    std::string type = "ai_voltage_rms";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_VOLTAGE_RMS;
 
     static AIVoltageRMSChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1236,7 +1126,7 @@ struct AIVoltageWithExcitChannel : public BaseAIChannel,
                                    public Terminal,
                                    public VoltageExcitation,
                                    public CustomScale {
-    std::string type = "ai_voltage_with_excit";
+    std::string type = ::synnax::ni::device::AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT;
     /// @brief bridge_config selects the physical bridge wiring.
     std::string bridge_config = BRIDGE_CONFIG_FULL_BRIDGE;
     /// @brief scaled_by_excitation is true when the excitation voltage is used to scale
@@ -1286,7 +1176,7 @@ AIChannel parse_ai_channel(x::json::Parser parser);
 
 /// @brief CIFrequencyChannel measures signal frequency.
 struct CIFrequencyChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
-    std::string type = "ci_frequency";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_FREQUENCY;
     /// @brief units are the units of the frequency measurement.
     std::string units = CI_FREQ_UNITS_HZ;
     /// @brief edge selects the edge the counter responds to.
@@ -1311,7 +1201,7 @@ struct CIFrequencyChannel : public BaseCIChannel, public CustomScale, public Min
 
 /// @brief CIEdgeCountChannel counts signal edges.
 struct CIEdgeCountChannel : public BaseCIChannel {
-    std::string type = "ci_edge_count";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_EDGE_COUNT;
     /// @brief active_edge selects the edge that increments the count.
     std::string active_edge = CI_EDGE_RISING;
     /// @brief count_direction selects the direction the counter counts.
@@ -1327,7 +1217,7 @@ struct CIEdgeCountChannel : public BaseCIChannel {
 
 /// @brief CIPeriodChannel measures signal period.
 struct CIPeriodChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
-    std::string type = "ci_period";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_PERIOD;
     /// @brief units are the units of the period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief starting_edge selects the edge that starts a period measurement.
@@ -1354,7 +1244,7 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale, public MinMax
 struct CIPulseWidthChannel : public BaseCIChannel,
                              public CustomScale,
                              public MinMaxVal {
-    std::string type = "ci_pulse_width";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_PULSE_WIDTH;
     /// @brief units are the units of the pulse-width measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief starting_edge selects the edge that starts a pulse-width measurement.
@@ -1375,7 +1265,7 @@ struct CIPulseWidthChannel : public BaseCIChannel,
 struct CISemiPeriodChannel : public BaseCIChannel,
                              public CustomScale,
                              public MinMaxVal {
-    std::string type = "ci_semi_period";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_SEMI_PERIOD;
     /// @brief units are the units of the semi-period measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief terminal is the terminal the counter signal is wired to.
@@ -1394,7 +1284,7 @@ struct CISemiPeriodChannel : public BaseCIChannel,
 struct CITwoEdgeSepChannel : public BaseCIChannel,
                              public CustomScale,
                              public MinMaxVal {
-    std::string type = "ci_two_edge_sep";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP;
     /// @brief units are the units of the two-edge-separation measurement.
     std::string units = CI_TIME_UNITS_SECONDS;
     /// @brief first_edge selects the edge that starts the measurement.
@@ -1419,7 +1309,7 @@ struct CITwoEdgeSepChannel : public BaseCIChannel,
 struct CIVelocityLinearChannel : public BaseCIChannel,
                                  public CustomScale,
                                  public MinMaxVal {
-    std::string type = "ci_velocity_linear";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR;
     /// @brief units are the units of the velocity measurement.
     std::string units = CI_LINEAR_VELOCITY_UNITS_M_PER_S;
     /// @brief decoding_type selects the encoder decoding type.
@@ -1444,7 +1334,7 @@ struct CIVelocityLinearChannel : public BaseCIChannel,
 struct CIVelocityAngularChannel : public BaseCIChannel,
                                   public CustomScale,
                                   public MinMaxVal {
-    std::string type = "ci_velocity_angular";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR;
     /// @brief units are the units of the velocity measurement.
     std::string units = CI_ANGULAR_VELOCITY_UNITS_RPM;
     /// @brief decoding_type selects the encoder decoding type.
@@ -1469,7 +1359,7 @@ struct CIVelocityAngularChannel : public BaseCIChannel,
 struct CIPositionLinearChannel : public BaseCIChannel,
                                  public CustomScale,
                                  public ZIndex {
-    std::string type = "ci_position_linear";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_POSITION_LINEAR;
     /// @brief units are the units of the position measurement.
     std::string units = CI_LINEAR_POSITION_UNITS_METERS;
     /// @brief decoding_type selects the encoder decoding type.
@@ -1491,7 +1381,7 @@ struct CIPositionLinearChannel : public BaseCIChannel,
 struct CIPositionAngularChannel : public BaseCIChannel,
                                   public CustomScale,
                                   public ZIndex {
-    std::string type = "ci_position_angular";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_POSITION_ANGULAR;
     /// @brief units are the units of the position measurement.
     std::string units = CI_ANGULAR_POSITION_UNITS_DEGREES;
     /// @brief decoding_type selects the encoder decoding type.
@@ -1511,7 +1401,7 @@ struct CIPositionAngularChannel : public BaseCIChannel,
 
 /// @brief CIDutyCycleChannel measures the duty cycle of a signal.
 struct CIDutyCycleChannel : public BaseCIChannel, public CustomScale, public MinMaxVal {
-    std::string type = "ci_duty_cycle";
+    std::string type = ::synnax::ni::device::CI_CHANNEL_TYPE_CI_DUTY_CYCLE;
     /// @brief active_edge selects the edge the counter responds to.
     std::string active_edge = CI_EDGE_RISING;
     /// @brief terminal is the terminal the counter signal is wired to.
@@ -1554,7 +1444,7 @@ struct AOCurrentChannel : public BaseAOChannel,
                           public MinMaxVal,
                           public CustomScale,
                           public CommandedAOChannel {
-    std::string type = "ao_current";
+    std::string type = ::synnax::ni::device::AO_CHANNEL_TYPE_AO_CURRENT;
 
     static AOCurrentChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -1563,7 +1453,7 @@ struct AOCurrentChannel : public BaseAOChannel,
 /// @brief AOFuncGenChannel generates a waveform from task start to task stop, with no
 /// commands.
 struct AOFuncGenChannel : public BaseAOChannel {
-    std::string type = "ao_func_gen";
+    std::string type = ::synnax::ni::device::AO_CHANNEL_TYPE_AO_FUNC_GEN;
     /// @brief wave_type selects the waveform to generate.
     std::string wave_type = WAVE_TYPE_SINE;
     /// @brief frequency is the waveform frequency, in Hertz.
@@ -1582,7 +1472,7 @@ struct AOVoltageChannel : public BaseAOChannel,
                           public MinMaxVal,
                           public CustomScale,
                           public CommandedAOChannel {
-    std::string type = "ao_voltage";
+    std::string type = ::synnax::ni::device::AO_CHANNEL_TYPE_AO_VOLTAGE;
 
     static AOVoltageChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

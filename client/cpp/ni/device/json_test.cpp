@@ -27,9 +27,9 @@ TEST(DigitalOutputChannels, RoundTripsLines) {
     const auto parsed = Configuration::parse(parser);
     ASSERT_NIL(parser.error());
     const auto &port = parsed.digital_output.at(2);
-    ASSERT_EQ(port.state_index, 1);
-    ASSERT_EQ(port.lines.at(7).command, 2);
-    ASSERT_EQ(port.lines.at(7).state, 3);
+    ASSERT_EQ(port.state_index, 1U);
+    ASSERT_EQ(port.lines.at(7).command, 2U);
+    ASSERT_EQ(port.lines.at(7).state, 3U);
 }
 
 /// @brief it should round trip the analog input channels keyed by port number.
@@ -38,7 +38,7 @@ TEST(AnalogInputPorts, RoundTripsChannels) {
     x::json::Parser parser(ports.to_json());
     const auto parsed = AnalogInputPorts::parse(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_EQ(parsed.temperature, 2);
+    ASSERT_EQ(parsed.temperature, 2U);
     ASSERT_EQ(parsed.channels.at(3), 4);
 }
 
@@ -49,6 +49,7 @@ TEST(Configuration, ParsesMissingPortGroups) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.name, "Module");
     ASSERT_TRUE(parsed.analog_input.channels.empty());
+    ASSERT_FALSE(parsed.analog_input.index.has_value());
     ASSERT_TRUE(parsed.digital_output.empty());
 }
 
@@ -89,9 +90,43 @@ TEST(Device, RoundTripsProto) {
     dev.analog_input.channels[3] = 4;
     dev.counter_input[2] = CounterInputChannels{.index = 8, .channel = 9};
     dev.digital_output[1].lines[255] = CommandStatePair{.command = 13, .state = 14};
+    dev.hardware = Hardware{
+        .analog_inputs = {AnalogInputPort{
+            .port = 1,
+            .terminal_configs = {TERMINAL_CONFIG_RSE, TERMINAL_CONFIG_DIFF},
+            .default_terminal_config = TERMINAL_CONFIG_DIFF,
+            .types = {"ai_voltage"},
+            .negative = 9,
+        }},
+        .analog_outputs = {AnalogOutputPort{
+            .port = 0,
+            .terminal_configs = {TERMINAL_CONFIG_RSE},
+            .types = {"ao_voltage"},
+        }},
+        .counter_inputs = {CounterPort{.port = 0, .types = {"ci_frequency"}}},
+        .counter_outputs = {CounterPort{.port = 1}},
+        .digital_ports = {DigitalPort{.port = 0, .lines = 8, .input = true}},
+        .terminals = {"PFI0"},
+        .ai_min_rate = x::telem::Rate(1.0),
+        .ai_max_single_channel_rate = x::telem::Rate(250000.0),
+        .ai_max_multi_channel_rate = x::telem::Rate(250000.0),
+        .ao_max_rate = x::telem::Rate(1000.0),
+        .ai_voltage_ranges = {x::spatial::ClosedBounds{.lower = -10, .upper = 10}},
+        .ai_current_ranges = {x::spatial::ClosedBounds{.lower = -0.02, .upper = 0.02}},
+        .ao_voltage_ranges = {x::spatial::ClosedBounds{.lower = -10, .upper = 10}},
+    };
     const auto pb = ASSERT_NIL_P(dev.to_proto());
     const auto parsed = ASSERT_NIL_P(Device::from_proto(pb));
     ASSERT_EQ(parsed.to_json(), dev.to_json());
+}
+
+/// @brief it should reject an unknown terminal configuration.
+TEST(AnalogInputPort, RejectsUnknownTerminalConfigToProto) {
+    const AnalogInputPort port{.port = 0, .default_terminal_config = "Bogus"};
+    ASSERT_OCCURRED_AS_P(
+        port.to_proto(),
+        x::errors::Error("unrecognized TerminalConfig value: Bogus")
+    );
 }
 
 /// @brief it should reject a line number that does not fit in a byte.

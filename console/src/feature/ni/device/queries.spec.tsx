@@ -95,7 +95,7 @@ describe("typed devices", async () => {
       name: uniqueName("ni_dev"),
       resourceName: id.create(),
       model: "PXIe-4300",
-      analogInput: { index: 0, temperature: 0, channels: { 0: port.key } },
+      analogInput: { channels: { 0: port.key } },
     });
 
   describe("useRetrieve", () => {

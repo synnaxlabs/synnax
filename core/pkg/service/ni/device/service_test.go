@@ -424,12 +424,15 @@ var _ = Describe("Service", func() {
 					Serial:       "02B",
 					ResourceName: "Mod2",
 					Model:        "PXI-6259",
+					Hardware:     &device.Hardware{AiMinRate: 10},
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, d.Key)
 			Expect(got.Serial).To(Equal("02B"))
 			Expect(got.ResourceName).To(Equal("Mod2"))
 			Expect(got.Model).To(Equal("PXI-6259"))
+			Expect(got.Hardware).
+				To(Equal(&device.Hardware{AiMinRate: 10}))
 			Expect(got.Name).To(Equal(d.Name))
 			Expect(got.Identifier).To(Equal("dev1"))
 		})
@@ -463,7 +466,7 @@ var _ = Describe("Service", func() {
 				d.Key,
 				func(d device.Device) (device.Device, error) {
 					d.AnalogInput = device.AnalogInputPorts{
-						Index:    keys[0],
+						Index:    new(keys[0]),
 						Channels: map[uint16]channel.Key{0: keys[1]},
 					}
 					return d, nil
@@ -601,6 +604,39 @@ var _ = Describe("Service", func() {
 			Expect(got.Serial).To(BeEmpty())
 			Expect(got.ResourceName).To(Equal("Mod2"))
 		})
+
+		It("Should reject a hardware rate that is not greater than 0", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			identity := newIdentity()
+			identity.Hardware = &device.Hardware{
+				AiMaxSingleChannelRate: new(telem.Rate(0)),
+			}
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should keep the stored hardware when an identity update has none", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			identity := newIdentity()
+			identity.Hardware = &device.Hardware{AiMinRate: 10}
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			identity.Hardware = nil
+			identity.Model = "PXI-6259A"
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Model).To(Equal("PXI-6259A"))
+			Expect(got.Hardware).
+				To(Equal(&device.Hardware{AiMinRate: 10}))
+		})
 	})
 
 	Describe("Channels", func() {
@@ -612,7 +648,7 @@ var _ = Describe("Service", func() {
 					d.AnalogInput.Channels = map[uint16]channel.Key{0: ch}
 					d.DigitalOutput = map[uint16]device.DigitalOutputChannels{
 						1: {Lines: map[uint8]device.CommandStatePair{
-							2: {Command: ch},
+							2: {Command: &ch},
 						}},
 					}
 					return d, nil

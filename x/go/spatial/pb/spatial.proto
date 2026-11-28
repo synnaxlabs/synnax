@@ -29,3 +29,14 @@ message XY {
   // y is the vertical coordinate.
   double y = 2;
 }
+
+// ClosedBounds is a nonempty closed interval [lower, upper] over an ordered numeric
+// value space, such as the range of a hardware input. Go validation refuses a lower
+// that is not below upper. The TypeScript binding is generic over T; other languages
+// emit a concrete float64-based type.
+message ClosedBounds {
+  // lower is the inclusive lower bound.
+  double lower = 1;
+  // upper is the inclusive upper bound.
+  double upper = 2;
+}

@@ -123,9 +123,6 @@ type Device struct {
 // schema constraints.
 func (d Device) Validate() error {
 	v := validate.New("Device")
-	v.NotEmptyString("name", d.Name)
-	v.NotEmptyString("resource_name", d.ResourceName)
-	v.NotEmptyString("model", d.Model)
 	v.Ternary("identifier", !validatePattern0.MatchString(string(d.Identifier)), "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores")
 	return v.Error()
 }

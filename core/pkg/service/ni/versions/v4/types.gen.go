@@ -18,7 +18,8 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
+	legacydevice "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
+	nidevice "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
 	"github.com/synnaxlabs/x/errors"
@@ -158,22 +159,6 @@ const (
 	ExcitationSourceExternal ExcitationSource = v3.ExcitationSourceExternal
 	// ExcitationSourceNone uses no excitation.
 	ExcitationSourceNone ExcitationSource = v3.ExcitationSourceNone
-)
-
-// TerminalConfig selects the terminal configuration for an analog input channel.
-type TerminalConfig = v3.TerminalConfig
-
-const (
-	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
-	TerminalConfigCfgDefault TerminalConfig = v3.TerminalConfigCfgDefault
-	// TerminalConfigRse is referenced single ended.
-	TerminalConfigRse TerminalConfig = v3.TerminalConfigRse
-	// TerminalConfigNrse is non-referenced single ended.
-	TerminalConfigNrse TerminalConfig = v3.TerminalConfigNrse
-	// TerminalConfigDiff is differential.
-	TerminalConfigDiff TerminalConfig = v3.TerminalConfigDiff
-	// TerminalConfigPseudoDiff is pseudo-differential.
-	TerminalConfigPseudoDiff TerminalConfig = v3.TerminalConfigPseudoDiff
 )
 
 // BridgeConfig selects the physical bridge wiring of a bridge-based sensor.
@@ -548,7 +533,23 @@ type NoneScale = v3.NoneScale
 type MinMaxVal = v3.MinMaxVal
 
 // Terminal configures the terminal wiring of an analog input channel.
-type Terminal = v3.Terminal
+type Terminal struct {
+	// TerminalConfig selects the terminal configuration (RSE, NRSE, Diff, ...).
+	TerminalConfig nidevice.TerminalConfig `json:"terminal_config" msgpack:"terminal_config"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *Terminal) SetDefaults() {
+	t.TerminalConfig = nidevice.TerminalConfigCfgDefault
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t Terminal) Validate() error {
+	v := validate.New("Terminal")
+	v.Ternaryf("terminal_config", !t.TerminalConfig.IsValid(), "invalid terminal_config: %v", t.TerminalConfig)
+	return v.Error()
+}
 
 // Sensitivity specifies a sensor's sensitivity rating.
 type Sensitivity = v3.Sensitivity
@@ -591,83 +592,8 @@ type BaseAIChannel struct {
 	// Port is the physical port the channel reads from.
 	Port uint16 `json:"port" msgpack:"port"`
 	// Device is the key of the device the channel belongs to.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device legacydevice.Key `json:"device" msgpack:"device"`
 }
-
-// AIChannelType is the "type" value that selects a variant of AIChannel.
-type AIChannelType string
-
-const (
-	// AIVoltageChannelType reads a voltage.
-	AIVoltageChannelType AIChannelType = "ai_voltage"
-	// AIAccelChannelType reads acceleration from an accelerometer.
-	AIAccelChannelType AIChannelType = "ai_accel"
-	// AIBridgeChannelType reads a generic bridge-based sensor.
-	AIBridgeChannelType AIChannelType = "ai_bridge"
-	// AICurrentChannelType reads a current.
-	AICurrentChannelType AIChannelType = "ai_current"
-	// AIForceBridgeTableChannelType reads force from a bridge with a calibration table.
-	AIForceBridgeTableChannelType AIChannelType = "ai_force_bridge_table"
-	// AIForceBridgeTwoPointLinChannelType reads force from a bridge with two-point
-	// linear calibration.
-	AIForceBridgeTwoPointLinChannelType AIChannelType = "ai_force_bridge_two_point_lin"
-	// AIForceIEPEChannelType reads force from an IEPE sensor.
-	AIForceIEPEChannelType AIChannelType = "ai_force_iepe"
-	// AIMicrophoneChannelType reads sound pressure from a microphone.
-	AIMicrophoneChannelType AIChannelType = "ai_microphone"
-	// AIPressureBridgeTableChannelType reads pressure from a bridge with a calibration
-	// table.
-	AIPressureBridgeTableChannelType AIChannelType = "ai_pressure_bridge_table"
-	// AIPressureBridgeTwoPointLinChannelType reads pressure from a bridge with
-	// two-point linear calibration.
-	AIPressureBridgeTwoPointLinChannelType AIChannelType = "ai_pressure_bridge_two_point_lin"
-	// AIResistanceChannelType reads a resistance.
-	AIResistanceChannelType AIChannelType = "ai_resistance"
-	// AIRTDChannelType reads temperature from an RTD.
-	AIRTDChannelType AIChannelType = "ai_rtd"
-	// AIStrainGaugeChannelType reads strain from a strain gauge.
-	AIStrainGaugeChannelType AIChannelType = "ai_strain_gauge"
-	// AITempBuiltinChannelType reads temperature from the device's built-in sensor.
-	AITempBuiltinChannelType AIChannelType = "ai_temp_builtin"
-	// AIThermocoupleChannelType reads temperature from a thermocouple.
-	AIThermocoupleChannelType AIChannelType = "ai_thermocouple"
-	// AITorqueBridgeTableChannelType reads torque from a bridge with a calibration
-	// table.
-	AITorqueBridgeTableChannelType AIChannelType = "ai_torque_bridge_table"
-	// AITorqueBridgeTwoPointLinChannelType reads torque from a bridge with two-point
-	// linear calibration.
-	AITorqueBridgeTwoPointLinChannelType AIChannelType = "ai_torque_bridge_two_point_lin"
-	// AIVelocityIEPEChannelType reads velocity from an IEPE sensor.
-	AIVelocityIEPEChannelType AIChannelType = "ai_velocity_iepe"
-	// AIAccel4WireDCVoltageChannelType reads acceleration from a 4-wire DC-voltage
-	// accelerometer.
-	AIAccel4WireDCVoltageChannelType AIChannelType = "ai_accel_4_wire_dc_voltage"
-	// AIAccelChargeChannelType reads acceleration from a charge-mode accelerometer.
-	AIAccelChargeChannelType AIChannelType = "ai_accel_charge"
-	// AIChargeChannelType reads a raw charge.
-	AIChargeChannelType AIChannelType = "ai_charge"
-	// AICurrentRMSChannelType reads RMS current.
-	AICurrentRMSChannelType AIChannelType = "ai_current_rms"
-	// AIForceBridgePolynomialChannelType reads force from a bridge with polynomial
-	// calibration.
-	AIForceBridgePolynomialChannelType AIChannelType = "ai_force_bridge_polynomial"
-	// AIFreqVoltageChannelType reads frequency from a voltage signal.
-	AIFreqVoltageChannelType AIChannelType = "ai_freq_voltage"
-	// AIPressureBridgePolynomialChannelType reads pressure from a bridge with
-	// polynomial calibration.
-	AIPressureBridgePolynomialChannelType AIChannelType = "ai_pressure_bridge_polynomial"
-	// AIThermistorIexChannelType reads temperature from a current-excited thermistor.
-	AIThermistorIexChannelType AIChannelType = "ai_thermistor_iex"
-	// AIThermistorVexChannelType reads temperature from a voltage-excited thermistor.
-	AIThermistorVexChannelType AIChannelType = "ai_thermistor_vex"
-	// AITorqueBridgePolynomialChannelType reads torque from a bridge with polynomial
-	// calibration.
-	AITorqueBridgePolynomialChannelType AIChannelType = "ai_torque_bridge_polynomial"
-	// AIVoltageRMSChannelType reads RMS voltage.
-	AIVoltageRMSChannelType AIChannelType = "ai_voltage_rms"
-	// AIVoltageWithExcitChannelType reads a voltage with excitation.
-	AIVoltageWithExcitChannelType AIChannelType = "ai_voltage_with_excit"
-)
 
 // AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant interface {
@@ -1345,7 +1271,7 @@ type AITempBuiltinChannel struct {
 	// Channel is the Synnax channel that raw samples are written to.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Device is the key of the device the channel belongs to.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device legacydevice.Key `json:"device" msgpack:"device"`
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 }
@@ -2211,154 +2137,154 @@ func (u AIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return enc.WriteToken(jsontext.Null)
 	case AIVoltageChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIVoltageChannel
-		}{Type: AIVoltageChannelType, AIVoltageChannel: v})
+		}{Type: nidevice.AIChannelTypeAiVoltage, AIVoltageChannel: v})
 	case AIAccelChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIAccelChannel
-		}{Type: AIAccelChannelType, AIAccelChannel: v})
+		}{Type: nidevice.AIChannelTypeAiAccel, AIAccelChannel: v})
 	case AIBridgeChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIBridgeChannel
-		}{Type: AIBridgeChannelType, AIBridgeChannel: v})
+		}{Type: nidevice.AIChannelTypeAiBridge, AIBridgeChannel: v})
 	case AICurrentChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AICurrentChannel
-		}{Type: AICurrentChannelType, AICurrentChannel: v})
+		}{Type: nidevice.AIChannelTypeAiCurrent, AICurrentChannel: v})
 	case AIForceBridgeTableChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIForceBridgeTableChannel
-		}{Type: AIForceBridgeTableChannelType, AIForceBridgeTableChannel: v})
+		}{Type: nidevice.AIChannelTypeAiForceBridgeTable, AIForceBridgeTableChannel: v})
 	case AIForceBridgeTwoPointLinChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIForceBridgeTwoPointLinChannel
-		}{Type: AIForceBridgeTwoPointLinChannelType, AIForceBridgeTwoPointLinChannel: v})
+		}{Type: nidevice.AIChannelTypeAiForceBridgeTwoPointLin, AIForceBridgeTwoPointLinChannel: v})
 	case AIForceIEPEChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIForceIEPEChannel
-		}{Type: AIForceIEPEChannelType, AIForceIEPEChannel: v})
+		}{Type: nidevice.AIChannelTypeAiForceIepe, AIForceIEPEChannel: v})
 	case AIMicrophoneChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIMicrophoneChannel
-		}{Type: AIMicrophoneChannelType, AIMicrophoneChannel: v})
+		}{Type: nidevice.AIChannelTypeAiMicrophone, AIMicrophoneChannel: v})
 	case AIPressureBridgeTableChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIPressureBridgeTableChannel
-		}{Type: AIPressureBridgeTableChannelType, AIPressureBridgeTableChannel: v})
+		}{Type: nidevice.AIChannelTypeAiPressureBridgeTable, AIPressureBridgeTableChannel: v})
 	case AIPressureBridgeTwoPointLinChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIPressureBridgeTwoPointLinChannel
-		}{Type: AIPressureBridgeTwoPointLinChannelType, AIPressureBridgeTwoPointLinChannel: v})
+		}{Type: nidevice.AIChannelTypeAiPressureBridgeTwoPointLin, AIPressureBridgeTwoPointLinChannel: v})
 	case AIResistanceChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIResistanceChannel
-		}{Type: AIResistanceChannelType, AIResistanceChannel: v})
+		}{Type: nidevice.AIChannelTypeAiResistance, AIResistanceChannel: v})
 	case AIRTDChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIRTDChannel
-		}{Type: AIRTDChannelType, AIRTDChannel: v})
+		}{Type: nidevice.AIChannelTypeAiRtd, AIRTDChannel: v})
 	case AIStrainGaugeChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIStrainGaugeChannel
-		}{Type: AIStrainGaugeChannelType, AIStrainGaugeChannel: v})
+		}{Type: nidevice.AIChannelTypeAiStrainGauge, AIStrainGaugeChannel: v})
 	case AITempBuiltinChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AITempBuiltinChannel
-		}{Type: AITempBuiltinChannelType, AITempBuiltinChannel: v})
+		}{Type: nidevice.AIChannelTypeAiTempBuiltin, AITempBuiltinChannel: v})
 	case AIThermocoupleChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIThermocoupleChannel
-		}{Type: AIThermocoupleChannelType, AIThermocoupleChannel: v})
+		}{Type: nidevice.AIChannelTypeAiThermocouple, AIThermocoupleChannel: v})
 	case AITorqueBridgeTableChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AITorqueBridgeTableChannel
-		}{Type: AITorqueBridgeTableChannelType, AITorqueBridgeTableChannel: v})
+		}{Type: nidevice.AIChannelTypeAiTorqueBridgeTable, AITorqueBridgeTableChannel: v})
 	case AITorqueBridgeTwoPointLinChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AITorqueBridgeTwoPointLinChannel
-		}{Type: AITorqueBridgeTwoPointLinChannelType, AITorqueBridgeTwoPointLinChannel: v})
+		}{Type: nidevice.AIChannelTypeAiTorqueBridgeTwoPointLin, AITorqueBridgeTwoPointLinChannel: v})
 	case AIVelocityIEPEChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIVelocityIEPEChannel
-		}{Type: AIVelocityIEPEChannelType, AIVelocityIEPEChannel: v})
+		}{Type: nidevice.AIChannelTypeAiVelocityIepe, AIVelocityIEPEChannel: v})
 	case AIAccel4WireDCVoltageChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIAccel4WireDCVoltageChannel
-		}{Type: AIAccel4WireDCVoltageChannelType, AIAccel4WireDCVoltageChannel: v})
+		}{Type: nidevice.AIChannelTypeAiAccel4WireDcVoltage, AIAccel4WireDCVoltageChannel: v})
 	case AIAccelChargeChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIAccelChargeChannel
-		}{Type: AIAccelChargeChannelType, AIAccelChargeChannel: v})
+		}{Type: nidevice.AIChannelTypeAiAccelCharge, AIAccelChargeChannel: v})
 	case AIChargeChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIChargeChannel
-		}{Type: AIChargeChannelType, AIChargeChannel: v})
+		}{Type: nidevice.AIChannelTypeAiCharge, AIChargeChannel: v})
 	case AICurrentRMSChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AICurrentRMSChannel
-		}{Type: AICurrentRMSChannelType, AICurrentRMSChannel: v})
+		}{Type: nidevice.AIChannelTypeAiCurrentRms, AICurrentRMSChannel: v})
 	case AIForceBridgePolynomialChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIForceBridgePolynomialChannel
-		}{Type: AIForceBridgePolynomialChannelType, AIForceBridgePolynomialChannel: v})
+		}{Type: nidevice.AIChannelTypeAiForceBridgePolynomial, AIForceBridgePolynomialChannel: v})
 	case AIFreqVoltageChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIFreqVoltageChannel
-		}{Type: AIFreqVoltageChannelType, AIFreqVoltageChannel: v})
+		}{Type: nidevice.AIChannelTypeAiFreqVoltage, AIFreqVoltageChannel: v})
 	case AIPressureBridgePolynomialChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIPressureBridgePolynomialChannel
-		}{Type: AIPressureBridgePolynomialChannelType, AIPressureBridgePolynomialChannel: v})
+		}{Type: nidevice.AIChannelTypeAiPressureBridgePolynomial, AIPressureBridgePolynomialChannel: v})
 	case AIThermistorIexChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIThermistorIexChannel
-		}{Type: AIThermistorIexChannelType, AIThermistorIexChannel: v})
+		}{Type: nidevice.AIChannelTypeAiThermistorIex, AIThermistorIexChannel: v})
 	case AIThermistorVexChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIThermistorVexChannel
-		}{Type: AIThermistorVexChannelType, AIThermistorVexChannel: v})
+		}{Type: nidevice.AIChannelTypeAiThermistorVex, AIThermistorVexChannel: v})
 	case AITorqueBridgePolynomialChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AITorqueBridgePolynomialChannel
-		}{Type: AITorqueBridgePolynomialChannelType, AITorqueBridgePolynomialChannel: v})
+		}{Type: nidevice.AIChannelTypeAiTorqueBridgePolynomial, AITorqueBridgePolynomialChannel: v})
 	case AIVoltageRMSChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIVoltageRMSChannel
-		}{Type: AIVoltageRMSChannelType, AIVoltageRMSChannel: v})
+		}{Type: nidevice.AIChannelTypeAiVoltageRms, AIVoltageRMSChannel: v})
 	case AIVoltageWithExcitChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIVoltageWithExcitChannel
-		}{Type: AIVoltageWithExcitChannelType, AIVoltageWithExcitChannel: v})
+		}{Type: nidevice.AIChannelTypeAiVoltageWithExcit, AIVoltageWithExcitChannel: v})
 	default:
 		return errors.Newf("AIChannel: unknown variant %T", v)
 	}
@@ -2376,7 +2302,7 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type AIChannelType `json:"type"`
+		Type nidevice.AIChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(
 		data, &disc, opts, json.RejectUnknownMembers(false),
@@ -2384,9 +2310,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case AIVoltageChannelType:
+	case nidevice.AIChannelTypeAiVoltage:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIVoltageChannel
 		}
 		v.AIVoltageChannel.SetUngroupedDefaults()
@@ -2395,9 +2321,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIVoltageChannel.DefaultGroups()
 		u.Variant = v.AIVoltageChannel
-	case AIAccelChannelType:
+	case nidevice.AIChannelTypeAiAccel:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIAccelChannel
 		}
 		v.AIAccelChannel.SetUngroupedDefaults()
@@ -2406,9 +2332,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIAccelChannel.DefaultGroups()
 		u.Variant = v.AIAccelChannel
-	case AIBridgeChannelType:
+	case nidevice.AIChannelTypeAiBridge:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIBridgeChannel
 		}
 		v.AIBridgeChannel.SetUngroupedDefaults()
@@ -2417,9 +2343,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIBridgeChannel.DefaultGroups()
 		u.Variant = v.AIBridgeChannel
-	case AICurrentChannelType:
+	case nidevice.AIChannelTypeAiCurrent:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AICurrentChannel
 		}
 		v.AICurrentChannel.SetUngroupedDefaults()
@@ -2428,9 +2354,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AICurrentChannel.DefaultGroups()
 		u.Variant = v.AICurrentChannel
-	case AIForceBridgeTableChannelType:
+	case nidevice.AIChannelTypeAiForceBridgeTable:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIForceBridgeTableChannel
 		}
 		v.AIForceBridgeTableChannel.SetUngroupedDefaults()
@@ -2439,9 +2365,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIForceBridgeTableChannel.DefaultGroups()
 		u.Variant = v.AIForceBridgeTableChannel
-	case AIForceBridgeTwoPointLinChannelType:
+	case nidevice.AIChannelTypeAiForceBridgeTwoPointLin:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIForceBridgeTwoPointLinChannel
 		}
 		v.AIForceBridgeTwoPointLinChannel.SetUngroupedDefaults()
@@ -2450,9 +2376,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIForceBridgeTwoPointLinChannel.DefaultGroups()
 		u.Variant = v.AIForceBridgeTwoPointLinChannel
-	case AIForceIEPEChannelType:
+	case nidevice.AIChannelTypeAiForceIepe:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIForceIEPEChannel
 		}
 		v.AIForceIEPEChannel.SetUngroupedDefaults()
@@ -2461,9 +2387,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIForceIEPEChannel.DefaultGroups()
 		u.Variant = v.AIForceIEPEChannel
-	case AIMicrophoneChannelType:
+	case nidevice.AIChannelTypeAiMicrophone:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIMicrophoneChannel
 		}
 		v.AIMicrophoneChannel.SetDefaults()
@@ -2471,9 +2397,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.AIMicrophoneChannel
-	case AIPressureBridgeTableChannelType:
+	case nidevice.AIChannelTypeAiPressureBridgeTable:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIPressureBridgeTableChannel
 		}
 		v.AIPressureBridgeTableChannel.SetUngroupedDefaults()
@@ -2482,9 +2408,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIPressureBridgeTableChannel.DefaultGroups()
 		u.Variant = v.AIPressureBridgeTableChannel
-	case AIPressureBridgeTwoPointLinChannelType:
+	case nidevice.AIChannelTypeAiPressureBridgeTwoPointLin:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIPressureBridgeTwoPointLinChannel
 		}
 		v.AIPressureBridgeTwoPointLinChannel.SetUngroupedDefaults()
@@ -2493,9 +2419,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIPressureBridgeTwoPointLinChannel.DefaultGroups()
 		u.Variant = v.AIPressureBridgeTwoPointLinChannel
-	case AIResistanceChannelType:
+	case nidevice.AIChannelTypeAiResistance:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIResistanceChannel
 		}
 		v.AIResistanceChannel.SetUngroupedDefaults()
@@ -2504,9 +2430,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIResistanceChannel.DefaultGroups()
 		u.Variant = v.AIResistanceChannel
-	case AIRTDChannelType:
+	case nidevice.AIChannelTypeAiRtd:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIRTDChannel
 		}
 		v.AIRTDChannel.SetUngroupedDefaults()
@@ -2515,9 +2441,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIRTDChannel.DefaultGroups()
 		u.Variant = v.AIRTDChannel
-	case AIStrainGaugeChannelType:
+	case nidevice.AIChannelTypeAiStrainGauge:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIStrainGaugeChannel
 		}
 		v.AIStrainGaugeChannel.SetUngroupedDefaults()
@@ -2526,9 +2452,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIStrainGaugeChannel.DefaultGroups()
 		u.Variant = v.AIStrainGaugeChannel
-	case AITempBuiltinChannelType:
+	case nidevice.AIChannelTypeAiTempBuiltin:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AITempBuiltinChannel
 		}
 		v.AITempBuiltinChannel.SetDefaults()
@@ -2536,9 +2462,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.AITempBuiltinChannel
-	case AIThermocoupleChannelType:
+	case nidevice.AIChannelTypeAiThermocouple:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIThermocoupleChannel
 		}
 		v.AIThermocoupleChannel.SetUngroupedDefaults()
@@ -2547,9 +2473,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIThermocoupleChannel.DefaultGroups()
 		u.Variant = v.AIThermocoupleChannel
-	case AITorqueBridgeTableChannelType:
+	case nidevice.AIChannelTypeAiTorqueBridgeTable:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AITorqueBridgeTableChannel
 		}
 		v.AITorqueBridgeTableChannel.SetUngroupedDefaults()
@@ -2558,9 +2484,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AITorqueBridgeTableChannel.DefaultGroups()
 		u.Variant = v.AITorqueBridgeTableChannel
-	case AITorqueBridgeTwoPointLinChannelType:
+	case nidevice.AIChannelTypeAiTorqueBridgeTwoPointLin:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AITorqueBridgeTwoPointLinChannel
 		}
 		v.AITorqueBridgeTwoPointLinChannel.SetUngroupedDefaults()
@@ -2569,9 +2495,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AITorqueBridgeTwoPointLinChannel.DefaultGroups()
 		u.Variant = v.AITorqueBridgeTwoPointLinChannel
-	case AIVelocityIEPEChannelType:
+	case nidevice.AIChannelTypeAiVelocityIepe:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIVelocityIEPEChannel
 		}
 		v.AIVelocityIEPEChannel.SetUngroupedDefaults()
@@ -2580,9 +2506,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIVelocityIEPEChannel.DefaultGroups()
 		u.Variant = v.AIVelocityIEPEChannel
-	case AIAccel4WireDCVoltageChannelType:
+	case nidevice.AIChannelTypeAiAccel4WireDcVoltage:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIAccel4WireDCVoltageChannel
 		}
 		v.AIAccel4WireDCVoltageChannel.SetUngroupedDefaults()
@@ -2591,9 +2517,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIAccel4WireDCVoltageChannel.DefaultGroups()
 		u.Variant = v.AIAccel4WireDCVoltageChannel
-	case AIAccelChargeChannelType:
+	case nidevice.AIChannelTypeAiAccelCharge:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIAccelChargeChannel
 		}
 		v.AIAccelChargeChannel.SetUngroupedDefaults()
@@ -2602,9 +2528,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIAccelChargeChannel.DefaultGroups()
 		u.Variant = v.AIAccelChargeChannel
-	case AIChargeChannelType:
+	case nidevice.AIChannelTypeAiCharge:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIChargeChannel
 		}
 		v.AIChargeChannel.SetUngroupedDefaults()
@@ -2613,9 +2539,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIChargeChannel.DefaultGroups()
 		u.Variant = v.AIChargeChannel
-	case AICurrentRMSChannelType:
+	case nidevice.AIChannelTypeAiCurrentRms:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AICurrentRMSChannel
 		}
 		v.AICurrentRMSChannel.SetUngroupedDefaults()
@@ -2624,9 +2550,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AICurrentRMSChannel.DefaultGroups()
 		u.Variant = v.AICurrentRMSChannel
-	case AIForceBridgePolynomialChannelType:
+	case nidevice.AIChannelTypeAiForceBridgePolynomial:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIForceBridgePolynomialChannel
 		}
 		v.AIForceBridgePolynomialChannel.SetUngroupedDefaults()
@@ -2635,9 +2561,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIForceBridgePolynomialChannel.DefaultGroups()
 		u.Variant = v.AIForceBridgePolynomialChannel
-	case AIFreqVoltageChannelType:
+	case nidevice.AIChannelTypeAiFreqVoltage:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIFreqVoltageChannel
 		}
 		v.AIFreqVoltageChannel.SetUngroupedDefaults()
@@ -2646,9 +2572,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIFreqVoltageChannel.DefaultGroups()
 		u.Variant = v.AIFreqVoltageChannel
-	case AIPressureBridgePolynomialChannelType:
+	case nidevice.AIChannelTypeAiPressureBridgePolynomial:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIPressureBridgePolynomialChannel
 		}
 		v.AIPressureBridgePolynomialChannel.SetUngroupedDefaults()
@@ -2657,9 +2583,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIPressureBridgePolynomialChannel.DefaultGroups()
 		u.Variant = v.AIPressureBridgePolynomialChannel
-	case AIThermistorIexChannelType:
+	case nidevice.AIChannelTypeAiThermistorIex:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIThermistorIexChannel
 		}
 		v.AIThermistorIexChannel.SetUngroupedDefaults()
@@ -2668,9 +2594,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIThermistorIexChannel.DefaultGroups()
 		u.Variant = v.AIThermistorIexChannel
-	case AIThermistorVexChannelType:
+	case nidevice.AIChannelTypeAiThermistorVex:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIThermistorVexChannel
 		}
 		v.AIThermistorVexChannel.SetUngroupedDefaults()
@@ -2679,9 +2605,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIThermistorVexChannel.DefaultGroups()
 		u.Variant = v.AIThermistorVexChannel
-	case AITorqueBridgePolynomialChannelType:
+	case nidevice.AIChannelTypeAiTorqueBridgePolynomial:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AITorqueBridgePolynomialChannel
 		}
 		v.AITorqueBridgePolynomialChannel.SetUngroupedDefaults()
@@ -2690,9 +2616,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AITorqueBridgePolynomialChannel.DefaultGroups()
 		u.Variant = v.AITorqueBridgePolynomialChannel
-	case AIVoltageRMSChannelType:
+	case nidevice.AIChannelTypeAiVoltageRms:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIVoltageRMSChannel
 		}
 		v.AIVoltageRMSChannel.SetUngroupedDefaults()
@@ -2701,9 +2627,9 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AIVoltageRMSChannel.DefaultGroups()
 		u.Variant = v.AIVoltageRMSChannel
-	case AIVoltageWithExcitChannelType:
+	case nidevice.AIChannelTypeAiVoltageWithExcit:
 		var v struct {
-			Type AIChannelType `json:"type"`
+			Type nidevice.AIChannelType `json:"type"`
 			AIVoltageWithExcitChannel
 		}
 		v.AIVoltageWithExcitChannel.SetUngroupedDefaults()
@@ -2723,68 +2649,68 @@ func (u *AIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // Type returns the type of the active variant, or an empty type when there is none.
-func (u AIChannel) Type() AIChannelType {
+func (u AIChannel) Type() nidevice.AIChannelType {
 	switch u.Variant.(type) {
 	case AIVoltageChannel:
-		return AIVoltageChannelType
+		return nidevice.AIChannelTypeAiVoltage
 	case AIAccelChannel:
-		return AIAccelChannelType
+		return nidevice.AIChannelTypeAiAccel
 	case AIBridgeChannel:
-		return AIBridgeChannelType
+		return nidevice.AIChannelTypeAiBridge
 	case AICurrentChannel:
-		return AICurrentChannelType
+		return nidevice.AIChannelTypeAiCurrent
 	case AIForceBridgeTableChannel:
-		return AIForceBridgeTableChannelType
+		return nidevice.AIChannelTypeAiForceBridgeTable
 	case AIForceBridgeTwoPointLinChannel:
-		return AIForceBridgeTwoPointLinChannelType
+		return nidevice.AIChannelTypeAiForceBridgeTwoPointLin
 	case AIForceIEPEChannel:
-		return AIForceIEPEChannelType
+		return nidevice.AIChannelTypeAiForceIepe
 	case AIMicrophoneChannel:
-		return AIMicrophoneChannelType
+		return nidevice.AIChannelTypeAiMicrophone
 	case AIPressureBridgeTableChannel:
-		return AIPressureBridgeTableChannelType
+		return nidevice.AIChannelTypeAiPressureBridgeTable
 	case AIPressureBridgeTwoPointLinChannel:
-		return AIPressureBridgeTwoPointLinChannelType
+		return nidevice.AIChannelTypeAiPressureBridgeTwoPointLin
 	case AIResistanceChannel:
-		return AIResistanceChannelType
+		return nidevice.AIChannelTypeAiResistance
 	case AIRTDChannel:
-		return AIRTDChannelType
+		return nidevice.AIChannelTypeAiRtd
 	case AIStrainGaugeChannel:
-		return AIStrainGaugeChannelType
+		return nidevice.AIChannelTypeAiStrainGauge
 	case AITempBuiltinChannel:
-		return AITempBuiltinChannelType
+		return nidevice.AIChannelTypeAiTempBuiltin
 	case AIThermocoupleChannel:
-		return AIThermocoupleChannelType
+		return nidevice.AIChannelTypeAiThermocouple
 	case AITorqueBridgeTableChannel:
-		return AITorqueBridgeTableChannelType
+		return nidevice.AIChannelTypeAiTorqueBridgeTable
 	case AITorqueBridgeTwoPointLinChannel:
-		return AITorqueBridgeTwoPointLinChannelType
+		return nidevice.AIChannelTypeAiTorqueBridgeTwoPointLin
 	case AIVelocityIEPEChannel:
-		return AIVelocityIEPEChannelType
+		return nidevice.AIChannelTypeAiVelocityIepe
 	case AIAccel4WireDCVoltageChannel:
-		return AIAccel4WireDCVoltageChannelType
+		return nidevice.AIChannelTypeAiAccel4WireDcVoltage
 	case AIAccelChargeChannel:
-		return AIAccelChargeChannelType
+		return nidevice.AIChannelTypeAiAccelCharge
 	case AIChargeChannel:
-		return AIChargeChannelType
+		return nidevice.AIChannelTypeAiCharge
 	case AICurrentRMSChannel:
-		return AICurrentRMSChannelType
+		return nidevice.AIChannelTypeAiCurrentRms
 	case AIForceBridgePolynomialChannel:
-		return AIForceBridgePolynomialChannelType
+		return nidevice.AIChannelTypeAiForceBridgePolynomial
 	case AIFreqVoltageChannel:
-		return AIFreqVoltageChannelType
+		return nidevice.AIChannelTypeAiFreqVoltage
 	case AIPressureBridgePolynomialChannel:
-		return AIPressureBridgePolynomialChannelType
+		return nidevice.AIChannelTypeAiPressureBridgePolynomial
 	case AIThermistorIexChannel:
-		return AIThermistorIexChannelType
+		return nidevice.AIChannelTypeAiThermistorIex
 	case AIThermistorVexChannel:
-		return AIThermistorVexChannelType
+		return nidevice.AIChannelTypeAiThermistorVex
 	case AITorqueBridgePolynomialChannel:
-		return AITorqueBridgePolynomialChannelType
+		return nidevice.AIChannelTypeAiTorqueBridgePolynomial
 	case AIVoltageRMSChannel:
-		return AIVoltageRMSChannelType
+		return nidevice.AIChannelTypeAiVoltageRms
 	case AIVoltageWithExcitChannel:
-		return AIVoltageWithExcitChannelType
+		return nidevice.AIChannelTypeAiVoltageWithExcit
 	}
 	return ""
 }
@@ -3007,36 +2933,8 @@ type BaseCIChannel struct {
 	// Port is the physical counter the channel uses.
 	Port uint16 `json:"port" msgpack:"port"`
 	// Device is the key of the device the counter belongs to.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device legacydevice.Key `json:"device" msgpack:"device"`
 }
-
-// CIChannelType is the "type" value that selects a variant of CIChannel.
-type CIChannelType string
-
-const (
-	// CIFrequencyChannelType measures signal frequency.
-	CIFrequencyChannelType CIChannelType = "ci_frequency"
-	// CIEdgeCountChannelType counts signal edges.
-	CIEdgeCountChannelType CIChannelType = "ci_edge_count"
-	// CIPeriodChannelType measures signal period.
-	CIPeriodChannelType CIChannelType = "ci_period"
-	// CIPulseWidthChannelType measures pulse width.
-	CIPulseWidthChannelType CIChannelType = "ci_pulse_width"
-	// CISemiPeriodChannelType measures semi-period.
-	CISemiPeriodChannelType CIChannelType = "ci_semi_period"
-	// CITwoEdgeSepChannelType measures the separation between two edges.
-	CITwoEdgeSepChannelType CIChannelType = "ci_two_edge_sep"
-	// CIVelocityLinearChannelType measures linear velocity from an encoder.
-	CIVelocityLinearChannelType CIChannelType = "ci_velocity_linear"
-	// CIVelocityAngularChannelType measures angular velocity from an encoder.
-	CIVelocityAngularChannelType CIChannelType = "ci_velocity_angular"
-	// CIPositionLinearChannelType measures linear position from an encoder.
-	CIPositionLinearChannelType CIChannelType = "ci_position_linear"
-	// CIPositionAngularChannelType measures angular position from an encoder.
-	CIPositionAngularChannelType CIChannelType = "ci_position_angular"
-	// CIDutyCycleChannelType measures the duty cycle of a signal.
-	CIDutyCycleChannelType CIChannelType = "ci_duty_cycle"
-)
 
 // CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant interface {
@@ -3626,59 +3524,59 @@ func (u CIChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return enc.WriteToken(jsontext.Null)
 	case CIFrequencyChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIFrequencyChannel
-		}{Type: CIFrequencyChannelType, CIFrequencyChannel: v})
+		}{Type: nidevice.CIChannelTypeCiFrequency, CIFrequencyChannel: v})
 	case CIEdgeCountChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIEdgeCountChannel
-		}{Type: CIEdgeCountChannelType, CIEdgeCountChannel: v})
+		}{Type: nidevice.CIChannelTypeCiEdgeCount, CIEdgeCountChannel: v})
 	case CIPeriodChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIPeriodChannel
-		}{Type: CIPeriodChannelType, CIPeriodChannel: v})
+		}{Type: nidevice.CIChannelTypeCiPeriod, CIPeriodChannel: v})
 	case CIPulseWidthChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIPulseWidthChannel
-		}{Type: CIPulseWidthChannelType, CIPulseWidthChannel: v})
+		}{Type: nidevice.CIChannelTypeCiPulseWidth, CIPulseWidthChannel: v})
 	case CISemiPeriodChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CISemiPeriodChannel
-		}{Type: CISemiPeriodChannelType, CISemiPeriodChannel: v})
+		}{Type: nidevice.CIChannelTypeCiSemiPeriod, CISemiPeriodChannel: v})
 	case CITwoEdgeSepChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CITwoEdgeSepChannel
-		}{Type: CITwoEdgeSepChannelType, CITwoEdgeSepChannel: v})
+		}{Type: nidevice.CIChannelTypeCiTwoEdgeSep, CITwoEdgeSepChannel: v})
 	case CIVelocityLinearChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIVelocityLinearChannel
-		}{Type: CIVelocityLinearChannelType, CIVelocityLinearChannel: v})
+		}{Type: nidevice.CIChannelTypeCiVelocityLinear, CIVelocityLinearChannel: v})
 	case CIVelocityAngularChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIVelocityAngularChannel
-		}{Type: CIVelocityAngularChannelType, CIVelocityAngularChannel: v})
+		}{Type: nidevice.CIChannelTypeCiVelocityAngular, CIVelocityAngularChannel: v})
 	case CIPositionLinearChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIPositionLinearChannel
-		}{Type: CIPositionLinearChannelType, CIPositionLinearChannel: v})
+		}{Type: nidevice.CIChannelTypeCiPositionLinear, CIPositionLinearChannel: v})
 	case CIPositionAngularChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIPositionAngularChannel
-		}{Type: CIPositionAngularChannelType, CIPositionAngularChannel: v})
+		}{Type: nidevice.CIChannelTypeCiPositionAngular, CIPositionAngularChannel: v})
 	case CIDutyCycleChannel:
 		return json.MarshalEncode(enc, struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIDutyCycleChannel
-		}{Type: CIDutyCycleChannelType, CIDutyCycleChannel: v})
+		}{Type: nidevice.CIChannelTypeCiDutyCycle, CIDutyCycleChannel: v})
 	default:
 		return errors.Newf("CIChannel: unknown variant %T", v)
 	}
@@ -3696,7 +3594,7 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type CIChannelType `json:"type"`
+		Type nidevice.CIChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(
 		data, &disc, opts, json.RejectUnknownMembers(false),
@@ -3704,9 +3602,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case CIFrequencyChannelType:
+	case nidevice.CIChannelTypeCiFrequency:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIFrequencyChannel
 		}
 		v.CIFrequencyChannel.SetUngroupedDefaults()
@@ -3715,9 +3613,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.CIFrequencyChannel.DefaultGroups()
 		u.Variant = v.CIFrequencyChannel
-	case CIEdgeCountChannelType:
+	case nidevice.CIChannelTypeCiEdgeCount:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIEdgeCountChannel
 		}
 		v.CIEdgeCountChannel.SetDefaults()
@@ -3725,9 +3623,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.CIEdgeCountChannel
-	case CIPeriodChannelType:
+	case nidevice.CIChannelTypeCiPeriod:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIPeriodChannel
 		}
 		v.CIPeriodChannel.SetUngroupedDefaults()
@@ -3736,9 +3634,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.CIPeriodChannel.DefaultGroups()
 		u.Variant = v.CIPeriodChannel
-	case CIPulseWidthChannelType:
+	case nidevice.CIChannelTypeCiPulseWidth:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIPulseWidthChannel
 		}
 		v.CIPulseWidthChannel.SetUngroupedDefaults()
@@ -3747,9 +3645,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.CIPulseWidthChannel.DefaultGroups()
 		u.Variant = v.CIPulseWidthChannel
-	case CISemiPeriodChannelType:
+	case nidevice.CIChannelTypeCiSemiPeriod:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CISemiPeriodChannel
 		}
 		v.CISemiPeriodChannel.SetUngroupedDefaults()
@@ -3758,9 +3656,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.CISemiPeriodChannel.DefaultGroups()
 		u.Variant = v.CISemiPeriodChannel
-	case CITwoEdgeSepChannelType:
+	case nidevice.CIChannelTypeCiTwoEdgeSep:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CITwoEdgeSepChannel
 		}
 		v.CITwoEdgeSepChannel.SetUngroupedDefaults()
@@ -3769,9 +3667,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.CITwoEdgeSepChannel.DefaultGroups()
 		u.Variant = v.CITwoEdgeSepChannel
-	case CIVelocityLinearChannelType:
+	case nidevice.CIChannelTypeCiVelocityLinear:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIVelocityLinearChannel
 		}
 		v.CIVelocityLinearChannel.SetUngroupedDefaults()
@@ -3780,9 +3678,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.CIVelocityLinearChannel.DefaultGroups()
 		u.Variant = v.CIVelocityLinearChannel
-	case CIVelocityAngularChannelType:
+	case nidevice.CIChannelTypeCiVelocityAngular:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIVelocityAngularChannel
 		}
 		v.CIVelocityAngularChannel.SetUngroupedDefaults()
@@ -3791,9 +3689,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.CIVelocityAngularChannel.DefaultGroups()
 		u.Variant = v.CIVelocityAngularChannel
-	case CIPositionLinearChannelType:
+	case nidevice.CIChannelTypeCiPositionLinear:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIPositionLinearChannel
 		}
 		v.CIPositionLinearChannel.SetDefaults()
@@ -3801,9 +3699,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.CIPositionLinearChannel
-	case CIPositionAngularChannelType:
+	case nidevice.CIChannelTypeCiPositionAngular:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIPositionAngularChannel
 		}
 		v.CIPositionAngularChannel.SetDefaults()
@@ -3811,9 +3709,9 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.CIPositionAngularChannel
-	case CIDutyCycleChannelType:
+	case nidevice.CIChannelTypeCiDutyCycle:
 		var v struct {
-			Type CIChannelType `json:"type"`
+			Type nidevice.CIChannelType `json:"type"`
 			CIDutyCycleChannel
 		}
 		v.CIDutyCycleChannel.SetUngroupedDefaults()
@@ -3833,30 +3731,30 @@ func (u *CIChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // Type returns the type of the active variant, or an empty type when there is none.
-func (u CIChannel) Type() CIChannelType {
+func (u CIChannel) Type() nidevice.CIChannelType {
 	switch u.Variant.(type) {
 	case CIFrequencyChannel:
-		return CIFrequencyChannelType
+		return nidevice.CIChannelTypeCiFrequency
 	case CIEdgeCountChannel:
-		return CIEdgeCountChannelType
+		return nidevice.CIChannelTypeCiEdgeCount
 	case CIPeriodChannel:
-		return CIPeriodChannelType
+		return nidevice.CIChannelTypeCiPeriod
 	case CIPulseWidthChannel:
-		return CIPulseWidthChannelType
+		return nidevice.CIChannelTypeCiPulseWidth
 	case CISemiPeriodChannel:
-		return CISemiPeriodChannelType
+		return nidevice.CIChannelTypeCiSemiPeriod
 	case CITwoEdgeSepChannel:
-		return CITwoEdgeSepChannelType
+		return nidevice.CIChannelTypeCiTwoEdgeSep
 	case CIVelocityLinearChannel:
-		return CIVelocityLinearChannelType
+		return nidevice.CIChannelTypeCiVelocityLinear
 	case CIVelocityAngularChannel:
-		return CIVelocityAngularChannelType
+		return nidevice.CIChannelTypeCiVelocityAngular
 	case CIPositionLinearChannel:
-		return CIPositionLinearChannelType
+		return nidevice.CIChannelTypeCiPositionLinear
 	case CIPositionAngularChannel:
-		return CIPositionAngularChannelType
+		return nidevice.CIChannelTypeCiPositionAngular
 	case CIDutyCycleChannel:
-		return CIDutyCycleChannelType
+		return nidevice.CIChannelTypeCiDutyCycle
 	}
 	return ""
 }
@@ -3991,19 +3889,6 @@ type BaseAOChannel struct {
 // output.
 type CommandedAOChannel = v3.CommandedAOChannel
 
-// AOChannelType is the "type" value that selects a variant of AOChannel.
-type AOChannelType string
-
-const (
-	// AOCurrentChannelType drives a current output.
-	AOCurrentChannelType AOChannelType = "ao_current"
-	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
-	// commands.
-	AOFuncGenChannelType AOChannelType = "ao_func_gen"
-	// AOVoltageChannelType drives a voltage output.
-	AOVoltageChannelType AOChannelType = "ao_voltage"
-)
-
 // AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant interface {
 	isAOChannelVariant()
@@ -4131,19 +4016,19 @@ func (u AOChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return enc.WriteToken(jsontext.Null)
 	case AOCurrentChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AOChannelType `json:"type"`
+			Type nidevice.AOChannelType `json:"type"`
 			AOCurrentChannel
-		}{Type: AOCurrentChannelType, AOCurrentChannel: v})
+		}{Type: nidevice.AOChannelTypeAoCurrent, AOCurrentChannel: v})
 	case AOFuncGenChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AOChannelType `json:"type"`
+			Type nidevice.AOChannelType `json:"type"`
 			AOFuncGenChannel
-		}{Type: AOFuncGenChannelType, AOFuncGenChannel: v})
+		}{Type: nidevice.AOChannelTypeAoFuncGen, AOFuncGenChannel: v})
 	case AOVoltageChannel:
 		return json.MarshalEncode(enc, struct {
-			Type AOChannelType `json:"type"`
+			Type nidevice.AOChannelType `json:"type"`
 			AOVoltageChannel
-		}{Type: AOVoltageChannelType, AOVoltageChannel: v})
+		}{Type: nidevice.AOChannelTypeAoVoltage, AOVoltageChannel: v})
 	default:
 		return errors.Newf("AOChannel: unknown variant %T", v)
 	}
@@ -4161,7 +4046,7 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type AOChannelType `json:"type"`
+		Type nidevice.AOChannelType `json:"type"`
 	}
 	if err := json.Unmarshal(
 		data, &disc, opts, json.RejectUnknownMembers(false),
@@ -4169,9 +4054,9 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case AOCurrentChannelType:
+	case nidevice.AOChannelTypeAoCurrent:
 		var v struct {
-			Type AOChannelType `json:"type"`
+			Type nidevice.AOChannelType `json:"type"`
 			AOCurrentChannel
 		}
 		v.AOCurrentChannel.SetUngroupedDefaults()
@@ -4180,9 +4065,9 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		v.AOCurrentChannel.DefaultGroups()
 		u.Variant = v.AOCurrentChannel
-	case AOFuncGenChannelType:
+	case nidevice.AOChannelTypeAoFuncGen:
 		var v struct {
-			Type AOChannelType `json:"type"`
+			Type nidevice.AOChannelType `json:"type"`
 			AOFuncGenChannel
 		}
 		v.AOFuncGenChannel.SetDefaults()
@@ -4190,9 +4075,9 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.AOFuncGenChannel
-	case AOVoltageChannelType:
+	case nidevice.AOChannelTypeAoVoltage:
 		var v struct {
-			Type AOChannelType `json:"type"`
+			Type nidevice.AOChannelType `json:"type"`
 			AOVoltageChannel
 		}
 		v.AOVoltageChannel.SetUngroupedDefaults()
@@ -4212,14 +4097,14 @@ func (u *AOChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 }
 
 // Type returns the type of the active variant, or an empty type when there is none.
-func (u AOChannel) Type() AOChannelType {
+func (u AOChannel) Type() nidevice.AOChannelType {
 	switch u.Variant.(type) {
 	case AOCurrentChannel:
-		return AOCurrentChannelType
+		return nidevice.AOChannelTypeAoCurrent
 	case AOFuncGenChannel:
-		return AOFuncGenChannelType
+		return nidevice.AOChannelTypeAoFuncGen
 	case AOVoltageChannel:
-		return AOVoltageChannelType
+		return nidevice.AOChannelTypeAoVoltage
 	}
 	return ""
 }
@@ -4457,7 +4342,7 @@ func (a AnalogWriteConfig) Validate() error {
 type DigitalReadConfig struct {
 	task.ReadConfig
 	// Device is the key of the device the task acquires from.
-	Device device.Key `json:"device" msgpack:"device"`
+	Device legacydevice.Key `json:"device" msgpack:"device"`
 	// Channels are the digital input channels the task acquires.
 	Channels []DIChannel `json:"channels" msgpack:"channels"`
 }

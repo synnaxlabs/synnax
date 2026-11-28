@@ -9,6 +9,7 @@
 
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/ni_device/v2"
 import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
@@ -25,8 +26,6 @@ ForceUnits = v2.ForceUnits
 ElectricalUnits = v2.ElectricalUnits
 
 ExcitationSource = v2.ExcitationSource
-
-TerminalConfig = v2.TerminalConfig
 
 BridgeConfig = v2.BridgeConfig
 
@@ -66,7 +65,14 @@ Scale = v2.Scale
 
 MinMaxVal = v2.MinMaxVal
 
-Terminal = v2.Terminal
+Terminal struct {
+    terminal_config ni_device.TerminalConfig = cfg_default {
+        @doc value "selects the terminal configuration (RSE, NRSE, Diff, ...)."
+    }
+
+    @doc value  "configures the terminal wiring of an analog input channel."
+    @go marshal
+}
 
 Sensitivity = v2.Sensitivity
 
@@ -92,7 +98,7 @@ BaseAIChannel struct extends v3.BaseAIChannel {
     }
 }
 
-AIChannel union on type extends v3.AIChannel {}
+AIChannel union on type ni_device.AIChannelType extends v3.AIChannel {}
 
 CIEdge = v2.CIEdge
 
@@ -124,7 +130,7 @@ BaseCIChannel struct extends v3.BaseCIChannel {
     }
 }
 
-CIChannel union on type extends v3.CIChannel {
+CIChannel union on type ni_device.CIChannelType extends v3.CIChannel {
     ci_frequency {
         meas_time telem.TimeSpan = 6us {
             @doc value    "is the averaging window for high-frequency measurement."
@@ -151,7 +157,7 @@ BaseAOChannel struct extends v3.BaseAOChannel {
 
 CommandedAOChannel = v3.CommandedAOChannel
 
-AOChannel union on type extends BaseAOChannel {
+AOChannel union on type ni_device.AOChannelType extends BaseAOChannel {
     ao_current extends MinMaxVal, CustomScale, CommandedAOChannel {
         @doc value "drives a current output."
     }

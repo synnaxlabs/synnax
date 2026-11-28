@@ -16,7 +16,7 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/ni/json.gen.h"
+#include "client/cpp/ni/device/json.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/ni/daqmx/mock.h"
@@ -230,17 +230,17 @@ public:
 };
 
 /// @brief returns the hardware that probe reads from api.
-::synnax::ni::Hardware probe_api(const std::shared_ptr<FakeAPI> &api) {
+::synnax::ni::device::Hardware probe_api(const std::shared_ptr<FakeAPI> &api) {
     daqmx::SugaredAPI dmx(api);
     return ASSERT_NIL_P(probe(dmx, DEVICE));
 }
 
 /// @brief returns the negative port of each analog input port, keyed by port.
-std::unordered_map<std::uint16_t, std::uint16_t>
-negatives(const ::synnax::ni::Hardware &hw) {
-    std::unordered_map<std::uint16_t, std::uint16_t> out;
+std::unordered_map<std::uint16_t, std::uint32_t>
+negatives(const ::synnax::ni::device::Hardware &hw) {
+    std::unordered_map<std::uint16_t, std::uint32_t> out;
     for (const auto &ai: hw.analog_inputs)
-        out[ai.port] = ai.negative;
+        out[ai.port] = ai.negative.value_or(0);
     return out;
 }
 
@@ -349,10 +349,7 @@ TEST(ProbeTest, testLeavesDefaultUnreadWhenReadbackFails) {
     api->create_channel_status = DAQmxErrorInvalidDeviceID;
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(
-        hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
-    );
+    EXPECT_FALSE(hw.analog_inputs[0].default_terminal_config.has_value());
     EXPECT_EQ(api->calls_to("ClearTask").size(), 1);
     EXPECT_FALSE(is_complete(hw));
 }
@@ -388,8 +385,8 @@ TEST(ProbeTest, testRoundTripsThroughJSON) {
     api->create_channel_status = DAQmxErrorInvalidDeviceID;
     const auto j = probe_api(api).to_json();
     EXPECT_EQ(j["ai_min_rate"], 0);
-    EXPECT_EQ(j["analog_inputs"][0]["negative"], 0);
-    EXPECT_EQ(::synnax::ni::Hardware::parse(x::json::Parser(j)).to_json(), j);
+    EXPECT_FALSE(j["analog_inputs"][0].contains("negative"));
+    EXPECT_EQ(::synnax::ni::device::Hardware::parse(x::json::Parser(j)).to_json(), j);
 }
 
 /// @brief it should parse stored hardware that has removed keys and lacks the keys with
@@ -405,11 +402,11 @@ TEST(ProbeTest, testParsesEarlierStoredHardware) {
                {"types", {"ai_voltage"}}}}},
         }
     );
-    const auto hw = ::synnax::ni::Hardware::parse(parser);
+    const auto hw = ::synnax::ni::device::Hardware::parse(parser);
     ASSERT_TRUE(parser.ok());
-    EXPECT_EQ(hw.ai_max_multi_channel_rate.hz(), 0);
+    EXPECT_FALSE(hw.ai_max_multi_channel_rate.has_value());
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(hw.analog_inputs[0].negative, 0);
+    EXPECT_FALSE(hw.analog_inputs[0].negative.has_value());
     EXPECT_FALSE(is_complete(hw));
 }
 
@@ -433,15 +430,12 @@ TEST(ProbeTest, testNoDefaultWithoutTerminalConfigs) {
     api->add_analog_inputs(1, 0, {DAQmx_Val_Voltage});
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(
-        hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
-    );
+    EXPECT_FALSE(hw.analog_inputs[0].default_terminal_config.has_value());
     EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
 }
 
-/// @brief it should leave the default as Cfg_Default, and the hardware complete, on a
+/// @brief it should leave the default absent, and the hardware complete, on a
 /// port that accepts more than one terminal configuration and takes no voltage or
 /// current channel.
 TEST(ProbeTest, testNoDefaultWithoutVoltageOrCurrent) {
@@ -449,10 +443,7 @@ TEST(ProbeTest, testNoDefaultWithoutVoltageOrCurrent) {
     api->add_analog_inputs(1, RSE_DIFF, {DAQmx_Val_Bridge});
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(
-        hw.analog_inputs[0].default_terminal_config,
-        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
-    );
+    EXPECT_FALSE(hw.analog_inputs[0].default_terminal_config.has_value());
     EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
 }
@@ -517,6 +508,33 @@ TEST(ProbeTest, testReadsCountersAndDigitalPorts) {
     EXPECT_TRUE(hw.digital_ports[2].output);
 }
 
+/// @brief it should write a minimum rate of 0 and leave a maximum rate absent when
+/// DAQmx reports 0.
+TEST(ProbeTest, testReadsZeroRates) {
+    auto api = std::make_shared<FakeAPI>();
+    api->add_analog_inputs(1, DAQmx_Val_Bit_TermCfg_Diff, {DAQmx_Val_Voltage});
+    api->doubles[DAQmx_Dev_AI_MinRate] = 0;
+    api->doubles[DAQmx_Dev_AI_MaxSingleChanRate] = 250000;
+    api->doubles[DAQmx_Dev_AI_MaxMultiChanRate] = 0;
+    const auto hw = probe_api(api);
+    EXPECT_EQ(hw.ai_min_rate.hz(), 0);
+    EXPECT_EQ(hw.ai_max_single_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
+    EXPECT_FALSE(hw.ai_max_multi_channel_rate.has_value());
+}
+
+/// @brief it should drop a DAQmx type that no channel type reads.
+TEST(ProbeTest, testDropsUnknownType) {
+    auto api = std::make_shared<FakeAPI>();
+    api->add_analog_inputs(
+        1,
+        DAQmx_Val_Bit_TermCfg_Diff,
+        {DAQmx_Val_Voltage, DAQmx_Val_Position_LVDT}
+    );
+    const auto hw = probe_api(api);
+    ASSERT_EQ(hw.analog_inputs.size(), 1);
+    EXPECT_EQ(hw.analog_inputs[0].types, std::vector<std::string>({"ai_voltage"}));
+}
+
 /// @brief it should read the rates and ranges of each subsystem that has ports.
 TEST(ProbeTest, testReadsRatesAndRanges) {
     auto api = std::make_shared<FakeAPI>();
@@ -535,9 +553,12 @@ TEST(ProbeTest, testReadsRatesAndRanges) {
     api->double_arrays[DAQmx_Dev_AO_VoltageRngs] = {-10, 10};
     const auto hw = probe_api(api);
     EXPECT_DOUBLE_EQ(hw.ai_min_rate.hz(), 0.1);
-    EXPECT_EQ(hw.ai_max_single_channel_rate.hz(), 250000);
-    EXPECT_EQ(hw.ai_max_multi_channel_rate.hz(), 250000);
-    EXPECT_DOUBLE_EQ(hw.ao_max_rate.hz(), 833333.3333333334);
+    EXPECT_EQ(hw.ai_max_single_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
+    EXPECT_EQ(hw.ai_max_multi_channel_rate.value_or(x::telem::Rate(0)).hz(), 250000);
+    EXPECT_DOUBLE_EQ(
+        hw.ao_max_rate.value_or(x::telem::Rate(0)).hz(),
+        833333.3333333334
+    );
     EXPECT_TRUE(hw.ai_voltage_ranges.empty());
     ASSERT_EQ(hw.ai_current_ranges.size(), 1);
     EXPECT_EQ(hw.ai_current_ranges[0].lower, -0.02);

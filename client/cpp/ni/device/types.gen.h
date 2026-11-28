@@ -29,6 +29,8 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/spatial/types.gen.h"
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/ni/device/pb/ni_device.pb.h"
@@ -41,16 +43,82 @@ struct AnalogInputPorts;
 struct AnalogOutputChannels;
 struct CounterInputChannels;
 struct DigitalInputChannels;
-struct Identity;
+struct DigitalPort;
 struct Where;
 struct StatusDetails;
 struct Cursor;
 struct DigitalOutputChannels;
+struct AnalogInputPort;
+struct AnalogOutputPort;
+struct CounterPort;
 struct Order;
 struct Configuration;
+struct Hardware;
 struct RetrieveRequest;
 struct Device;
+struct Identity;
 struct RetrieveResponse;
+
+constexpr const char *TERMINAL_CONFIG_CFG_DEFAULT = "Cfg_Default";
+constexpr const char *TERMINAL_CONFIG_RSE = "RSE";
+constexpr const char *TERMINAL_CONFIG_NRSE = "NRSE";
+constexpr const char *TERMINAL_CONFIG_DIFF = "Diff";
+constexpr const char *TERMINAL_CONFIG_PSEUDO_DIFF = "PseudoDiff";
+
+constexpr const char *AI_CHANNEL_TYPE_AI_VOLTAGE = "ai_voltage";
+constexpr const char *AI_CHANNEL_TYPE_AI_ACCEL = "ai_accel";
+constexpr const char *AI_CHANNEL_TYPE_AI_BRIDGE = "ai_bridge";
+constexpr const char *AI_CHANNEL_TYPE_AI_CURRENT = "ai_current";
+constexpr const char *AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE = "ai_force_bridge_table";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN = "ai_force_bridge_two_point_lin";
+constexpr const char *AI_CHANNEL_TYPE_AI_FORCE_IEPE = "ai_force_iepe";
+constexpr const char *AI_CHANNEL_TYPE_AI_MICROPHONE = "ai_microphone";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE = "ai_pressure_bridge_table";
+constexpr const char *AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN =
+    "ai_pressure_bridge_two_point_lin";
+constexpr const char *AI_CHANNEL_TYPE_AI_RESISTANCE = "ai_resistance";
+constexpr const char *AI_CHANNEL_TYPE_AI_RTD = "ai_rtd";
+constexpr const char *AI_CHANNEL_TYPE_AI_STRAIN_GAUGE = "ai_strain_gauge";
+constexpr const char *AI_CHANNEL_TYPE_AI_TEMP_BUILTIN = "ai_temp_builtin";
+constexpr const char *AI_CHANNEL_TYPE_AI_THERMOCOUPLE = "ai_thermocouple";
+constexpr const char *AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE = "ai_torque_bridge_table";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN = "ai_torque_bridge_two_point_lin";
+constexpr const char *AI_CHANNEL_TYPE_AI_VELOCITY_IEPE = "ai_velocity_iepe";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE = "ai_accel_4_wire_dc_voltage";
+constexpr const char *AI_CHANNEL_TYPE_AI_ACCEL_CHARGE = "ai_accel_charge";
+constexpr const char *AI_CHANNEL_TYPE_AI_CHARGE = "ai_charge";
+constexpr const char *AI_CHANNEL_TYPE_AI_CURRENT_RMS = "ai_current_rms";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL = "ai_force_bridge_polynomial";
+constexpr const char *AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE = "ai_freq_voltage";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL = "ai_pressure_bridge_polynomial";
+constexpr const char *AI_CHANNEL_TYPE_AI_THERMISTOR_IEX = "ai_thermistor_iex";
+constexpr const char *AI_CHANNEL_TYPE_AI_THERMISTOR_VEX = "ai_thermistor_vex";
+constexpr const char
+    *AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL = "ai_torque_bridge_polynomial";
+constexpr const char *AI_CHANNEL_TYPE_AI_VOLTAGE_RMS = "ai_voltage_rms";
+constexpr const char *AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT = "ai_voltage_with_excit";
+
+constexpr const char *AO_CHANNEL_TYPE_AO_CURRENT = "ao_current";
+constexpr const char *AO_CHANNEL_TYPE_AO_FUNC_GEN = "ao_func_gen";
+constexpr const char *AO_CHANNEL_TYPE_AO_VOLTAGE = "ao_voltage";
+
+constexpr const char *CI_CHANNEL_TYPE_CI_FREQUENCY = "ci_frequency";
+constexpr const char *CI_CHANNEL_TYPE_CI_EDGE_COUNT = "ci_edge_count";
+constexpr const char *CI_CHANNEL_TYPE_CI_PERIOD = "ci_period";
+constexpr const char *CI_CHANNEL_TYPE_CI_PULSE_WIDTH = "ci_pulse_width";
+constexpr const char *CI_CHANNEL_TYPE_CI_SEMI_PERIOD = "ci_semi_period";
+constexpr const char *CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP = "ci_two_edge_sep";
+constexpr const char *CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR = "ci_velocity_linear";
+constexpr const char *CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR = "ci_velocity_angular";
+constexpr const char *CI_CHANNEL_TYPE_CI_POSITION_LINEAR = "ci_position_linear";
+constexpr const char *CI_CHANNEL_TYPE_CI_POSITION_ANGULAR = "ci_position_angular";
+constexpr const char *CI_CHANNEL_TYPE_CI_DUTY_CYCLE = "ci_duty_cycle";
 
 constexpr const char *ORDER_FIELD_NAME = "name";
 
@@ -59,9 +127,9 @@ using Key = x::uuid::UUID;
 /// @brief CommandStatePair is the pair of channels that writes to one port.
 struct CommandStatePair {
     /// @brief command is the channel that commands the port.
-    ::synnax::channel::Key command = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> command;
     /// @brief state is the channel that holds the state of the port.
-    ::synnax::channel::Key state = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state;
 
     static CommandStatePair parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -77,10 +145,10 @@ struct CommandStatePair {
 /// @brief AnalogInputPorts holds the channels that a device reads analog input into.
 struct AnalogInputPorts {
     /// @brief index is the index channel of the analog input channels.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> index;
     /// @brief temperature is the channel that holds the built-in temperature of the
     /// device.
-    ::synnax::channel::Key temperature = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> temperature;
     /// @brief channels maps a port number to the channel that holds its samples.
     std::unordered_map<std::uint16_t, ::synnax::channel::Key> channels = {};
 
@@ -98,11 +166,11 @@ struct AnalogInputPorts {
 /// @brief AnalogOutputChannels holds the channels of one analog output port.
 struct AnalogOutputChannels {
     /// @brief state_index is the index channel of the state channel.
-    ::synnax::channel::Key state_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state_index;
     /// @brief command is the channel that commands the port.
-    ::synnax::channel::Key command = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> command;
     /// @brief state is the channel that holds the state of the port.
-    ::synnax::channel::Key state = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state;
 
     static AnalogOutputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -118,9 +186,9 @@ struct AnalogOutputChannels {
 /// @brief CounterInputChannels holds the channels of one counter input.
 struct CounterInputChannels {
     /// @brief index is the index channel of the counter.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> index;
     /// @brief channel is the channel that holds the samples of the counter.
-    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> channel;
 
     static CounterInputChannels parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -136,7 +204,7 @@ struct CounterInputChannels {
 /// @brief DigitalInputChannels holds the channels of one digital input port.
 struct DigitalInputChannels {
     /// @brief index is the index channel of the port.
-    ::synnax::channel::Key index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> index;
     /// @brief lines maps a line number to the channel that holds its samples.
     std::unordered_map<std::uint8_t, ::synnax::channel::Key> lines = {};
 
@@ -151,29 +219,25 @@ struct DigitalInputChannels {
     from_proto(const ::service::ni_device::pb::DigitalInputChannels &pb);
 };
 
-/// @brief Identity holds the device fields that the scanner owns.
-struct Identity {
-    /// @brief rack is the key of the rack the device is connected to.
-    ::synnax::rack::Key rack = 0;
-    /// @brief serial is the serial number of the device. Empty on simulated hardware.
-    std::string serial = "";
-    /// @brief resource_name is the NI-MAX resource name of the device, a GUID that
-    /// survives renames.
-    std::string resource_name;
-    /// @brief model is the product name of the device.
-    std::string model;
-    /// @brief chassis is the chassis that holds the device. Absent for a standalone
-    /// device.
-    std::optional<::synnax::ni::chassis::Key> chassis;
+/// @brief DigitalPort is a digital port of an NI device.
+struct DigitalPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 0 for port0.
+    std::uint16_t port = 0;
+    /// @brief lines is the number of lines in the port.
+    std::uint8_t lines = 0;
+    /// @brief input is true when the port reads digital input.
+    bool input = false;
+    /// @brief output is true when the port writes digital output.
+    bool output = false;
 
-    static Identity parse(x::json::Parser parser);
+    static DigitalPort parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::ni_device::pb::Identity;
-    [[nodiscard]] std::pair<::service::ni_device::pb::Identity, x::errors::Error>
+    using proto_type = ::service::ni_device::pb::DigitalPort;
+    [[nodiscard]] std::pair<::service::ni_device::pb::DigitalPort, x::errors::Error>
     to_proto() const;
-    static std::pair<Identity, x::errors::Error>
-    from_proto(const ::service::ni_device::pb::Identity &pb);
+    static std::pair<DigitalPort, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::DigitalPort &pb);
 };
 
 /// @brief Where is a filter that selects NI devices.
@@ -271,7 +335,7 @@ struct Cursor {
 /// @brief DigitalOutputChannels holds the channels of one digital output port.
 struct DigitalOutputChannels {
     /// @brief state_index is the index channel of the state channels.
-    ::synnax::channel::Key state_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> state_index;
     /// @brief lines maps a line number to the channels that write to it.
     std::unordered_map<std::uint8_t, CommandStatePair> lines = {};
 
@@ -284,6 +348,69 @@ struct DigitalOutputChannels {
         to_proto() const;
     static std::pair<DigitalOutputChannels, x::errors::Error>
     from_proto(const ::service::ni_device::pb::DigitalOutputChannels &pb);
+};
+
+/// @brief AnalogInputPort is an analog input port of an NI device.
+struct AnalogInputPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 3 for ai3.
+    std::uint16_t port = 0;
+    /// @brief terminal_configs are the terminal configurations that the port accepts.
+    std::vector<std::string> terminal_configs = {};
+    /// @brief default_terminal_config is the terminal configuration that Cfg_Default
+    /// gives on the port. Absent when the Driver did not read it.
+    std::optional<std::string> default_terminal_config;
+    /// @brief types are the channel types that the port accepts, such as ai_voltage.
+    std::vector<std::string> types = {};
+    /// @brief negative is the port that a differential channel on this port uses as its
+    /// negative input. Absent when the port has no pair.
+    std::optional<std::uint32_t> negative;
+
+    static AnalogInputPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::AnalogInputPort;
+    [[nodiscard]] std::pair<::service::ni_device::pb::AnalogInputPort, x::errors::Error>
+    to_proto() const;
+    static std::pair<AnalogInputPort, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::AnalogInputPort &pb);
+};
+
+/// @brief AnalogOutputPort is an analog output port of an NI device.
+struct AnalogOutputPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 1 for ao1.
+    std::uint16_t port = 0;
+    /// @brief terminal_configs are the terminal configurations that the port accepts.
+    std::vector<std::string> terminal_configs = {};
+    /// @brief types are the channel types that the port accepts, such as ao_voltage.
+    std::vector<std::string> types = {};
+
+    static AnalogOutputPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::AnalogOutputPort;
+    [[nodiscard]] std::
+        pair<::service::ni_device::pb::AnalogOutputPort, x::errors::Error>
+        to_proto() const;
+    static std::pair<AnalogOutputPort, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::AnalogOutputPort &pb);
+};
+
+/// @brief CounterPort is a counter of an NI device.
+struct CounterPort {
+    /// @brief port is the number in the DAQmx name of the counter, such as 0 for ctr0.
+    std::uint16_t port = 0;
+    /// @brief types are the channel types that the counter accepts, such as
+    /// ci_frequency.
+    std::vector<std::string> types = {};
+
+    static CounterPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::CounterPort;
+    [[nodiscard]] std::pair<::service::ni_device::pb::CounterPort, x::errors::Error>
+    to_proto() const;
+    static std::pair<CounterPort, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::CounterPort &pb);
 };
 
 /// @brief Order is a sort of devices.
@@ -331,6 +458,54 @@ struct Configuration {
     to_proto() const;
     static std::pair<Configuration, x::errors::Error>
     from_proto(const ::service::ni_device::pb::Configuration &pb);
+};
+
+/// @brief Hardware is what the Driver reads from DAQmx about the ports, rates, and
+/// ranges of an NI device.
+struct Hardware {
+    /// @brief analog_inputs are the analog input ports of the device.
+    std::vector<AnalogInputPort> analog_inputs = {};
+    /// @brief analog_outputs are the analog output ports of the device.
+    std::vector<AnalogOutputPort> analog_outputs = {};
+    /// @brief counter_inputs are the counters of the device that read input.
+    std::vector<CounterPort> counter_inputs = {};
+    /// @brief counter_outputs are the counters of the device that write output.
+    std::vector<CounterPort> counter_outputs = {};
+    /// @brief digital_ports are the digital ports of the device.
+    std::vector<DigitalPort> digital_ports = {};
+    /// @brief terminals are the terminals of the device, such as PFI0, without the
+    /// device name.
+    std::vector<std::string> terminals = {};
+    /// @brief ai_min_rate is the lowest analog input sample rate. 0 means that the
+    /// device has no minimum.
+    ::x::telem::Rate ai_min_rate = ::x::telem::Rate(0);
+    /// @brief ai_max_single_channel_rate is the highest analog input sample rate of one
+    /// channel. Absent when the device does not support the attribute.
+    std::optional<::x::telem::Rate> ai_max_single_channel_rate;
+    /// @brief ai_max_multi_channel_rate is the highest analog input sample rate of the
+    /// device. A task with several channels divides it by the channel count. Absent
+    /// when the device does not support the attribute.
+    std::optional<::x::telem::Rate> ai_max_multi_channel_rate;
+    /// @brief ao_max_rate is the highest analog output sample rate. Absent when the
+    /// device does not support the attribute.
+    std::optional<::x::telem::Rate> ao_max_rate;
+    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device.
+    std::vector<::x::spatial::ClosedBounds> ai_voltage_ranges = {};
+    /// @brief ai_current_ranges are the analog input current ranges of the device.
+    std::vector<::x::spatial::ClosedBounds> ai_current_ranges = {};
+    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device.
+    std::vector<::x::spatial::ClosedBounds> ao_voltage_ranges = {};
+    /// @brief ao_current_ranges are the analog output current ranges of the device.
+    std::vector<::x::spatial::ClosedBounds> ao_current_ranges = {};
+
+    static Hardware parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::Hardware;
+    [[nodiscard]] std::pair<::service::ni_device::pb::Hardware, x::errors::Error>
+    to_proto() const;
+    static std::pair<Hardware, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::Hardware &pb);
 };
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
@@ -403,6 +578,9 @@ struct Device {
     /// @brief chassis is the chassis that holds the device. Absent for a standalone
     /// device.
     std::optional<::synnax::ni::chassis::Key> chassis;
+    /// @brief hardware is what the Driver read from DAQmx about the device. Absent
+    /// until the Driver reads it.
+    std::optional<Hardware> hardware;
     /// @brief identifier is the prefix of the device's channel names. The device is
     /// unconfigured while it is empty.
     std::string identifier = "";
@@ -427,6 +605,49 @@ struct Device {
     to_proto() const;
     static std::pair<Device, x::errors::Error>
     from_proto(const ::service::ni_device::pb::Device &pb);
+};
+
+/// @brief Identity holds the device fields that the scanner owns.
+struct Identity {
+    /// @brief rack is the key of the rack the device is connected to.
+    ::synnax::rack::Key rack = 0;
+    /// @brief serial is the serial number of the device. Empty on simulated hardware.
+    std::string serial = "";
+    /// @brief resource_name is the NI-MAX resource name of the device, a GUID that
+    /// survives renames.
+    std::string resource_name;
+    /// @brief model is the product name of the device.
+    std::string model;
+    /// @brief chassis is the chassis that holds the device. Absent for a standalone
+    /// device.
+    std::optional<::synnax::ni::chassis::Key> chassis;
+    /// @brief hardware is what the Driver read from DAQmx about the device. An update
+    /// without it keeps the stored value.
+    std::optional<Hardware> hardware;
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ni_device::pb::Identity;
+    [[nodiscard]] std::pair<::service::ni_device::pb::Identity, x::errors::Error>
+    to_proto() const;
+    static std::pair<Identity, x::errors::Error>
+    from_proto(const ::service::ni_device::pb::Identity &pb);
+};
+
+/// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief devices are the devices the request selects.
+    std::vector<Device> devices;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::ni_device::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::ni_device::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::ni_device::pb::RetrieveResponse &pb);
 };
 
 /// @brief IdentityUpdate writes the fields that the scanner owns.
@@ -467,21 +688,6 @@ Update parse_update(x::json::Parser parser);
 to_proto(const Update &value);
 std::pair<Update, x::errors::Error>
 update_from_proto(const ::service::ni_device::pb::Update &pb);
-
-/// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
-struct RetrieveResponse {
-    /// @brief devices are the devices the request selects.
-    std::vector<Device> devices;
-
-    static RetrieveResponse parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::api::ni_device::pb::RetrieveResponse;
-    [[nodiscard]] std::pair<::api::ni_device::pb::RetrieveResponse, x::errors::Error>
-    to_proto() const;
-    static std::pair<RetrieveResponse, x::errors::Error>
-    from_proto(const ::api::ni_device::pb::RetrieveResponse &pb);
-};
 
 const synnax::resource::ID TYPE_RESOURCE_ID("ni_device", "");
 

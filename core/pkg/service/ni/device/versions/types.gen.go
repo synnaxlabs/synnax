@@ -11,34 +11,128 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/ni/device/versions/v2"
 
 // Device is an NI module in a chassis, or a standalone USB or PCIe device.
-type Device = v1.Device
+type Device = v2.Device
 
 // Key uniquely identifies an NI device.
-type Key = v1.Key
+type Key = v2.Key
 
 // CommandStatePair is the pair of channels that writes to one port.
-type CommandStatePair = v1.CommandStatePair
+type CommandStatePair = v2.CommandStatePair
 
 // AnalogInputPorts holds the channels that a device reads analog input into.
-type AnalogInputPorts = v1.AnalogInputPorts
+type AnalogInputPorts = v2.AnalogInputPorts
 
 // AnalogOutputChannels holds the channels of one analog output port.
-type AnalogOutputChannels = v1.AnalogOutputChannels
+type AnalogOutputChannels = v2.AnalogOutputChannels
 
 // CounterInputChannels holds the channels of one counter input.
-type CounterInputChannels = v1.CounterInputChannels
+type CounterInputChannels = v2.CounterInputChannels
 
 // DigitalInputChannels holds the channels of one digital input port.
-type DigitalInputChannels = v1.DigitalInputChannels
+type DigitalInputChannels = v2.DigitalInputChannels
 
 // DigitalOutputChannels holds the channels of one digital output port.
-type DigitalOutputChannels = v1.DigitalOutputChannels
+type DigitalOutputChannels = v2.DigitalOutputChannels
 
 // StatusDetails identifies the device and rack that a status pertains to.
-type StatusDetails = v1.StatusDetails
+type StatusDetails = v2.StatusDetails
 
 // Status is the operational status of a device.
-type Status = v1.Status
+type Status = v2.Status
+
+// TerminalConfig selects the terminal configuration for an analog input channel.
+type TerminalConfig = v2.TerminalConfig
+
+const (
+	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
+	TerminalConfigCfgDefault TerminalConfig = v2.TerminalConfigCfgDefault
+	// TerminalConfigRse is referenced single ended.
+	TerminalConfigRse TerminalConfig = v2.TerminalConfigRse
+	// TerminalConfigNrse is non-referenced single ended.
+	TerminalConfigNrse TerminalConfig = v2.TerminalConfigNrse
+	// TerminalConfigDiff is differential.
+	TerminalConfigDiff TerminalConfig = v2.TerminalConfigDiff
+	// TerminalConfigPseudoDiff is pseudo-differential.
+	TerminalConfigPseudoDiff TerminalConfig = v2.TerminalConfigPseudoDiff
+)
+
+// AIChannelType is the type of an analog input channel.
+type AIChannelType = v2.AIChannelType
+
+const (
+	AIChannelTypeAiVoltage                   AIChannelType = v2.AIChannelTypeAiVoltage
+	AIChannelTypeAiAccel                     AIChannelType = v2.AIChannelTypeAiAccel
+	AIChannelTypeAiBridge                    AIChannelType = v2.AIChannelTypeAiBridge
+	AIChannelTypeAiCurrent                   AIChannelType = v2.AIChannelTypeAiCurrent
+	AIChannelTypeAiForceBridgeTable          AIChannelType = v2.AIChannelTypeAiForceBridgeTable
+	AIChannelTypeAiForceBridgeTwoPointLin    AIChannelType = v2.AIChannelTypeAiForceBridgeTwoPointLin
+	AIChannelTypeAiForceIepe                 AIChannelType = v2.AIChannelTypeAiForceIepe
+	AIChannelTypeAiMicrophone                AIChannelType = v2.AIChannelTypeAiMicrophone
+	AIChannelTypeAiPressureBridgeTable       AIChannelType = v2.AIChannelTypeAiPressureBridgeTable
+	AIChannelTypeAiPressureBridgeTwoPointLin AIChannelType = v2.AIChannelTypeAiPressureBridgeTwoPointLin
+	AIChannelTypeAiResistance                AIChannelType = v2.AIChannelTypeAiResistance
+	AIChannelTypeAiRtd                       AIChannelType = v2.AIChannelTypeAiRtd
+	AIChannelTypeAiStrainGauge               AIChannelType = v2.AIChannelTypeAiStrainGauge
+	AIChannelTypeAiTempBuiltin               AIChannelType = v2.AIChannelTypeAiTempBuiltin
+	AIChannelTypeAiThermocouple              AIChannelType = v2.AIChannelTypeAiThermocouple
+	AIChannelTypeAiTorqueBridgeTable         AIChannelType = v2.AIChannelTypeAiTorqueBridgeTable
+	AIChannelTypeAiTorqueBridgeTwoPointLin   AIChannelType = v2.AIChannelTypeAiTorqueBridgeTwoPointLin
+	AIChannelTypeAiVelocityIepe              AIChannelType = v2.AIChannelTypeAiVelocityIepe
+	AIChannelTypeAiAccel4WireDcVoltage       AIChannelType = v2.AIChannelTypeAiAccel4WireDcVoltage
+	AIChannelTypeAiAccelCharge               AIChannelType = v2.AIChannelTypeAiAccelCharge
+	AIChannelTypeAiCharge                    AIChannelType = v2.AIChannelTypeAiCharge
+	AIChannelTypeAiCurrentRms                AIChannelType = v2.AIChannelTypeAiCurrentRms
+	AIChannelTypeAiForceBridgePolynomial     AIChannelType = v2.AIChannelTypeAiForceBridgePolynomial
+	AIChannelTypeAiFreqVoltage               AIChannelType = v2.AIChannelTypeAiFreqVoltage
+	AIChannelTypeAiPressureBridgePolynomial  AIChannelType = v2.AIChannelTypeAiPressureBridgePolynomial
+	AIChannelTypeAiThermistorIex             AIChannelType = v2.AIChannelTypeAiThermistorIex
+	AIChannelTypeAiThermistorVex             AIChannelType = v2.AIChannelTypeAiThermistorVex
+	AIChannelTypeAiTorqueBridgePolynomial    AIChannelType = v2.AIChannelTypeAiTorqueBridgePolynomial
+	AIChannelTypeAiVoltageRms                AIChannelType = v2.AIChannelTypeAiVoltageRms
+	AIChannelTypeAiVoltageWithExcit          AIChannelType = v2.AIChannelTypeAiVoltageWithExcit
+)
+
+// AOChannelType is the type of an analog output channel.
+type AOChannelType = v2.AOChannelType
+
+const (
+	AOChannelTypeAoCurrent AOChannelType = v2.AOChannelTypeAoCurrent
+	AOChannelTypeAoFuncGen AOChannelType = v2.AOChannelTypeAoFuncGen
+	AOChannelTypeAoVoltage AOChannelType = v2.AOChannelTypeAoVoltage
+)
+
+// CIChannelType is the type of a counter input channel.
+type CIChannelType = v2.CIChannelType
+
+const (
+	CIChannelTypeCiFrequency       CIChannelType = v2.CIChannelTypeCiFrequency
+	CIChannelTypeCiEdgeCount       CIChannelType = v2.CIChannelTypeCiEdgeCount
+	CIChannelTypeCiPeriod          CIChannelType = v2.CIChannelTypeCiPeriod
+	CIChannelTypeCiPulseWidth      CIChannelType = v2.CIChannelTypeCiPulseWidth
+	CIChannelTypeCiSemiPeriod      CIChannelType = v2.CIChannelTypeCiSemiPeriod
+	CIChannelTypeCiTwoEdgeSep      CIChannelType = v2.CIChannelTypeCiTwoEdgeSep
+	CIChannelTypeCiVelocityLinear  CIChannelType = v2.CIChannelTypeCiVelocityLinear
+	CIChannelTypeCiVelocityAngular CIChannelType = v2.CIChannelTypeCiVelocityAngular
+	CIChannelTypeCiPositionLinear  CIChannelType = v2.CIChannelTypeCiPositionLinear
+	CIChannelTypeCiPositionAngular CIChannelType = v2.CIChannelTypeCiPositionAngular
+	CIChannelTypeCiDutyCycle       CIChannelType = v2.CIChannelTypeCiDutyCycle
+)
+
+// AnalogInputPort is an analog input port of an NI device.
+type AnalogInputPort = v2.AnalogInputPort
+
+// AnalogOutputPort is an analog output port of an NI device.
+type AnalogOutputPort = v2.AnalogOutputPort
+
+// CounterPort is a counter of an NI device.
+type CounterPort = v2.CounterPort
+
+// DigitalPort is a digital port of an NI device.
+type DigitalPort = v2.DigitalPort
+
+// Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
+// NI device.
+type Hardware = v2.Hardware

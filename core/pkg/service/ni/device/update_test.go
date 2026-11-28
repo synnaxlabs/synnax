@@ -28,6 +28,12 @@ var _ = Describe("Update", func() {
 			Serial:       "01A",
 			ResourceName: "Mod1",
 			Model:        "PXI-6255",
+			Hardware: &device.Hardware{
+				AnalogInputs: []device.AnalogInputPort{{
+					Port:            0,
+					TerminalConfigs: []device.TerminalConfig{device.TerminalConfigRse},
+				}},
+			},
 		},
 	}}
 	configuration := device.Update{Variant: device.ConfigurationUpdate{
@@ -35,16 +41,19 @@ var _ = Describe("Update", func() {
 			Name:       "Module",
 			Identifier: "dev1",
 			AnalogInput: device.AnalogInputPorts{
-				Index:    1,
+				Index:    new(channel.Key(1)),
 				Channels: map[uint16]channel.Key{0: 2},
 			},
 			CounterInput: map[uint16]device.CounterInputChannels{
-				1: {Index: 3, Channel: 4},
+				1: {Index: new(channel.Key(3)), Channel: new(channel.Key(4))},
 			},
 			DigitalOutput: map[uint16]device.DigitalOutputChannels{
-				2: {StateIndex: 5, Lines: map[uint8]device.CommandStatePair{
-					7: {Command: 6, State: 7},
-				}},
+				2: {
+					StateIndex: new(channel.Key(5)),
+					Lines: map[uint8]device.CommandStatePair{
+						7: {Command: new(channel.Key(6)), State: new(channel.Key(7))},
+					},
+				},
 			},
 		},
 	}}

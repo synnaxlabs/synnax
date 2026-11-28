@@ -75,14 +75,17 @@ const SelectTerminalConfigField = Form.buildSelectField<TerminalConfig>({
 });
 
 // The configurations the port takes, and "Default" named by what it gives there.
-const terminalConfigItems = (port: ni.AnalogInputPort, current: TerminalConfig) =>
+const terminalConfigItems = (
+  port: ni.device.AnalogInputPort,
+  current: TerminalConfig,
+) =>
   TERMINAL_CONFIGS.filter(
     (c) => c === "Cfg_Default" || c === current || accepts(port.terminalConfigs, c),
   ).map((c) => {
     const resolved = port.defaultTerminalConfig;
     return (
       <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
-        {c !== "Cfg_Default" || resolved === "Cfg_Default"
+        {c !== "Cfg_Default" || resolved == null
           ? TERMINAL_CONFIG_NAMES[c]
           : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
       </PSelect.Item>

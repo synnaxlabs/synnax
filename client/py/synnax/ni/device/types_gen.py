@@ -19,7 +19,186 @@ from pydantic import BaseModel, ConfigDict, Field
 from synnax import channel as channel_, rack as rack_, status as status_
 from synnax.ni import chassis as chassis_
 from synnax.resource import ID
-from x import filter
+from x import filter, spatial, telem
+
+TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
+
+TERMINAL_CONFIG_RSE: Literal["RSE"] = "RSE"
+
+TERMINAL_CONFIG_NRSE: Literal["NRSE"] = "NRSE"
+
+TERMINAL_CONFIG_DIFF: Literal["Diff"] = "Diff"
+
+TERMINAL_CONFIG_PSEUDO_DIFF: Literal["PseudoDiff"] = "PseudoDiff"
+
+
+TerminalConfig = Literal["Cfg_Default", "RSE", "NRSE", "Diff", "PseudoDiff"]
+
+AI_CHANNEL_TYPE_AI_VOLTAGE: Literal["ai_voltage"] = "ai_voltage"
+
+AI_CHANNEL_TYPE_AI_ACCEL: Literal["ai_accel"] = "ai_accel"
+
+AI_CHANNEL_TYPE_AI_BRIDGE: Literal["ai_bridge"] = "ai_bridge"
+
+AI_CHANNEL_TYPE_AI_CURRENT: Literal["ai_current"] = "ai_current"
+
+AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE: Literal["ai_force_bridge_table"] = (
+    "ai_force_bridge_table"
+)
+
+AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN: Literal[
+    "ai_force_bridge_two_point_lin"
+] = "ai_force_bridge_two_point_lin"
+
+AI_CHANNEL_TYPE_AI_FORCE_IEPE: Literal["ai_force_iepe"] = "ai_force_iepe"
+
+AI_CHANNEL_TYPE_AI_MICROPHONE: Literal["ai_microphone"] = "ai_microphone"
+
+AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE: Literal["ai_pressure_bridge_table"] = (
+    "ai_pressure_bridge_table"
+)
+
+AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN: Literal[
+    "ai_pressure_bridge_two_point_lin"
+] = "ai_pressure_bridge_two_point_lin"
+
+AI_CHANNEL_TYPE_AI_RESISTANCE: Literal["ai_resistance"] = "ai_resistance"
+
+AI_CHANNEL_TYPE_AI_RTD: Literal["ai_rtd"] = "ai_rtd"
+
+AI_CHANNEL_TYPE_AI_STRAIN_GAUGE: Literal["ai_strain_gauge"] = "ai_strain_gauge"
+
+AI_CHANNEL_TYPE_AI_TEMP_BUILTIN: Literal["ai_temp_builtin"] = "ai_temp_builtin"
+
+AI_CHANNEL_TYPE_AI_THERMOCOUPLE: Literal["ai_thermocouple"] = "ai_thermocouple"
+
+AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE: Literal["ai_torque_bridge_table"] = (
+    "ai_torque_bridge_table"
+)
+
+AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN: Literal[
+    "ai_torque_bridge_two_point_lin"
+] = "ai_torque_bridge_two_point_lin"
+
+AI_CHANNEL_TYPE_AI_VELOCITY_IEPE: Literal["ai_velocity_iepe"] = "ai_velocity_iepe"
+
+AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE: Literal["ai_accel_4_wire_dc_voltage"] = (
+    "ai_accel_4_wire_dc_voltage"
+)
+
+AI_CHANNEL_TYPE_AI_ACCEL_CHARGE: Literal["ai_accel_charge"] = "ai_accel_charge"
+
+AI_CHANNEL_TYPE_AI_CHARGE: Literal["ai_charge"] = "ai_charge"
+
+AI_CHANNEL_TYPE_AI_CURRENT_RMS: Literal["ai_current_rms"] = "ai_current_rms"
+
+AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL: Literal["ai_force_bridge_polynomial"] = (
+    "ai_force_bridge_polynomial"
+)
+
+AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE: Literal["ai_freq_voltage"] = "ai_freq_voltage"
+
+AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL: Literal[
+    "ai_pressure_bridge_polynomial"
+] = "ai_pressure_bridge_polynomial"
+
+AI_CHANNEL_TYPE_AI_THERMISTOR_IEX: Literal["ai_thermistor_iex"] = "ai_thermistor_iex"
+
+AI_CHANNEL_TYPE_AI_THERMISTOR_VEX: Literal["ai_thermistor_vex"] = "ai_thermistor_vex"
+
+AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL: Literal["ai_torque_bridge_polynomial"] = (
+    "ai_torque_bridge_polynomial"
+)
+
+AI_CHANNEL_TYPE_AI_VOLTAGE_RMS: Literal["ai_voltage_rms"] = "ai_voltage_rms"
+
+AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT: Literal["ai_voltage_with_excit"] = (
+    "ai_voltage_with_excit"
+)
+
+
+AIChannelType = Literal[
+    "ai_voltage",
+    "ai_accel",
+    "ai_bridge",
+    "ai_current",
+    "ai_force_bridge_table",
+    "ai_force_bridge_two_point_lin",
+    "ai_force_iepe",
+    "ai_microphone",
+    "ai_pressure_bridge_table",
+    "ai_pressure_bridge_two_point_lin",
+    "ai_resistance",
+    "ai_rtd",
+    "ai_strain_gauge",
+    "ai_temp_builtin",
+    "ai_thermocouple",
+    "ai_torque_bridge_table",
+    "ai_torque_bridge_two_point_lin",
+    "ai_velocity_iepe",
+    "ai_accel_4_wire_dc_voltage",
+    "ai_accel_charge",
+    "ai_charge",
+    "ai_current_rms",
+    "ai_force_bridge_polynomial",
+    "ai_freq_voltage",
+    "ai_pressure_bridge_polynomial",
+    "ai_thermistor_iex",
+    "ai_thermistor_vex",
+    "ai_torque_bridge_polynomial",
+    "ai_voltage_rms",
+    "ai_voltage_with_excit",
+]
+
+AO_CHANNEL_TYPE_AO_CURRENT: Literal["ao_current"] = "ao_current"
+
+AO_CHANNEL_TYPE_AO_FUNC_GEN: Literal["ao_func_gen"] = "ao_func_gen"
+
+AO_CHANNEL_TYPE_AO_VOLTAGE: Literal["ao_voltage"] = "ao_voltage"
+
+
+AOChannelType = Literal["ao_current", "ao_func_gen", "ao_voltage"]
+
+CI_CHANNEL_TYPE_CI_FREQUENCY: Literal["ci_frequency"] = "ci_frequency"
+
+CI_CHANNEL_TYPE_CI_EDGE_COUNT: Literal["ci_edge_count"] = "ci_edge_count"
+
+CI_CHANNEL_TYPE_CI_PERIOD: Literal["ci_period"] = "ci_period"
+
+CI_CHANNEL_TYPE_CI_PULSE_WIDTH: Literal["ci_pulse_width"] = "ci_pulse_width"
+
+CI_CHANNEL_TYPE_CI_SEMI_PERIOD: Literal["ci_semi_period"] = "ci_semi_period"
+
+CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP: Literal["ci_two_edge_sep"] = "ci_two_edge_sep"
+
+CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR: Literal["ci_velocity_linear"] = "ci_velocity_linear"
+
+CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR: Literal["ci_velocity_angular"] = (
+    "ci_velocity_angular"
+)
+
+CI_CHANNEL_TYPE_CI_POSITION_LINEAR: Literal["ci_position_linear"] = "ci_position_linear"
+
+CI_CHANNEL_TYPE_CI_POSITION_ANGULAR: Literal["ci_position_angular"] = (
+    "ci_position_angular"
+)
+
+CI_CHANNEL_TYPE_CI_DUTY_CYCLE: Literal["ci_duty_cycle"] = "ci_duty_cycle"
+
+
+CIChannelType = Literal[
+    "ci_frequency",
+    "ci_edge_count",
+    "ci_period",
+    "ci_pulse_width",
+    "ci_semi_period",
+    "ci_two_edge_sep",
+    "ci_velocity_linear",
+    "ci_velocity_angular",
+    "ci_position_linear",
+    "ci_position_angular",
+    "ci_duty_cycle",
+]
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -37,8 +216,8 @@ class CommandStatePair(BaseModel):
         state: Is the channel that holds the state of the port.
     """
 
-    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    command: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    state: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
 class AnalogInputPorts(BaseModel):
@@ -50,8 +229,8 @@ class AnalogInputPorts(BaseModel):
         channels: Maps a port number to the channel that holds its samples.
     """
 
-    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    temperature: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    temperature: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     channels: dict[
         Annotated[int, Field(ge=0, le=65535)],
         Annotated[channel_.Key, Field(ge=0, le=4294967295)],
@@ -67,9 +246,9 @@ class AnalogOutputChannels(BaseModel):
         state: Is the channel that holds the state of the port.
     """
 
-    state_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    command: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    state: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    command: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    state: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
 class CounterInputChannels(BaseModel):
@@ -80,8 +259,8 @@ class CounterInputChannels(BaseModel):
         channel: Is the channel that holds the samples of the counter.
     """
 
-    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
+    channel: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
 
 
 class DigitalInputChannels(BaseModel):
@@ -92,30 +271,73 @@ class DigitalInputChannels(BaseModel):
         lines: Maps a line number to the channel that holds its samples.
     """
 
-    index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     lines: dict[
         Annotated[int, Field(ge=0, le=255)],
         Annotated[channel_.Key, Field(ge=0, le=4294967295)],
     ] = Field(default_factory=dict)
 
 
-class Identity(BaseModel):
-    """Holds the device fields that the scanner owns.
+class AnalogInputPort(BaseModel):
+    """Is an analog input port of an NI device.
 
     Attributes:
-        rack: Is the key of the rack the device is connected to.
-        serial: Is the serial number of the device. Empty on simulated hardware.
-        resource_name: Is the NI-MAX resource name of the device, a GUID that survives
-            renames.
-        model: Is the product name of the device.
-        chassis: Is the chassis that holds the device. Absent for a standalone device.
+        port: Is the number in the DAQmx name of the port, such as 3 for ai3.
+        terminal_configs: Are the terminal configurations that the port accepts.
+        default_terminal_config: Is the terminal configuration that Cfg_Default gives on
+            the port. Absent when the Driver did not read it.
+        types: Are the channel types that the port accepts, such as ai_voltage.
+        negative: Is the port that a differential channel on this port uses as its
+            negative input. Absent when the port has no pair.
     """
 
-    rack: rack_.Key = Field(gt=0, le=4294967295)
-    serial: str = ""
-    resource_name: str = Field(min_length=1)
-    model: str = Field(min_length=1)
-    chassis: chassis_.Key | None = None
+    port: int = Field(ge=0, le=65535)
+    terminal_configs: list[TerminalConfig] = Field(default_factory=list)
+    default_terminal_config: TerminalConfig | None = None
+    types: list[AIChannelType] = Field(default_factory=list)
+    negative: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class AnalogOutputPort(BaseModel):
+    """Is an analog output port of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the port, such as 1 for ao1.
+        terminal_configs: Are the terminal configurations that the port accepts.
+        types: Are the channel types that the port accepts, such as ao_voltage.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    terminal_configs: list[TerminalConfig] = Field(default_factory=list)
+    types: list[AOChannelType] = Field(default_factory=list)
+
+
+class CounterPort(BaseModel):
+    """Is a counter of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the counter, such as 0 for ctr0.
+        types: Are the channel types that the counter accepts, such as ci_frequency.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    types: list[CIChannelType] = Field(default_factory=list)
+
+
+class DigitalPort(BaseModel):
+    """Is a digital port of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the port, such as 0 for port0.
+        lines: Is the number of lines in the port.
+        input: Is true when the port reads digital input.
+        output: Is true when the port writes digital output.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    lines: int = Field(ge=0, le=32)
+    input: bool = False
+    output: bool = False
 
 
 class Order(BaseModel):
@@ -209,10 +431,57 @@ class DigitalOutputChannels(BaseModel):
         lines: Maps a line number to the channels that write to it.
     """
 
-    state_index: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state_index: channel_.Key | None = Field(default=None, ge=0, le=4294967295)
     lines: dict[Annotated[int, Field(ge=0, le=255)], CommandStatePair] = Field(
         default_factory=dict
     )
+
+
+class Hardware(BaseModel):
+    """Is what the Driver reads from DAQmx about the ports, rates, and ranges of an NI
+    device.
+
+    Attributes:
+        analog_inputs: Are the analog input ports of the device.
+        analog_outputs: Are the analog output ports of the device.
+        counter_inputs: Are the counters of the device that read input.
+        counter_outputs: Are the counters of the device that write output.
+        digital_ports: Are the digital ports of the device.
+        terminals: Are the terminals of the device, such as PFI0, without the device
+            name.
+        ai_min_rate: Is the lowest analog input sample rate. 0 means that the device has
+            no minimum.
+        ai_max_single_channel_rate: Is the highest analog input sample rate of one
+            channel. Absent when the device does not support the attribute.
+        ai_max_multi_channel_rate: Is the highest analog input sample rate of the
+            device. A task with several channels divides it by the channel count. Absent
+            when the device does not support the attribute.
+        ao_max_rate: Is the highest analog output sample rate. Absent when the device
+            does not support the attribute.
+        ai_voltage_ranges: Are the analog input voltage ranges of the device.
+        ai_current_ranges: Are the analog input current ranges of the device.
+        ao_voltage_ranges: Are the analog output voltage ranges of the device.
+        ao_current_ranges: Are the analog output current ranges of the device.
+    """
+
+    analog_inputs: list[AnalogInputPort] = Field(default_factory=list)
+    analog_outputs: list[AnalogOutputPort] = Field(default_factory=list)
+    counter_inputs: list[CounterPort] = Field(default_factory=list)
+    counter_outputs: list[CounterPort] = Field(default_factory=list)
+    digital_ports: list[DigitalPort] = Field(default_factory=list)
+    terminals: list[str] = Field(default_factory=list)
+    ai_min_rate: telem.Rate = Field(default=telem.Rate(0), ge=0, allow_inf_nan=False)
+    ai_max_single_channel_rate: telem.Rate | None = Field(
+        default=None, gt=0, allow_inf_nan=False
+    )
+    ai_max_multi_channel_rate: telem.Rate | None = Field(
+        default=None, gt=0, allow_inf_nan=False
+    )
+    ao_max_rate: telem.Rate | None = Field(default=None, gt=0, allow_inf_nan=False)
+    ai_voltage_ranges: list[spatial.ClosedBounds] = Field(default_factory=list)
+    ai_current_ranges: list[spatial.ClosedBounds] = Field(default_factory=list)
+    ao_voltage_ranges: list[spatial.ClosedBounds] = Field(default_factory=list)
+    ao_current_ranges: list[spatial.ClosedBounds] = Field(default_factory=list)
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
@@ -271,6 +540,28 @@ class Configuration(BaseModel):
     ] = Field(default_factory=dict)
 
 
+class Identity(BaseModel):
+    """Holds the device fields that the scanner owns.
+
+    Attributes:
+        rack: Is the key of the rack the device is connected to.
+        serial: Is the serial number of the device. Empty on simulated hardware.
+        resource_name: Is the NI-MAX resource name of the device, a GUID that survives
+            renames.
+        model: Is the product name of the device.
+        chassis: Is the chassis that holds the device. Absent for a standalone device.
+        hardware: Is what the Driver read from DAQmx about the device. An update without
+            it keeps the stored value.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    serial: str = ""
+    resource_name: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    chassis: chassis_.Key | None = None
+    hardware: Hardware | None = None
+
+
 class Device(BaseModel):
     """Is an NI module in a chassis, or a standalone USB or PCIe device.
 
@@ -283,6 +574,8 @@ class Device(BaseModel):
             renames.
         model: Is the product name of the device.
         chassis: Is the chassis that holds the device. Absent for a standalone device.
+        hardware: Is what the Driver read from DAQmx about the device. Absent until the
+            Driver reads it.
         identifier: Is the prefix of the device's channel names. The device is
             unconfigured while it is empty.
         analog_input: Are the channels of the analog input ports.
@@ -300,6 +593,7 @@ class Device(BaseModel):
     resource_name: str = Field(min_length=1)
     model: str = Field(min_length=1)
     chassis: chassis_.Key | None = None
+    hardware: Hardware | None = None
     identifier: str = ""
     analog_input: AnalogInputPorts = Field(default_factory=lambda: AnalogInputPorts())
     analog_output: dict[Annotated[int, Field(ge=0, le=65535)], AnalogOutputChannels] = (

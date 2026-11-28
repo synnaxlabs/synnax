@@ -11,17 +11,7 @@
 
 package ni
 
-import (
-	"encoding/json/jsontext"
-	"encoding/json/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
-	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
-	vmsgpack "github.com/vmihailenco/msgpack/v5"
-	"reflect"
-	"strconv"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 
 // Units enumerates the engineering units for NI analog channel values.
 type Units = versions.Units
@@ -139,22 +129,6 @@ const (
 	ExcitationSourceExternal ExcitationSource = versions.ExcitationSourceExternal
 	// ExcitationSourceNone uses no excitation.
 	ExcitationSourceNone ExcitationSource = versions.ExcitationSourceNone
-)
-
-// TerminalConfig selects the terminal configuration for an analog input channel.
-type TerminalConfig = versions.TerminalConfig
-
-const (
-	// TerminalConfigCfgDefault uses the default terminal configuration of the port.
-	TerminalConfigCfgDefault TerminalConfig = versions.TerminalConfigCfgDefault
-	// TerminalConfigRse is referenced single ended.
-	TerminalConfigRse TerminalConfig = versions.TerminalConfigRse
-	// TerminalConfigNrse is non-referenced single ended.
-	TerminalConfigNrse TerminalConfig = versions.TerminalConfigNrse
-	// TerminalConfigDiff is differential.
-	TerminalConfigDiff TerminalConfig = versions.TerminalConfigDiff
-	// TerminalConfigPseudoDiff is pseudo-differential.
-	TerminalConfigPseudoDiff TerminalConfig = versions.TerminalConfigPseudoDiff
 )
 
 // BridgeConfig selects the physical bridge wiring of a bridge-based sensor.
@@ -448,81 +422,6 @@ type AIChannel = versions.AIChannel
 // AIChannelVariant is implemented by every AIChannel variant.
 type AIChannelVariant = versions.AIChannelVariant
 
-// AIChannelType is the "type" value that selects a variant of AIChannel.
-type AIChannelType = versions.AIChannelType
-
-const (
-	// AIVoltageChannelType reads a voltage.
-	AIVoltageChannelType AIChannelType = versions.AIVoltageChannelType
-	// AIAccelChannelType reads acceleration from an accelerometer.
-	AIAccelChannelType AIChannelType = versions.AIAccelChannelType
-	// AIBridgeChannelType reads a generic bridge-based sensor.
-	AIBridgeChannelType AIChannelType = versions.AIBridgeChannelType
-	// AICurrentChannelType reads a current.
-	AICurrentChannelType AIChannelType = versions.AICurrentChannelType
-	// AIForceBridgeTableChannelType reads force from a bridge with a calibration table.
-	AIForceBridgeTableChannelType AIChannelType = versions.AIForceBridgeTableChannelType
-	// AIForceBridgeTwoPointLinChannelType reads force from a bridge with two-point
-	// linear calibration.
-	AIForceBridgeTwoPointLinChannelType AIChannelType = versions.AIForceBridgeTwoPointLinChannelType
-	// AIForceIEPEChannelType reads force from an IEPE sensor.
-	AIForceIEPEChannelType AIChannelType = versions.AIForceIEPEChannelType
-	// AIMicrophoneChannelType reads sound pressure from a microphone.
-	AIMicrophoneChannelType AIChannelType = versions.AIMicrophoneChannelType
-	// AIPressureBridgeTableChannelType reads pressure from a bridge with a calibration
-	// table.
-	AIPressureBridgeTableChannelType AIChannelType = versions.AIPressureBridgeTableChannelType
-	// AIPressureBridgeTwoPointLinChannelType reads pressure from a bridge with
-	// two-point linear calibration.
-	AIPressureBridgeTwoPointLinChannelType AIChannelType = versions.AIPressureBridgeTwoPointLinChannelType
-	// AIResistanceChannelType reads a resistance.
-	AIResistanceChannelType AIChannelType = versions.AIResistanceChannelType
-	// AIRTDChannelType reads temperature from an RTD.
-	AIRTDChannelType AIChannelType = versions.AIRTDChannelType
-	// AIStrainGaugeChannelType reads strain from a strain gauge.
-	AIStrainGaugeChannelType AIChannelType = versions.AIStrainGaugeChannelType
-	// AITempBuiltinChannelType reads temperature from the device's built-in sensor.
-	AITempBuiltinChannelType AIChannelType = versions.AITempBuiltinChannelType
-	// AIThermocoupleChannelType reads temperature from a thermocouple.
-	AIThermocoupleChannelType AIChannelType = versions.AIThermocoupleChannelType
-	// AITorqueBridgeTableChannelType reads torque from a bridge with a calibration
-	// table.
-	AITorqueBridgeTableChannelType AIChannelType = versions.AITorqueBridgeTableChannelType
-	// AITorqueBridgeTwoPointLinChannelType reads torque from a bridge with two-point
-	// linear calibration.
-	AITorqueBridgeTwoPointLinChannelType AIChannelType = versions.AITorqueBridgeTwoPointLinChannelType
-	// AIVelocityIEPEChannelType reads velocity from an IEPE sensor.
-	AIVelocityIEPEChannelType AIChannelType = versions.AIVelocityIEPEChannelType
-	// AIAccel4WireDCVoltageChannelType reads acceleration from a 4-wire DC-voltage
-	// accelerometer.
-	AIAccel4WireDCVoltageChannelType AIChannelType = versions.AIAccel4WireDCVoltageChannelType
-	// AIAccelChargeChannelType reads acceleration from a charge-mode accelerometer.
-	AIAccelChargeChannelType AIChannelType = versions.AIAccelChargeChannelType
-	// AIChargeChannelType reads a raw charge.
-	AIChargeChannelType AIChannelType = versions.AIChargeChannelType
-	// AICurrentRMSChannelType reads RMS current.
-	AICurrentRMSChannelType AIChannelType = versions.AICurrentRMSChannelType
-	// AIForceBridgePolynomialChannelType reads force from a bridge with polynomial
-	// calibration.
-	AIForceBridgePolynomialChannelType AIChannelType = versions.AIForceBridgePolynomialChannelType
-	// AIFreqVoltageChannelType reads frequency from a voltage signal.
-	AIFreqVoltageChannelType AIChannelType = versions.AIFreqVoltageChannelType
-	// AIPressureBridgePolynomialChannelType reads pressure from a bridge with
-	// polynomial calibration.
-	AIPressureBridgePolynomialChannelType AIChannelType = versions.AIPressureBridgePolynomialChannelType
-	// AIThermistorIexChannelType reads temperature from a current-excited thermistor.
-	AIThermistorIexChannelType AIChannelType = versions.AIThermistorIexChannelType
-	// AIThermistorVexChannelType reads temperature from a voltage-excited thermistor.
-	AIThermistorVexChannelType AIChannelType = versions.AIThermistorVexChannelType
-	// AITorqueBridgePolynomialChannelType reads torque from a bridge with polynomial
-	// calibration.
-	AITorqueBridgePolynomialChannelType AIChannelType = versions.AITorqueBridgePolynomialChannelType
-	// AIVoltageRMSChannelType reads RMS voltage.
-	AIVoltageRMSChannelType AIChannelType = versions.AIVoltageRMSChannelType
-	// AIVoltageWithExcitChannelType reads a voltage with excitation.
-	AIVoltageWithExcitChannelType AIChannelType = versions.AIVoltageWithExcitChannelType
-)
-
 // AIVoltageChannel reads a voltage.
 type AIVoltageChannel = versions.AIVoltageChannel
 
@@ -764,34 +663,6 @@ type CIChannel = versions.CIChannel
 // CIChannelVariant is implemented by every CIChannel variant.
 type CIChannelVariant = versions.CIChannelVariant
 
-// CIChannelType is the "type" value that selects a variant of CIChannel.
-type CIChannelType = versions.CIChannelType
-
-const (
-	// CIFrequencyChannelType measures signal frequency.
-	CIFrequencyChannelType CIChannelType = versions.CIFrequencyChannelType
-	// CIEdgeCountChannelType counts signal edges.
-	CIEdgeCountChannelType CIChannelType = versions.CIEdgeCountChannelType
-	// CIPeriodChannelType measures signal period.
-	CIPeriodChannelType CIChannelType = versions.CIPeriodChannelType
-	// CIPulseWidthChannelType measures pulse width.
-	CIPulseWidthChannelType CIChannelType = versions.CIPulseWidthChannelType
-	// CISemiPeriodChannelType measures semi-period.
-	CISemiPeriodChannelType CIChannelType = versions.CISemiPeriodChannelType
-	// CITwoEdgeSepChannelType measures the separation between two edges.
-	CITwoEdgeSepChannelType CIChannelType = versions.CITwoEdgeSepChannelType
-	// CIVelocityLinearChannelType measures linear velocity from an encoder.
-	CIVelocityLinearChannelType CIChannelType = versions.CIVelocityLinearChannelType
-	// CIVelocityAngularChannelType measures angular velocity from an encoder.
-	CIVelocityAngularChannelType CIChannelType = versions.CIVelocityAngularChannelType
-	// CIPositionLinearChannelType measures linear position from an encoder.
-	CIPositionLinearChannelType CIChannelType = versions.CIPositionLinearChannelType
-	// CIPositionAngularChannelType measures angular position from an encoder.
-	CIPositionAngularChannelType CIChannelType = versions.CIPositionAngularChannelType
-	// CIDutyCycleChannelType measures the duty cycle of a signal.
-	CIDutyCycleChannelType CIChannelType = versions.CIDutyCycleChannelType
-)
-
 // CIFrequencyChannel measures signal frequency.
 type CIFrequencyChannel = versions.CIFrequencyChannel
 
@@ -849,19 +720,6 @@ type AOChannel = versions.AOChannel
 // AOChannelVariant is implemented by every AOChannel variant.
 type AOChannelVariant = versions.AOChannelVariant
 
-// AOChannelType is the "type" value that selects a variant of AOChannel.
-type AOChannelType = versions.AOChannelType
-
-const (
-	// AOCurrentChannelType drives a current output.
-	AOCurrentChannelType AOChannelType = versions.AOCurrentChannelType
-	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
-	// commands.
-	AOFuncGenChannelType AOChannelType = versions.AOFuncGenChannelType
-	// AOVoltageChannelType drives a voltage output.
-	AOVoltageChannelType AOChannelType = versions.AOVoltageChannelType
-)
-
 // AOCurrentChannel drives a current output.
 type AOCurrentChannel = versions.AOCurrentChannel
 
@@ -918,170 +776,3 @@ const (
 // CommandedAOChannel carries the command and state channels of a commanded analog
 // output.
 type CommandedAOChannel = versions.CommandedAOChannel
-
-// AnalogInputPort is an analog input port of an NI device.
-type AnalogInputPort struct {
-	// Port is the number in the DAQmx name of the port, such as 3 for ai3.
-	Port uint16 `json:"port" msgpack:"port"`
-	// TerminalConfigs are the terminal configurations that the port accepts.
-	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
-	// DefaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
-	// port. The value Cfg_Default means that the Driver did not read it. DAQmx always
-	// reads back a real configuration.
-	DefaultTerminalConfig TerminalConfig `json:"default_terminal_config" msgpack:"default_terminal_config"`
-	// Types are the channel types that the port accepts, such as ai_voltage.
-	Types []string `json:"types" msgpack:"types"`
-	// Negative is the port that a differential channel on this port uses as its
-	// negative input. 0 means that the port has no pair. Port 0 is never a negative
-	// port.
-	Negative uint16 `json:"negative" msgpack:"negative"`
-}
-
-// SetDefaults sets every field that has a schema default to that default.
-func (a *AnalogInputPort) SetDefaults() {
-	a.DefaultTerminalConfig = TerminalConfigCfgDefault
-}
-
-// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
-// schema defaults, so an omitted member takes its default and a zero stays.
-func (a *AnalogInputPort) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	type plain AnalogInputPort
-	if reflect.ValueOf(*a).IsZero() {
-		a.SetDefaults()
-	}
-	return json.UnmarshalDecode(dec, (*plain)(a))
-}
-
-// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
-func (a *AnalogInputPort) DecodeMsgpack(dec *vmsgpack.Decoder) error {
-	type plain AnalogInputPort
-	if reflect.ValueOf(*a).IsZero() {
-		a.SetDefaults()
-	}
-	return dec.Decode((*plain)(a))
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (a AnalogInputPort) Validate() error {
-	v := validate.New("AnalogInputPort")
-	v.Ternaryf("default_terminal_config", !a.DefaultTerminalConfig.IsValid(), "invalid default_terminal_config: %v", a.DefaultTerminalConfig)
-	return v.Error()
-}
-
-// AnalogOutputPort is an analog output port of an NI device.
-type AnalogOutputPort struct {
-	// Port is the number in the DAQmx name of the port, such as 1 for ao1.
-	Port uint16 `json:"port" msgpack:"port"`
-	// TerminalConfigs are the terminal configurations that the port accepts.
-	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
-	// Types are the channel types that the port accepts, such as ao_voltage.
-	Types []string `json:"types" msgpack:"types"`
-}
-
-// CounterPort is a counter of an NI device.
-type CounterPort struct {
-	// Port is the number in the DAQmx name of the counter, such as 0 for ctr0.
-	Port uint16 `json:"port" msgpack:"port"`
-	// Types are the channel types that the counter accepts, such as ci_frequency.
-	Types []string `json:"types" msgpack:"types"`
-}
-
-// DigitalPort is a digital port of an NI device.
-type DigitalPort struct {
-	// Port is the number in the DAQmx name of the port, such as 0 for port0.
-	Port uint16 `json:"port" msgpack:"port"`
-	// Lines is the number of lines in the port.
-	Lines uint8 `json:"lines" msgpack:"lines"`
-	// Input is true when the port reads digital input.
-	Input bool `json:"input" msgpack:"input"`
-	// Output is true when the port writes digital output.
-	Output bool `json:"output" msgpack:"output"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (d DigitalPort) Validate() error {
-	v := validate.New("DigitalPort")
-	v.LessThanEq("lines", d.Lines, 32)
-	return v.Error()
-}
-
-// Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
-// NI device. The Driver stores it in the device properties under hardware.
-type Hardware struct {
-	// AnalogInputs are the analog input ports of the device.
-	AnalogInputs []AnalogInputPort `json:"analog_inputs" msgpack:"analog_inputs"`
-	// AnalogOutputs are the analog output ports of the device.
-	AnalogOutputs []AnalogOutputPort `json:"analog_outputs" msgpack:"analog_outputs"`
-	// CounterInputs are the counters of the device that read input.
-	CounterInputs []CounterPort `json:"counter_inputs" msgpack:"counter_inputs"`
-	// CounterOutputs are the counters of the device that write output.
-	CounterOutputs []CounterPort `json:"counter_outputs" msgpack:"counter_outputs"`
-	// DigitalPorts are the digital ports of the device.
-	DigitalPorts []DigitalPort `json:"digital_ports" msgpack:"digital_ports"`
-	// Terminals are the terminals of the device, such as PFI0, without the device name.
-	Terminals []string `json:"terminals" msgpack:"terminals"`
-	// AiMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
-	// does not support the attribute.
-	AiMinRate telem.Rate `json:"ai_min_rate" msgpack:"ai_min_rate"`
-	// AiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
-	// Hz. 0 means that the device does not support the attribute.
-	AiMaxSingleChannelRate telem.Rate `json:"ai_max_single_channel_rate" msgpack:"ai_max_single_channel_rate"`
-	// AiMaxMultiChannelRate is the highest analog input sample rate of the device, in
-	// Hz. A task with several channels divides it by the channel count. 0 means that
-	// the device does not support the attribute.
-	AiMaxMultiChannelRate telem.Rate `json:"ai_max_multi_channel_rate" msgpack:"ai_max_multi_channel_rate"`
-	// AoMaxRate is the highest analog output sample rate, in Hz. 0 means that the
-	// device does not support the attribute.
-	AoMaxRate telem.Rate `json:"ao_max_rate" msgpack:"ao_max_rate"`
-	// AiVoltageRanges are the analog input voltage ranges of the device.
-	AiVoltageRanges []spatial.ClosedBounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
-	// AiCurrentRanges are the analog input current ranges of the device.
-	AiCurrentRanges []spatial.ClosedBounds `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
-	// AoVoltageRanges are the analog output voltage ranges of the device.
-	AoVoltageRanges []spatial.ClosedBounds `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
-	// AoCurrentRanges are the analog output current ranges of the device.
-	AoCurrentRanges []spatial.ClosedBounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (h Hardware) Validate() error {
-	v := validate.New("Hardware")
-	v.GreaterThanEq("ai_min_rate", h.AiMinRate, 0)
-	v.GreaterThanEq("ai_max_single_channel_rate", h.AiMaxSingleChannelRate, 0)
-	v.GreaterThanEq("ai_max_multi_channel_rate", h.AiMaxMultiChannelRate, 0)
-	v.GreaterThanEq("ao_max_rate", h.AoMaxRate, 0)
-	for i := range h.AnalogInputs {
-		v.Exec(func() error {
-			return validate.PathedError(h.AnalogInputs[i].Validate(), "analog_inputs", strconv.Itoa(i))
-		})
-	}
-	for i := range h.DigitalPorts {
-		v.Exec(func() error {
-			return validate.PathedError(h.DigitalPorts[i].Validate(), "digital_ports", strconv.Itoa(i))
-		})
-	}
-	for i := range h.AiVoltageRanges {
-		v.Exec(func() error {
-			return validate.PathedError(h.AiVoltageRanges[i].Validate(), "ai_voltage_ranges", strconv.Itoa(i))
-		})
-	}
-	for i := range h.AiCurrentRanges {
-		v.Exec(func() error {
-			return validate.PathedError(h.AiCurrentRanges[i].Validate(), "ai_current_ranges", strconv.Itoa(i))
-		})
-	}
-	for i := range h.AoVoltageRanges {
-		v.Exec(func() error {
-			return validate.PathedError(h.AoVoltageRanges[i].Validate(), "ao_voltage_ranges", strconv.Itoa(i))
-		})
-	}
-	for i := range h.AoCurrentRanges {
-		v.Exec(func() error {
-			return validate.PathedError(h.AoCurrentRanges[i].Validate(), "ao_current_ranges", strconv.Itoa(i))
-		})
-	}
-	return v.Error()
-}

@@ -25,11 +25,287 @@
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/filter/proto.gen.h"
 #include "x/cpp/pb/pb.h"
+#include "x/cpp/spatial/json.gen.h"
+#include "x/cpp/spatial/proto.gen.h"
 
 #include "core/pkg/api/ni/device/pb/ni_device.pb.h"
 #include "core/pkg/service/ni/device/pb/ni_device.pb.h"
 
 namespace synnax::ni::device {
+
+inline std::pair<::service::ni_device::pb::TerminalConfig, x::errors::Error>
+terminal_config_to_pb(const std::string &cpp) {
+    static const std::
+        unordered_map<std::string, ::service::ni_device::pb::TerminalConfig>
+            kMap = {
+                {TERMINAL_CONFIG_CFG_DEFAULT,
+                 ::service::ni_device::pb::TERMINAL_CONFIG_CFG_DEFAULT},
+                {TERMINAL_CONFIG_RSE, ::service::ni_device::pb::TERMINAL_CONFIG_RSE},
+                {TERMINAL_CONFIG_NRSE, ::service::ni_device::pb::TERMINAL_CONFIG_NRSE},
+                {TERMINAL_CONFIG_DIFF, ::service::ni_device::pb::TERMINAL_CONFIG_DIFF},
+                {TERMINAL_CONFIG_PSEUDO_DIFF,
+                 ::service::ni_device::pb::TERMINAL_CONFIG_PSEUDO_DIFF},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized TerminalConfig value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+terminal_config_from_pb(::service::ni_device::pb::TerminalConfig pb) {
+    switch (pb) {
+        case ::service::ni_device::pb::TERMINAL_CONFIG_CFG_DEFAULT:
+            return {TERMINAL_CONFIG_CFG_DEFAULT, x::errors::NIL};
+        case ::service::ni_device::pb::TERMINAL_CONFIG_RSE:
+            return {TERMINAL_CONFIG_RSE, x::errors::NIL};
+        case ::service::ni_device::pb::TERMINAL_CONFIG_NRSE:
+            return {TERMINAL_CONFIG_NRSE, x::errors::NIL};
+        case ::service::ni_device::pb::TERMINAL_CONFIG_DIFF:
+            return {TERMINAL_CONFIG_DIFF, x::errors::NIL};
+        case ::service::ni_device::pb::TERMINAL_CONFIG_PSEUDO_DIFF:
+            return {TERMINAL_CONFIG_PSEUDO_DIFF, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized TerminalConfig protobuf value")};
+    }
+}
+
+inline std::pair<::service::ni_device::pb::AIChannelType, x::errors::Error>
+ai_channel_type_to_pb(const std::string &cpp) {
+    static const std::unordered_map<
+        std::string,
+        ::service::ni_device::pb::AIChannelType>
+        kMap = {
+            {AI_CHANNEL_TYPE_AI_VOLTAGE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_VOLTAGE},
+            {AI_CHANNEL_TYPE_AI_ACCEL,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_ACCEL},
+            {AI_CHANNEL_TYPE_AI_BRIDGE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_BRIDGE},
+            {AI_CHANNEL_TYPE_AI_CURRENT,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_CURRENT},
+            {AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE},
+            {AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN},
+            {AI_CHANNEL_TYPE_AI_FORCE_IEPE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FORCE_IEPE},
+            {AI_CHANNEL_TYPE_AI_MICROPHONE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_MICROPHONE},
+            {AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE},
+            {AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN,
+             ::service::ni_device::pb::
+                 AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN},
+            {AI_CHANNEL_TYPE_AI_RESISTANCE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_RESISTANCE},
+            {AI_CHANNEL_TYPE_AI_RTD, ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_RTD},
+            {AI_CHANNEL_TYPE_AI_STRAIN_GAUGE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_STRAIN_GAUGE},
+            {AI_CHANNEL_TYPE_AI_TEMP_BUILTIN,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_TEMP_BUILTIN},
+            {AI_CHANNEL_TYPE_AI_THERMOCOUPLE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_THERMOCOUPLE},
+            {AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE},
+            {AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN},
+            {AI_CHANNEL_TYPE_AI_VELOCITY_IEPE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_VELOCITY_IEPE},
+            {AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE},
+            {AI_CHANNEL_TYPE_AI_ACCEL_CHARGE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_ACCEL_CHARGE},
+            {AI_CHANNEL_TYPE_AI_CHARGE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_CHARGE},
+            {AI_CHANNEL_TYPE_AI_CURRENT_RMS,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_CURRENT_RMS},
+            {AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL},
+            {AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE},
+            {AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL},
+            {AI_CHANNEL_TYPE_AI_THERMISTOR_IEX,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_THERMISTOR_IEX},
+            {AI_CHANNEL_TYPE_AI_THERMISTOR_VEX,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_THERMISTOR_VEX},
+            {AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL},
+            {AI_CHANNEL_TYPE_AI_VOLTAGE_RMS,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_VOLTAGE_RMS},
+            {AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT,
+             ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized AIChannelType value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+ai_channel_type_from_pb(::service::ni_device::pb::AIChannelType pb) {
+    switch (pb) {
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_VOLTAGE:
+            return {AI_CHANNEL_TYPE_AI_VOLTAGE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_ACCEL:
+            return {AI_CHANNEL_TYPE_AI_ACCEL, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_BRIDGE:
+            return {AI_CHANNEL_TYPE_AI_BRIDGE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_CURRENT:
+            return {AI_CHANNEL_TYPE_AI_CURRENT, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE:
+            return {AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TABLE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN:
+            return {AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_TWO_POINT_LIN, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FORCE_IEPE:
+            return {AI_CHANNEL_TYPE_AI_FORCE_IEPE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_MICROPHONE:
+            return {AI_CHANNEL_TYPE_AI_MICROPHONE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE:
+            return {AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TABLE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN:
+            return {AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_TWO_POINT_LIN, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_RESISTANCE:
+            return {AI_CHANNEL_TYPE_AI_RESISTANCE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_RTD:
+            return {AI_CHANNEL_TYPE_AI_RTD, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_STRAIN_GAUGE:
+            return {AI_CHANNEL_TYPE_AI_STRAIN_GAUGE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_TEMP_BUILTIN:
+            return {AI_CHANNEL_TYPE_AI_TEMP_BUILTIN, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_THERMOCOUPLE:
+            return {AI_CHANNEL_TYPE_AI_THERMOCOUPLE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE:
+            return {AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TABLE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN:
+            return {AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_TWO_POINT_LIN, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_VELOCITY_IEPE:
+            return {AI_CHANNEL_TYPE_AI_VELOCITY_IEPE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE:
+            return {AI_CHANNEL_TYPE_AI_ACCEL_4_WIRE_DC_VOLTAGE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_ACCEL_CHARGE:
+            return {AI_CHANNEL_TYPE_AI_ACCEL_CHARGE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_CHARGE:
+            return {AI_CHANNEL_TYPE_AI_CHARGE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_CURRENT_RMS:
+            return {AI_CHANNEL_TYPE_AI_CURRENT_RMS, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL:
+            return {AI_CHANNEL_TYPE_AI_FORCE_BRIDGE_POLYNOMIAL, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE:
+            return {AI_CHANNEL_TYPE_AI_FREQ_VOLTAGE, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL:
+            return {AI_CHANNEL_TYPE_AI_PRESSURE_BRIDGE_POLYNOMIAL, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_THERMISTOR_IEX:
+            return {AI_CHANNEL_TYPE_AI_THERMISTOR_IEX, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_THERMISTOR_VEX:
+            return {AI_CHANNEL_TYPE_AI_THERMISTOR_VEX, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL:
+            return {AI_CHANNEL_TYPE_AI_TORQUE_BRIDGE_POLYNOMIAL, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_VOLTAGE_RMS:
+            return {AI_CHANNEL_TYPE_AI_VOLTAGE_RMS, x::errors::NIL};
+        case ::service::ni_device::pb::AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT:
+            return {AI_CHANNEL_TYPE_AI_VOLTAGE_WITH_EXCIT, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized AIChannelType protobuf value")};
+    }
+}
+
+inline std::pair<::service::ni_device::pb::AOChannelType, x::errors::Error>
+ao_channel_type_to_pb(const std::string &cpp) {
+    static const std::
+        unordered_map<std::string, ::service::ni_device::pb::AOChannelType>
+            kMap = {
+                {AO_CHANNEL_TYPE_AO_CURRENT,
+                 ::service::ni_device::pb::AO_CHANNEL_TYPE_AO_CURRENT},
+                {AO_CHANNEL_TYPE_AO_FUNC_GEN,
+                 ::service::ni_device::pb::AO_CHANNEL_TYPE_AO_FUNC_GEN},
+                {AO_CHANNEL_TYPE_AO_VOLTAGE,
+                 ::service::ni_device::pb::AO_CHANNEL_TYPE_AO_VOLTAGE},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized AOChannelType value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+ao_channel_type_from_pb(::service::ni_device::pb::AOChannelType pb) {
+    switch (pb) {
+        case ::service::ni_device::pb::AO_CHANNEL_TYPE_AO_CURRENT:
+            return {AO_CHANNEL_TYPE_AO_CURRENT, x::errors::NIL};
+        case ::service::ni_device::pb::AO_CHANNEL_TYPE_AO_FUNC_GEN:
+            return {AO_CHANNEL_TYPE_AO_FUNC_GEN, x::errors::NIL};
+        case ::service::ni_device::pb::AO_CHANNEL_TYPE_AO_VOLTAGE:
+            return {AO_CHANNEL_TYPE_AO_VOLTAGE, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized AOChannelType protobuf value")};
+    }
+}
+
+inline std::pair<::service::ni_device::pb::CIChannelType, x::errors::Error>
+ci_channel_type_to_pb(const std::string &cpp) {
+    static const std::
+        unordered_map<std::string, ::service::ni_device::pb::CIChannelType>
+            kMap = {
+                {CI_CHANNEL_TYPE_CI_FREQUENCY,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_FREQUENCY},
+                {CI_CHANNEL_TYPE_CI_EDGE_COUNT,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_EDGE_COUNT},
+                {CI_CHANNEL_TYPE_CI_PERIOD,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_PERIOD},
+                {CI_CHANNEL_TYPE_CI_PULSE_WIDTH,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_PULSE_WIDTH},
+                {CI_CHANNEL_TYPE_CI_SEMI_PERIOD,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_SEMI_PERIOD},
+                {CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP},
+                {CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR},
+                {CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR},
+                {CI_CHANNEL_TYPE_CI_POSITION_LINEAR,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_POSITION_LINEAR},
+                {CI_CHANNEL_TYPE_CI_POSITION_ANGULAR,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_POSITION_ANGULAR},
+                {CI_CHANNEL_TYPE_CI_DUTY_CYCLE,
+                 ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_DUTY_CYCLE},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized CIChannelType value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+ci_channel_type_from_pb(::service::ni_device::pb::CIChannelType pb) {
+    switch (pb) {
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_FREQUENCY:
+            return {CI_CHANNEL_TYPE_CI_FREQUENCY, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_EDGE_COUNT:
+            return {CI_CHANNEL_TYPE_CI_EDGE_COUNT, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_PERIOD:
+            return {CI_CHANNEL_TYPE_CI_PERIOD, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_PULSE_WIDTH:
+            return {CI_CHANNEL_TYPE_CI_PULSE_WIDTH, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_SEMI_PERIOD:
+            return {CI_CHANNEL_TYPE_CI_SEMI_PERIOD, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP:
+            return {CI_CHANNEL_TYPE_CI_TWO_EDGE_SEP, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR:
+            return {CI_CHANNEL_TYPE_CI_VELOCITY_LINEAR, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR:
+            return {CI_CHANNEL_TYPE_CI_VELOCITY_ANGULAR, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_POSITION_LINEAR:
+            return {CI_CHANNEL_TYPE_CI_POSITION_LINEAR, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_POSITION_ANGULAR:
+            return {CI_CHANNEL_TYPE_CI_POSITION_ANGULAR, x::errors::NIL};
+        case ::service::ni_device::pb::CI_CHANNEL_TYPE_CI_DUTY_CYCLE:
+            return {CI_CHANNEL_TYPE_CI_DUTY_CYCLE, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized CIChannelType protobuf value")};
+    }
+}
 
 inline std::pair<::api::ni_device::pb::OrderField, x::errors::Error>
 order_field_to_pb(const std::string &cpp) {
@@ -129,6 +405,11 @@ Device::to_proto() const {
     pb.set_resource_name(this->resource_name);
     pb.set_model(this->model);
     if (this->chassis.has_value()) pb.set_chassis(this->chassis->to_string());
+    if (this->hardware.has_value()) {
+        auto [v, err] = this->hardware->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_hardware() = v;
+    }
     pb.set_identifier(this->identifier);
     {
         auto [v, err] = this->analog_input.to_proto();
@@ -180,6 +461,11 @@ Device::from_proto(const ::service::ni_device::pb::Device &pb) {
         auto [v, err] = x::uuid::UUID::parse(pb.chassis());
         if (err) return {{}, err};
         cpp.chassis = v;
+    }
+    if (pb.has_hardware()) {
+        auto [v, err] = Hardware::from_proto(pb.hardware());
+        if (err) return {{}, err};
+        cpp.hardware = v;
     }
     cpp.identifier = pb.identifier();
     {
@@ -334,24 +620,24 @@ Where::from_proto(const ::service::ni_device::pb::Where &pb) {
 inline std::pair<::service::ni_device::pb::CommandStatePair, x::errors::Error>
 CommandStatePair::to_proto() const {
     ::service::ni_device::pb::CommandStatePair pb;
-    pb.set_command(this->command);
-    pb.set_state(this->state);
+    if (this->command.has_value()) pb.set_command(*this->command);
+    if (this->state.has_value()) pb.set_state(*this->state);
     return {pb, x::errors::NIL};
 }
 
 inline std::pair<CommandStatePair, x::errors::Error>
 CommandStatePair::from_proto(const ::service::ni_device::pb::CommandStatePair &pb) {
     CommandStatePair cpp;
-    cpp.command = pb.command();
-    cpp.state = pb.state();
+    if (pb.has_command()) cpp.command = pb.command();
+    if (pb.has_state()) cpp.state = pb.state();
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::ni_device::pb::AnalogInputPorts, x::errors::Error>
 AnalogInputPorts::to_proto() const {
     ::service::ni_device::pb::AnalogInputPorts pb;
-    pb.set_index(this->index);
-    pb.set_temperature(this->temperature);
+    if (this->index.has_value()) pb.set_index(*this->index);
+    if (this->temperature.has_value()) pb.set_temperature(*this->temperature);
     for (const auto &[k, v]: this->channels)
         (*pb.mutable_channels())[k] = v;
     return {pb, x::errors::NIL};
@@ -360,8 +646,8 @@ AnalogInputPorts::to_proto() const {
 inline std::pair<AnalogInputPorts, x::errors::Error>
 AnalogInputPorts::from_proto(const ::service::ni_device::pb::AnalogInputPorts &pb) {
     AnalogInputPorts cpp;
-    cpp.index = pb.index();
-    cpp.temperature = pb.temperature();
+    if (pb.has_index()) cpp.index = pb.index();
+    if (pb.has_temperature()) cpp.temperature = pb.temperature();
     for (const auto &[k, v]: pb.channels()) {
         auto [key, key_err] = x::pb::narrow<std::uint16_t>(k);
         if (key_err) return {{}, key_err};
@@ -373,9 +659,9 @@ AnalogInputPorts::from_proto(const ::service::ni_device::pb::AnalogInputPorts &p
 inline std::pair<::service::ni_device::pb::AnalogOutputChannels, x::errors::Error>
 AnalogOutputChannels::to_proto() const {
     ::service::ni_device::pb::AnalogOutputChannels pb;
-    pb.set_state_index(this->state_index);
-    pb.set_command(this->command);
-    pb.set_state(this->state);
+    if (this->state_index.has_value()) pb.set_state_index(*this->state_index);
+    if (this->command.has_value()) pb.set_command(*this->command);
+    if (this->state.has_value()) pb.set_state(*this->state);
     return {pb, x::errors::NIL};
 }
 
@@ -384,17 +670,17 @@ AnalogOutputChannels::from_proto(
     const ::service::ni_device::pb::AnalogOutputChannels &pb
 ) {
     AnalogOutputChannels cpp;
-    cpp.state_index = pb.state_index();
-    cpp.command = pb.command();
-    cpp.state = pb.state();
+    if (pb.has_state_index()) cpp.state_index = pb.state_index();
+    if (pb.has_command()) cpp.command = pb.command();
+    if (pb.has_state()) cpp.state = pb.state();
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::ni_device::pb::CounterInputChannels, x::errors::Error>
 CounterInputChannels::to_proto() const {
     ::service::ni_device::pb::CounterInputChannels pb;
-    pb.set_index(this->index);
-    pb.set_channel(this->channel);
+    if (this->index.has_value()) pb.set_index(*this->index);
+    if (this->channel.has_value()) pb.set_channel(*this->channel);
     return {pb, x::errors::NIL};
 }
 
@@ -403,15 +689,15 @@ CounterInputChannels::from_proto(
     const ::service::ni_device::pb::CounterInputChannels &pb
 ) {
     CounterInputChannels cpp;
-    cpp.index = pb.index();
-    cpp.channel = pb.channel();
+    if (pb.has_index()) cpp.index = pb.index();
+    if (pb.has_channel()) cpp.channel = pb.channel();
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::service::ni_device::pb::DigitalInputChannels, x::errors::Error>
 DigitalInputChannels::to_proto() const {
     ::service::ni_device::pb::DigitalInputChannels pb;
-    pb.set_index(this->index);
+    if (this->index.has_value()) pb.set_index(*this->index);
     for (const auto &[k, v]: this->lines)
         (*pb.mutable_lines())[k] = v;
     return {pb, x::errors::NIL};
@@ -422,7 +708,7 @@ DigitalInputChannels::from_proto(
     const ::service::ni_device::pb::DigitalInputChannels &pb
 ) {
     DigitalInputChannels cpp;
-    cpp.index = pb.index();
+    if (pb.has_index()) cpp.index = pb.index();
     for (const auto &[k, v]: pb.lines()) {
         auto [key, key_err] = x::pb::narrow<std::uint8_t>(k);
         if (key_err) return {{}, key_err};
@@ -434,7 +720,7 @@ DigitalInputChannels::from_proto(
 inline std::pair<::service::ni_device::pb::DigitalOutputChannels, x::errors::Error>
 DigitalOutputChannels::to_proto() const {
     ::service::ni_device::pb::DigitalOutputChannels pb;
-    pb.set_state_index(this->state_index);
+    if (this->state_index.has_value()) pb.set_state_index(*this->state_index);
     for (const auto &[k, v]: this->lines) {
         auto [pb_v, err] = v.to_proto();
         if (err) return {{}, err};
@@ -448,7 +734,7 @@ DigitalOutputChannels::from_proto(
     const ::service::ni_device::pb::DigitalOutputChannels &pb
 ) {
     DigitalOutputChannels cpp;
-    cpp.state_index = pb.state_index();
+    if (pb.has_state_index()) cpp.state_index = pb.state_index();
     for (const auto &[k, v]: pb.lines()) {
         auto [key, key_err] = x::pb::narrow<std::uint8_t>(k);
         if (key_err) return {{}, key_err};
@@ -487,6 +773,11 @@ Identity::to_proto() const {
     pb.set_resource_name(this->resource_name);
     pb.set_model(this->model);
     if (this->chassis.has_value()) pb.set_chassis(this->chassis->to_string());
+    if (this->hardware.has_value()) {
+        auto [v, err] = this->hardware->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_hardware() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -501,6 +792,11 @@ Identity::from_proto(const ::service::ni_device::pb::Identity &pb) {
         auto [v, err] = x::uuid::UUID::parse(pb.chassis());
         if (err) return {{}, err};
         cpp.chassis = v;
+    }
+    if (pb.has_hardware()) {
+        auto [v, err] = Hardware::from_proto(pb.hardware());
+        if (err) return {{}, err};
+        cpp.hardware = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -576,6 +872,264 @@ Configuration::from_proto(const ::service::ni_device::pb::Configuration &pb) {
         if (err) return {{}, err};
         cpp.digital_output[key] = cpp_v;
     }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::ni_device::pb::AnalogInputPort, x::errors::Error>
+AnalogInputPort::to_proto() const {
+    ::service::ni_device::pb::AnalogInputPort pb;
+    pb.set_port(this->port);
+    for (const auto &item: this->terminal_configs) {
+        auto [v, err] = terminal_config_to_pb(item);
+        if (err) return {{}, err};
+        pb.add_terminal_configs(v);
+    }
+    if (this->default_terminal_config.has_value()) {
+        auto [v, err] = terminal_config_to_pb(*this->default_terminal_config);
+        if (err) return {{}, err};
+        pb.set_default_terminal_config(v);
+    }
+    for (const auto &item: this->types) {
+        auto [v, err] = ai_channel_type_to_pb(item);
+        if (err) return {{}, err};
+        pb.add_types(v);
+    }
+    if (this->negative.has_value()) pb.set_negative(*this->negative);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<AnalogInputPort, x::errors::Error>
+AnalogInputPort::from_proto(const ::service::ni_device::pb::AnalogInputPort &pb) {
+    AnalogInputPort cpp;
+    cpp.port = pb.port();
+    for (const auto &item: pb.terminal_configs()) {
+        auto [v, err] = terminal_config_from_pb(
+            static_cast<::service::ni_device::pb::TerminalConfig>(item)
+        );
+        if (err) return {{}, err};
+        cpp.terminal_configs.push_back(v);
+    }
+    if (pb.has_default_terminal_config()) {
+        auto [v, err] = terminal_config_from_pb(pb.default_terminal_config());
+        if (err) return {{}, err};
+        cpp.default_terminal_config = v;
+    }
+    for (const auto &item: pb.types()) {
+        auto [v, err] = ai_channel_type_from_pb(
+            static_cast<::service::ni_device::pb::AIChannelType>(item)
+        );
+        if (err) return {{}, err};
+        cpp.types.push_back(v);
+    }
+    if (pb.has_negative()) cpp.negative = pb.negative();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::ni_device::pb::AnalogOutputPort, x::errors::Error>
+AnalogOutputPort::to_proto() const {
+    ::service::ni_device::pb::AnalogOutputPort pb;
+    pb.set_port(this->port);
+    for (const auto &item: this->terminal_configs) {
+        auto [v, err] = terminal_config_to_pb(item);
+        if (err) return {{}, err};
+        pb.add_terminal_configs(v);
+    }
+    for (const auto &item: this->types) {
+        auto [v, err] = ao_channel_type_to_pb(item);
+        if (err) return {{}, err};
+        pb.add_types(v);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<AnalogOutputPort, x::errors::Error>
+AnalogOutputPort::from_proto(const ::service::ni_device::pb::AnalogOutputPort &pb) {
+    AnalogOutputPort cpp;
+    cpp.port = pb.port();
+    for (const auto &item: pb.terminal_configs()) {
+        auto [v, err] = terminal_config_from_pb(
+            static_cast<::service::ni_device::pb::TerminalConfig>(item)
+        );
+        if (err) return {{}, err};
+        cpp.terminal_configs.push_back(v);
+    }
+    for (const auto &item: pb.types()) {
+        auto [v, err] = ao_channel_type_from_pb(
+            static_cast<::service::ni_device::pb::AOChannelType>(item)
+        );
+        if (err) return {{}, err};
+        cpp.types.push_back(v);
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::ni_device::pb::CounterPort, x::errors::Error>
+CounterPort::to_proto() const {
+    ::service::ni_device::pb::CounterPort pb;
+    pb.set_port(this->port);
+    for (const auto &item: this->types) {
+        auto [v, err] = ci_channel_type_to_pb(item);
+        if (err) return {{}, err};
+        pb.add_types(v);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<CounterPort, x::errors::Error>
+CounterPort::from_proto(const ::service::ni_device::pb::CounterPort &pb) {
+    CounterPort cpp;
+    cpp.port = pb.port();
+    for (const auto &item: pb.types()) {
+        auto [v, err] = ci_channel_type_from_pb(
+            static_cast<::service::ni_device::pb::CIChannelType>(item)
+        );
+        if (err) return {{}, err};
+        cpp.types.push_back(v);
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::ni_device::pb::DigitalPort, x::errors::Error>
+DigitalPort::to_proto() const {
+    ::service::ni_device::pb::DigitalPort pb;
+    pb.set_port(this->port);
+    pb.set_lines(this->lines);
+    pb.set_input(this->input);
+    pb.set_output(this->output);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<DigitalPort, x::errors::Error>
+DigitalPort::from_proto(const ::service::ni_device::pb::DigitalPort &pb) {
+    DigitalPort cpp;
+    cpp.port = pb.port();
+    cpp.lines = pb.lines();
+    cpp.input = pb.input();
+    cpp.output = pb.output();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::ni_device::pb::Hardware, x::errors::Error>
+Hardware::to_proto() const {
+    ::service::ni_device::pb::Hardware pb;
+    for (const auto &item: this->analog_inputs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_analog_inputs() = v;
+    }
+    for (const auto &item: this->analog_outputs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_analog_outputs() = v;
+    }
+    for (const auto &item: this->counter_inputs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_counter_inputs() = v;
+    }
+    for (const auto &item: this->counter_outputs) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_counter_outputs() = v;
+    }
+    for (const auto &item: this->digital_ports) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_digital_ports() = v;
+    }
+    for (const auto &item: this->terminals)
+        pb.add_terminals(item);
+    pb.set_ai_min_rate(this->ai_min_rate.to_proto());
+    if (this->ai_max_single_channel_rate.has_value())
+        pb.set_ai_max_single_channel_rate(this->ai_max_single_channel_rate->to_proto());
+    if (this->ai_max_multi_channel_rate.has_value())
+        pb.set_ai_max_multi_channel_rate(this->ai_max_multi_channel_rate->to_proto());
+    if (this->ao_max_rate.has_value())
+        pb.set_ao_max_rate(this->ao_max_rate->to_proto());
+    for (const auto &item: this->ai_voltage_ranges) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_ai_voltage_ranges() = v;
+    }
+    for (const auto &item: this->ai_current_ranges) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_ai_current_ranges() = v;
+    }
+    for (const auto &item: this->ao_voltage_ranges) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_ao_voltage_ranges() = v;
+    }
+    for (const auto &item: this->ao_current_ranges) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_ao_current_ranges() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Hardware, x::errors::Error>
+Hardware::from_proto(const ::service::ni_device::pb::Hardware &pb) {
+    Hardware cpp;
+    if (auto err = x::pb::from_proto_repeated<AnalogInputPort>(
+            cpp.analog_inputs,
+            pb.analog_inputs()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<AnalogOutputPort>(
+            cpp.analog_outputs,
+            pb.analog_outputs()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<CounterPort>(
+            cpp.counter_inputs,
+            pb.counter_inputs()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<CounterPort>(
+            cpp.counter_outputs,
+            pb.counter_outputs()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<DigitalPort>(
+            cpp.digital_ports,
+            pb.digital_ports()
+        ))
+        return {{}, err};
+    for (const auto &item: pb.terminals())
+        cpp.terminals.push_back(item);
+    cpp.ai_min_rate = ::x::telem::Rate::from_proto(pb.ai_min_rate());
+    if (pb.has_ai_max_single_channel_rate())
+        cpp.ai_max_single_channel_rate = ::x::telem::Rate::from_proto(
+            pb.ai_max_single_channel_rate()
+        );
+    if (pb.has_ai_max_multi_channel_rate())
+        cpp.ai_max_multi_channel_rate = ::x::telem::Rate::from_proto(
+            pb.ai_max_multi_channel_rate()
+        );
+    if (pb.has_ao_max_rate())
+        cpp.ao_max_rate = ::x::telem::Rate::from_proto(pb.ao_max_rate());
+    if (auto err = x::pb::from_proto_repeated<::x::spatial::ClosedBounds>(
+            cpp.ai_voltage_ranges,
+            pb.ai_voltage_ranges()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::x::spatial::ClosedBounds>(
+            cpp.ai_current_ranges,
+            pb.ai_current_ranges()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::x::spatial::ClosedBounds>(
+            cpp.ao_voltage_ranges,
+            pb.ao_voltage_ranges()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::x::spatial::ClosedBounds>(
+            cpp.ao_current_ranges,
+            pb.ao_current_ranges()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
@@ -698,6 +1252,11 @@ IdentityUpdate::to_proto() const {
     pb.set_resource_name(this->resource_name);
     pb.set_model(this->model);
     if (this->chassis.has_value()) pb.set_chassis(this->chassis->to_string());
+    if (this->hardware.has_value()) {
+        auto [v, err] = this->hardware->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_hardware() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -712,6 +1271,11 @@ IdentityUpdate::from_proto(const ::service::ni_device::pb::Identity &pb) {
         auto [v, err] = x::uuid::UUID::parse(pb.chassis());
         if (err) return {{}, err};
         cpp.chassis = v;
+    }
+    if (pb.has_hardware()) {
+        auto [v, err] = Hardware::from_proto(pb.hardware());
+        if (err) return {{}, err};
+        cpp.hardware = v;
     }
     return {cpp, x::errors::NIL};
 }

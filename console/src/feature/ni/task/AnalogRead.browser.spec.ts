@@ -861,7 +861,7 @@ describe("AnalogRead ports", () => {
     ).toBeTruthy();
   });
 
-  it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
+  it.each<[string, () => ni.device.Hardware, Partial<NI.Task.AIChannel>]>([
     ["inside a wider range", createHardware, { minVal: -5, maxVal: 5 }],
     [
       "on a device that lists no ranges",
@@ -1135,8 +1135,8 @@ describe("AnalogRead ports", () => {
   it("should not mark the sample rate of a device that reports no rates", async () => {
     const hardware = createHardware();
     hardware.aiMinRate = 0;
-    hardware.aiMaxSingleChannelRate = 0;
-    hardware.aiMaxMultiChannelRate = 0;
+    hardware.aiMaxSingleChannelRate = undefined;
+    hardware.aiMaxMultiChannelRate = undefined;
     const dev = await createNIDevice(client, { properties: { hardware } });
     await renderAnalogRead({
       ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
@@ -1209,7 +1209,10 @@ describe("AnalogRead ports", () => {
 
   it("should show port 0 of a device with no pairs", async () => {
     const hardware = createHardware();
-    hardware.analogInputs = hardware.analogInputs.map((p) => ({ ...p, negative: 0 }));
+    hardware.analogInputs = hardware.analogInputs.map((p) => ({
+      ...p,
+      negative: undefined,
+    }));
     const dev = await createNIDevice(client, { properties: { hardware } });
     await renderWith([createChannel("ai_voltage", 1, { device: dev.key })]);
     const grid = await openPorts(dev);
@@ -1428,7 +1431,7 @@ describe("AnalogRead ports", () => {
     const hardware = createHardware();
     hardware.analogInputs[8] = {
       ...hardware.analogInputs[8],
-      defaultTerminalConfig: "Cfg_Default",
+      defaultTerminalConfig: undefined,
     };
     const dev = await createNIDevice(client, { properties: { hardware } });
     await renderWith([createChannel("ai_voltage", 8, { device: dev.key })]);

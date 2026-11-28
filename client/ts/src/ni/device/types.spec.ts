@@ -86,3 +86,30 @@ describe("Device", () => {
     expect(ni.device.deviceZ.safeParse({ ...device, [field]: "" }).success).toBe(false);
   });
 });
+
+describe("hardwareZ", () => {
+  it.each([-1, Infinity, NaN])(
+    "should reject a minimum analog input rate of %s",
+    (rate) => {
+      expect(() => ni.device.hardwareZ.parse({ aiMinRate: rate })).toThrow();
+    },
+  );
+
+  it("should default the minimum analog input rate to 0", () => {
+    expect(ni.device.hardwareZ.parse({}).aiMinRate).toBe(0);
+  });
+
+  it.each([0, -1])("should reject a maximum analog input rate of %s", (rate) => {
+    expect(() => ni.device.hardwareZ.parse({ aiMaxSingleChannelRate: rate })).toThrow();
+  });
+
+  it("should leave an unsupported maximum analog input rate absent", () => {
+    expect(ni.device.hardwareZ.parse({}).aiMaxSingleChannelRate).toBeUndefined();
+  });
+
+  it("should reject an unknown analog input channel type", () => {
+    expect(() =>
+      ni.device.hardwareZ.parse({ analogInputs: [{ port: 0, types: ["ai_bogus"] }] }),
+    ).toThrow();
+  });
+});

@@ -27,11 +27,11 @@ import { Task } from "@/platform/task";
 
 /**
  * A port of a device, and the port a differential channel on it uses as its negative
- * input. A negative of 0 means that the port has no pair.
+ * input. The negative is absent when the port has no pair.
  */
 export interface Port {
   port: number;
-  negative: number;
+  negative?: number;
 }
 
 /**
@@ -55,23 +55,22 @@ export type Claims = Task.Port.Claims<Claim>;
  */
 const resolveTerminalConfig = (
   channel: AIChannel,
-  port?: ni.AnalogInputPort,
+  port?: ni.device.AnalogInputPort,
 ): TerminalConfig | null => {
   if (!("terminalConfig" in channel)) return null;
   const { terminalConfig } = channel;
   if (terminalConfig !== "Cfg_Default" || port == null) return terminalConfig;
-  return port.defaultTerminalConfig;
+  return port.defaultTerminalConfig ?? terminalConfig;
 };
 
 /** The ports an analog input channel holds: its own, then its negative input. */
-const analogInputHolds = (channel: AIChannel, hardware?: ni.Hardware): string[] => {
+const analogInputHolds = (
+  channel: AIChannel,
+  hardware?: ni.device.Hardware,
+): string[] => {
   if (!("port" in channel)) return [];
   const port = hardware?.analogInputs.find((p) => p.port === channel.port);
-  if (
-    port == null ||
-    port.negative === 0 ||
-    resolveTerminalConfig(channel, port) !== "Diff"
-  )
+  if (port?.negative == null || resolveTerminalConfig(channel, port) !== "Diff")
     return [`ai${channel.port}`];
   return [`ai${channel.port}`, `ai${port.negative}`];
 };
@@ -89,7 +88,7 @@ export const lowestFreePort = (
   const free = (p: Port) => holds(p).every((h) => !claims.has(h));
   if (ports == null) {
     let port = 0;
-    while (!free({ port, negative: 0 })) port++;
+    while (!free({ port })) port++;
     return port;
   }
   const found = ports.find(free);
@@ -98,13 +97,13 @@ export const lowestFreePort = (
 };
 
 const numbered = (list: { port: number }[]): Port[] =>
-  list.map(({ port }) => ({ port, negative: 0 }));
+  list.map(({ port }) => ({ port }));
 
 /** The digital ports that read input, or that write output. */
 export const digitalPorts = (
-  hardware: ni.Hardware,
+  hardware: ni.device.Hardware,
   direction: "input" | "output",
-): ni.DigitalPort[] => hardware.digitalPorts.filter((p) => p[direction]);
+): ni.device.DigitalPort[] => hardware.digitalPorts.filter((p) => p[direction]);
 
 /** The DAQmx name of a digital line, such as "port0/line3". */
 export const lineName = (port: number, line: number): string =>
@@ -155,22 +154,24 @@ export const groups = ({
     port: number,
     row: number,
     column: number,
-    negative: number = 0,
+    negative?: number,
   ): Task.Port.Cell =>
     Task.Port.cell({
       key: String(port),
-      labels: negative === 0 ? [String(port)] : [String(port), String(negative)],
+      labels: negative == null ? [String(port)] : [String(port), String(negative)],
       row,
       column,
-      ports: negative === 0 ? [name(port)] : [name(port), name(negative)],
+      ports: negative == null ? [name(port)] : [name(port), name(negative)],
       claims,
       selected,
       describe,
     });
   const negatives = new Set(
-    ports.map(({ negative }) => negative).filter((n) => n !== 0),
+    ports.flatMap(({ negative }) => (negative == null ? [] : [negative])),
   );
-  const positives = ports.filter(({ negative }) => negative !== 0);
+  const positives = ports.flatMap(({ port, negative }) =>
+    negative == null ? [] : [{ port, negative }],
+  );
   const result: Task.Port.Group[] = [];
   for (let start = 0; start < positives.length; start += PAIRED_GROUP) {
     const chunk = positives.slice(start, start + PAIRED_GROUP);
@@ -185,7 +186,7 @@ export const groups = ({
     result.push({ key: `pairs-${chunk[0].port}`, columns: chunk.length, cells });
   }
   const rest = ports.filter(
-    ({ port, negative }) => negative === 0 && !negatives.has(port),
+    ({ port, negative }) => negative == null && !negatives.has(port),
   );
   for (let start = 0; start < rest.length; start += UNPAIRED_GROUP) {
     const chunk = rest.slice(start, start + UNPAIRED_GROUP);
@@ -205,9 +206,9 @@ export const groups = ({
 export interface PortKind<C extends Task.Channel> {
   /** The prefix of a port's DAQmx name: "ai", "ao", "ctr". */
   prefix: string;
-  ports: (hardware: ni.Hardware) => Port[];
+  ports: (hardware: ni.device.Hardware) => Port[];
   /** The names of the ports the channel holds, its own port first. */
-  holds: (channel: C, hardware?: ni.Hardware) => string[];
+  holds: (channel: C, hardware?: ni.device.Hardware) => string[];
   /** The name a channel shows by. */
   name: (channel: C, device: Device.Device) => string;
 }
@@ -216,7 +217,7 @@ export interface PortKind<C extends Task.Channel> {
 export const claimsOf = <C extends Task.Channel>(
   kind: PortKind<C>,
   channels: C[],
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): Claims =>
   Task.Port.group(
     channels.flatMap((c) =>
@@ -237,7 +238,7 @@ export const holdState = <C extends Task.Channel>(
   kind: PortKind<C>,
   channels: C[],
   channel: C,
-  hardware?: ni.Hardware,
+  hardware?: ni.device.Hardware,
 ): Task.Port.State => {
   const claims = claimsOf(kind, channels, hardware);
   return Task.Port.stateOf(

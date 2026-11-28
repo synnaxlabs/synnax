@@ -336,4 +336,5 @@ ClosedBounds struct<T extends numeric = float64> {
         emit a concrete float64-based type.
     """
     @go marshal
+    @pb
 }
