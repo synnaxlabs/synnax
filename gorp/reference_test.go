@@ -1408,6 +1408,30 @@ var _ = Describe("Reference", func() {
 		)
 	})
 
+	Describe("References", func() {
+		BeforeEach(func(ctx SpecContext) { open(ctx) })
+
+		It("Should list each reference that points at a table", func() {
+			Expect(db.References("rack")).To(ConsistOf(
+				gorp.ReferenceInfo{
+					ID:       gorp.ReferenceID{Table: "device", Name: "rack"},
+					OnDelete: gorp.Restrict,
+					Kind:     gorp.Place,
+				},
+				gorp.ReferenceInfo{
+					ID:        gorp.ReferenceID{Table: "status", Name: "owner"},
+					OnDelete:  gorp.Cascade,
+					Kind:      gorp.Place,
+					Retargets: true,
+				},
+			))
+		})
+
+		It("Should list no reference for a table that none points at", func() {
+			Expect(db.References("nothing")).To(BeEmpty())
+		})
+	})
+
 	Describe("Retarget", func() {
 		BeforeEach(func(ctx SpecContext) {
 			open(ctx)
@@ -1616,6 +1640,29 @@ var _ = Describe("Reference", func() {
 					To(Equal([]string{"s"}))
 			},
 		)
+
+		It("Should move only the references that RetargetOnly accepts", func(
+			ctx SpecContext,
+		) {
+			createRack(ctx, 2)
+			owner := &refOwner{Table: "rack", Key: "1"}
+			Expect(statuses.NewCreate().
+				Entry(&refStatus{Key: "s", Owner: owner}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			owners := gorp.ReferenceID{Table: "status", Name: "owner"}
+			Expect(racks.Retarget(
+				ctx,
+				db,
+				map[uint32]uint32{1: 2},
+				gorp.RetargetOnly(
+					func(id gorp.ReferenceID) bool { return id == owners },
+				),
+			)).To(Succeed())
+			Expect(ownerRef.Get(ctx, nil, gorp.Target{Table: "rack", Key: "2"})).
+				To(Equal([]string{"s"}))
+			Expect(retrieveDevice(ctx, "a").Rack).To(BeEquivalentTo(1))
+		})
 
 		DescribeTable("Should move the holders of a unique reference in one retarget",
 			func(ctx SpecContext, moves, owners map[string]string) {

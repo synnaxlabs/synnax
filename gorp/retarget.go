@@ -26,7 +26,7 @@ import (
 // reference, in one transaction. Every move applies at once, so two entries can swap
 // their holders. It writes each holder with a checked write and then runs the holder
 // table's OnRewrite. It leaves every entry in place, so the caller can delete the old
-// ones next.
+// ones next. RetargetOnly limits it to the references that it accepts.
 //
 // Retarget fails with a validation error when a key moves to itself, when a reference
 // that holds a moved key has no Retarget, when a holder's key would change, when it
@@ -34,8 +34,17 @@ import (
 // fails its write check. It fails with query.ErrNotFound when a key or its target does
 // not exist. It waits for each reference's index to populate, or for ctx to end, and
 // fails with ErrIndexInvalid if one failed to populate.
-func (t *Table[K, E]) Retarget(ctx context.Context, tx Tx, moves map[K]K) error {
+func (t *Table[K, E]) Retarget(
+	ctx context.Context,
+	tx Tx,
+	moves map[K]K,
+	opts ...RetargetOption,
+) error {
 	checkForNilTx("Table.Retarget", tx)
+	var o retargetOptions
+	for _, opt := range opts {
+		opt(&o)
+	}
 	froms := make([]Target, 0, len(moves))
 	targets := make(map[Target]Target, len(moves))
 	for from, to := range moves {
@@ -71,7 +80,7 @@ func (t *Table[K, E]) Retarget(ctx context.Context, tx Tx, moves map[K]K) error 
 				}
 			}
 		}
-		return t.db.registry.retarget(ctx, tx, froms, targets, t.db.MaxDeleteSize)
+		return t.db.registry.retarget(ctx, tx, froms, targets, o, t.db.MaxDeleteSize)
 	})
 }
 
@@ -161,9 +170,10 @@ func (r *registry) retarget(
 	tx Tx,
 	froms []Target,
 	moves map[Target]Target,
+	o retargetOptions,
 	limit int,
 ) error {
-	holders, err := r.retargetHolders(ctx, tx, froms, limit)
+	holders, err := r.retargetHolders(ctx, tx, froms, o, limit)
 	if err != nil {
 		return err
 	}
@@ -196,11 +206,12 @@ func (r *registry) retarget(
 }
 
 // retargetHolders returns each entry that holds one of froms, once, with the references
-// through which it holds them.
+// through which it holds them that o moves.
 func (r *registry) retargetHolders(
 	ctx context.Context,
 	tx Tx,
 	froms []Target,
+	o retargetOptions,
 	limit int,
 ) ([]retargetHolder, error) {
 	var (
@@ -209,6 +220,9 @@ func (r *registry) retargetHolders(
 	)
 	for _, from := range froms {
 		for _, ref := range r.referencesTo(from.Table) {
+			if o.only != nil && !o.only(referenceID(ref)) {
+				continue
+			}
 			deps, err := ref.dependents(ctx, tx, from)
 			if err != nil {
 				return nil, err
@@ -249,6 +263,21 @@ func (r *registry) retargetHolders(
 		}
 	}
 	return holders, nil
+}
+
+// RetargetOption configures a call of Table.Retarget.
+type RetargetOption func(*retargetOptions)
+
+type retargetOptions struct {
+	// only reports whether the call moves the holders of a reference. Nil moves all.
+	only func(ReferenceID) bool
+}
+
+// RetargetOnly makes a Retarget move only the holders of the references that only
+// accepts. A holder through any other reference keeps its target, and such a reference
+// need not have a Retarget.
+func RetargetOnly(only func(ReferenceID) bool) RetargetOption {
+	return func(o *retargetOptions) { o.only = only }
 }
 
 // RetargetEach returns s with each element whose target to holds as a key pointed at
