@@ -30,12 +30,49 @@ import (
 )
 
 const (
-	logSize = 2 << 20
+	logSize = 8 << 20
 	full    = "does not fit in log 3: log file is full"
 )
 
 // goExec runs each step of a log owner on a new goroutine, as production does.
 func goExec(f func()) { go f() }
+
+func noDurable(uint64, []log.Record) {}
+
+func noRefused([]log.Record, error) {}
+
+// durables collects what a log hands its OnDurable hook.
+type durables struct {
+	mu      sync.Mutex
+	seqs    []uint64
+	records [][]log.Record
+	refused []error
+}
+
+func (d *durables) onRefused(_ []log.Record, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.refused = append(d.refused, err)
+}
+
+func (d *durables) refusals() []error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]error(nil), d.refused...)
+}
+
+func (d *durables) on(seq uint64, records []log.Record) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.seqs = append(d.seqs, seq)
+	d.records = append(d.records, records)
+}
+
+func (d *durables) get() ([]uint64, [][]log.Record) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]uint64(nil), d.seqs...), append([][]log.Record(nil), d.records...)
+}
 
 // bigEntry returns an entry of n bytes, a multiple of 8, that holds no Commit.
 func bigEntry(n int) *log.Entry {
@@ -76,7 +113,13 @@ var logName = log.Name(generation)
 // fileBytes returns the bytes of the log file in fs.
 func fileBytes(fs xfs.FS) []byte {
 	GinkgoHelper()
-	f := MustSucceed(fs.Open(logName, os.O_RDONLY))
+	return logBytes(fs, generation)
+}
+
+// logBytes returns the bytes of the file of the log of gen in fs.
+func logBytes(fs xfs.FS, gen uint64) []byte {
+	GinkgoHelper()
+	f := MustSucceed(fs.Open(log.Name(gen), os.O_RDONLY))
 	defer func() { Expect(f.Close()).To(Succeed()) }()
 	return MustSucceed(io.ReadAll(f))
 }
@@ -86,7 +129,13 @@ func fileBytes(fs xfs.FS) []byte {
 // link of each.
 func walk(b []byte) []log.Frame {
 	GinkgoHelper()
-	h := MustSucceed(log.DecodeHeader(b, db, generation, 0))
+	return walkLog(b, generation)
+}
+
+// walkLog returns the frames of the file of the log of gen, as walk does.
+func walkLog(b []byte, gen uint64) []log.Frame {
+	GinkgoHelper()
+	h := MustSucceed(log.DecodeHeader(b, db, gen, 0))
 	var (
 		frames []log.Frame
 		at     = int64(log.FramesStart)
@@ -94,19 +143,14 @@ func walk(b []byte) []log.Frame {
 		link   = binary.LittleEndian.Uint32(b[60:])
 	)
 	for {
-		f, err := log.DecodeFrame(b[at:], db, generation, uint64(at))
+		f, err := log.DecodeFrame(b[at:], db, gen, uint64(at))
 		if err != nil {
 			aligned := (at + log.BlockSize - 1) &^ (log.BlockSize - 1)
 			if aligned == at {
 				return frames
 			}
 			at = aligned
-			if f, err = log.DecodeFrame(
-				b[at:],
-				db,
-				generation,
-				uint64(at),
-			); err != nil {
+			if f, err = log.DecodeFrame(b[at:], db, gen, uint64(at)); err != nil {
 				return frames
 			}
 		}
@@ -160,6 +204,10 @@ var _ = Describe("Log", func() {
 			cfg := log.Config{
 				FS:         xfs.NewMem(),
 				Executor:   goExec,
+				OnDurable:  noDurable,
+				OnRefused:  noRefused,
+				Prepare:    func(uint64) {},
+				OnSwitched: func(uint64) {},
 				Generation: 1,
 				Sequence:   1,
 			}
@@ -171,6 +219,14 @@ var _ = Describe("Log", func() {
 		},
 		Entry("file system", func(c *log.Config) { c.FS = nil }, "fs"),
 		Entry("executor", func(c *log.Config) { c.Executor = nil }, "executor"),
+		Entry("durable hook", func(c *log.Config) { c.OnDurable = nil }, "on_durable"),
+		Entry("refused hook", func(c *log.Config) { c.OnRefused = nil }, "on_refused"),
+		Entry("prepare hook", func(c *log.Config) { c.Prepare = nil }, "prepare"),
+		Entry(
+			"switched hook",
+			func(c *log.Config) { c.OnSwitched = nil },
+			"on_switched",
+		),
 		Entry("generation", func(c *log.Config) { c.Generation = 0 }, "generation"),
 		Entry("sequence", func(c *log.Config) { c.Sequence = 0 }, "sequence"),
 	)
@@ -182,18 +238,26 @@ var _ = Describe("Log", func() {
 				l     *log.Log
 				ran   chan error
 				steps chan struct{}
+				hook  *durables
+				// prepare answers each Prepare of the log under test.
+				prepare func(next uint64)
 			)
 
 			start := func(size int64, sequence uint64) {
 				GinkgoHelper()
 				Expect(log.Prepare(fs, generation, size)).To(Succeed())
 				steps = make(chan struct{}, 1<<16)
+				hook = &durables{}
 				l = MustSucceed(log.Start(log.Config{
 					FS: fs,
 					Executor: func(f func()) {
 						steps <- struct{}{}
 						go f()
 					},
+					OnDurable:  hook.on,
+					OnRefused:  hook.onRefused,
+					Prepare:    func(next uint64) { prepare(next) },
+					OnSwitched: func(uint64) {},
 					DB:         db,
 					Generation: generation,
 					Sequence:   sequence,
@@ -218,6 +282,7 @@ var _ = Describe("Log", func() {
 
 			BeforeEach(func() {
 				fs = opfs.New(makeFS(), "write", "sync", "syncdir")
+				prepare = func(next uint64) { l.Prepared(next, errors.New("no space")) }
 			})
 
 			Describe("Prepare", func() {
@@ -232,16 +297,31 @@ var _ = Describe("Log", func() {
 						"syncdir ",
 					))
 				})
+
+				DescribeTable("Should remove its file when a write or the sync fails",
+					func(fail func(error)) {
+						fault := errors.New("no space left on device")
+						fail(fault)
+						Expect(log.Prepare(fs, generation, 3<<20)).To(MatchError(fault))
+						Expect(MustSucceed(fs.Exists(logName))).To(BeFalse())
+					},
+					Entry("a write", func(err error) { fs.FailWrite(err) }),
+					Entry("the sync", func(err error) { fs.FailSync(logName, err) }),
+				)
 			})
 
 			DescribeTable(
-				"Should refuse a log file that is not a whole number of blocks "+
-					"with room for the reserve",
+				"Should refuse a log file that is not a whole number of blocks, or "+
+					"that ends its commits before its switch",
 				func(size int64) {
 					Expect(log.Prepare(fs, generation, size)).To(Succeed())
 					Expect(log.Start(log.Config{
 						FS:         fs,
 						Executor:   goExec,
+						OnDurable:  noDurable,
+						OnRefused:  noRefused,
+						Prepare:    func(uint64) {},
+						OnSwitched: func(uint64) {},
 						Generation: generation,
 						Sequence:   1,
 					})).Error().To(SatisfyAll(
@@ -249,10 +329,7 @@ var _ = Describe("Log", func() {
 						MatchError(ContainSubstring("is not a whole number of blocks")),
 					))
 				},
-				Entry(
-					"too small",
-					int64(log.FramesStart+log.DeleteReserve+log.BlockSize),
-				),
+				Entry("too small", int64(8*log.DeleteReserve-log.BlockSize)),
 				Entry("not whole blocks", int64(logSize+100)),
 			)
 
@@ -294,6 +371,49 @@ var _ = Describe("Log", func() {
 				},
 			)
 
+			It(
+				"Should hand each synced entry's records to its hook in log order, "+
+					"before its ack",
+				func() {
+					open(logSize)
+					DeferCleanup(closeLog)
+					fs.Hold()
+					first := l.Append(of(&log.Drop{Key: 1}))
+					Eventually(fs.Held()).Should(Receive())
+					second := l.Append(of(&log.Drop{Key: 2}, &log.Intent{Key: 2}))
+					third := l.Append(of(&log.Restart{}))
+					Expect(hook.get()).To(BeEmpty())
+					fs.Free()
+					Expect(first.Wait()).To(Equal(uint64(5)))
+					seqs, _ := hook.get()
+					Expect(seqs).To(ContainElement(uint64(5)))
+					Expect(second.Wait()).To(Equal(uint64(6)))
+					Expect(third.Wait()).To(Equal(uint64(7)))
+					seqs, records := hook.get()
+					Expect(seqs).To(Equal([]uint64{5, 6, 7}))
+					Expect(records).To(Equal([][]log.Record{
+						{&log.Drop{Key: 1}},
+						{&log.Drop{Key: 2}, &log.Intent{Key: 2}},
+						{&log.Restart{}},
+					}))
+				},
+			)
+
+			It(
+				"Should hand no record of a frame whose sync failed to its hook",
+				func() {
+					open(logSize)
+					fs.FailSync(logName, errors.New("disk fault"))
+					Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
+						To(MatchError(ContainSubstring("disk fault")))
+					Expect(hook.get()).To(BeEmpty())
+					Expect(l.Close()).To(MatchError(ContainSubstring("disk fault")))
+					Eventually(
+						ran,
+					).Should(Receive(MatchError(ContainSubstring("disk fault"))))
+				},
+			)
+
 			It("Should run each step of the owner on its executor", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
@@ -307,15 +427,14 @@ var _ = Describe("Log", func() {
 			It("Should keep a copy of an entry that the caller resets", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
-				release := fs.Hold()
+				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
 				Eventually(fs.Held()).Should(Receive())
 				e := of(&log.Drop{Key: 2})
 				second := l.Append(e)
 				e.Reset()
 				e.Add(&log.Drop{Key: 9})
-				fs.Unhold()
-				release <- struct{}{}
+				fs.Free()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(decodeAll(walk(fileBytes(fs))[1].Entries)).
@@ -341,13 +460,12 @@ var _ = Describe("Log", func() {
 			It("Should write every entry queued during a sync as one frame", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
-				release := fs.Hold()
+				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
 				Eventually(fs.Held()).Should(Receive())
 				second := l.Append(of(&log.Drop{Key: 2}))
 				third := l.Append(of(&log.Drop{Key: 3}))
-				fs.Unhold()
-				release <- struct{}{}
+				fs.Free()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(third.Wait()).To(Equal(uint64(7)))
@@ -370,8 +488,7 @@ var _ = Describe("Log", func() {
 				Expect(a.Wait()).To(Equal(uint64(5)))
 				Eventually(fs.Held()).Should(Receive())
 				c := l.Append(of(&log.Drop{Key: 3}))
-				fs.Unhold()
-				release <- struct{}{}
+				fs.Free()
 				Expect(b.Wait()).To(Equal(uint64(6)))
 				Expect(c.Wait()).To(Equal(uint64(7)))
 				Expect(writes(fs.Ops())[:3]).
@@ -381,13 +498,12 @@ var _ = Describe("Log", func() {
 			It("Should split a batch larger than a frame into frames", func() {
 				open(32 << 20)
 				DeferCleanup(closeLog)
-				release := fs.Hold()
+				fs.Hold()
 				first := l.Append(of(&log.Restart{}))
 				Eventually(fs.Held()).Should(Receive())
 				second := l.Append(bigEntry(10 << 20))
 				third := l.Append(bigEntry(10 << 20))
-				fs.Unhold()
-				release <- struct{}{}
+				fs.Free()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(third.Wait()).To(Equal(uint64(7)))
@@ -403,7 +519,35 @@ var _ = Describe("Log", func() {
 				n := logSize - log.DeleteReserve - log.FramesStart - 24
 				Expect(l.Append(commitEntry(n)).Wait()).Error().
 					To(MatchError(ContainSubstring(full)))
+				Expect(hook.refusals()).
+					To(HaveExactElements(MatchError(ContainSubstring("log file is full"))))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
+				Expect(hook.refusals()).To(HaveLen(1))
+			})
+
+			It("Should take an entry that fits in a log that cannot switch after the "+
+				"frame before it", func() {
+				open(logSize)
+				DeferCleanup(closeLog)
+				fs.Hold()
+				first := l.Append(of(&log.Drop{Key: 1}))
+				Eventually(fs.Held()).Should(Receive())
+				half := l.Append(bigEntry(logSize / 2))
+				quarter := l.Append(bigEntry(logSize / 4))
+				fs.Free()
+				Expect(first.Wait()).To(Equal(uint64(5)))
+				Expect(half.Wait()).To(Equal(uint64(6)))
+				Expect(quarter.Wait()).To(Equal(uint64(7)))
+				Expect(hook.refusals()).To(BeEmpty())
+			})
+
+			It("Should report an entry refused at once to OnRefused", func() {
+				open(logSize)
+				closeLog()
+				Expect(l.Append(of(&log.Drop{Key: 3})).Wait()).Error().
+					To(MatchError("log is closed"))
+				Expect(hook.refusals()).
+					To(HaveExactElements(MatchError("log is closed")))
 			})
 
 			It("Should refuse the first Commit that does not fit and each later one, "+
@@ -488,7 +632,7 @@ var _ = Describe("Log", func() {
 					Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
 						To(MatchError(fault))
 					Expect(l.Close()).To(MatchError(fault))
-					Eventually(ran).Should(Receive(BeNil()))
+					Eventually(ran).Should(Receive(MatchError(fault)))
 				},
 				Entry("sync", func(err error) { fs.FailSync(logName, err) }),
 				Entry("write", func(err error) { fs.FailWrite(err) }),

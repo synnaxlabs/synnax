@@ -131,4 +131,17 @@ var _ = Describe("FS", func() {
 		Expect(fs.MaxSyncs()).To(Equal(2))
 		Expect(fs.Ops()).To(ConsistOf("sync a", "syncdir ", "sync a"))
 	})
+
+	It("Should let each held sync, and each later one, return at Free", func() {
+		fs := opfs.New(xfs.NewMem(), "sync")
+		a := DeferClose(create(fs, "a"))
+		fs.Hold()
+		done := make(chan error, 1)
+		go func() { done <- a.Sync() }()
+		Eventually(fs.Held()).Should(Receive(Equal("a")))
+		fs.Free()
+		Eventually(done).Should(Receive(BeNil()))
+		Expect(a.Sync()).To(Succeed())
+		Expect(fs.Ops()).To(HaveExactElements("sync a", "sync a"))
+	})
 })
