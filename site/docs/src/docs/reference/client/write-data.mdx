@@ -280,7 +280,7 @@ with client.open_writer(
 ```typescript
 await using writer = await client.openWriter({
   channels: ["time", "temperature"],
-  enableAutoCommit: false,
+  autoCommitDisabled: true,
 });
 for (const path of files) {
   for await (const frame of readChunks(path)) await writer.write(frame);
@@ -516,12 +516,14 @@ read each sample.
 </Field.Item>
 
 <Field.Item
-  name="enableAutoCommit"
-  id="typescript-enable-auto-commit"
+  name="autoCommitDisabled"
+  id="typescript-auto-commit-disabled"
   type="boolean"
-  default="true"
+  default="false"
 >
-  Commit after each write. See [auto-commit](#auto-commit).
+  Commit only on a call to `commit`, not after each write. See
+  [auto-commit](#auto-commit). `enableAutoCommit`, the deprecated inverse, works until
+  0.64.
 </Field.Item>
 
 <Field.Item
