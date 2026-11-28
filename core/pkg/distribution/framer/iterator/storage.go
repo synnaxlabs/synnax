@@ -14,9 +14,11 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/set"
 )
 
 func translateResponse(
@@ -31,6 +33,26 @@ func translateResponse(
 		Command: Command(res.Command),
 		Frame:   frame.NewFromStorage(res.Frame),
 	}, true, nil
+}
+
+// keepTimed returns a response translator that keeps the series of cfg.Clocks only
+// where the series of another key of cfg names them as its clock.
+func keepTimed(
+	cfg Config,
+) func(context.Context, cesium.IteratorResponse) (Response, bool, error) {
+	clocks := set.New(cfg.Clocks...)
+	kept := set.New(lo.Reject(cfg.Keys, func(k channel.Key, _ int) bool {
+		return clocks.Contains(k)
+	})...)
+	untimed := set.New(cfg.UntimedKeys...)
+	return func(ctx context.Context, res cesium.IteratorResponse) (Response, bool, error) {
+		out, ok, err := translateResponse(ctx, res)
+		if out.Variant != ResponseVariantData {
+			return out, ok, err
+		}
+		out.Frame = out.Frame.KeepTimed(kept, untimed)
+		return out, out.Frame.Count() > 0, err
+	}
 }
 
 func newStorageRequestTranslator() func(
@@ -68,6 +90,9 @@ func (s *Service) newStorage(
 	reqT.Transform = newStorageRequestTranslator()
 	resT := &confluence.LinearTransform[cesium.IteratorResponse, Response]{}
 	resT.Transform = translateResponse
+	if len(cfg.Clocks) > 0 {
+		resT.Transform = keepTimed(cfg)
+	}
 	pipe.SetSegment[cesium.IteratorRequest, cesium.IteratorResponse]("storage", iter)
 	pipe.SetSegment[Request, cesium.IteratorRequest]("requests", reqT)
 	pipe.SetSegment[cesium.IteratorResponse, Response]("responses", resT)

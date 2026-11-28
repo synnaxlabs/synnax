@@ -2448,16 +2448,14 @@ describe("DataType", () => {
     CODES.forEach(([dt, code]) =>
       it(`should map ${dt.toString()} to code ${code} and back`, () => {
         expect(dt.code).toEqual(code);
-        expect(DataType.fromCode(code).equals(dt)).toBe(true);
+        expect(DataType.fromCode(code)?.equals(dt)).toBe(true);
       }),
     );
     it("should give the unknown code to a data type with no code", () => {
-      expect(DataType.UNKNOWN.code).toEqual(0);
+      expect(new DataType("custom").code).toEqual(0);
     });
-    it("should give UNKNOWN to a code with no data type", () => {
-      [0, 17, 255].forEach((code) =>
-        expect(DataType.fromCode(code).equals(DataType.UNKNOWN)).toBe(true),
-      );
+    it("should give no data type to a code with no data type", () => {
+      [0, 17, 255].forEach((code) => expect(DataType.fromCode(code)).toBeUndefined());
     });
   });
 
@@ -2613,7 +2611,7 @@ describe("DataType", () => {
     });
 
     it("satisfies primitive.isHashable", () => {
-      expect(primitive.isHashable(DataType.UNKNOWN)).toBe(true);
+      expect(primitive.isHashable(DataType.FLOAT32)).toBe(true);
     });
   });
 });

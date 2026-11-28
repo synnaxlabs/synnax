@@ -211,6 +211,7 @@ const PlainTargetPane = ({
         <ICD.MessageWarning
           message={message}
           missingDescription={ICD.Write.MISSING_DESCRIPTION}
+          jsonOnly
         />
       </PForm.Section>
     </PForm.Sections>

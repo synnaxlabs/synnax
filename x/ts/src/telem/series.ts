@@ -1531,19 +1531,18 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   as(jsType: "boolean"): MultiSeries<boolean>;
 
   as<T extends TelemValue>(jsType: JSType): MultiSeries<T> {
-    if (this.series.length === 0) checkAsType(jsType, DataType.UNKNOWN);
     this.series.forEach((s) => checkAsType(jsType, s.dataType));
     return this as unknown as MultiSeries<T>;
   }
 
   /**
    * Returns the one data type that holds every series in this collection, widened by
-   * DataType.widen. If the collection is empty, returns DataType.UNKNOWN.
+   * DataType.widen, or undefined if the collection is empty.
    * @throws when no data type holds every series, such as text against numbers.
    */
-  get dataType(): DataType {
+  get dataType(): DataType | undefined {
     const [first, ...rest] = this.series;
-    if (first == null) return DataType.UNKNOWN;
+    if (first == null) return undefined;
     return rest.reduce((dt, s) => dt.widen(s.dataType), first.dataType);
   }
 
@@ -1647,9 +1646,11 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   /**
    * @returns A typed array containing all data from all series, each converted to the
    * widened dataType.
+   * @throws {Error} if the multi-series is empty.
    */
   get data(): TypedArray {
     const dt = this.dataType;
+    if (dt == null) throw new Error("an empty multi-series has no data");
     const parts = this.series.map((s) =>
       s.dataType.equals(dt) ? s.data : s.convert(dt).data,
     );
@@ -1678,7 +1679,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * @returns An array of values parsed from the JSON series.
    */
   parseJSON<Z extends z.ZodType>(schema: Z): Array<z.infer<Z>> {
-    if (!this.dataType.equals(DataType.JSON))
+    if (this.dataType?.equals(DataType.JSON) !== true)
       throw new Error("cannot parse non-JSON series as JSON");
     return this.series.flatMap((s) => s.parseJSON(schema));
   }

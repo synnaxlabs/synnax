@@ -317,7 +317,7 @@ func (s *source) convert(ser telem.Series) (telem.Series, error) {
 }
 
 // isText reports whether dt holds length-prefixed text. Arc gives a uuid its string
-// type too, but a uuid sample is 16 bytes and not text.
+// type too, but a uuid sample is 16 bytes, so it converts to its text.
 func isText(dt telem.DataType) bool {
 	return dt == telem.StringT || dt == telem.JSONT
 }
@@ -502,20 +502,11 @@ func bindBool(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			if series.DataType == telem.BooleanT {
-				if series.ValueAt[bool](-1) {
-					return 1
-				}
-				return 0
-			}
-			v, err := telem.ValueAs[float64](series, -1)
+			v, err := telem.ValueAsBool(series, -1)
 			if err != nil {
-				panic(ps.readError(chID, telem.ConversionError{
-					From: series.DataType,
-					To:   telem.BooleanT,
-				}))
+				panic(ps.readError(chID, err))
 			}
-			if v != 0 {
+			if v {
 				return 1
 			}
 			return 0
@@ -577,10 +568,10 @@ func bindStr(
 				return 0
 			}
 			if !isText(series.DataType) {
-				panic(ps.readError(chID, telem.ConversionError{
-					From: series.DataType,
-					To:   telem.StringT,
-				}))
+				var err error
+				if series, err = telem.Convert(series, telem.StringT); err != nil {
+					panic(ps.readError(chID, err))
+				}
 			}
 			unmarshaled := series.Unmarshal[string]()
 			if len(unmarshaled) == 0 {

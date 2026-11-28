@@ -655,7 +655,7 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 	if err != nil {
 		return err
 	}
-	records, err := s.newRecordSender(sCtx, subject, stream, req)
+	records, err := s.newRecordSender(sCtx, subject, stream)
 	if err != nil {
 		return err
 	}
@@ -670,9 +670,6 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 					req, err = s.checkStreamRequest(ctx, snap, subject, req)
 					return err
 				})
-				if err == nil && len(req.Keys) > 0 {
-					records.stage(req)
-				}
 				return req, true, err
 			},
 		}

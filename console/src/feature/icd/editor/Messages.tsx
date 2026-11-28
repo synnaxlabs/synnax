@@ -17,14 +17,14 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { ICD } from "@synnaxlabs/pluto";
+import { ICD as PICD } from "@synnaxlabs/pluto";
 import { type payload, uuid } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import type { ReactElement } from "react";
 
-import { formatHex } from "@/feature/icd/editor/FormattedField";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
+import { ICD } from "@/platform/icd";
 
 const uniqueName = (messages: icd.Message[]): string => {
   const names = new Set(messages.map(({ name }) => name));
@@ -52,7 +52,7 @@ const describeIdentifier = ({
   if (identifier == null) return null;
   switch (identifier.type) {
     case "can":
-      return `CAN ${formatHex(identifier.id)}`;
+      return `CAN ${ICD.formatHex(identifier.id)}`;
     case "field": {
       const field = fields.find(({ key }) => key === identifier.field);
       return field == null ? null : `${field.name} = ${identifier.value}`;
@@ -79,7 +79,7 @@ const describe = (message: icd.Message): string => {
 };
 
 const Item = (props: List.ItemRenderProps<string>): ReactElement | null => {
-  const path = ICD.formPath.messages[props.itemKey];
+  const path = PICD.formPath.messages[props.itemKey];
   const message = Form.useFieldValue(path, { optional: true });
   const status = Form.useStatuses(path).at(0);
   if (message == null) return null;
@@ -131,7 +131,7 @@ export interface MessagesProps {
  * message. The context menu removes the selected messages.
  */
 export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement => {
-  const messages = Form.useFieldList(ICD.formPath.messages);
+  const messages = Form.useFieldList(PICD.formPath.messages);
   const { data, push, remove } = messages;
   const { mode } = Form.useContext();
   const menuProps = Menu.useContextMenu();

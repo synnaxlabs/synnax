@@ -444,7 +444,7 @@ const NewColorForm = ({
             </List.Cell>
             <List.Cell>
               <Flex.Box x align="center" justify="between">
-                <Text.Text level="small" variant="code" color={8}>
+                <Text.Text level="small" color={8}>
                   Auto
                 </Text.Text>
                 <Collection.CreateActions onSave={handleSave} status={variant} />

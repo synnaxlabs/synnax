@@ -767,11 +767,10 @@ describe("Streamer", () => {
     // The Core's minimum accepted cadence, so the specs pin the fastest detection a
     // client can actually get.
     const KEEP_ALIVE = TimeSpan.seconds(2);
-    // KEEP_ALIVE_DEADLINE_FACTOR x KEEP_ALIVE: how long a read may stay silent once
-    // armed.
+    // KEEP_ALIVE_DEADLINE_FACTOR x KEEP_ALIVE: how long a read may stay silent.
     const DEADLINE = TimeSpan.seconds(6);
-    // One keep-alive interval plus slack, so the client has seen one and armed.
-    const ARMED = TimeSpan.milliseconds(2500);
+    // One keep-alive interval plus slack, so a stall starts after the first keep-alive.
+    const AFTER_KEEP_ALIVE = TimeSpan.milliseconds(2500);
     // Covers a full deadline trip plus the reconnect that follows it.
     const POLL = { timeout: DEADLINE.milliseconds * 2 };
 
@@ -804,8 +803,8 @@ describe("Streamer", () => {
         channels: ch.key,
         keepAlive: KEEP_ALIVE,
       });
-      // Receive at least one keep-alive so the deadline is armed.
-      await sleep.sleep(ARMED);
+      // Stalls a stream that has already received a keep-alive.
+      await sleep.sleep(AFTER_KEEP_ALIVE);
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       const started = performance.now();
       await expect(streamer.read()).rejects.toSatisfy(
@@ -814,12 +813,56 @@ describe("Streamer", () => {
           exc.message === `streamer received no response for ${DEADLINE.toString()}`,
       );
       // The deadline must actually elapse: an instant rejection would mean the
-      // deadline armed wrong, not that silence was detected.
+      // deadline started wrong, not that silence was detected.
       expect(performance.now() - started).toBeGreaterThanOrEqual(
         DEADLINE.milliseconds - 50,
       );
       streamer.close();
     }, 30_000);
+
+    it("should reject a read that stalls before the first keep-alive", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
+      const ch = await newVirtualChannel(client);
+      const streamer = await proxied.openStreamer({
+        channels: ch.key,
+        keepAlive: KEEP_ALIVE,
+      });
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      await expect(streamer.read()).rejects.toSatisfy(
+        (exc) =>
+          Unreachable.matches(exc) &&
+          exc.message === `streamer received no response for ${DEADLINE.toString()}`,
+      );
+      streamer.close();
+    }, 30_000);
+
+    it("should detect a stall that starts right after a reconnect", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
+      const ch = await newVirtualChannel(client);
+      const onDrop = vi.fn();
+      const onReopen = vi.fn(() => proxy.blackholeStreams());
+      await using hardened = await framer.HardenedStreamer.open(
+        async (cfg) => await proxied.openStreamer(cfg),
+        { channels: ch.key, keepAlive: KEEP_ALIVE },
+        { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
+      );
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      // The first reopen stalls at once, before its first keep-alive.
+      const pending = hardened.read();
+      pending.catch(() => {});
+      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
+      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
+      onReopen.mockImplementation(() => 0);
+      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(2);
+      expect(Unreachable.matches(onDrop.mock.calls[1][0])).toBe(true);
+      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(2);
+      await write(ch, [1]);
+      expect(Array.from((await pending).get(ch.key))).toEqual([1]);
+    }, 45_000);
 
     it("should reject an acked update that follows a failed read", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient({
@@ -830,7 +873,7 @@ describe("Streamer", () => {
         channels: [],
         keepAlive: KEEP_ALIVE,
       });
-      await sleep.sleep(ARMED);
+      await sleep.sleep(AFTER_KEEP_ALIVE);
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       const err = await streamer.read().catch((e: unknown) => e);
       expect(Unreachable.matches(err)).toBe(true);
@@ -852,7 +895,7 @@ describe("Streamer", () => {
       );
       await write(ch, [1]);
       expect(Array.from((await hardened.read()).get(ch.key))).toEqual([1]);
-      await sleep.sleep(ARMED);
+      await sleep.sleep(AFTER_KEEP_ALIVE);
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       // The proxy still forwards new connections, so the deadline trip inside this
       // read reconnects and the read stays pending for the next frame.
@@ -873,7 +916,7 @@ describe("Streamer", () => {
         channels: [],
         keepAlive: KEEP_ALIVE,
       });
-      await sleep.sleep(ARMED);
+      await sleep.sleep(AFTER_KEEP_ALIVE);
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       const read = streamer.read().catch((e: unknown) => e);
       const update = streamer
@@ -896,8 +939,7 @@ describe("Streamer", () => {
       });
       await sleep.sleep(TimeSpan.milliseconds(250));
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-      // Without keep-alives the deadline never arms, which is also how a client
-      // behaves against a Core that predates them: the read hangs, as before.
+      // Without keep-alives the read has no deadline, so it hangs.
       const pending = streamer.read();
       pending.catch(() => {});
       const result = await Promise.race([
@@ -1832,5 +1874,53 @@ describe("update against a local server", () => {
       StreamClosed,
     );
     await expect(streamer.update([3])).rejects.toThrow(StreamClosed);
+  });
+});
+
+describe("open against a server that never acks", () => {
+  let server: WebSocketServer;
+  let received: string[];
+
+  beforeEach(async () => {
+    received = [];
+    server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    // Opens the transport, then never answers the streamer's open request.
+    server.on("connection", (ws) => {
+      // The leading byte marks a JSON message from the Core.
+      ws.send(Buffer.concat([Buffer.from([254]), Buffer.from('{"type":"open"}')]));
+      ws.on("message", (data: Buffer) => received.push(data.toString()));
+    });
+    await new Promise((resolve) => server.on("listening", resolve));
+  });
+
+  afterEach(async () => {
+    server.clients.forEach((ws) => ws.terminate());
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  it("should reject with Unreachable and close the stream", async () => {
+    const { port } = server.address() as AddressInfo;
+    const ws = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: new binary.JSONCodec(),
+    });
+    const keepAlive = TimeSpan.milliseconds(100);
+    const retrieveChannels: framer.ChannelRetriever = async (params) =>
+      array
+        .toArray(params)
+        .map((key) =>
+          channel.payloadZ.parse({ key, name: id.create(), dataType: "float32" }),
+        );
+    await expect(
+      framer.openStreamer(retrieveChannels, ws, { channels: [1], keepAlive }),
+    ).rejects.toSatisfy(
+      (exc) =>
+        Unreachable.matches(exc) &&
+        exc.message ===
+          `streamer received no response for ${keepAlive.mult(3).toString()}`,
+    );
+    await expect
+      .poll(() => received.some((msg) => msg.includes('"type":"close"')))
+      .toBe(true);
   });
 });

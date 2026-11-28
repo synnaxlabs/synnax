@@ -869,8 +869,7 @@ var _ = Describe("TDMS", func() {
 
 		Describe("Data types", func() {
 			// createRetyped returns an index and an int16 channel with two samples,
-			// whose
-			// record declares float64, a type that no stored sample has.
+			// whose record declares float64, a type that no stored sample has.
 			createRetyped := func(ctx SpecContext) (svcchannel.Channel, svcchannel.Channel) {
 				GinkgoHelper()
 				index, channels := createIndexed(ctx, telem.Int16T)
@@ -938,7 +937,7 @@ var _ = Describe("TDMS", func() {
 			)
 
 			It(
-				"Should fail a read where a typed column takes the name of a channel",
+				"Should give its key to a channel whose name a typed column takes",
 				func(ctx SpecContext) {
 					index, channels := createIndexed(ctx, telem.Int16T, telem.Float32T)
 					write(
@@ -950,17 +949,47 @@ var _ = Describe("TDMS", func() {
 					)
 					channels[0].DataType = telem.Float64T
 					channels[1].Name = channels[0].Name + " (int16)"
-					var body bytes.Buffer
-					Expect(framer.NewTDMSEncoder(ctx).EncodeStream(
-						&body,
+					segments := parseTDMS(MustSucceed(framer.NewTDMSEncoder(ctx).Encode(
 						read(ctx, index, channels...),
-					)).To(And(
+					)))
+					var paths []string
+					for _, seg := range segments {
+						for _, o := range seg.objects {
+							paths = append(paths, o.path)
+						}
+					}
+					typed := channels[1].Name
+					keyed := fmt.Sprintf("%s (%s)", typed, channels[1].Key())
+					Expect(paths).To(ContainElements(
+						tdmsPath(typed, typed),
+						tdmsPath(index.Name, keyed),
+					))
+					Expect(paths).ToNot(ContainElement(tdmsPath(index.Name, typed)))
+				},
+			)
+
+			It(
+				"Should fail a read where a channel takes the name of a typed column of "+
+					"a channel that took its key",
+				func(ctx SpecContext) {
+					index, channels := createIndexed(
+						ctx,
+						telem.Float32T,
+						telem.Float32T,
+						telem.Float32T,
+					)
+					channels[1].Name = channels[0].Name + " (int16)"
+					keyed := fmt.Sprintf("%s (%s)", channels[1].Name, channels[1].Key())
+					channels[2].Name = keyed + " (float32)"
+					Expect(framer.NewTDMSEncoder(ctx).Encode(
+						read(ctx, index, channels...),
+					)).Error().To(And(
 						MatchError(validate.ErrValidation),
 						MatchError(ContainSubstring(fmt.Sprintf(
 							"channels %s and %s both take the name %s in a TDMS file",
 							channels[1].Key(),
-							channels[0].Key(),
-							channels[1].Name,
+							channels[2].Key(),
+							channels[2].Name,
 						))),
 					))
 				},

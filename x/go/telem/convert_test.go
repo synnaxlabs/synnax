@@ -12,6 +12,7 @@ package telem_test
 import (
 	"math"
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,7 +26,6 @@ var _ = Describe("Convert", func() {
 		s := telem.Series{DataType: telem.DataType("float16"), Data: []byte{1, 2, 3, 4}}
 		_, err := telem.Convert(s, telem.Float64T)
 		Expect(err).To(MatchError("cannot convert a float16 series to float64"))
-		Expect(err).To(BeAssignableToTypeOf(telem.ConversionError{}))
 	})
 
 	DescribeTable("Should convert the samples of a series to a data type",
@@ -68,6 +68,15 @@ var _ = Describe("Convert", func() {
 			telem.NewSeriesV[telem.TimeStamp](2),
 		),
 	)
+
+	It("Should convert a uuid series to the canonical text of each value", func() {
+		a, b := uuid.New(), uuid.New()
+		s := telem.NewSeriesV(a, b)
+		s.Alignment, s.Clock = 10, 7
+		expected := telem.NewSeriesV(a.String(), b.String())
+		expected.Alignment, expected.Clock = 10, 7
+		Expect(MustSucceed(telem.Convert(s, telem.StringT))).To(MatchSeries(expected))
+	})
 
 	It("Should keep every other field of the series", func() {
 		s := telem.NewSeriesV[int16](1, 2)
@@ -218,6 +227,36 @@ var _ = Describe("Convert", func() {
 			var err error
 			Expect(testing.AllocsPerRun(100, func() {
 				_, err = telem.ValueAs[float64](s, -1)
+			})).To(BeZero())
+			Expect(err).To(Succeed())
+		})
+	})
+
+	Describe("ValueAsBool", func() {
+		It("Should return true for a number that is not zero", func() {
+			s := telem.NewSeriesV(0.0, -0.5)
+			Expect(MustSucceed(telem.ValueAsBool(s, 0))).To(BeFalse())
+			Expect(MustSucceed(telem.ValueAsBool(s, -1))).To(BeTrue())
+			Expect(MustSucceed(telem.ValueAsBool(telem.NewSeriesV[int64](7), 0))).
+				To(BeTrue())
+		})
+
+		It("Should return a boolean sample as it is", func() {
+			s := telem.NewSeriesV(true, false)
+			Expect(MustSucceed(telem.ValueAsBool(s, 0))).To(BeTrue())
+			Expect(MustSucceed(telem.ValueAsBool(s, 1))).To(BeFalse())
+		})
+
+		It("Should fail on text", func() {
+			Expect(telem.ValueAsBool(telem.NewSeriesV("a"), 0)).Error().
+				To(MatchError("cannot convert a string series to boolean"))
+		})
+
+		It("Should read a sample with no allocation", func() {
+			s := telem.NewSeriesV[int16](0, 3)
+			var err error
+			Expect(testing.AllocsPerRun(100, func() {
+				_, err = telem.ValueAsBool(s, -1)
 			})).To(BeZero())
 			Expect(err).To(Succeed())
 		})

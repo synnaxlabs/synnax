@@ -98,7 +98,7 @@ const PickAll = ({ free, picked, onPickAll, onClear }: PickAllProps) =>
 export const PaneHeader = (props: PaneHeaderProps) => (
   <>
     <Header.Header bordered={false} className={CSS.BE("icd-picker", "pane-header")}>
-      <Header.Title weight={500} color={10} variant="code">
+      <Header.Title weight={500} color={10}>
         {props.title}
         {props.note != null && (
           <Text.Text el="span" level="small" color={9}>
@@ -136,7 +136,7 @@ const Cells = ({ value: { name, sample, dataType, lock } }: { value: Value }) =>
     <Text.Text level="small" weight={500} color={lock != null ? 9 : 10} overflow="fade">
       {name}
     </Text.Text>
-    <Text.Text level="small" color={9} overflow="fade" variant="code">
+    <Text.Text level="small" color={9} overflow="fade" variant="numeric">
       {sample ?? "–"}
     </Text.Text>
     <Text.Text level="small" color={9} overflow="fade">
@@ -279,7 +279,7 @@ export const PaneSkeleton = ({ noun, title }: PaneSkeletonProps) => (
           <Skeleton.Skeleton style={{ width: "24rem" }} />
         </Header.Title>
       ) : (
-        <Header.Title weight={500} color={10} variant="code">
+        <Header.Title weight={500} color={10}>
           {title}
         </Header.Title>
       )}

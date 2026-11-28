@@ -10,6 +10,8 @@
 package channels_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -54,6 +56,17 @@ var _ = Describe("Body reads across a type change", func() {
 			return false
 		}()
 		Expect(failed).To(BeTrue(), "read_str returned %q", read)
+	})
+
+	It("Should read a uuid series as the canonical text of its last value", func(
+		ctx SpecContext,
+	) {
+		a, b := uuid.New(), uuid.New()
+		cs.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV(a, b)))
+		result := rt.Call(ctx, "channels", "read_str", testutil.U32(3))
+		read, ok := ss.Get(testutil.AsU32(result[0]))
+		Expect(ok).To(BeTrue())
+		Expect(read).To(Equal(b.String()))
 	})
 
 	It("Should name the boolean type when a boolean read meets text", func(

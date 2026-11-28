@@ -51,6 +51,7 @@ cc_test(
         "jump_test.cpp",
         "kind_test.cpp",
         "scheduler_test.cpp",
+        "scope_test.cpp",
         "transition_test.cpp",
     ],
     deps = [

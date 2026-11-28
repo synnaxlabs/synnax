@@ -79,6 +79,10 @@ struct Config {
     /// @brief loop iterations and function calls that the program can run in one
     /// cycle. A cycle that runs more stops the runtime with errors::LOOP_BUDGET.
     std::int64_t loop_budget = wasm::DEFAULT_LOOP_BUDGET;
+    /// @brief receives the active paths of the program at the end of its first cycle,
+    /// and at the end of each cycle that changes them. Runs on the runtime thread.
+    /// Optional.
+    scheduler::ScopeHandler on_scopes;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -391,7 +395,8 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.program,
         nodes,
-        std::move(node_error_handler)
+        std::move(node_error_handler),
+        cfg.on_scopes
     );
     auto loop = loop::create(loop_cfg, cfg.rt_handle);
     return {

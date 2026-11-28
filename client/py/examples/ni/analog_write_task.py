@@ -18,7 +18,7 @@ detect National Instruments devices:
 https://docs.synnaxlabs.com/reference/hardware/ni/configure-device
 
 You'll also need to have either a physical USB-6289 device or create a simulated device
-via the NI-MAX software.
+via the NI MAX software.
 """
 
 # We've logged in via the CLI, so there's no need to provide credentials here.

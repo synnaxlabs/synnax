@@ -11,7 +11,7 @@ import type { text } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Icon } from "@/icon";
-import { computed, renderThemed, resolve } from "@/styletest";
+import { computed, renderThemed, resolve, treatment } from "@/styletest";
 import { Text } from "@/text";
 
 const LEVELS: text.Level[] = ["h1", "h2", "h3", "h4", "h5", "p", "small", "tiny"];
@@ -80,6 +80,17 @@ describe("Text", () => {
     const { getByText } = await renderThemed(<Text.Text>Label</Text.Text>);
     const el = getByText("Label").element();
     expect(computed(el, "color")).toBe(resolve("var(--pluto-text-color)"));
+  });
+
+  it.each([
+    [undefined, "prose"],
+    ["numeric", "numeric"],
+    ["code", "code"],
+  ] as const)("should draw the %s variant as %s", async (variant, want) => {
+    const { getByText } = await renderThemed(
+      <Text.Text variant={variant}>Label</Text.Text>,
+    );
+    expect(treatment(getByText("Label").element())).toBe(want);
   });
 
   describe("fade", () => {

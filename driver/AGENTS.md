@@ -32,12 +32,12 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 - **LabJack** (`/driver/labjack/`) — LJM wrapper + device manager. ReadTask has two
   modes: `StreamSource` (high-performance LJM streaming) and `UnarySource` (polled T7
   thermocouples). The Driver converts thermocouples with `LJM_TCVoltsToTemp`.
-- **NI** (`/driver/ni/`) — DAQmx + NISysCfg wrappers. Analog/digital read/write +
+- **NI** (`/driver/ni/`) — NI-DAQmx + NISysCfg wrappers. Analog/digital read/write +
   scanner. Scanner discovers CompactDAQ chassis/modules via link properties
   (`ConnectsToLinkName`/`ProvidesLinkName`) in a two-pass algorithm (collect devices +
   build link-name→chassis map, then resolve module parents; chassis sorted before
   modules). Error codes: `DEVICE_DISCONNECTED`, `REQUIRES_RESTART`,
-  `APPLICATION_TOO_SLOW`. Windows/Linux/NI Linux RT. **Excluded on macOS.**
+  `APPLICATION_TOO_SLOW`. Windows/Linux/NI Linux Real-Time. **Excluded on macOS.**
 - **Modbus** (`/driver/modbus/`) — vendored libmodbus. `device::Device` (RAII around
   `modbus_t*`), `device::Manager` (connection pooling via weak_ptr cache), byte/word
   swap config. Readers: `RegisterReader` (holding/input registers), `BitReader`

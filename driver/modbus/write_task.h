@@ -21,7 +21,7 @@
 #include "driver/modbus/util/util.h"
 
 namespace driver::modbus {
-/// @brief interface for writing to different types of modbus registers/bits.
+/// @brief interface for writing to different types of Modbus registers/bits.
 class Writer {
 public:
     virtual ~Writer() = default;
@@ -175,7 +175,7 @@ const Channel *find_overlap(const std::vector<Channel> &channels, const Other &c
     return nullptr;
 }
 
-/// @brief configuration for a modbus write task.
+/// @brief configuration for a Modbus write task.
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the properties of the device. Dynamically populated at configure.
     device::Properties props;

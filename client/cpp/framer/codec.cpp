@@ -91,14 +91,6 @@ pack_bool_bits(const std::byte *src, const std::size_t n_samples) {
     return dst;
 }
 
-std::vector<std::uint8_t>
-unpack_bool_bits(const std::uint8_t *src, const std::size_t n_samples) {
-    std::vector<std::uint8_t> dst(n_samples);
-    for (std::size_t i = 0; i < n_samples; i++)
-        dst[i] = (src[i / BITS_PER_BYTE] >> (i % BITS_PER_BYTE)) & 1;
-    return dst;
-}
-
 bool is_int64_like(const x::telem::DataType &dt) {
     return dt == x::telem::INT64_T || dt == x::telem::TIMESTAMP_T;
 }
@@ -290,14 +282,12 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     auto &ag = state.enc;
 
     this->entries.clear();
-    this->named.clear();
     for (std::size_t i = 0; i < frame.size(); i++) {
         const auto k = frame.channels->at(i);
         const auto &ser = frame.series->at(i);
-        if (const auto it = state.index.find(k); it != state.index.end()) {
+        if (const auto it = state.index.find(k); it != state.index.end())
             this->entries.push_back({k, i, static_cast<std::int64_t>(it->second)});
-            if (ser.clock != 0) this->named.push_back(ser.clock);
-        } else if (ser.clock == k && is_int64_like(ser.data_type()))
+        else if (ser.clock == k && is_int64_like(ser.data_type()))
             this->entries.push_back({k, i, -1});
         else
             return x::errors::Error(
@@ -306,12 +296,6 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                     " not provided when opening the writer"
             );
     }
-    // An unrequested time series under its own clock stays only when a requested
-    // series names it as its clock.
-    std::erase_if(this->entries, [this](const Entry &e) {
-        return e.index < 0 &&
-               std::ranges::find(this->named, e.key) == this->named.end();
-    });
     for (const auto &e: this->entries)
         if (auto err = check_length(e.key, frame.series->at(e.raw))) return err;
     // Sorting by raw index within a key keeps frame order, as a stable sort would, and
@@ -669,16 +653,8 @@ Codec::decode(const uint8_t *data, const size_t size) {
                     " under a shared length"
                 };
             const std::uint32_t len = flags.equal_lens ? shared_len : r.u32();
-            auto s = x::telem::Series(dt, len);
-            if (dt == x::telem::BOOLEAN_T) {
-                const auto *packed = r.bytes(bit_packed_byte_count(len));
-                const auto unpacked = unpack_bool_bits(packed, len);
-                s.write(unpacked.data(), len);
-            } else {
-                const std::size_t n = dt.is_variable() ? len : len * dt.density();
-                x::binary::Reader sub(r.bytes(n), n);
-                s.fill_from(sub);
-            }
+            const auto n = x::telem::Series::byte_count(dt, len);
+            auto s = x::telem::Series::from_bytes(dt, len, {r.bytes(n), n});
             s.time_range = ref_tr;
             s.alignment = ref_alignment;
             s.clock = clock;

@@ -116,7 +116,7 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
       <ICD.Picker.Bar>
         {createTopic != null && createTag != null && (
           <Select.Buttons<Mode> value={mode} onChange={setMode}>
-            <Select.Item<Mode> itemKey="topics">JSON topics</Select.Item>
+            <Select.Item<Mode> itemKey="topics">Topics</Select.Item>
             <Select.Item<Mode> itemKey="sparkplug">Sparkplug B</Select.Item>
           </Select.Buttons>
         )}

@@ -11,6 +11,7 @@ import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Haul } from "@synnaxlabs/lyra/haul";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { scheduler } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -338,12 +339,14 @@ describe("Browser details", () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
       type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
-      data: DETAILS,
+      data: { ...DETAILS, node: { ...TANK, field: "Level" } },
     });
     fireEvent.click(screen.getByText("TankPressure"));
     expect((await read.answered).args).toMatchObject({ nodeId: TANK.nodeId });
     await screen.findByText("Double");
-    expect(screen.getByText("2.5")).toBeTruthy();
+    expect(treatment(screen.getByText("2.5"))).toBe("numeric");
+    expect(treatment(screen.getByText(TANK.nodeId))).toBe("prose");
+    expect(treatment(screen.getByText("Level"))).toBe("prose");
     expect(screen.getByText("Good")).toBeTruthy();
   });
 

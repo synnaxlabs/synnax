@@ -599,7 +599,7 @@ describe("encoder", () => {
     // The vectors are shared with the Go, Python, and C++ codecs, so that all four
     // encode and decode each frame byte for byte.
     const VECTORS_URL = new URL(
-      "../../../../../x/testdata/framecodec/vectors.json",
+      "../../../../../core/testdata/framecodec/vectors.json",
       import.meta.url,
     );
     interface VectorSeries {
@@ -859,15 +859,14 @@ describe("encoder", () => {
         const c = new Codec([6], [DataType.FLOAT32]);
         const encoded = c.encode(
           new framer.Frame(
-            [5, 6, 6, 7],
+            [5, 6, 7],
             [
               new Series({
                 data: new BigInt64Array([1n]),
                 dataType: DataType.TIMESTAMP,
                 clock: 5,
               }),
-              new Series({ data: new Float32Array([1]), clock: 5 }),
-              new Series({ data: new Float32Array([2]), clock: 7 }),
+              new Series(new Float32Array([1])),
               new Series({
                 data: new BigInt64Array([1n]),
                 dataType: DataType.TIMESTAMP,
@@ -895,20 +894,19 @@ describe("encoder", () => {
         );
       });
 
-      it("should drop an unrequested time series that no requested series names", () => {
-        const data = new Series(new Float32Array([1]));
+      it("should declare an unrequested time series that no requested series names", () => {
         const stamps = new Series({
           data: new BigInt64Array([1n]),
           dataType: DataType.TIMESTAMP,
           clock: 9,
         });
-        const withStamps = new Codec([6], [DataType.FLOAT32]).encode(
-          new framer.Frame([6, 9], [data, stamps]),
+        const c = new Codec([6], [DataType.FLOAT32]);
+        const encoded = c.encode(
+          new framer.Frame([6, 9], [new Series(new Float32Array([1])), stamps]),
         );
-        const without = new Codec([6], [DataType.FLOAT32]).encode(
-          new framer.Frame([6], [data]),
-        );
-        expect(withStamps).toEqual(without);
+        const view = new DataView(encoded.buffer);
+        expect(view.getUint32(7, true)).toEqual(1);
+        expect(view.getUint32(11, true)).toEqual(9);
       });
 
       it("should throw on a series whose size a length field cannot hold", () => {

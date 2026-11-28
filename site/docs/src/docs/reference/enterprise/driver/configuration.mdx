@@ -37,13 +37,13 @@ its owner and the administrators can read it. On Windows and macOS, while the se
 installed, every command uses the path of the computer, so run each command with admin
 rights. Without the service, commands use the path of the user.
 
-| Operating system   | Path                                                               |
-| ------------------ | ------------------------------------------------------------------ |
-| Linux, NI Linux RT | `/var/lib/synnax-driver/persisted-state.json`                      |
-| Windows, service   | `C:\ProgramData\synnax-driver\persisted-state.json`                |
-| Windows            | `%LOCALAPPDATA%\synnax-driver\persisted-state.json`                |
-| macOS, service     | `/Library/Application Support/synnax-driver/persisted-state.json`  |
-| macOS              | `~/Library/Application Support/synnax-driver/persisted-state.json` |
+| Operating system          | Path                                                               |
+| ------------------------- | ------------------------------------------------------------------ |
+| Linux, NI Linux Real-Time | `/var/lib/synnax-driver/persisted-state.json`                      |
+| Windows, service          | `C:\ProgramData\synnax-driver\persisted-state.json`                |
+| Windows                   | `%LOCALAPPDATA%\synnax-driver\persisted-state.json`                |
+| macOS, service            | `/Library/Application Support/synnax-driver/persisted-state.json`  |
+| macOS                     | `~/Library/Application Support/synnax-driver/persisted-state.json` |
 
 `install` moves the login and the OPC UA certificates in the path of the user to the
 path of the computer, when the path of the computer holds no login yet.
@@ -254,7 +254,7 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 <Field.Item name="integrations" default="all">
   The device integrations to run: `arc`, `ethercat`, `file`, `http`, `labjack`,
   `modbus`, `ni`, and `opc`. The default is every integration that the Driver for your
-  platform has. Linux has no `labjack`, macOS has no `ni`, and NI Linux RT has no
+  platform has. Linux has no `labjack`, macOS has no `ni`, and NI Linux Real-Time has no
   `labjack` or `modbus`.
 </Field.Item>
 

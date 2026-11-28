@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/calculation"
 	graph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
@@ -435,6 +436,56 @@ var _ = Describe("Graph", func() {
 					Expect(
 						retrieveChannelDataType(ctx, calc.Key()),
 					).To(Equal(telem.Int64T))
+				},
+			)
+
+			It(
+				"Should derive the DataType of a stored channel that has none",
+				func(ctx SpecContext) {
+					base := channel.Channel{
+						Name:     "hy_untyped_base",
+						DataType: telem.Int64T,
+						Virtual:  true,
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &base)
+					})).To(Succeed())
+					untyped := channel.Channel{
+						Name:        "hy_untyped_calc",
+						Leaseholder: node.KeyFree,
+						LocalKey:    9101,
+						Virtual:     true,
+						Expression:  "return hy_untyped_base + 1",
+					}
+					Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+						Entry(&untyped).
+						Exec(ctx, db)).To(Succeed())
+					openGraph(ctx)
+					Expect(
+						retrieveChannelDataType(ctx, untyped.Key()),
+					).To(Equal(telem.Int64T))
+				},
+			)
+
+			It(
+				"Should give an error status to a stored channel that returns no value",
+				func(ctx SpecContext) {
+					untyped := channel.Channel{
+						Name:        "hy_novalue_calc",
+						Leaseholder: node.KeyFree,
+						LocalKey:    9102,
+						Virtual:     true,
+						Expression:  "1 + 1",
+					}
+					Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+						Entry(&untyped).
+						Exec(ctx, db)).To(Succeed())
+					openGraph(ctx)
+					Expect(expectStatus(ctx, untyped.Key()).Description).
+						To(ContainSubstring("returns no value"))
+					Expect(
+						retrieveChannelDataType(ctx, untyped.Key()),
+					).To(Equal(telem.UnknownT))
 				},
 			)
 
