@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/labjack/device/hardware";
+export * from "@/feature/labjack/device/link";
+export * from "@/feature/labjack/device/notifications";
 export * from "@/feature/labjack/device/queries";
 export * from "@/feature/labjack/device/Select";
 export * from "@/feature/labjack/device/tree";
