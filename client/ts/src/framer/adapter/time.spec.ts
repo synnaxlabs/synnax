@@ -58,6 +58,31 @@ const values = (data: number[], alignment: bigint, clock: number): Series =>
 const read = async (keys: channel.Key[] | channel.Name[], frame: Frame) =>
   (await ReadAdapter.open(retrieveChannels, keys)).adapt(frame);
 
+describe("Frame.time across copies", () => {
+  // timed returns a read of channel 3 whose time is on clock 1.
+  const timed = async (): Promise<Frame> =>
+    await read(
+      [3],
+      new Frame([3, 1], [values([1, 2], 0n, 1), stamps([5n, 6n], 0n, 1)]),
+    );
+  const times = (fr: Frame): bigint[] => Array.from(fr.time(3)) as bigint[];
+
+  it("should keep the time of a frame that it pushes", async () => {
+    const fr = new Frame();
+    fr.push(await timed());
+    expect(times(fr)).toEqual([5n, 6n]);
+  });
+
+  it("should keep the time in concat, filter, map, mapFilter, and get", async () => {
+    const fr = await timed();
+    expect(times(new Frame().concat(fr))).toEqual([5n, 6n]);
+    expect(times(fr.filter(() => true))).toEqual([5n, 6n]);
+    expect(times(fr.map((k, s) => [k, s]))).toEqual([5n, 6n]);
+    expect(times(fr.mapFilter((k, s) => [k, s, true]))).toEqual([5n, 6n]);
+    expect(times(fr.get([3]))).toEqual([5n, 6n]);
+  });
+});
+
 describe("Frame.time", () => {
   it("should give a channel the time of its clock, which is not a channel", async () => {
     const fr = await read(
