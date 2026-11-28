@@ -12,6 +12,7 @@ import { type json, map, uuid } from "@synnaxlabs/x";
 
 import {
   type Addition,
+  type Appends,
   createAdditions,
   createExtensions,
   type Extension,
@@ -79,9 +80,9 @@ const withFields = (message: icd.Message, fields: icd.JSONField[]): icd.Message 
 
 /**
  * @returns what an add of the picks of topics puts in the ICDs and the records of a
- * task. Each topic in turn extends the messages that its records read, then adds the
- * records of its free keys. A topic sees what the topics before it add. It changes no
- * ICD and no task.
+ * task. Every topic first extends the messages that its records read. Then every topic
+ * adds the records of its free keys, which see each extension. It changes no ICD and no
+ * task.
  * @throws if a picked shape is not extendable.
  */
 export const planAdd = ({
@@ -102,16 +103,15 @@ export const planAdd = ({
     ...(making.get(icdKey) ?? []),
   ];
   const plan: Plan = { extensions: [], kinds: [], additions: new Map() };
-  for (const { topic, shapes, picks, reading } of topics) {
-    const records = recordsOf(topic);
-    const reads = readsOf(records, draftOf);
-    const nameIn = (recordKey: string) => nameOf(topic, recordKey);
+  const held = topics.map(({ topic }) => readsOf(recordsOf(topic), messagesOf));
+  const nameIn = (topic: string) => (recordKey: string) => nameOf(topic, recordKey);
+  for (const { topic, shapes, picks } of topics) {
     const { extensions, kinds } = createExtensions(
       shapes,
       picks,
-      records,
+      recordsOf(topic),
       draftOf,
-      nameIn,
+      nameIn(topic),
     );
     for (const { icd: icdKey, message, fields } of extensions)
       drafts.set(
@@ -122,14 +122,18 @@ export const planAdd = ({
       drafts.set(icdKey, [...draftOf(icdKey), message]);
     plan.extensions.push(...extensions);
     plan.kinds.push(...kinds);
+  }
+  const appends: Appends = new Map();
+  for (const [i, { topic, shapes, picks, reading }] of topics.entries()) {
     const target = reading?.icd ?? home;
     const added = createAdditions(
       shapes,
       picks,
-      reads,
+      held[i],
       takenIn(target),
-      nameIn,
+      nameIn(topic),
       reading,
+      appends,
     );
     if (added.length === 0) continue;
     plan.additions.set(topic, { icd: reading?.icd, added });

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd, kafka } from "@synnaxlabs/client";
-import { json, map, uuid } from "@synnaxlabs/x";
+import { json, map, unique, uuid } from "@synnaxlabs/x";
 
 import type { ReadRecord } from "@/feature/kafka/task/types";
 import { ICD } from "@/platform/icd";
@@ -19,8 +19,12 @@ export type Picks = Map<string, Set<string>>;
 /** A message that new records read, and those records. */
 export interface Addition {
   message: icd.Message;
+  /** The key of the shape whose new records read the message. Absent for none. */
+  shape?: string;
   /** Whether an ICD holds the message already. Absent, Add data puts it in one. */
   reused?: boolean;
+  /** The fields that a held message gains. */
+  appended?: icd.JSONField[];
   /** The Kafka keys of the new records that read the message. */
   recordKeys: string[];
   /** The key of the field that indexes the message. Absent when Kafka stamps it. */
@@ -179,50 +183,73 @@ const readOf = (
     bindings: fields.map((field) => ({ field })),
   });
 
-/** @returns the field of message that can index the documents of shape, if any. */
-const indexOf = (
-  shape: json.Shape,
-  message: icd.Message,
-): icd.JSONField | undefined => {
-  if (shape.index == null) return undefined;
-  const { pointer } = shape.fields[shape.index];
-  return ICD.jsonFields(message).find(
-    (f) => f.pointer === pointer && f.type === "timestamp",
+/** The fields that messages gain in one add and the forms do not hold yet, by key. */
+export type Appends = Map<icd.MessageKey, icd.JSONField[]>;
+
+/**
+ * @returns whether the new records of shape can read a message of fields. They cannot
+ * when a field holds a field of the shape but cannot read its values, or holds the
+ * timestamp of the shape in a field of another type.
+ */
+export const isReusable = (shape: json.Shape, fields: icd.JSONField[]): boolean => {
+  const stamp = shape.index == null ? undefined : shape.fields[shape.index];
+  return shape.fields.every((f) =>
+    fields.every((h) => {
+      if (!ICD.Reuse.covers(h, f.pointer)) return true;
+      if (f === stamp && h.pointer === f.pointer && h.type !== "timestamp")
+        return false;
+      return ICD.Reuse.reads(h, f);
+    }),
   );
 };
 
 /**
- * @returns whether new records of shape can read the message of fit: it holds each
- * field of the shape, and a timestamp field when the shape has one.
- */
-export const isReusable = (shape: json.Shape, { message, missing }: ICD.Reuse.Fit) =>
-  missing.length === 0 && (shape.index == null || indexOf(shape, message) != null);
-
-/**
  * @returns an addition whose records read the message of fit for the free keys of
- * shape, or nothing when shape cannot reuse it. The records read the picked and
- * carried fields, indexed by the timestamp of the shape.
+ * shape. The records read the picked and carried fields, indexed by the timestamp of
+ * the shape. The message gains each of those fields that it lacks.
+ * @param appends - What messages gain in this add. The fields that the message gains
+ * join it.
  */
 const reuse = (
   shape: json.Shape,
-  fit: ICD.Reuse.Fit,
+  { message }: ICD.Reuse.Fit,
   pointers: Set<string>,
   carried: Map<string, icd.JSONField>,
   recordKeys: string[],
-): Addition | undefined => {
-  if (!isReusable(shape, fit)) return undefined;
-  const { message } = fit;
-  const fields = ICD.jsonFields(message);
-  const index = indexOf(shape, message);
-  const read = [...pointers, ...carried.keys()];
+  appends: Appends,
+): Addition => {
+  const gained = map.getOrInsert(appends, message.key, () => []);
+  const stamp = shape.index == null ? undefined : shape.fields[shape.index];
+  const holderOf = (f: json.InferredField) =>
+    [...ICD.jsonFields(message), ...gained].find((h) =>
+      f === stamp
+        ? h.pointer === f.pointer && h.type === "timestamp"
+        : ICD.Reuse.covers(h, f.pointer),
+    );
+  const read = shape.fields.filter(
+    (f) => f === stamp || pointers.has(f.pointer) || carried.has(f.pointer),
+  );
+  const lacking = read.filter((f) => holderOf(f) == null);
+  const names = ICD.fieldNames(
+    lacking.map(({ pointer }) => pointer),
+    [...ICD.jsonFields(message), ...gained].map(({ name }) => name),
+  );
+  const appended = lacking.map((f, i) => {
+    const field = carried.get(f.pointer);
+    return field == null
+      ? ICD.createReadField(f, names[i])
+      : { ...field, key: uuid.create() };
+  });
+  gained.push(...appended);
+  const index = stamp == null ? undefined : holderOf(stamp)?.key;
   return {
     message,
+    shape: json.shapeKey(shape),
     reused: true,
+    appended,
     recordKeys,
-    index: index?.key,
-    fields: fields
-      .filter((f) => f === index || read.some((p) => ICD.Reuse.covers(f, p)))
-      .map(({ key }) => key),
+    ...(index == null ? {} : { index }),
+    fields: unique.unique(read.flatMap((f) => holderOf(f)?.key ?? [])),
   };
 };
 
@@ -238,13 +265,17 @@ export const uniqueName = (base: string, taken: icd.Message[]): string => {
 /**
  * @returns the messages that new records read for each shape with picks. Each record
  * reads a key of the shape with no record of its own. A shape reads the message that
- * reading fits to it when that message holds each of its fields. Else it gets a new
- * message of the picked fields, the fields that its keys carry, and its timestamp. A
- * new message takes the name that nameOf gives its first key. A shape that is one of
- * several kinds adds the name of its present field, and its message matches the
- * documents that hold that field.
- * @param held - The messages whose names a new message must not take.
- * @param reading - The ICD that the new records read, with a fit for each free shape.
+ * reading fits to it. Else it gets a new message of the picked fields, the fields that
+ * its keys carry, and its timestamp. A new message takes the name that nameOf gives its
+ * first key. A shape that is one of several kinds adds the name of its present field,
+ * and its message matches the documents that hold that field.
+ * @param held - The messages of the ICD that the new records read, as the forms hold
+ * them now. A new message takes none of their names.
+ * @param reading - The ICD that the new records read, with a fit for each free shape
+ * that reuses a message of it. A shape gets a new message instead when its message
+ * gains a field in this add that cannot read the shape.
+ * @param appends - What messages gain in this add. A held message gains the fields
+ * that its new records read and it lacks.
  */
 export const createAdditions = (
   shapes: json.Shape[],
@@ -252,7 +283,8 @@ export const createAdditions = (
   reads: Reads,
   held: icd.Message[],
   nameOf: (recordKey: string) => string,
-  reading?: ICD.Reuse.Reading,
+  reading: ICD.Reuse.Reading | undefined,
+  appends: Appends,
 ): Addition[] => {
   const taken = [...held];
   return freeShapes(shapes, reads).flatMap((shape, i): Addition[] => {
@@ -261,9 +293,16 @@ export const createAdditions = (
     if (pointers == null || pointers.size === 0) return [];
     const carried = carriedFields(shape, reads);
     const fit = reading?.fits[i];
-    const reused =
-      fit == null ? undefined : reuse(shape, fit, pointers, carried, recordKeys);
-    if (reused != null) return [reused];
+    if (fit != null) {
+      const message = held.find(({ key }) => key === fit.message.key);
+      if (message == null)
+        throw new Error(`No held message has the key ${fit.message.key}`);
+      const gained = appends.get(message.key) ?? [];
+      if (isReusable(shape, [...ICD.jsonFields(message), ...gained]))
+        return [
+          reuse(shape, { ...fit, message }, pointers, carried, recordKeys, appends),
+        ];
+    }
     const indexField = shape.index == null ? undefined : shape.fields[shape.index];
     const picked = shape.fields.filter(
       (f) => f === indexField || (pointers.has(f.pointer) && !carried.has(f.pointer)),
@@ -295,6 +334,7 @@ export const createAdditions = (
     return [
       {
         message,
+        shape: json.shapeKey(shape),
         recordKeys,
         ...(index == null ? {} : { index }),
         fields: fields.map(({ key }) => key),
