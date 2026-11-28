@@ -1352,7 +1352,9 @@ _CALC = ChannelPayload(
 
 def _read(keys: list[int], frame: sy.Frame) -> sy.Frame:
     """Adapts frame as a read of keys over the fixed channels."""
-    adapter = ReadFrameAdapter(_FixedRetriever([_A, _B, _D, _CALC]))
+    channels = [c for c in (_A, _B, _D, _CALC) if c.key in keys]
+    client = MockUnaryClient(responses=[RetrieveResponse(channels=channels)])
+    adapter = ReadFrameAdapter(Retriever(client=client))
     adapter.update(keys)
     return adapter.adapt(frame)
 
