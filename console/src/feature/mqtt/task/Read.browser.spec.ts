@@ -4344,7 +4344,7 @@ describe("MQTT read form", () => {
         expect(statuses).toContainEqual(
           expect.objectContaining({
             message: "Failed to start task",
-            description: `The message format of ${TOPIC} is missing or not JSON`,
+            description: `The message of ${TOPIC} is missing`,
           }),
         ),
       );
