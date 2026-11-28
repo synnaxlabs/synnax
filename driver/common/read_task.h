@@ -250,7 +250,12 @@ public:
             ctx,
             breaker_cfg,
             std::move(source),
-            bypass::pipeline::create_writer_factory(ctx)
+            bypass::pipeline::create_writer_factory(
+                ctx,
+                [this](const std::string &message, const std::string &description) {
+                    this->state.set_background_warning({message, description});
+                }
+            )
         ) {}
 
     /// @brief executes the given command on the task.

@@ -31,6 +31,7 @@
 #include "x/cpp/log/log.h"
 
 #include "driver/bypass/bypass.h"
+#include "driver/bypass/outage.h"
 #include "driver/control/state.h"
 #include "driver/task/operation.h"
 #include "driver/task/status_cache.h"
@@ -87,6 +88,14 @@ public:
 
     /// @brief returns the shared control authority states.
     virtual std::shared_ptr<control::States> control_states() { return nullptr; }
+
+    /// @brief returns the budget that all tasks share for frames that wait for the
+    /// Core, or nullptr if not available.
+    virtual std::shared_ptr<bypass::Budget> queue_budget() { return nullptr; }
+
+    /// @brief returns how tasks hold frames for the Core while it is slow or
+    /// unreachable.
+    virtual bypass::OutageConfig outage() { return {}; }
 
     /// @brief returns the rack key for this driver, used as the group identity for
     /// Core-side deduplication filtering.
@@ -175,6 +184,8 @@ public:
 class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bypass_bus;
     std::shared_ptr<control::States> states;
+    std::shared_ptr<bypass::Budget> budget;
+    bypass::OutageConfig outage_cfg;
     synnax::rack::Key rack;
     std::shared_ptr<StatusCache> statuses;
     /// @brief guards operations and cancelled.
@@ -206,17 +217,24 @@ public:
         std::shared_ptr<StatusCache> statuses,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
-        const synnax::rack::Key rack_key = 0
+        const synnax::rack::Key rack_key = 0,
+        const bypass::OutageConfig &outage = {}
     ):
         Context(client),
         bypass_bus(bus),
         states(control_states),
+        budget(std::make_shared<bypass::Budget>(outage.queue_size)),
+        outage_cfg(outage),
         rack(rack_key),
         statuses(std::move(statuses)) {}
 
     std::shared_ptr<bypass::Bus> bus() override { return this->bypass_bus; }
 
     std::shared_ptr<control::States> control_states() override { return this->states; }
+
+    std::shared_ptr<bypass::Budget> queue_budget() override { return this->budget; }
+
+    bypass::OutageConfig outage() override { return this->outage_cfg; }
 
     synnax::rack::Key rack_key() override { return this->rack; }
 
@@ -450,7 +468,8 @@ public:
         synnax::rack::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<Factory> factory,
-        const ManagerConfig &cfg = {}
+        const ManagerConfig &cfg = {},
+        const bypass::OutageConfig &outage = {}
     ):
         rack(std::move(rack)),
         control_states(std::make_shared<control::States>()),
@@ -460,7 +479,8 @@ public:
             this->statuses,
             std::make_shared<bypass::Bus>(),
             this->control_states,
-            this->rack.key
+            this->rack.key,
+            outage
         )),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),

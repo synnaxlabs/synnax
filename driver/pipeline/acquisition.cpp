@@ -31,6 +31,10 @@ x::errors::Error SynnaxWriter::close() {
     return this->internal.close();
 }
 
+void SynnaxWriter::cancel() {
+    this->internal.cancel();
+}
+
 SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client):
     client(std::move(client)) {}
 
@@ -94,6 +98,7 @@ void Authorities::apply(synnax::framer::WriterConfig &config) const {
 void Acquisition::run() {
     Run run{.config = this->writer_config};
     run.config.err_on_unauthorized = this->err_on_unauthorized;
+    this->factory->begin_run();
     while (this->run_once(run)) {}
 }
 
@@ -157,7 +162,8 @@ bool Acquisition::run_once(Run &run) {
             authorities = Authorities{};
         }
         if (!fr.empty()) {
-            if (auto err = run.rewrite ? writer->rewrite(fr) : writer->write(fr)) {
+            if (auto err = run.rewrite ? writer->rewrite(fr)
+                                       : writer->write_and_clear(fr)) {
                 LOG(ERROR) << "[acquisition] failed to write frame" << err;
                 run.rewrite = true;
                 break;

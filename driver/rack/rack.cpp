@@ -70,7 +70,8 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             cfg.rack,
             client,
             cfg.new_factory(client, rt_manager),
-            cfg.manager
+            cfg.manager,
+            cfg.outage
         );
     }
     // A run that lost the Core leaves its tasks running for the next run.

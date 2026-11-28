@@ -19,6 +19,7 @@ x::errors::Error Config::load_env() {
     this->connection.override(p);
     this->timing.override(p);
     this->manager.override(p);
+    this->outage.override(p);
     this->remote_info.override(p);
     return p.error();
 }

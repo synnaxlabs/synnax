@@ -114,9 +114,10 @@ struct StatusHandler {
 
     /// @brief shows warning while the task runs with no warning or error of its own. An
     /// empty warning stops showing it. A warning or error of the task hides it, and
-    /// clear_warning does not clear it. The flusher thread sends the change, so the
-    /// caller never writes to the Core, but it can wait for a write in progress. Safe
-    /// to call from any thread.
+    /// clear_warning does not clear it. send_stop adds its description to the stop
+    /// status and clears it. The flusher thread sends the change, so the caller never
+    /// writes to the Core, but it can wait for a write in progress. Safe to call from
+    /// any thread.
     void set_background_warning(const Warning &warning) {
         std::lock_guard lock(this->mu);
         if (this->closed || this->background == warning) return;
@@ -159,8 +160,8 @@ struct StatusHandler {
     /// @brief sends a stop message to the task state, using the provided command key as
     /// part of the state. If an error has been accumulated, then the error will be sent
     /// as part of the state. Regardless of the error state, the task will be marked as
-    /// not running. Skips the window because the Console waits for command
-    /// acknowledgments keyed by cmd.
+    /// not running. Adds the description of a background warning, and clears it. Skips
+    /// the window because the Console waits for command acknowledgments keyed by cmd.
     void send_stop(const std::string &cmd_key) {
         this->status.details.cmd = cmd_key;
         this->status.details.running = false;
@@ -170,6 +171,15 @@ struct StatusHandler {
         } else {
             this->status.variant = synnax::status::VARIANT_SUCCESS;
             this->set_text("Stopped task");
+        }
+        {
+            std::lock_guard lock(this->mu);
+            if (!this->background.empty()) {
+                auto &description = this->status.description;
+                description += (description.empty() ? "" : " ") +
+                               this->background.description;
+                this->background = {};
+            }
         }
         this->set_status();
     }

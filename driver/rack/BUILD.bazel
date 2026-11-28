@@ -60,6 +60,7 @@ cc_library(
         "//client/cpp/connection",
         "//client/cpp/errors",
         "//driver/arc",
+        "//driver/bypass",
         "//driver/common",
         "//driver/errors",
         "//driver/ethercat",

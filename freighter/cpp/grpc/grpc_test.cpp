@@ -144,6 +144,23 @@ TEST(testGRPC, testBasicStream) {
     s.join();
 }
 
+/// @brief it should end a receive that waits on the server when the stream is
+/// cancelled from another thread.
+TEST(testGRPC, testStreamCancel) {
+    std::thread s(testutil::server, base_target);
+    testutil::wait_for_servers();
+    auto pool = std::make_shared<Pool>();
+    auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
+    auto streamer = ASSERT_NIL_P(client.stream(""));
+    x::errors::Error receive_err;
+    std::thread receiver([&] { receive_err = streamer->receive().second; });
+    streamer->cancel();
+    receiver.join();
+    ASSERT_OCCURRED_AS(receive_err, CANCELLED);
+    testutil::stop_servers();
+    s.join();
+}
+
 /// @brief it should send messages using multiple stream objects to different targets.
 TEST(testGRPC, testMultipleStreamObjects) {
     std::string target_one("localhost:8080");

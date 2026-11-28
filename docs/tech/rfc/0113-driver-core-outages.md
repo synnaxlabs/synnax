@@ -56,8 +56,13 @@ Driver that restarts while the Core is down still starts with no tasks.
 
 `bypass::pipeline::Writer::write` (`driver/bypass/pipeline/writer.h:43-61`) publishes to
 the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which opens,
-writes, and reopens the task's Core writer on its own thread. `open_writer` returns at
-once. The handoff queue holds 64 MB.
+writes, and reopens the task's Core writer on its own thread. `open_writer` waits for
+the first open, and returns once it succeeds, fails for good, or finds the Core
+unreachable. All forwarders share one queue budget, the Driver setting
+`outage.queue_size`, 256 MB by default. The forwarder wakes once per
+`outage.forward_interval` (2 ms) or `outage.forward_size` (256 KB) of frames, not for
+each frame. A stop sends what the queue holds for at most `outage.drain_timeout`, 5 s by
+default, then cancels the Core stream, and drops and counts the rest.
 
 After a transient or interrupted Core error (§3.8), the forwarder closes the live
 writer, spools the queued frames in order, and reopens the live writer only after the
@@ -67,9 +72,9 @@ queue is empty. Every spooled frame therefore comes before the next live session
 gRPC finds a silent network loss only when a keepalive ping goes unanswered, so the
 Driver pings the Core every 10 s and closes a connection whose ping goes 20 s without an
 answer. That fails every call on the connection, the forwarder's included, in about 30
-s. The Core accepts pings as often as every 5 s. The 64 MB queue covers that time at up
-to about 2 MB/s. A reachable Core too slow for the task fills it, and `write` then drops
-the frame and counts it.
+s. The Core accepts pings as often as every 5 s. The 256 MB budget covers that time at
+up to about 8 MB/s for all tasks together. A reachable Core too slow for the tasks fills
+it, and `write` then drops the frame and counts it.
 
 Any other Core error, such as a deleted channel, closes the forwarder; the next `write`
 returns it and the task stops as today (`acquisition.cpp:162-167`).
@@ -82,6 +87,11 @@ applies decreases and closes too, so two tasks on one Driver can hand off a chan
 forwarder opens each Core writer with the authorities in effect. On reconnect, the
 forwarders open before the task manager retrieves control states
 (`driver/task/manager.cpp:260-271`).
+
+Authority changes go through the forwarder queue in order with the frames. While the
+Core is up, only an increase applies to the local mirror at once. A decrease reaches the
+Core and the other writers only after the frames queued before it, which can take
+seconds when the Core is slow.
 
 ### 3.2 Streamers read the bus without the Core
 

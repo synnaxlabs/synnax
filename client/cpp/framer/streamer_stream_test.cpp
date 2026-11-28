@@ -48,6 +48,8 @@ public:
     }
 
     void close_send() override {}
+
+    void cancel() override {}
 };
 
 /// @brief a streamer transport that opens FramesThenEndStream streams.
@@ -100,6 +102,8 @@ public:
     }
 
     void close_send() override {}
+
+    void cancel() override {}
 };
 
 class MissedThenFrameClient final : public StreamerClient {

@@ -303,6 +303,9 @@ public:
         this->stream->WritesDone();
     }
 
+    /// @brief implements Stream::cancel.
+    void cancel() override { this->grpc_ctx.TryCancel(); }
+
     FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
     operator()(Context outbound, std::nullptr_t &_) override {
         if (this->closed) return {outbound, this->close_err};

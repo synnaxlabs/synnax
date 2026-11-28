@@ -18,8 +18,10 @@
 #include "writer.h"
 
 namespace driver::bypass::pipeline {
+/// @brief creates the writer factory of a task. warn shows Core delivery warnings on
+/// the task status.
 inline std::shared_ptr<::driver::pipeline::WriterFactory>
-create_writer_factory(const std::shared_ptr<task::Context> &ctx) {
+create_writer_factory(const std::shared_ptr<task::Context> &ctx, Warn warn = nullptr) {
     auto factory = std::make_shared<::driver::pipeline::SynnaxWriterFactory>(
         ctx->client
     );
@@ -27,13 +29,27 @@ create_writer_factory(const std::shared_ptr<task::Context> &ctx) {
         VLOG(1) << "[bypass] no bus available, using direct Core writer";
         return factory;
     }
+    const auto outage = ctx->outage();
     VLOG(1) << "[bypass] wrapping writer factory with bus publish, group="
             << ctx->rack_key();
     return std::make_shared<WriterFactory>(
         factory,
         ctx->bus(),
         ctx->control_states(),
-        ctx->rack_key()
+        ctx->rack_key(),
+        ForwarderConfig{
+            .budget = ctx->queue_budget(),
+            .drop_report_interval = outage.drop_report_interval,
+            .drain_timeout = outage.drain_timeout,
+            .forward_interval = outage.forward_interval,
+            .forward_size = outage.forward_size,
+            .warn = std::move(warn),
+            .breaker = {
+                .base_interval = outage.reopen_interval,
+                .scale = 1.1f,
+                .max_interval = outage.max_reopen_interval,
+            },
+        }
     );
 }
 
