@@ -12,6 +12,7 @@ package v1
 import (
 	"context"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -203,15 +204,15 @@ func (w Rewriter) Rewrite(ctx context.Context, src Source) (Result, error) {
 		written  []span
 		captured bool
 	)
+	reads, err := w.readsOf(ctx, src, candidates, spans)
+	if err != nil {
+		return Result{}, err
+	}
 	for i, r := range candidates {
-		reads, err := w.reads(ctx, src, spans[i], r)
-		if err != nil {
-			return Result{}, err
-		}
-		if len(reads) == 0 {
+		if len(reads[i]) == 0 {
 			continue
 		}
-		if r, err = bind(ctx, base, r, reads); err != nil {
+		if r, err = bind(ctx, base, r, reads[i]); err != nil {
 			return Result{}, err
 		}
 		res.References = append(res.References, r)
@@ -308,7 +309,12 @@ func (w Rewriter) reads(
 		reads = append(reads, read{old: old, new: renamed})
 	}
 	probed := src.Text[:sp.start] + pr.name + src.Text[sp.end:]
-	p, parsed, err := w.parse(ctx, src, probed, names{renames: w.Renames, probe: pr})
+	p, parsed, err := w.parse(
+		ctx,
+		src,
+		probed,
+		names{renames: w.Renames, probes: map[string]*probe{pr.name: pr}},
+	)
 	if err != nil || !parsed {
 		return nil, err
 	}
@@ -320,6 +326,182 @@ func (w Rewriter) reads(
 		return nil, nil
 	}
 	return reads, nil
+}
+
+// readsOf returns the reads of each of candidates, at spans in the text of src, as
+// reads does for one: none for a declaration. For several candidates, one analysis with
+// each probed finds the declarations. Each further analysis probes the other candidates
+// of one group, which holds at most one candidate of each line, so that each probe
+// keeps the column of its reference. A lone candidate, or a probed text that does not
+// parse, falls back to reads.
+func (w Rewriter) readsOf(
+	ctx context.Context,
+	src Source,
+	candidates []Reference,
+	spans []span,
+) ([][]read, error) {
+	out := make([][]read, len(candidates))
+	var (
+		declared []bool
+		ok       bool
+		err      error
+	)
+	if len(candidates) > 1 {
+		if declared, ok, err = w.declarations(ctx, src, candidates, spans); err != nil {
+			return nil, err
+		}
+	}
+	if !ok {
+		for i, r := range candidates {
+			if out[i], err = w.reads(ctx, src, spans[i], r); err != nil {
+				return nil, err
+			}
+		}
+		return out, nil
+	}
+	for _, group := range lineGroups(candidates, declared) {
+		got, ok, err := w.groupReads(ctx, src, candidates, spans, group)
+		if err != nil {
+			return nil, err
+		}
+		for j, i := range group {
+			if ok {
+				out[i] = got[j]
+			} else if out[i], err = w.reads(ctx, src, spans[i], candidates[i]); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return out, nil
+}
+
+// declarations reports which of candidates, at spans in the text of src, the text
+// declares, from one analysis with a probe in place of each. It reports false when the
+// probed text does not parse.
+func (w Rewriter) declarations(
+	ctx context.Context,
+	src Source,
+	candidates []Reference,
+	spans []span,
+) ([]bool, bool, error) {
+	all := make([]int, len(candidates))
+	for i := range all {
+		all[i] = i
+	}
+	probed, probes := probeAll(src.Text, candidates, spans, all, nil)
+	p, parsed, err := w.parse(
+		ctx,
+		src,
+		probed,
+		names{renames: w.Renames, probes: probes},
+	)
+	if err != nil || !parsed {
+		return nil, false, err
+	}
+	p.analyze()
+	declared := make([]bool, len(candidates))
+	for name, pr := range probes {
+		declared[pr.index] = declares(p.scope, name)
+	}
+	return declared, true, nil
+}
+
+// groupReads returns the reads of each candidate of group, from one analysis with a
+// probe in place of each. It reports false when the probed text does not parse.
+func (w Rewriter) groupReads(
+	ctx context.Context,
+	src Source,
+	candidates []Reference,
+	spans []span,
+	group []int,
+) ([][]read, bool, error) {
+	var (
+		p       parsed
+		readErr error
+		got     = make([][]read, len(group))
+	)
+	onRead := func(j int) func(context.Context) {
+		r := candidates[group[j]]
+		return func(ctx context.Context) {
+			at := symbol.ScopeAt(p.scope, r.Line, p.column(r))
+			old, err := lookup(ctx, at, r.Name)
+			if err != nil {
+				readErr = err
+				return
+			}
+			renamed, err := lookup(ctx, at, r.NewName)
+			if err != nil {
+				readErr = err
+				return
+			}
+			got[j] = append(got[j], read{old: old, new: renamed})
+		}
+	}
+	probed, probes := probeAll(src.Text, candidates, spans, group, onRead)
+	p, parsed, err := w.parse(
+		ctx,
+		src,
+		probed,
+		names{renames: w.Renames, probes: probes},
+	)
+	if err != nil || !parsed {
+		return nil, false, err
+	}
+	p.analyze()
+	if readErr != nil {
+		return nil, false, readErr
+	}
+	return got, true, nil
+}
+
+// probeAll returns text with a probe in place of each candidate at the positions in
+// group, and the probes by name. onRead, when not nil, returns what the probe of the
+// jth candidate of group calls each time that the analysis resolves it.
+func probeAll(
+	text string,
+	candidates []Reference,
+	spans []span,
+	group []int,
+	onRead func(j int) func(context.Context),
+) (string, map[string]*probe) {
+	base := probeName(text)
+	probes := make(map[string]*probe, len(group))
+	var b strings.Builder
+	last := 0
+	for j, i := range group {
+		pr := &probe{name: base + strconv.Itoa(j), old: candidates[i].Name, index: i}
+		pr.read = func(context.Context) {}
+		if onRead != nil {
+			pr.read = onRead(j)
+		}
+		probes[pr.name] = pr
+		b.WriteString(text[last:spans[i].start])
+		b.WriteString(pr.name)
+		last = spans[i].end
+	}
+	b.WriteString(text[last:])
+	return b.String(), probes
+}
+
+// lineGroups returns the positions in candidates of each one that is not declared, in
+// groups that each hold at most one candidate of a line, in order.
+func lineGroups(candidates []Reference, declared []bool) [][]int {
+	var (
+		groups [][]int
+		onLine = make(map[int]int)
+	)
+	for i, c := range candidates {
+		if declared[i] {
+			continue
+		}
+		k := onLine[c.Line]
+		onLine[c.Line] = k + 1
+		if k == len(groups) {
+			groups = append(groups, nil)
+		}
+		groups[k] = append(groups[k], i)
+	}
+	return groups
 }
 
 // declares reports whether a symbol in the scopes under scope holds name.
@@ -401,24 +583,25 @@ func probeName(text string) string {
 // to that channel.
 type names struct {
 	renames *Renames
-	// probe, when not nil, stands in for one reference.
-	probe *probe
+	// probes stand in for references, by name.
+	probes map[string]*probe
 }
 
 var _ symbol.Resolver = names{}
 
-// probe is a name that stands in for one reference of the old name of a channel, and
-// read is called each time that the analysis resolves it.
+// probe is a name that stands in for one reference of the old name of a channel, the
+// candidate at index, and read is called each time that the analysis resolves it.
 type probe struct {
 	name, old string
+	index     int
 	read      func(context.Context)
 }
 
 // Resolve implements symbol.Resolver.
 func (n names) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
-	if n.probe != nil && name == n.probe.name {
-		n.probe.read(ctx)
-		name = n.probe.old
+	if pr, ok := n.probes[name]; ok {
+		pr.read(ctx)
+		name = pr.old
 	}
 	sym, err := n.renames.Resolve(ctx, name)
 	if !errors.Is(err, query.ErrNotFound) {
