@@ -133,3 +133,24 @@ class TestImpact:
             keep=0,
             update_text=0,
         )
+
+    def test_folder_delete(self, client: sy.Synnax) -> None:
+        """Should plan and apply the delete of an empty channel folder"""
+        g = client.groups.create(str(uuid4()), scope="channel")
+        change = sy.impact.delete_groups([g.key])
+        planned = client.impact.plan(change)
+        assert isinstance(planned, sy.impact.DeleteGroupsResponse)
+        assert planned.plan.records == [sy.group.resource_id(g.key)]
+        assert planned.plan.entries == []
+        applied = client.impact.apply(change, token=planned.plan.token)
+        assert applied == planned
+        with pytest.raises(sy.NotFoundError):
+            client.impact.plan(change)
+
+    def test_folder_delete_pick(self, client: sy.Synnax) -> None:
+        """Should refuse a pick on a folder delete"""
+        g = client.groups.create(str(uuid4()), scope="channel")
+        with pytest.raises(sy.ValidationError):
+            client.impact.plan(
+                sy.impact.delete_groups([g.key]), picks={"channel:1": "delete"}
+            )

@@ -11,8 +11,9 @@ import { DataType, id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
+import { group } from "@/group";
 import { impact } from "@/impact";
-import { NotFoundError, PlanChangedError } from "@/index";
+import { NotFoundError, PlanChangedError, ValidationError } from "@/index";
 import { lineplot } from "@/lineplot";
 import { resource } from "@/resource";
 import { task } from "@/task";
@@ -167,5 +168,33 @@ describe("impact", () => {
     const { plan } = await userClient.impact.plan(deleteOf(ch.key));
     expect(plan.entries).toEqual([]);
     expect(plan.hidden).toEqual({ ...NO_HIDDEN, restrict: 1 });
+  });
+
+  describe("folder delete", () => {
+    const createFolder = async (): Promise<group.Group> =>
+      await client.groups.create({ name: id.create(), scope: "channel" });
+
+    it("should plan and apply the delete of an empty channel folder", async () => {
+      const g = await createFolder();
+      const change = impact.deleteGroups([g.key]);
+      const planned = await client.impact.plan(change);
+      expect(planned.type).toEqual("delete_groups");
+      expect(planned.plan.records).toEqual([group.resourceID(g.key)]);
+      expect(planned.plan.entries).toEqual([]);
+      const applied = await client.impact.apply(change, {
+        token: planned.plan.token,
+      });
+      expect(applied).toEqual(planned);
+      await expect(client.impact.plan(change)).rejects.toThrow(NotFoundError);
+    });
+
+    it("should refuse a pick on a folder delete", async () => {
+      const g = await createFolder();
+      await expect(
+        client.impact.plan(impact.deleteGroups([g.key]), {
+          picks: { [resource.idToString(channel.resourceID(1))]: "delete" },
+        }),
+      ).rejects.toThrow(ValidationError);
+    });
   });
 });

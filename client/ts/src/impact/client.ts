@@ -13,6 +13,7 @@ import type { z } from "zod";
 
 import { channel } from "@/channel";
 import type { PlanChangedError } from "@/errors";
+import type { group } from "@/group";
 import {
   applyRequestZ,
   type Change,
@@ -82,6 +83,15 @@ export class Client {
 export const deleteChannels = (keys: channel.Key[]): Change => ({
   type: "delete",
   records: keys.map((key) => channel.resourceID(key)),
+});
+
+/**
+ * Returns the change that deletes the channel folders with keys and the tombstones in
+ * them.
+ */
+export const deleteGroups = (keys: group.Key[]): Change => ({
+  type: "delete_groups",
+  groups: keys,
 });
 
 /** Returns the plan as it is now, which error carries. */
