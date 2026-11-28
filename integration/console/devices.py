@@ -234,9 +234,13 @@ class DevicesClient(ResourceClient):
         variant: sy.status.Variant = "disabled"
         if is_device:
             # Loading shows as an icon. Other variants set their color in the style.
-            style = status_icon.get_attribute("style") or ""
+            # One read takes both from the same element, as the icon can re-render.
+            style, loading = status_icon.evaluate(
+                "(e) => [e.getAttribute('style') ?? '', "
+                "e.querySelector('.lyra-loading__orbit') != null]"
+            )
             matched = [v for c, v in self._COLOR_TO_VARIANT.items() if c in style]
-            if status_icon.locator(".lyra-loading__orbit").count() > 0:
+            if loading:
                 variant = "loading"
             elif len(matched) == 1:
                 variant = matched[0]
