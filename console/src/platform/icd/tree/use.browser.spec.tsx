@@ -297,6 +297,16 @@ describe("ICD.Tree.use", () => {
         payload.fields.map(({ name }) => name),
       );
 
+    /** Edits the ICD through a client that the form does not use. */
+    const dispatchElsewhere = async (
+      key: icd.Key,
+      action: icd.Action,
+    ): Promise<void> => {
+      const other = createTestClient();
+      await other.icds.retrieve({ key });
+      expect(await other.icds.dispatch(key, action)).toBe(true);
+    };
+
     const clickDelete = async (): Promise<void> => {
       fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
     };
@@ -317,7 +327,8 @@ describe("ICD.Tree.use", () => {
       await clickDelete();
       await screen.findByText("Delete pressure from Status?");
       screen.getByText(
-        `This deletes it from the ICD ${ic.name}. Tasks that bind it lose that channel.`,
+        `This deletes it from the ICD ${ic.name}. ` +
+          "Tasks that bind it lose that channel.",
       );
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       await waitFor(() =>
@@ -336,7 +347,8 @@ describe("ICD.Tree.use", () => {
       await clickDelete();
       await screen.findByText("Delete 2 fields from Status?");
       screen.getByText(
-        `This deletes them from the ICD ${ic.name}. Tasks that bind them lose those channels.`,
+        `This deletes them from the ICD ${ic.name}. ` +
+          "Tasks that bind them lose those channels.",
       );
       fireEvent.click(screen.getByRole("button", { name: "Delete" }));
       await waitFor(async () => expect(await fieldNames(ic.key)).toEqual(["flow"]));
@@ -371,6 +383,49 @@ describe("ICD.Tree.use", () => {
       await openMenu(...(await findField("pressure")));
       await clickDelete();
       await screen.findByText("Delete pressure from Status?");
+    });
+
+    it("should delete the rest when another client deletes a chosen field while it asks", async () => {
+      const status = createMessage("Status", ["temperature", "pressure", "flow"]);
+      const ic = await createICD(status);
+      await renderSources([ic, status]);
+      const [temperature] = await findField("temperature");
+      const [pressure] = await findField("pressure");
+      await openMenu(temperature, pressure);
+      await clickDelete();
+      await screen.findByText("Delete 2 fields from Status?");
+      await dispatchElsewhere(
+        ic.key,
+        icd.remove({
+          path: ["messages", status.key, "payload", "fields"],
+          key: status.payload.fields[1].key,
+        }),
+      );
+      await waitFor(() =>
+        expect(screen.queryByRole("treeitem", { name: /^pressure/ })).toBeNull(),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+      await waitFor(async () => expect(await fieldNames(ic.key)).toEqual(["flow"]));
+    });
+
+    it("should say this field and this message for blank names", async () => {
+      const status = createMessage("Status", ["temperature", "pressure"]);
+      const ic = await createICD(status);
+      await renderSources([ic, status]);
+      const message = ["messages", status.key];
+      for (const path of [
+        [...message, "name"],
+        [...message, "payload", "fields", status.payload.fields[1].key, "name"],
+      ])
+        await dispatchElsewhere(ic.key, icd.set({ path, value: " " }));
+      await waitFor(() =>
+        expect(screen.queryByRole("treeitem", { name: /^pressure/ })).toBeNull(),
+      );
+      const items = screen.getAllByRole("treeitem");
+      const [temperature] = await findField("temperature");
+      await openMenu(items[items.indexOf(temperature) + 1]);
+      await clickDelete();
+      await screen.findByText("Delete this field from this message?");
     });
 
     it("should offer no delete for fields of several ICDs", async () => {
