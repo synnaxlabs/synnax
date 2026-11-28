@@ -69,7 +69,8 @@ class Properties(BaseModel):
 
     Attributes:
         local_address: Is the local address to bind. Empty binds all interfaces.
-        local_port: Is the local port to bind. 0 lets the operating system pick one.
+        local_port: Is the local port to bind. 0 lets the operating system pick one, and
+            is valid only on a device with a remote.
         remote: Is where the device sends datagrams. Absent when it only receives.
     """
 

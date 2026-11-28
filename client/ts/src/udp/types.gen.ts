@@ -41,7 +41,10 @@ export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 export const propertiesZ = z.object({
   /** localAddress is the local address to bind. Empty binds all interfaces. */
   localAddress: z.string().default(""),
-  /** localPort is the local port to bind. 0 lets the operating system pick one. */
+  /**
+   * localPort is the local port to bind. 0 lets the operating system pick one, and is
+   * valid only on a device with a remote.
+   */
   localPort: zod.uint16.default(0),
   /** remote is where the device sends datagrams. Absent when it only receives. */
   remote: remoteZ.optional(),

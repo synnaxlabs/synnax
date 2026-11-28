@@ -34,7 +34,10 @@ Properties struct {
         @doc value "is the local address to bind. Empty binds all interfaces."
     }
     local_port    uint16 = 0 {
-        @doc value "is the local port to bind. 0 lets the operating system pick one."
+        @doc value """
+            is the local port to bind. 0 lets the operating system pick one, and is
+            valid only on a device with a remote.
+        """
     }
     remote        Remote? {
         @doc value "is where the device sends datagrams. Absent when it only receives."

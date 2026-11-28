@@ -69,7 +69,7 @@ struct Properties {
     /// @brief local_address is the local address to bind. Empty binds all interfaces.
     std::string local_address = "";
     /// @brief local_port is the local port to bind. 0 lets the operating system pick
-    /// one.
+    /// one, and is valid only on a device with a remote.
     std::uint16_t local_port = 0;
     /// @brief remote is where the device sends datagrams. Absent when it only receives.
     std::optional<Remote> remote;
