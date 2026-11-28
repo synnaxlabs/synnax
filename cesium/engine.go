@@ -306,10 +306,7 @@ func (e *engine) onHead(
 func (e *engine) reap() error {
 	e.reaping.Lock()
 	dead, err := e.state.TakeDead()
-	var free []state.Dead
-	if err == nil {
-		free = e.uncover(0, dead)
-	}
+	free := e.uncover(0, dead)
 	e.reaping.Unlock()
 	return errors.Join(err, e.unlink(free))
 }
