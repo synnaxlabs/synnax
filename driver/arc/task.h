@@ -297,7 +297,7 @@ public:
             [task_ptr = task.get(),
              fail](const ::arc::ir::Node &node, const x::errors::Error &err) {
                 const auto description = "The " + node.type +
-                                         " node failed: " + err.data;
+                                         " node failed: " + err.data();
                 if (err.matches(::arc::runtime::errors::LOOP_BUDGET)) {
                     fail(x::errors::Error(err, description));
                     return;

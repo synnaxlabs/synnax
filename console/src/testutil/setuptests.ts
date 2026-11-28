@@ -78,7 +78,7 @@ class IntersectionObserverMock {
   disconnect = vi.fn();
 }
 
-// jsdom does not implement CSS.escape, which pluto relies on to build id selectors
+// jsdom does not implement CSS.escape, which Pluto relies on to build id selectors
 // (e.g. Text.asyncEdit). Provide the standard CSSOM serialization algorithm.
 const cssEscape = (value: string): string => {
   const string = String(value);

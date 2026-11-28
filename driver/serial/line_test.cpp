@@ -44,7 +44,7 @@ TEST(Check, RefusesValuesOutsideTheSchema) {
         edit(p);
         const auto err = check(p);
         ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-        EXPECT_EQ(err.data, message);
+        EXPECT_EQ(err.data(), message);
     }
 }
 
@@ -56,7 +56,7 @@ TEST(Line, RefusesPropertiesThatFailCheck) {
     Settings s{};
     const auto err = apply(p, s);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "data bits must be 5, 6, 7, or 8, got 9");
+    EXPECT_EQ(err.data(), "data bits must be 5, 6, 7, or 8, got 9");
     EXPECT_EQ(std::memcmp(&s, &before, sizeof(Settings)), 0);
 }
 }

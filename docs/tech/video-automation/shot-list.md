@@ -40,7 +40,7 @@ to `site/docs/src/docs/`, and release notes to `site/docs/src/`.
     `device-drivers/labjack/*`; an EtherCAT network for `device-drivers/ethercat/*`; a
     PagerDuty account + Events API key for `device-drivers/pagerduty/alert-task/create`;
     an Arduino on a serial port for `client/resources/build-device-driver/*`.
-- **Running driver (rack connected to the core)**: every `device-drivers/*` id.
+- **Running Driver (rack connected to the Core)**: every `device-drivers/*` id.
 - **Synnax Desktop** (the script exports `desktop`): all `get-started/sample-project/*`,
   `get-started/first-run`, `control/arc/get-started/first-stages`,
   `control/arc/get-started/abort`.

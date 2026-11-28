@@ -140,9 +140,11 @@ and **Enum mapping** settings.
 
 <Field.Item label="Pointer" field="pointer" type="string" default='""'>
   The [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) to the value, such
-  as `/motor/speed`. An empty pointer reads the whole document, such as a bare `42.7`. A
-  bytes field needs a pointer. Two fields of a message cannot read the same value, and
-  one field cannot read a value inside the value of another.
+  as `/motor/speed`. An empty pointer reads the whole document, such as a bare `42.7`.
+  When a field or a match rule has an empty pointer, a document that is not JSON, such
+  as `ON`, reads as a string. A bytes field needs a pointer. Two fields of a message
+  cannot read the same value, and one field cannot read a value inside the value of
+  another.
 </Field.Item>
 
 <Field.Item label="Type" field="type" type="string" required>

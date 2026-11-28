@@ -106,7 +106,7 @@ def _new_res_msg_t(res_t: type[RS]) -> type[Message[RS]]:
 
 
 class AsyncWebsocketStream(AsyncStream[RQ, RS]):
-    """An implementation of AsyncStream that is backed by a websocket."""
+    """An implementation of AsyncStream that is backed by a WebSocket."""
 
     _encoder: Codec
     _registry: Registry
@@ -201,6 +201,11 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
             raise _handle_close_err(e) from e
         finally:
             self._send_closed = True
+
+    @override
+    async def close(self) -> None:
+        """Implements the AsyncStream protocol."""
+        await self._internal.close()
 
     async def _close_server(self, exc_pld: ExceptionPayload | None) -> Exception:
         if self._server_closed is not None:
@@ -310,6 +315,11 @@ class SyncWebsocketStream(Stream[RQ, RS]):
             raise _handle_close_err(e) from e
         finally:
             self._send_closed = True
+
+    @override
+    def close(self) -> None:
+        """Implements the Stream protocol."""
+        self._connection.close()
 
     def _close_server(self, exc_pld: ExceptionPayload | None) -> Exception:
         if self._server_closed is not None:
@@ -440,7 +450,7 @@ class _Base:
 
 
 class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
-    """An implementation of AsyncStreamClient that is backed by a websocket"""
+    """An implementation of AsyncStreamClient that is backed by a WebSocket"""
 
     def __init__(
         self,

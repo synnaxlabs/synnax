@@ -1,6 +1,6 @@
 {
   "description": "A standard CAN identifier needs 12 bits.",
-  "codec_rejects": false,
+  "codec_rejects": true,
   "problems": [
     {
       "path": "messages.0.payload.identifier.id",

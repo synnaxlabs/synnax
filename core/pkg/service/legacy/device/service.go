@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -54,6 +55,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	References []gorp.Reference[Key, Device]
+	// Properties maps a make to the check that the properties of its devices pass on
+	// each create and edit. A device of a make with no check stores any properties.
+	//
+	// [OPTIONAL]
+	Properties map[string]func(msgpack.EncodedJSON) error
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -69,6 +75,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.References = override.Slice(c.References, other.References)
+	c.Properties = override.Nil(c.Properties, other.Properties)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -165,6 +172,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		statuses:   s.cfg.Status,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
+		properties: s.cfg.Properties,
 	}
 }
 

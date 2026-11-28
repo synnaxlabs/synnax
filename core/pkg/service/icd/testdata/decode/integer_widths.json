@@ -158,7 +158,15 @@
         "u32": 0,
         "u64": 0
       },
-      "error": "field u8: 256 is out of range for uint8: validation error"
+      "message": "reading",
+      "samples": [0, 0, 0, 0, null, 0, 0, 0],
+      "failures": [
+        {
+          "binding": 4,
+          "missing": false,
+          "error": "field u8: 256 is out of range for uint8: validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -171,7 +179,15 @@
         "u32": 0,
         "u64": 0
       },
-      "error": "field i64: 10000000000000000000 is out of range for int64: validation error"
+      "message": "reading",
+      "samples": [0, 0, 0, null, 0, 0, 0, 0],
+      "failures": [
+        {
+          "binding": 3,
+          "missing": false,
+          "error": "field i64: 10000000000000000000 is out of range for int64: validation error"
+        }
+      ]
     }
   ]
 }

@@ -275,7 +275,7 @@ struct ApplyContext {
 inline x::errors::Error
 at_cfg_path(const x::errors::Error &err, const std::string &cfg_path) {
     if (!err) return err;
-    return {err, cfg_path + ": " + err.data};
+    return {err, cfg_path + ": " + err.data()};
 }
 
 inline x::errors::Error apply(

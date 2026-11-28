@@ -17,7 +17,7 @@ import (
 type Create[K Key, E Entry[K]] struct {
 	// entries is the set of entries the query will write.
 	entries Entries[K, E]
-	// keyPrefix is the gorp key prefix for entry type E.
+	// keyPrefix is the Gorp key prefix for entry type E.
 	keyPrefix []byte
 	// table is the Table the query writes through. Nil for a query that no Table
 	// built.

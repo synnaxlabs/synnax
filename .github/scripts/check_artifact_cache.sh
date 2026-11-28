@@ -34,7 +34,7 @@ for os in "${OS_NAMES[@]}"; do
     CORE_ARTIFACTS+=("synnax-core-${os}")
     DRIVER_ARTIFACTS+=("synnax-driver-${os}")
 done
-# Binary checks download the driver from the reused run, so a full skip needs both.
+# Binary checks download the Driver from the reused run, so a full skip needs both.
 FULL_ARTIFACTS=("${CORE_ARTIFACTS[@]}" "${DRIVER_ARTIFACTS[@]}")
 
 # A component's artifacts are reusable from a run that matches on its path set.
@@ -306,7 +306,7 @@ step_block() {
 }
 
 # Resolves the debug ternaries in workflow text for this build. The Go tags are pinned
-# because a core candidate must already hold the driver and console artifacts.
+# because a Core candidate must already hold the Driver and Console artifacts.
 resolve_expressions() {
     local plain neg
     if [ "${DEBUG}" = true ]; then

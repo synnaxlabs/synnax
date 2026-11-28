@@ -167,7 +167,7 @@ TEST(StatusTest, RetrieveOneWhereNotFound) {
     const auto key = "test-one-none-" + x::uuid::create().to_string();
     const auto [_, err] = client.statuses.retrieve(Where{.key = key}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "Found no status where key = \"" + key + "\"");
+    ASSERT_EQ(err.data(), "Found no status where key = \"" + key + "\"");
 }
 
 /// @brief it should return an error when more than one status matches a filter.
@@ -199,7 +199,7 @@ TEST(StatusTest, RetrieveRejectsPage) {
                   .second}) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
-                err.data,
+                err.data(),
                 "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
@@ -389,7 +389,7 @@ TEST(StatusTest, BatchConversionErrorNamesTheStatus) {
     std::vector<Status<x::json::json>> statuses = {ok, bad};
     const auto err = client.statuses.set(statuses);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_NE(err.data.find(bad.key), std::string::npos);
+    EXPECT_NE(err.data().find(bad.key), std::string::npos);
 }
 
 /// @brief it should set and retrieve a status with custom details type.
