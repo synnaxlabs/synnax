@@ -50,7 +50,7 @@ import { MessageFormatField } from "@/platform/icd/MessageFormatField";
 import { createPayload, FORMAT_KINDS } from "@/platform/icd/payload";
 import { Plans } from "@/platform/icd/Plans";
 import { PollFields } from "@/platform/icd/Poll";
-import { isTaskFormat, mostRead } from "@/platform/icd/read";
+import { isTaskFormat, type Messages, mostRead } from "@/platform/icd/read";
 import { initialExpanded } from "@/platform/icd/tree/nodes";
 import { use as useTree } from "@/platform/icd/tree/use";
 import { Task } from "@/platform/task";
@@ -62,6 +62,23 @@ const entryPath = (key: string): deep.Path<icd.ReadEntry> => ENTRIES[key];
 
 const MISSING_DESCRIPTION =
   "The ICD no longer has this message. Add a message to the entry, then remove this one.";
+
+/**
+ * @returns the format of a new message of entries. The Core reads the enabled entries
+ * as one stream of one format, so it is the format of a message that an enabled entry
+ * reads, else of one that any entry reads, else binary.
+ */
+const streamFormat = (entries: icd.ReadEntry[], messages: Messages): payload.Format => {
+  const formatIn = (from: icd.ReadEntry[]) =>
+    from
+      .flatMap((e) => e.messages.map((_, r) => messageOf(messages, e, r)))
+      .find((m) => m != null)?.payload.format;
+  return (
+    formatIn(entries.filter(({ disabled }) => !disabled)) ??
+    formatIn(entries) ??
+    "binary"
+  );
+};
 
 /** @returns a name like "Message 2" that no message in held has. */
 const messageName = (held: icd.Message[]): string => {
@@ -259,6 +276,7 @@ const Panes = ({
     missingDescription: () => MISSING_DESCRIPTION,
     bindingOf: (_, __, { key }) => icd.readBindingZ.parse({ field: key }),
     messageName: (_, held) => messageName(held),
+    fallbackFormat: () => streamFormat(ctx.get(ENTRIES).value, messagesOf(formats)),
     made,
     selected,
     onSelect,
@@ -268,9 +286,7 @@ const Panes = ({
 
   /**
    * Adds an entry that reads a new message with no fields, in the ICD that the most
-   * entries read, or in a new ICD named after the device when no entry reads one. The
-   * Core reads the entries as one stream of one format, so the message takes the format
-   * of the messages that the entries read, or binary when they read none.
+   * entries read, or in a new ICD named after the device when no entry reads one.
    */
   const add = async () => {
     if (client == null) throw new DisconnectedError();
@@ -278,14 +294,10 @@ const Panes = ({
     const home = mostRead(current);
     const form = home == null ? null : formatOf(formats, home);
     const held = form?.value().messages ?? [];
-    const messages = messagesOf(formats);
-    const read = current
-      .flatMap((entry) => entry.messages.map((_, r) => messageOf(messages, entry, r)))
-      .find((m) => m != null);
     const message: icd.Message = {
       key: uuid.create(),
       name: messageName(held),
-      payload: createPayload(read?.payload.format ?? "binary"),
+      payload: createPayload(streamFormat(current, messagesOf(formats))),
     };
     let icdKey = home;
     if (form == null)

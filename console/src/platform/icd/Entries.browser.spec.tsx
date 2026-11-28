@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd, serial, type Synnax, type task } from "@synnaxlabs/client";
+import { icd, serial, type Synnax, type task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
@@ -18,7 +18,12 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { ICD } from "@/platform/icd";
-import { expectRefused, pickNewMessage, typeText } from "@/platform/icd/testutil";
+import {
+  createEntry,
+  expectRefused,
+  pickNewMessage,
+  typeText,
+} from "@/platform/icd/testutil";
 import { Task } from "@/platform/task";
 import {
   awaitEditableForm,
@@ -42,9 +47,19 @@ interface Rendered {
   device: string;
 }
 
-/** Renders the entries of a new draft task, as the user of as. */
-const renderEntries = async (as?: Synnax): Promise<Rendered> => {
-  const device = uniqueName("port");
+interface RenderEntriesOptions {
+  /** The client of the user that renders the form, when not the one that saves it. */
+  as?: Synnax;
+  entries?: icd.ReadEntry[];
+  device?: string;
+}
+
+/** Renders the entries of a new draft task. */
+const renderEntries = async ({
+  as,
+  entries = [],
+  device = uniqueName("port"),
+}: RenderEntriesOptions = {}): Promise<Rendered> => {
   const Form = () => <ICD.Entries device={{ name: device }} />;
   const Renderer = Task.wrapForm<typeof schemas>({
     Form,
@@ -57,7 +72,7 @@ const renderEntries = async (as?: Synnax): Promise<Rendered> => {
     {
       name: uniqueName("task"),
       type: "serial_read",
-      config: schemas.config.parse({}),
+      config: schemas.config.parse({ entries }),
     },
     schemas,
   );
@@ -167,6 +182,43 @@ describe("ICD.Entries", () => {
     ).toBe("text");
   });
 
+  it("should add an entry in the format of the enabled entries before a disabled one", async () => {
+    const text = icd.textPayloadZ.parse({ format: "text" });
+    const binary = icd.binaryPayloadZ.parse({ format: "binary" });
+    const { key } = await renderEntries({
+      entries: [
+        await createEntry(client, text, { disabled: true }),
+        await createEntry(client, binary),
+      ],
+    });
+    fireEvent.click(await findListButton("Add entry"));
+    const [, , entry] = await awaitEntries(key, 3);
+    const { messages } = await client.icds.retrieve(entry.icd);
+    expect(
+      messages.find(({ key }) => key === entry.messages[0].message)?.payload.format,
+    ).toBe("binary");
+  });
+
+  it("should add a message in the format of the other entries to an entry that reads no message its ICD holds", async () => {
+    const reading = await createEntry(
+      client,
+      icd.binaryPayloadZ.parse({ format: "binary" }),
+    );
+    const gone = icd.readEntryZ.parse({ icd: reading.icd, messages: [] });
+    const { key } = await renderEntries({ entries: [reading, gone] });
+    const { name } = await client.icds.retrieve(reading.icd);
+    const items = await screen.findAllByRole("treeitem", { name: new RegExp(name) });
+    fireEvent.click(items[items.length - 1]);
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+    await waitFor(async () => {
+      const [, entry] = await retrieveEntries(key);
+      expect(entry.messages).toHaveLength(1);
+      const { messages } = await client.icds.retrieve(entry.icd);
+      const added = messages.find(({ key }) => key === entry.messages[0].message);
+      expect(added?.payload.format).toBe("binary");
+    });
+  });
+
   it("should switch an entry off", async () => {
     const { key, device } = await renderEntries();
     const item = await addEntry(device);
@@ -177,7 +229,7 @@ describe("ICD.Entries", () => {
   });
 
   it("should offer no add in a preview", async () => {
-    await renderEntries(await createTestClientWithRole(client, "Viewer"));
+    await renderEntries({ as: await createTestClientWithRole(client, "Viewer") });
     const details = await findDetailsPane();
     await within(details).findByText("No entry selected");
     expect(within(details).queryByRole("button", { name: "Add entry" })).toBeNull();
