@@ -15,6 +15,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <span>
 #include <string>
 #include <variant>
 #include <vector>
@@ -1393,6 +1394,38 @@ public:
     ) {
         auto s = Series(target_type, size);
         s.write_casted(data, size, source_type);
+        return s;
+    }
+
+    /// @brief returns the number of bytes that len samples of data_type take in
+    /// from_bytes: len for a variable type, one bit for each boolean, and len samples
+    /// of the density otherwise.
+    static size_t byte_count(const DataType &data_type, const size_t len) {
+        if (data_type == BOOLEAN_T) return (len + 7) / 8;
+        if (data_type.is_variable()) return len;
+        return len * data_type.density();
+    }
+
+    /// @brief returns a series of data_type built from bytes, which holds
+    /// byte_count(data_type, len) bytes: len samples of a fixed type, len bytes of
+    /// length-prefixed samples of a variable type, or len booleans packed one to a
+    /// bit, lowest bit first.
+    static Series from_bytes(
+        const DataType &data_type,
+        const size_t len,
+        const std::span<const std::uint8_t> bytes
+    ) {
+        auto s = Series(data_type, len);
+        if (data_type == BOOLEAN_T) {
+            auto *dst = reinterpret_cast<std::uint8_t *>(s.data());
+            for (size_t i = 0; i < len; i++)
+                dst[i] = (bytes[i / 8] >> (i % 8)) & 1;
+            s.sample_count = len;
+            s.cached_byte_size = len;
+            return s;
+        }
+        binary::Reader r(bytes.data(), bytes.size());
+        s.fill_from(r);
         return s;
     }
 
