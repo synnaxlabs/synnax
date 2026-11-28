@@ -39,6 +39,9 @@ APIKey struct {
     created telem.TimeStamp {
         @doc value "is when the key was created."
     }
+    expires telem.TimeStamp {
+        @doc value "is when the key stops logging in. TimeStamp max means never."
+    }
 
     @cpp omit
     @doc value  "is a stored API key. A subject holds any number of them."

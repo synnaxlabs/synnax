@@ -28,6 +28,8 @@ type APIKey struct {
 	Name string `json:"name" msgpack:"name"`
 	// Created is when the key was created.
 	Created telem.TimeStamp `json:"created" msgpack:"created"`
+	// Expires is when the key stops logging in. TimeStamp max means never.
+	Expires telem.TimeStamp `json:"expires" msgpack:"expires"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

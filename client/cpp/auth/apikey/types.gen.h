@@ -35,6 +35,8 @@ struct APIKey {
     std::string name;
     /// @brief created is when the key was created.
     ::x::telem::TimeStamp created = x::telem::TimeStamp(0);
+    /// @brief expires is when the key stops logging in. TimeStamp max means never.
+    ::x::telem::TimeStamp expires = x::telem::TimeStamp(0);
 
     static APIKey parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

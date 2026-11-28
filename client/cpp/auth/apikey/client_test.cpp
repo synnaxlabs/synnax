@@ -55,4 +55,25 @@ TEST(TestAPIKeyClient, RetrieveRejectsNonUUIDKey) {
     );
     ASSERT_OCCURRED_AS_P(client.retrieve(), x::uuid::INVALID);
 }
+
+/// @brief it should read the expiry of each key.
+TEST(TestAPIKeyClient, RetrieveReadsExpiry) {
+    grpc::auth::APIKeyRetrieveResponse res;
+    auto *expiring = res.add_keys();
+    expiring->set_key(x::uuid::create().to_string());
+    expiring->set_expires(42);
+    auto *never = res.add_keys();
+    never->set_key(x::uuid::create().to_string());
+    never->set_expires(x::telem::TIME_STAMP_MAX.nanoseconds());
+    const auto client = client_with(
+        nullptr,
+        std::make_unique<freighter::testutil::UnaryClient<
+            grpc::auth::APIKeyRetrieveRequest,
+            grpc::auth::APIKeyRetrieveResponse>>(res, x::errors::NIL)
+    );
+    const auto keys = ASSERT_NIL_P(client.retrieve());
+    ASSERT_EQ(keys.size(), 2);
+    ASSERT_EQ(keys[0].expires, x::telem::TimeStamp(42));
+    ASSERT_EQ(keys[1].expires, x::telem::TIME_STAMP_MAX);
+}
 }

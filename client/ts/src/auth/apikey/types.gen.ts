@@ -27,5 +27,7 @@ export const apiKeyZ = z.object({
   name: z.string(),
   /** created is when the key was created. */
   created: telem.timeStampZ,
+  /** expires is when the key stops logging in. TimeStamp max means never. */
+  expires: telem.timeStampZ,
 });
 export interface APIKey extends z.infer<typeof apiKeyZ> {}

@@ -62,7 +62,8 @@ type Authenticator interface {
 	// [ErrInvalidCredentials] when the proof matches no stored credential.
 	Authenticate(ctx context.Context, proof Proof) (Identity, error)
 	// Version returns the [Identity.Version] of the credential in snap. It returns an
-	// error wrapping query.ErrNotFound when the authenticator holds no such credential.
+	// error wrapping query.ErrNotFound when the authenticator holds no such credential,
+	// and one wrapping [ErrInvalidCredentials] when the credential no longer logs in.
 	Version(
 		ctx context.Context,
 		snap gorp.Snapshot,

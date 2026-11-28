@@ -48,6 +48,7 @@ inline std::pair<APIKey, x::errors::Error> from_pb(const grpc::auth::APIKey &pb)
             .subject = subject_from_pb(pb.subject()),
             .name = pb.name(),
             .created = x::telem::TimeStamp(pb.created()),
+            .expires = x::telem::TimeStamp(pb.expires()),
         },
         x::errors::NIL,
     };

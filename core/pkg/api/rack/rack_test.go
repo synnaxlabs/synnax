@@ -535,7 +535,8 @@ var _ = Describe("Delete", func() {
 		})).To(Succeed())
 		var key string
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-			_, key, err = svc.APIKey.NewWriter(tx).Create(ctx, r.ResourceID(), "driver")
+			_, key, err = svc.APIKey.NewWriter(tx).
+				Create(ctx, r.ResourceID(), "driver", 0)
 			return err
 		})).To(Succeed())
 		_, token := MustSucceed2(svc.Auth.Login(ctx, auth.Proof{

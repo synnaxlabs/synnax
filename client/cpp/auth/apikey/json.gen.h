@@ -26,6 +26,7 @@ inline APIKey APIKey::parse(x::json::Parser parser) {
         .subject = parser.field<::synnax::resource::ID>("subject"),
         .name = parser.field<std::string>("name"),
         .created = parser.field<::x::telem::TimeStamp>("created"),
+        .expires = parser.field<::x::telem::TimeStamp>("expires"),
     };
 }
 
@@ -35,6 +36,7 @@ inline x::json::json APIKey::to_json() const {
     j["subject"] = this->subject.to_json();
     j["name"] = this->name;
     j["created"] = this->created.nanoseconds();
+    j["expires"] = this->expires.nanoseconds();
     return j;
 }
 

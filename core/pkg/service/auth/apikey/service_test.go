@@ -12,6 +12,7 @@ package apikey_test
 import (
 	"context"
 	"strings"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	xtime "github.com/synnaxlabs/x/time"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -38,7 +42,7 @@ func create(
 		token string
 	)
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		k, token, err = svc.NewWriter(tx).Create(ctx, sub, name)
+		k, token, err = svc.NewWriter(tx).Create(ctx, sub, name, 0)
 		return err
 	})).To(Succeed())
 	return k, token
@@ -55,6 +59,7 @@ var _ = Describe("ServiceConfig", func() {
 	BeforeEach(func() {
 		cfg = apikey.ServiceConfig{
 			DB:              db,
+			Clock:           xtime.Real,
 			Instrumentation: alamos.New("apikey-config-test"),
 		}
 	})
@@ -62,20 +67,29 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take each field from the override when the base is zero", func() {
 			result := apikey.ServiceConfig{}.Override(cfg)
 			Expect(result.DB).To(Equal(db))
+			Expect(result.Clock).To(Equal(xtime.Real))
 			Expect(result.Instrumentation).To(Equal(cfg.Instrumentation))
 		})
 		It("Should keep each field from the base when the override is zero", func() {
 			result := cfg.Override(apikey.ServiceConfig{})
 			Expect(result.DB).To(Equal(db))
+			Expect(result.Clock).To(Equal(xtime.Real))
 			Expect(result.Instrumentation).To(Equal(cfg.Instrumentation))
 		})
 	})
 })
 
 var _ = Describe("Service", func() {
-	var svc *apikey.Service
+	var (
+		svc   *apikey.Service
+		clock *timetestutil.Clock
+	)
 	BeforeEach(func(ctx SpecContext) {
-		svc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
+		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
+		svc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+			DB:    db,
+			Clock: clock,
+		}))
 	})
 	It("Should require a DB", func(ctx SpecContext) {
 		Expect(apikey.OpenService(ctx)).Error().
@@ -96,7 +110,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should reject an invalid subject", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				_, _, err := svc.NewWriter(tx).Create(ctx, resource.ID{}, "")
+				_, _, err := svc.NewWriter(tx).Create(ctx, resource.ID{}, "", 0)
 				return err
 			})).
 				To(MatchError(ContainSubstring("subject")))
@@ -166,6 +180,61 @@ var _ = Describe("Service", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Delete(ctx, uuid.New())
 			})).To(Succeed())
+		})
+	})
+	Describe("Expiry", func() {
+		var (
+			expires telem.TimeStamp
+			k       apikey.APIKey
+			token   string
+		)
+		BeforeEach(func(ctx SpecContext) {
+			expires = telem.NewTimeStamp(clock.Now().Add(time.Hour))
+			sub := subject()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				k, token, err = svc.NewWriter(tx).
+					Create(ctx, sub, "expiring", expires)
+				return err
+			})).To(Succeed())
+		})
+		It("Should store the expiry", func() {
+			Expect(k.Expires).To(Equal(expires))
+		})
+		It("Should log in until the key expires", func(ctx SpecContext) {
+			clock.Advance(time.Hour - time.Second)
+			MustSucceed(svc.Authenticate(ctx, proof(token)))
+			Expect(svc.Version(ctx, db, k.Key)).To(Equal(k.Created))
+		})
+		It("Should reject an expired key", func(ctx SpecContext) {
+			clock.Advance(time.Hour)
+			Expect(svc.Authenticate(ctx, proof(token))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.Version(ctx, db, k.Key)).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should reject an expiry that is not in the future", func(ctx SpecContext) {
+			sub, now := subject(), telem.NewTimeStamp(clock.Now())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, _, err := svc.NewWriter(tx).Create(ctx, sub, "", now)
+				return err
+			})).To(MatchError(ContainSubstring("expires: must be in the future")))
+		})
+		It("Should give a key with a zero expiry the maximum expiry", func(
+			ctx SpecContext,
+		) {
+			never, _ := create(ctx, svc, subject(), "never")
+			Expect(never.Expires).To(Equal(telem.TimeStampMax))
+		})
+		It("Should never expire a key with the maximum expiry", func(ctx SpecContext) {
+			sub := subject()
+			var never string
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				_, never, err = svc.NewWriter(tx).
+					Create(ctx, sub, "never", telem.TimeStampMax)
+				return err
+			})).To(Succeed())
+			clock.Advance(100 * 365 * 24 * time.Hour)
+			MustSucceed(svc.Authenticate(ctx, proof(never)))
 		})
 	})
 	Describe("Subject", func() {

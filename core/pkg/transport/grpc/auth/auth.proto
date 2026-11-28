@@ -137,11 +137,13 @@ message APIKey {
   Subject subject = 2;
   string name = 3;
   int64 created = 4;
+  int64 expires = 5;
 }
 
 message APIKeyCreateRequest {
   Subject subject = 1;
   string name = 2;
+  int64 expires = 3;
 }
 
 message APIKeyCreateResponse {
