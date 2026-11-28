@@ -12,6 +12,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   EOF,
+  Interrupted,
   NoTLS,
   StreamClosed,
   Timeout,
@@ -28,6 +29,7 @@ describe("errors", () => {
       new Timeout("no response"),
       new UntrustedCertificate("not trusted"),
       new NoTLS("no TLS"),
+      new Interrupted("stopped"),
     ].forEach((error) => {
       const encoded = errors.encode(error);
       expect(encoded.type.startsWith("freighter")).toBeTruthy();
@@ -42,5 +44,14 @@ describe("errors", () => {
     expect(new Unreachable({ hint: "Check the cable" }).message).toEqual(
       "Unreachable. Check the cable",
     );
+  });
+
+  test("decoding an interrupted request from the Core", () => {
+    const decoded = errors.decode({
+      type: "freighter.interrupted",
+      data: "[freighter] - server stopped during the request",
+    });
+    expect(decoded).toBeInstanceOf(Interrupted);
+    expect(decoded?.message).toEqual("[freighter] - server stopped during the request");
   });
 });

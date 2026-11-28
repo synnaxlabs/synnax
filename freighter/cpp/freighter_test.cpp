@@ -95,3 +95,10 @@ TEST(testFreighter, testContextAssignReplacesParams) {
     ASSERT_TRUE(target.has("fresh"));
 }
 }
+
+/// @brief it should decode an interrupted request into the interrupted type.
+TEST(testFreighter, testDecodeInterrupted) {
+    const x::errors::Error err("freighter.interrupted---server stopped");
+    ASSERT_TRUE(err.matches(freighter::INTERRUPTED));
+    ASSERT_EQ(err.data, "server stopped");
+}

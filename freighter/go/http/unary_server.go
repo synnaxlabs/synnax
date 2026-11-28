@@ -12,6 +12,7 @@ package http
 import (
 	"bufio"
 	"compress/gzip"
+	"context"
 	"io"
 	"sync"
 
@@ -155,6 +156,10 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 			return oCtx, err
 		}),
 	)
+	// fasthttp cancels a request's context only when the server shuts down.
+	if errors.Is(err, context.Canceled) && fCtx.RequestCtx().Err() != nil {
+		err = freighter.ErrInterrupted
+	}
 	// A middleware can fail after the handler succeeds. No encoder then receives res,
 	// so nothing else releases what it holds.
 	if closer, ok := any(res).(io.Closer); ok && handled && err != nil {

@@ -11,7 +11,7 @@ import type { breaker } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { type UnaryClient, unaryWithBreaker, Unreachable } from "@/index";
+import { Interrupted, type UnaryClient, unaryWithBreaker, Unreachable } from "@/index";
 
 const NO_SLEEP: breaker.Config = { sleepFn: async () => {} };
 const UNREACHABLE_MESSAGE = "server down";
@@ -50,6 +50,15 @@ describe("unaryWithBreaker", () => {
     const onRetry = vi.fn<(error: Error) => void>();
     const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 2 }, onRetry);
     await expect(send(client)).rejects.toThrow(FATAL_MESSAGE);
+    expect(unary.send).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it("should not resend a request the target stopped while handling", async () => {
+    const unary = failingUnary(new Interrupted(FATAL_MESSAGE));
+    const onRetry = vi.fn<(error: Error) => void>();
+    const client = unaryWithBreaker(unary, { ...NO_SLEEP, maxRetries: 2 }, onRetry);
+    await expect(send(client)).rejects.toThrow(Interrupted);
     expect(unary.send).toHaveBeenCalledTimes(1);
     expect(onRetry).not.toHaveBeenCalled();
   });

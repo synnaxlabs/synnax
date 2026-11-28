@@ -40,6 +40,9 @@ const x::errors::Error RESOURCE_EXHAUSTED = {
 const x::errors::Error CANCELLED = {"freighter.cancelled", "Cancelled"};
 /// @brief the request failed for a reason that the transport does not name.
 const x::errors::Error UNKNOWN = {"freighter.unknown", "Unknown"};
+/// @brief the target stopped while it handled the request. The request may or may not
+/// have taken effect, so it is not safe to resend it.
+const x::errors::Error INTERRUPTED = {"freighter.interrupted", "Interrupted"};
 
 enum TransportVariant { UNARY, STREAM };
 

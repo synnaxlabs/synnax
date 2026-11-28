@@ -20,6 +20,7 @@ export {
 export {
   EOF,
   FreighterError,
+  Interrupted,
   NoTLS,
   ReceiveOverflow,
   StreamClosed,

@@ -40,6 +40,14 @@ class Timeout(Error):
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "timeout"
 
 
+class Interrupted(Error):
+    """Raised when a target stops while it handles a request. The request may or may
+    not have taken effect, so a retry is not safe.
+    """
+
+    TYPE = _FREIGHTER_EXCEPTION_TYPE + "interrupted"
+
+
 class StreamClosed(Error):
     """Raised when a stream is closed."""
 
@@ -65,6 +73,8 @@ def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
         return ExceptionPayload(type=Unreachable.TYPE, data=exc.message)
     if isinstance(exc, Timeout):
         return ExceptionPayload(type=Timeout.TYPE, data=str(exc))
+    if isinstance(exc, Interrupted):
+        return ExceptionPayload(type=Interrupted.TYPE, data=str(exc))
     if isinstance(exc, StreamClosed):
         return ExceptionPayload(type=StreamClosed.TYPE, data=str(exc))
     if isinstance(exc, EOF):
@@ -77,6 +87,8 @@ def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
         return Unreachable(message=exc.data) if exc.data is not None else Unreachable()
     if exc.type == Timeout.TYPE:
         return Timeout(exc.data) if exc.data is not None else Timeout()
+    if exc.type == Interrupted.TYPE:
+        return Interrupted(exc.data) if exc.data is not None else Interrupted()
     if exc.type == StreamClosed.TYPE:
         return StreamClosed()
     if exc.type == EOF.TYPE:
