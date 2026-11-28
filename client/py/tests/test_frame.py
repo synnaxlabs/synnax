@@ -1484,11 +1484,15 @@ _NAMED_TIME = ChannelPayload(
 """A stored channel that takes the name time."""
 
 
-def _writer_adapter(names: list[str], clocks: list[int]) -> WriteFrameAdapter:
+def _writer_adapter(
+    names: list[str], clocks: list[int], *, strict: bool = False
+) -> WriteFrameAdapter:
     """Opens a write adapter on the channels of names, whose writer lists clocks."""
     channels = [c for c in (_A, _D, _NAMED_TIME) if c.name in names]
     client = MockUnaryClient(responses=[RetrieveResponse(channels=channels)])
-    adapter = WriteFrameAdapter(retriever=Retriever(client=client))
+    adapter = WriteFrameAdapter(
+        retriever=Retriever(client=client), strict_data_types=strict
+    )
     adapter.update(names)
     adapter.clocks = clocks
     return adapter
@@ -1518,6 +1522,26 @@ class TestWriteFrameAdapterTime:
             ),
         ):
             adapter.adapt({"time": [5], "d": [1.0], "a_time": [5]})
+
+    def test_float_time(self) -> None:
+        """Should convert a float "time" to timestamps, as an index write converts."""
+        adapter = _writer_adapter(["d"], [1])
+        frame = adapter.adapt({"time": [1.5, 2.5], "d": [1.0, 2.0]})
+        expected = sy.Series([1.5, 2.5]).astype(sy.DataType.TIMESTAMP)
+        assert frame[1].series[0].data_type == sy.DataType.TIMESTAMP
+        assert list(frame[1].series[0]) == list(expected)
+
+    def test_float_time_strict(self) -> None:
+        """Should refuse a float "time" in a writer that takes strict data types."""
+        adapter = _writer_adapter(["d"], [1], strict=True)
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r'Data type timestamp for channel "time" does not match series data '
+                r"type float64\.$"
+            ),
+        ):
+            adapter.adapt({"time": [1.5, 2.5], "d": [1.0, 2.0]})
 
     def test_no_clock_for_time(self) -> None:
         """Should name both causes when a channel cannot take "time"."""
