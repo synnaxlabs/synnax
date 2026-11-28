@@ -258,6 +258,20 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Entry("authorized", true),
 			Entry("unauthorized", false),
 		)
+
+		It("Should send the clocks of an open response", func(ctx SpecContext) {
+			clocks := channel.Keys{distchannel.NewKey(1, 7), distchannel.NewKey(1, 9)}
+			serve(transport.FrameWriter, 1, framer.WriterResponse{
+				Command: framer.WriterCommandOpen,
+				Clocks:  clocks,
+			})
+			res := exchange(
+				MustSucceed(client.Exec(ctx)),
+				1,
+				&grpcframer.WriterRequest{Command: int32(framer.WriterCommandCommit)},
+			)[0]
+			Expect(res.Clocks).To(Equal(clocks.Uint32()))
+		})
 	})
 
 	Describe("Streamer", func() {

@@ -211,7 +211,44 @@ func (w *streamWriter) setAuthority(cfg WriterConfig) error {
 	if len(u.Transfers) > 0 {
 		w.updateDBControl(u)
 	}
+	return w.exemptControl(cfg.Channels)
+}
+
+// exemptControl returns an error when the writer errs on no control and a channel of
+// keys that ErrOnUnauthorized does not cover at open is still out of control.
+func (w *streamWriter) exemptControl(keys []ChannelKey) error {
+	if !*w.ErrOnUnauthorized {
+		return nil
+	}
+	for _, key := range keys {
+		if !slices.Contains(w.ErrOnUnauthorizedExempt, key) || w.authorized(key) {
+			continue
+		}
+		return errors.Wrapf(
+			xcontrol.ErrUnauthorized,
+			"%s has no control authority over channel %d",
+			w.ControlSubject,
+			key,
+		)
+	}
 	return nil
+}
+
+// authorized reports whether the writer has control over the channel with key.
+func (w *streamWriter) authorized(key ChannelKey) bool {
+	for _, chW := range w.virtual.internal {
+		if chW.Channel.Key == key {
+			return chW.Authorized()
+		}
+	}
+	for _, idx := range w.internal {
+		for _, chW := range idx.internal {
+			if chW.Channel.Key == key {
+				return chW.Authorized()
+			}
+		}
+	}
+	return false
 }
 
 func (w *streamWriter) maybeSendRes(

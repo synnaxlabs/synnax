@@ -26,7 +26,7 @@ from pandas.api.extensions import ExtensionDtype
 from pydantic import BaseModel, Field
 
 import synnax.channel.payload as channel
-from synnax.exceptions import MultipleFoundError, ValidationError
+from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
 from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
@@ -56,12 +56,16 @@ class Frame:
     :ivar indexes: The key of the index channel of each channel, by channel key. An
         index channel is its own index. Frames read from the Core carry the indexes of
         the channels they read.
+    Frames read from the Core carry the time of the channels they read. Use time() to
+    read them.
     """
 
     channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
     names: dict[channel.Key, str]
     indexes: dict[channel.Key, channel.Key]
+    # _times holds the time series of each clock, by clock key.
+    _times: dict[int, list[Series]]
 
     @overload
     def __init__(
@@ -108,11 +112,13 @@ class Frame:
     ) -> None:
         self.names = {}
         self.indexes = {}
+        self._times = {}
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
             self.names = channels.names
             self.indexes = channels.indexes
+            self._times = channels._times
         elif isinstance(channels, FramePayload):
             self.channels = list(channels.keys)
             self.series = channels.series
@@ -167,6 +173,8 @@ class Frame:
             self.channels.extend(col_or_frame.channels)
             self.names.update(col_or_frame.names)
             self.indexes.update(col_or_frame.indexes)
+            for clock, times in col_or_frame._times.items():
+                self._times.setdefault(clock, []).extend(times)
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
@@ -201,6 +209,8 @@ class Frame:
     ) -> MultiSeries | DataFrame:
         if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
+        if key == "time" and key not in self:
+            raise ValidationError(_TIME_IS_NOT_A_CHANNEL)
         cols = self._columns(key)
         return MultiSeries(
             [self.series[i] for i, k in enumerate(self.channels) if k in cols]
@@ -239,8 +249,56 @@ class Frame:
             for the channel.
         """
         if key not in self:
+            if key == "time":
+                raise ValidationError(_TIME_IS_NOT_A_CHANNEL)
             return default
         return self[key]
+
+    def _add_time(self, series: Series) -> None:
+        """Adds series to the time of its clock. A read adds the time of the channels it
+        reads; a time series is never a channel of the frame.
+        """
+        self._times.setdefault(series.clock, []).append(series)
+
+    @overload
+    def time(self, target: channel.Key | str) -> MultiSeries:
+        """Gets the time of a channel: one time series for each series of the channel,
+        with the same length.
+        """
+
+    @overload
+    def time(self, target: Series) -> Series:
+        """Gets the time series of one series of the frame, with the same length."""
+
+    def time(self, target: channel.Key | str | Series) -> MultiSeries | Series:
+        """Gets the time of a channel by its key or name, or of one series.
+
+        :raises NotFoundError: If the frame holds no time for the channel or series:
+            the read marked the channel untimed, or it has no index.
+        """
+        if isinstance(target, Series):
+            return self._time_of(target, "the series")
+        name = (
+            self.names.get(target, str(target)) if isinstance(target, int) else target
+        )
+        return MultiSeries([self._time_of(s, name) for s in self[target].series])
+
+    def _time_of(self, series: Series, name: str) -> Series:
+        for time in self._times.get(series.clock, []):
+            step = time.alignment_multiple
+            start = int(series.alignment) - int(time.alignment)
+            if step != series.alignment_multiple or start < 0 or start % step != 0:
+                continue
+            offset = start // step
+            if offset + len(series) <= len(time):
+                return time[offset : offset + len(series)]
+        if series.clock == 0:
+            raise NotFoundError(
+                f"The frame holds no time for {name}, which has no index"
+            )
+        raise NotFoundError(
+            f"The frame holds no time for {name}. The read marked it untimed"
+        )
 
     def to_payload(self) -> FramePayload:
         """Converts the frame to its payload representation for transport over the
@@ -262,13 +320,13 @@ class Frame:
         is the channel name, or the channel key when the frame does not know the name
         or when two channels in the frame share the name.
 
-        When the frame holds the index channel of every channel, the DataFrame index is
-        a UTC DatetimeIndex and the index channels are not columns. The DatetimeIndex
-        has the name of the index channel, or "time" when the frame holds more than
-        one. Channels on different index channels are joined on time, and a cell is
-        blank when its channel has no sample at that time. Integer columns with blanks
-        use pandas nullable dtypes, such as Int64. When the frame does not hold an
-        index channel, the DataFrame index is a RangeIndex.
+        When the frame holds the time of every channel, the DataFrame index is a UTC
+        DatetimeIndex and the index channels are not columns. The DatetimeIndex has the
+        name of the index channel when the frame holds one as a channel, or else "time".
+        Channels on different index channels are joined on time, and a cell is blank
+        when its channel has no sample at that time. Integer columns with blanks use
+        pandas nullable dtypes, such as Int64. When the frame does not hold the time of
+        a channel, the DataFrame index is a RangeIndex.
         """
         cols = {
             k: self.names.get(k, k) if isinstance(k, channel.Key) else k
@@ -281,20 +339,24 @@ class Frame:
         indexes: dict[channel.Key | str, channel.Key] = {}
         for k in cols:
             idx = self._index(k)
-            if idx is None or idx not in self:
+            if idx is None or (idx not in self and idx not in self._times):
                 return DataFrame({names[k]: _column_values(self[k]) for k in cols})
             indexes[k] = idx
         index_cols = {idx: k for k, idx in indexes.items() if self._key(k) == idx}
-        times = {idx: self[idx].to_numpy() for idx in set(indexes.values())}
+        stamps = {idx: self._stamps(idx) for idx in set(indexes.values())}
+        times = {idx: s.to_numpy() for idx, s in stamps.items()}
         merged = _time_index(np.unique(np.concatenate(list(times.values()))))
+        first = next(iter(times))
         merged.name = (
-            names[index_cols[next(iter(times))]] if len(times) == 1 else "time"
+            names[index_cols[first]]
+            if len(times) == 1 and first in index_cols
+            else "time"
         )
         data: dict[channel.Key | str, pd.Series] = {}
         for k in cols:
             if k in index_cols.values():
                 continue
-            t = _time_index(_sample_times(self[k], self[indexes[k]]))
+            t = _time_index(_sample_times(self[k], stamps[indexes[k]]))
             values = _column_values(self[k])
             if len(t) == len(merged):
                 data[names[k]] = pd.Series(values, index=t)
@@ -302,6 +364,11 @@ class Frame:
                 col = pd.Series(values, index=t, dtype=_nullable_dtype(values))
                 data[names[k]] = col.reindex(merged)
         return DataFrame(data, index=merged)
+
+    def _stamps(self, index: channel.Key) -> MultiSeries:
+        if index in self:
+            return self[index]
+        return MultiSeries(self._times[index])
 
     def _key(self, key: channel.Key | str) -> channel.Key | None:
         if isinstance(key, channel.Key):
@@ -315,6 +382,12 @@ class Frame:
 
     def __contains__(self, key: channel.Key | str) -> bool:
         return not self._columns(key).isdisjoint(self.channels)
+
+
+_TIME_IS_NOT_A_CHANNEL = (
+    '"time" is not a channel. Writes take time under "time", and '
+    "frame.time(channel) gives a channel's time"
+)
 
 
 def _column_values(series: MultiSeries) -> npt.NDArray[np.generic] | list[object]:

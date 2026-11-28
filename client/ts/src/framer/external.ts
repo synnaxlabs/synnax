@@ -11,7 +11,16 @@ export type { ChannelRetriever } from "@/framer/adapter";
 export { NO_HISTORY } from "@/framer/cache/status";
 export * from "@/framer/client";
 export * from "@/framer/feed";
-export * from "@/framer/frame";
+export {
+  type CrudeFrame,
+  type CrudePayload,
+  type Digest,
+  Frame,
+  frameZ,
+  type Payload,
+  seriesFromPayload,
+  seriesToPayload,
+} from "@/framer/frame";
 export * from "@/framer/hardened";
 export * from "@/framer/iterator";
 export * from "@/framer/reader";

@@ -811,6 +811,10 @@ type WriterResponse struct {
 	End        telem.TimeStamp `json:"end"        msgpack:"end"`
 	Command    WriterCommand   `json:"command"    msgpack:"command"`
 	Authorized bool            `json:"authorized" msgpack:"authorized"`
+	// Clocks holds the index channel of each group of the writer's channels, in the
+	// order of the open's keys. A client writes the time of a group under its clock.
+	// Only the open response sets it.
+	Clocks channel.Keys `json:"clocks" msgpack:"clocks"`
 }
 
 type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
@@ -915,6 +919,8 @@ func (s *Service) translateWriterResponse(
 	}, true, nil
 }
 
+// openWriter opens the writer that the first request of stream configures, and sends
+// the open response.
 func (s *Service) openWriter(
 	ctx context.Context,
 	subject resource.ID,
@@ -925,19 +931,32 @@ func (s *Service) openWriter(
 		return nil, err
 	}
 
-	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionCreate,
-			Objects: framer.ResourceIDs(req.Config.Keys),
-		})
-	}); err != nil {
-		return nil, err
-	}
-
 	authorities := make([]control.Authority, len(req.Config.Authorities))
 	for i, a := range req.Config.Authorities {
 		authorities[i] = control.Authority(a)
+	}
+
+	var clocks, added channel.Keys
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		if err := s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionCreate,
+			Objects: framer.ResourceIDs(req.Config.Keys),
+		}); err != nil {
+			return err
+		}
+		clocks, added, err = s.writerClocks(ctx, snap, subject, req.Config.Keys)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	if clocks, added, err = s.dropStored(
+		ctx,
+		clocks,
+		added,
+		req.Config.Start,
+	); err != nil {
+		return nil, err
 	}
 
 	w, err := s.internal.NewStreamWriter(ctx, framer.WriterConfig{
@@ -945,6 +964,7 @@ func (s *Service) openWriter(
 		Start:                    req.Config.Start,
 		Keys:                     req.Config.Keys,
 		Authorities:              authorities,
+		Clocks:                   added,
 		Mode:                     req.Config.Mode,
 		ErrOnUnauthorized:        new(req.Config.ErrOnUnauthorized),
 		EnableAutoCommit:         new(req.Config.EnableAutoCommit),
@@ -959,6 +979,7 @@ func (s *Service) openWriter(
 	if err := stream.Send(WriterResponse{
 		Command: framer.WriterCommandOpen,
 		Err:     errors.Payload{Type: errors.TypeNil},
+		Clocks:  clocks,
 	}); err != nil {
 		return nil, errors.Combine(err, release(w))
 	}

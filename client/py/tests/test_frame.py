@@ -1341,6 +1341,230 @@ class TestReadFrameAdapterClocks:
             adapter.adapt(frame)
 
 
+_CALC = ChannelPayload(
+    key=4,
+    name="calc",
+    data_type=sy.DataType.FLOAT64,
+    virtual=True,
+    expression="return d * 2",
+)
+
+
+def _read(keys: list[int], frame: sy.Frame) -> sy.Frame:
+    """Adapts frame as a read of keys over the fixed channels."""
+    channels = [c for c in (_A, _B, _D, _CALC) if c.key in keys]
+    client = MockUnaryClient(responses=[RetrieveResponse(channels=channels)])
+    adapter = ReadFrameAdapter(Retriever(client=client))
+    adapter.update(keys)
+    return adapter.adapt(frame)
+
+
+class TestFrameTime:
+    def test_time_of_a_channel(self) -> None:
+        """Should give a channel the time series of its clock, which is not a
+        channel of the frame."""
+        fr = _read(
+            [3], sy.Frame([3, 1], [_values([1.0, 2.0], 0, 1), _stamps([5, 6], 0, 1)])
+        )
+        assert fr.channels == [3]
+        assert 1 not in fr
+        assert list(fr.time(3)) == [5, 6]
+
+    def test_time_of_a_series(self) -> None:
+        """Should give a series the time series under its clock."""
+        fr = _read([3], sy.Frame([3, 1], [_values([1.0], 0, 1), _stamps([5], 0, 1)]))
+        time = fr.time(fr[3].series[0])
+        assert list(time) == [5]
+        assert time.alignment == sy.Alignment(0, 0)
+
+    def test_time_slices_to_its_data(self) -> None:
+        """Should give a series only the stamps at its own alignments."""
+        fr = _read(
+            [3],
+            sy.Frame([3, 1], [_values([2.0, 3.0], 1, 1), _stamps([5, 6, 7, 8], 0, 1)]),
+        )
+        assert list(fr.time(3)) == [6, 7]
+
+    def test_time_per_data_series(self) -> None:
+        """Should give one time series per data series, with the same lengths."""
+        fr = _read(
+            [3],
+            sy.Frame(
+                [3, 3, 1, 1],
+                [
+                    _values([1.0, 2.0], 0, 1),
+                    _values([3.0], 10, 1),
+                    _stamps([5, 6], 0, 1),
+                    _stamps([9, 10], 10, 1),
+                ],
+            ),
+        )
+        assert [len(s) for s in fr.time(3).series] == [2, 1]
+        assert list(fr.time(3)) == [5, 6, 9]
+
+    def test_time_of_a_reduced_read(self) -> None:
+        """Should step through the alignments of a reduced read by its multiple."""
+        values = _values([1.0, 2.0], 4, 1)
+        values.alignment_multiple = 2
+        stamps = _stamps([10, 20, 30], 2, 1)
+        stamps.alignment_multiple = 2
+        fr = _read([3], sy.Frame([3, 1], [values, stamps]))
+        assert list(fr.time(3)) == [20, 30]
+
+    def test_no_time(self) -> None:
+        """Should fail for a channel whose time the frame does not hold."""
+        fr = _read([3], sy.Frame([3], [_values([1.0], 0, 1)]))
+        with pytest.raises(
+            sy.NotFoundError,
+            match=r"^The frame holds no time for d\. The read marked it untimed$",
+        ):
+            fr.time(3)
+
+    def test_no_time_for_a_virtual_channel(self) -> None:
+        """Should say that a virtual channel has no time."""
+        fr = _read([4], sy.Frame([4], [_values([1.0], 0, 0)]))
+        with pytest.raises(
+            sy.NotFoundError,
+            match=r"^The frame holds no time for calc, which has no index$",
+        ):
+            fr.time(4)
+
+    def test_no_time_for_alignments(self) -> None:
+        """Should fail for a series at alignments that no time series holds."""
+        fr = _read([3], sy.Frame([3, 1], [_values([1.0], 7, 1), _stamps([5], 0, 1)]))
+        with pytest.raises(sy.NotFoundError, match="no time for d"):
+            fr.time(3)
+
+    def test_requested_index(self) -> None:
+        """Should hold a requested index once, as its channel and as the time of the
+        channels on it."""
+        fr = _read(
+            [1, 3], sy.Frame([1, 3], [_stamps([5, 6], 0, 1), _values([1.0, 2.0], 0, 1)])
+        )
+        assert list(fr[1]) == [5, 6]
+        assert list(fr.time(3)) == [5, 6]
+        assert list(fr.time(1)) == [5, 6]
+
+    def test_index_alone(self) -> None:
+        """Should keep the samples of an index that the read requests alone."""
+        fr = _read([1], sy.Frame([1], [_stamps([5, 6], 0, 1)]))
+        assert list(fr[1]) == [5, 6]
+        assert list(fr.time(1)) == [5, 6]
+
+    def test_calculation_frame(self) -> None:
+        """Should keep the stamps of a calculation's clock out of that index channel's
+        entry when no data series of the index is in the frame."""
+        fr = _read([1, 4], sy.Frame([4, 1], [_values([2.0], 0, 1), _stamps([5], 0, 1)]))
+        assert 1 not in fr
+        assert list(fr.time(4)) == [5]
+
+    def test_time_is_not_a_channel(self) -> None:
+        """Should fail on "time" when no channel of the frame takes that name."""
+        fr = _read([3], sy.Frame([3, 1], [_values([1.0], 0, 1), _stamps([5], 0, 1)]))
+        message = (
+            r'^"time" is not a channel\. Writes take time under "time", and '
+            r"frame\.time\(channel\) gives a channel's time$"
+        )
+        with pytest.raises(sy.ValidationError, match=message):
+            fr["time"]
+        with pytest.raises(sy.ValidationError, match=message):
+            fr.get("time")
+
+    def test_channel_named_time(self) -> None:
+        """Should read a channel that takes the name time."""
+        fr = sy.Frame({1: _stamps([5], 0, 1)})
+        fr.names = {1: "time"}
+        assert list(fr["time"]) == [5]
+
+    def test_data_frame_index(self) -> None:
+        """Should index a DataFrame by the time of its channels, named time."""
+        fr = _read(
+            [3], sy.Frame([3, 1], [_values([1.0, 2.0], 0, 1), _stamps([5, 6], 0, 1)])
+        )
+        df = fr.to_df()
+        assert df.index.name == "time"
+        assert list(df.index.astype("int64")) == [5, 6]
+        assert list(df.columns) == ["d"]
+
+
+_NAMED_TIME = ChannelPayload(
+    key=5, name="time", data_type=sy.DataType.FLOAT64, virtual=True
+)
+"""A stored channel that takes the name time."""
+
+
+def _writer_adapter(
+    names: list[str], clocks: list[int], *, strict: bool = False
+) -> WriteFrameAdapter:
+    """Opens a write adapter on the channels of names, whose writer lists clocks."""
+    channels = [c for c in (_A, _D, _NAMED_TIME) if c.name in names]
+    client = MockUnaryClient(responses=[RetrieveResponse(channels=channels)])
+    adapter = WriteFrameAdapter(
+        retriever=Retriever(client=client), strict_data_types=strict
+    )
+    adapter.update(names)
+    adapter.clocks = clocks
+    return adapter
+
+
+@pytest.mark.framer
+class TestWriteFrameAdapterTime:
+    def test_time_beside_a_channel_named_time(self) -> None:
+        """Should take "time" as the write's time, beside a channel named time."""
+        adapter = _writer_adapter(["d", "time"], [1])
+        frame = adapter.adapt({"time": [5], "d": [1.0]})
+        assert frame.channels == [3, 1]
+
+    def test_channel_named_time_by_key(self) -> None:
+        """Should write a channel named time by its key."""
+        adapter = _writer_adapter(["d", "time"], [1])
+        assert adapter.adapt({5: [1.5]}).channels == [5]
+
+    def test_index_beside_time(self) -> None:
+        """Should name the index channel that a write holds beside "time"."""
+        adapter = _writer_adapter(["d", "a_time"], [1])
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r'^The write holds "time" and the index channel a_time, which both '
+                r"give the time of one group$"
+            ),
+        ):
+            adapter.adapt({"time": [5], "d": [1.0], "a_time": [5]})
+
+    def test_float_time(self) -> None:
+        """Should convert a float "time" to timestamps, as an index write converts."""
+        adapter = _writer_adapter(["d"], [1])
+        frame = adapter.adapt({"time": [1.5, 2.5], "d": [1.0, 2.0]})
+        expected = sy.Series([1.5, 2.5]).astype(sy.DataType.TIMESTAMP)
+        assert frame[1].series[0].data_type == sy.DataType.TIMESTAMP
+        assert list(frame[1].series[0]) == list(expected)
+
+    def test_float_time_strict(self) -> None:
+        """Should refuse a float "time" in a writer that takes strict data types."""
+        adapter = _writer_adapter(["d"], [1], strict=True)
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r'Data type timestamp for channel "time" does not match series data '
+                r"type float64\.$"
+            ),
+        ):
+            adapter.adapt({"time": [1.5, 2.5], "d": [1.0, 2.0]})
+
+    def test_no_clock_for_time(self) -> None:
+        """Should name both causes when a channel cannot take "time"."""
+        adapter = _writer_adapter(["d"], [])
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r'^d cannot take "time": its index already stores stamps from the '
+                r"writer's start, or the writer may not write its index$"
+            ),
+        ):
+            adapter.adapt({"time": [5], "d": [1.0]})
+
+
 @pytest.mark.framer
 class TestWriteFrameAdapterRepeatedKeys:
     """Adapts frames without a Core."""

@@ -138,6 +138,7 @@ const resZ = z.object({
   end: TimeStamp.z,
   err: errors.payloadZ.optional(),
   authorized: z.boolean(),
+  clocks: z.array(z.number()).nullish(),
 });
 
 /** The result of a commit. */
@@ -226,10 +227,11 @@ export class Writer {
     client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream("/frame/write", reqZ, resZ);
     const writer = new Writer(stream, adapter);
-    await writer.execute({
+    const res = await writer.execute({
       command: WriterCommand.Open,
       config: { ...cfg, keys: adapter.keys },
     });
+    adapter.clocks = res.clocks ?? [];
     return writer;
   }
 
@@ -257,6 +259,10 @@ export class Writer {
    *    2. Have equal length arrays for each key.
    *    3. When writing to an index (i.e. TimeStamp) channel, the values must be
    *       monotonically increasing.
+   *
+   * In any form, the reserved name "time" gives the timestamps of the write: each
+   * channel takes them under its index, so the write needs no index channel. "time"
+   * never names a channel, so write a channel named time by its key.
    *
    * @throws if the writer has accumulated an error. Once write throws, all subsequent
    * calls to write and commit will also throw, and the writer must be closed and

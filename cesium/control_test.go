@@ -813,6 +813,77 @@ var _ = Describe("Control", func() {
 					)
 				})
 
+				Describe("Channels that ErrOnUnauthorized does not cover", func() {
+					// openPair creates an index and a data channel on it, and opens a
+					// writer that holds the index at absolute authority.
+					openPair := func(
+						ctx SpecContext,
+					) (index, data cesium.ChannelKey) {
+						GinkgoHelper()
+						index, data = GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Name:     "exempt_time",
+								Key:      index,
+								DataType: telem.TimestampT,
+								IsIndex:  true,
+							},
+							cesium.Channel{
+								Name:     "exempt_data",
+								Key:      data,
+								DataType: telem.Float32T,
+								Index:    index,
+							},
+						)).To(Succeed())
+						MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+							ControlSubject: xcontrol.Subject{Name: "Holder"},
+							Start:          telem.SecondTS,
+							Channels:       []cesium.ChannelKey{index},
+							Authorities: []xcontrol.Authority{
+								xcontrol.AuthorityAbsolute,
+							},
+						}))
+						return index, data
+					}
+
+					It(
+						"Should open a writer whose listed index another writer holds",
+						func(
+							ctx SpecContext,
+						) {
+							index, data := openPair(ctx)
+							MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+								ControlSubject: xcontrol.Subject{
+									Name: "Opener",
+								},
+								Start: telem.SecondTS,
+								Channels: []cesium.ChannelKey{
+									data,
+									index,
+								},
+								Authorities:             []xcontrol.Authority{100, 0},
+								ErrOnUnauthorized:       new(true),
+								ErrOnUnauthorizedExempt: []cesium.ChannelKey{index},
+							}))
+						},
+					)
+
+					It("Should refuse a held channel that the list leaves out", func(
+						ctx SpecContext,
+					) {
+						index, data := openPair(ctx)
+						Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+							ControlSubject:          xcontrol.Subject{Name: "Opener"},
+							Start:                   telem.SecondTS,
+							Channels:                []cesium.ChannelKey{data, index},
+							Authorities:             []xcontrol.Authority{100, 0},
+							ErrOnUnauthorized:       new(true),
+							ErrOnUnauthorizedExempt: []cesium.ChannelKey{data},
+						})).Error().To(MatchError(xcontrol.ErrUnauthorized))
+					})
+				})
+
 				// A writer that writes both a data channel and its index must
 				// gain control of the index when SetAuthority names only the
 				// data channel, since a data sample cannot be written without

@@ -698,6 +698,252 @@ var _ = Describe("Framer", func() {
 			Expect(client.CloseSend()).To(Succeed())
 			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
 		})
+
+		Describe("Time", func() {
+			var (
+				index    channel.Channel
+				data     channel.Channel
+				pressure channel.Channel
+			)
+			createData := func(ctx SpecContext) channel.Channel {
+				GinkgoHelper()
+				ch := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					LocalIndex: index.LocalKey,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Channel.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				return ch
+			}
+			BeforeEach(func(ctx SpecContext) {
+				index = createIndex(ctx)
+				data = createData(ctx)
+				pressure = createData(ctx)
+			})
+			// open opens a writer on keys at authority through the API and returns its
+			// client stream and open response.
+			open := func(
+				ctx SpecContext,
+				keys channel.Keys,
+				authority uint32,
+			) (
+				freighter.ClientStream[apiframer.WriterRequest, apiframer.WriterResponse],
+				apiframer.WriterResponse,
+			) {
+				GinkgoHelper()
+				client, server := newStreams(ctx)
+				done := make(chan error, 1)
+				go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
+				Expect(client.Send(apiframer.WriterRequest{
+					Config: apiframer.WriterConfig{
+						Keys:           keys,
+						Start:          telem.SecondTS,
+						Authorities:    []uint32{authority},
+						ControlSubject: control.Subject{Key: UniqueChannelName()},
+					},
+				})).To(Succeed())
+				res := MustSucceed(client.Receive())
+				Expect(res.Command).To(Equal(apiframer.WriterCommandOpen))
+				DeferCleanup(func() {
+					Expect(client.CloseSend()).To(Succeed())
+					Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+				})
+				return client, res
+			}
+			// openTask opens a writer on keys at authority, as a task does.
+			openTask := func(
+				ctx SpecContext,
+				keys channel.Keys,
+				authority control.Authority,
+			) *svcframer.Writer {
+				GinkgoHelper()
+				w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+					Keys:           keys,
+					Start:          telem.SecondTS,
+					Authorities:    []control.Authority{authority},
+					ControlSubject: control.Subject{Key: UniqueChannelName()},
+				}))
+				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+				return w
+			}
+			stamps := func() telem.Series { return telem.NewSeriesSecondsTSV(1, 2) }
+			// committed writes fr through w and reports whether its commit held
+			// control.
+			committed := func(w *svcframer.Writer, fr frame.Frame) bool {
+				GinkgoHelper()
+				MustSucceed(w.Write(fr))
+				_, authorized := MustSucceed2(w.Commit())
+				return authorized
+			}
+
+			It(
+				"Should open a writer that errs on no control beside a task that holds its "+
+					"index",
+				func(ctx SpecContext) {
+					openTask(ctx, channel.Keys{index.Key(), data.Key()}, 200)
+					client, server := newStreams(ctx)
+					done := make(chan error, 1)
+					go func() { done <- apiSvc.Write(rootCtx(ctx), server) }()
+					Expect(client.Send(apiframer.WriterRequest{
+						Config: apiframer.WriterConfig{
+							Keys:              channel.Keys{pressure.Key()},
+							Start:             telem.SecondTS,
+							ErrOnUnauthorized: true,
+							ControlSubject: control.Subject{
+								Key: UniqueChannelName(),
+							},
+						},
+					})).To(Succeed())
+					// A refused open ends Write before it sends a response.
+					opened := make(chan error, 1)
+					go func() {
+						_, err := client.Receive()
+						opened <- err
+					}()
+					var err error
+					select {
+					case err = <-done:
+					case err = <-opened:
+					}
+					Expect(err).ToNot(HaveOccurred())
+					Expect(client.CloseSend()).To(Succeed())
+					Eventually(
+						done,
+					).WithTimeout(5 * time.Second).
+						Should(Receive(BeNil()))
+				},
+				SpecTimeout(10*time.Second),
+			)
+
+			It("Should name the index of each group in the open response", func(
+				ctx SpecContext,
+			) {
+				_, res := open(ctx, channel.Keys{data.Key()}, 100)
+				Expect(res.Clocks).To(Equal(channel.Keys{index.Key()}))
+			})
+
+			It("Should name an index that the open names once", func(ctx SpecContext) {
+				_, res := open(
+					ctx,
+					channel.Keys{index.Key(), data.Key(), pressure.Key()},
+					100,
+				)
+				Expect(res.Clocks).To(Equal(channel.Keys{index.Key()}))
+			})
+
+			It("Should leave out an index that holds data from the start", func(
+				ctx SpecContext,
+			) {
+				task := openTask(ctx, channel.Keys{index.Key()}, 100)
+				Expect(
+					committed(task, frame.NewUnary(index.Key(), stamps())),
+				).To(BeTrue())
+				_, res := open(ctx, channel.Keys{data.Key()}, 100)
+				Expect(res.Clocks).To(BeEmpty())
+			})
+
+			It("Should give no clock to a virtual channel", func(ctx SpecContext) {
+				virtual := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Channel.NewWriter(tx).Create(ctx, &virtual)
+				})).To(Succeed())
+				_, res := open(ctx, channel.Keys{virtual.Key()}, 100)
+				Expect(res.Clocks).To(BeEmpty())
+			})
+
+			It("Should never take an index from a task when it writes no time", func(
+				ctx SpecContext,
+			) {
+				open(ctx, channel.Keys{pressure.Key()}, 100)
+				task := openTask(ctx, channel.Keys{index.Key(), data.Key()}, 100)
+				Expect(committed(task, frame.NewMulti(
+					channel.Keys{index.Key(), data.Key()},
+					[]telem.Series{stamps(), telem.NewSeriesV[float32](1, 2)},
+				))).To(BeTrue())
+			})
+
+			It("Should take the index at its first write that holds time", func(
+				ctx SpecContext,
+			) {
+				task := openTask(ctx, channel.Keys{index.Key()}, 50)
+				client, _ := open(ctx, channel.Keys{data.Key()}, 100)
+				Expect(
+					committed(task, frame.NewUnary(index.Key(), stamps())),
+				).To(BeTrue())
+				Expect(client.Send(apiframer.WriterRequest{
+					Command: apiframer.WriterCommandWrite,
+					Frame: frame.NewMulti(
+						channel.Keys{index.Key(), data.Key()},
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(3, 4),
+							telem.NewSeriesV[float32](1, 2),
+						},
+					),
+				})).To(Succeed())
+				Expect(client.Send(apiframer.WriterRequest{
+					Command: apiframer.WriterCommandCommit,
+				})).To(Succeed())
+				Expect(client.Receive()).To(And(
+					HaveField("Command", apiframer.WriterCommandCommit),
+					HaveField("Authorized", BeTrue()),
+				))
+				Expect(committed(task, frame.NewUnary(
+					index.Key(),
+					telem.NewSeriesSecondsTSV(5, 6),
+				))).To(BeFalse())
+			})
+
+			It(
+				"Should answer the client's own authority changes",
+				func(ctx SpecContext) {
+					client, _ := open(ctx, channel.Keys{data.Key()}, 100)
+					Expect(client.Send(apiframer.WriterRequest{
+						Command: apiframer.WriterCommandSetAuthority,
+						Config:  apiframer.WriterConfig{Authorities: []uint32{120}},
+					})).To(Succeed())
+					Expect(client.Send(apiframer.WriterRequest{
+						Command: apiframer.WriterCommandWrite,
+						Frame: frame.NewMulti(
+							channel.Keys{index.Key(), data.Key()},
+							[]telem.Series{stamps(), telem.NewSeriesV[float32](1, 2)},
+						),
+					})).To(Succeed())
+					Expect(client.Send(apiframer.WriterRequest{
+						Command: apiframer.WriterCommandSetAuthority,
+						Config:  apiframer.WriterConfig{Authorities: []uint32{130}},
+					})).To(Succeed())
+					Expect(client.Send(apiframer.WriterRequest{
+						Command: apiframer.WriterCommandCommit,
+					})).To(Succeed())
+					for _, command := range []apiframer.WriterCommand{
+						apiframer.WriterCommandSetAuthority,
+						apiframer.WriterCommandSetAuthority,
+						apiframer.WriterCommandCommit,
+					} {
+						Expect(client.Receive()).To(HaveField("Command", command))
+					}
+				},
+			)
+
+			It(
+				"Should keep an index at authority 0 from a writer that opens at 0",
+				func(
+					ctx SpecContext,
+				) {
+					open(ctx, channel.Keys{pressure.Key()}, 100)
+					other := openTask(ctx, channel.Keys{index.Key()}, 0)
+					Expect(
+						committed(other, frame.NewUnary(index.Key(), stamps())),
+					).To(BeFalse())
+				},
+			)
+		})
 	})
 
 	Describe("Delete", func() {

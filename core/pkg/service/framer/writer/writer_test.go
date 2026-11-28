@@ -319,6 +319,76 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Clocks", func() {
+		// hold opens a writer that holds index at absolute authority.
+		hold := func(ctx SpecContext, index channel.Channel) {
+			GinkgoHelper()
+			w := MustSucceed(writerSvc.Open(ctx, writer.Config{
+				Keys:        channel.Keys{index.Key()},
+				Authorities: []control.Authority{control.AuthorityAbsolute},
+				Start:       telem.SecondTS,
+			}))
+			DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+		}
+		// clocked returns the config of a writer of data that errs on no control and
+		// holds index for its time.
+		clocked := func(index, data channel.Channel) writer.Config {
+			return writer.Config{
+				Keys:              channel.Keys{data.Key()},
+				Clocks:            channel.Keys{index.Key()},
+				Authorities:       []control.Authority{100},
+				ErrOnUnauthorized: new(true),
+				Start:             telem.SecondTS,
+			}
+		}
+
+		It("Should open an erring writer beside the holder of its clock", func(
+			ctx SpecContext,
+		) {
+			index, data := createIndexed(ctx, telem.Int64T)
+			hold(ctx, index)
+			w := MustSucceed(writerSvc.Open(ctx, clocked(index, data)))
+			Expect(w.Close()).To(Succeed())
+		})
+
+		It("Should answer a write with the error of a raise that fails", func(
+			ctx SpecContext,
+		) {
+			index, data := createIndexed(ctx, telem.Int64T)
+			hold(ctx, index)
+			s := MustSucceed(writerSvc.NewStream(ctx, clocked(index, data)))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			inlet, outlet := confluence.Attach(s, 2)
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			inlet.Inlet() <- writer.Request{Command: writer.CommandCommit}
+			inlet.Inlet() <- writer.Request{
+				Command: writer.CommandWrite,
+				Frame: frame.NewMulti(
+					channel.Keys{data.Key(), index.Key()},
+					[]telem.Series{
+						telem.NewSeriesV[int64](1),
+						telem.NewSeriesSecondsTSV(1),
+					},
+				),
+			}
+			var res writer.Response
+			Eventually(outlet.Outlet()).Should(Receive(&res))
+			Expect(res.Command).To(Equal(writer.CommandCommit))
+			Eventually(outlet.Outlet()).Should(Receive(&res))
+			Expect(res.Command).To(Equal(writer.CommandWrite))
+			Expect(res.Err).To(SatisfyAll(
+				MatchError(control.ErrUnauthorized),
+				MatchError(ContainSubstring(fmt.Sprintf(
+					"no control over the index %s, so the write cannot hold its time",
+					index,
+				))),
+			))
+			inlet.Close()
+			Eventually(outlet.Outlet()).Should(BeClosed())
+		})
+	})
+
 	Describe("End Domain", func() {
 		frameAt := func(keys channel.Keys, seconds ...telem.TimeStamp) frame.Frame {
 			stamps := make([]telem.TimeStamp, len(seconds))

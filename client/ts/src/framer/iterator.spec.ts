@@ -128,6 +128,23 @@ describe("Iterator", () => {
 
     expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
   });
+  test("should give the time of a channel that it reads", async () => {
+    const [index, data] = await newIndexedPair(client);
+    const start = TimeStamp.seconds(1);
+    await using writer = await client.openWriter({ start, channels: [index, data] });
+    await writer.write({
+      [index.key]: secondsLinspace(1, 3),
+      [data.key]: randomSeries(3, data.dataType),
+    });
+    await writer.commit();
+    await using iter = await client.openIterator(TimeRange.MAX, [data.key]);
+    expect(await iter.seekFirst()).toBe(true);
+    expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
+    expect(Array.from(iter.value.time(data.key))).toEqual(
+      secondsLinspace(1, 3).map((s) => s.valueOf()),
+    );
+  });
+
   describe("next after the Core closes the iterator with an error", () => {
     const time = new channel.Channel({
       key: 1,

@@ -15,6 +15,7 @@ package writer
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -109,7 +110,7 @@ const (
 // inlet requests and outlet responses. It returns an error if cfg is invalid, any
 // channel in cfg.Keys cannot be resolved, or any channel in cfg.Keys is reserved.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, error) {
-	keys := cfg.Keys.Unique()
+	keys := append(slices.Clone(cfg.Keys), cfg.Clocks...).Unique()
 	if s.cfg.Reserved != nil {
 		for _, key := range keys {
 			if s.cfg.Reserved(key) {
@@ -134,13 +135,19 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 	for _, ch := range channels {
 		channelMap[ch.Key()] = ch
 	}
+	raises := raisesOf(cfg, channelMap)
+	cfg = withClocks(cfg, raises)
 	dist, err := s.cfg.Framer.NewStreamWriter(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	pipe := plumber.New()
 	pipe.SetSegment[Request, Request](validatorAddr, newValidator(channelMap))
-	pipe.SetSegment[Request, Response](distributionAddr, dist)
+	if len(raises) > 0 {
+		pipe.SetSegment[Request, Response](distributionAddr, newRaiser(dist, raises))
+	} else {
+		pipe.SetSegment[Request, Response](distributionAddr, dist)
+	}
 	pipe.MustConnect[Request](validatorAddr, distributionAddr, 30)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteInletTo(validatorAddr))

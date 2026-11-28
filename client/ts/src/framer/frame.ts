@@ -22,7 +22,7 @@ import {
 import { z } from "zod";
 
 import type { channel } from "@/channel";
-import { UnexpectedError, ValidationError } from "@/errors";
+import { NotFoundError, UnexpectedError, ValidationError } from "@/errors";
 
 type ColumnType = "key" | "name" | null;
 
@@ -96,9 +96,31 @@ export type CrudeFrame =
  * - Square frames are both horizontal and vertical. Only a frame with a single channel
  * and array can be square.
  */
+const TIME_IS_NOT_A_CHANNEL =
+  '"time" is not a channel. Writes take time under "time", and ' +
+  "frame.time(channel) gives a channel's time";
+
+/**
+ * Adds series to the time of its clock in frame. A read adds the time of the channels
+ * it reads, and a time series is never a channel of the frame. The framer does not
+ * export it.
+ */
+export let addTime: (frame: Frame, series: Series) => void;
+
 export class Frame {
   readonly columns: channel.Key[] | channel.Name[] = [];
   readonly series: Series[] = [];
+  // #times holds the time series of each clock, by clock key, once the frame holds one.
+  #times: Map<number, Series[]> | undefined;
+
+  static {
+    addTime = (frame, series) => {
+      frame.#times ??= new Map();
+      const held = frame.#times.get(series.clock);
+      if (held == null) frame.#times.set(series.clock, [series]);
+      else held.push(series);
+    };
+  }
 
   constructor(
     columnsOrData: channel.PrimitiveParams | CrudeFrame = [],
@@ -107,6 +129,7 @@ export class Frame {
     if (columnsOrData instanceof Frame) {
       this.columns = columnsOrData.columns;
       this.series = columnsOrData.series;
+      this.#times = columnsOrData.#times;
       return;
     }
 
@@ -285,7 +308,59 @@ export class Frame {
   get(key: channel.PrimitiveParams): MultiSeries | Frame {
     if (Array.isArray(key))
       return this.filter((k) => (key as channel.Key[]).includes(k as channel.Key));
+    if (key === "time" && !this.has(key))
+      throw new ValidationError(TIME_IS_NOT_A_CHANNEL);
     return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
+  }
+
+  /**
+   * @returns the time of the channel: one time series for each series of the channel,
+   * with the same length.
+   * @throws {NotFoundError} if the frame holds no time for the channel: the read marked
+   * it untimed, or it has no index.
+   */
+  time(channel: channel.Key | channel.Name): MultiSeries;
+
+  /**
+   * @returns the time series of one series of the frame, with the same length.
+   * @throws {NotFoundError} if the frame holds no time for the series.
+   */
+  time(series: Series): Series;
+
+  time(target: channel.Key | channel.Name | Series): MultiSeries | Series {
+    if (target instanceof Series) return this.timeOf(target, "the series");
+    return new MultiSeries(
+      this.get(target).series.map((s) => this.timeOf(s, target.toString())),
+    );
+  }
+
+  // Adds the time series that other holds to the frame's own.
+  private keepTimes(other: Frame): void {
+    other.#times?.forEach((series, clock) => {
+      this.#times ??= new Map();
+      const held = this.#times.get(clock);
+      if (held == null) this.#times.set(clock, [...series]);
+      else held.push(...series.filter((s) => !held.includes(s)));
+    });
+  }
+
+  private timeOf(series: Series, name: string): Series {
+    for (const time of this.#times?.get(series.clock) ?? []) {
+      const step = time.alignmentMultiple;
+      const start = series.alignment - time.alignment;
+      if (step !== series.alignmentMultiple || start < 0n || start % step !== 0n)
+        continue;
+      const offset = Number(start / step);
+      if (offset + series.length <= time.length)
+        return time.sub(offset, offset + series.length);
+    }
+    if (series.clock === 0)
+      throw new NotFoundError(
+        `The frame holds no time for ${name}, which has no index`,
+      );
+    throw new NotFoundError(
+      `The frame holds no time for ${name}. The read marked it untimed`,
+    );
   }
 
   /** Pushes a set of series for the given channel onto the frame. */
@@ -306,6 +381,7 @@ export class Frame {
         this.series.push(s);
         (this.columns as channel.Key[]).push(keyOrFrame.columns[i] as channel.Key);
       });
+      this.keepTimes(keyOrFrame);
       return;
     }
     if (typeof keyOrFrame === "string" && this.colType === "key")
@@ -323,10 +399,13 @@ export class Frame {
    * and the provided frame.
    */
   concat(frame: Frame): Frame {
-    return new Frame([...this.columns, ...frame.columns] as channel.Key[], [
+    const out = new Frame([...this.columns, ...frame.columns] as channel.Key[], [
       ...this.series,
       ...frame.series,
     ]);
+    out.keepTimes(this);
+    out.keepTimes(frame);
+    return out;
   }
 
   /**
@@ -352,6 +431,7 @@ export class Frame {
   ): Frame {
     const frame = new Frame();
     this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
+    frame.keepTimes(this);
     return frame;
   }
 
@@ -367,6 +447,7 @@ export class Frame {
       const [newK, newArr, keep] = fn(k, arr, i);
       if (keep) frame.push(newK, newArr);
     });
+    frame.keepTimes(this);
     return frame;
   }
 
@@ -422,6 +503,7 @@ export class Frame {
       const a = this.series[i];
       if (fn(k, a, i)) frame.push(k, a);
     });
+    frame.keepTimes(this);
     return frame;
   }
 

@@ -420,6 +420,9 @@ func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.visible(w.control.SetAuthority(a))
 }
 
+// Authorized reports whether the writer has control over its channel.
+func (w *Writer) Authorized() bool { return w.control.Authorized() }
+
 // visible hides a transfer of a bounded writer, which says nothing about who controls
 // the channel.
 func (w *Writer) visible(t control.Transfer) control.Transfer {

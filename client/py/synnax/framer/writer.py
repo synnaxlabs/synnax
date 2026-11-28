@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import Enum
 from typing import Literal, NoReturn, TypeAlias, overload, override
 from uuid import uuid4
@@ -83,6 +84,7 @@ class WriterResponse(BaseModel):
     end: TimeStamp
     err: ExceptionPayload
     authorized: bool
+    clocks: list[channel.Key] | None = None
 
 
 class CommitResult(BaseModel):
@@ -224,13 +226,22 @@ class Writer:
             auto_index=auto_index,
         )
         self._stream.send(WriterRequest(command=WriterCommand.OPEN, config=config))
-        self._stream.receive()
+        res = self._stream.receive()
+        if res.clocks is not None:
+            self._adapter.clocks = res.clocks
 
     @overload
     def write(
         self,
         channels_or_data: channel.Params,
         series: CrudeSeries | list[CrudeSeries],
+    ) -> None: ...
+
+    # A mapping literal that mixes names, such as "time", with keys.
+    @overload
+    def write(
+        self,
+        channels_or_data: Mapping[channel.Key | str, CrudeSeries],
     ) -> None: ...
 
     @overload
@@ -276,6 +287,10 @@ class Writer:
             2. Have equal length arrays for each key.
             3. When writing to an index (i.e. TimeStamp) channel, the values must be
             monotonically increasing.
+
+        In any format, the reserved name "time" gives the timestamps of the write: each
+        channel takes them under its index, so the write needs no index channel. "time"
+        never names a channel, so write a channel named time by its key.
 
         :raises: If the writer has accumulated an error. Once write throws,
         all subsequent calls to write and/or commit will also fail. At this point,

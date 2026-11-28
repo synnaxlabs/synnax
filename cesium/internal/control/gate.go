@@ -119,6 +119,12 @@ func (g *Gate[R]) Reach(end telem.TimeStamp) error {
 // the zero value of the resource will be returned.
 func (g *Gate[R]) Release() (resource R, transfer Transfer) { return g.region.release(g) }
 
+// Authorized reports whether the gate has control over its resource.
+func (g *Gate[R]) Authorized() bool {
+	_, err := g.authorize()
+	return err == nil
+}
+
 // SetAuthority changes the gate's authority, returning any transfer of control that
 // may have occurred as a result.
 func (g *Gate[R]) SetAuthority(auth control.Authority) Transfer {

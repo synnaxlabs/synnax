@@ -79,6 +79,9 @@ message WriterResponse {
   // since the last reported commit was refused. Each refusal is reported once. A Core
   // without this field sends no value, which reads as authorized.
   bool unauthorized = 6;
+  // clocks holds the index channel of each group of the writer's channels, in the
+  // order of the open's keys. Only the open response sets it.
+  repeated uint32 clocks = 7;
 }
 
 message StreamerRequest {

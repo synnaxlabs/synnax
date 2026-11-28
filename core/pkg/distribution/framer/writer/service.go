@@ -78,6 +78,13 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	Authorities []control.Authority
+	// Clocks are index channels that the writer holds only for the time of the data
+	// channels that it writes. The service writer adds each one that Keys does not name
+	// at authority 0, and raises it at the first write that holds it. ErrOnUnauthorized
+	// does not cover them at open.
+	//
+	// [OPTIONAL]
+	Clocks channel.Keys
 	// Start marks the start of the writer's control region. When Start is zero, the
 	// region starts at the time the writer opens. If telemetry occupying a non-zero
 	// Start already exists for the provided keys, the writer fails to open.
@@ -154,6 +161,7 @@ func (c Config) toStorage() cesium.WriterConfig {
 		Start:                    c.Start,
 		Authorities:              c.Authorities,
 		ErrOnUnauthorized:        c.ErrOnUnauthorized,
+		ErrOnUnauthorizedExempt:  c.Clocks.Uint32(),
 		Mode:                     c.Mode,
 		EnableAutoCommit:         c.EnableAutoCommit,
 		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
@@ -196,6 +204,7 @@ func (c Config) Override(other Config) Config {
 	c.Keys = override.Slice(c.Keys, other.Keys.Unique())
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
+	c.Clocks = override.Slice(c.Clocks, other.Clocks)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)

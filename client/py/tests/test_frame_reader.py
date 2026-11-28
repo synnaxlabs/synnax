@@ -215,6 +215,15 @@ class TestReader:
         stamps = np.array(seconds_linspace(1, count=10), dtype=np.int64)
         assert list(df.index) == list(pd.to_datetime(stamps, unit="ns", utc=True))
 
+    def test_read_time_by_channel(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should give the time of a data channel that the read names alone"""
+        _, data_ch = written_pair
+        fr = client.read(sy.TimeRange.MAX, [data_ch.key])
+        assert list(fr.time(data_ch.key)) == list(seconds_linspace(1, count=10))
+        assert list(fr.time(data_ch.name)) == list(fr.time(data_ch.key))
+
     def test_read_partial_channel_to_df(self, client: sy.Synnax) -> None:
         """Should leave a cell blank where a channel has no sample at an index time."""
         idx_ch = _create_index(client)
