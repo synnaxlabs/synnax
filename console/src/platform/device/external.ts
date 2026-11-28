@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/device/adapter";
+export * from "@/platform/device/address";
 export * from "@/platform/device/ChangeIdentifierMenuItem";
 export * from "@/platform/device/checkConfigured";
 export * from "@/platform/device/checkFound";
