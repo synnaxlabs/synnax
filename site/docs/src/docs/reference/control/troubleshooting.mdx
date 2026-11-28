@@ -252,13 +252,14 @@ by name. See
 <Problem.Body>
 <Problem.Cause>
 
-The sequence ends in a stage, so it never stops. A start command to a running sequence
-does nothing.
+The sequence ends in a stage with no `=> next`, so it never stops. A start command to a
+running sequence does nothing.
 
 </Problem.Cause>
 <Problem.Fix>
 
-End the sequence with a write, a wait, or a gate, such as `0 -> vent_vlv_cmd`. See
+Add a `=> next` to the last stage, such as `tank_pt < 5 => next`, or end the sequence
+with a write, a wait, or a gate, such as `0 -> vent_vlv_cmd`. See
 [when a sequence stops](/reference/control/arc/execution-model#when-a-sequence-stops).
 
 </Problem.Fix>
