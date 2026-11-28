@@ -1364,7 +1364,7 @@ describe("MQTT read form", () => {
     );
   });
 
-  it("should remove a field from the ICD and from each topic that reads it", async () => {
+  it("should delete a field from the ICD and from each topic that reads it", async () => {
     const temperature = createField("temperature", "float");
     const pressure = createField("pressure", "float");
     const first = await createEntry({ fields: [temperature, pressure] });
@@ -1376,7 +1376,8 @@ describe("MQTT read form", () => {
     const { draft } = await renderRead({ entries: [first, second] });
     const [item] = await screen.findAllByRole("treeitem", { name: /^pressure/ });
     fireEvent.contextMenu(item);
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(async () =>
       expect(
         jsonFieldsOf(await client.icds.retrieve(first.icd)).map(({ key }) => key),
@@ -1390,7 +1391,7 @@ describe("MQTT read form", () => {
     });
   });
 
-  it("should clear the index of a topic whose index field is removed", async () => {
+  it("should clear the index of a topic whose index field is deleted", async () => {
     const time = createTimeField();
     const temperature = createField("temperature", "float");
     const first = await createEntry({ fields: [time, temperature] });
@@ -1403,7 +1404,8 @@ describe("MQTT read form", () => {
     const { draft } = await renderRead({ entries: [first, second] });
     const [item] = await screen.findAllByRole("treeitem", { name: /^time/ });
     fireEvent.contextMenu(item);
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(async () => {
       const [, indexed] = (await retrieveEntries(draft.key)).map(plainOf);
       expect(indexed.messages[0].index).toBeUndefined();
@@ -3120,7 +3122,7 @@ describe("MQTT read form", () => {
       expect(read.disabled).toBe(true);
       const pressure = () => screen.findByRole("treeitem", { name: /^pressure/ });
       fireEvent.contextMenu(await pressure());
-      await screen.findByText("Remove");
+      await screen.findByText("Delete from ICD");
       expect(screen.queryByText("Enable")).toBeNull();
       release();
       await waitFor(() => {

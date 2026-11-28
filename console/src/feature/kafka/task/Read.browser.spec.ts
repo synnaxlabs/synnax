@@ -3416,12 +3416,13 @@ describe("Kafka read form", () => {
       });
     });
 
-    it("should remove a field from the ICD through the context menu", async () => {
+    it("should delete a field from the ICD through the context menu", async () => {
       const temperature = createField("temperature", "float");
       const pressure = createField("pressure", "float");
       const { draft } = await renderRead({ fields: [temperature, pressure] });
       fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^pressure/ }));
-      fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
       const { icd: icdKey } = (await retrieveRecords(draft.key))[0];
       await waitFor(async () =>
         expect(
