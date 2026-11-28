@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -40,5 +41,25 @@ describe("LabJack.Device.HARDWARE.Configure", () => {
     expect(
       screen.getByRole<HTMLInputElement>("textbox", { name: /^Identifier/ }).value,
     ).toEqual("t7");
+  });
+});
+
+describe("LabJack.Device.TYPED_HARDWARE.Configure", () => {
+  it("should show the connection of the device", async () => {
+    const rack = await client.racks.create({ name: uniqueName("labjack_rack") });
+    const dev = await client.labjack.devices.create({
+      rack: rack.key,
+      name: uniqueName("labjack_dev"),
+      serial: Math.floor(Math.random() * 400_000) * 10_000 + 5,
+      connection: "LJM_ctETHERNET",
+      model: "t7",
+      ports: { model: "t7" },
+    });
+    await renderModalOpener(
+      Device.useConfigureModal,
+      [{ deviceKey: dev.key, hardware: LabJack.Device.TYPED_HARDWARE }],
+      { client },
+    );
+    await screen.findByText("LJM_ctETHERNET");
   });
 });

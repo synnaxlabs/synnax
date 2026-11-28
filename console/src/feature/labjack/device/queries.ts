@@ -22,7 +22,7 @@ const BASE_QUERY = { includeStatus: true } as const;
 export type RetrieveQuery = labjack.device.RetrieveSingleParams;
 
 /** The LabJack device with the key, with its status, from the typed device table. */
-export const { useResult: useRetrieve } = Flux.createRetrieve<
+export const { use: useSuspended, useResult: useRetrieve } = Flux.createRetrieve<
   RetrieveQuery,
   labjack.device.Device
 >({
@@ -48,6 +48,44 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
     return data;
   },
 });
+
+export interface SaveParams extends Pick<
+  labjack.device.Device,
+  "key" | "name" | "identifier"
+> {}
+
+/** Names a LabJack device and sets its identifier in one atomic write. */
+export const { useUpdate: useSave } = Flux.createUpdate<SaveParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, name, identifier } = data;
+    await client.labjack.devices.dispatch(key, [
+      labjack.device.set({ path: ["name"], value: name }),
+      labjack.device.set({ path: ["identifier"], value: identifier }),
+    ]);
+    return data;
+  },
+});
+
+export interface ChangeIdentifierParams extends Pick<
+  labjack.device.Device,
+  "key" | "identifier"
+> {}
+
+export const { useUpdate: useChangeIdentifier } =
+  Flux.createUpdate<ChangeIdentifierParams>({
+    name: "LabJack device identifier",
+    verbs: { present: "change", past: "changed", participle: "changing" },
+    update: async ({ client, data }) => {
+      const { key, identifier } = data;
+      await client.labjack.devices.dispatch(
+        key,
+        labjack.device.set({ path: ["identifier"], value: identifier }),
+      );
+      return data;
+    },
+  });
 
 export type DeleteParams = labjack.device.Key | labjack.device.Key[];
 
