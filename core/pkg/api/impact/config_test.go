@@ -14,12 +14,17 @@ import (
 	. "github.com/onsi/gomega"
 	apiimpact "github.com/synnaxlabs/synnax/pkg/api/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/tree"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiimpact.ServiceConfig {
-		return apiimpact.ServiceConfig{RBAC: &rbac.Service{}, Impact: &impact.Service{}}
+		return apiimpact.ServiceConfig{
+			RBAC:   &rbac.Service{},
+			Impact: &impact.Service{},
+			Tree:   &tree.Service{},
+		}
 	}
 
 	Describe("Validate", func() {
@@ -43,6 +48,11 @@ var _ = Describe("ServiceConfig", func() {
 				"impact",
 				func(c *apiimpact.ServiceConfig) { c.Impact = nil },
 				"impact: must be non-nil",
+			),
+			Entry(
+				"tree",
+				func(c *apiimpact.ServiceConfig) { c.Tree = nil },
+				"tree: must be non-nil",
 			),
 		)
 	})

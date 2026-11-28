@@ -1089,6 +1089,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Impact, err = apiimpact.NewService(apiimpact.ServiceConfig{
 		RBAC:   cfg.Service.RBAC,
 		Impact: cfg.Service.Impact,
+		Tree:   cfg.Service.Tree,
 	}); err != nil {
 		return nil, err
 	}

@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/tree"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
@@ -37,6 +39,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Impact *impact.Service
+	// Tree plans and applies the delete of channel folders.
+	//
+	// [REQUIRED]
+	Tree *tree.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -45,6 +51,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Impact = override.Nil(c.Impact, other.Impact)
+	c.Tree = override.Nil(c.Tree, other.Tree)
 	return c
 }
 
@@ -53,6 +60,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.impact")
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("impact", c.Impact)
+	v.NotNil("tree", c.Tree)
 	return v.Error()
 }
 
@@ -76,10 +84,30 @@ func (r ApplyRequest) Named() []resource.ID { return named(r.Change) }
 
 // named returns the records that c names.
 func named(c Change) []resource.ID {
-	if d, ok := c.Variant.(DeleteChange); ok {
-		return d.Records
+	switch v := c.Variant.(type) {
+	case DeleteChange:
+		return v.Records
+	case DeleteGroupsChange:
+		return group.ResourceIDs(v.Groups)
 	}
 	return nil
+}
+
+// noPicks fails with a validation error when the request of a folder delete holds a
+// pick, since the entries of a folder delete offer none.
+func noPicks(picks map[string]impact.Effect, hidden *impact.Effect) error {
+	if len(picks) > 0 || hidden != nil {
+		return errors.Wrap(validate.ErrValidation, "a folder delete takes no picks")
+	}
+	return nil
+}
+
+// respond returns plan under the type of c.
+func respond(c Change, plan impact.Plan) Response {
+	if _, ok := c.Variant.(DeleteGroupsChange); ok {
+		return Response{Variant: DeleteGroupsResponse{Plan: plan}}
+	}
+	return Response{Variant: DeleteResponse{Plan: plan}}
 }
 
 // parsePicks returns the picks of a request keyed by record. A key that is not a record
@@ -126,6 +154,16 @@ func (s *Service) Plan(
 	snap bind.Snapshot,
 	req PlanRequest,
 ) (Response, error) {
+	if d, ok := req.Change.Variant.(DeleteGroupsChange); ok {
+		if err := noPicks(req.Picks, req.Hidden); err != nil {
+			return Response{}, err
+		}
+		plan, err := s.cfg.Tree.PlanDelete(ctx, snap, d.Groups, snap.Allowed)
+		if err != nil {
+			return Response{}, err
+		}
+		return respond(req.Change, plan), nil
+	}
 	records, err := deleted(req.Change)
 	if err != nil {
 		return Response{}, err
@@ -164,6 +202,12 @@ func (s *Service) ApplyHandler(
 			req ApplyRequest,
 		) (impact.Plan, error) {
 			visible = retrievable
+			if d, ok := req.Change.Variant.(DeleteGroupsChange); ok {
+				if err := noPicks(req.Picks, req.Hidden); err != nil {
+					return impact.Plan{}, err
+				}
+				return s.cfg.Tree.ApplyDelete(ctx, tx, d.Groups, req.Token, retrievable)
+			}
 			records, err := deleted(req.Change)
 			if err != nil {
 				return impact.Plan{}, err
@@ -197,7 +241,7 @@ func (s *Service) ApplyHandler(
 		if err != nil {
 			return Response{}, redact(err, visible)
 		}
-		return Response{Variant: DeleteResponse{Plan: plan}}, nil
+		return respond(req.Change, plan), nil
 	}
 }
 
@@ -208,6 +252,9 @@ func (s *Service) stopping(
 	snap bind.Snapshot,
 	req ApplyRequest,
 ) ([]resource.ID, error) {
+	if _, ok := req.Change.Variant.(DeleteGroupsChange); ok {
+		return nil, nil
+	}
 	records, err := deleted(req.Change)
 	if err != nil {
 		return nil, err
