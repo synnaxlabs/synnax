@@ -607,7 +607,8 @@ var _ = Describe("Factory", func() {
 				dead := createDevice(ctx, kafka.Properties{
 					Brokers: []string{"127.0.0.1:1"},
 				})
-				// A new device starts as a warning, so the wait matches the message.
+				// A new device starts with a default status, so the wait matches the
+				// message that the scan writes.
 				Eventually(func(g Gomega) {
 					g.Expect(deviceStatus(ctx, live).Message).
 						To(Equal("Device connected"))
