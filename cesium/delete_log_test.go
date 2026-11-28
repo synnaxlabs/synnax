@@ -589,10 +589,13 @@ var _ = Describe("Delete on the pointer log", func() {
 		}).Should(Equal(1))
 	})
 
-	It("Should keep the files of a dropped key while a read on another clock stays on "+
-		"a load from before the Drop", func(ctx SpecContext) {
+	It("Should unlink a segment that a delete empties while a read with a key that a "+
+		"Drop took seeks on", func(ctx SpecContext) {
 		write(ctx, 10, 11)
-		clock, other := GenerateChannelKey(), GenerateChannelKey()
+		write(ctx, 20, 21)
+		clock, other, gone := GenerateChannelKey(), GenerateChannelKey(),
+			GenerateChannelKey()
+		on := []cesium.ChannelKey{clock, other, gone}
 		Expect(db.CreateChannel(
 			ctx,
 			cesium.Channel{
@@ -601,27 +604,37 @@ var _ = Describe("Delete on the pointer log", func() {
 			cesium.Channel{
 				Key: other, Name: "other", Index: clock, DataType: telem.Int64T,
 			},
+			cesium.Channel{
+				Key: gone, Name: "gone", Index: clock, DataType: telem.Int64T,
+			},
 		)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: []cesium.ChannelKey{clock, other},
+			Channels: on,
 			Clock:    clock,
 			Start:    10 * telem.SecondTS,
 		}))
-		MustSucceed2(w.Write(ctx, telem.MultiFrame(
-			[]cesium.ChannelKey{clock, other},
-			[]telem.Series{telem.NewSeriesSecondsTSV(10), telem.NewSeriesV[int64](10)},
-		), nil))
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(on, []telem.Series{
+			telem.NewSeriesSecondsTSV(10),
+			telem.NewSeriesV[int64](10),
+			telem.NewSeriesV[int64](10),
+		}), nil))
 		MustSucceed2(w.Commit(ctx, nil))
 		Expect(w.Close()).To(Succeed())
 		iter := MustOpen(db.OpenIterator(cesium.IteratorConfig{
 			Bounds:   telem.TimeRangeMax,
-			Channels: []cesium.ChannelKey{other},
+			Channels: on[1:],
 		}))
 		Expect(iter.SeekFirst()).To(BeTrue())
-		Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
-		Expect(segments()).To(Equal(1))
+		Expect(db.Drop(ctx, []cesium.ChannelKey{gone})).To(Succeed())
 		Expect(iter.SeekFirst()).To(BeTrue())
-		Expect(segments()).To(BeZero())
+		Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, span(0, 15))).
+			To(Succeed())
+		Eventually(func() int {
+			Expect(iter.SeekFirst()).To(BeTrue())
+			return segments()
+		}).Should(Equal(1))
+		Expect(iter.Next(cesium.AutoSpan)).To(BeTrue())
+		Expect(iter.Value().Get(gone).Series[0]).To(MatchSeriesDataV[int64](10))
 	})
 
 	It("Should finish a read that loaded the segments of a key before its Drop",
