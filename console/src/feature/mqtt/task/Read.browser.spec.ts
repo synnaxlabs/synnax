@@ -2555,6 +2555,14 @@ describe("MQTT read form", () => {
         expect(screen.getByText("93")).toBeTruthy();
       });
 
+      it("should show the bytes of a binary payload that the Core sends as text", async () => {
+        const scanner = await openSampled({ format: "binary", fields: [] });
+        await scanner.answer(sampled("text", "*é"));
+        await screen.findByText("C3");
+        expect(screen.getByText("2A").previousSibling?.textContent).toBe("0");
+        expect(screen.getByText("A9")).toBeTruthy();
+      });
+
       it("should show only the first 256 bytes of a long binary payload", async () => {
         const scanner = await openSampled({ format: "binary", fields: [] });
         await scanner.answer(sampled("binary", "ab".repeat(300)));
