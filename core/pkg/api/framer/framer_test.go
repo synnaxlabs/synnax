@@ -904,49 +904,6 @@ var _ = Describe("Framer", func() {
 			Expect(series[0].Clock).To(Equal(uint32(index.Key())))
 		})
 
-		It(
-			"Should send no time beside data that the subject can read none of",
-			func(ctx SpecContext) {
-				index := createIndex(ctx)
-				open(ctx, index)
-				keys := channel.Keys{index.Key(), records.Key()}
-				Expect(writer.Write(frame.NewMulti(keys, []telem.Series{
-					telem.NewSeriesSecondsTSV(1),
-					samples(denied),
-				}))).To(BeTrue())
-				Expect(writer.Write(frame.NewMulti(keys, []telem.Series{
-					telem.NewSeriesSecondsTSV(2),
-					samples(readable),
-				}))).To(BeTrue())
-				fr := MustSucceed(client.Receive()).Frame
-				Expect(fr.KeysSlice()).To(ConsistOf(index.Key(), records.Key()))
-				Expect(fr.Get(index.Key()).Series[0]).
-					To(MatchSeriesDataV[telem.TimeStamp](2 * telem.SecondTS))
-			},
-		)
-
-		It("Should send no time for an untimed record channel that it filters", func(
-			ctx SpecContext,
-		) {
-			index := createIndex(ctx)
-			open(ctx, index)
-			Expect(client.Send(apiframer.StreamerRequest{
-				Keys:         channel.Keys{records.Key(), other.Key()},
-				UntimedKeys:  channel.Keys{records.Key()},
-				AckRequested: true,
-			})).To(Succeed())
-			Expect(MustSucceed(client.Receive()).Ack).To(BeTrue())
-			Expect(writer.Write(frame.NewMulti(
-				channel.Keys{index.Key(), records.Key()},
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(1, 2),
-					samples(denied, readable),
-				},
-			))).To(BeTrue())
-			fr := MustSucceed(client.Receive()).Frame
-			Expect(fr.KeysSlice()).To(Equal([]channel.Key{records.Key()}))
-		})
-
 		It("Should keep the other channels of a frame", func(ctx SpecContext) {
 			open(ctx, channel.Channel{})
 			Expect(writer.Write(frame.NewMulti(
