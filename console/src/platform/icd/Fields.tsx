@@ -448,7 +448,7 @@ export const renamedPointer = (
 };
 
 /** @returns a float field named apart from fields, at a pointer none of them reads. */
-export const createJSONField = (fields: icd.JSONField[]): icd.JSONField => {
+const createJSONField = (fields: icd.JSONField[]): icd.JSONField => {
   const { name, pointer } = freeNameAndPointer(
     fields.map((f) => f.name),
     fields.map((f) => f.pointer),
@@ -844,7 +844,10 @@ export const JSONField = ({
   );
 };
 
-export interface TextFieldProps extends Pick<JSONFieldProps, "actions" | "commanded"> {
+export interface TextFieldProps extends Pick<
+  JSONFieldProps,
+  "actions" | "autoFocus" | "commanded"
+> {
   /** The form path of the field. */
   path: deep.Path<icd.TextField>;
   /** A write task sends the field, so its labels say how the task writes it. */
@@ -867,6 +870,7 @@ const withTextEncoding = (
 export const TextField = ({
   path,
   actions,
+  autoFocus = false,
   commanded = false,
   written = false,
 }: TextFieldProps): ReactElement => {
@@ -877,7 +881,12 @@ export const TextField = ({
   };
   return (
     <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.name}
+        label="Name"
+        padHelpText={false}
+        inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+      />
       <Input.Item label={written ? "Written by" : "Read by"} padHelpText={false}>
         <Select.Buttons<icd.TextFieldType>
           value={encoding}
@@ -908,7 +917,7 @@ export const TextField = ({
 
 export interface BinaryFieldProps extends Pick<
   JSONFieldProps,
-  "actions" | "commanded"
+  "actions" | "autoFocus" | "commanded"
 > {
   /** The form path of the field. */
   path: deep.Path<icd.BinaryField>;
@@ -918,6 +927,7 @@ export interface BinaryFieldProps extends Pick<
 export const BinaryField = ({
   path,
   actions,
+  autoFocus = false,
   commanded = false,
 }: BinaryFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
@@ -927,7 +937,12 @@ export const BinaryField = ({
   };
   return (
     <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.name}
+        label="Name"
+        padHelpText={false}
+        inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+      />
       <Form.NumericField path={path.startBit} label="Start bit" padHelpText={false} />
       <Form.NumericField path={path.bitLength} label="Bit length" padHelpText={false} />
       <Form.Field<icd.ByteOrder>

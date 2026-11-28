@@ -94,19 +94,21 @@ const FIELD_SECTIONS: Record<
   json: ({ payload, field, ...rest }) => (
     <JSONField path={deep.variant(payload, "format", "json").fields[field]} {...rest} />
   ),
-  text: ({ payload, field, commanded, actions }) => (
+  text: ({ payload, field, commanded, actions, autoFocus }) => (
     <TextField
       path={deep.variant(payload, "format", "text").fields[field]}
       commanded={commanded}
       actions={actions}
+      autoFocus={autoFocus}
       written
     />
   ),
-  binary: ({ payload, field, commanded, actions }) => (
+  binary: ({ payload, field, commanded, actions, autoFocus }) => (
     <BinaryField
       path={deep.variant(payload, "format", "binary").fields[field]}
       commanded={commanded}
       actions={actions}
+      autoFocus={autoFocus}
     />
   ),
 };

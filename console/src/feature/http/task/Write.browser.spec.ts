@@ -530,6 +530,64 @@ describe("Write", () => {
     });
   });
 
+  it("should send a text message picked in the pane of an endpoint", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const level = icd.textFieldZ.parse({
+      name: "level",
+      encoding: "delimited",
+      position: 1,
+    });
+    const text = icd.messageZ.parse({
+      name: uniqueName("line"),
+      payload: { format: "text", fields: [level] },
+    });
+    const textICD = await client.icds.create({
+      name: uniqueName("line"),
+      messages: [text],
+    });
+    const { draft } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    await pickMessageFormat(message.name, text.name, textICD.name);
+    await waitFor(async () => {
+      const [ep] = await retrieveEndpoints(draft.key);
+      expect(ep).toMatchObject({
+        icd: textICD.key,
+        message: {
+          message: text.key,
+          bindings: [{ type: "channel", field: level.key, channel: 0 }],
+        },
+      });
+    });
+  });
+
+  it("should send a text message picked for an endpoint that sends none", async () => {
+    const level = icd.textFieldZ.parse({
+      name: "level",
+      encoding: "delimited",
+      position: 1,
+    });
+    const text = icd.messageZ.parse({
+      name: uniqueName("line"),
+      payload: { format: "text", fields: [level] },
+    });
+    const textICD = await client.icds.create({
+      name: uniqueName("line"),
+      messages: [text],
+    });
+    const { draft } = await renderWrite([
+      { ...http.writeEndpointZ.parse({}), key: "ep1", path: "/setpoint" },
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    await pickMessageFormat("Select message format", text.name, textICD.name);
+    await waitFor(async () => {
+      const [ep] = await retrieveEndpoints(draft.key);
+      expect(ep).toMatchObject({ icd: textICD.key, message: { message: text.key } });
+    });
+  });
+
   it("should create a command channel for each field of an enabled endpoint, and store it on the device", async () => {
     const value = createField("value", "float");
     const open = createField("open", "boolean");

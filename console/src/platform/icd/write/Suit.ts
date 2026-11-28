@@ -33,7 +33,7 @@ export const Suit: FC<SuitProps> = ({ icdKey, path }) => {
     path: path.bindings,
     message,
     fieldsOf: bindable,
-    suit,
+    suit: (bindings, _, held) => suit(bindings, held),
     bound: (bindings) =>
       bindings.flatMap((b) => (b.type === "channel" ? [b.channel] : [])),
     unbind: (bindings, fields, channels) => unbind(bindings, fields, channels, encodes),

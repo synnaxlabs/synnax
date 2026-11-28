@@ -16,7 +16,7 @@ import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id, primitive, unique } from "@synnaxlabs/x";
+import { deep, id, payload, primitive, unique } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -206,11 +206,13 @@ const PlainTargetPane = ({
           icdKey={target.icd}
           message={target.message.message}
           onChange={handleFormatChange}
+          formats={payload.FORMATS}
           preview={isPreview}
         />
         <ICD.MessageWarning
           message={message}
           missingDescription={ICD.Write.MISSING_DESCRIPTION}
+          written
         />
       </PForm.Section>
     </PForm.Sections>

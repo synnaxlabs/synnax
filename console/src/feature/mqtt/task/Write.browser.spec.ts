@@ -190,7 +190,7 @@ const createFormatTarget = async (fields: icd.JSONField[]) => {
     key: "t1",
     topic: "plant/valve/set",
     icd: ic.key,
-    message: { message: message.key, bindings: ICD.Write.suit([], fields) },
+    message: { message: message.key, bindings: ICD.Write.suit([], message) },
   });
   return { ic, message, target };
 };
@@ -613,6 +613,38 @@ describe("MQTT Write form", () => {
       expect(modeGroup.getByText('Sends its default, "auto".')).toBeTruthy();
     });
 
+    it("should put the fields of a picked text message on channels", async () => {
+      const { target, message } = await createFormatTarget([
+        createField("value", "float"),
+      ]);
+      const level = icd.textFieldZ.parse({
+        name: "level",
+        encoding: "delimited",
+        position: 1,
+      });
+      const text = icd.messageZ.parse({
+        name: uniqueName("line"),
+        payload: { format: "text", fields: [level] },
+      });
+      const textICD = await client.icds.create({
+        name: uniqueName("line"),
+        messages: [text],
+      });
+      const { draft } = await renderWrite([target]);
+      await pickMessageFormat(message.name, text.name, textICD.name);
+      await waitFor(async () =>
+        expect(await retrieveTargets(draft.key)).toMatchObject([
+          {
+            icd: textICD.key,
+            message: {
+              message: text.key,
+              bindings: [{ type: "channel", field: level.key, channel: 0 }],
+            },
+          },
+        ]),
+      );
+    });
+
     /** Renders a target whose message has the payload, and waits for its tree item. */
     const renderPayload = async (value: icd.Message["payload"]) => {
       const target = await createPlainTarget("t1", "plant/valve/set");
@@ -684,7 +716,7 @@ describe("MQTT Write form", () => {
       );
     });
 
-    it("should add a binary field after the last bit from the menu of a target", async () => {
+    it("should add a binary field after the last bit from the menu of a target, with the focus on its name", async () => {
       const count = icd.binaryFieldZ.parse({
         key: uuid.create(),
         name: "count",
@@ -698,12 +730,56 @@ describe("MQTT Write form", () => {
       );
       fireEvent.click(await screen.findByRole("menuitem", { name: "Add field" }));
       await screen.findByRole("treeitem", { name: /^Field 2/ });
+      const name = await screen.findByDisplayValue("Field 2");
+      await waitFor(() => expect(document.activeElement).toBe(name));
       expect(screen.getByLabelText("Start bit")).toHaveProperty("value", "8");
       await waitFor(async () =>
         expect((await retrieveTargets(draft.key))[0]).toMatchObject({
           message: { bindings: [{ field: count.key }, { type: "channel" }] },
         }),
       );
+    });
+
+    it("should add a text field from the menu of a target, with the focus on its name", async () => {
+      const level = icd.textFieldZ.parse({
+        name: "level",
+        encoding: "delimited",
+        position: 1,
+      });
+      await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [level],
+      });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /TEXT.*plant\/valve\/set/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Add field" }));
+      const name = await screen.findByDisplayValue("Field 2");
+      await waitFor(() => expect(document.activeElement).toBe(name));
+      expect(screen.getByLabelText("Position")).toHaveProperty("value", "2");
+    });
+
+    it("should warn about a binary message whose only field is its identifier", async () => {
+      const id = icd.binaryFieldZ.parse({
+        name: "id",
+        kind: "unsigned",
+        startBit: 0,
+        bitLength: 8,
+      });
+      await renderPayload({
+        format: "binary",
+        identifier: { type: "field", field: id.key, value: 4 },
+        fields: [id],
+      });
+      const item = await screen.findByRole("treeitem", {
+        name: /BINARY.*plant\/valve\/set/,
+      });
+      fireEvent.click(item);
+      const warning = "Message has only its identifier field";
+      await screen.findByText(warning);
+      within(item).getByRole("img", { name: warning });
     });
 
     it("should say how the task writes a text field", async () => {
@@ -1704,7 +1780,7 @@ describe("MQTT Write form", () => {
         key: "t1",
         topic: "plant/other/set",
         icd: ic.key,
-        message: { message: held.key, bindings: ICD.Write.suit([], [setpoint]) },
+        message: { message: held.key, bindings: ICD.Write.suit([], held) },
       });
       const { dialog, draft } = await openOnPickedTopic([other]);
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));

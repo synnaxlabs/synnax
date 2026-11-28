@@ -18,7 +18,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id, unique } from "@synnaxlabs/x";
+import { deep, id, payload, unique } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/http/device";
@@ -148,6 +148,7 @@ const MessageMark = ({ itemKey }: { itemKey: string }) => {
       icdKey={icdKey}
       messages={[message]}
       missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+      written
     />
   );
 };
@@ -192,11 +193,13 @@ const MessageDetails = ({ epKey, onAddField }: DetailsProps) => {
         icdKey={ep.icd}
         message={ep.message.message}
         onChange={handleFormatChange}
+        formats={payload.FORMATS}
         preview={isPreview}
       />
       <ICD.MessageWarning
         message={message}
         missingDescription={ICD.Write.MISSING_DESCRIPTION}
+        written
       />
     </PForm.Section>
   );
@@ -212,7 +215,11 @@ const MessagePick = ({ epKey }: { epKey: string }) => {
     set(path, { ...ep, icd: icdKey, message: ICD.Write.create(picked) });
   return (
     <PForm.Section title="Message">
-      <ICD.MessageFormatField onChange={handleFormatChange} preview={isPreview} />
+      <ICD.MessageFormatField
+        onChange={handleFormatChange}
+        formats={payload.FORMATS}
+        preview={isPreview}
+      />
     </PForm.Section>
   );
 };

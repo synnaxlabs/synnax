@@ -45,6 +45,14 @@ const createMessage = (payload: icd.Message["payload"]): icd.Message => ({
   payload,
 });
 
+const createJSONMessage = (fields: icd.JSONField[]): icd.Message =>
+  createMessage({ format: "json", fields });
+
+const createBinaryMessage = (
+  fields: icd.BinaryField[],
+  identifier?: icd.Identifier,
+): icd.Message => createMessage({ format: "binary", identifier, fields });
+
 const createField = (
   name: string,
   type: icd.JSONField["type"],
@@ -64,13 +72,17 @@ describe("ICD.Write.suit", () => {
   it("should put each field with no default on a channel, and leave the rest unbound", () => {
     const setpoint = createField("setpoint", "float");
     const mode = createField("mode", "string", { default: "auto" });
-    expect(ICD.Write.suit([], [setpoint, mode])).toEqual([onChannel(setpoint)]);
+    expect(ICD.Write.suit([], createJSONMessage([setpoint, mode]))).toEqual([
+      onChannel(setpoint),
+    ]);
   });
 
   it("should put the first field on a channel when every field has a default", () => {
     const mode = createField("mode", "string", { default: "auto" });
     const open = createField("open", "boolean", { default: false });
-    expect(ICD.Write.suit([], [mode, open])).toEqual([onChannel(mode)]);
+    expect(ICD.Write.suit([], createJSONMessage([mode, open]))).toEqual([
+      onChannel(mode),
+    ]);
   });
 
   it("should put the first field on a channel when only fixed values remain", () => {
@@ -81,7 +93,10 @@ describe("ICD.Write.suit", () => {
       field: open.key,
       value: { type: "boolean", value: true },
     };
-    expect(ICD.Write.suit([fixed], [mode, open])).toEqual([onChannel(mode), fixed]);
+    expect(ICD.Write.suit([fixed], createJSONMessage([mode, open]))).toEqual([
+      onChannel(mode),
+      fixed,
+    ]);
   });
 
   it("should keep the bindings that suit their fields", () => {
@@ -91,14 +106,19 @@ describe("ICD.Write.suit", () => {
       { ...onChannel(setpoint, 12), dataType: "int32" },
       { type: "value", field: mode.key, value: { type: "string", value: "auto" } },
     ];
-    expect(ICD.Write.suit(bindings, [setpoint, mode])).toEqual(bindings);
+    expect(ICD.Write.suit(bindings, createJSONMessage([setpoint, mode]))).toEqual(
+      bindings,
+    );
   });
 
   it("should drop the binding of a field that the message no longer has", () => {
     const setpoint = createField("setpoint", "float");
     const gone = createField("gone", "float");
     expect(
-      ICD.Write.suit([onChannel(setpoint, 12), onChannel(gone, 13)], [setpoint]),
+      ICD.Write.suit(
+        [onChannel(setpoint, 12), onChannel(gone, 13)],
+        createJSONMessage([setpoint]),
+      ),
     ).toEqual([onChannel(setpoint, 12)]);
   });
 
@@ -107,13 +127,18 @@ describe("ICD.Write.suit", () => {
     const bindings: icd.WriteBinding[] = [
       { type: "value", field: mode.key, value: { type: "string", value: "auto" } },
     ];
-    expect(ICD.Write.suit(bindings, [mode])).toEqual([onChannel(mode)]);
+    expect(ICD.Write.suit(bindings, createJSONMessage([mode]))).toEqual([
+      onChannel(mode),
+    ]);
   });
 
   it("should drop a data type that a scaled field does not take", () => {
     const count = createField("count", "integer", { scale: 0.5 });
     expect(
-      ICD.Write.suit([{ ...onChannel(count, 12), dataType: "int64" }], [count]),
+      ICD.Write.suit(
+        [{ ...onChannel(count, 12), dataType: "int64" }],
+        createJSONMessage([count]),
+      ),
     ).toEqual([onChannel(count, 12)]);
   });
 });
@@ -127,7 +152,7 @@ describe("ICD.Write.suit of text and binary fields", () => {
       value: { type: "unsigned", value: "1" },
     };
     const setpoint = createBinaryField("setpoint", "float", 8);
-    expect(ICD.Write.suit([fixed], [valve, setpoint])).toEqual([
+    expect(ICD.Write.suit([fixed], createBinaryMessage([valve, setpoint]))).toEqual([
       fixed,
       onChannel(setpoint),
     ]);
@@ -138,7 +163,12 @@ describe("ICD.Write.suit of text and binary fields", () => {
     const bindings: icd.WriteBinding[] = [
       { type: "value", field: level.key, value: { type: "integer", value: "3" } },
     ];
-    expect(ICD.Write.suit(bindings, [level])).toEqual([onChannel(level)]);
+    expect(
+      ICD.Write.suit(
+        bindings,
+        createMessage({ format: "text", delimiter: ",", prefix: "", fields: [level] }),
+      ),
+    ).toEqual([onChannel(level)]);
   });
 
   it("should keep a numeric data type of a binary field and drop any other", () => {
@@ -148,9 +178,69 @@ describe("ICD.Write.suit of text and binary fields", () => {
     expect(
       ICD.Write.suit(
         [kept, { ...onChannel(gear, 13), dataType: "string" }],
-        [count, gear],
+        createBinaryMessage([count, gear]),
       ),
     ).toEqual([kept, onChannel(gear, 13)]);
+  });
+});
+
+describe("ICD.Write.suit of a multiplexed binary message", () => {
+  const createSelected = (
+    name: string,
+    startBit: number,
+    multiplexor: icd.BinaryField,
+    multiplexValues: number[],
+  ): icd.BinaryField => ({
+    ...createBinaryField(name, "unsigned", startBit),
+    multiplexor: multiplexor.key,
+    multiplexValues,
+  });
+
+  it("should put no field on a channel that a fixed multiplexor never selects", () => {
+    const mode = icd.binaryFieldZ.parse({
+      key: uuid.create(),
+      name: "mode",
+      kind: "unsigned",
+      startBit: 0,
+      bitLength: 8,
+      default: "1",
+    });
+    const low = createSelected("low", 8, mode, [1]);
+    const high = createSelected("high", 8, mode, [2]);
+    const sub = createSelected("sub", 16, high, [0]);
+    expect(
+      ICD.Write.suit(
+        [onChannel(high, 12)],
+        createBinaryMessage([mode, low, high, sub]),
+      ),
+    ).toEqual([onChannel(low)]);
+  });
+
+  it("should select the fields of the fixed value of a multiplexor", () => {
+    const mode = createBinaryField("mode", "unsigned", 0);
+    const low = createSelected("low", 8, mode, [1]);
+    const high = createSelected("high", 8, mode, [2]);
+    const fixed: icd.WriteBinding = {
+      type: "value",
+      field: mode.key,
+      value: { type: "unsigned", value: "2" },
+    };
+    expect(ICD.Write.suit([fixed], createBinaryMessage([mode, low, high]))).toEqual([
+      fixed,
+      onChannel(high),
+    ]);
+  });
+
+  it("should select the fields of the identifier value", () => {
+    const id = createBinaryField("id", "unsigned", 0);
+    const valve = createSelected("valve", 8, id, [4]);
+    const speed = createSelected("speed", 8, id, [5]);
+    const message = createBinaryMessage([id, valve, speed], {
+      type: "field",
+      field: id.key,
+      value: 4,
+    });
+    expect(ICD.Write.suit([], message)).toEqual([onChannel(valve)]);
   });
 });
 

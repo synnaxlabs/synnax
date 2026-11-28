@@ -61,15 +61,50 @@ export const bindable = (message?: icd.Message | null): Field[] | null => {
 };
 
 /**
- * @returns bindings, changed to suit fields: no binding of a field that is gone, no
- * fixed value of another kind, and no data type that its field does not take. Each
- * field with no default and no binding takes a channel. When no field takes one, the
- * first field does, because the Core refuses a message that binds no channels.
+ * @returns the keys of the fields of payload that a fixed multiplexor never selects. A
+ * multiplexor is fixed when no channel fills it, so it sends the identifier value, a
+ * fixed value, or its default.
+ */
+const unselected = (
+  { fields, identifier }: icd.BinaryPayload,
+  bindings: icd.WriteBinding[],
+): Set<icd.FieldKey> => {
+  const byKey = new Map(fields.map((f) => [f.key, f]));
+  const fixedOf = ({ key, default: fallback }: icd.BinaryField): number | undefined => {
+    if (identifier?.type === "field" && identifier.field === key)
+      return identifier.value;
+    const b = bindings.find(({ field }) => field === key);
+    if (b?.type === "channel") return undefined;
+    const value = b == null ? fallback : b.value.value;
+    return value == null ? undefined : Number(value);
+  };
+  const never = (field: icd.BinaryField): boolean => {
+    // A chain longer than the fields is a cycle, which the Core refuses.
+    for (let f = field, depth = 0; depth < fields.length; depth++) {
+      const mux = f.multiplexor == null ? undefined : byKey.get(f.multiplexor);
+      if (mux == null) return false;
+      const value = fixedOf(mux);
+      if (value != null && !f.multiplexValues.includes(value)) return true;
+      f = mux;
+    }
+    return false;
+  };
+  return new Set(fields.filter(never).map(({ key }) => key));
+};
+
+/**
+ * @returns bindings, changed to suit the fields that a write binds of message: no
+ * binding of a field that is gone, no fixed value of another kind, and no data type
+ * that its field does not take. A field that a fixed multiplexor never selects takes no
+ * channel. Each other field with no default and no binding takes a channel. When no
+ * field takes one, the first field does, because the Core refuses a message that binds
+ * no channels.
  */
 export const suit = (
   bindings: icd.WriteBinding[],
-  fields: Field[],
+  message: icd.Message,
 ): icd.WriteBinding[] => {
+  const fields = bindable(message) ?? [];
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const kept = bindings.flatMap((b): icd.WriteBinding[] => {
     const field = byKey.get(b.field);
@@ -78,14 +113,18 @@ export const suit = (
     if (b.dataType == null || encodes(field, b.dataType)) return [b];
     return [{ type: "channel", field: b.field, channel: b.channel }];
   });
+  const { payload } = message;
+  const never =
+    payload.format === "binary" ? unselected(payload, kept) : new Set<icd.FieldKey>();
+  const selected = fields.filter(({ key }) => !never.has(key));
   const bound = new Set(kept.map(({ field }) => field));
   const suited = [
-    ...kept,
-    ...fields
+    ...kept.filter((b) => b.type !== "channel" || !never.has(b.field)),
+    ...selected
       .filter((f) => f.default == null && !bound.has(f.key))
       .map((f) => channelBinding(f.key)),
   ];
-  const first = fields.at(0);
+  const first = selected.at(0);
   if (first == null || suited.some(({ type }) => type === "channel")) return suited;
   return [channelBinding(first.key), ...suited.filter((b) => b.field !== first.key)];
 };
@@ -93,7 +132,7 @@ export const suit = (
 /** @returns the write of message, with the bindings that a new pick starts with. */
 export const create = (message: icd.Message): icd.WriteMessage => ({
   message: message.key,
-  bindings: suit([], bindable(message) ?? []),
+  bindings: suit([], message),
 });
 
 export interface AddMessagesParams {

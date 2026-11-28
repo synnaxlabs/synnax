@@ -133,9 +133,10 @@ describe("ICD.Write.useTree", () => {
   const renderTargets = async (
     topics: string[],
     fields: icd.JSONField[] = [createSetpoint()],
-    bindingsOf: (i: number) => icd.WriteBinding[] = () => ICD.Write.suit([], fields),
+    bindingsOf: (i: number, message: icd.Message) => icd.WriteBinding[] = (_, m) =>
+      ICD.Write.suit([], m),
   ) => {
-    const message = {
+    const message: icd.Message = {
       key: uuid.create(),
       name: "Command",
       payload: { format: "json" as const, fields },
@@ -150,7 +151,7 @@ describe("ICD.Write.useTree", () => {
         key: `t${i}`,
         topic,
         icd: ic.key,
-        message: { message: message.key, bindings: bindingsOf(i) },
+        message: { message: message.key, bindings: bindingsOf(i, message) },
       }),
     );
     const draft = await client.tasks.create(
@@ -213,8 +214,8 @@ describe("ICD.Write.useTree", () => {
       field: mode.key,
       value: { type: "float", value: 5 },
     };
-    await renderTargets(["a", "b"], [setpoint, mode], (i) => [
-      ...ICD.Write.suit([], [setpoint]),
+    await renderTargets(["a", "b"], [setpoint, mode], (i, message) => [
+      ...ICD.Write.suit([], message),
       ...(i === 0 ? [value] : []),
     ]);
     const [valued, defaulted] = await screen.findAllByRole("treeitem", {
