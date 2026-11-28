@@ -562,15 +562,21 @@ export const use = <
     const [message] = messages;
     const held =
       messages.size === 1 ? heldMessage(formats, icdKey, message) : undefined;
+    const blank = (text: string, fallback: string) =>
+      text.trim() === "" ? fallback : text;
+    const from = held == null ? name : blank(held.name, "this message");
     const one = names.size === 1;
-    const what = one ? [...names.values()][0] : `${names.size} fields`;
+    const what = one
+      ? blank([...names.values()][0], "this field")
+      : `${names.size} fields`;
+    const [it, those] = one ? ["it", "that channel"] : ["them", "those channels"];
     const confirmed = await confirm({
       icd: { key: icdKey, name },
       title: one ? "ICD.Delete field" : "ICD.Delete fields",
-      message: `Delete ${what} from ${held?.name ?? name}?`,
-      description: one
-        ? `This deletes it from the ICD ${name}. Tasks that bind it lose that channel.`
-        : `This deletes them from the ICD ${name}. Tasks that bind them lose those channels.`,
+      message: `Delete ${what} from ${from}?`,
+      description:
+        `This deletes ${it} from the ICD ${name}. ` +
+        `Tasks that bind ${it} lose ${those}.`,
       confirm: { label: "Delete" },
     });
     if (confirmed === true) removeFields(chosen);
