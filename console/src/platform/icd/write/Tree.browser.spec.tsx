@@ -276,14 +276,15 @@ describe("ICD.Write.useTree", () => {
     );
   });
 
-  it("should remove a field from its message and from each target that sends it", async () => {
+  it("should delete a field from the ICD and from each target that sends it", async () => {
     const { retrieveTargets, retrieveFields } = await renderTargets(
       ["a", "b"],
       [createSetpoint(), createRamp()],
     );
     const [ramp] = await screen.findAllByRole("treeitem", { name: /^ramp/ });
     fireEvent.contextMenu(ramp);
-    fireEvent.click(await screen.findByText("Remove"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(async () => {
       const fields = await retrieveFields();
       expect(fields.map(({ name }) => name)).toEqual(["setpoint"]);
@@ -294,6 +295,25 @@ describe("ICD.Write.useTree", () => {
       ]);
     });
     expect(screen.queryByRole("treeitem", { name: /^ramp/ })).toBeNull();
+  });
+
+  it("should ask before it deletes a field from the ICD, and keep it on cancel", async () => {
+    const { retrieveFields } = await renderTargets(
+      ["a"],
+      [createSetpoint(), createRamp()],
+    );
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^ramp/ }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+    expect(screen.queryByRole("menuitem", { name: "Remove" })).toBeNull();
+    await screen.findByText("Delete ramp from Command?");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(screen.queryByText("Delete ramp from Command?")).toBeNull(),
+    );
+    expect((await retrieveFields()).map(({ name }) => name)).toEqual([
+      "setpoint",
+      "ramp",
+    ]);
   });
 
   it("should copy a field after it, bound as the field is but on a new channel", async () => {
@@ -340,7 +360,7 @@ describe("ICD.Write.useTree", () => {
     const value = icd.jsonFieldZ.parse({ name: "value", pointer: "", type: "float" });
     await renderTargets(["a"], [value]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^value/ }));
-    expect(await screen.findByText("Remove")).toBeTruthy();
+    expect(await screen.findByText("Delete from ICD")).toBeTruthy();
     expect(screen.queryByText("Duplicate")).toBeNull();
   });
 

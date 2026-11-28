@@ -51,7 +51,7 @@ const quiet = (): void => {};
 
 const TEST_THEME = theme.themeZ.parse(theme.SYNNAX_THEMES.synnaxLight);
 
-// Mounts the production aether theming provider without the React provider's
+// Mounts the production Aether theming provider without the React provider's
 // font loading, which jsdom cannot perform (no FontFace).
 const ThemingSeed = ({ children }: PropsWithChildren): ReactElement => {
   const { path } = Aether.useLifecycle({
@@ -76,10 +76,10 @@ const FixedSeries = ({ children }: PropsWithChildren): ReactElement => {
 
 export interface CreateSynnaxWrapperParams {
   client: Client | null;
-  /** Extra aether components merged into the test render registry. */
+  /** Extra Aether components merged into the test render registry. */
   additionalRegistry?: aether.ComponentRegistry;
   /**
-   * Seeds the given fake render context into the aether tree, so canvas-rendered
+   * Seeds the given fake render context into the Aether tree, so canvas-rendered
    * components can mount and record draw calls without a real canvas. Construct one
    * with {@link canvasTest.record} and keep the reference for assertions.
    */

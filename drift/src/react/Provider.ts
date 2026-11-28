@@ -25,7 +25,7 @@ export interface ProviderProps<
 }
 
 /**
- * Replaces the default react-redux Provider with a drift compatible one that waits for
+ * Replaces the default react-redux Provider with a Drift compatible one that waits for
  * the store to be ready before rendering. To understand why this is necessary, see the
  * configureStore documentation.
  * @param props.store - A promise that resolves to the store.

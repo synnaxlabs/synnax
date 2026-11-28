@@ -14,12 +14,19 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep, id, map, type payload, type record, unique, uuid } from "@synnaxlabs/x";
-import type { Dispatch, FC, ReactElement, RefObject, SetStateAction } from "react";
+import type {
+  Dispatch,
+  FC,
+  ReactElement,
+  ReactNode,
+  RefObject,
+  SetStateAction,
+} from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
 import { MessageMark } from "@/platform/icd/Details";
 import { copyName } from "@/platform/icd/fieldNames";
-import { createJSONField } from "@/platform/icd/Fields";
+import { createMessageField } from "@/platform/icd/Fields";
 import {
   formatOf,
   type Formats,
@@ -34,7 +41,7 @@ import {
   fieldsPath,
   isIndexable,
   isReadable,
-  jsonFields,
+  isTaskFormat,
   type ReadSource,
   reindex,
   taskFields,
@@ -52,6 +59,7 @@ import {
   type SourceNode,
 } from "@/platform/icd/tree/nodes";
 import { useStructure } from "@/platform/icd/tree/structure";
+import { useDeleteItem } from "@/platform/icd/tree/useDeleteItem";
 import { Task } from "@/platform/task";
 
 /** A source of a read task, such as a topic or a record, in the task's form. */
@@ -355,6 +363,7 @@ export const use = <
 }: UseArgs<S, G>): UseReturn => {
   const ctx = PForm.useContext();
   const formats = useFormats();
+  const deleteItem = useDeleteItem();
   const { groups: grouping } = layout;
   const lists = (): List<S>[] =>
     grouping == null
@@ -487,22 +496,28 @@ export const use = <
     setMessage(sourceKey, icdKey, message);
   };
 
-  /** Whether the ICD holds the message of a read of a source, as JSON. */
-  const holdsJSON = (sourceKey: string, r: number): boolean => {
+  /** @returns the message of a read of a source, when the ICD holds it. */
+  const heldRead = (sourceKey: string, r: number): icd.Message | undefined => {
     const { icd: icdKey, messages } = ctx.get(pathOf(sourceKey)).value;
-    const message = heldMessage(formats, icdKey, messages[r].message);
-    return message?.payload.format === "json";
+    return heldMessage(formats, icdKey, messages[r].message);
+  };
+
+  /** Whether the ICD holds the message of a read of a source, in a task format. */
+  const takesFields = (sourceKey: string, r: number): boolean => {
+    const message = heldRead(sourceKey, r);
+    return message != null && isTaskFormat(message.payload.format);
   };
 
   const addField = (sourceKey: string, r: number) => {
     const source = ctx.get(pathOf(sourceKey)).value;
-    const { message } = source.messages[r];
-    const fields = jsonFields(heldMessage(formats, source.icd, message));
-    const field = createJSONField(fields);
+    const held = heldRead(sourceKey, r);
+    if (held == null) return;
+    const message = held.key;
+    const field = createMessageField(held.payload);
     formatOf(formats, source.icd).insert(
       fieldsPath(message),
       field,
-      fields.at(-1)?.key,
+      held.payload.fields.at(-1)?.key,
     );
     read(sourceKey, r, treeFieldOf(field), true, field);
     const parent = source.messages.length > 1 ? [messageKey(sourceKey, message)] : [];
@@ -687,13 +702,13 @@ export const use = <
     if (
       chosen.length === 1 &&
       only.kind === "message" &&
-      holdsJSON(only.source, only.read)
+      takesFields(only.source, only.read)
     )
       onAddField = () => addField(only.source, only.read);
     else if (
       source != null &&
       ctx.get(pathOf(source).messages).value.length === 1 &&
-      holdsJSON(source, 0)
+      takesFields(source, 0)
     )
       onAddField = () => addField(source, 0);
     const fields = chosen.filter((n): n is FieldNode => n.kind === "field");
@@ -708,9 +723,14 @@ export const use = <
     )
       onDuplicate = () => duplicateSources(sources);
     let onRemove: (() => void) | undefined;
-    if (fields.length > 0 && fields.length === chosen.length)
-      onRemove = () => removeFields(fields);
-    else if (isRemovable(chosen)) onRemove = () => removeNodes(chosen);
+    let deleteMenuItem: ReactNode;
+    if (fields.length > 0 && fields.length === chosen.length) {
+      const deleted = fields.map(({ source, read: r, field }) => {
+        const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
+        return { icd: icdKey, message: messages[r].message, field };
+      });
+      deleteMenuItem = deleteItem(deleted, () => removeFields(fields));
+    } else if (isRemovable(chosen)) onRemove = () => removeNodes(chosen);
     const tareChannels = fields.flatMap(({ source, read, field }) => {
       if (ctx.get(disabledPath(source)).value) return [];
       const binding = ctx
@@ -722,6 +742,7 @@ export const use = <
       <Task.Views.ContextMenu
         keys={keys}
         onRemove={onRemove}
+        deleteMenuItem={deleteMenuItem}
         onEnable={
           off.length > 0 && !(bindDisabled && off.some(({ kind }) => kind === "field"))
             ? () => setEnabled(switchable, true)

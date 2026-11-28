@@ -21,7 +21,7 @@ import (
 
 // The conformance vectors are authored once and shared with the TypeScript
 // implementation so that both runtimes materialize identically for the same edit
-// schedule. The wire encoding of the operations is owned and tested by oracle codegen.
+// schedule. The wire encoding of the operations is owned and tested by Oracle codegen.
 const vectorsPath = "../../testdata/crdt/vectors.json"
 
 type vectorFile struct {

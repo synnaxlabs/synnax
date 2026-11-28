@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package testutil provides helpers for standing up in-process gRPC servers in tests
-// that exercise freighter gRPC transports.
+// that exercise Freighter gRPC transports.
 package testutil
 
 import (
@@ -56,7 +56,7 @@ func (h connBeginHandler) HandleConn(_ context.Context, s stats.ConnStats) {
 }
 
 // StartServer starts a gRPC server listening on an ephemeral localhost port and opens a
-// freighter connection pool dialed against it with insecure transport credentials. bind
+// Freighter connection pool dialed against it with insecure transport credentials. bind
 // registers the transports under test, receiving the server as a grpc.ServiceRegistrar
 // and the pool so that a transport acting as both client and server can be constructed
 // from it. Any opts are forwarded to grpc.NewServer. It returns the ephemeral localhost

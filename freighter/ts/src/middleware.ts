@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /**
- * Context is the metadata associated with a freighter transport request.
+ * Context is the metadata associated with a Freighter transport request.
  * @property target - The target the request is being issued to.
  * @property protocol - The protocol used to issue the request.
  * @property params - Arbitrary string parameters that can be set by client side

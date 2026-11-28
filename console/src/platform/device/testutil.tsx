@@ -203,7 +203,7 @@ export const createDeviceResource = (
 ): Tree.Resource => createResource(device.resourceID(dev.key), dev.name);
 
 export interface RenderMenuItemOptions {
-  /** Client backing the console wrapper; null (default) for Core-free specs. */
+  /** Client backing the Console wrapper; null (default) for Core-free specs. */
   client?: Synnax | null;
   /** Receives every event the item reports; discards them by default. */
   analytics?: Analytics.Sink;
@@ -218,7 +218,7 @@ export interface MenuItemHandle extends RenderResult {
 }
 
 /**
- * Renders a device context-menu item inside the full console provider stack, a pluto
+ * Renders a device context-menu item inside the full Console provider stack, a Pluto
  * menu, and a mounted modal stack, so items can open prompts and place layouts.
  */
 export const renderMenuItem = async (
@@ -306,7 +306,7 @@ export interface RenderWithDeviceFormOptions extends Pick<
 }
 
 /**
- * Renders ui inside the console provider stack and a Form context shaped like a task
+ * Renders ui inside the Console provider stack and a Form context shaped like a task
  * config: config.device holds the selected device key, and config.channels holds the
  * channels.
  */

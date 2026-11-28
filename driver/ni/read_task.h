@@ -45,7 +45,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// only support on-demand timing).
     const bool software_timed;
     /// @brief the indexes of the channels in the task.
-    /// Dynamically populated by querying the core.
+    /// Dynamically populated by querying the Core.
     std::set<synnax::channel::Key> indexes;
     /// @brief the configurations for each channel in the task.
     std::vector<std::unique_ptr<channel::Input>> channels;

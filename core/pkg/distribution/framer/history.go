@@ -28,9 +28,8 @@ type HistoryChange struct {
 }
 
 // OnHistoryChange registers handler to receive every HistoryChange to channels stored
-// on this Core. Changes to channels stored on other Cores never arrive. Handlers run
-// inline under storage locks, so a handler must hand the change off. The returned
-// function unregisters the handler.
+// on this Core. Changes to channels stored on other Cores never arrive. Storage calls
+// handlers after it releases its locks. The returned function unregisters the handler.
 func (s *Service) OnHistoryChange(
 	handler func(context.Context, HistoryChange),
 ) observe.Disconnect {

@@ -33,7 +33,7 @@ import (
 var ErrIndexInvalid = errors.New("gorp: index failed to populate")
 
 // Index is a registered secondary index on a Table. Implementations are provided by
-// gorp (LookupIndex, SortedIndex, SearchIndex) and constructed via NewLookupIndex,
+// Gorp (LookupIndex, SortedIndex, SearchIndex) and constructed via NewLookupIndex,
 // NewSortedIndex, and NewSearchIndex. The interface methods are unexported so external
 // code cannot substitute custom implementations; callers should use the provided
 // generic types.
@@ -98,6 +98,9 @@ func probe[K Key, V comparable](
 	snap Snapshot,
 	values []V,
 ) ([]K, error) {
+	if err := checkOpen(snap); err != nil {
+		return nil, err
+	}
 	if err := store.Wait(ctx); err != nil {
 		return nil, err
 	}
