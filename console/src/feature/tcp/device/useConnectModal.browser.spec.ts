@@ -16,6 +16,7 @@ import { TCP } from "@/feature/tcp";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
+import { commitFieldInput } from "@/platform/task/testutil";
 
 const client = createTestClient();
 
@@ -49,9 +50,7 @@ describe("TCP.Device.useConnectModal", () => {
     fireEvent.change(screen.getByPlaceholderText("192.168.1.20"), {
       target: { value: "fe80::1" },
     });
-    const port = screen.getByDisplayValue("0");
-    fireEvent.change(port, { target: { value: "5030" } });
-    fireEvent.blur(port);
+    commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("0"), "5030");
     pressSaveTrigger();
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
