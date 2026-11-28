@@ -220,13 +220,16 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
 /// @brief configures a write task whose config is a Config, on a device whose
 /// properties are Properties.
 /// @param acquire gives the Acquire of the connection to the device.
+/// @param check returns the error that keeps the task from sending to the device.
 /// @returns VALIDATION when the config names no device or no target, the error of the
-/// retrieve of the device, and the error of configure_targets.
+/// retrieve of the device, the error of check, and the error of configure_targets.
 template<typename Config, typename Properties>
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::function<Acquire(const Device<Properties> &)> &acquire
+    const std::function<Acquire(const Device<Properties> &)> &acquire,
+    const std::function<x::errors::Error(const Device<Properties> &)> &check =
+        [](const Device<Properties> &) { return x::errors::NIL; }
 ) {
     x::json::Parser parser(task.config);
     const auto cfg = Config::parse(parser);
@@ -236,6 +239,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
     auto [dev, err] = retrieve_device<Properties>(ctx->client->devices, cfg.device);
     if (err) return {common::ConfigureResult{}, err};
+    if (const auto check_err = check(dev))
+        return {common::ConfigureResult{}, check_err};
     return configure_targets(ctx, task, cfg, cfg.targets, acquire(dev));
 }
 }
