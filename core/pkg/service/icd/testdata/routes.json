@@ -1,5 +1,5 @@
 {
-  "description": "The message that the Core gives a document, for the Core and the Console. The Console routes the fields that inference gives the document, so each case holds those pointers. A document that holds the pointer of a value rule is not here: its shape does not hold the value.",
+  "description": "The message that the Core gives a document, for the Core and the Console. The Console routes the fields that inference gives the document, so each case holds those pointers. A shape does not hold the value at the pointer of a value rule, so a document that holds one is here only when it also meets a present rule and its value meets no rule. A document that meets two present rules names their messages in matches, and the Core refuses it.",
   "groups": [
     {
       "description": "Present rules and a message with no rule",
@@ -35,7 +35,12 @@
           "message": "rpm"
         },
         { "document": { "t": 1 }, "fields": ["/t"], "message": "rest" },
-        { "document": { "t": 1, "rpm": null }, "fields": ["/t"], "message": "rest" }
+        { "document": { "t": 1, "rpm": null }, "fields": ["/t"], "message": "rest" },
+        {
+          "document": { "fault": 1, "rpm": 3000 },
+          "fields": ["/fault", "/rpm"],
+          "matches": ["fault", "rpm"]
+        }
       ]
     },
     {
@@ -102,7 +107,14 @@
           "bindings": []
         }
       ],
-      "cases": [{ "document": { "t": 1 }, "fields": ["/t"], "unmatched": true }]
+      "cases": [
+        { "document": { "t": 1 }, "fields": ["/t"], "unmatched": true },
+        {
+          "document": { "kind": "reading", "rpm": 3000 },
+          "fields": ["/kind", "/rpm"],
+          "message": "rpm"
+        }
+      ]
     }
   ]
 }

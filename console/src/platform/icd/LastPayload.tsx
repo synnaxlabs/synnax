@@ -95,6 +95,14 @@ const Bytes = ({ hex }: { hex: string }) => {
   );
 };
 
+// The Core sends a payload that is valid UTF-8 as text, even for a binary message.
+const hexOf = ({ format, payload }: Sample): string =>
+  format === "binary"
+    ? payload
+    : Array.from(new TextEncoder().encode(payload), (b) =>
+        b.toString(16).padStart(2, "0"),
+      ).join("");
+
 interface PayloadProps {
   payload: icd.TextPayload | icd.BinaryPayload;
   sample: Sample;
@@ -102,7 +110,8 @@ interface PayloadProps {
 
 const Payload = ({ payload, sample }: PayloadProps): ReactElement => {
   if (sample.payload === "") return <Note>The last payload is empty.</Note>;
-  if (sample.format === "binary") return <Bytes hex={sample.payload} />;
+  if (payload.format === "binary" || sample.format === "binary")
+    return <Bytes hex={hexOf(sample)} />;
   if (payload.format === "text")
     return <Parts line={sample.payload} delimiter={payload.delimiter} />;
   return (

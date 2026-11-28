@@ -1166,6 +1166,36 @@ describe("MQTT read form", () => {
         ]);
       });
     });
+
+    it("should lock a shape that meets the present rules of two messages", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+        match: { type: "present", pointer: "/temperature" },
+      });
+      await addMessage(
+        entry,
+        `${TOPIC} fault`,
+        [createTimeField(), createField("fault", "integer")],
+        { type: "present", pointer: "/fault" },
+      );
+      const { dev } = await renderRead({ entries: [entry] });
+      const shape = createShape("/temperature", "float", 5);
+      const dialog = await openKinds(dev.rack, {
+        ...shape,
+        fields: [...shape.fields, { ...shape.fields[1], pointer: "/fault" }],
+      });
+      await dialog.findByText(
+        `Matches messages ${TOPIC} and ${TOPIC} fault. The Core refuses these documents. Change a match rule in the ICD editor.`,
+      );
+      expect(dialog.getAllByText("Matches 2 messages")).toHaveLength(3);
+      const fault = dialog.getByRole<HTMLInputElement>("checkbox", {
+        name: "Record fault",
+      });
+      expect(fault.disabled).toBe(true);
+      expect(fault.checked).toBe(false);
+    });
   });
 
   it("should show the reply of a broker that the Core cannot reach", async () => {
@@ -1334,7 +1364,7 @@ describe("MQTT read form", () => {
     );
   });
 
-  it("should remove a field from the ICD and from each topic that reads it", async () => {
+  it("should delete a field from the ICD and from each topic that reads it", async () => {
     const temperature = createField("temperature", "float");
     const pressure = createField("pressure", "float");
     const first = await createEntry({ fields: [temperature, pressure] });
@@ -1346,7 +1376,8 @@ describe("MQTT read form", () => {
     const { draft } = await renderRead({ entries: [first, second] });
     const [item] = await screen.findAllByRole("treeitem", { name: /^pressure/ });
     fireEvent.contextMenu(item);
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(async () =>
       expect(
         jsonFieldsOf(await client.icds.retrieve(first.icd)).map(({ key }) => key),
@@ -1360,7 +1391,7 @@ describe("MQTT read form", () => {
     });
   });
 
-  it("should clear the index of a topic whose index field is removed", async () => {
+  it("should clear the index of a topic whose index field is deleted", async () => {
     const time = createTimeField();
     const temperature = createField("temperature", "float");
     const first = await createEntry({ fields: [time, temperature] });
@@ -1373,7 +1404,8 @@ describe("MQTT read form", () => {
     const { draft } = await renderRead({ entries: [first, second] });
     const [item] = await screen.findAllByRole("treeitem", { name: /^time/ });
     fireEvent.contextMenu(item);
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(async () => {
       const [, indexed] = (await retrieveEntries(draft.key)).map(plainOf);
       expect(indexed.messages[0].index).toBeUndefined();
@@ -2555,6 +2587,14 @@ describe("MQTT read form", () => {
         expect(screen.getByText("93")).toBeTruthy();
       });
 
+      it("should show the bytes of a binary payload that the Core sends as text", async () => {
+        const scanner = await openSampled({ format: "binary", fields: [] });
+        await scanner.answer(sampled("text", "*é"));
+        await screen.findByText("C3");
+        expect(screen.getByText("2A").previousSibling?.textContent).toBe("0");
+        expect(screen.getByText("A9")).toBeTruthy();
+      });
+
       it("should show only the first 256 bytes of a long binary payload", async () => {
         const scanner = await openSampled({ format: "binary", fields: [] });
         await scanner.answer(sampled("binary", "ab".repeat(300)));
@@ -3090,7 +3130,7 @@ describe("MQTT read form", () => {
       expect(read.disabled).toBe(true);
       const pressure = () => screen.findByRole("treeitem", { name: /^pressure/ });
       fireEvent.contextMenu(await pressure());
-      await screen.findByText("Remove");
+      await screen.findByText("Delete from ICD");
       expect(screen.queryByText("Enable")).toBeNull();
       release();
       await waitFor(() => {

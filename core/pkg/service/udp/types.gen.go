@@ -45,7 +45,8 @@ func (r Remote) Validate() error {
 type Properties struct {
 	// LocalAddress is the local address to bind. Empty binds all interfaces.
 	LocalAddress string `json:"local_address" msgpack:"local_address"`
-	// LocalPort is the local port to bind. 0 lets the operating system pick one.
+	// LocalPort is the local port to bind. 0 lets the operating system pick one, and is
+	// valid only on a device with a remote.
 	LocalPort uint16 `json:"local_port" msgpack:"local_port"`
 	// Remote is where the device sends datagrams. Absent when it only receives.
 	Remote *Remote `json:"remote,omitzero" msgpack:"remote,omitempty"`
