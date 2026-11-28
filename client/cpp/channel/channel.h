@@ -99,11 +99,13 @@ public:
         bool is_index = false
     ) const;
 
-    [[nodiscard]] std::pair<Channel, x::errors::Error> create(
-        const std::string &name,
-        const x::telem::DataType &data_type,
-        bool is_virtual = true
-    ) const;
+    /// @brief creates a new virtual channel.
+    /// @param name a human-readable name for the channel.
+    /// @param data_type the data type of the channel.
+    /// @returns the created channel, and an error where ok() is false if the channel
+    /// could not be created.
+    [[nodiscard]] std::pair<Channel, x::errors::Error>
+    create_virtual(const std::string &name, const x::telem::DataType &data_type) const;
 
     /// @brief retrieves the channel with the given key.
     /// @param key the key of the channel.

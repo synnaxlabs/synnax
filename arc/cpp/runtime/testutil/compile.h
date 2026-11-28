@@ -51,7 +51,8 @@ class Channels {
     create(const synnax::Synnax &client, const ChannelSpec &spec) const {
         const auto name = make_unique_channel_name(spec.name);
         if (spec.is_index) return client.channels.create(name, spec.data_type, 0, true);
-        if (spec.index.empty()) return client.channels.create(name, spec.data_type);
+        if (spec.index.empty())
+            return client.channels.create_virtual(name, spec.data_type);
         return client.channels.create(name, spec.data_type, this->key(spec.index));
     }
 

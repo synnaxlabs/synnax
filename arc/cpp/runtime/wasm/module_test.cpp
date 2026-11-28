@@ -57,10 +57,9 @@ TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
 /// @brief Module::open succeeds with valid compiled module.
 TEST(ModuleOpenTest, SucceedsWithValidModule) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -99,10 +98,9 @@ std::vector<std::pair<std::uintptr_t, std::uintptr_t>> mappings() {
 /// locks its memory counts every reserved byte against RLIMIT_MEMLOCK.
 TEST(ModuleOpenTest, ReservesSmallLinearMemory) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
     const auto mod = testutil::compile_text(
         client,
@@ -140,10 +138,9 @@ public:
 /// reservation and moves.
 TEST(ModuleOpenTest, GrowsMemoryPastReservation) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
     const auto mod = testutil::compile_text(
         client,
@@ -170,10 +167,9 @@ TEST(ModuleOpenTest, GrowsMemoryPastReservation) {
 /// @brief Module::func returns NOT_FOUND for non-existent export.
 TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -193,10 +189,9 @@ func double() {val f32} f32 {
 /// @brief Module::func returns valid function for existing export.
 TEST(ModuleFuncTest, ReturnsValidFunctionForExistingExport) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(
@@ -214,10 +209,9 @@ func double() {val f32} f32 {
 /// @brief Function::call executes and returns results.
 TEST(FunctionCallTest, ExecutesFunctionAndReturnsResults) {
     const auto client = new_test_client();
-    const auto ch = ASSERT_NIL_P(client.channels.create(
+    const auto ch = ASSERT_NIL_P(client.channels.create_virtual(
         make_unique_channel_name("input"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
 
     const std::string source = R"(

@@ -57,10 +57,9 @@ protected:
             .name = "my_device",
         };
         ASSERT_NIL(this->client->devices.create(dev));
-        const auto ch = ASSERT_NIL_P(this->client->channels.create(
+        const auto ch = ASSERT_NIL_P(this->client->channels.create_virtual(
             make_unique_channel_name("labjack_factory"),
-            x::telem::FLOAT64_T,
-            true
+            x::telem::FLOAT64_T
         ));
         this->task = synnax::task::Task{
             .rack = rack.key,

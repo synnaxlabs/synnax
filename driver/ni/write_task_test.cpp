@@ -463,10 +463,9 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
         state_idx_ch.key,
         false
     ));
-    auto cmd_ch = ASSERT_NIL_P(client->channels.create(
+    auto cmd_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("cmd_ch"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     // Create a configuration with an invalid channel type
@@ -538,10 +537,9 @@ protected:
             this->state_index.key,
             false
         ));
-        const auto cmd = ASSERT_NIL_P(this->client->channels.create(
+        const auto cmd = ASSERT_NIL_P(this->client->channels.create_virtual(
             make_unique_channel_name("cmd"),
-            x::telem::FLOAT64_T,
-            true
+            x::telem::FLOAT64_T
         ));
         auto task = synnax::task::Task{.name = name, .type = "ni_analog_write"};
         ASSERT_NIL(this->rack.tasks.create(task));

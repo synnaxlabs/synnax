@@ -180,30 +180,25 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto int16_ch = ASSERT_NIL_P(client->channels.create(
+    auto int16_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("int16"),
-        x::telem::INT16_T,
-        true
+        x::telem::INT16_T
     ));
-    auto uint32_ch = ASSERT_NIL_P(client->channels.create(
+    auto uint32_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("uint32"),
-        x::telem::UINT32_T,
-        true
+        x::telem::UINT32_T
     ));
-    auto int32_ch = ASSERT_NIL_P(client->channels.create(
+    auto int32_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("int32"),
-        x::telem::INT32_T,
-        true
+        x::telem::INT32_T
     ));
-    auto float32_ch = ASSERT_NIL_P(client->channels.create(
+    auto float32_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("float32"),
-        x::telem::FLOAT32_T,
-        true
+        x::telem::FLOAT32_T
     ));
-    auto float64_ch = ASSERT_NIL_P(client->channels.create(
+    auto float64_ch = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("float64"),
-        x::telem::FLOAT64_T,
-        true
+        x::telem::FLOAT64_T
     ));
 
     x::json::json task_cfg{
@@ -351,25 +346,21 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto coil1 = ASSERT_NIL_P(client->channels.create(
+    auto coil1 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("coil1"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto coil2 = ASSERT_NIL_P(client->channels.create(
+    auto coil2 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("coil2"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto reg1 = ASSERT_NIL_P(client->channels.create(
+    auto reg1 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("reg1"),
-        x::telem::UINT16_T,
-        true
+        x::telem::UINT16_T
     ));
-    auto reg2 = ASSERT_NIL_P(client->channels.create(
+    auto reg2 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("reg2"),
-        x::telem::UINT16_T,
-        true
+        x::telem::UINT16_T
     ));
 
     x::json::json task_cfg{
@@ -594,20 +585,17 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     // Create three UINT8 channels for sequential holding registers
-    auto holding0 = ASSERT_NIL_P(client->channels.create(
+    auto holding0 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("holding0"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto holding1 = ASSERT_NIL_P(client->channels.create(
+    auto holding1 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("holding1"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
-    auto holding2 = ASSERT_NIL_P(client->channels.create(
+    auto holding2 = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("holding2"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
 
     x::json::json task_cfg{
@@ -757,10 +745,9 @@ TEST_F(ModbusWriteTest, testUnsupportedDataTypeRejected) {
 /// value, a second channel on the same bit, and a bit past 15.
 TEST_F(ModbusWriteTest, testRegisterBitOverlaps) {
     this->setup_task_config();
-    auto third = ASSERT_NIL_P(client->channels.create(
+    auto third = ASSERT_NIL_P(client->channels.create_virtual(
         make_unique_channel_name("bit"),
-        x::telem::UINT8_T,
-        true
+        x::telem::UINT8_T
     ));
     const auto bit =
         [](const synnax::channel::Key key, const int address, const int b) {

@@ -49,15 +49,14 @@ std::pair<Channel, x::errors::Error> Client::create(
     return {ch, err};
 }
 
-std::pair<Channel, x::errors::Error> Client::create(
+std::pair<Channel, x::errors::Error> Client::create_virtual(
     const std::string &name,
-    const x::telem::DataType &data_type,
-    const bool is_virtual
+    const x::telem::DataType &data_type
 ) const {
     auto ch = Channel{
         .name = name,
         .data_type = data_type,
-        .is_virtual = is_virtual,
+        .is_virtual = true,
     };
     auto err = create(ch);
     return {ch, err};
