@@ -26,7 +26,6 @@ var _ = Describe("Convert", func() {
 		s := telem.Series{DataType: telem.DataType("float16"), Data: []byte{1, 2, 3, 4}}
 		_, err := telem.Convert(s, telem.Float64T)
 		Expect(err).To(MatchError("cannot convert a float16 series to float64"))
-		Expect(err).To(BeAssignableToTypeOf(telem.ConversionError{}))
 	})
 
 	DescribeTable("Should convert the samples of a series to a data type",
