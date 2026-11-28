@@ -127,16 +127,21 @@ func (e *engine) free() []state.Dead {
 	return free
 }
 
-// waitUnlinked returns once no unlink of a segment of key is in flight.
-func (e *engine) waitUnlinked(key ChannelKey) {
+// waitUnlinks returns once busy, which runs under the lock of cover, reports no unlink
+// in flight, or with the error of ctx.
+func (e *engine) waitUnlinks(ctx context.Context, busy func() bool) error {
 	for {
 		e.cover.Lock()
-		n, unlinked := e.cover.unlinking[key], e.cover.unlinked
+		b, unlinked := busy(), e.cover.unlinked
 		e.cover.Unlock()
-		if n == 0 {
-			return
+		if !b {
+			return nil
 		}
-		<-unlinked
+		select {
+		case <-unlinked:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 

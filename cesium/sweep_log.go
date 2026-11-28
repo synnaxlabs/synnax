@@ -99,7 +99,11 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 // for the unlinks of the key in flight. A segment that a read may still use keeps its
 // file and the directory, which a later Sweep removes.
 func (db *DB) removeLogDir(key ChannelKey) error {
-	db.engine.waitUnlinked(key)
+	if err := db.engine.waitUnlinks(context.Background(), func() bool {
+		return db.engine.cover.unlinking[key] > 0
+	}); err != nil {
+		return err
+	}
 	dir := keyToDirName(key)
 	infos, err := db.fs.List(dir)
 	if errors.Is(err, os.ErrNotExist) {

@@ -431,13 +431,17 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 	return e.state.Replay(sequence, records)
 }
 
-// close closes the owners once.
+// close closes the owners once, and then waits for the unlinks in flight, so no file
+// goes after it returns.
 func (e *engine) close() error {
 	e.shutdown.Do(func() {
 		e.closeErr = errors.Join(
 			e.log.Close(),
 			e.ckpt.Close(),
 			e.state.Close(),
+			e.waitUnlinks(context.Background(), func() bool {
+				return len(e.cover.unlinking) > 0
+			}),
 			e.closeAllHandles(),
 		)
 	})
