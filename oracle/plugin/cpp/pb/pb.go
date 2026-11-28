@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
@@ -1775,6 +1776,9 @@ func (p *Plugin) generateMapConversion(
 		return forward, backward
 	}
 	keyRef := field.Type.TypeArgs[0]
+	if members, ok := stringEnumMembers(keyRef, data); ok {
+		return forward, checkMapKey(backward, members)
+	}
 	if _, ref, ok := resolution.Dealias(keyRef, data.table); ok {
 		keyRef = ref
 	}
@@ -1792,12 +1796,50 @@ func narrowMapKey(backward, keyType string) string {
 	check := fmt.Sprintf(`
         auto [key, key_err] = x::pb::narrow<%s>(k);
         if (key_err) return {{}, key_err};`, keyType)
-	if head, body, ok := strings.Cut(backward, ") {"); ok {
-		backward = head + ") {" + check + body
-	} else if head, body, ok := strings.Cut(backward, ") cpp."); ok {
-		backward = head + ") {" + check + "\n        cpp." + body + "\n    }"
+	return strings.ReplaceAll(prependToMapLoop(backward, check), "[k] = ", "[key] = ")
+}
+
+// checkMapKey rewrites a map's backward loop so that it returns a validation error for
+// a protobuf key that names no member of the string enum with the given values.
+func checkMapKey(backward string, members []string) string {
+	quoted := make([]string, len(members))
+	for i, m := range members {
+		quoted[i] = strconv.Quote(m)
 	}
-	return strings.ReplaceAll(backward, "[k] = ", "[key] = ")
+	check := fmt.Sprintf(`
+        if (auto key_err = x::pb::member(k, {%s}); key_err) return {{}, key_err};`,
+		strings.Join(quoted, ", "),
+	)
+	return prependToMapLoop(backward, check)
+}
+
+// prependToMapLoop inserts check at the start of the body of a map's backward loop.
+func prependToMapLoop(backward, check string) string {
+	if head, body, ok := strings.Cut(backward, ") {"); ok {
+		return head + ") {" + check + body
+	}
+	if head, body, ok := strings.Cut(backward, ") cpp."); ok {
+		return head + ") {" + check + "\n        cpp." + body + "\n    }"
+	}
+	return backward
+}
+
+// stringEnumMembers returns the values of the members of the string enum that ref
+// resolves to. ok is false when ref is not a string enum.
+func stringEnumMembers(ref resolution.TypeRef, data *templateData) ([]string, bool) {
+	resolved, _, ok := resolution.Dealias(ref, data.table)
+	if !ok {
+		return nil, false
+	}
+	form, isEnum := resolved.Form.(resolution.EnumForm)
+	if !isEnum || form.IsIntEnum {
+		return nil, false
+	}
+	members := make([]string, len(form.Values))
+	for i, v := range form.Values {
+		members[i] = v.StringValue()
+	}
+	return members, true
 }
 
 func (p *Plugin) generateMapLoops(
