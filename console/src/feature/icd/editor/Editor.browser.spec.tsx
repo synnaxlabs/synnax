@@ -24,12 +24,13 @@ import { userEvent } from "vitest/browser";
 
 import { ICD } from "@/feature/icd";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
-import { focusedIn } from "@/platform/icd/testutil";
+import { createdIn, focusedIn } from "@/platform/icd/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
   fakePickedFile,
+  getBySelector,
   interceptFilePicker,
   renderSuspended,
 } from "@/testutil";
@@ -57,9 +58,11 @@ const renderEditor = async (
   as: Synnax = client,
   selected: icd.MessageKey[] = [],
   focused?: icd.FieldKey,
+  created = false,
 ) => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
   store.dispatch(Session.ICD.setSelected({ key: ic.key, selected, focused }));
+  if (created) store.dispatch(Session.ICD.setCreated({ key: ic.key, created }));
   const { panelKey, tabKey } = await createResourceTab(client, icd.resourceID(ic.key));
   await primePanel(wrapper, panelKey);
   const ui = (
@@ -264,16 +267,90 @@ const paste = (target: HTMLElement, text: string): void => {
   fireEvent(target, new ClipboardEvent("paste", { clipboardData, bubbles: true }));
 };
 
+/** Expects the focused input to hold value, all of it selected. */
+const expectFocusedAndSelected = async (value: string): Promise<void> => {
+  await waitFor(() =>
+    expect((document.activeElement as HTMLInputElement | null)?.value).toBe(value),
+  );
+  const input = document.activeElement as HTMLInputElement;
+  expect(input.selectionStart).toBe(0);
+  expect(input.selectionEnd).toBe(value.length);
+};
+
 describe("ICD editor", () => {
-  it("should add a message with a unique name", async () => {
+  it("should add a message with a unique name, its name focused and selected", async () => {
     const ic = await createICD([createMessage([], "Message 1")]);
     await renderEditor(ic);
     await findMessageItem("Message 1");
     fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
     await findMessageItem("Message 2");
+    await expectFocusedAndSelected("Message 2");
     await waitFor(async () =>
       expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
     );
+  });
+
+  it("should leave the name of an added message unfocused when it is selected again", async () => {
+    const ic = await createICD([createMessage([], "Message 1")]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+    await expectFocusedAndSelected("Message 2");
+    fireEvent.click(await findMessageItem("Message 1"));
+    await screen.findByDisplayValue("Message 1");
+    fireEvent.click(await findMessageItem("Message 2"));
+    await screen.findByDisplayValue("Message 2");
+    expect((document.activeElement as HTMLInputElement | null)?.value).not.toBe(
+      "Message 2",
+    );
+  });
+
+  it("should add a message from the empty pane", async () => {
+    const ic = await createICD([]);
+    await renderEditor(ic);
+    const details = getBySelector<HTMLElement>(document, ".console-panes__details");
+    fireEvent.click(
+      await within(details).findByRole("button", { name: "Add message" }),
+    );
+    await findMessageItem("Message 1");
+    await expectFocusedAndSelected("Message 1");
+  });
+
+  it("should offer no add in the empty pane of a viewer", async () => {
+    const ic = await createICD([]);
+    await renderEditor(ic, await createTestClientWithRole(client, "Viewer"));
+    const details = await waitFor(() =>
+      getBySelector<HTMLElement>(document, ".console-panes__details"),
+    );
+    await within(details).findByText("No message selected");
+    expect(within(details).queryByRole("button", { name: "Add message" })).toBeNull();
+  });
+
+  it("should focus and select the name of an ICD it just created, then clear the mark", async () => {
+    const ic = await createICD([]);
+    const { store } = await renderEditor(ic, client, [], undefined, true);
+    await expectFocusedAndSelected(ic.name);
+    await waitFor(() => expect(createdIn(store, ic.key)).toBe(false));
+  });
+
+  it("should focus the name of an ICD it just created once its hidden tab shows", async () => {
+    const ic = await createICD([]);
+    const { store, host } = await renderEditor(ic);
+    await host(false);
+    act(() => {
+      store.dispatch(Session.ICD.setCreated({ key: ic.key, created: true }));
+    });
+    await act(async () => {});
+    expect(createdIn(store, ic.key)).toBe(true);
+    await host(true);
+    await expectFocusedAndSelected(ic.name);
+    expect(createdIn(store, ic.key)).toBe(false);
+  });
+
+  it("should leave the name of an existing ICD unfocused", async () => {
+    const ic = await createICD([]);
+    await renderEditor(ic);
+    await screen.findByDisplayValue(ic.name);
+    expect(document.activeElement).not.toBe(screen.getByDisplayValue(ic.name));
   });
 
   describe("at a field that a task names", () => {

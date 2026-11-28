@@ -91,6 +91,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/lifetime"
@@ -373,6 +374,7 @@ func (l *Layer) Run(ctx context.Context) error {
 	g.Go(func() error { return l.License.Run(ctx) })
 	g.Go(func() error { return l.Certificate.Run(ctx) })
 	g.Go(func() error { return l.Rack.Run(ctx) })
+	g.Go(func() error { return l.Metrics.Run(ctx) })
 	return g.Wait()
 }
 
@@ -992,6 +994,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			opcua.PasswordReference(l.Secret),
 			opcua.CertificateReference(l.Certificate),
 		},
+		Properties: map[string]func(msgpack.EncodedJSON) error{
+			serial.Make: device.CheckProperties[serial.Properties](),
+			tcp.Make:    device.CheckProperties[tcp.Properties](),
+			udp.Make:    device.CheckProperties[udp.Properties](),
+		},
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
@@ -1264,6 +1271,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.HTTP.ICDMigration(taskNames(l.Task)),
 			l.HTTP.WriteICDMigration(taskNames(l.Task)),
 			l.MQTT.ICDMigration(taskNames(l.Task)),
+			l.Channel.UntypedDeleteMigration(),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
 			clearUnissuedChannelLinks(

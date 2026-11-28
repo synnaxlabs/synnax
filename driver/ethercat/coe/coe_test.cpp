@@ -180,7 +180,7 @@ TEST(ReadLayoutTest, FailsWithTheAbortReasonOfARefusedRead) {
     );
     ASSERT_OCCURRED_AS_P(res, errors::SDO_READ_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "failed to read 0x1A00:03: Unsupported access to an object"
     );
 }
@@ -194,7 +194,7 @@ TEST(ReadLayoutTest, FailsOnAnAssignedPDOThatIsMissing) {
     );
     ASSERT_OCCURRED_AS_P(res, OBJECT_MISSING);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "failed to read 0x1A00:00: Object does not exist in the object dictionary"
     );
 }
@@ -209,7 +209,7 @@ TEST(ReadLayoutTest, SkipsASyncManagerWhoseTypeReadFails) {
     );
     ASSERT_OCCURRED_AS_P(res, errors::SDO_READ_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "failed to read 0x1C00:04: Unsupported access to an object"
     );
     ASSERT_EQ(res.first.size(), 1);
@@ -255,7 +255,7 @@ TEST(ReadLayoutTest, ReadsACountAboveTheMaximumAsTheMaximum) {
     );
     ASSERT_OCCURRED_AS_P(res, errors::PDO_DISCOVERY_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "0x1C13:00 counts 300 entries, above the maximum of 254"
     );
     ASSERT_EQ(res.first.size(), 2);
@@ -272,7 +272,7 @@ TEST(ReadLayoutTest, FailsOnAPDOThatCountsTooManyObjects) {
     );
     ASSERT_OCCURRED_AS_P(res, errors::PDO_DISCOVERY_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "0x1A00:00 counts 4294967295 entries, above the maximum of 254"
     );
 }
@@ -342,7 +342,7 @@ TEST(ReadLayoutTest, FailsOnTooManyAssignedPDOs) {
     );
     ASSERT_OCCURRED_AS_P(res, errors::PDO_DISCOVERY_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "0x1C13:00 counts 255 entries, above the maximum of 254"
     );
 }
@@ -439,7 +439,7 @@ TEST(ReadErrorTest, ReportsNoReply) {
     const auto err = read_error(0x1C00, 0, errors::SDOFailure{});
     ASSERT_OCCURRED_AS(err, NO_REPLY);
     EXPECT_FALSE(err.matches(OBJECT_MISSING));
-    EXPECT_EQ(err.data, "failed to read 0x1C00:00: no response");
+    EXPECT_EQ(err.data(), "failed to read 0x1C00:00: no response");
 }
 
 /// @brief it should report a read with abort code 0 as a read error, not as no reply,
@@ -449,7 +449,7 @@ TEST(ReadErrorTest, ReportsAbortCodeZeroAsAReadError) {
     ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
     EXPECT_FALSE(err.matches(NO_REPLY));
     EXPECT_FALSE(err.matches(OBJECT_MISSING));
-    EXPECT_EQ(err.data, "failed to read 0x1C00:00: no response");
+    EXPECT_EQ(err.data(), "failed to read 0x1C00:00: no response");
 }
 
 /// @brief it should report a sub-index that the object does not have as a missing
@@ -458,7 +458,7 @@ TEST(ReadErrorTest, ReportsAMissingSubIndex) {
     const auto err = read_error(0x8040, 28, 0x06090011);
     ASSERT_OCCURRED_AS(err, SUBINDEX_MISSING);
     EXPECT_FALSE(err.matches(OBJECT_MISSING));
-    EXPECT_EQ(err.data, "failed to read 0x8040:1C: Subindex does not exist");
+    EXPECT_EQ(err.data(), "failed to read 0x8040:1C: Subindex does not exist");
 }
 
 /// @brief it should report a reply that was not the SDO response as a read error, not
@@ -472,7 +472,7 @@ TEST(ReadErrorTest, ReportsAnUnexpectedReplyAsAReadError) {
     ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
     EXPECT_FALSE(err.matches(NO_REPLY));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read 0x8040:1C: the module sent an unexpected reply"
     );
 }

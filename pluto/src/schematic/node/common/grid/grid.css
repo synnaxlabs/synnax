@@ -116,6 +116,18 @@
         width: 3.5rem;
         height: 3.5rem;
     }
+
+    /* A label often runs wider than its node, so the rotate button takes a corner away
+       from it. */
+    &:has(> .lyra--location-top .pluto-symbol__label) > .pluto-grid__rotate {
+        top: auto;
+        bottom: -5rem;
+    }
+
+    &:has(> .lyra--location-left .pluto-symbol__label) > .pluto-grid__rotate {
+        left: auto;
+        right: -5rem;
+    }
 }
 
 .pluto-diagram.lyra--editable {

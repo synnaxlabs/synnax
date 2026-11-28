@@ -85,13 +85,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
           </Tag.Tags>
         )}
         <Text.Text x>
-          <Telem.Text.TimeSpanSince
-            el="span"
-            level="p"
-            color="gray"
-            format="semantic"
-            variant="code"
-          >
+          <Telem.Text.TimeSpanSince el="span" level="p" color="gray" format="semantic">
             {time}
           </Telem.Text.TimeSpanSince>
           <Icon.Time color={9} />

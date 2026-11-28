@@ -153,7 +153,11 @@ func newDeviceRefs() deviceRefs {
 					}
 					return []string{d.Parent}
 				},
-				Retarget: func(d *refDevice, _, to string) { d.Parent = to },
+				Retarget: func(d *refDevice, to map[string]string) {
+					if t, ok := to[d.Parent]; ok {
+						d.Parent = t
+					}
+				},
 			},
 		),
 		labels: gorp.NewKeyReference(
@@ -182,17 +186,13 @@ func newDeviceRefs() deviceRefs {
 						},
 					)
 				},
-				Retarget: func(d *refDevice, from, to string) {
-					held := slices.Contains(d.Labels, to)
-					d.Labels = slices.DeleteFunc(
+				Retarget: func(d *refDevice, to map[string]string) {
+					d.Labels = gorp.RetargetEach(
 						slices.Clone(d.Labels),
-						func(v string) bool { return held && v == from },
+						to,
+						func(v string) string { return v },
+						func(v *string, t string) { *v = t },
 					)
-					for i, v := range d.Labels {
-						if v == from {
-							d.Labels[i] = to
-						}
-					}
 				},
 			},
 		),
@@ -216,8 +216,13 @@ func newOwnerRef() *gorp.TargetReference[string, refStatus] {
 			}
 			return []gorp.Target{{Table: s.Owner.Table, Key: s.Owner.Key}}
 		},
-		Retarget: func(s *refStatus, _, to gorp.Target) {
-			s.Owner = &refOwner{Table: to.Table, Key: to.Key}
+		Retarget: func(s *refStatus, to map[gorp.Target]gorp.Target) {
+			if s.Owner == nil {
+				return
+			}
+			if t, ok := to[gorp.Target{Table: s.Owner.Table, Key: s.Owner.Key}]; ok {
+				s.Owner = &refOwner{Table: t.Table, Key: t.Key}
+			}
 		},
 	})
 }
@@ -1493,7 +1498,8 @@ var _ = Describe("Reference", func() {
 				createLabels(ctx, "l1", "l2", "l3")
 				createLabeled(ctx, "a", "l1", "l3")
 				createLabeled(ctx, "b", "l1")
-				Expect(labels.Retarget(ctx, db, "l1", "l2")).To(Succeed())
+				Expect(labels.Retarget(ctx, db, map[string]string{"l1": "l2"})).
+					To(Succeed())
 				Expect(retrieveDevice(ctx, "a").Labels).To(Equal([]string{"l2", "l3"}))
 				Expect(retrieveDevice(ctx, "b").Labels).To(Equal([]string{"l2"}))
 				Expect(deviceRef.labels.Get(ctx, nil, "l1")).To(BeEmpty())
@@ -1501,13 +1507,49 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
+		It("Should swap the holders of two targets in one retarget", func(
+			ctx SpecContext,
+		) {
+			createLabels(ctx, "l1", "l2")
+			createLabeled(ctx, "a", "l1")
+			createLabeled(ctx, "b", "l2")
+			createLabeled(ctx, "c", "l1", "l2")
+			Expect(labels.Retarget(ctx, db, map[string]string{"l1": "l2", "l2": "l1"})).
+				To(Succeed())
+			Expect(retrieveDevice(ctx, "a").Labels).To(Equal([]string{"l2"}))
+			Expect(retrieveDevice(ctx, "b").Labels).To(Equal([]string{"l1"}))
+			Expect(retrieveDevice(ctx, "c").Labels).To(Equal([]string{"l2", "l1"}))
+			Expect(deviceRef.labels.Get(ctx, nil, "l1")).To(ConsistOf("b", "c"))
+			Expect(deviceRef.labels.Get(ctx, nil, "l2")).To(ConsistOf("a", "c"))
+		})
+
+		It("Should swap the holders of two entries of a single target field", func(
+			ctx SpecContext,
+		) {
+			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 1})).To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "c", Rack: 1, Parent: "a"})).
+				To(Succeed())
+			Expect(createDevice(ctx, refDevice{Key: "d", Rack: 1, Parent: "b"})).
+				To(Succeed())
+			Expect(devices.Retarget(ctx, db, map[string]string{"a": "b", "b": "a"})).
+				To(Succeed())
+			Expect(retrieveDevice(ctx, "c").Parent).To(Equal("b"))
+			Expect(retrieveDevice(ctx, "d").Parent).To(Equal("a"))
+		})
+
+		It("Should succeed with no moves", func(ctx SpecContext) {
+			Expect(labels.Retarget(ctx, db, nil)).To(Succeed())
+		})
+
 		It("Should leave the old target in place for the caller to delete", func(
 			ctx SpecContext,
 		) {
 			createLabels(ctx, "l1", "l2")
 			createLabeled(ctx, "a", "l1")
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				if err := labels.Retarget(ctx, tx, "l1", "l2"); err != nil {
+				moves := map[string]string{"l1": "l2"}
+				if err := labels.Retarget(ctx, tx, moves); err != nil {
 					return err
 				}
 				return labels.NewDelete().
@@ -1526,7 +1568,7 @@ var _ = Describe("Reference", func() {
 			Expect(statuses.NewCreate().
 				Entry(&refStatus{Key: "s", Owner: owner}).
 				Exec(ctx, db)).To(Succeed())
-			Expect(devices.Retarget(ctx, db, "a", "b")).To(Succeed())
+			Expect(devices.Retarget(ctx, db, map[string]string{"a": "b"})).To(Succeed())
 			var s refStatus
 			Expect(statuses.NewRetrieve().
 				Where(gorp.MatchKeys[string, refStatus]("s")).
@@ -1556,7 +1598,8 @@ var _ = Describe("Reference", func() {
 					return racks.NewCreate().Entry(&refRack{Key: 7}).Exec(ctx, tx)
 				}
 				tx := DeferClose(db.OpenTx())
-				Expect(labels.Retarget(ctx, tx, "l1", "l2")).To(Succeed())
+				Expect(labels.Retarget(ctx, tx, map[string]string{"l1": "l2"})).
+					To(Succeed())
 				written := refDevice{Key: "a", Rack: 1, Labels: []string{"l2"}}
 				Expect(rewritten).To(Equal([]refDevice{written}))
 				Expect(rackExists(ctx, 7)).To(BeFalse())
@@ -1581,7 +1624,9 @@ var _ = Describe("Reference", func() {
 			onRewrite = func(context.Context, gorp.Tx, refDevice) error {
 				return hookErr
 			}
-			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(MatchError(hookErr))
+			Expect(
+				labels.Retarget(ctx, db, map[string]string{"l1": "l2"}),
+			).To(MatchError(hookErr))
 			Expect(retrieveDevice(ctx, "a").Labels).To(Equal([]string{"l1"}))
 		})
 
@@ -1589,12 +1634,14 @@ var _ = Describe("Reference", func() {
 			ctx SpecContext,
 		) {
 			createLabels(ctx, "l1", "l2")
-			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(Succeed())
+			Expect(
+				labels.Retarget(ctx, db, map[string]string{"l1": "l2"}),
+			).To(Succeed())
 		})
 
 		It("Should refuse to retarget an entry to itself", func(ctx SpecContext) {
 			createLabels(ctx, "l1")
-			Expect(labels.Retarget(ctx, db, "l1", "l1")).To(And(
+			Expect(labels.Retarget(ctx, db, map[string]string{"l1": "l1"})).To(And(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("cannot retarget label l1 to itself")),
 			))
@@ -1603,7 +1650,7 @@ var _ = Describe("Reference", func() {
 		DescribeTable("Should fail when an entry does not exist",
 			func(ctx SpecContext, from, to, missing string) {
 				createLabels(ctx, "l1")
-				Expect(labels.Retarget(ctx, db, from, to)).To(And(
+				Expect(labels.Retarget(ctx, db, map[string]string{from: to})).To(And(
 					MatchError(query.ErrNotFound),
 					MatchError(ContainSubstring("label "+missing+" does not exist")),
 				))
@@ -1622,7 +1669,7 @@ var _ = Describe("Reference", func() {
 					Entry(&refStatus{Key: "s", Owner: owner}).
 					Exec(ctx, db)).To(Succeed())
 				Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
-				Expect(racks.Retarget(ctx, db, 1, 2)).To(And(
+				Expect(racks.Retarget(ctx, db, map[uint32]uint32{1: 2})).To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(
 						"cannot retarget rack 1 because device a references it "+
@@ -1634,6 +1681,37 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
+		DescribeTable("Should move the holders of a unique reference in one retarget",
+			func(ctx SpecContext, moves, owners map[string]string) {
+				for _, k := range []string{"a", "b", "c"} {
+					Expect(createDevice(ctx, refDevice{Key: k, Rack: 1})).To(Succeed())
+				}
+				Expect(statuses.NewCreate().Entries(&[]refStatus{
+					{Key: "s1", Owner: &refOwner{Table: "device", Key: "a"}},
+					{Key: "s2", Owner: &refOwner{Table: "device", Key: "b"}},
+				}).Exec(ctx, db)).To(Succeed())
+				Expect(devices.Retarget(ctx, db, moves)).To(Succeed())
+				for key, owner := range owners {
+					var s refStatus
+					Expect(statuses.NewRetrieve().
+						Where(gorp.MatchKeys[string, refStatus](key)).
+						Entry(&s).
+						Exec(ctx, db)).To(Succeed())
+					Expect(s.Owner).To(Equal(&refOwner{Table: "device", Key: owner}))
+				}
+			},
+			Entry(
+				"a swap",
+				map[string]string{"a": "b", "b": "a"},
+				map[string]string{"s1": "b", "s2": "a"},
+			),
+			Entry(
+				"a chain",
+				map[string]string{"a": "b", "b": "c"},
+				map[string]string{"s1": "b", "s2": "c"},
+			),
+		)
+
 		It("Should refuse a rewrite that breaks a unique reference", func(
 			ctx SpecContext,
 		) {
@@ -1643,7 +1721,7 @@ var _ = Describe("Reference", func() {
 				{Key: "s1", Owner: &refOwner{Table: "device", Key: "a"}},
 				{Key: "s2", Owner: &refOwner{Table: "device", Key: "b"}},
 			}).Exec(ctx, db)).To(Succeed())
-			Expect(devices.Retarget(ctx, db, "a", "b")).To(And(
+			Expect(devices.Retarget(ctx, db, map[string]string{"a": "b"})).To(And(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
 					"owner: status s2 already references device b",
@@ -1668,7 +1746,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(p *refPair) []uint32 {
 								return []uint32{p.Rack}
 							},
-							Retarget: func(p *refPair, _, to uint32) { p.Rack = to },
+							Retarget: func(p *refPair, to map[uint32]uint32) {
+								if t, ok := to[p.Rack]; ok {
+									p.Rack = t
+								}
+							},
 						},
 					),
 				},
@@ -1676,7 +1758,7 @@ var _ = Describe("Reference", func() {
 			Expect(pairs.NewCreate().
 				Entry(&refPair{Rack: 1, Name: "a"}).
 				Exec(ctx, db)).To(Succeed())
-			Expect(racks.Retarget(ctx, db, 1, 2)).To(And(
+			Expect(racks.Retarget(ctx, db, map[uint32]uint32{1: 2})).To(And(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
 					"cannot retarget rack 1 because the key of pair 1/a holds it",
@@ -1702,7 +1784,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(b *refBadge) []string {
 								return []string{b.Front}
 							},
-							Retarget: func(b *refBadge, _, to string) { b.Front = to },
+							Retarget: func(b *refBadge, to map[string]string) {
+								if t, ok := to[b.Front]; ok {
+									b.Front = t
+								}
+							},
 						},
 					),
 					gorp.NewKeyReference(
@@ -1714,7 +1800,11 @@ var _ = Describe("Reference", func() {
 							Targets: func(b *refBadge) []string {
 								return []string{b.Back}
 							},
-							Retarget: func(b *refBadge, _, to string) { b.Back = to },
+							Retarget: func(b *refBadge, to map[string]string) {
+								if t, ok := to[b.Back]; ok {
+									b.Back = t
+								}
+							},
 						},
 					),
 				},
@@ -1727,7 +1817,9 @@ var _ = Describe("Reference", func() {
 			Expect(badges.NewCreate().
 				Entry(&refBadge{Key: "a", Front: "l1", Back: "l1"}).
 				Exec(ctx, db)).To(Succeed())
-			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(Succeed())
+			Expect(
+				labels.Retarget(ctx, db, map[string]string{"l1": "l2"}),
+			).To(Succeed())
 			moved := refBadge{Key: "a", Front: "l2", Back: "l2"}
 			Expect(rewritten).To(Equal([]refBadge{moved}))
 			var b refBadge
@@ -1742,7 +1834,7 @@ var _ = Describe("Reference", func() {
 			Expect(createDevice(ctx, refDevice{Key: "a", Rack: 1})).To(Succeed())
 			Expect(createDevice(ctx, refDevice{Key: "b", Rack: 1, Parent: "a"})).
 				To(Succeed())
-			Expect(devices.Retarget(ctx, db, "a", "b")).To(And(
+			Expect(devices.Retarget(ctx, db, map[string]string{"a": "b"})).To(And(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("parent: device b would form a cycle")),
 			))
@@ -1757,7 +1849,7 @@ var _ = Describe("Reference", func() {
 			createLabels(ctx, "l1", "l2")
 			createLabeled(ctx, "a", "l1")
 			createLabeled(ctx, "b", "l1")
-			Expect(labels.Retarget(ctx, db, "l1", "l2")).To(And(
+			Expect(labels.Retarget(ctx, db, map[string]string{"l1": "l2"})).To(And(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
 					"retargeting label l1 would change more than 1 entries",
@@ -1865,7 +1957,7 @@ var _ = Describe("Reference", func() {
 			})
 
 			It("Should fail a retarget of a target", func(ctx SpecContext) {
-				Expect(racks.Retarget(ctx, db, 1, 2)).
+				Expect(racks.Retarget(ctx, db, map[uint32]uint32{1: 2})).
 					To(MatchError(gorp.ErrIndexInvalid))
 			})
 

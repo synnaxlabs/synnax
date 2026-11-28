@@ -67,9 +67,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Panel, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Panel, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Panel, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -84,9 +86,11 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
-			Retarget: func(e *Panel, from, to project.Key) {
-				if e.Project != nil && *e.Project == from {
-					*e.Project = to
+			Retarget: func(e *Panel, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						*e.Project = t
+					}
 				}
 			},
 		}),
@@ -101,9 +105,11 @@ func newIndexes() indexes {
 				}
 				return []user.Key{*e.Owner}
 			},
-			Retarget: func(e *Panel, from, to user.Key) {
-				if e.Owner != nil && *e.Owner == from {
-					*e.Owner = to
+			Retarget: func(e *Panel, to map[user.Key]user.Key) {
+				if e.Owner != nil {
+					if t, ok := to[*e.Owner]; ok {
+						*e.Owner = t
+					}
 				}
 			},
 		}),
@@ -129,12 +135,12 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Panel, from, to color.Key) {
+			Retarget: func(e *Panel, to map[color.Key]color.Key) {
 				if e.Color != nil {
 					switch v4 := e.Color.Variant.(type) {
 					case color.NamedRef:
-						if v4.Key == from {
-							v4.Key = to
+						if t, ok := to[v4.Key]; ok {
+							v4.Key = t
 						}
 						e.Color.Variant = v4
 					}

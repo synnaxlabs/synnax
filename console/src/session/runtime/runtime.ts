@@ -18,6 +18,9 @@ export const ENGINE: Engine = isTauri() ? "tauri" : "web";
 
 // The same as the main window's in tauri.conf.json.
 const TRAFFIC_LIGHT_POSITION = { x: 12, y: 23 };
+// The same as the main window's in tauri.conf.json. A suspended window stops its
+// streams and their stall detection until the user shows it again.
+const BACKGROUND_THROTTLING = "disabled";
 
 export interface CreateDriftProps extends Pick<TauriRuntimeProps, "beforeClose"> {}
 
@@ -28,6 +31,7 @@ export const createDrift = <S extends StoreState, A extends Action = UnknownActi
   ENGINE === "tauri"
     ? new TauriRuntime<S, A>({
         trafficLightPosition: TRAFFIC_LIGHT_POSITION,
+        backgroundThrottling: BACKGROUND_THROTTLING,
         beforeClose,
       })
     : new NoopRuntime<S, A>();

@@ -44,7 +44,7 @@ type indexedEntry struct {
 
 func (e indexedEntry) GorpKey() int32 { return e.ID }
 
-// relationEntry is a composite-string-keyed test entry. Its gorp key is the
+// relationEntry is a composite-string-keyed test entry. Its Gorp key is the
 // "<from>-><to>" string.
 type relationEntry struct {
 	From  string

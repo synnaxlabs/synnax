@@ -33,8 +33,8 @@ def get_machine_info() -> str:
             if "Apple" in cpu_info:
                 for chip in ("M1", "M2", "M3", "M4", "M5"):
                     if chip in cpu_info:
-                        return f"Apple Silicon {chip}"
-                return "Apple Silicon Mac"
+                        return f"Apple silicon {chip}"
+                return "Apple silicon Mac"
             return "Intel Mac"
         raise RuntimeError(
             f"Failed to get macOS CPU information: "

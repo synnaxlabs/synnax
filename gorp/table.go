@@ -22,7 +22,7 @@ import (
 
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[K Key, E Entry[K]] struct {
-	// DB is the gorp DB the Table is backed by.
+	// DB is the Gorp DB the Table is backed by.
 	DB *DB
 	// Migrations is the ordered set of versioned migrations to run before the Table is
 	// usable. Already-applied migrations are skipped.
@@ -59,9 +59,9 @@ type TableConfig[K Key, E Entry[K]] struct {
 
 // Table provides a strongly typed interface for a specific entry type within a Gorp DB.
 type Table[K Key, E Entry[K]] struct {
-	// db is the gorp DB the Table reads and writes through.
+	// db is the Gorp DB the Table reads and writes through.
 	db *DB
-	// keyPrefix is the gorp key prefix for entry type E.
+	// keyPrefix is the Gorp key prefix for entry type E.
 	keyPrefix []byte
 	// indexes is the set of secondary indexes registered on the Table, references
 	// included.

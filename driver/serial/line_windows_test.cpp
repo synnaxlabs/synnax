@@ -100,7 +100,7 @@ TEST(Line, RefusesOneAndAHalfStopBitsWithSixDataBits) {
     Settings s{};
     const auto err = apply(p, s);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "Windows needs 5 data bits for 1.5 stop bits");
+    EXPECT_EQ(err.data(), "Windows needs 5 data bits for 1.5 stop bits");
 }
 
 /// @brief it should apply 2 stop bits with 6 data bits.
@@ -121,7 +121,7 @@ TEST(Line, RefusesTwoStopBitsWithFiveDataBits) {
     Settings s{};
     const auto err = apply(p, s);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "Windows does not support 2 stop bits with 5 data bits");
+    EXPECT_EQ(err.data(), "Windows does not support 2 stop bits with 5 data bits");
 }
 
 /// @brief it should carry a baud rate outside the standard table.
