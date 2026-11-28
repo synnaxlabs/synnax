@@ -25,6 +25,22 @@ describe("issueMessage", () => {
     ]);
   });
 
+  it("should give the length of a string minimum above 1", () => {
+    expect(
+      messages(z.object({ password: z.string().min(8) }), { password: "abc" }),
+    ).toEqual(["password must be at least 8 characters long"]);
+  });
+
+  it("should give the length of a string maximum", () => {
+    expect(messages(z.object({ name: z.string().max(3) }), { name: "John" })).toEqual([
+      "name must be at most 3 characters long",
+    ]);
+  });
+
+  it("should call the field value when the path has no string key", () => {
+    expect(messages(z.string().min(1), "")).toEqual(["value is required"]);
+  });
+
   it("should word an inclusive lower bound", () => {
     expect(
       messages(z.object({ dataBits: z.number().min(5) }), { dataBits: 4 }),
