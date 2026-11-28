@@ -284,6 +284,9 @@ func (s *Service) retrieve(
 		req.Where = &where
 	}
 	if req.Strict {
+		if err := checkStrict(req); err != nil {
+			return nil, err
+		}
 		return s.lookUp(ctx, snap, req.Where)
 	}
 	q, err := ApplyRetrieve(
@@ -306,6 +309,29 @@ func (s *Service) retrieve(
 		}
 	}
 	return res, nil
+}
+
+// checkStrict returns a validation error when the strict retrieve req holds a search
+// term, an order, a cursor, or a limit, since a strict retrieve returns each channel
+// that it looks up.
+func checkStrict(req RetrieveRequest) error {
+	for _, f := range []struct {
+		path, name string
+		set        bool
+	}{
+		{"search_term", "search term", req.SearchTerm != ""},
+		{"order", "order", req.Order != nil},
+		{"after", "cursor", req.After != nil},
+		{"limit", "limit", req.Limit != nil},
+	} {
+		if f.set {
+			return validate.PathedError(
+				validate.Errorf("a strict retrieve takes no %s", f.name),
+				f.path,
+			)
+		}
+	}
+	return nil
 }
 
 // lookUp returns the channel at each key, name, and path of the strict where, as the
