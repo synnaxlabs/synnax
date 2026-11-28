@@ -16,14 +16,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -272,42 +273,57 @@ var _ = Describe("Metrics", func() {
 			Expect(svc.Close()).To(Succeed())
 		})
 
-		// D-242: an ambiguous input of a metrics calculation is a compile status, never
-		// a start failure.
-		It("Should open when it creates its calculated metric again and an input name "+
-			"is held in two folders (check)", func(ctx SpecContext) {
+		It("Should report one status while a calculated metric does not compile, and "+
+			"clear it once the metric compiles", func(ctx SpecContext) {
 			names := getNames(dist.Identity.HostKey)
 			Expect(open(ctx).Close()).To(Succeed())
 			ts := retrieve(ctx, names[4])
 			total := retrieve(ctx, names[3])
-			kept := MustSucceed(groupSvc.CreateOrRetrieve(
-				ctx, "Kept Size Group", resource.TypeChannel,
-			))
-			twin := channel.Channel{
-				Name:       UniqueChannelName(),
-				DataType:   telem.Float32T,
+			text := channel.Channel{
+				Name:       ts.Name,
+				DataType:   telem.StringT,
 				LocalIndex: ts.LocalIndex,
-				Group:      &kept.Key,
 			}
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &twin)
+				w := channelSvc.NewWriter(tx)
+				if err := w.Delete(ctx, ts.Key(), false); err != nil {
+					return err
+				}
+				if err := w.Delete(ctx, total.Key(), false); err != nil {
+					return err
+				}
+				return w.Create(ctx, &text)
 			})).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
+			deleteText := func(ctx SpecContext) {
+				GinkgoHelper()
 				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Delete(ctx, twin.Key(), false)
+					return channelSvc.NewWriter(tx).Delete(ctx, text.Key(), false)
 				})).To(Succeed())
-				// The next open creates the calculated metric again.
+			}
+			DeferCleanup(func(ctx SpecContext) {
+				deleteText(ctx)
 				Expect(open(ctx).Close()).To(Succeed())
 			})
-			// A v0.62 store can hold one name in two folders.
-			twin.Name = ts.Name
-			Expect(gorp.WrapWriter[channel.Key, channel.Channel](dist.DB).
-				Set(ctx, twin)).To(Succeed())
-			// The calculated metric is missing, as on a node that deleted it.
-			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Delete(ctx, total.Key(), false)
-			})).To(Succeed())
+			failures := func(ctx SpecContext) []status.Status[any] {
+				GinkgoHelper()
+				var all []status.Status[any]
+				Expect(statusSvc.NewRetrieve[any]().Entries(&all).Exec(ctx, dist.DB)).
+					To(Succeed())
+				return lo.Filter(all, func(s status.Status[any], _ int) bool {
+					return s.Message == "Failed to create calculated metrics"
+				})
+			}
 			Expect(open(ctx).Close()).To(Succeed())
+			Expect(open(ctx).Close()).To(Succeed())
+			st := failures(ctx)
+			Expect(st).To(HaveLen(1))
+			Expect(st[0].Variant).To(Equal(status.VariantError))
+			Expect(st[0].Description).To(ContainSubstring(
+				"type mismatch: cannot use str and f32 in + operation",
+			))
+			deleteText(ctx)
+			Expect(open(ctx).Close()).To(Succeed())
+			Expect(failures(ctx)).To(BeEmpty())
 		})
 	})
 	Describe("Run", func() {
