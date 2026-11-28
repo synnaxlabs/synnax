@@ -241,7 +241,8 @@ func renameStatuses(
 ) map[string]status.Status[any] {
 	GinkgoHelper()
 	isRename := func(_ gorp.Context, s *status.Status[any]) (bool, error) {
-		return s.Message == "Renamed channel" || s.Message == "Renamed folder", nil
+		return s.Message == "Renamed channel" || s.Message == "Renamed folder" ||
+			s.Message == "Kept an old channel name in text", nil
 	}
 	var statuses []status.Status[any]
 	Expect(gorp.NewRetrieve[status.Key, status.Status[any]]().

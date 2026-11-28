@@ -1,0 +1,644 @@
+[
+  {
+    "name": "a flow node",
+    "dashed": true,
+    "form": "calculation",
+    "text": "pt-01 -\u003e out{}",
+    "parsed": false,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 0,
+        "binding": "none",
+        "captured": false,
+        "kept": true
+      }
+    ],
+    "rewritten": "pt-01 -\u003e out{}"
+  },
+  {
+    "name": "an expression",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return pt-01 * 2",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 7,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "return pt_01 * 2"
+  },
+  {
+    "name": "an assignment target",
+    "dashed": true,
+    "form": "calculation",
+    "text": "pt-01 = 5",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 0,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "pt_01 = 5"
+  },
+  {
+    "name": "an authority entry",
+    "dashed": true,
+    "form": "calculation",
+    "text": "authority (valve-cmd 200)",
+    "parsed": false,
+    "references": null,
+    "rewritten": "authority (valve-cmd 200)"
+  },
+  {
+    "name": "a flow arrow after the name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "pt-01-\u003eout{}",
+    "parsed": false,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 0,
+        "binding": "none",
+        "captured": false,
+        "kept": true
+      }
+    ],
+    "rewritten": "pt-01-\u003eout{}"
+  },
+  {
+    "name": "a compound assignment after the name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "pt-01-=1",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 0,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "pt_01-=1"
+  },
+  {
+    "name": "each of several names",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := pt-01 + pt-01\nreturn x",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 5,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      },
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 13,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "x := pt_01 + pt_01\nreturn x"
+  },
+  {
+    "name": "a placeholder",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := f\"{pt-01}\"",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 8,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "x := f\"{pt_01}\""
+  },
+  {
+    "name": "a placeholder with a spec",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := f\"v={pt-01:.2f}\"",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 10,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "x := f\"v={pt_01:.2f}\""
+  },
+  {
+    "name": "a raw format string",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := rf\"{pt-01}\"",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 9,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "x := rf\"{pt_01}\""
+  },
+  {
+    "name": "a multi-line format string",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := f`{pt-01}\n`",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 8,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "x := f`{pt_01}\n`"
+  },
+  {
+    "name": "a placeholder after an escape",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := f\"\\\"{pt-01}\"",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 10,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "x := f\"\\\"{pt_01}\""
+  },
+  {
+    "name": "an escape inside a placeholder name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := f\"{pt\\u002d01}\"",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 8,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "x := f\"{pt_01}\""
+  },
+  {
+    "name": "a name after digits",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return 10pt-01",
+    "parsed": true,
+    "references": null,
+    "rewritten": "return 10pt-01"
+  },
+  {
+    "name": "a name after a not-equal",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return 1!=pt-01",
+    "parsed": true,
+    "references": [
+      {
+        "name": "pt-01",
+        "line": 1,
+        "column": 10,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "return 1!=pt_01"
+  },
+  {
+    "name": "a dashed name that no channel holds",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return pt-02 * 2",
+    "parsed": true,
+    "references": null,
+    "rewritten": "return pt-02 * 2"
+  },
+  {
+    "name": "a longer dashed name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return pt-01-b",
+    "parsed": true,
+    "references": null,
+    "rewritten": "return pt-01-b"
+  },
+  {
+    "name": "a subtraction with spaces",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return pt - 01",
+    "parsed": true,
+    "references": null,
+    "rewritten": "return pt - 01"
+  },
+  {
+    "name": "a line comment",
+    "dashed": true,
+    "form": "calculation",
+    "text": "// pt-01\nreturn 1",
+    "parsed": true,
+    "references": null,
+    "rewritten": "// pt-01\nreturn 1"
+  },
+  {
+    "name": "a block comment",
+    "dashed": true,
+    "form": "calculation",
+    "text": "/* pt-01 */ return 1",
+    "parsed": true,
+    "references": null,
+    "rewritten": "/* pt-01 */ return 1"
+  },
+  {
+    "name": "a string",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := \"pt-01\"",
+    "parsed": true,
+    "references": null,
+    "rewritten": "x := \"pt-01\""
+  },
+  {
+    "name": "escaped braces",
+    "dashed": true,
+    "form": "calculation",
+    "text": "x := f\"{{pt-01}}\"",
+    "parsed": true,
+    "references": null,
+    "rewritten": "x := f\"{{pt-01}}\""
+  },
+  {
+    "name": "a trailing comment that hides the brace",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return Metrics * 2 // x",
+    "parsed": false,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 7,
+        "binding": "none",
+        "captured": false,
+        "kept": true
+      }
+    ],
+    "rewritten": "return Metrics * 2 // x"
+  },
+  {
+    "name": "a bare name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return Metrics + 1",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 7,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "return Metrics_2 + 1"
+  },
+  {
+    "name": "a dash with dashed names off",
+    "dashed": false,
+    "form": "calculation",
+    "text": "return Metrics-1",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 7,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "return Metrics_2-1"
+  },
+  {
+    "name": "a local of the old name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "Metrics f64 := 1.0\nreturn Metrics * 2",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 2,
+        "column": 7,
+        "binding": "KindVariable",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "Metrics f64 := 1.0\nreturn Metrics * 2"
+  },
+  {
+    "name": "a local of the new name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "Metrics_2 f64 := 2.0\nreturn Metrics * Metrics_2",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 2,
+        "column": 7,
+        "binding": "KindChannel",
+        "captured": true,
+        "kept": true
+      }
+    ],
+    "rewritten": "Metrics_2 f64 := 2.0\nreturn Metrics * Metrics_2"
+  },
+  {
+    "name": "a read before a local of the old name",
+    "dashed": true,
+    "form": "calculation",
+    "text": "Metrics := Metrics * 2\nreturn Metrics",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 11,
+        "binding": "KindChannel",
+        "captured": true,
+        "kept": true
+      },
+      {
+        "name": "Metrics",
+        "line": 2,
+        "column": 7,
+        "binding": "KindVariable",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "Metrics := Metrics * 2\nreturn Metrics"
+  },
+  {
+    "name": "a function before a global of the old name",
+    "dashed": true,
+    "form": "program",
+    "text": "func f() f64 {\n\treturn Metrics\n}\nMetrics := 1.0",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 2,
+        "column": 8,
+        "binding": "KindChannel",
+        "captured": true,
+        "kept": true
+      }
+    ],
+    "rewritten": "func f() f64 {\n\treturn Metrics\n}\nMetrics := 1.0"
+  },
+  {
+    "name": "a qualified head",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return Metrics.x",
+    "parsed": true,
+    "references": null,
+    "rewritten": "return Metrics.x"
+  },
+  {
+    "name": "a qualified member",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return x.Metrics",
+    "parsed": true,
+    "references": null,
+    "rewritten": "return x.Metrics"
+  },
+  {
+    "name": "text that does not parse",
+    "dashed": true,
+    "form": "calculation",
+    "text": "return Metrics *",
+    "parsed": false,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 7,
+        "binding": "none",
+        "captured": false,
+        "kept": true
+      }
+    ],
+    "rewritten": "return Metrics *"
+  },
+  {
+    "name": "a graph body that reads its input of the old name",
+    "dashed": true,
+    "form": "body",
+    "text": "{ return Metrics * 2 }",
+    "inputs": ["Metrics"],
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 9,
+        "binding": "KindInput",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "{ return Metrics * 2 }"
+  },
+  {
+    "name": "a graph body that reads the channel",
+    "dashed": true,
+    "form": "body",
+    "text": "{ return Metrics * x }",
+    "inputs": ["x"],
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 9,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "{ return Metrics_2 * x }"
+  },
+  {
+    "name": "a graph body that names a module",
+    "dashed": true,
+    "form": "body",
+    "text": "{ return time }",
+    "parsed": true,
+    "references": [
+      {
+        "name": "time",
+        "line": 1,
+        "column": 9,
+        "binding": "KindModuleAlias",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "{ return time }"
+  },
+  {
+    "name": "a graph body that calls another function of its graph",
+    "dashed": true,
+    "form": "body",
+    "text": "{ return g() + Metrics }",
+    "functions": ["g", "f"],
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 15,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "{ return g() + Metrics_2 }"
+  },
+  {
+    "name": "a graph body with an input named like an earlier function",
+    "dashed": true,
+    "form": "body",
+    "text": "{ return Metrics }",
+    "inputs": ["Metrics"],
+    "functions": ["Metrics", "f"],
+    "parsed": false,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 1,
+        "column": 9,
+        "binding": "none",
+        "captured": false,
+        "kept": true
+      }
+    ],
+    "rewritten": "{ return Metrics }"
+  },
+  {
+    "name": "a function parameter of the old name",
+    "dashed": true,
+    "form": "program",
+    "text": "func scale(Metrics f64) f64 {\n\treturn Metrics * 2\n}",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 2,
+        "column": 8,
+        "binding": "KindInput",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "func scale(Metrics f64) f64 {\n\treturn Metrics * 2\n}"
+  },
+  {
+    "name": "a stage of the old name",
+    "dashed": true,
+    "form": "program",
+    "text": "sequence main {\n\tstage first {\n\t\t1 =\u003e Metrics\n\t}\n\tstage Metrics {\n\t}\n}",
+    "parsed": true,
+    "references": [
+      {
+        "name": "Metrics",
+        "line": 3,
+        "column": 7,
+        "binding": "KindStage",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "sequence main {\n\tstage first {\n\t\t1 =\u003e Metrics\n\t}\n\tstage Metrics {\n\t}\n}"
+  },
+  {
+    "name": "the flow of the v0 text export sample",
+    "dashed": true,
+    "form": "program",
+    "text": "sensor -\u003e scale{factor: 2.0} -\u003e out",
+    "parsed": true,
+    "references": [
+      {
+        "name": "sensor",
+        "line": 1,
+        "column": 0,
+        "binding": "KindChannel",
+        "captured": false,
+        "kept": false
+      }
+    ],
+    "rewritten": "sensor_2 -\u003e scale{factor: 2.0} -\u003e out"
+  }
+]
