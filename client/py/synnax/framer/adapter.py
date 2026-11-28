@@ -236,16 +236,16 @@ class WriteFrameAdapter:
             return ch
         if isinstance(ch, channel.Payload):
             return ch.key
-        key = None if self._adapter is None else self._adapter.get(ch)
-        if key is None and ch == "time":
+        if ch == "time":
             return _TIME
+        key = None if self._adapter is None else self._adapter.get(ch)
         return key if key is not None else self.retriever.retrieve_one(ch).key
 
     def _adapt_name(self, name: str) -> channel.Key:
-        if self._adapter is not None and name in self._adapter:
-            return self._adapter[name]
         if name == "time":
             return _TIME
+        if self._adapter is not None and name in self._adapter:
+            return self._adapter[name]
         raise KeyError(name)
 
     def adapt(
@@ -323,13 +323,14 @@ class WriteFrameAdapter:
                 continue
             if index not in self.clocks:
                 raise ValidationError(
-                    f"{ch.name} takes its time from the stamps that its index already "
-                    'stores, so the write cannot hold "time" for it'
+                    f'{ch.name} cannot take "time": its index already stores stamps '
+                    "from the writer's start, or the writer may not write its index"
                 )
             if index in frame.channels:
                 raise ValidationError(
-                    f'The write holds "time" and the index channel {index}, which '
-                    "both give the time of one group"
+                    'The write holds "time" and the index channel '
+                    f"{self._channels[index].name}, which both give the time of one "
+                    "group"
                 )
             s.clock = index
             if index not in placed:
