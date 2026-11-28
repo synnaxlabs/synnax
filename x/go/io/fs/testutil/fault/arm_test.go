@@ -81,6 +81,20 @@ var _ = Describe("Fill", func() {
 	})
 })
 
+var _ = Describe("Free", func() {
+	It("Should take a write past the room of a Fill again", func() {
+		disk := MustSucceed(fault.New(fault.Config{}))
+		f := MustSucceed(disk.Open("a", os.O_CREATE|os.O_RDWR))
+		disk.Fill(3)
+		n, err := f.Write([]byte("abcde"))
+		Expect(err).To(MatchError(syscall.ENOSPC))
+		Expect(n).To(Equal(3))
+		disk.Free()
+		Expect(f.Write(make([]byte, 1<<20))).To(Equal(1 << 20))
+		Expect(f.Close()).To(Succeed())
+	})
+})
+
 var _ = Describe("Unsynced", func() {
 	It("Should report a written block or a created entry until a sync makes it "+
 		"durable", func() {

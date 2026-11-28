@@ -211,6 +211,8 @@ var _ = Describe("Run", func() {
 		Entry("has no profile", "profile", func(cfg *crash.Config) { cfg.Profile = 0 }),
 		Entry("has an unknown profile", "profile",
 			func(cfg *crash.Config) { cfg.Profile = 10 }),
+		Entry("has one commit under Mixed", "must be at least 2 under Mixed",
+			func(cfg *crash.Config) { cfg.Profile = crash.Mixed }),
 	)
 
 	Describe("Audit", func() {
