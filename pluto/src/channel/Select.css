@@ -13,3 +13,23 @@
 .lyra-dialog__frame:has(> .lyra-dialog__trigger.pluto-channel__trigger) {
     --pluto-control-width: 64rem;
 }
+
+/* The folders follow the name and fade first when the row is narrow, so the name fades
+   last. */
+.pluto-channel__name {
+    min-width: 0;
+}
+
+.pluto-channel__folder {
+    min-width: 0;
+    flex-shrink: 1000;
+}
+
+/* The folders in a trigger take only the room that the name leaves, so a long folder
+   never widens the trigger. */
+.pluto-channel__trigger .lyra-select-single-trigger__end {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    contain: inline-size;
+}
