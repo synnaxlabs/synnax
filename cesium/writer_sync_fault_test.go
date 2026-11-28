@@ -23,6 +23,7 @@ import (
 	"github.com/samber/lo"
 	alamostestutil "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/log"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -54,6 +55,7 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 			"",
 			cesium.WithFS(syncFaultFS{FS: mem, faults: &faults}),
 			cesium.WithPointerLog(),
+			cesium.WithLogFileSize(telem.Size(log.MinFileSize)),
 			cesium.WithInstrumentation(ins),
 		))
 		var runCtx context.Context
