@@ -1,5 +1,5 @@
 {
-  "description": "A decode error names the message when the decoder holds more than one.",
+  "description": "A failed field names the message when the decoder holds more than one.",
   "messages": [
     {
       "name": "gga",
@@ -56,7 +56,14 @@
     {
       "text": "$GPRMC",
       "message": "rmc",
-      "error": "message rmc: field a: no value at position 1: validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "message rmc: field a: no value at position 1: validation error"
+        }
+      ]
     }
   ]
 }

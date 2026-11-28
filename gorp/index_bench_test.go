@@ -55,7 +55,7 @@ func makeIndexBenchEntries(n int) []indexBenchEntry {
 
 // indexSizes spans the range from "small enough to fit in cache" to "large
 // enough that scan vs index has a meaningful asymptotic gap". 100k is the
-// upper bound called out in the gorp index RFC.
+// upper bound called out in the Gorp index RFC.
 var indexSizes = []int{100, 1_000, 10_000, 100_000}
 
 // --- Lookup index ---

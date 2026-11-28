@@ -22,8 +22,8 @@ export interface ItemLabelProps extends Pick<Text.TextProps, "color" | "variant"
   children: ReactNode;
 }
 
-/* Colored kinds share a fixed column so every identity starts flush. */
-const KIND_STYLE = { width: "5ch", flexShrink: 0 };
+/* Colored kinds share a column that fits BINARY, the widest, so identities line up. */
+const KIND_STYLE = { width: "6ch", flexShrink: 0 };
 
 /**
  * Names a task item in a list row or a details header: a tag for its kind, then its

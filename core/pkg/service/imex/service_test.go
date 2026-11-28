@@ -74,7 +74,7 @@ var _ gorp.Entry[string] = testEntry{}
 func (e testEntry) GorpKey() string { return e.Key }
 
 // EncodeOrc implements orc.SelfEncoder so the entry can persist through the
-// production gorp codec, which requires it.
+// production Gorp codec, which requires it.
 func (e testEntry) EncodeOrc(w *orc.Writer) error {
 	w.String(e.Key)
 	w.String(e.Name)

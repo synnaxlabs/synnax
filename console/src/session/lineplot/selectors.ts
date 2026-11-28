@@ -11,6 +11,7 @@ import type { lineplot as client } from "@synnaxlabs/client";
 import { LinePlot, type Viewport } from "@synnaxlabs/pluto";
 import type { lineplot } from "@synnaxlabs/pluto/ether";
 import type { record } from "@synnaxlabs/x";
+import { useStore } from "react-redux";
 
 import {
   type ControlState,
@@ -106,3 +107,12 @@ const selectOpenBreaks = (params: KeyedSelectorParams): number[] =>
   selectState(params).breaks.open;
 
 export const useSelectOpenBreaks = createSelector(selectOpenBreaks);
+
+/**
+ * @returns a function that gives the line plot that plotting a set of tasks opens, from
+ * the sorted keys of the tasks joined with commas.
+ */
+export const useGetOfTasks = (): ((tasks: string) => client.Key | undefined) => {
+  const store = useStore<StoreState>();
+  return (tasks) => selectSliceState(store.getState()).tasks[tasks];
+};

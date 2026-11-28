@@ -117,24 +117,21 @@ x::errors::Error Text::Field::append_float(double v, x::telem::Series &dst) cons
     return write_float(v, this->narrow, dst);
 }
 
-x::errors::Error Text::Field::decode(
-    const std::vector<std::string_view> &items,
-    x::telem::Series &dst
-) const {
-    std::string_view value;
-    if (this->tagged) {
-        for (const auto item: items) {
-            const auto t = x::strings::trim(item);
-            const auto claimed = [&t](const std::string &l) {
-                return t.starts_with(l);
-            };
-            if (!t.starts_with(this->tag) || std::ranges::any_of(this->longer, claimed))
-                continue;
-            value = x::strings::trim(t.substr(this->tag.size()));
-            break;
-        }
-    } else if (this->position < items.size())
-        value = x::strings::trim(items[this->position]);
+std::string_view Text::Field::value(const std::vector<std::string_view> &items) const {
+    if (!this->tagged)
+        return this->position < items.size() ? x::strings::trim(items[this->position])
+                                             : std::string_view{};
+    for (const auto item: items) {
+        const auto t = x::strings::trim(item);
+        const auto claimed = [&t](const std::string &l) { return t.starts_with(l); };
+        if (t.starts_with(this->tag) && !std::ranges::any_of(this->longer, claimed))
+            return x::strings::trim(t.substr(this->tag.size()));
+    }
+    return {};
+}
+
+x::errors::Error
+Text::Field::decode(const std::string_view value, x::telem::Series &dst) const {
     if (value.empty()) {
         if (this->fallback.has_value()) {
             dst.write(*this->fallback);
@@ -199,6 +196,7 @@ Text::create(const std::vector<TextMessage> &messages) {
             msg.fields.push_back(std::move(field));
             msg.samples.emplace_back(b.data_type, 1);
         }
+        msg.failures.reserve(msg.fields.size());
         t.messages.push_back(std::move(msg));
         if (auto err = t.route(m.name, m.payload.prefix, i)) return {Text{}, err};
     }
@@ -231,16 +229,15 @@ Text::route(const std::string &name, const std::string &prefix, const std::size_
     return x::errors::NIL;
 }
 
-std::pair<std::optional<std::size_t>, x::errors::Error>
-Text::decode(const std::string_view line) {
-    if (x::strings::trim(line).empty()) return {std::nullopt, x::errors::NIL};
+std::optional<std::size_t> Text::decode(const std::string_view line) {
+    if (x::strings::trim(line).empty()) return std::nullopt;
     std::optional<std::size_t> found = this->fallback;
     for (const auto &p: this->prefixed)
         if (line.starts_with(p.prefix)) {
             found = p.message;
             break;
         }
-    if (!found.has_value()) return {std::nullopt, x::errors::NIL};
+    if (!found.has_value()) return std::nullopt;
     auto &m = this->messages[*found];
     this->items.clear();
     for (std::size_t start = 0;;) {
@@ -249,16 +246,20 @@ Text::decode(const std::string_view line) {
         if (end == std::string_view::npos) break;
         start = end + m.delimiter.size();
     }
+    m.failures.clear();
     for (std::size_t i = 0; i < m.fields.size(); i++) {
+        const auto &f = m.fields[i];
         auto &dst = m.samples[i];
         dst.clear();
-        if (auto err = m.fields[i].decode(this->items, dst)) {
-            err = err.wrap("field " + m.fields[i].name);
-            if (this->messages.size() > 1) err = err.wrap("message " + m.name);
-            return {found, err};
-        }
+        const auto value = f.value(this->items);
+        auto err = f.decode(value, dst);
+        if (!err) continue;
+        dst.clear();
+        err = err.wrap("field " + f.name);
+        if (this->messages.size() > 1) err = err.wrap("message " + m.name);
+        m.failures.push_back({.binding = i, .missing = value.empty(), .error = err});
     }
-    return {found, x::errors::NIL};
+    return found;
 }
 
 x::errors::Error TextEncoder::Field::append(

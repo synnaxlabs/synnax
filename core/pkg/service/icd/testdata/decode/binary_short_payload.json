@@ -1,5 +1,5 @@
 {
-  "description": "A payload too short for a field with no default fails after it matches its message.",
+  "description": "A field with no default that a payload is too short for fails, and the payload still matches its message.",
   "messages": [
     {
       "name": "frame",
@@ -32,7 +32,14 @@
     {
       "hex": "0102",
       "message": "frame",
-      "error": "field rpm: the payload has 2 bytes and the field needs 3: validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "field rpm: the payload has 2 bytes and the field needs 3: validation error"
+        }
+      ]
     }
   ]
 }

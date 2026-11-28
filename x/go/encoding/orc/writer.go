@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package orc implements the oracle binary encoding format. Oracle is the code
+// Package orc implements the Oracle binary encoding format. Oracle is the code
 // generation framework used by Synnax to produce high-performance binary codecs for Go
 // structs. The format is positional, untagged, and big-endian: fixed-size primitives
 // are written directly, while variable-length types (strings, byte slices, nested

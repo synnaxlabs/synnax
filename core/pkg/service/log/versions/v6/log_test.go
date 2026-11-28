@@ -141,7 +141,7 @@ var _ = Describe("Log", func() {
 		})
 
 		It("Should reject an empty name and an invalid timestamp precision", func() {
-			l := v6.Log{TimestampPrecision: 4}
+			l := v6.Log{TimestampPrecision: 10}
 			l = defaults.Fill(l)
 			Expect(l.Validate()).To(SatisfyAll(
 				MatchError(ContainSubstring("name")),

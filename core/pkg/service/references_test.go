@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -38,6 +39,9 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("References", Ordered, func() {
@@ -110,6 +114,32 @@ var _ = Describe("References", Ordered, func() {
 				}),
 			)
 		})
+
+		It("Should keep and log a channel with no data type that a task config names",
+			func(ctx SpecContext) {
+				ch.DataType = telem.UnknownT
+				Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, ch)).
+					To(Succeed())
+				core, logs := observer.New(zapcore.WarnLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				ins := alamos.New("test", alamos.WithLogger(logger))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return layer.Channel.UntypedDeleteMigration().Run(ctx, tx, ins)
+				})).To(Succeed())
+				Expect(layer.Channel.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Exists(ctx, db)).To(BeTrue())
+				kept := logs.FilterMessage(
+					"kept a channel with no data type that another entry references",
+				).All()
+				Expect(kept).To(HaveLen(1))
+				Expect(kept[0].ContextMap()).To(HaveKeyWithValue(
+					"holder", "modbus_read_config "+tsk.Key.String(),
+				))
+			},
+		)
 
 		It("Should refuse deleting a device that a task config names", func(
 			ctx SpecContext,

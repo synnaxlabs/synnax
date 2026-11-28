@@ -31,17 +31,38 @@
     {
       "text": "nan",
       "message": "line",
-      "error": "field a: invalid number \"nan\": validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field a: invalid number \"nan\": validation error"
+        }
+      ]
     },
     {
       "text": "0x10",
       "message": "line",
-      "error": "field a: invalid number \"0x10\": validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field a: invalid number \"0x10\": validation error"
+        }
+      ]
     },
     {
       "text": "1e999",
       "message": "line",
-      "error": "field a: invalid number \"1e999\": validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field a: invalid number \"1e999\": validation error"
+        }
+      ]
     }
   ]
 }
