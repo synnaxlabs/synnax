@@ -61,6 +61,7 @@ TEST(ParseTimeFormat, EmptyString) {
     );
 }
 
+/// @brief it should reject a timestamp value with an unknown time format.
 TEST(ToSampleValue, RejectsUnknownTimeFormatForTimestamp) {
     ASSERT_OCCURRED_AS_P(
         x::json::to_sample_value(json(1), x::telem::TIMESTAMP_T, "unix_min"),
@@ -68,6 +69,7 @@ TEST(ToSampleValue, RejectsUnknownTimeFormatForTimestamp) {
     );
 }
 
+/// @brief it should ignore the time format of a data type that is not a timestamp.
 TEST(ToSampleValue, IgnoresTimeFormatForNumber) {
     const auto sv = ASSERT_NIL_P(
         x::json::to_sample_value(json(1), x::telem::INT64_T, "unix_min")
