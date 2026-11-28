@@ -62,13 +62,13 @@ class CustomSymbol(Symbol):
         *,
         channel_name: str | None = None,
     ) -> None:
-        """Bind the symbol's Active state to a channel for actuator control.
+        """Bind the symbol's state to a channel for actuator control.
 
         :param channel_name: Command channel name for actuator control (also used as
             state)
         """
         if channel_name is not None:
-            self.bind_state("Active", channel=channel_name, command=channel_name)
+            self.bind_state(channel=channel_name, command=channel_name)
 
     def press(self) -> None:
         """Press the custom symbol to actuate it."""

@@ -15,7 +15,10 @@ import {
   type Synnax,
   task,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -41,6 +44,9 @@ import {
   type CommandAnswer,
   countFailedSaves,
   deployAndAwaitTask,
+  findDetailsButton,
+  findDetailsPane,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -53,7 +59,7 @@ preloadForms(Kafka.Task.FORMS);
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<Kafka.Task.WriteSchemas> = {
-  name: Kafka.Task.DEFAULT_WRITE_NAME,
+  name: "Kafka write task",
   type: Kafka.Task.WRITE_TYPE,
   config: Kafka.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -142,7 +148,7 @@ const MISSING: kafka.SampledTopic = {
 /** @returns a shape of count records that hold the fields, sent by the keys. */
 const createShape = (sources: string[], count: number, ...pointers: string[]) => ({
   sources,
-  fields: pointers.map((p) => createInferredField(p, "float64", "number")),
+  fields: pointers.map((p) => createInferredField(p, "float", "number")),
   index: -1,
   count,
   present: -1,
@@ -164,7 +170,7 @@ const answerScan = async (
  * @returns queries scoped to the dialog.
  */
 const clickAddTargets = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
+  fireEvent.click(await findListButton("Add targets"));
   return within(await screen.findByRole("dialog"));
 };
 
@@ -199,11 +205,24 @@ describe("Kafka Write form", () => {
   // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
     const { dev, draft } = await renderWrite();
-    await screen.findByText("Add a target to send records to a topic");
+    await screen.findByText("No target selected");
     await addSampledTarget(dev, draft.key, [createShape(["pump-1"], 2, "/speed")]);
     await screen.findByText("Produce");
     expect(screen.getByDisplayValue(TOPIC)).toBeTruthy();
   }, 30_000);
+
+  it("should open Add targets from the empty details pane", async () => {
+    await renderWrite();
+    fireEvent.click(await findDetailsButton("Add targets"));
+    await screen.findByRole("dialog");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderWrite([], { as: await createTestClientWithRole(client, "Viewer") });
+    const details = await findDetailsPane();
+    await within(details).findByText("No target selected");
+    expect(within(details).queryByRole("button", { name: "Add targets" })).toBeNull();
+  });
 
   it("should send the shape of the most records, in a message named after the topic", async () => {
     let statuses: Status.NotificationSpec[] = [];
@@ -216,7 +235,7 @@ describe("Kafka Write form", () => {
     ]);
     expect(target).toMatchObject({ topic: TOPIC, recordKey: "pump-2" });
     const [ic] = await client.icds.retrieve([target.icd]);
-    expect(ic.name).toBe(Kafka.Task.DEFAULT_WRITE_NAME);
+    expect(ic.name).toBe(dev.name);
     expect(ic.messages).toMatchObject([
       {
         key: target.message.message,
@@ -275,6 +294,35 @@ describe("Kafka Write form", () => {
     await waitFor(async () =>
       expect(await retrieveTargets(draft.key)).toMatchObject([{ topic: TOPIC }]),
     );
+  });
+
+  it("should keep a string field with enum labels a string, in the preview and the target", async () => {
+    const { dev, draft } = await renderWrite();
+    const mode = {
+      ...createInferredField("/mode", "string", "string"),
+      enum: ["auto", "manual"],
+    };
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: {
+        data: sampleOfTopic(TOPIC, { ...createShape(["pump-1"], 2), fields: [mode] }),
+      },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    await dialog.findByText("/mode");
+    dialog.getByText("string");
+    expect(dialog.queryByText("int64")).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+    await waitFor(async () => {
+      const [target] = await retrieveTargets(draft.key);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      const message = ic.messages.find(({ key }) => key === target.message.message);
+      expect(ICD.jsonFields(message)).toMatchObject([
+        { pointer: "/mode", type: "string", enumValues: [] },
+      ]);
+    });
   });
 
   it("should add a target with an empty message for a topic that holds no records", async () => {
@@ -346,7 +394,7 @@ describe("Kafka Write form", () => {
       sample: failed,
     });
     const dialog = await clickAddTargets();
-    await dialog.findByText("Failed to list topics");
+    await dialog.findByText(/Failed to reach the cluster/);
     fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });
@@ -498,10 +546,27 @@ describe("Kafka Write form", () => {
     dialog.getByText("2 topics");
   });
 
+  it("should show the format of the message of a target in the tree and its pane", async () => {
+    const { ic, message, target } = await createTarget([]);
+    await renderWrite([target]);
+    await screen.findByRole("treeitem", { name: /JSON.*No key/ });
+    await client.icds.dispatch(
+      ic.key,
+      icd.set({
+        path: ["messages", message.key, "payload"],
+        value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+      }),
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /TEXT.*No key/ }));
+    await waitFor(() => expect(screen.getAllByText("TEXT")).toHaveLength(2));
+  });
+
   it("should show one Message section for a target whose message has no fields", async () => {
     const { target } = await createTarget([]);
     await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
+    const item = await screen.findByRole("treeitem", { name: /JSON.*No key/ });
+    within(item).getByRole("img", { name: "Message has no fields" });
+    fireEvent.click(item);
     await screen.findByText("Message has no fields");
     expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
   });

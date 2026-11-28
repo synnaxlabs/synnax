@@ -105,6 +105,28 @@ func readMessage(m icd.Message, bindings ...map[string]any) map[string]any {
 	return map[string]any{"message": m.Key, "bindings": list}
 }
 
+// lineMessage returns a text message whose lines are L and then the float field level.
+func lineMessage() (icd.Message, icd.FieldKey) {
+	level := icd.TextField{Variant: icd.DelimitedTextField{
+		TextBaseField: icd.TextBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "level", Scale: 1},
+		},
+		Position: 1,
+	}}
+	return icd.Message{
+		Key:  uuid.New(),
+		Name: "Line",
+		Payload: icd.Payload{Variant: icd.TextPayload{
+			Delimiter: ",", Prefix: "L", Fields: []icd.TextField{level},
+		}},
+	}, level.Base().Key
+}
+
+// fieldBinding returns the config that writes the field key to ch.
+func fieldBinding(key icd.FieldKey, ch channel.Channel) map[string]any {
+	return map[string]any{"field": key, "channel": ch.Key()}
+}
+
 var _ = Describe("Read task ICD messages", func() {
 	var (
 		broker  *testBroker
@@ -329,6 +351,46 @@ var _ = Describe("Read task ICD messages", func() {
 		},
 	)
 
+	It("Should write the fields of a text message", func(ctx SpecContext) {
+		m, level := lineMessage()
+		ic := createICD(ctx, m)
+		_, data := createIndexed(ctx, telem.Float64T)
+		start(ctx, readConfig(ctx, dev, icdEntry(
+			"plant/line", ic, readMessage(m, fieldBinding(level, data[0])),
+		)))
+		broker.publish("plant/line", "L,2.5", false)
+		Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+			Should(BeEquivalentTo(1))
+		Expect(stored(ctx, data[0])).To(MatchSeriesData(telem.NewSeriesV(2.5)))
+	})
+
+	It("Should write the fields of a binary message", func(ctx SpecContext) {
+		flow := icd.BinaryField{Variant: icd.UnsignedBinaryField{
+			BinaryBaseField: icd.BinaryBaseField{
+				BaseField: icd.BaseField{Key: uuid.New(), Name: "flow", Scale: 1},
+				BitLength: 16,
+				ByteOrder: icd.ByteOrderLittleEndian,
+			},
+		}}
+		m := icd.Message{
+			Key:  uuid.New(),
+			Name: "Frame",
+			Payload: icd.Payload{Variant: icd.BinaryPayload{
+				Fields: []icd.BinaryField{flow},
+			}},
+		}
+		ic := createICD(ctx, m)
+		_, data := createIndexed(ctx, telem.Uint16T)
+		start(ctx, readConfig(ctx, dev, icdEntry(
+			"plant/frame", ic, readMessage(m, fieldBinding(flow.Base().Key, data[0])),
+		)))
+		broker.publish("plant/frame", "\x10\x01", false)
+		Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+			Should(BeEquivalentTo(1))
+		Expect(stored(ctx, data[0])).
+			To(MatchSeriesData(telem.NewSeriesV[uint16](272)))
+	})
+
 	Describe("Rejected messages", func() {
 		warned := func(ctx context.Context, t task.Task, description string) {
 			GinkgoHelper()
@@ -422,6 +484,20 @@ var _ = Describe("Read task ICD messages", func() {
 			},
 		)
 
+		It("Should name a text field that does not decode", func(ctx SpecContext) {
+			m, level := lineMessage()
+			ic := createICD(ctx, m)
+			_, data := createIndexed(ctx, telem.Float64T)
+			t := start(ctx, readConfig(ctx, dev, icdEntry(
+				"plant/line", ic, readMessage(m, fieldBinding(level, data[0])),
+			)))
+			broker.publish("plant/line", "L,high", false)
+			warned(ctx, t, "Message on topic plant/line: field level: "+
+				`invalid number "high": validation error`,
+			)
+			Expect(stored(ctx, data[0]).Len()).To(BeZero())
+		})
+
 		It("Should warn and write nothing for a value that does not decode",
 			func(ctx SpecContext) {
 				m := jsonMessage("Status", nil,
@@ -509,7 +585,7 @@ var _ = Describe("Read task ICD messages", func() {
 			}, "must not hold the wildcards + or #"),
 			Entry("a topic that reads no message", func(f format) []map[string]any {
 				return []map[string]any{icdEntry("plant/status", f.ic)}
-			}, "topic plant/status reads no messages"),
+			}, "entries.0: reads no messages"),
 			Entry("a message that the ICD lacks", func(f format) []map[string]any {
 				other := jsonMessage(
 					"Other", nil, jsonField("v", "/v", icd.FloatJSONField{}),
@@ -518,11 +594,12 @@ var _ = Describe("Read task ICD messages", func() {
 			}, "does not exist in ICD Plant"),
 			Entry("a message that binds no field", func(f format) []map[string]any {
 				return status(f, readMessage(f.m))
-			}, "message Status binds no fields"),
+			}, "entries.0.messages.0: message Status binds no fields"),
 			Entry("a channel that does not exist", func(f format) []map[string]any {
 				missing := map[string]any{"field": fieldKey(f.m, 1), "channel": 1 << 30}
 				return status(f, readMessage(f.m, missing))
-			}, "message Status: channel 1073741824 does not exist"),
+			}, "entries.0.messages.0.bindings.0.channel: channel 1073741824 does not "+
+				"exist"),
 			Entry("an index field on a data channel", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 0, f.stamp))
 				read["index"] = fieldKey(f.m, 0)
@@ -610,7 +687,7 @@ var _ = Describe("Read task ICD messages", func() {
 			Expect(configureErr(ctx, readConfig(ctx, dev, entry))).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
-					"icd: ICD %s does not exist", missing.Key,
+					"entries.0.icd: ICD %s does not exist", missing.Key,
 				)),
 			))
 		})
@@ -635,25 +712,5 @@ var _ = Describe("Read task ICD messages", func() {
 				))
 			},
 		)
-
-		It("Should reject a message that is not JSON", func(ctx SpecContext) {
-			m := icd.Message{
-				Key:     uuid.New(),
-				Name:    "Frame",
-				Payload: icd.Payload{Variant: icd.BinaryPayload{}},
-			}
-			ic := createICD(ctx, m)
-			_, data := createIndexed(ctx, telem.Float64T)
-			entry := icdEntry("plant/status", ic, map[string]any{
-				"message": m.Key,
-				"bindings": []any{
-					map[string]any{"field": uuid.New(), "channel": data[0].Key()},
-				},
-			})
-			Expect(configureErr(ctx, readConfig(ctx, dev, entry))).To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("message Frame is not a JSON message")),
-			))
-		})
 	})
 })

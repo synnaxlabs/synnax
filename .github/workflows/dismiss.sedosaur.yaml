@@ -59,18 +59,6 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - &read
-        name: Read the pull request
-        id: pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ inputs.pr }}
-        run: |
-          set -o pipefail
-          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
-            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
-          ' >> "$GITHUB_OUTPUT"
-
       - &checkout
         name: Check out the scripts
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -79,6 +67,18 @@ jobs:
           sparse-checkout: |
             .github/scripts
             scripts/agent
+
+      - &read
+        name: Read the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ inputs.pr }}
+        run: |
+          set -o pipefail
+          .github/scripts/gh_api.sh "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -r '
+            "head=\(.head.sha)", "base=\(.base.sha)", "key=\(.number):\(.base.ref)"
+          ' >> "$GITHUB_OUTPUT"
 
       - &app
         name: Mint the GitHub App token
@@ -132,8 +132,8 @@ jobs:
       judge: ${{ steps.answer.outputs.judge }}
     timeout-minutes: 10
     steps:
-      - *read
       - *checkout
+      - *read
       - *app
 
       - name: Answer the reply

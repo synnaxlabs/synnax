@@ -1,0 +1,53 @@
+{
+  "description": "A field that a CAN frame is too short for fails, and the frame still matches its message.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "binary",
+        "identifier": {
+          "type": "can",
+          "id": 256,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": 256,
+      "extended": false,
+      "hex": "01",
+      "message": "a",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "field v: the payload has 1 bytes and the field needs 2: validation error"
+        }
+      ]
+    }
+  ]
+}

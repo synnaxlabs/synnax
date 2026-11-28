@@ -71,6 +71,7 @@ cc_library(
         "//driver/opcua",
         "//driver/rack/status",
         "//driver/secret",
+        "//driver/serial:tasks",
         "//driver/task",
         "//x/cpp/args",
         "//x/cpp/defer",
@@ -115,9 +116,11 @@ cc_test(
         "//driver/version",
     ],
     deps = [
+        "//driver/http",
         "//driver/labjack:names",
         "//driver/ni:names",
         "//driver/rack",
+        "//driver/serial:tasks",
         "//driver/task",
         "@googletest//:gtest_main",
     ],
@@ -176,6 +179,7 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/http",
         "//driver/rack",
         "//driver/rack/status",
         "//x/cpp/kv",

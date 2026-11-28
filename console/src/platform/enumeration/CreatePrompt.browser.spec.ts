@@ -38,6 +38,19 @@ const openPrompt = async (params: PEnumeration.CreatePromptParams): Promise<Open
 const nameField = async (): Promise<HTMLInputElement> =>
   await screen.findByLabelText<HTMLInputElement>("Enumeration name");
 
+// commit types into a cell of the entries table, then blurs it to commit the text.
+const commit = (label: string, value: string): void => {
+  const cell = screen.getByLabelText(label);
+  fireEvent.focus(cell);
+  fireEvent.change(cell, { target: { value } });
+  fireEvent.blur(cell);
+};
+
+const escape = (el: HTMLElement): void => {
+  fireEvent.keyDown(el, { key: "Escape", code: "Escape" });
+  fireEvent.keyUp(el, { key: "Escape", code: "Escape" });
+};
+
 describe("Enumeration.CreatePromptProvider", () => {
   it("should create the enumeration with the typed name and the entries", async () => {
     const entries = [{ key: id.create(), name: "Off", value: 0, abnormal: false }];
@@ -55,11 +68,38 @@ describe("Enumeration.CreatePromptProvider", () => {
     await waitFor(() => expect(screen.queryByLabelText("Enumeration name")).toBeNull());
   });
 
+  it("should create the entries typed into the table", async () => {
+    const { result } = await openPrompt({
+      name: `Pump ${id.create()}`,
+      entries: PEnumeration.createEntries(),
+    });
+    await nameField();
+    commit("Name 1", "Off");
+    fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+    commit("Name 2", "On");
+    fireEvent.click(screen.getByRole("button", { name: /^Create/ }));
+    const key = await result;
+    if (key == null) throw new Error("expected the key of the new enumeration");
+    const e = await client.enumerations.retrieve(key);
+    expect(e.entries.map((en) => [en.name, en.value])).toEqual([
+      ["Off", 0],
+      ["On", 1],
+    ]);
+  });
+
+  it("should ask before an Escape drops a typed entry", async () => {
+    await openPrompt({ name: "Pump", entries: PEnumeration.createEntries() });
+    const field = await nameField();
+    commit("Name 1", "Off");
+    escape(field);
+    expect(await screen.findByText("Discard unsaved edits?")).toBeTruthy();
+    expect(screen.getByLabelText("Enumeration name")).toBeTruthy();
+  });
+
   it("should close on one Escape from the name field and create nothing", async () => {
     const { result } = await openPrompt({ name: "Pump", entries: [] });
     const field = await nameField();
-    fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
-    fireEvent.keyUp(field, { key: "Escape", code: "Escape" });
+    escape(field);
     await waitFor(() => expect(screen.queryByLabelText("Enumeration name")).toBeNull());
     expect(await result).toBeNull();
   });

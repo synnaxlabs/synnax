@@ -55,7 +55,7 @@ func makeIndexBenchEntries(n int) []indexBenchEntry {
 
 // indexSizes spans the range from "small enough to fit in cache" to "large
 // enough that scan vs index has a meaningful asymptotic gap". 100k is the
-// upper bound called out in the gorp index RFC.
+// upper bound called out in the Gorp index RFC.
 var indexSizes = []int{100, 1_000, 10_000, 100_000}
 
 // --- Lookup index ---
@@ -232,6 +232,71 @@ func BenchmarkLookupUpdate(b *testing.B) {
 				}
 				if err := gorp.NewCreate[int32, indexBenchEntry]().
 					Entry(&e).Exec(ctx, db); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkTableCreate creates one entry per op through a Table with one index of each
+// kind, so allocs/op shows what the index adds to a write.
+func BenchmarkTableCreate(b *testing.B) {
+	for _, tc := range []struct {
+		kind    string
+		indexes func() []gorp.Index[int32, indexBenchEntry]
+	}{
+		{"none", func() []gorp.Index[int32, indexBenchEntry] { return nil }},
+		{"lookup", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewLookupIndex(
+				"name", func(e *indexBenchEntry) string { return e.Name },
+			)}
+		}},
+		{"sorted", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewSortedIndex(
+				"score", func(e *indexBenchEntry) int64 { return e.Score },
+			)}
+		}},
+		{"search", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewSearchIndex(
+				"name", func(e *indexBenchEntry) []string { return []string{e.Name} },
+			)}
+		}},
+		{"unique", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewUniqueIndex(
+				"name",
+				"name",
+				func(e *indexBenchEntry) (string, bool) { return e.Name, true },
+			)}
+		}},
+	} {
+		b.Run("index="+tc.kind, func(b *testing.B) {
+			db := openBenchDB(b)
+			ctx := context.Background()
+			table, err := gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[int32, indexBenchEntry]{
+					DB:      db,
+					Indexes: tc.indexes(),
+				},
+			)
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := range b.N {
+				e := indexBenchEntry{
+					ID:    int32(i),
+					Name:  "new-" + strconv.Itoa(i),
+					Score: int64(i),
+				}
+				if err := table.NewCreate().Entry(&e).Exec(ctx, db); err != nil {
 					b.Fatal(err)
 				}
 			}

@@ -1,0 +1,37 @@
+{
+  "description": "A value that its scale makes infinite decodes to infinity.",
+  "messages": [
+    {
+      "name": "line",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 10000000000.0,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 0
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "1e300",
+      "message": "line",
+      "samples": ["Infinity"]
+    }
+  ]
+}

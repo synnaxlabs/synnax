@@ -78,8 +78,8 @@ export interface PanelWrapperParams extends Pick<
 }
 
 /**
- * Builds a console wrapper nested in the Panel (and optional Tab) scope, with a project
- * selected so panel creation can parent to it. The flux store is shared across every
+ * Builds a Console wrapper nested in the Panel (and optional Tab) scope, with a project
+ * selected so panel creation can parent to it. The Flux store is shared across every
  * mount of the returned wrapper, so callers prime a panel into the cache with
  * {@link primePanel} before rendering scope-reading components.
  */
@@ -127,7 +127,7 @@ export const createPanelWrapper = async ({
 };
 
 /**
- * Retrieves the panel into the shared flux cache through the production query path, so
+ * Retrieves the panel into the shared Flux cache through the production query path, so
  * scope-reading selectors resolve it without a cache miss on their first render. The
  * cached document outlives the prime mount, so callers may unmount and render the unit
  * under test in a fresh mount of the same wrapper.

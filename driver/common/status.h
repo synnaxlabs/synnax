@@ -97,7 +97,7 @@ struct StatusHandler {
     void send_error(const x::errors::Error &err, const std::string &message) {
         if (!this->error(err, message)) return;
         this->status.details.running = false;
-        this->set_text(message, err.data);
+        this->set_text(message, err.data());
         this->maybe_set_status();
     }
 
@@ -108,7 +108,7 @@ struct StatusHandler {
             this->status.variant = synnax::status::VARIANT_WARNING;
             this->set_text(message, description);
         } else
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_text(this->accumulated_msg, this->accumulated_err.data());
         this->maybe_set_status();
     }
 
@@ -151,7 +151,7 @@ struct StatusHandler {
         } else {
             this->status.variant = synnax::status::VARIANT_ERROR;
             this->status.details.running = false;
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_text(this->accumulated_msg, this->accumulated_err.data());
         }
         this->set_status();
     }
@@ -166,7 +166,7 @@ struct StatusHandler {
         this->status.details.running = false;
         if (this->accumulated_err) {
             this->status.variant = synnax::status::VARIANT_ERROR;
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_text(this->accumulated_msg, this->accumulated_err.data());
         } else {
             this->status.variant = synnax::status::VARIANT_SUCCESS;
             this->set_text("Stopped task");
@@ -315,10 +315,10 @@ private:
 /// @brief returns the text of a configuration error, with each field error of a parser
 /// validation error on its own line as "path: message".
 inline std::string config_err_description(const x::errors::Error &err) {
-    const auto parsed = x::json::json::parse(err.data, nullptr, false);
+    const auto parsed = x::json::json::parse(err.data(), nullptr, false);
     if (!err.matches(x::errors::VALIDATION) || !parsed.is_object() ||
         !parsed.contains("errors") || !parsed["errors"].is_array())
-        return err.data;
+        return err.data();
     std::vector<std::string> lines;
     for (const auto &field: parsed["errors"])
         lines.push_back(field.value("path", "") + ": " + field.value("message", ""));
@@ -327,14 +327,17 @@ inline std::string config_err_description(const x::errors::Error &err) {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
-/// command driving the deploy, or NO_COMMAND at boot. A failed configure writes an
-/// error status, except at boot for a task that another rack runs. A successful
-/// configure writes no status: the start that follows it answers the command. Only a
-/// configure with no command auto-starts the task, because a start command that drives
-/// a deploy starts the task with its own key. An auto-start first writes a loading
-/// status, which the task replaces when it answers the start. cancel is passed to the
-/// auto-start. A configure that fails with x::errors::CANCELLED writes no status, so
-/// the start is answered as stopped.
+/// command driving the deploy, NO_COMMAND at boot, or REDEPLOY. A failed configure
+/// writes an error status, except at boot for a task that another rack runs. A failed
+/// configure of a running task keeps the running state and config hash of its latest
+/// status, since the live instance runs on. A successful configure writes no status:
+/// the start that follows it answers the command. Only a configure with no command
+/// auto-starts the task: a start command starts it with its own key, and the task
+/// manager starts a redeploy. An auto-start first writes a loading status, which the
+/// task replaces when it answers the start. A disabled task gets no loading status: it
+/// answers the start at once. cancel is passed to the auto-start. A configure that
+/// fails with x::errors::CANCELLED writes no status, so the start is answered as
+/// stopped.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -349,13 +352,23 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         synnax::task::Status status;
         status.owner = synnax::task::resource_id(task.key);
         status.name = task.name;
-        status.details.config_hash = task.config_hash;
+        // Unless an instance runs on, the status carries no config hash.
         status.details.running = false;
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Failed to configure task";
         status.description = config_err_description(res.second);
-        // Ack the start so a waiting caller resolves with the failure, not a timeout.
-        status.details.cmd = cmd_key;
+        if (const auto live = ctx->latest_status(task.key);
+            live.has_value() && live->details.running) {
+            status.details = live->details;
+            status.details.data.reset();
+            status.message = "Failed to deploy changes";
+            status.description = "The task still runs its last deployed config. " +
+                                 status.description;
+        }
+        // Ack the start so a waiting caller resolves with the failure, not a timeout. A
+        // redeploy answers no command, so its status shows as the state of the task.
+        const bool redeploy = cmd_key == driver::task::REDEPLOY;
+        status.details.cmd = redeploy ? driver::task::NO_COMMAND : cmd_key;
         // A task moved here runs on its old Driver until a start arrives.
         const bool moved = task.status.has_value() && task.status->details.running &&
                            task.status->details.rack != task.rack;
@@ -369,13 +382,15 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     if (!commanded && res.first.auto_start) {
         // A task may answer the start later, from its own thread. Until then, this
         // status replaces the one stored by the last run.
-        synnax::task::Status starting;
-        starting.owner = synnax::task::resource_id(task.key);
-        starting.name = task.name;
-        starting.variant = synnax::status::VARIANT_LOADING;
-        starting.message = "Starting task";
-        starting.details.config_hash = task.config_hash;
-        ctx->set_status(starting);
+        if (!res.first.task->disabled()) {
+            synnax::task::Status starting;
+            starting.owner = synnax::task::resource_id(task.key);
+            starting.name = task.name;
+            starting.variant = synnax::status::VARIANT_LOADING;
+            starting.message = "Starting task";
+            starting.details.config_hash = task.config_hash;
+            ctx->set_status(starting);
+        }
         synnax::task::Command start_cmd{
             .task = task.key,
             .type = synnax::task::START_CMD_TYPE,

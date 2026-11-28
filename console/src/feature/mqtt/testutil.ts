@@ -15,7 +15,7 @@ import { onTestFinished } from "vitest";
 
 import { Device } from "@/feature/mqtt/device";
 import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
-import { awaitCommand } from "@/platform/task/testutil";
+import { awaitCommand, findListButton } from "@/platform/task/testutil";
 
 export interface CreateBrokerOptions {
   configured?: boolean;
@@ -45,6 +45,7 @@ export const createBroker = async (
 export interface ScannerReply {
   variant?: "success" | "error";
   message?: string;
+  description?: string;
   data?: object;
 }
 
@@ -55,7 +56,6 @@ export interface Scanner {
   next: () => Promise<task.Command>;
   /** Answers cmd, which next returned. */
   reply: (cmd: task.Command, reply: ScannerReply) => Promise<void>;
-  close: () => void;
 }
 
 /**
@@ -75,16 +75,18 @@ export const openScanner = async (
     config: {},
   });
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  onTestFinished(() => streamer.close());
   const next = async () => await awaitCommand(streamer, scanTask.key);
   const reply = async (
     cmd: task.Command,
-    { variant = "success", message = "", data }: ScannerReply,
+    { variant = "success", message = "", description, data }: ScannerReply,
   ) => {
     await client.statuses.set({
       owner: task.resourceID(scanTask.key),
       name: scanTask.name,
       variant,
       message,
+      description,
       time: TimeStamp.now(),
       details: { running: true, cmd: cmd.key, data },
     });
@@ -97,12 +99,11 @@ export const openScanner = async (
     },
     next,
     reply,
-    close: () => streamer.close(),
   };
 };
 
 /** Opens the Add data dialog of a task form, and returns queries scoped to it. */
 export const openAddData = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  fireEvent.click(await findListButton("Add data"));
   return within(await screen.findByRole("dialog"));
 };

@@ -99,6 +99,24 @@ export const resolve = (value: string, property: string = "color"): string => {
 export const computed = (el: Element, property: string): string =>
   getComputedStyle(el).getPropertyValue(property);
 
+/** A text treatment: Inter, Inter with tabular digits, or monospace. */
+export type Treatment = "prose" | "numeric" | "code";
+
+/**
+ * @returns the text treatment the element renders with.
+ * @throws {Error} if the theme sets one font for prose and code, or if the element
+ * uses neither.
+ */
+export const treatment = (el: Element): Treatment => {
+  const prose = resolve("var(--pluto-font-family)", "font-family");
+  const code = resolve("var(--pluto-code-font-family)", "font-family");
+  if (prose === code) throw new Error("The theme sets one font for prose and code");
+  const family = computed(el, "font-family");
+  if (family === code) return "code";
+  if (family !== prose) throw new Error(`Unknown font family ${family}`);
+  return computed(el, "font-variant-numeric") === "tabular-nums" ? "numeric" : "prose";
+};
+
 /** @returns the rendered height of the element in pixels. */
 export const height = (el: Element): number => el.getBoundingClientRect().height;
 

@@ -12,6 +12,7 @@
 package http
 
 import (
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -40,9 +41,9 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *ReadConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -60,6 +61,14 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t icd.Key) []string {
+				for i4, v5 := range e.Endpoints {
+					if v5.ICD != nil && *v5.ICD == t {
+						return []string{"endpoints", strconv.Itoa(i4), "icd"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t icd.Key) {
 				for i2 := range e.Endpoints {
 					if e.Endpoints[i2].ICD != nil && *e.Endpoints[i2].ICD == t {
@@ -67,10 +76,12 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to icd.Key) {
+			Retarget: func(e *ReadConfig, to map[icd.Key]icd.Key) {
 				for i3 := range e.Endpoints {
-					if e.Endpoints[i3].ICD != nil && *e.Endpoints[i3].ICD == from {
-						*e.Endpoints[i3].ICD = to
+					if e.Endpoints[i3].ICD != nil {
+						if t, ok := to[*e.Endpoints[i3].ICD]; ok {
+							*e.Endpoints[i3].ICD = t
+						}
 					}
 				}
 			},
@@ -93,6 +104,18 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i10, v11 := range e.Endpoints {
+					for i12, v13 := range v11.Messages {
+						for i14, v15 := range v13.Bindings {
+							if v15.Channel == t {
+								return []string{"endpoints", strconv.Itoa(i10), "messages", strconv.Itoa(i12), "bindings", strconv.Itoa(i14), "channel"}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i4 := range e.Endpoints {
 					for i5 := range e.Endpoints[i4].Messages {
@@ -104,48 +127,13 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				for i7 := range e.Endpoints {
 					for i8 := range e.Endpoints[i7].Messages {
 						for i9 := range e.Endpoints[i7].Messages[i8].Bindings {
-							if e.Endpoints[i7].Messages[i8].Bindings[i9].Channel == from {
-								e.Endpoints[i7].Messages[i8].Bindings[i9].Channel = to
+							if t, ok := to[e.Endpoints[i7].Messages[i8].Bindings[i9].Channel]; ok {
+								e.Endpoints[i7].Messages[i8].Bindings[i9].Channel = t
 							}
-						}
-					}
-				}
-			},
-		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
-			Name:     "endpoints.fields.channel",
-			Table:    "channel",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
-			Targets: func(e *ReadConfig) []channel.Key {
-				var targets []channel.Key
-				for _, v1 := range e.Endpoints {
-					for _, v2 := range v1.Fields {
-						if v2.Channel != 0 {
-							targets = append(targets, v2.Channel)
-						}
-					}
-				}
-				return targets
-			},
-			Detach: func(e *ReadConfig, t channel.Key) {
-				for i3 := range e.Endpoints {
-					for i4 := range e.Endpoints[i3].Fields {
-						if e.Endpoints[i3].Fields[i4].Channel == t {
-							e.Endpoints[i3].Fields[i4].Channel = 0
-						}
-					}
-				}
-			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
-				for i5 := range e.Endpoints {
-					for i6 := range e.Endpoints[i5].Fields {
-						if e.Endpoints[i5].Fields[i6].Channel == from {
-							e.Endpoints[i5].Fields[i6].Channel = to
 						}
 					}
 				}
@@ -169,6 +157,18 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				if e.Inline != nil {
+					for i7, v8 := range e.Inline.Endpoints {
+						for i9, v10 := range v8.Fields {
+							if v10.Channel == t {
+								return []string{"inline", "endpoints", strconv.Itoa(i7), "fields", strconv.Itoa(i9), "channel"}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				if e.Inline != nil {
 					for i3 := range e.Inline.Endpoints {
@@ -180,12 +180,12 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				if e.Inline != nil {
 					for i5 := range e.Inline.Endpoints {
 						for i6 := range e.Inline.Endpoints[i5].Fields {
-							if e.Inline.Endpoints[i5].Fields[i6].Channel == from {
-								e.Inline.Endpoints[i5].Fields[i6].Channel = to
+							if t, ok := to[e.Inline.Endpoints[i5].Fields[i6].Channel]; ok {
+								e.Inline.Endpoints[i5].Fields[i6].Channel = t
 							}
 						}
 					}
@@ -215,9 +215,9 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *WriteConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -235,6 +235,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t icd.Key) []string {
+				for i4, v5 := range e.Endpoints {
+					if v5.ICD != nil && *v5.ICD == t {
+						return []string{"endpoints", strconv.Itoa(i4), "icd"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t icd.Key) {
 				for i2 := range e.Endpoints {
 					if e.Endpoints[i2].ICD != nil && *e.Endpoints[i2].ICD == t {
@@ -242,10 +250,12 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to icd.Key) {
+			Retarget: func(e *WriteConfig, to map[icd.Key]icd.Key) {
 				for i3 := range e.Endpoints {
-					if e.Endpoints[i3].ICD != nil && *e.Endpoints[i3].ICD == from {
-						*e.Endpoints[i3].ICD = to
+					if e.Endpoints[i3].ICD != nil {
+						if t, ok := to[*e.Endpoints[i3].ICD]; ok {
+							*e.Endpoints[i3].ICD = t
+						}
 					}
 				}
 			},
@@ -271,6 +281,21 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i10, v11 := range e.Endpoints {
+					if v11.Message != nil {
+						for i12, v13 := range v11.Message.Bindings {
+							switch v14 := v13.Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v14.Channel == t {
+									return []string{"endpoints", strconv.Itoa(i10), "message", "bindings", strconv.Itoa(i12), "channel"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i4 := range e.Endpoints {
 					if e.Endpoints[i4].Message != nil {
@@ -286,14 +311,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to channel.Key) {
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
 				for i7 := range e.Endpoints {
 					if e.Endpoints[i7].Message != nil {
 						for i8 := range e.Endpoints[i7].Message.Bindings {
 							switch v9 := e.Endpoints[i7].Message.Bindings[i8].Variant.(type) {
 							case icd.ChannelWriteBinding:
-								if v9.Channel == from {
-									v9.Channel = to
+								if t, ok := to[v9.Channel]; ok {
+									v9.Channel = t
 								}
 								e.Endpoints[i7].Message.Bindings[i8].Variant = v9
 							}
@@ -318,6 +343,16 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				if e.Inline != nil {
+					for i4, v5 := range e.Inline.Endpoints {
+						if v5.Channel.Channel == t {
+							return []string{"inline", "endpoints", strconv.Itoa(i4), "channel", "channel"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				if e.Inline != nil {
 					for i2 := range e.Inline.Endpoints {
@@ -327,11 +362,11 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to channel.Key) {
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
 				if e.Inline != nil {
 					for i3 := range e.Inline.Endpoints {
-						if e.Inline.Endpoints[i3].Channel.Channel == from {
-							e.Inline.Endpoints[i3].Channel.Channel = to
+						if t, ok := to[e.Inline.Endpoints[i3].Channel.Channel]; ok {
+							e.Inline.Endpoints[i3].Channel.Channel = t
 						}
 					}
 				}

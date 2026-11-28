@@ -14,9 +14,11 @@
 
 #include "gtest/gtest.h"
 
+#include "driver/http/scan_task.h"
 #include "driver/labjack/names.h"
 #include "driver/ni/names.h"
 #include "driver/rack/rack.h"
+#include "driver/serial/read_task.h"
 #include "driver/version/version.h"
 
 namespace driver::rack {
@@ -53,6 +55,44 @@ TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
         cancel.stop();
         EXPECT_TRUE(handled) << type;
         EXPECT_EQ(tsk, nullptr) << type;
+    }
+}
+
+/// @brief it should answer the boot start of a disabled scanner with only a disabled
+/// status, so the scanner never shows as starting.
+TEST(RackFactoriesTest, DisabledScannerAtBootNeverShowsAsStarting) {
+    x::breaker::Breaker cancel;
+    const std::vector<std::pair<std::string, std::string>> scanners = {
+        {http::INTEGRATION_NAME, http::SCAN_TASK_TYPE},
+        {opcua::INTEGRATION_NAME, opcua::SCAN_TASK_TYPE},
+    };
+    const Config cfg{.integrations = {http::INTEGRATION_NAME, opcua::INTEGRATION_NAME}};
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    for (const auto &[integration, type]: scanners) {
+        const auto ctx = std::make_shared<task::MockContext>(nullptr);
+        cancel.start();
+        const auto [tsk, handled] = factory->configure_task(
+            ctx,
+            synnax::task::Task{
+                .name = type,
+                .type = type,
+                .config = {{"disabled", true}}
+            },
+            task::NO_COMMAND,
+            cancel
+        );
+        cancel.stop();
+        EXPECT_TRUE(handled) << type;
+        ASSERT_NE(tsk, nullptr) << type;
+        const auto statuses = ctx->snapshot();
+        ASSERT_EQ(statuses.size(), 1) << type;
+        EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_DISABLED) << type;
+        EXPECT_EQ(statuses[0].message, "Scanner disabled") << type;
+        EXPECT_FALSE(statuses[0].details.running) << type;
+        tsk->stop(false);
     }
 }
 
@@ -212,5 +252,57 @@ TEST(RackFactoriesTest, DisabledIntegrationLogsAtBoot) {
     EXPECT_TRUE(handled);
     EXPECT_EQ(tsk, nullptr);
     EXPECT_TRUE(ctx->snapshot().empty());
+}
+
+namespace {
+/// @returns the status of a commanded configure of an empty serial read task, under a
+/// config that runs integrations.
+synnax::task::Status serial_status(const std::vector<std::string> &integrations) {
+    x::breaker::Breaker cancel;
+    const Config cfg{.integrations = integrations};
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    cancel.start();
+    const auto [tsk, handled] = factory->configure_task(
+        ctx,
+        synnax::task::Task{.name = "t", .type = serial::READ_TASK_TYPE},
+        "start-cmd",
+        cancel
+    );
+    cancel.stop();
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses.size(), 1);
+    return statuses.empty() ? synnax::task::Status{} : statuses.front();
+}
+}
+
+/// @brief it should build serial but leave it off unless a config names it.
+TEST(RackFactoriesTest, SerialIsOffByDefault) {
+    const auto built = built_integrations();
+    EXPECT_NE(std::ranges::find(built, serial::INTEGRATION_NAME), built.end());
+    const auto defaults = default_integrations();
+    EXPECT_EQ(std::ranges::find(defaults, serial::INTEGRATION_NAME), defaults.end());
+    EXPECT_EQ(defaults.size(), built.size() - 1);
+    EXPECT_EQ(
+        serial_status(defaults).description,
+        "The configuration of this Driver turns off the 'serial' integration. Turn it "
+        "on in the Driver configuration, then restart the Driver."
+    );
+}
+
+/// @brief it should configure serial tasks when a config names serial.
+TEST(RackFactoriesTest, ListedSerialConfiguresItsTasks) {
+    const auto status = serial_status({serial::INTEGRATION_NAME});
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to configure task");
+    EXPECT_EQ(
+        status.description,
+        "device: this field is required\nentries: at least one entry is required"
+    );
 }
 }

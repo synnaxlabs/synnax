@@ -22,9 +22,18 @@ import (
 const decodeRounding = 4 * 0x1p-52
 
 // CheckRange returns an error wrapping validate.ErrValidation when v, a value after the
-// scale and offset of b, is outside the min and max of b.
+// scale and offset of b, is outside the min and max of b, or is NaN and b has a min or
+// a max.
 func CheckRange(b BaseField, v float64) error {
 	return problemError(outOfRange(b, v, v, 0))
+}
+
+// CheckRawRange returns an error wrapping validate.ErrValidation when raw, a value
+// before the scale and offset of b, decodes outside the min and max of b, or decodes to
+// NaN and b has a min or a max. It allows the float64 rounding of the decode, so a
+// value that decodes to a limit passes.
+func CheckRawRange(b BaseField, raw float64) error {
+	return problemError(outOfRawRange(b, raw))
 }
 
 // outOfRawRange returns how raw, a value before the scale and offset of b, decodes
@@ -32,17 +41,21 @@ func CheckRange(b BaseField, v float64) error {
 // rounding of the decode, so a value at a limit passes.
 func outOfRawRange(b BaseField, raw float64) (string, bool) {
 	scaled := raw * b.Scale
-	return outOfRange(
-		b,
-		raw,
-		scaled+b.Offset,
-		decodeRounding*(math.Abs(scaled)+math.Abs(b.Offset)),
-	)
+	decoded := scaled + b.Offset
+	slack := decodeRounding * (math.Abs(scaled) + math.Abs(b.Offset))
+	// The slack of an infinite decode is infinite, which would pass every limit.
+	if math.IsInf(decoded, 0) {
+		slack = 0
+	}
+	return outOfRange(b, raw, decoded, slack)
 }
 
 // outOfRange returns how decoded, the decoded value of raw, is more than slack outside
-// the min and max of b, and false when it is not.
+// the min and max of b or is NaN when b has a limit, and false when it is neither.
 func outOfRange(b BaseField, raw, decoded, slack float64) (string, bool) {
+	if math.IsNaN(decoded) && (b.Min != nil || b.Max != nil) {
+		return "NaN is outside the limits", true
+	}
 	var (
 		side  string
 		limit float64

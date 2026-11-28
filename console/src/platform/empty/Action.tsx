@@ -14,8 +14,9 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 export interface ActionProps
   extends
     Omit<Flex.BoxProps<"div">, "onClick">,
-    Pick<Text.TextProps, "onClick" | "level"> {
+    Pick<Text.TextProps<"button">, "onClick" | "level"> {
   message: string;
+  /** Labels a button, shown as a link, that runs onClick. */
   action?: string;
   /** Shortcut that runs the same action; rendered as a hint beside the link. */
   trigger?: Triggers.Trigger;
@@ -44,7 +45,13 @@ export const Action = ({
     >
       {message}
       {action && (
-        <Text.Text onClick={onClick} variant="link" level={level}>
+        <Text.Text<"button">
+          el="button"
+          type="button"
+          variant="link"
+          level={level}
+          onClick={onClick}
+        >
           {action}
         </Text.Text>
       )}

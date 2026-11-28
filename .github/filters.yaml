@@ -216,6 +216,9 @@ console: &console
   - *ts
   - *x_ts
   - console/**
+  # The data type and route specs read the Core's shared tables.
+  - core/pkg/service/icd/testdata/data_types.json
+  - core/pkg/service/icd/testdata/routes.json
 
 site_common: &site_common
   - *lyra
@@ -259,6 +262,7 @@ knip:
   - *arc_ts
   - *console
   - *ts
+  - oracle/format/typescript.mjs
   - oracle/lsp/extensions/vscode/**
   - scripts/check_exports_ts.py
   - site/common/**
@@ -357,6 +361,7 @@ driver: &driver
   - *freighter_cpp
   - *x_cpp
   - core/pkg/service/icd/testdata/decode/**
+  - core/pkg/service/icd/testdata/encode/**
   - driver/**
   - vendor/**
 

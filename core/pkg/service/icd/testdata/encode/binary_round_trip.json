@@ -1,0 +1,99 @@
+{
+  "description": "An encoder writes samples that a decoder of the same message reads back.",
+  "message": {
+    "name": "frame",
+    "payload": {
+      "format": "binary",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "big",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 7,
+          "bit_length": 16,
+          "byte_order": "big_endian",
+          "kind": "integer"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "small",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 19,
+          "bit_length": 5,
+          "byte_order": "little_endian",
+          "kind": "integer"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "f32",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 24,
+          "bit_length": 32,
+          "byte_order": "little_endian",
+          "kind": "float"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000004",
+          "name": "f64",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 56,
+          "bit_length": 64,
+          "byte_order": "little_endian",
+          "kind": "float"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000005",
+          "name": "u64",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 120,
+          "bit_length": 64,
+          "byte_order": "little_endian",
+          "kind": "unsigned"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "int16"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "int8"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "float32"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000004",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000005",
+        "data_type": "uint64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [-1234, -16, 1.5, -2.25, 18446744073709551615],
+      "hex": "fb2e800000c03f00000000000002c0ffffffffffffffff"
+    }
+  ]
+}

@@ -10,17 +10,14 @@
 import { describe, expect, it } from "vitest";
 
 import { json } from "@/json";
-import { DataType } from "@/telem";
 
 const field = {
   pointer: "/ts",
-  dataType: "timestamp",
   kind: "timestamp",
   type: "number",
   timeFormat: "unix_ms",
   enum: [],
-  count: 2,
-  mismatched: 0,
+  optional: false,
 };
 
 describe("shapeZ", () => {
@@ -34,7 +31,6 @@ describe("shapeZ", () => {
     });
     expect(shape.index).toEqual(0);
     expect(shape.present).toEqual(0);
-    expect(shape.fields[0]?.dataType.equals(DataType.TIMESTAMP)).toBe(true);
     expect(shape.fields[0]?.kind).toEqual("timestamp");
     expect(shape.fields[0]?.timeFormat).toEqual("unix_ms");
   });
@@ -53,6 +49,15 @@ describe("shapeZ", () => {
 
   it("should reject a field with a null type", () => {
     expect(() => json.inferredFieldZ.parse({ ...field, type: "null" })).toThrow();
+  });
+
+  it.each([true, false])("should keep whether a field is optional: %s", (optional) => {
+    expect(json.inferredFieldZ.parse({ ...field, optional }).optional).toBe(optional);
+  });
+
+  it("should reject a field that does not say whether it is optional", () => {
+    const { optional: _, ...rest } = field;
+    expect(() => json.inferredFieldZ.parse(rest)).toThrow();
   });
 });
 

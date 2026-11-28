@@ -91,7 +91,7 @@ export const createPreloadedState = (
   },
 });
 
-// loadSchematic primes key's flux cache through the production retrieve path. The
+// loadSchematic primes key's Flux cache through the production retrieve path. The
 // single-hook bootstrap keeps the suspending useEnsure from being followed by
 // other hooks, a shape that trips a React 19 concurrent-replay error.
 const loadSchematic = async (
@@ -126,7 +126,7 @@ const mountCanvas = (): void => {
 export interface RenderSchematicOptions {
   schematic?: Partial<schematic.New>;
   sessionState?: Partial<Session.Schematic.State>;
-  /** Extra aether components merged over the default console test registry. */
+  /** Extra Aether components merged over the default Console test registry. */
   additionalRegistry?: aether.ComponentRegistry;
   /** The client the component renders against; defaults to the root client. */
   as?: Client;
@@ -140,7 +140,7 @@ export interface RenderSchematicOptions {
 /**
  * renderSchematic creates a schematic on the server, mounts Component inside the panel
  * and tab scopes of a seeded resource tab (the way the mosaic renders a tab) with the
- * schematic loaded into the flux cache and its Session state preloaded, and returns the
+ * schematic loaded into the Flux cache and its Session state preloaded, and returns the
  * render result plus the Redux store and schematic.
  */
 export const renderSchematic = async (

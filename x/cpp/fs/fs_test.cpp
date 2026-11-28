@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <random>
 
 #include "gtest/gtest.h"
 
@@ -28,7 +29,10 @@ protected:
     std::string special_chars_file;
 
     void SetUp() override {
-        test_dir = (std::filesystem::temp_directory_path() / "fs_test").string();
+        std::random_device rd;
+        test_dir = (std::filesystem::temp_directory_path() /
+                    ("fs_test_" + std::to_string(rd())))
+                       .string();
         std::filesystem::create_directories(test_dir);
         test_file = test_dir + "/test.txt";
         empty_file = test_dir + "/empty.txt";
@@ -160,7 +164,8 @@ TEST_F(FSTest, ReadFileEmptyPath) {
 
 /// @brief it should correctly read a file using a relative path.
 TEST_F(FSTest, ReadFileRelativePath) {
-    std::string relative_file = "test_relative.txt";
+    const std::string relative_file = "test_relative_" +
+                                      std::to_string(std::random_device()()) + ".txt";
     std::ofstream file(relative_file, std::ios::binary);
     file << "Relative path content";
     file.close();
@@ -171,11 +176,11 @@ TEST_F(FSTest, ReadFileRelativePath) {
 
 /// @brief it should define the correct error types.
 TEST_F(FSTest, ErrorTypeVerification) {
-    ASSERT_EQ(FS_ERROR.type, "fs");
-    ASSERT_EQ(NOT_FOUND.type, "fs.not_found");
-    ASSERT_EQ(INVALID_PATH.type, "fs.invalid_path");
-    ASSERT_EQ(PERMISSION_DENIED.type, "fs.permission_denied");
-    ASSERT_EQ(READ_ERROR.type, "fs.read_error");
+    ASSERT_EQ(FS_ERROR.type(), "fs");
+    ASSERT_EQ(NOT_FOUND.type(), "fs.not_found");
+    ASSERT_EQ(INVALID_PATH.type(), "fs.invalid_path");
+    ASSERT_EQ(PERMISSION_DENIED.type(), "fs.permission_denied");
+    ASSERT_EQ(READ_ERROR.type(), "fs.read_error");
 }
 
 /// @brief it should correctly read a file with different newline styles.

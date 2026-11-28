@@ -838,7 +838,7 @@ TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
 
     EXPECT_TRUE(captured.matches(x::errors::INTERNAL));
     EXPECT_EQ(
-        captured.data,
+        captured.data(),
         "write to channel 100: sample count 2 does not match timestamp count 1"
     );
     EXPECT_FALSE(changed);

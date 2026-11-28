@@ -717,7 +717,7 @@ describe("queries", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
 
-      // Warm the flux store through the async retrieve path so the cache fast-path can
+      // Warm the Flux store through the async retrieve path so the cache fast-path can
       // resolve.
       const warm = await renderHookSuspended(() => Ranger.use({ key: rng.key }), {
         wrapper,

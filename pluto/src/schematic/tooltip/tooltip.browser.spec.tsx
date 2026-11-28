@@ -9,6 +9,8 @@
 
 import { type channel, connection, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { render, waitFor, within } from "@testing-library/react";
@@ -132,9 +134,11 @@ describe("Tooltip.Panel", () => {
     });
   });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Providers>
-      <Base.Config delay={DELAY}>{children}</Base.Config>
-    </Providers>
+    <Theming.Provider theme={Theming.SYNNAX_LIGHT}>
+      <Providers>
+        <Base.Config delay={DELAY}>{children}</Base.Config>
+      </Providers>
+    </Theming.Provider>
   );
 
   const renderTooltip = (config: Node.Config) =>
@@ -242,6 +246,14 @@ describe("Tooltip.Panel", () => {
       expect(within(tooltip).getByText("5s")).not.toBeNull();
     });
 
+    it("should draw channels, data types, and settings in the text font", async () => {
+      const ch = await createChannel();
+      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      for (const text of [ch.name, "f32", "5s"])
+        expect(treatment(within(tooltip).getByText(text)), text).toBe("prose");
+    });
+
     it("should hide a zero click delay", async () => {
       renderTooltip(schematic.nodeConfigZ.parse({ variant: "setpoint" }));
       const tooltip = await findTooltip();
@@ -322,6 +334,15 @@ describe("Tooltip.Panel", () => {
       renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
       const tooltip = await findTooltip();
       expect(await findRowValue(tooltip)).toEqual("2h");
+    });
+
+    it("should draw the age with tabular digits", async () => {
+      const ch = await createChannel();
+      stamps.stamp(ch.key, TimeStamp.now().sub(TimeSpan.hours(2)));
+      renderTooltip(Node.createConfig({ variant: "value", channel: ch.key }));
+      const tooltip = await findTooltip();
+      await findRowValue(tooltip);
+      expect(treatment(within(tooltip).getByText("2h"))).toBe("numeric");
     });
 
     it("should remove the clock skew from the age", async () => {

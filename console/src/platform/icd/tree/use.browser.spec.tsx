@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, icd, mqtt } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { deep, uuid } from "@synnaxlabs/x";
+import { deep, payload, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC, useRef, useState } from "react";
@@ -48,31 +48,44 @@ const Sources: FC = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const [expanded, setExpanded] = useState(() => ICD.Tree.initialExpanded(entries));
   const made = useRef(new Set<string>());
-  const { tree, handleSelect, contextMenu, renderItem } = ICD.Tree.use<mqtt.ReadEntry>({
-    sources: path.config.entries,
-    sourceOf: (e) => (e.type === "plain" ? e : null),
-    pathOf: topicPath,
-    SourceItem,
-    bindingOf: (_, __, { key }) => icd.readBindingZ.parse({ field: key }),
-    tareable: true,
-    messageName: () => "Message",
-    made,
-    selected,
-    onSelect: setSelected,
-    expanded,
-    onExpand: setExpanded,
-  });
+  const { tree, handleSelect, contextMenu, renderItem, setNewMessage } =
+    ICD.Tree.use<mqtt.ReadEntry>({
+      sources: path.config.entries,
+      sourceOf: (e) => (e.type === "plain" ? e : null),
+      pathOf: topicPath,
+      SourceItem,
+      missingDescription: () => "The ICD has no such message.",
+      bindingOf: (_, __, { key }) => icd.readBindingZ.parse({ field: key }),
+      tareable: true,
+      messageName: () => "Message",
+      made,
+      selected,
+      onSelect: setSelected,
+      expanded,
+      onExpand: setExpanded,
+    });
   return (
-    <Task.Views.TreeList
-      {...tree}
-      onSelect={handleSelect}
-      menu={contextMenu}
-      emptyMessage="No sources"
-      addLabel="Add source"
-      onAdd={() => {}}
-    >
-      {renderItem}
-    </Task.Views.TreeList>
+    <>
+      <Task.Views.TreeList
+        {...tree}
+        onSelect={handleSelect}
+        menu={contextMenu}
+        emptyMessage="No sources"
+        addLabel="Add source"
+        onAdd={() => {}}
+      >
+        {renderItem}
+      </Task.Views.TreeList>
+      {payload.FORMATS.map((format) => (
+        <button
+          key={format}
+          type="button"
+          onClick={() => setNewMessage(entries[0].key, format)}
+        >
+          New {format} message
+        </button>
+      ))}
+    </>
   );
 };
 
@@ -221,6 +234,58 @@ describe("ICD.Tree.use", () => {
       await waitFor(() => expect(getIconButtons(container, "tare")).toHaveLength(1));
       expect(getIconButtons(container, "tare")[0].getAttribute("aria-disabled")).toBe(
         "true",
+      );
+    });
+  });
+
+  describe("setNewMessage", () => {
+    const client = createTestClient();
+
+    it("should delete an empty message of any format that the task made when the source reads a new one", async () => {
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: "Status",
+        payload: { format: "json", fields: [] },
+      };
+      const ic = await client.icds.create({
+        name: uniqueName("icd"),
+        messages: [message],
+      });
+      const entry = mqtt.plainReadEntryZ.parse({
+        type: "plain",
+        key: "s0",
+        topic: "plant/oven",
+        icd: ic.key,
+        messages: [icd.readMessageZ.parse({ message: message.key })],
+      });
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await rack.createTask({
+        name: uniqueName("tsk"),
+        type: "mqtt_read",
+        config: mqtt.readConfigZ.parse({ entries: [entry] }),
+      });
+      await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
+      // The Core reads only JSON messages over MQTT, so it would undo the read of each
+      // new message. Held saves keep the reads in the form.
+      holdRequests(client, "/task/create");
+      const retrieveMessages = async () =>
+        (await client.icds.retrieve({ key: ic.key })).messages;
+      fireEvent.click(await screen.findByRole("button", { name: "New text message" }));
+      const text = await waitFor(async () => {
+        const messages = await retrieveMessages();
+        expect(messages).toHaveLength(2);
+        return messages[1];
+      });
+      expect(text).toMatchObject({
+        name: "Message",
+        payload: { format: "text", delimiter: ",", prefix: "", fields: [] },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "New binary message" }));
+      await waitFor(async () =>
+        expect(await retrieveMessages()).toMatchObject([
+          { key: message.key },
+          { name: "Message", payload: { format: "binary", fields: [] } },
+        ]),
       );
     });
   });

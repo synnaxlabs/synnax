@@ -8,21 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import { channel, http, icd, type Synnax, type task } from "@synnaxlabs/client";
-import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+  holdRequests,
+} from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { page, server } from "vitest/browser";
 import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { pickMessageFormat } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  pickNewMessage,
+  searchMessageFormats,
+} from "@/platform/icd/testutil";
 import {
   awaitEditableForm,
   awaitTare,
   clickDeploy,
   deployAndAwaitTask,
+  findDetailsButton,
+  findDetailsPane,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -42,7 +55,7 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
 };
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
+  fireEvent.click(await findListButton("Add endpoint"));
   await screen.findByText("Request");
 };
 
@@ -70,6 +83,8 @@ const createDraft = async (
 preloadForms(HTTP.Task.FORMS);
 
 const client = createTestClient();
+
+const NO_FIELDS = "Message has no fields";
 
 const createField = (name: string, kind: payload.Kind = "float"): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
@@ -185,15 +200,36 @@ describe("Read", () => {
 
   it("should show the empty state and add + select an endpoint", async () => {
     await renderWithDevice();
-    await screen.findByText("Select an endpoint or field to configure");
+    await screen.findByText("No endpoint selected");
     await screen.findByText("No endpoints");
     await addEndpoint();
+    expect(screen.getAllByText("New endpoint").map(treatment)).not.toContain("code");
     expect(screen.getByRole("button", { name: "GET" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "POST" })).toBeTruthy();
     expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
     expect(screen.getByText("Headers")).toBeTruthy();
     expect(screen.getByText("Query parameters")).toBeTruthy();
-    expect(screen.queryByText("Select an endpoint or field to configure")).toBeNull();
+    expect(screen.queryByText("No endpoint selected")).toBeNull();
+  });
+
+  it("should add an endpoint from the empty details pane", async () => {
+    await renderWithDevice();
+    fireEvent.click(await findDetailsButton("Add endpoint"));
+    await screen.findByText("Request");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    const dev = await createHTTPDevice(client);
+    const draft = await createDraft(client, createReadConfig(dev.key, []));
+    // A preview never turns editable, so the spec does not wait for that.
+    await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.READ_TYPE], {
+      client,
+      as: await createTestClientWithRole(client, "Viewer"),
+      taskKey: draft.key,
+    });
+    const details = await findDetailsPane();
+    await within(details).findByText("No endpoint selected");
+    expect(within(details).queryByRole("button", { name: "Add endpoint" })).toBeNull();
   });
 
   it("should make an ICD named after the task for the message of a new endpoint", async () => {
@@ -271,7 +307,7 @@ describe("Read", () => {
     ]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/a/ }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-    await screen.findByRole("treeitem", { name: "GET /a 2" });
+    await screen.findByRole("treeitem", { name: /^GET \/a 2/ });
     await waitFor(async () =>
       expect((await retrieveEndpoints(draft.key))[0].messages).toHaveLength(2),
     );
@@ -308,6 +344,56 @@ describe("Read", () => {
         2,
       ),
     );
+  });
+
+  it("should add a field to an endpoint whose message is binary", async () => {
+    const ep = await createEndpoint({ key: "ep1", path: "/data" });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    await renderWithDevice([ep]);
+    // The Core reads only JSON messages over HTTP, so it would refuse the task.
+    holdRequests(client, "/task/create");
+    await client.icds.dispatch(
+      icdKey,
+      icd.set({
+        path: ["messages", ep.messages[0].message, "payload"],
+        value: { format: "binary", fields: [] },
+      }),
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await screen.findByLabelText("Start bit");
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve({ key: icdKey })).messages[0].payload.fields,
+      ).toMatchObject([{ kind: "unsigned", startBit: 0, bitLength: 8 }]),
+    );
+  });
+
+  it("should mark an endpoint until its message has a field", async () => {
+    await renderWithDevice([await createEndpoint({ key: "ep1", path: "/data" })]);
+    const item = await screen.findByRole("treeitem", { name: /\/data/ });
+    await within(item).findByRole("img", { name: NO_FIELDS });
+    fireEvent.click(item);
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await waitFor(() =>
+      expect(within(item).queryByRole("img", { name: NO_FIELDS })).toBeNull(),
+    );
+  });
+
+  it("should mark a later message with no fields and its endpoint", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    await addMessage(ep, "status", []);
+    await renderWithDevice([ep]);
+    const message = await screen.findByRole("treeitem", { name: /^status/ });
+    await within(message).findByRole("img", { name: NO_FIELDS });
+    // The endpoint comes before the item of its first message, which shares its name.
+    const [endpoint] = screen.getAllByRole("treeitem", { name: /GET \/data/ });
+    within(endpoint).getByRole("img", { name: NO_FIELDS });
   });
 
   it("should read a message of another ICD with each of its fields", async () => {
@@ -485,6 +571,57 @@ describe("Read", () => {
         { field: temperature.key, channel: ch.key, dataType: "" },
       ]),
     );
+  });
+
+  it("should show the message formats 480px wide and cut a long name", async () => {
+    const { width, height } = server.config.browser.viewport;
+    onTestFinished(async () => await page.viewport(width, height));
+    await page.viewport(1280, 800);
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    const place = "the main feed pump on the north skid of plant 2";
+    const long = `${uniqueName("status")} of ${place}`;
+    const shared = await client.icds.create({
+      name: uniqueName("pump"),
+      messages: [
+        {
+          key: uuid.create(),
+          name: long,
+          payload: { format: "json", fields: [createField("pressure")] },
+        },
+      ],
+    });
+    await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    const dialog = await searchMessageFormats("GET /data", shared.name);
+    const name = await dialog.findByText(long);
+    const box = screen.getAllByRole("dialog").at(-1)?.getBoundingClientRect();
+    expect(box?.width).toBeGreaterThanOrEqual(480);
+    expect(getComputedStyle(name).whiteSpace).toBe("nowrap");
+    expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);
+  });
+
+  it("should read a new message in the ICD of the endpoint", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    const { draft } = await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    await pickNewMessage("GET /data", "New JSON message");
+    await waitFor(async () => {
+      const [read] = await retrieveEndpoints(draft.key);
+      const { messages } = await client.icds.retrieve({ key: icdKey });
+      expect(messages).toHaveLength(2);
+      expect(messages[1].payload).toEqual({ format: "json", fields: [] });
+      expect(read.messages).toMatchObject([{ message: messages[1].key, bindings: [] }]);
+    });
   });
 
   it("should keep the stored channel of a pointer when the message format changes", async () => {

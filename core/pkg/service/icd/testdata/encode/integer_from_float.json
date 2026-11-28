@@ -1,0 +1,58 @@
+{
+  "description": "An integer field writes a float sample past 2^53 as the exact integer that the sample holds.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "integer",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/integer",
+          "type": "integer"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "unsigned",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/unsigned",
+          "type": "unsigned"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "narrow",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "/narrow",
+          "type": "integer"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "float32"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [-2354244813462245376, 18446744073709549568, 999999984306749440],
+      "text": "{\"integer\":-2354244813462245376,\"unsigned\":18446744073709549568,\"narrow\":999999984306749440}"
+    }
+  ]
+}

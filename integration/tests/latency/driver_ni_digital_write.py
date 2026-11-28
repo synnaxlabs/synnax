@@ -41,7 +41,7 @@ class DriverNIDigitalWrite(Latency):
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
-            self.skip("Windows DAQmx drivers required")
+            self.skip("Windows NI-DAQmx drivers required")
         super().setup()
 
     def run(self) -> None:
@@ -133,7 +133,7 @@ class DriverNIDigitalWrite(Latency):
                     )
                     state_timestamp_loop = sy.TimeStamp.now()
 
-                    # Get the core timestamp from the last received value
+                    # Get the Core timestamp from the last received value
                     state_timestamp_core = sy.TimeStamp(int(ctrl[do_state_time.key]))
 
                     # Calculate latency
@@ -155,7 +155,7 @@ class DriverNIDigitalWrite(Latency):
 
         self.log(f"Total samples: {len(latencies_core)}")
 
-        # Convert to numpy arrays and milliseconds
+        # Convert to NumPy arrays and milliseconds
         latencies_core_ms = np.array(latencies_core)
         latencies_loop_ms = np.array(latencies_loop)
 

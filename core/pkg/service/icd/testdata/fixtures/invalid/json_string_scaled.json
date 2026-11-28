@@ -1,6 +1,6 @@
 {
   "description": "A JSON string field has a scale, an offset, and limits.",
-  "codec_rejects": false,
+  "codec_rejects": true,
   "problems": [
     {
       "path": "messages.0.payload.fields.0.scale",

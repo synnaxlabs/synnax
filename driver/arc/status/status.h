@@ -60,8 +60,8 @@ inline std::string dispatch_set(
     );
     if (err) {
         LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
-                   << " error=" << err.data;
-        report(SET_FAILURE_MSG, err.data);
+                   << " error=" << err.data();
+        report(SET_FAILURE_MSG, err.data());
         return "";
     }
     if (res.multiple_matches)

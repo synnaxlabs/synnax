@@ -76,6 +76,15 @@ func (p Pointer) HasPrefix(prefix Pointer) bool {
 	return len(p) >= len(prefix) && slices.Equal(p[:len(prefix)], prefix)
 }
 
+// HasArrayIndex returns true if a token of p is an array index, which leads into an
+// element when it meets an array.
+func (p Pointer) HasArrayIndex() bool {
+	return slices.ContainsFunc(p, func(token string) bool {
+		_, ok := arrayIndex(token)
+		return ok
+	})
+}
+
 // MarshalText implements encoding.TextMarshaler.
 func (p Pointer) MarshalText() ([]byte, error) { return []byte(p.String()), nil }
 

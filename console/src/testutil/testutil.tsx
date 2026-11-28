@@ -24,7 +24,7 @@ import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
-import { deep, id, uuid } from "@synnaxlabs/x";
+import { deep, id, TimeSpan, uuid } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -70,7 +70,7 @@ export const createKeyEndingIn = (nibble: string): string =>
   `${uuid.create().slice(0, 24)}${nibble.repeat(12)}`;
 
 /**
- * Waits for and returns the trigger button of the (single) mounted pluto dialog-based
+ * Waits for and returns the trigger button of the (single) mounted Pluto dialog-based
  * select, which renders no accessible role or stable text.
  */
 export const findDialogTrigger = async (): Promise<HTMLElement> =>
@@ -80,7 +80,7 @@ export const findDialogTrigger = async (): Promise<HTMLElement> =>
     return el;
   });
 
-/** Finds the close button of the rendered pluto tag whose text matches name. */
+/** Finds the close button of the rendered Pluto tag whose text matches name. */
 export const findTagCloseButton = (name: string): HTMLElement => {
   const btn = screen
     .getByText(name)
@@ -154,14 +154,17 @@ export interface CaptureStatusesProps {
   onStatuses: (statuses: Status.NotificationSpec[]) => void;
 }
 
+// Longer than any spec runs, so a status never drops off while a spec reads it.
+const CAPTURE_EXPIRATION = TimeSpan.hours(1);
+
 /**
- * Reports the current status notifications to onStatuses on every change. Mount
- * alongside the UI under test to observe statuses raised during a component render.
- * The report lands in the commit that changed them, so it is current once a `findBy*`
- * query sees that commit.
+ * Reports the status notifications to onStatuses on every change. Mount alongside the
+ * UI under test to observe statuses raised during a component render. Unlike a toast,
+ * a captured status stays until it is silenced. The report lands in the commit that
+ * changed them, so it is current once a `findBy*` query sees that commit.
  */
 export const CaptureStatuses = ({ onStatuses }: CaptureStatusesProps): null => {
-  const { statuses } = Status.useNotifications();
+  const { statuses } = Status.useNotifications({ expiration: CAPTURE_EXPIRATION });
   useLayoutEffect(() => {
     onStatuses(statuses);
   }, [onStatuses, statuses]);
@@ -195,10 +198,10 @@ export interface ConsoleTestProviderOptions {
 }
 
 /**
- * Builds the console test store with the app's createStore, but with a NoopRuntime in
+ * Builds the Console test store with the app's createStore, but with a NoopRuntime in
  * place of the Tauri runtime and no persistence. Window actions (Drift.focusWindow,
  * createWindow) resolve their labels exactly as they do in production. This is the one
- * console store — every render helper below is backed by it.
+ * Console store — every render helper below is backed by it.
  */
 export const createTestStore = async (options: ConsoleTestProviderOptions = {}) => {
   const { preloadedState, windowLabel } = options;
@@ -347,7 +350,7 @@ export interface CreateConsoleWrapperParams {
   client: Client | null;
   preloadedState?: ConsolePreloadedState;
   store?: TestStore;
-  /** Extra aether components merged over the default (eraser) test registry. */
+  /** Extra Aether components merged over the default (eraser) test registry. */
   additionalRegistry?: aether.ComponentRegistry;
   /** Defaults to a portal that cannot be reached. */
   portal?: Portal.Client;
@@ -402,12 +405,12 @@ export const awaitGranted = async (
 };
 
 export interface CreateConnectedConsoleWrapperParams extends CreateConsoleWrapperParams {
-  /** Connection parameters handed to the production pluto Synnax.Provider. */
+  /** Connection parameters handed to the production Pluto Synnax.Provider. */
   connParams: SynnaxParams;
 }
 
 /**
- * Like createConsoleWrapper, but nests the production pluto Synnax.Provider inside the
+ * Like createConsoleWrapper, but nests the production Pluto Synnax.Provider inside the
  * stack, so Synnax.useConnectionStatus reflects a live connection to the Core at
  * connParams, the same wiring the app uses in production.
  */

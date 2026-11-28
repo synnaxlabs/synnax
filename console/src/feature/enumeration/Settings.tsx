@@ -37,6 +37,7 @@ import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
+import { UsedBy } from "@/platform/used-by";
 
 /** @returns whether a stored built-in differs from its shipped name or entries. */
 const edited = (
@@ -133,10 +134,10 @@ const Item = ({
             </Text.Text>
           </List.Cell>
           <List.Cell>
-            <Collection.UsedBy
+            <UsedBy.Popover
               itemKey={e.key}
               kind="enumeration"
-              uses={e.uses}
+              uses={e.uses?.map((id) => ({ id }))}
               anchor={element}
             />
           </List.Cell>
@@ -172,7 +173,14 @@ const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
     const key = uuid.create();
     creating(key);
     void (async () => {
-      if ((await updateAsync({ key, name: trimmed })) === false) return;
+      if (
+        (await updateAsync({
+          key,
+          name: trimmed,
+          entries: Enumeration.createEntries(),
+        })) === false
+      )
+        return;
       // The new enumeration lists at the top, so its entries show to take focus.
       created(key);
       close();
@@ -232,7 +240,7 @@ const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
       {single != null && (
         <Menu.Item
           itemKey="usedBy"
-          onClick={() => Dialog.open(Collection.usedByDialogID(single.key))}
+          onClick={() => Dialog.open(UsedBy.dialogID(single.key))}
         >
           <Icon.Link />
           Used by
