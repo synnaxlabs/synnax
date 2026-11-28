@@ -22,6 +22,9 @@
 
 namespace driver::journal {
 namespace {
+constexpr std::uint8_t OFFSET_TYPE = 1;
+constexpr std::uint32_t OFFSET_SIZE = 16;
+
 template<std::integral T>
 void put(std::string &buf, const T value) {
     const auto bytes = x::binary::to_little_endian(value);
@@ -82,6 +85,10 @@ constexpr std::size_t READ_BUFFER_SIZE = std::size_t{64} * 1024;
 
 bool zeros(const std::span<const char> data) {
     return std::ranges::all_of(data, [](const char c) { return c == 0; });
+}
+
+x::errors::Error fs_error(const std::string &msg, const std::error_code &ec) {
+    return x::errors::Error(BASE_ERROR, msg + ": " + ec.message());
 }
 
 x::errors::Error validate(const Magic &magic) {
@@ -457,5 +464,97 @@ std::uint64_t Reader::pos() const {
 
 std::uint64_t Reader::cut() const {
     return this->cut_bytes;
+}
+
+std::pair<std::optional<Offset>, x::errors::Error>
+read_offset(const std::filesystem::path &path, const Magic &magic) {
+    if (auto err = x::fs::remove_temps(path)) return {std::nullopt, err};
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+        if (ec) return {std::nullopt, fs_error("failed to stat " + path.string(), ec)};
+        return {std::nullopt, x::errors::NIL};
+    }
+    auto [reader, err] = Reader::open(
+        {.path = path, .magic = magic, .types = {OFFSET_TYPE}}
+    );
+    if (err) return {std::nullopt, err};
+    auto [record, r_err] = reader->next();
+    if (r_err) return {std::nullopt, r_err};
+    // A later Driver can append fields to the record.
+    if (!record || record->payload.size() < OFFSET_SIZE)
+        return {std::nullopt, x::errors::Error(CORRUPT, path.string())};
+    // The file is renamed into place whole, so any bytes after the record are corrupt.
+    auto [extra, e_err] = reader->next();
+    if (e_err) return {std::nullopt, e_err};
+    if (extra || reader->cut() > 0)
+        return {std::nullopt, x::errors::Error(CORRUPT, path.string())};
+    return {
+        Offset{
+            .segment = get<std::uint64_t>(record->payload.data()),
+            .pos = get<std::uint64_t>(record->payload.data() + 8),
+        },
+        x::errors::NIL
+    };
+}
+
+x::errors::Error commit_offset(
+    const std::filesystem::path &path,
+    const Magic &magic,
+    const Offset &offset,
+    const x::fs::OnCreate &on_create
+) {
+    Record record{.type = OFFSET_TYPE};
+    put(record.payload, offset.segment);
+    put(record.payload, offset.pos);
+    // The file is renamed into place whole, so no bytes are unsynced.
+    const Header header{
+        .salt = static_cast<std::uint32_t>(std::random_device()()),
+        .sync_bytes = 0,
+        .max_payload = OFFSET_SIZE,
+    };
+    auto buf = encode_header(magic, header);
+    encode_record(buf, header.salt, record);
+    return x::fs::create(path, buf, on_create);
+}
+
+x::errors::Error remove(const std::filesystem::path &path) {
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    if (ec) return fs_error("failed to remove " + path.string(), ec);
+    const auto dir = path.parent_path();
+    return x::fs::sync_dir(dir.empty() ? "." : dir);
+}
+
+Lock::Lock(std::unique_ptr<x::fs::File> file): file(std::move(file)) {}
+
+Lock::~Lock() = default;
+
+std::pair<std::unique_ptr<Lock>, x::errors::Error>
+Lock::open(const std::filesystem::path &dir, const x::fs::OnCreate &on_create) {
+    const auto path = dir / "LOCK";
+    while (true) {
+        std::error_code ec;
+        const auto existed = std::filesystem::exists(path, ec);
+        if (ec) return {nullptr, fs_error("failed to stat " + path.string(), ec)};
+        auto [file, err] = x::fs::File::open(path);
+        if (err) return {nullptr, err};
+        if (err = file->lock(); err.matches(x::fs::LOCKED))
+            return {
+                nullptr,
+                x::errors::Error(x::fs::LOCKED, dir.string() + " is in use")
+            };
+        if (err) return {nullptr, err};
+        auto [removed, removed_err] = file->removed();
+        if (removed_err) return {nullptr, removed_err};
+        // A holder whose create hook failed removed the file.
+        if (removed) continue;
+        // Only the holder of the lock removes the file.
+        if (!existed)
+            if (err = on_create(path); err) {
+                std::filesystem::remove(path, ec);
+                return {nullptr, err};
+            }
+        return {std::unique_ptr<Lock>(new Lock(std::move(file))), x::errors::NIL};
+    }
 }
 }
