@@ -200,6 +200,11 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/opcua/server/retrieve",
 			),
 			Entry(
+				"unary MQTT broker retrieve",
+				http.MethodPost,
+				"/api/v1/mqtt/broker/retrieve",
+			),
+			Entry(
 				"unary OPC UA server create",
 				http.MethodPost,
 				"/api/v1/opcua/server/create",

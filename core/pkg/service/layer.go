@@ -307,7 +307,8 @@ type Layer struct {
 	// PagerDuty owns the stored configuration records of the pagerduty_alert task
 	// type.
 	PagerDuty *pdruntime.Service
-	// MQTT owns the stored configuration records of the MQTT task types.
+	// MQTT owns the MQTT brokers and the stored configuration records of the MQTT task
+	// types.
 	MQTT *mqtt.Service
 	// Sift owns the stored configuration records of the Sift task types.
 	Sift *sift.Service
@@ -1093,6 +1094,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		ICD:             l.ICD,
+		Signals:         l.Signals,
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
@@ -1183,6 +1185,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
+			resource.TypeMqttBroker:      l.MQTT.Brokers.Resources(),
 			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
 			resource.TypeNiDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),

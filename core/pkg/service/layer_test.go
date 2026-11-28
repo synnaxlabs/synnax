@@ -57,6 +57,7 @@ import (
 	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	svcnode "github.com/synnaxlabs/synnax/pkg/service/node"
@@ -1281,6 +1282,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),
 		Entry("Log", resource.TypeLog),
+		Entry("MqttBroker", resource.TypeMqttBroker),
 		Entry("NiChassis", resource.TypeNiChassis),
 		Entry("NiDevice", resource.TypeNiDevice),
 		Entry("Node", resource.TypeNode),
@@ -1351,6 +1353,32 @@ var _ = Describe("Resource search", Ordered, func() {
 		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
 			return r.ID
 		})).To(ConsistOf(s.ResourceID()))
+	})
+
+	It("Should find MQTT brokers by name", func(ctx SpecContext) {
+		b := broker.Broker{
+			Key:       uuid.New(),
+			Rack:      layer.Rack.EmbeddedKey,
+			Name:      "Pump Broker",
+			Host:      "pump.example.com",
+			Transport: broker.Transport{Variant: broker.TcpTransport{}},
+			Auth:      broker.Auth{Variant: broker.NoneAuth{}},
+			Sparkplug: broker.Sparkplug{
+				Mode: broker.SparkplugMode{Variant: broker.PassiveSparkplugMode{}},
+			},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.NewCreate[broker.Key, broker.Broker]().
+				Entry(&b).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
+			Term:  "pump broker",
+			Types: []resource.Type{resource.TypeMqttBroker},
+		}))
+		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
+			return r.ID
+		})).To(ConsistOf(b.ResourceID()))
 	})
 })
 

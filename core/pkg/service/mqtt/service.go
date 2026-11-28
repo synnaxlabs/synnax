@@ -18,9 +18,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
+	"github.com/synnaxlabs/synnax/pkg/service/mqtt/broker"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -41,9 +43,9 @@ const (
 	EdgeTaskType = "mqtt_sparkplug_edge"
 )
 
-// ServiceConfig is the configuration for opening the MQTT task config service.
+// ServiceConfig is the configuration for opening the MQTT service.
 type ServiceConfig struct {
-	// DB is the database config records are stored in.
+	// DB is the database config records and brokers are stored in.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -56,6 +58,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ICD *icd.Service
+	// Signals publishes broker changes.
+	//
+	// [OPTIONAL]
+	Signals *signals.Provider
 	alamos.Instrumentation
 }
 
@@ -66,6 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ICD = override.Nil(c.ICD, other.ICD)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -79,8 +86,11 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service owns the stored configuration records of the MQTT task types.
+// Service owns the MQTT brokers and the stored configuration records of the MQTT task
+// types.
 type Service struct {
+	// Brokers stores MQTT brokers.
+	Brokers *broker.Service
 	// Read stores mqtt_read task configuration records.
 	Read *config.Service[ReadConfig]
 	// Write stores mqtt_write task configuration records.
@@ -93,7 +103,7 @@ type Service struct {
 	closer xio.MultiCloser
 }
 
-// OpenService opens the MQTT task config service with the provided configuration.
+// OpenService opens the MQTT service with the provided configuration.
 // If error is nil, the service is ready for use and must be closed by calling Close
 // to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
@@ -110,6 +120,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.Brokers, err = broker.OpenService(ctx, broker.ServiceConfig{
+		DB:              cfg.DB,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Brokers) {
+		return nil, err
+	}
 	if s.Read, err = config.OpenService(ctx, readServiceConfig(cfg)); !ok(err, s.Read) {
 		return nil, err
 	}
