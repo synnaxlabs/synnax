@@ -218,7 +218,7 @@ func (b *Binary) route(m BinaryMessage, i int) error {
 	switch v := m.Payload.Identifier.Variant.(type) {
 	case icd.FieldIdentifier:
 		id = v
-	case icd.CanIdentifier:
+	case icd.CANIdentifier:
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"message %s: identifier: only the Driver reads CAN frames",

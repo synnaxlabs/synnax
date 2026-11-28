@@ -80,7 +80,7 @@ var _ = Describe("BinaryEncoder", func() {
 
 	It("Should encode only the payload of a message with a CAN identifier", func() {
 		m := frame(telem.Uint8T, byteField("v", 0))
-		m.Payload.Identifier = &icd.Identifier{Variant: icd.CanIdentifier{ID: 0x100}}
+		m.Payload.Identifier = &icd.Identifier{Variant: icd.CANIdentifier{ID: 0x100}}
 		enc := MustSucceed(codec.NewBinaryEncoder(m))
 		Expect(enc.Encode(nil, [][]byte{uint8Sample(5)})).To(Equal([]byte{5}))
 	})

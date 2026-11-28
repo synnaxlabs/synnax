@@ -45,7 +45,7 @@ func (f decodeFixture) can() bool {
 		if !ok || p.Identifier == nil {
 			return false
 		}
-		_, can := p.Identifier.Variant.(icd.CanIdentifier)
+		_, can := p.Identifier.Variant.(icd.CANIdentifier)
 		return can
 	})
 }

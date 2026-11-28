@@ -165,7 +165,7 @@ func hasGoCodec(f checkFixture) bool {
 		if !binary || p.Identifier == nil {
 			return false
 		}
-		_, can := p.Identifier.Variant.(icd.CanIdentifier)
+		_, can := p.Identifier.Variant.(icd.CANIdentifier)
 		return can
 	})
 }
