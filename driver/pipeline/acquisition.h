@@ -124,6 +124,12 @@ public:
     /// never blocks has nothing to end.
     virtual void cancel() {}
 
+    /// @brief blocks until the writer's stream ends. It may run on a second thread
+    /// while write, set_authority, and close run. close returns why the stream ended.
+    /// @returns true once the stream ends, or false at once for a writer that cannot
+    /// watch its stream.
+    [[nodiscard]] virtual bool wait() { return false; }
+
     virtual ~Writer() = default;
 };
 
@@ -167,6 +173,9 @@ public:
 
     /// @brief implements pipeline::Writer to end the writer's stream.
     void cancel() override;
+
+    /// @brief implements pipeline::Writer to wait for the end of the writer's stream.
+    [[nodiscard]] bool wait() override;
 };
 
 /// @brief an implementation of the pipeline::WriterFactory interface that is

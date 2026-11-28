@@ -5038,6 +5038,13 @@ public:
         return {std::move(res), x::errors::NIL};
     }
 
+    bool read(grpc::framer::StreamerResponse &res) override {
+        auto [next, err] = this->receive();
+        if (err) return false;
+        res = std::move(next);
+        return true;
+    }
+
     x::errors::Error send(grpc::framer::StreamerRequest &) const override {
         return x::errors::NIL;
     }
@@ -5085,6 +5092,9 @@ public:
             std::pair<grpc::framer::StreamerResponse, x::errors::Error>
             receive() override {
                 return this->s->receive();
+            }
+            bool read(grpc::framer::StreamerResponse &res) override {
+                return this->s->read(res);
             }
             x::errors::Error send(grpc::framer::StreamerRequest &req) const override {
                 return this->s->send(req);
@@ -5678,6 +5688,32 @@ TEST_F(ScriptedControlTest, OutageAcrossARunRestartKeepsTheLastMirror) {
     st->route(bus_frame(4), OTHER, this->publish);
     const std::vector<double> want{1, 3};
     ASSERT_EQ(got(), want);
+    pipe->resume();
+    // Unblock the detached monitor read, which still waits for a reply.
+    this->scripted.control->close();
+    manager->close();
+}
+
+/// @brief it should hand a channel between local writers by the local rule once a run
+/// ends because the Core is unreachable.
+TEST_F(ScriptedControlTest, UnreachableCoreHandsOffLocally) {
+    start([this] { this->scripted.control->reply({}); }, true);
+    const auto st = this->states();
+    const x::control::Subject high{"high", "high-1"};
+    const x::control::Subject low{"low", "low-1"};
+    st->opened_on_core(high);
+    st->open_gate(high, {BUS_KEY}, {200});
+    st->open_gate(low, {BUS_KEY}, {150});
+    // The Core decides for a writer open on it, so the decrease waits for it.
+    st->set_authority(high, BUS_KEY, 100);
+    ASSERT_TRUE(st->is_authorized(BUS_KEY, high));
+    pipe->pause();
+    this->scripted.control->reply({}, freighter::UNREACHABLE);
+    miss();
+    thread.join();
+    ASSERT_TRUE(synnax::errors::is_unreachable(manager->run()));
+    ASSERT_TRUE(st->is_authorized(BUS_KEY, low));
+    ASSERT_FALSE(st->is_authorized(BUS_KEY, high));
     pipe->resume();
     // Unblock the detached monitor read, which still waits for a reply.
     this->scripted.control->close();

@@ -50,6 +50,8 @@ public:
     void close_send() override {}
 
     void cancel() override {}
+
+    bool read(grpc::framer::StreamerResponse &) override { return false; }
 };
 
 /// @brief a streamer transport that opens FramesThenEndStream streams.
@@ -104,6 +106,8 @@ public:
     void close_send() override {}
 
     void cancel() override {}
+
+    bool read(grpc::framer::StreamerResponse &) override { return false; }
 };
 
 class MissedThenFrameClient final : public StreamerClient {

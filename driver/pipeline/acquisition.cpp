@@ -35,6 +35,11 @@ void SynnaxWriter::cancel() {
     this->internal.cancel();
 }
 
+bool SynnaxWriter::wait() {
+    this->internal.wait();
+    return true;
+}
+
 SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client):
     client(std::move(client)) {}
 
