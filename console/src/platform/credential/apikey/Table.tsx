@@ -11,6 +11,7 @@ import "@/platform/credential/apikey/Table.css";
 
 import { type auth, type resource, TimeStamp } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
+import { useNow } from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -20,6 +21,7 @@ import { createContext, type ReactElement, use, useEffect } from "react";
 
 import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
+import { nextChange, relative } from "@/platform/credential/apikey/expiry";
 import { useCreateModal } from "@/platform/credential/apikey/useCreateModal";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -27,11 +29,23 @@ import { Modals } from "@/platform/modals";
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "minmax(24rem, 1fr)" },
   { name: "Created", width: "34rem" },
+  { name: "Expires", width: "24rem" },
   { name: "Live sessions", width: "14rem" },
 ];
 
 const keyName = (k: auth.apiKey.APIKey): string =>
   k.name === "" ? "Unnamed key" : k.name;
+
+const Expires = ({ expires }: Pick<auth.apiKey.APIKey, "expires">): ReactElement => {
+  const now = useNow((now) => nextChange(expires, now));
+  if (expires.equals(TimeStamp.MAX)) return <Text.Text>Never</Text.Text>;
+  if (!expires.after(now)) return <Text.Text status="error">Expired</Text.Text>;
+  return (
+    <Text.Text color={9} overflow="fade" title={expires.toString("dateTime", "local")}>
+      {relative(expires, now)}
+    </Text.Text>
+  );
+};
 
 interface KeyItemProps extends List.ItemProps<auth.apiKey.Key> {
   sessions: number | null;
@@ -57,6 +71,9 @@ const KeyItem = ({ sessions, ...rest }: KeyItemProps): ReactElement | null => {
           <Text.Text color={9} overflow="fade">
             {new TimeStamp(k.created).toString("dateTime", "local")}
           </Text.Text>
+        </List.Cell>
+        <List.Cell>
+          <Expires expires={k.expires} />
         </List.Cell>
         <List.Cell>
           <Text.Text

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, user } from "@synnaxlabs/client";
+import { rack, TimeSpan, TimeStamp, user } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
@@ -16,8 +16,8 @@ import {
   createTestUser,
 } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { answerMethods } from "@/platform/core/testutil";
 import { Credential } from "@/platform/credential";
@@ -47,6 +47,51 @@ const createKey = async (name: string): Promise<void> => {
   fireEvent.click(await screen.findByText("Create key"));
   await type("Key name", name);
   fireEvent.click(findButton("Create"));
+};
+
+// Formats a local time the way the date editor reads it: "YYYY-MM-DD HH:MM:SS".
+const localTime = (d: Date): string => {
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+};
+
+// Types an instant into the custom expiry date and commits it.
+const setExpiryDate = async (value: string): Promise<void> => {
+  fireEvent.click(await screen.findByLabelText("Expiry date"));
+  // The open editor holds the instant as "YYYY-MM-DD HH:MM...".
+  const field = await screen.findByDisplayValue(/^\d{4}-\d{2}-\d{2} /);
+  fireEvent.change(field, { target: { value } });
+  fireEvent.keyDown(field, { key: "Enter" });
+};
+
+interface TestClock {
+  /** The clock that the modals read. */
+  now: () => TimeStamp;
+  /** Moves the clock forward and runs the timers that the move makes due. */
+  advance: (span: TimeSpan) => Promise<void>;
+}
+
+// A clock that starts at the real time and moves only when a spec advances it. Timers
+// stay fake for the rest of the spec, so a label changes the moment its time comes.
+const createTestClock = (): TestClock => {
+  const start = TimeStamp.now();
+  let offset = TimeSpan.ZERO;
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+  onTestFinished(() => {
+    vi.useRealTimers();
+  });
+  return {
+    now: () => start.add(offset),
+    advance: async (span) => {
+      offset = offset.add(span);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(span.milliseconds);
+      });
+    },
+  };
 };
 
 const expectPassword = async (username: string, password: string): Promise<void> => {
@@ -83,6 +128,163 @@ describe("useModal", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await screen.findByText("No API keys");
     expect(await client.auth.apiKeys.retrieve([id])).toHaveLength(0);
+  });
+
+  it("should expire a new key in 90 days unless the user picks another", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    const before = TimeStamp.now();
+    await createKey(uniqueName("key"));
+    await screen.findByText(/^syk_/);
+    const [created] = await client.auth.apiKeys.retrieve([id]);
+    const lifetime = before.span(created.expires);
+    expect(lifetime.days).toBeGreaterThanOrEqual(90);
+    expect(lifetime.days).toBeLessThan(90 + TimeSpan.MINUTE.days);
+    fireEvent.click(findButton("Done"));
+    await screen.findByText("in 90 days");
+  });
+
+  it("should create a key with no expiry", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    fireEvent.click(await screen.findByText("Create key"));
+    await type("Key name", uniqueName("key"));
+    fireEvent.click(await screen.findByText("No expiry"));
+    fireEvent.click(findButton("Create"));
+    await screen.findByText(/^syk_/);
+    const [created] = await client.auth.apiKeys.retrieve([id]);
+    expect(created.expires.equals(TimeStamp.MAX)).toBe(true);
+    fireEvent.click(findButton("Done"));
+    await screen.findByText("Never");
+  });
+
+  it("should create a key that expires in 30 days", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    fireEvent.click(await screen.findByText("Create key"));
+    await type("Key name", uniqueName("key"));
+    fireEvent.click(await screen.findByText("30 days"));
+    fireEvent.click(findButton("Create"));
+    await screen.findByText(/^syk_/);
+    fireEvent.click(findButton("Done"));
+    await screen.findByText("in 30 days");
+  });
+
+  it("should create a key that expires at a custom time", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    fireEvent.click(await screen.findByText("Create key"));
+    await type("Key name", uniqueName("key"));
+    fireEvent.click(await screen.findByText("Custom"));
+    await setExpiryDate("2020-01-01 00:00");
+    await screen.findByText("Expiry must be in the future");
+    fireEvent.click(findButton("Create"));
+    expect(await client.auth.apiKeys.retrieve([id])).toHaveLength(0);
+    await setExpiryDate("2099-01-01 00:00");
+    await waitFor(() =>
+      expect(screen.queryByText("Expiry must be in the future")).toBeNull(),
+    );
+    fireEvent.click(findButton("Create"));
+    await screen.findByText(/^syk_/);
+    const [created] = await client.auth.apiKeys.retrieve([id]);
+    expect(created.expires.equals(new TimeStamp(new Date(2099, 0, 1)))).toBe(true);
+  });
+
+  it("should show the hours or minutes left on a key that expires soon", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    const soon = async (left: TimeSpan): Promise<void> => {
+      await client.auth.apiKeys.create({
+        subject: id,
+        name: uniqueName("key"),
+        expires: TimeStamp.now().add(left),
+      });
+    };
+    await soon(TimeSpan.hours(5));
+    await soon(TimeSpan.minutes(30));
+    await openModal(Credential.useModal, { client, params: { subject: id } });
+    await screen.findByText("in 5 hours");
+    await screen.findByText("in 30 minutes");
+  });
+
+  it("should mark a key expired when it expires while the table is open", async () => {
+    const clock = createTestClock();
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await client.auth.apiKeys.create({
+      subject: id,
+      name: uniqueName("key"),
+      expires: clock.now().add(TimeSpan.minutes(5)),
+    });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: id },
+      clock: clock.now,
+    });
+    await screen.findByText("in 5 minutes");
+    await clock.advance(TimeSpan.minutes(5));
+    await screen.findByText("Expired");
+  });
+
+  it("should show an error when the custom time passes", async () => {
+    const clock = createTestClock();
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: id },
+      clock: clock.now,
+    });
+    await screen.findByText("No API keys");
+    fireEvent.click(await screen.findByText("Create key"));
+    await type("Key name", uniqueName("key"));
+    fireEvent.click(await screen.findByText("Custom"));
+    await setExpiryDate(localTime(clock.now().add(TimeSpan.minutes(1)).date()));
+    expect(screen.queryByText("Expiry must be in the future")).toBeNull();
+    await clock.advance(TimeSpan.minutes(1));
+    await screen.findByText("Expiry must be in the future");
+  });
+
+  it("should mark an expired key", async () => {
+    const clock = createTestClock();
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    const id = user.resourceID(subject.key);
+    await client.auth.apiKeys.create({
+      subject: id,
+      name: uniqueName("key"),
+      expires: clock.now().add(TimeSpan.minutes(1)),
+    });
+    await clock.advance(TimeSpan.minutes(2));
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: id },
+      clock: clock.now,
+    });
+    await screen.findByText("Expired");
   });
 
   it("should stay open while a key saves", async () => {
