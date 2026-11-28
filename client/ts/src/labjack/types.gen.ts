@@ -81,7 +81,7 @@ export const analogReadChannelZ = baseReadChannelZ.extend({
    * range is the largest voltage magnitude the channel reads, in Volts. The channel
    * uses the smallest range of the device that covers it.
    */
-  range: z.number().default(10),
+  range: z.number().gt(0).default(10),
   /**
    * negChan is the AIN port of the negative input for a differential reading on T7
    * devices. When absent, the channel reads against ground.

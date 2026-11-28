@@ -41,19 +41,29 @@ export const PortField = <C extends Channel>({
   name,
 }: PortFieldProps<C>): ReactElement => {
   const { key: keyPath, port } = deep.widen<Channel>(path);
+  const { get, set } = Form.useContext();
   const key = Form.useFieldValue(keyPath);
   const channels = Form.useFieldValue(channelsPath);
   const ports = Device.PORTS[model][type];
   const tabbed = ports.some(({ connector }) => connector != null);
   return (
     <Form.Field path={port} label="Port">
-      {({ value, onChange, preview }) => {
+      {({ value, preview }) => {
         const props = {
           ports,
           claims: claims(channels, model),
           selected: [key],
           describe: Task.Port.describer(channels, name),
-          onMove: preview ? undefined : (cell: Task.Port.Cell) => onChange(cell.key),
+          onMove: preview
+            ? undefined
+            : (cell: Task.Port.Cell) => {
+                const channel = deep.widen<Channel>(path);
+                const next: Channel = { ...get(channel).value, port: cell.key };
+                // A differential channel reads against the pair of its new port.
+                if ("negChan" in next && next.negChan != null)
+                  next.negChan = Device.negativeChannelOf(cell.key) ?? undefined;
+                set(channel, next);
+              },
         };
         return tabbed ? (
           <BankTabs key={key} port={value} {...props} />

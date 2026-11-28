@@ -6,7 +6,7 @@
       "disabled": false,
       "key": "ch-lj-py-ai",
       "name": "",
-      "neg_chan": 5,
+      "neg_chan": 3,
       "port": "AIN2",
       "range": 4.5,
       "scale": {

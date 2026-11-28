@@ -11,6 +11,7 @@ package labjack
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -81,14 +82,29 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.ReadConfigLadder,
 			Legacy:          &legacy.Read,
-			Migrations:      []gorp.Migration{v3.ReadMigration},
-			SetEntryKey:     (*ReadConfig).SetKey,
-			PatchEntry:      (*ReadConfig).Patch,
-			HashEntry:       (*ReadConfig).HashContent,
+			Migrations: []gorp.Migration{
+				v3.ReadMigration,
+				v3.ReadReconcileMigration,
+			},
+			SetEntryKey: (*ReadConfig).SetKey,
+			PatchEntry:  (*ReadConfig).Patch,
+			HashEntry:   (*ReadConfig).HashContent,
+			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *ReadConfig) error {
+				v3.ReconcileReadChannels(c.Channels)
+				return nil
+			},
 			ValidateEntry: func(c *ReadConfig) error {
 				v := validate.New("labjack.ReadConfig")
 				v.Exec(c.Validate)
 				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				for i, ch := range c.Channels {
+					v.Exec(func() error {
+						return validate.PathedError(
+							validateNegChan(ch),
+							"channels", strconv.Itoa(i), "neg_chan",
+						)
+					})
+				}
 				return v.Error()
 			},
 		},
@@ -139,4 +155,30 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan}
+}
+
+// validateNegChan rejects a negative channel that is not the pair of its channel's
+// port.
+func validateNegChan(ch ReadChannel) error {
+	var (
+		port string
+		neg  *uint16
+	)
+	switch c := ch.Variant.(type) {
+	case AnalogReadChannel:
+		port, neg = c.Port, c.NegChan
+	case ThermocoupleReadChannel:
+		port, neg = c.Port, c.NegChan
+	}
+	if neg == nil {
+		return nil
+	}
+	pair, ok := v3.PairOf(port)
+	if !ok {
+		return validate.Errorf("%s has no differential pair", port)
+	}
+	if *neg != pair {
+		return validate.Errorf("%s pairs only with AIN%d", port, pair)
+	}
+	return nil
 }
