@@ -38,6 +38,12 @@ const (
 	ReasonEmpty
 	// ReasonRepeat is a name that another resource of the same kind beside it held.
 	ReasonRepeat
+	// ReasonClash is a name that a resource of the other kind beside it held: a channel
+	// beside a folder, or a folder beside a channel.
+	ReasonClash
+	// ReasonMetricsFolder is the name of the metrics folder on a top-level channel. The
+	// Core keeps that top-level name for its metrics folder.
+	ReasonMetricsFolder
 )
 
 // RenameReason returns why a name pass renames a resource that holds name: what in name
