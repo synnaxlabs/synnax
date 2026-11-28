@@ -103,7 +103,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:      node.DB,
 		Signals: sigs,
 	}))
-	MustOpen(sigs.Start(ctx))
+	StartRun(sigs.Run)
 	projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB: node.DB,
 	}))

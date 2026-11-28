@@ -10,6 +10,7 @@
 package signals_test
 
 import (
+	"context"
 	"time"
 	"uuid"
 
@@ -19,10 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Start", func() {
+var _ = Describe("Run", func() {
 	var (
 		sigs    *signals.Provider
 		state   *actions.State[uuid.UUID, action]
@@ -64,7 +66,7 @@ var _ = Describe("Start", func() {
 	}
 
 	It("Should write the changes of one commit as one frame", func(ctx SpecContext) {
-		MustOpen(sigs.Start(ctx))
+		StartRun(sigs.Run)
 		set, act := retrieveChannel(ctx, setName), retrieveChannel(ctx, actName)
 		responses := openStreamer(ctx, set.Key(), act.Key())
 		e := createWithAction(ctx, "whole")
@@ -75,11 +77,11 @@ var _ = Describe("Start", func() {
 			To(ConsistOf(HaveField("Key", e.Key)))
 	})
 
-	It("Should write nothing for a commit before Start", func(ctx SpecContext) {
+	It("Should write nothing for a commit before Run", func(ctx SpecContext) {
 		set := retrieveChannel(ctx, setName)
 		responses := openStreamer(ctx, set.Key())
 		createWithAction(ctx, "before")
-		MustOpen(sigs.Start(ctx))
+		StartRun(sigs.Run)
 		createWithAction(ctx, "after")
 		Expect(receiveSamples(responses)).To(ConsistOf(
 			WithTransform(func(b []byte) string { return string(b) },
@@ -87,25 +89,57 @@ var _ = Describe("Start", func() {
 		))
 	})
 
-	It("Should write nothing after Close", func(ctx SpecContext) {
-		closer := MustSucceed(sigs.Start(ctx))
+	It("Should write nothing after Run returns", func(ctx SpecContext) {
+		stop := StartRun(sigs.Run)
 		responses := openStreamer(ctx, retrieveChannel(ctx, setName).Key())
-		Expect(closer.Close()).To(Succeed())
+		stop()
 		createWithAction(ctx, "closed")
 		Consistently(responses.Outlet(), 250*time.Millisecond).ShouldNot(Receive())
 	})
 
-	It("Should fail to publish a channel after Start", func(ctx SpecContext) {
-		MustOpen(sigs.Start(ctx))
+	It("Should fail to publish a channel after Run starts", func(ctx SpecContext) {
+		StartRun(sigs.Run)
 		Expect(sigs.PublishTable(ctx, signals.TableConfig[uuid.UUID, testUUIDEntry]{
 			Changes:    uuidTable.Changes,
 			Resource:   testResource[uuid.UUID],
 			DeleteName: nextName(),
-		})).To(MatchError(ContainSubstring("after Start")))
+		})).To(MatchError(ContainSubstring("after Run")))
 	})
 
-	It("Should fail when Start runs twice", func(ctx SpecContext) {
-		MustOpen(sigs.Start(ctx))
-		Expect(sigs.Start(ctx)).Error().To(MatchError(ContainSubstring("already ran")))
+	It("Should return an error when called twice", func(ctx SpecContext) {
+		StartRun(sigs.Run)
+		Expect(sigs.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+	})
+
+	It("Should not close while Run runs", func() {
+		stop := StartRun(sigs.Run)
+		Expect(sigs.Close()).
+			To(MatchError(ContainSubstring("close called while Run runs")))
+		stop()
+		Expect(sigs.Close()).To(Succeed())
+	})
+
+	It("Should return an error when called after Close", func(ctx SpecContext) {
+		Expect(sigs.Close()).To(Succeed())
+		Expect(sigs.Run(ctx)).To(MatchError(ContainSubstring("run called after close")))
+	})
+
+	It("Should return the error of a writer that fails to open", func(ctx SpecContext) {
+		key := retrieveChannel(ctx, setName).Key()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Delete(ctx, key, true)
+		})).To(Succeed())
+		Expect(sigs.Run(ctx)).To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should return nil without change channels", func(ctx SpecContext) {
+		empty := MustSucceed(signals.New(signals.Config{
+			DB:      db,
+			Channel: channelSvc,
+			Framer:  nodeFramer,
+		}))
+		runCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		Expect(empty.Run(runCtx)).To(Succeed())
 	})
 })

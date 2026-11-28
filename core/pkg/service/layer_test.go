@@ -257,6 +257,7 @@ var _ = Describe("Layer", func() {
 		) {
 			node := testutil.NewNode(ctx)
 			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			StartRun(layer.Run)
 			openStreamer := func(
 				name string,
 			) confluence.Outlet[framer.StreamerResponse] {

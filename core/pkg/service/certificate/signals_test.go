@@ -40,6 +40,7 @@ var _ = Describe("Signals", Ordered, func() {
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		layer = MustOpen(svctestutil.OpenLayer(ctx, node))
+		StartRun(layer.Run)
 	})
 	// receive streams the channel with the given name and returns the samples of the
 	// next frame after write runs.

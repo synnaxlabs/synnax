@@ -24,15 +24,6 @@ var _ io.Closer = CloserFunc(nil)
 // Close implements io.Closer.
 func (c CloserFunc) Close() error { return c() }
 
-type nopCloser struct{}
-
-var _ io.Closer = nopCloser{}
-
-func (nopCloser) Close() error { return nil }
-
-// NopCloser is an io.Closer that does nothing.
-var NopCloser io.Closer = nopCloser{}
-
 // NoFailCloserFunc is an io.Closer that executes a function and returns nil.
 type NoFailCloserFunc func()
 

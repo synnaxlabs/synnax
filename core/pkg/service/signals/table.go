@@ -116,7 +116,7 @@ func (c TableConfig[K, E]) Validate() error {
 }
 
 // PublishTable creates the set and delete channels of a table and adds them to the
-// channels that Start writes. Call it before Start.
+// channels that Run writes. Call it before Run.
 func (p *Provider) PublishTable[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	cfgs ...TableConfig[K, E],

@@ -71,7 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Framer:  node.Framer,
 	}))
 	Expect(sigs.PublishTable(ctx, signals.TableConfig(channelSvc))).To(Succeed())
-	MustOpen(sigs.Start(ctx))
+	StartRun(sigs.Run)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

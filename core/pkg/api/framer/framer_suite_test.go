@@ -89,6 +89,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 		SecretsKey: secret.NewEncryptionKey(),
 	}))
+	StartRun(svc.Run)
 	framerSvc = svc.Framer
 	channelSvc = svc.Channel
 	creator = calctestutil.Creator{DB: db, Channel: channelSvc}

@@ -58,8 +58,8 @@ func (c ActionConfig[K, A]) Validate() error {
 	return v.Error()
 }
 
-// PublishActions creates an action channel and adds it to the channels that Start
-// writes. Call it before Start.
+// PublishActions creates an action channel and adds it to the channels that Run writes.
+// Call it before Run.
 func (p *Provider) PublishActions[K gorp.Key, A any](
 	ctx context.Context,
 	cfg ActionConfig[K, A],
