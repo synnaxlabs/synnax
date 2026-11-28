@@ -295,10 +295,11 @@ var _ = Describe("NewClashMigration", func() {
 				}))
 			})
 
-		It("Should leave and stage a read of a renamed channel in a folder that Arc "+
+		It("Should write the new name of a renamed channel in a folder that Arc "+
 			"cannot read bare yet", func(ctx SpecContext) {
 			// A v0.62 Core bound "pt" to the user's channel, the higher key, which the
-			// built-in of the name in its folder takes from it.
+			// built-in of the name in its folder takes from it. Until a bare name reads
+			// the top level, Arc reaches pt_2 in any folder.
 			builtin := channel(1, "pt", &first)
 			builtin.Internal = true
 			calc := channel(3, "doubled", nil)
@@ -310,15 +311,8 @@ var _ = Describe("NewClashMigration", func() {
 				folder(first, "Stand A", nil),
 			)
 			Expect(channels[2]).To(Equal("pt_2"))
-			Expect(expressionOf(ctx, 3)).To(Equal(calc.Expression))
-			Expect(resource.StagedTextSites(db)).To(ConsistOf(resource.TextSite{
-				Holder:  calc.ResourceID(),
-				Name:    "pt",
-				NewName: "pt_2",
-				Line:    1,
-				Column:  7,
-				Folder:  "Stand A",
-			}))
+			Expect(expressionOf(ctx, 3)).To(Equal("return pt_2 * 2"))
+			Expect(resource.StagedTextSites(db)).To(BeEmpty())
 		})
 
 		It("Should leave a name that a channel still holds", func(ctx SpecContext) {

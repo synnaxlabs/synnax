@@ -12,7 +12,6 @@ package service_test
 import (
 	"fmt"
 	"runtime"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,8 +25,8 @@ import (
 )
 
 var _ = Describe("Folder text upgrade breaker", func() {
-	It("Should report a read of a channel in a folder that Arc cannot read with the "+
-		"folder reason when a local captures a read of another channel",
+	It("Should report a read kept beside a captured read of another channel with "+
+		"its own reason",
 		func(ctx SpecContext) {
 			n := testutil.NewNode(ctx)
 			stand := folder("Stand A")
@@ -60,15 +59,15 @@ var _ = Describe("Folder text upgrade breaker", func() {
 			}
 			Expect(descriptions).To(ContainElement(
 				`The upgrade renamed channel "pt" to "pt_2", but the text of ` +
-					`calculated channel "doubled" still reads the old name at line 2, ` +
-					`column 30, because the folder "Stand A" on its path cannot be read ` +
-					`in Arc yet. Rename that folder so that Arc can read it, then edit ` +
-					`the text so that it reads the channel.`,
+					`calculated channel "doubled" still reads the old name at line ` +
+					`2, column 30, because the upgrade keeps a whole text when a ` +
+					`symbol that it declares holds the name of one of its reads. ` +
+					`Edit the text so that it reads the channel.`,
 			))
 		})
 
-	It("Should name the folder that Arc cannot read when it sits above the folder of "+
-		"the channel", func(ctx SpecContext) {
+	It("Should write the new name of a channel under a folder that Arc cannot read "+
+		"bare", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)
 		stand, plant := folder("Stand A"), folder("plant")
 		plant.Parent = &resource.ID{Type: resource.TypeGroup, Key: stand.Key.String()}
@@ -87,16 +86,10 @@ var _ = Describe("Folder text upgrade breaker", func() {
 		arcs := storeArcs(ctx, n, []string{"x := pt"}, []string{"{ return pt }"})
 		MustOpen(svctestutil.OpenLayer(ctx, n))
 		Expect(namesOf(ctx, n, stored)[stored[1].Key()]).To(Equal("pt_2"))
-		Expect(expressionOf(ctx, n, stored[2].Key())).To(Equal("return pt * 2"))
-		Expect(sourceOf(ctx, n, arcs[0])).To(Equal("x := pt"))
-		Expect(sourceOf(ctx, n, arcs[1])).To(Equal("{ return pt }"))
-		statuses := keptStatuses(ctx, n)
-		Expect(statuses).To(HaveLen(3))
-		// The folder of the channel, "plant", reads bare, so a rename of it does not
-		// help. The status names the folder that the user must rename.
-		Expect(statuses).To(HaveEach(
-			HaveField("Description", ContainSubstring(`"Stand A"`)),
-		))
+		Expect(expressionOf(ctx, n, stored[2].Key())).To(Equal("return pt_2 * 2"))
+		Expect(sourceOf(ctx, n, arcs[0])).To(Equal("x := pt_2"))
+		Expect(sourceOf(ctx, n, arcs[1])).To(Equal("{ return pt_2 }"))
+		Expect(keptStatuses(ctx, n)).To(BeEmpty())
 	})
 
 	// A v0.62 Core moved a folder with no check of its own chain, so a store can hold a
@@ -127,11 +120,10 @@ var _ = Describe("Folder text upgrade breaker", func() {
 		case err := <-done:
 			Expect(err).ToNot(HaveOccurred())
 		case <-time.After(5 * time.Second):
-			buf := make([]byte, 1<<22)
-			stack := string(buf[:runtime.Stack(buf, true)])
+			buf := make([]byte, 1<<16)
 			Fail(fmt.Sprintf(
-				"the layer did not open in 5s; the folder walk is on the stack: %t",
-				strings.Contains(stack, "v1.folderNames"),
+				"the layer did not open in 5s:\n%s",
+				buf[:runtime.Stack(buf, true)],
 			))
 		}
 	})

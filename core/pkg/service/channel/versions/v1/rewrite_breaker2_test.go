@@ -11,7 +11,6 @@ package v1_test
 
 import (
 	"context"
-	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,41 +29,31 @@ import (
 )
 
 var _ = Describe("Folder rewrite breaker", func() {
-	// held is a channel that held old before the upgrade, which renamed it to old with
-	// "_2", in folders from the top level down.
-	type held struct {
-		old     string
-		folders []string
-	}
-	// rewriter returns a rewriter with cfg over the rename of each of channels, keyed
+	// rewriter returns a rewriter with cfg over the rename of each channel that held
+	// one of olds before the upgrade, which renamed it to that name with "_2", keyed
 	// from 1 in order.
 	rewriter := func(
 		ctx context.Context,
 		cfg parser.Config,
-		channels ...held,
+		olds ...string,
 	) v1.Rewriter {
 		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		byKey := make(map[v1.Key]v1.TextChannel, len(channels))
-		for i, c := range channels {
+		byKey := make(map[v1.Key]v1.TextChannel, len(olds))
+		for i, old := range olds {
 			key := v1.Key(i + 1)
-			byKey[key] = v1.TextChannel{
-				Name:     c.old + "_2",
-				DataType: telem.Float64T,
-				Folders:  c.folders,
-			}
+			byKey[key] = v1.TextChannel{Name: old + "_2", DataType: telem.Float64T}
 			Expect(resource.StageRename(
 				ctx,
 				db,
 				resource.ID{Type: resource.TypeChannel, Key: key.String()},
-				c.old,
+				old,
 				resource.ReasonClash,
 			)).To(Succeed())
 		}
 		renames := MustSucceed(v1.TextRename(db, byKey))
 		return v1.Rewriter{Renames: renames, Config: cfg, Ambient: stl.NewSymbols()}
 	}
-	standA := []string{"Stand A"}
 	byName := func(res v1.Result, name string) []v1.Reference {
 		var refs []v1.Reference
 		for _, r := range res.References {
@@ -82,14 +71,10 @@ var _ = Describe("Folder rewrite breaker", func() {
 	}
 
 	Describe("A text that a capture keeps", func() {
-		It("Should mark a read of a channel in a folder that Arc cannot read when a "+
-			"local captures a read of another channel", func(ctx SpecContext) {
-			w := rewriter(
-				ctx,
-				parser.Config{},
-				held{old: "pt"},
-				held{old: "Metrics", folders: standA},
-			)
+		It("Should keep a read beside a captured read of another channel", func(
+			ctx SpecContext,
+		) {
+			w := rewriter(ctx, parser.Config{}, "pt", "Metrics")
 			text := "pt_2 f64 := 2.0\nreturn pt * pt_2 + Metrics"
 			res := MustSucceed(w.Rewrite(ctx, calculation(text)))
 			Expect(res.Text).To(Equal(text))
@@ -98,160 +83,87 @@ var _ = Describe("Folder rewrite breaker", func() {
 				HaveField("Column", 19),
 				HaveField("Kept", true),
 				HaveField("Captured", false),
-				HaveField("FolderUnreadable", true),
 			)))
 		})
 
-		It("Should mark a captured read of a channel in a folder that Arc cannot read",
-			func(ctx SpecContext) {
-				w := rewriter(
-					ctx,
-					parser.Config{},
-					held{old: "Metrics", folders: standA},
-				)
-				text := "Metrics_2 f64 := 2.0\nreturn Metrics * Metrics_2"
-				res := MustSucceed(w.Rewrite(ctx, calculation(text)))
-				Expect(res.Text).To(Equal(text))
-				Expect(byName(res, "Metrics")).To(ConsistOf(SatisfyAll(
-					HaveField("Kept", true),
-					HaveField("FolderUnreadable", true),
-				)))
-			})
+		It("Should keep a captured read", func(ctx SpecContext) {
+			w := rewriter(ctx, parser.Config{}, "Metrics")
+			text := "Metrics_2 f64 := 2.0\nreturn Metrics * Metrics_2"
+			res := MustSucceed(w.Rewrite(ctx, calculation(text)))
+			Expect(res.Text).To(Equal(text))
+			Expect(byName(res, "Metrics")).To(ConsistOf(SatisfyAll(
+				HaveField("Kept", true),
+				HaveField("Captured", true),
+			)))
+		})
 	})
 
-	Describe("The splice after a kept read", func() {
-		It("Should write each read of a readable channel between kept reads",
-			func(ctx SpecContext) {
-				w := rewriter(
-					ctx,
-					parser.Config{},
-					held{old: "Metrics", folders: standA},
-					held{old: "pt"},
-				)
-				res := MustSucceed(w.Rewrite(
-					ctx,
-					calculation("x := Metrics + pt\nreturn Metrics * pt + Metrics"),
-				))
-				Expect(res.Text).
-					To(Equal("x := Metrics + pt_2\nreturn Metrics * pt_2 + Metrics"))
-				Expect(byName(res, "Metrics")).To(ConsistOf(
-					SatisfyAll(HaveField("Line", 1), HaveField("Column", 5),
-						HaveField("Kept", true), HaveField("FolderUnreadable", true)),
-					SatisfyAll(HaveField("Line", 2), HaveField("Column", 7),
-						HaveField("Kept", true), HaveField("FolderUnreadable", true)),
-					SatisfyAll(HaveField("Line", 2), HaveField("Column", 22),
-						HaveField("Kept", true), HaveField("FolderUnreadable", true)),
-				))
-				Expect(byName(res, "pt")).To(HaveEach(HaveField("Kept", false)))
-			})
-
-		It("Should keep a read after a multi-byte character in a format string and "+
-			"write the read after it", func(ctx SpecContext) {
-			w := rewriter(
-				ctx,
-				parser.Config{},
-				held{old: "Metrics", folders: standA},
-				held{old: "pt"},
-			)
+	Describe("The splice of written reads", func() {
+		It("Should write each read of each renamed channel", func(ctx SpecContext) {
+			w := rewriter(ctx, parser.Config{}, "Metrics", "pt")
 			res := MustSucceed(w.Rewrite(
 				ctx,
-				calculation("s := f\"日本{Metrics}é{pt}\"\nreturn 1.0"),
+				calculation("x := Metrics + pt\nreturn Metrics * pt + Metrics"),
 			))
-			Expect(res.Text).To(Equal("s := f\"日本{Metrics}é{pt_2}\"\nreturn 1.0"))
-			Expect(byName(res, "Metrics")).To(ConsistOf(SatisfyAll(
-				HaveField("Line", 1),
-				HaveField("Column", 10),
-				HaveField("Kept", true),
-				HaveField("FolderUnreadable", true),
-			)))
+			Expect(res.Text).To(Equal(
+				"x := Metrics_2 + pt_2\nreturn Metrics_2 * pt_2 + Metrics_2",
+			))
+			Expect(res.References).To(HaveEach(HaveField("Kept", false)))
 		})
 
-		It("Should keep a read written with an escape in a placeholder", func(
-			ctx SpecContext,
-		) {
-			w := rewriter(
-				ctx,
-				parser.Config{},
-				held{old: "Metrics", folders: standA},
-				held{old: "pt"},
-			)
+		It("Should write each read after a multi-byte character in a format string",
+			func(ctx SpecContext) {
+				w := rewriter(ctx, parser.Config{}, "Metrics", "pt")
+				res := MustSucceed(w.Rewrite(
+					ctx,
+					calculation("s := f\"日本{Metrics}é{pt}\"\nreturn 1.0"),
+				))
+				Expect(res.Text).
+					To(Equal("s := f\"日本{Metrics_2}é{pt_2}\"\nreturn 1.0"))
+			})
+
+		It("Should write the new name over a read written with an escape in a "+
+			"placeholder", func(ctx SpecContext) {
+			w := rewriter(ctx, parser.Config{}, "Metrics", "pt")
 			text := "s := f\"{Metr\\u0069cs}{pt}\"\nreturn 1.0"
 			res := MustSucceed(w.Rewrite(ctx, calculation(text)))
-			Expect(res.Text).To(Equal("s := f\"{Metr\\u0069cs}{pt_2}\"\nreturn 1.0"))
+			Expect(res.Text).To(Equal("s := f\"{Metrics_2}{pt_2}\"\nreturn 1.0"))
 		})
 	})
 
-	DescribeTable("Should keep a write to a channel in a folder that Arc cannot read",
+	DescribeTable("Should write the new name into a write to a renamed channel",
 		func(ctx SpecContext, src v1.Source, want string) {
-			w := rewriter(
-				ctx,
-				parser.Config{},
-				held{old: "out", folders: standA},
-				held{old: "sensor"},
-			)
+			w := rewriter(ctx, parser.Config{}, "out", "sensor")
 			res := MustSucceed(w.Rewrite(ctx, src))
 			Expect(res.Text).To(Equal(want))
-			Expect(byName(res, "out")).To(HaveEach(SatisfyAll(
-				HaveField("Kept", true),
-				HaveField("FolderUnreadable", true),
-			)))
 			Expect(byName(res, "out")).ToNot(BeEmpty())
+			Expect(res.References).To(HaveEach(HaveField("Kept", false)))
 		},
 		Entry("a flow target",
 			program("sensor -> scale{factor: 2.0} -> out"),
-			"sensor_2 -> scale{factor: 2.0} -> out"),
+			"sensor_2 -> scale{factor: 2.0} -> out_2"),
 		Entry("an assignment in a calculation",
 			calculation("out = sensor\nreturn 1.0"),
-			"out = sensor_2\nreturn 1.0"),
+			"out_2 = sensor_2\nreturn 1.0"),
 		Entry("an authority entry",
 			program("authority (out 200)\nsensor -> out"),
-			"authority (out 200)\nsensor_2 -> out"),
+			"authority (out_2 200)\nsensor_2 -> out_2"),
 		Entry("an assignment in a function",
 			program("func f() {\n\tout = sensor\n}"),
-			"func f() {\n\tout = sensor_2\n}"),
+			"func f() {\n\tout_2 = sensor_2\n}"),
 	)
 
-	DescribeTable("Should keep a read in a graph body of a channel in a folder that "+
-		"Arc cannot read", func(ctx SpecContext, folders ...string) {
-		w := rewriter(ctx, parser.Config{}, held{old: "Metrics", folders: folders})
-		src := v1.Source{
+	It("Should write the new name into a read in a graph body", func(ctx SpecContext) {
+		w := rewriter(ctx, parser.Config{}, "Metrics")
+		res := MustSucceed(w.Rewrite(ctx, v1.Source{
 			Text:     "{ return Metrics * x }",
 			Form:     v1.FormBody,
 			Function: "scale",
 			Inputs:   types.Params{{Name: "x", Type: types.F64()}},
 			Outputs:  types.Params{{Name: "output", Type: types.F64()}},
-		}
-		res := MustSucceed(w.Rewrite(ctx, src))
-		Expect(res.Text).To(Equal(src.Text))
-		Expect(res.References).To(ConsistOf(HaveField("FolderUnreadable", true)))
-	},
-		Entry("a tab", "Stand\tA"),
-		Entry("a keyword type", "f64"),
-		Entry("a boolean", "true"),
-		Entry("a logical keyword", "and"),
-		Entry("an authority keyword", "authority"),
-		Entry("a slash", "a/b"),
-		Entry("a comment", "a//b"),
-		Entry("a non-ASCII letter", "Ström"),
-		Entry("a combining mark", "plant\u0301"),
-		Entry("a leading digit after a readable folder", "plant", "2nd"),
-		Entry("an unreadable ancestor of readable folders", "Stand A", "plant", "x"),
-	)
-
-	DescribeTable("Should keep a read through a dashed folder that the dashed lexer "+
-		"splits", func(ctx SpecContext, folder string) {
-		w := rewriter(
-			ctx,
-			parser.Config{AllowDashedNames: true},
-			held{old: "Metrics", folders: []string{folder}},
-		)
-		res := MustSucceed(w.Rewrite(ctx, calculation("return Metrics")))
-		Expect(res.Text).To(Equal("return Metrics"))
-	},
-		Entry("an arrow", "a->b"),
-		Entry("a compound assignment", "a-=b"),
-		Entry("a leading dash", "-a"),
-	)
+		}))
+		Expect(res.Text).To(Equal("{ return Metrics_2 * x }"))
+	})
 
 	Describe("CalculationTextMigration", func() {
 		const host node.Key = 1
@@ -281,22 +193,18 @@ var _ = Describe("Folder rewrite breaker", func() {
 			}
 			return f
 		}
-		// run stores a built-in "pt" and the user's "pt" in the folder at, and a
-		// calculation that reads "pt", runs the text chain, and returns the
-		// expression of the calculation.
-		run := func(
+		// migrate stores channels, a calculation keyed 4 that reads "pt", and folders,
+		// runs the text chain, and returns the expression of the calculation.
+		migrate := func(
 			ctx context.Context,
-			at uuid.UUID,
+			channels []v1.Channel,
 			folders ...groupv1.Group,
 		) string {
 			GinkgoHelper()
-			builtin := channel(1, "pt", &at)
-			builtin.Internal = true
-			calc := channel(3, "doubled", nil)
+			calc := channel(4, "doubled", nil)
 			calc.Expression = "return pt * 2"
-			channels := []v1.Channel{builtin, channel(2, "pt", &at), calc}
-			Expect(gorp.WrapWriter[v1.Key, v1.Channel](db).Set(ctx, channels...)).
-				To(Succeed())
+			Expect(gorp.WrapWriter[v1.Key, v1.Channel](db).
+				Set(ctx, append(channels, calc)...)).To(Succeed())
 			Expect(gorp.WrapWriter[groupv1.Key, groupv1.Group](db).
 				Set(ctx, folders...)).To(Succeed())
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
@@ -316,19 +224,30 @@ var _ = Describe("Folder rewrite breaker", func() {
 				Exec(ctx, db)).To(Succeed())
 			return c.Expression
 		}
+		// run stores a built-in "pt" and the user's "pt" in the folder at, then
+		// folders, and returns the expression of the calculation after the text chain.
+		run := func(
+			ctx context.Context,
+			at uuid.UUID,
+			folders ...groupv1.Group,
+		) string {
+			GinkgoHelper()
+			builtin := channel(1, "pt", &at)
+			builtin.Internal = true
+			stored := []v1.Channel{builtin, channel(2, "pt", &at)}
+			return migrate(ctx, stored, folders...)
+		}
 
-		It("Should keep and stage a read of a channel in a readable folder under a "+
-			"folder that Arc cannot read", func(ctx SpecContext) {
+		It("Should write the new name of a channel under a folder that Arc cannot "+
+			"read bare", func(ctx SpecContext) {
 			Expect(run(
 				ctx,
 				third,
 				folder(first, "Stand A", nil),
 				folder(second, "plant", &first),
 				folder(third, "rig", &second),
-			)).To(Equal("return pt * 2"))
-			Expect(resource.StagedTextSites(db)).To(ConsistOf(
-				HaveField("Folder", "Stand A"),
-			))
+			)).To(Equal("return pt_2 * 2"))
+			Expect(resource.StagedTextSites(db)).To(BeEmpty())
 		})
 
 		It("Should write the new name through nested readable folders",
@@ -342,68 +261,16 @@ var _ = Describe("Folder rewrite breaker", func() {
 				Expect(resource.StagedTextSites(db)).To(BeEmpty())
 			})
 
-		It("Should keep and stage a read of a renamed channel in a folder that Arc "+
-			"cannot read when a top-level channel holds the old name",
-			func(ctx SpecContext) {
-				builtin := channel(2, "pt", &first)
-				builtin.Internal = true
-				calc := channel(4, "doubled", nil)
-				calc.Expression = "return pt * 2"
-				Expect(gorp.WrapWriter[v1.Key, v1.Channel](db).Set(
-					ctx,
-					channel(1, "pt", nil),
-					builtin,
-					channel(3, "pt", &first),
-					calc,
-				)).To(Succeed())
-				Expect(gorp.WrapWriter[groupv1.Key, groupv1.Group](db).
-					Set(ctx, folder(first, "Stand A", nil))).To(Succeed())
-				Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-					DB:        db,
-					Namespace: "channel",
-					Migrations: []gorp.Migration{
-						groupv1.NameRuleMigration,
-						v1.NameRuleMigration,
-						v1.NewClashMigration(host),
-						v1.NewCalculationTextMigration(parser.Config{}),
-					},
-				})).To(Succeed())
-				var c v1.Channel
-				Expect(gorp.NewRetrieve[v1.Key, v1.Channel]().
-					Where(gorp.MatchKeys[v1.Key, v1.Channel](calc.Key())).
-					Entry(&c).
-					Exec(ctx, db)).To(Succeed())
-				Expect(c.Expression).To(Equal("return pt * 2"))
-				Expect(resource.StagedTextSites(db)).To(ConsistOf(SatisfyAll(
-					HaveField("Name", "pt"),
-					HaveField("Folder", Not(BeEmpty())),
-				)))
-			})
-
-		// A v0.62 Core moved a folder with no check of its own chain, so a store can
-		// hold a folder whose chain comes back to it.
-		It("Should return the folders of a channel whose folder chain comes back to "+
-			"itself", func(ctx SpecContext) {
-			loop := []groupv1.Group{
-				folder(first, "plant", &second),
-				folder(second, "rig", &first),
-			}
-			Expect(gorp.WrapWriter[groupv1.Key, groupv1.Group](db).Set(ctx, loop...)).
-				To(Succeed())
-			done := make(chan error, 1)
-			go func() {
-				tx := db.OpenTx()
-				_, err := v1.TextChannels(
-					ctx,
-					tx,
-					[]v1.Channel{channel(1, "pt", &first)},
-				)
-				if closeErr := tx.Close(); err == nil {
-					err = closeErr
-				}
-				done <- err
-			}()
-			Eventually(done).WithTimeout(300 * time.Millisecond).Should(Receive())
+		It("Should write the new name of the channel that v0.62 bound when a "+
+			"top-level channel keeps the old name", func(ctx SpecContext) {
+			builtin := channel(2, "pt", &first)
+			builtin.Internal = true
+			Expect(migrate(
+				ctx,
+				[]v1.Channel{channel(1, "pt", nil), builtin, channel(3, "pt", &first)},
+				folder(first, "Stand A", nil),
+			)).To(Equal("return pt_2 * 2"))
+			Expect(resource.StagedTextSites(db)).To(BeEmpty())
 		})
 
 		It("Should write the new name through a folder that the name pass made "+

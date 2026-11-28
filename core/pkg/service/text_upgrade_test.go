@@ -123,8 +123,54 @@ var _ = Describe("Text upgrade", func() {
 		})
 		MustOpen(svctestutil.OpenLayer(ctx, n))
 		Expect(bodiesOf(ctx, n, key)[1]).To(Equal("{ return Metrics * 2 }"))
-		Expect(keptStatuses(ctx, n)).To(HaveLen(1))
+		Expect(keptStatuses(ctx, n)).To(ConsistOf(HaveField(
+			"Description",
+			`The upgrade renamed channel "Metrics" to "Metrics_2", but the text of `+
+				`function "f" of Arc "graph" still reads the old name at line 1, `+
+				`column 10, because a symbol that the text declares holds one of `+
+				`these names there. Edit the text so that it reads the channel.`,
+		)))
 	})
+
+	It("Should report a kept reference of an Arc by the name of the Arc", func(
+		ctx SpecContext,
+	) {
+		n := testutil.NewNode(ctx)
+		storeMetrics(ctx, n)
+		storeArcs(ctx, n, []string{"Metrics_2 := 1.0\nx := Metrics"}, nil)
+		MustOpen(svctestutil.OpenLayer(ctx, n))
+		Expect(keptStatuses(ctx, n)).To(ConsistOf(HaveField(
+			"Description",
+			`The upgrade renamed channel "Metrics" to "Metrics_2", but the text of `+
+				`Arc "text" still reads the old name at line 2, column 6, because a `+
+				`symbol that the text declares holds one of these names there. Edit `+
+				`the text so that it reads the channel.`,
+		)))
+	})
+
+	DescribeTable("Should write the new name into a graph body beside a function "+
+		"that has no body yet", func(ctx SpecContext, fns ir.Functions, want string) {
+		n := testutil.NewNode(ctx)
+		storeMetrics(ctx, n)
+		key := storeGraph(ctx, n, fns)
+		MustOpen(svctestutil.OpenLayer(ctx, n))
+		Expect(bodiesOf(ctx, n, key)[1]).To(Equal(want))
+		Expect(keptStatuses(ctx, n)).To(BeEmpty())
+	},
+		Entry("a later input named like that function", ir.Functions{
+			{Key: "g"},
+			{
+				Key:     "f",
+				Inputs:  types.Params{{Name: "g", Type: types.F64()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+				Body:    ir.Body{Raw: "{ return Metrics * g }"},
+			},
+		}, "{ return Metrics_2 * g }"),
+		Entry("a second function under that key", ir.Functions{
+			{Key: "g"},
+			{Key: "g", Body: ir.Body{Raw: "{ return Metrics }"}},
+		}, "{ return Metrics_2 }"),
+	)
 
 	It("Should open a v0.62 store that holds a graph function whose input holds the "+
 		"key of its function", func(ctx SpecContext) {
