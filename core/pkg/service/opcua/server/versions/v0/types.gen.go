@@ -30,7 +30,9 @@ import (
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
-var validatePattern0 = regexp.MustCompile("^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:[0-9]{1,5})?(/[^[:space:]]*)?$")
+var validatePattern0 = regexp.MustCompile("[^[:space:]]")
+
+var validatePattern1 = regexp.MustCompile("^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(/[^[:space:]]*)?$")
 
 // Key uniquely identifies an OPC UA server.
 type Key = uuid.UUID
@@ -100,6 +102,7 @@ func (UsernameAuth) isAuthVariant() {}
 func (u UsernameAuth) Validate() error {
 	v := validate.New("UsernameAuth")
 	v.NotEmptyString("username", u.Username)
+	v.Ternary("username", !validatePattern0.MatchString(string(u.Username)), "User name must contain a character that is not a space")
 	return v.Error()
 }
 
@@ -111,6 +114,14 @@ type CertificateAuth struct {
 }
 
 func (CertificateAuth) isAuthVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CertificateAuth) Validate() error {
+	v := validate.New("CertificateAuth")
+	v.NonZero("certificate", c.Certificate)
+	return v.Error()
+}
 
 // Auth is how the Driver logs in to the server.
 type Auth struct {
@@ -220,6 +231,8 @@ func (u Auth) Validate() error {
 	switch variant := u.Variant.(type) {
 	case UsernameAuth:
 		v.Exec(variant.Validate)
+	case CertificateAuth:
+		v.Exec(variant.Validate)
 	}
 	return v.Error()
 }
@@ -256,6 +269,14 @@ type PinnedServerTrust struct {
 }
 
 func (PinnedServerTrust) isServerTrustVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p PinnedServerTrust) Validate() error {
+	v := validate.New("PinnedServerTrust")
+	v.NonZero("certificate", p.Certificate)
+	return v.Error()
+}
 
 // ValidationDisabledServerTrust accepts any server certificate.
 type ValidationDisabledServerTrust struct {
@@ -368,6 +389,10 @@ func (u ServerTrust) Type() ServerTrustType {
 func (u ServerTrust) Validate() error {
 	v := validate.New("ServerTrust")
 	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case PinnedServerTrust:
+		v.Exec(variant.Validate)
+	}
 	return v.Error()
 }
 
@@ -624,8 +649,9 @@ func (c *Connection) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (c Connection) Validate() error {
 	v := validate.New("Connection")
 	v.NotEmptyString("endpoint", c.Endpoint)
-	v.Ternary("endpoint", !validatePattern0.MatchString(string(c.Endpoint)), "Endpoint must be an opc.tcp:// URL with a host and an optional port and path")
+	v.Ternary("endpoint", !validatePattern1.MatchString(string(c.Endpoint)), "Endpoint must be an opc.tcp:// URL with a host, an optional port from 1 to 65535, and an optional path")
 	v.GreaterThanEq("client_timeout", c.ClientTimeout, 100000000)
+	v.Ternary("client_timeout", !(c.ClientTimeout < c.SessionTimeout), "Client timeout must be less than the session timeout")
 	v.GreaterThanEq("secure_channel_lifetime", c.SecureChannelLifetime, 1000000000)
 	v.GreaterThanEq("session_timeout", c.SessionTimeout, 1000000000)
 	v.Exec(func() error { return validate.PathedError(c.Auth.Validate(), "auth") })
@@ -734,7 +760,9 @@ func (s *Server) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (s Server) Validate() error {
 	v := validate.New("Server")
+	v.NonZero("rack", s.Rack)
 	v.NotEmptyString("name", s.Name)
+	v.Ternary("name", !validatePattern0.MatchString(string(s.Name)), "Name must contain a character that is not a space")
 	v.Exec(func() error { return validate.PathedError(s.Connection.Validate(), "connection") })
 	for i := range s.Reads {
 		v.Exec(func() error { return validate.PathedError(s.Reads[i].Validate(), "reads", strconv.Itoa(i)) })

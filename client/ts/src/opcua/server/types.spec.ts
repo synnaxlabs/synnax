@@ -92,6 +92,7 @@ describe("serverZ", () => {
         },
       },
     ],
+    ["no rack", { rack: 0 }],
     ["a read without an index", { reads: [{ node: "i=85", channel: 2 }] }],
     ["a write without a node", { writes: [{ node: "", channel: 3 }] }],
   ];

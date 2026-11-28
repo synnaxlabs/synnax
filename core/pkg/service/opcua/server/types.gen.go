@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
+	"regexp"
 	"strconv"
 )
 
@@ -145,6 +146,8 @@ type Status = versions.Status
 // Server is an OPC UA server that a rack's Driver connects to.
 type Server = versions.Server
 
+var validatePattern0 = regexp.MustCompile("[^[:space:]]")
+
 // Identity holds the server fields that the connect form and the scanner's certificate
 // pin own.
 type Identity struct {
@@ -167,6 +170,7 @@ func (i Identity) Validate() error {
 	v := validate.New("Identity")
 	v.NonZero("rack", i.Rack)
 	v.NotEmptyString("name", i.Name)
+	v.Ternary("name", !validatePattern0.MatchString(string(i.Name)), "Name must contain a character that is not a space")
 	v.Exec(func() error { return validate.PathedError(i.Connection.Validate(), "connection") })
 	return v.Error()
 }

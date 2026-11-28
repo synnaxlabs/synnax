@@ -520,6 +520,11 @@ class TestOPCServerResource:
                 {**self.SERVER, "reads": [{"node": "i=85", "channel": 2}]}
             )
 
+    def test_rejects_a_server_without_a_rack(self) -> None:
+        """Should require the rack of a server."""
+        with pytest.raises(ValidationError):
+            sy.opcua.server.Server.model_validate({**self.SERVER, "rack": 0})
+
     def test_resource_id(self) -> None:
         """Should name the server by its key under the opcua_server type."""
         assert sy.opcua.server.resource_id(self.KEY).type == "opcua_server"
