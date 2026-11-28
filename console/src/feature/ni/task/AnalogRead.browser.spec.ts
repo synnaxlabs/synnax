@@ -28,6 +28,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  getAddChannelButton,
   preloadForms,
   reportTaskRunning,
   selectFromDropdown,
@@ -170,7 +171,7 @@ describe("AnalogRead", () => {
       ["ai_voltage_rms", "Terminal configuration"],
       ["ai_voltage_with_excit", "Use excitation for scaling"],
     ];
-    // A generated type without a case here is a type the console cannot edit.
+    // A generated type without a case here is a type the Console cannot edit.
     expect(new Set(cases.map(([type]) => type))).toEqual(
       new Set(Object.keys(NI.Task.AI_CHANNEL_TYPE_NAMES)),
     );
@@ -577,6 +578,14 @@ describe("AnalogRead ports", () => {
     fireEvent.click(await screen.findByText("Ports"));
     return await screen.findByRole("group", { name: `${dev.name} ports` });
   };
+
+  it("should draw the device location in Inter", async () => {
+    const dev = await createDevice();
+    await renderWith([createChannel("ai_voltage", 0, { device: dev.key })]);
+    await openPorts(dev);
+    const { fontFamily } = getComputedStyle(screen.getByText(dev.location));
+    expect(fontFamily).toMatch(/^"?Inter/);
+  });
 
   it.each<[string, (device: string) => NI.Task.AIChannel[], string]>([
     [
@@ -1002,7 +1011,7 @@ describe("AnalogRead ports", () => {
     await selectFromDropdown("Voltage", "Current");
     const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
     await waitFor(() => expect(min.value).toBe("-0.02"));
-    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    fireEvent.click(getAddChannelButton());
     await waitFor(() => {
       const rows = screen.getAllByRole("option");
       expect(rows).toHaveLength(2);

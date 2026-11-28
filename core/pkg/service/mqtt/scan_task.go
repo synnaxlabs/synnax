@@ -12,7 +12,6 @@ package mqtt
 import (
 	"context"
 	"time"
-	"unicode/utf8"
 	"uuid"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -23,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -61,7 +59,10 @@ type browsedField struct {
 	// Kind is the kind of a payload field that holds most values heard at Pointer.
 	Kind payload.Kind `json:"kind"`
 	// TimeFormat is the format of a timestamp field. Nil for any other field.
-	TimeFormat *xjson.TimeFormat `json:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitempty"`
+	// Enum holds the distinct values, sorted, of a field of only strings that repeats
+	// a few.
+	Enum []string `json:"enum"`
 }
 
 // browsedTopic is one topic that a browse heard, with its last payload and the shapes
@@ -227,9 +228,10 @@ func browseDuration(ms int) time.Duration {
 	return min(duration, maxBrowseDuration)
 }
 
-// browseConfig returns the properties of a browse's broker device and the config of
-// its client. A browse has its own client and client ID. A wildcard subscription
-// on the shared connection would overlap the subscriptions of the tasks.
+// browseConfig returns the properties of a browse's broker device and the config of its
+// client. A browse has its own client and client ID. A wildcard subscription on the
+// shared connection would overlap the subscriptions of the tasks. It returns a
+// driver.Failure when the properties of the device are not valid.
 func (s *scanner) browseConfig(
 	ctx context.Context,
 	key device.Key,
@@ -245,11 +247,11 @@ func (s *scanner) browseConfig(
 	}
 	props, err := parseProperties(dev)
 	if err != nil {
-		return properties{}, clientConfig{}, err
+		return properties{}, clientConfig{}, settingsFailure(err)
 	}
 	cfg, err := newClientConfigOf(dev, props)
 	if err != nil {
-		return properties{}, clientConfig{}, err
+		return properties{}, clientConfig{}, settingsFailure(err)
 	}
 	// A broker drops the older of two sessions with one client ID, so each browse and
 	// sample derives an ID of its own.
@@ -257,12 +259,4 @@ func (s *scanner) browseConfig(
 	// A browse is never the host application, so it sets no STATE last will.
 	cfg.hostID = ""
 	return props, cfg, nil
-}
-
-// payloadSample returns the start of a text payload.
-func payloadSample(payload []byte) string {
-	if !utf8.Valid(payload) {
-		return ""
-	}
-	return driver.CutText(payload, browsePayloadLimit)
 }

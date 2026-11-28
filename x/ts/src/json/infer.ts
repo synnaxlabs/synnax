@@ -11,39 +11,21 @@ import { z } from "zod";
 
 import { pointerZ, primitiveTypeZ } from "@/json/json";
 import { payload } from "@/payload";
-import { dataTypeZ } from "@/telem";
-
-/** The encodings of a timestamp in a JSON value. */
-export const TIME_FORMATS = [
-  "iso8601",
-  "unix_sec",
-  "unix_ms",
-  "unix_us",
-  "unix_ns",
-] as const;
-
-export const timeFormatZ = z.enum(TIME_FORMATS);
-
-export type TimeFormat = z.infer<typeof timeFormatZ>;
 
 /** A field that the Core inferred from a set of JSON documents. */
 export const inferredFieldZ = z.object({
   /** pointer locates the field in each document. */
   pointer: pointerZ,
-  /** dataType is the data type of a channel that holds the field. */
-  dataType: dataTypeZ,
   /** kind is the kind of a payload field that holds the values of the field. */
   kind: payload.kindZ,
   /** type is the JSON type of most values of the field. */
   type: primitiveTypeZ.exclude(["null"]),
   /** timeFormat is the encoding of a timestamp field. Undefined for any other field. */
-  timeFormat: timeFormatZ.optional(),
+  timeFormat: payload.timeFormatZ.optional(),
   /** enum holds the labels of a string field with few distinct values. */
   enum: z.array(z.string()),
-  /** count is the number of documents that hold the field. */
-  count: z.number(),
-  /** mismatched is the number of values that do not have the JSON type of the field. */
-  mismatched: z.number(),
+  /** optional is true when some documents lack the field or hold null at it. */
+  optional: z.boolean(),
 });
 
 export interface InferredField extends z.infer<typeof inferredFieldZ> {}

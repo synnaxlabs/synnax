@@ -1,0 +1,50 @@
+{
+  "description": "A big-endian field reads from its most significant start bit into the next byte, and needs both of its bytes.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 3,
+            "bit_length": 12,
+            "byte_order": "big_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint16"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "0abc",
+      "message": "frame",
+      "samples": [2748]
+    },
+    {
+      "hex": "0a",
+      "message": "frame",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "field v: the payload has 1 bytes and the field needs 2: validation error"
+        }
+      ]
+    }
+  ]
+}

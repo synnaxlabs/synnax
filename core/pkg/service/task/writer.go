@@ -82,7 +82,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	}
 	record, err := store.Prepare(ctx, w.tx, t.Key, t.Name, t.Config)
 	if err != nil {
-		return err
+		return configError(err)
 	}
 	if t.Config, err = record.Data(); err != nil {
 		return err
@@ -97,7 +97,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	if err = record.Write(ctx, w.tx); err != nil {
-		return err
+		return configError(err)
 	}
 	// The hash also covers the records that the config references, which the write of
 	// the record can create.
@@ -225,10 +225,10 @@ func (w Writer) editConfig(
 	}
 	rec, changed, err := store.Edit(ctx, w.tx, t.Key, t.Name, cursors)
 	if err != nil {
-		return nil, err
+		return nil, configError(err)
 	}
 	if err = rec.Write(ctx, w.tx); err != nil {
-		return nil, err
+		return nil, configError(err)
 	}
 	if t.ConfigHash, err = store.Hash(ctx, w.tx, t.Key); err != nil {
 		return nil, err
@@ -248,6 +248,15 @@ func (w Writer) editConfig(
 		Path:  []string{"config_hash"},
 		Value: t.ConfigHash,
 	})), nil
+}
+
+// configError roots a path error of a config store, whose path starts inside the
+// config, at the config of the task. It returns any other error as it is.
+func configError(err error) error {
+	if _, ok := errors.AsType[validate.PathError](err); ok {
+		return validate.PathedError(err, "config")
+	}
+	return err
 }
 
 // syncConfig stores the hash of the config stored for the task with the given key, and

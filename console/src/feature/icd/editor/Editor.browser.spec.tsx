@@ -11,24 +11,50 @@ import { icd, type Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
+  failRequests,
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Portal } from "@synnaxlabs/lyra/portal";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { uniqueName } from "@synnaxlabs/x/testutil";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { ICD } from "@/feature/icd";
-import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
+import { client, createICD, createUsedICD, ENGINE_CSV } from "@/feature/icd/testutil";
+import { Task } from "@/feature/task";
+import { createdIn, focusedIn } from "@/platform/icd/testutil";
+import { Modals } from "@/platform/modals";
+import { findLastButton } from "@/platform/modals/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
+import { createActiveState } from "@/platform/project/testutil";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
   fakePickedFile,
+  getBySelector,
   interceptFilePicker,
   renderSuspended,
+  resolveFocusedTab,
 } from "@/testutil";
+
+const flags = vi.hoisted((): { bus: boolean } => ({ bus: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
+  return {
+    FLAGS: {
+      ...FLAGS,
+      get bus() {
+        return flags.bus;
+      },
+    },
+  };
+});
 
 const { Content } = ICD.TABS[icd.TYPE_RESOURCE_ID.type];
 
@@ -38,22 +64,46 @@ const renderEditor = async (
   ic: icd.ICD,
   as: Synnax = client,
   selected: icd.MessageKey[] = [],
-): Promise<void> => {
-  const { wrapper, store } = await createConsoleWrapper({ client: as });
-  store.dispatch(Session.ICD.setSelected({ key: ic.key, selected }));
+  focused?: icd.FieldKey,
+  created = false,
+) => {
+  // A task opens from a confirm into the active project.
+  const proj = await client.projects.create({ name: uniqueName("project") });
+  const { wrapper, store } = await createConsoleWrapper({
+    client: as,
+    preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
+  });
+  store.dispatch(Session.ICD.setSelected({ key: ic.key, selected, focused }));
+  if (created) store.dispatch(Session.ICD.setCreated({ key: ic.key, created }));
   const { panelKey, tabKey } = await createResourceTab(client, icd.resourceID(ic.key));
   await primePanel(wrapper, panelKey);
-  await renderSuspended(
+  const ui = (
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <Content />
       </PlutoPanel.TabScope.Provider>
-    </PlutoPanel.Scope.Provider>,
-    { wrapper },
+    </PlutoPanel.Scope.Provider>
   );
+  // A panel hosts each tab through a portal, so a hidden tab is detached.
+  const tree = (hosted: boolean) => (
+    <Tree.Provider items={Task.TREE_ITEMS}>
+      <Portal.Context>
+        <Portal.In itemKey={tabKey}>{ui}</Portal.In>
+        {hosted && <Portal.Out itemKey={tabKey} />}
+      </Portal.Context>
+      <Modals.Stack />
+    </Tree.Provider>
+  );
+  const { unmount, rerender } = await renderSuspended(tree(true), { wrapper });
   // The editor is a preview until the grant check resolves, and only an editor shows
   // Import.
   if (as === client) await screen.findByRole("button", { name: "Import" });
+  const reopen = async () => {
+    unmount();
+    await renderSuspended(tree(true), { wrapper });
+  };
+  const host = async (hosted: boolean) => await act(async () => rerender(tree(hosted)));
+  return { store, reopen, host };
 };
 
 const cell = (column: string, row: number): HTMLInputElement =>
@@ -138,6 +188,56 @@ const retrieveStoredMessage = async (key: icd.Key): Promise<icd.Message> => {
   }
 };
 
+const createFramedICD = async (framing?: icd.Framing): Promise<icd.ICD> =>
+  await client.icds.create({ name: uniqueName("icd"), framing });
+
+/** Reads the framing through a new client, so the result is what the Core stored. */
+const retrieveStoredFraming = async (
+  key: icd.Key,
+): Promise<icd.Framing | undefined> => {
+  const core = createTestClient();
+  try {
+    return (await core.icds.retrieve({ key })).framing;
+  } finally {
+    await core.close();
+  }
+};
+
+const SYNC: icd.SyncFraming = {
+  type: "sync",
+  sync: new Uint8Array([0xaa, 0x55]),
+  lengthOffset: 2,
+  lengthSize: "one",
+  byteOrder: "little_endian",
+  lengthAdjustment: 0,
+  maxLength: 65536,
+};
+
+const pick = async (select: RegExp, option: string): Promise<void> => {
+  fireEvent.click(await screen.findByRole("button", { name: select }));
+  fireEvent.click(await screen.findByRole("option", { name: option }));
+};
+
+const typeText = async (label: RegExp, text: string): Promise<HTMLInputElement> => {
+  const input = await screen.findByLabelText<HTMLInputElement>(label);
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.blur(input);
+  return input;
+};
+
+/** Waits for input to refuse text, then checks that a hover shows error. */
+const expectRefused = async (
+  input: HTMLInputElement,
+  text: string,
+  error: string,
+): Promise<void> => {
+  await waitFor(() => expect(input.getAttribute("aria-invalid")).toBe("true"));
+  expect(input.value).toBe(text);
+  await userEvent.hover(input);
+  await screen.findByText(error);
+};
+
 const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {
   const { payload } = await retrieveMessage(key);
   if (payload.format !== "json") throw new Error("expected a JSON message");
@@ -182,16 +282,139 @@ const paste = (target: HTMLElement, text: string): void => {
   fireEvent(target, new ClipboardEvent("paste", { clipboardData, bubbles: true }));
 };
 
+/** Expects the focused input to hold value, all of it selected. */
+const expectFocusedAndSelected = async (value: string): Promise<void> => {
+  await waitFor(() =>
+    expect((document.activeElement as HTMLInputElement | null)?.value).toBe(value),
+  );
+  const input = document.activeElement as HTMLInputElement;
+  expect(input.selectionStart).toBe(0);
+  expect(input.selectionEnd).toBe(value.length);
+};
+
 describe("ICD editor", () => {
-  it("should add a message with a unique name", async () => {
+  it("should add a message with a unique name, its name focused and selected", async () => {
     const ic = await createICD([createMessage([], "Message 1")]);
     await renderEditor(ic);
     await findMessageItem("Message 1");
     fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
     await findMessageItem("Message 2");
+    await expectFocusedAndSelected("Message 2");
     await waitFor(async () =>
       expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
     );
+  });
+
+  it("should leave the name of an added message unfocused when it is selected again", async () => {
+    const ic = await createICD([createMessage([], "Message 1")]);
+    await renderEditor(ic);
+    fireEvent.click(await screen.findByRole("button", { name: "Add message" }));
+    await expectFocusedAndSelected("Message 2");
+    fireEvent.click(await findMessageItem("Message 1"));
+    await screen.findByDisplayValue("Message 1");
+    fireEvent.click(await findMessageItem("Message 2"));
+    await screen.findByDisplayValue("Message 2");
+    expect((document.activeElement as HTMLInputElement | null)?.value).not.toBe(
+      "Message 2",
+    );
+  });
+
+  it("should add a message from the empty pane", async () => {
+    const ic = await createICD([]);
+    await renderEditor(ic);
+    const details = getBySelector<HTMLElement>(document, ".console-panes__details");
+    fireEvent.click(
+      await within(details).findByRole("button", { name: "Add message" }),
+    );
+    await findMessageItem("Message 1");
+    await expectFocusedAndSelected("Message 1");
+  });
+
+  it("should offer no add in the empty pane of a viewer", async () => {
+    const ic = await createICD([]);
+    await renderEditor(ic, await createTestClientWithRole(client, "Viewer"));
+    const details = await waitFor(() =>
+      getBySelector<HTMLElement>(document, ".console-panes__details"),
+    );
+    await within(details).findByText("No message selected");
+    expect(within(details).queryByRole("button", { name: "Add message" })).toBeNull();
+  });
+
+  it("should focus and select the name of an ICD it just created, then clear the mark", async () => {
+    const ic = await createICD([]);
+    const { store } = await renderEditor(ic, client, [], undefined, true);
+    await expectFocusedAndSelected(ic.name);
+    await waitFor(() => expect(createdIn(store, ic.key)).toBe(false));
+  });
+
+  it("should focus the name of an ICD it just created once its hidden tab shows", async () => {
+    const ic = await createICD([]);
+    const { store, host } = await renderEditor(ic);
+    await host(false);
+    act(() => {
+      store.dispatch(Session.ICD.setCreated({ key: ic.key, created: true }));
+    });
+    await act(async () => {});
+    expect(createdIn(store, ic.key)).toBe(true);
+    await host(true);
+    await expectFocusedAndSelected(ic.name);
+    expect(createdIn(store, ic.key)).toBe(false);
+  });
+
+  it("should leave the name of an existing ICD unfocused", async () => {
+    const ic = await createICD([]);
+    await renderEditor(ic);
+    await screen.findByDisplayValue(ic.name);
+    expect(document.activeElement).not.toBe(screen.getByDisplayValue(ic.name));
+  });
+
+  describe("at a field that a task names", () => {
+    const createReading = () => {
+      const flow = createJSONField("Flow", "/flow");
+      return {
+        flow,
+        reading: createJSONMessage([createJSONField("Temp", "/temp"), flow]),
+      };
+    };
+
+    it("should focus and select the name of the field", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { store } = await renderEditor(ic, client, [reading.key], flow.key);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      expect(cell("Name", 2).selectionStart).toBe(0);
+      expect(cell("Name", 2).selectionEnd).toBe("Flow".length);
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should focus the field once its hidden tab shows", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { store, host } = await renderEditor(ic, client, [reading.key]);
+      await host(false);
+      const selected = [reading.key];
+      act(() => {
+        store.dispatch(
+          Session.ICD.setSelected({ key: ic.key, selected, focused: flow.key }),
+        );
+      });
+      await act(async () => {});
+      expect(focusedIn(store, ic.key)).toBe(flow.key);
+      await host(true);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should not focus the field again when the editor opens again", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { reopen } = await renderEditor(ic, client, [reading.key], flow.key);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      await reopen();
+      await screen.findByLabelText("Name 2");
+      await act(async () => {});
+      expect(document.activeElement).not.toBe(cell("Name", 2));
+    });
   });
 
   it("should open at the message that the session selects", async () => {
@@ -282,10 +505,114 @@ describe("ICD editor", () => {
     });
   });
 
-  it("should replace the payload when the format changes", async () => {
+  describe("CAN identifier", () => {
+    const renderCAN = async (extended: boolean = false): Promise<icd.ICD> => {
+      const ic = await createICD([
+        {
+          ...createMessage([]),
+          payload: {
+            format: "binary",
+            fields: [createBinaryField("Rpm", 0)],
+            identifier: {
+              type: "can",
+              id: 0x100,
+              extended,
+              fd: false,
+              bitrateSwitched: false,
+            },
+          },
+        },
+      ]);
+      await renderEditor(ic);
+      return ic;
+    };
+
+    const expectIDRefused = async (text: string, error: string): Promise<void> => {
+      await expectRefused(await typeText(/^ID/, text), text, error);
+      screen.getByText("CAN 0x100 · 1 field");
+    };
+
+    it("should keep text that is not a hex number in the ID, with its error", async () => {
+      const ic = await renderCAN();
+      await expectIDRefused("0x18FF5G", "ID must be a hex number, such as 0x1F0");
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        identifier: { id: 0x100 },
+      });
+    });
+
+    it.each(["0x20000000", "0x1FFFFFFFFF"])(
+      "should keep %s, above any CAN ID, in the ID with its error",
+      async (text) => {
+        await renderCAN(true);
+        await expectIDRefused(text, "A CAN ID is at most 0x1FFFFFFF");
+      },
+    );
+
+    it("should store an ID above the bound of a standard frame and show it", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x800");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+          identifier: { id: 0x800 },
+        }),
+      );
+      await expectRefused(id, "0x800", "id 0x800 exceeds the maximum 0x7FF");
+    });
+
+    it("should clear the bound error when Extended ID turns on", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x800");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      fireEvent.click(screen.getByLabelText("Extended ID"));
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBeNull());
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        identifier: { id: 0x800, extended: true },
+      });
+    });
+
+    it("should save an ID typed after a refused one and clear the error", async () => {
+      const ic = await renderCAN();
+      const id = await typeText(/^ID/, "0x18FF5G");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      await typeText(/^ID/, "0x7FF");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+          identifier: { id: 0x7ff },
+        }),
+      );
+      expect(id.getAttribute("aria-invalid")).toBeNull();
+      expect(id.value).toBe("0x7FF");
+    });
+
+    it("should put back the stored ID when Esc follows refused text", async () => {
+      await renderCAN();
+      const id = await typeText(/^ID/, "0x18FF5G");
+      await waitFor(() => expect(id.getAttribute("aria-invalid")).toBe("true"));
+      await userEvent.click(id);
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(id.value).toBe("0x100"));
+      expect(id.getAttribute("aria-invalid")).toBeNull();
+    });
+
+    it("should refuse a mask that is not a hex number", async () => {
+      await renderCAN();
+      const text = "0xZZ";
+      const mask = await typeText(/^Mask/, text);
+      await expectRefused(mask, text, "Mask must be a hex number, such as 0x7F0");
+    });
+  });
+
+  it("should keep a frame length that is not a whole number, with its error", async () => {
+    await renderEditor(await createICD([createMessage([createBinaryField("Rpm", 0)])]));
+    const length = await typeText(/^Length/, "1.5");
+    await expectRefused(length, "1.5", "Length must be a whole number of bytes");
+  });
+
+  it("should replace the payload when the user confirms a format change", async () => {
     const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
     await renderEditor(ic);
     fireEvent.click(await screen.findByRole("button", { name: "Text" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Change format" }));
     const delimiter = await screen.findByLabelText(/^Delimiter/);
     fireEvent.change(delimiter, { target: { value: ";" } });
     await waitFor(async () => {
@@ -296,6 +623,125 @@ describe("ICD editor", () => {
         prefix: "",
         fields: [],
       });
+    });
+  });
+
+  describe("format change", () => {
+    const CONFIRM = "Change Engine to JSON?";
+
+    it("should ask before it removes the field of a message, and keep it on cancel", async () => {
+      const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
+      await renderEditor(ic);
+      fireEvent.click(await screen.findByRole("button", { name: "JSON" }));
+      await screen.findByText(CONFIRM);
+      screen.getByText("This removes its field. Tasks that bind it lose that channel.");
+      fireEvent.click(findLastButton("Cancel"));
+      await waitFor(() => expect(screen.queryByText(CONFIRM)).toBeNull());
+      expect((await retrieveMessage(ic.key)).payload).toMatchObject({
+        format: "binary",
+        fields: [{ name: "Rpm" }],
+      });
+    });
+
+    it("should count the fields that it removes", async () => {
+      const fields = [createBinaryField("Rpm", 0), createBinaryField("Temp", 8)];
+      const ic = await createICD([createMessage(fields)]);
+      await renderEditor(ic);
+      fireEvent.click(await screen.findByRole("button", { name: "JSON" }));
+      await screen.findByText(
+        "This removes its 2 fields. Tasks that bind them lose those channels.",
+      );
+    });
+
+    it("should change the format of a message with no fields without asking", async () => {
+      const ic = await createICD([createMessage([])]);
+      await renderEditor(ic);
+      fireEvent.click(await screen.findByRole("button", { name: "JSON" }));
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.format).toBe("json"),
+      );
+      expect(screen.queryByText(CONFIRM)).toBeNull();
+    });
+
+    it("should list the tasks that use the ICD", async () => {
+      const engine = createMessage([createBinaryField("Rpm", 0)]);
+      const { ic, used } = await createUsedICD([engine]);
+      await renderEditor(ic, client, [engine.key]);
+      fireEvent.click(await screen.findByRole("button", { name: "JSON" }));
+      await screen.findByText(`Tasks that use ${ic.name}`);
+      await screen.findByText(used.name);
+    });
+
+    it("should open a task from it, close, and keep the format", async () => {
+      const engine = createMessage([createBinaryField("Rpm", 0)]);
+      const { ic, used } = await createUsedICD([engine]);
+      const { store } = await renderEditor(ic, client, [engine.key]);
+      fireEvent.click(await screen.findByRole("button", { name: "JSON" }));
+      fireEvent.click(await screen.findByText(used.name));
+      expect(await resolveFocusedTab(store, client)).toMatchObject({
+        variant: "resource",
+        resource: { key: used.key },
+      });
+      await waitFor(() => expect(screen.queryByText(CONFIRM)).toBeNull());
+      const { messages } = await client.icds.retrieve({ key: ic.key });
+      expect(messages.find(({ key }) => key === engine.key)?.payload.format).toBe(
+        "binary",
+      );
+    });
+
+    it("should ask again for a field that another client adds while it asks", async () => {
+      const rpm = createBinaryField("Rpm", 0);
+      const ic = await createICD([createMessage([rpm])]);
+      await renderEditor(ic);
+      fireEvent.click(await screen.findByRole("button", { name: "JSON" }));
+      await screen.findByText(CONFIRM);
+      const [engine] = ic.messages;
+      await dispatchElsewhere(
+        ic.key,
+        icd.insert({
+          path: ["messages", engine.key, "payload", "fields"],
+          value: createBinaryField("Temp", 8),
+          after: rpm.key,
+        }),
+      );
+      await screen.findByLabelText("Name 2");
+      fireEvent.click(findLastButton("Change format"));
+      await screen.findByText(
+        "This removes its 2 fields. Tasks that bind them lose those channels.",
+      );
+      expect((await retrieveMessage(ic.key)).payload.format).toBe("binary");
+      fireEvent.click(findLastButton("Change format"));
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.format).toBe("json"),
+      );
+    });
+
+    it("should say this message and this ICD for blank names", async () => {
+      const engine = createMessage([createBinaryField("Rpm", 0)]);
+      const { ic } = await createUsedICD([engine]);
+      await renderEditor(ic, client, [engine.key]);
+      const icdName = await screen.findByDisplayValue(ic.name);
+      const messageName = screen.getByDisplayValue("Engine");
+      fireEvent.change(icdName, { target: { value: "" } });
+      fireEvent.blur(icdName);
+      fireEvent.change(messageName, { target: { value: "" } });
+      fireEvent.click(screen.getByRole("button", { name: "JSON" }));
+      await screen.findByText("Change this message to JSON?");
+      await screen.findByText("Tasks that use this ICD");
+    });
+
+    it("should say why it cannot list the tasks and still change the format", async () => {
+      const subject = createTestClient();
+      const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
+      await renderEditor(ic, subject);
+      await screen.findByRole("button", { name: "Import" });
+      failRequests(subject, "/task/retrieve", new Error("task lookup failed"));
+      fireEvent.click(await screen.findByRole("button", { name: "JSON" }));
+      await screen.findByText("Failed to retrieve tasks: task lookup failed");
+      fireEvent.click(screen.getByRole("button", { name: "Change format" }));
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.format).toBe("json"),
+      );
     });
   });
 
@@ -357,9 +803,7 @@ describe("ICD editor", () => {
       expect((await retrieveMessage(ic.key)).cycleTime).toBeUndefined(),
     );
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
   });
 
   it("should refuse a cycle time of zero", async () => {
@@ -536,6 +980,67 @@ describe("ICD editor", () => {
     );
   });
 
+  describe("adding a JSON field", () => {
+    const addField = async (ic: icd.ICD): Promise<void> => {
+      await renderEditor(ic);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields).toHaveLength(2),
+      );
+    };
+
+    const storedPointers = async (ic: icd.ICD): Promise<string[]> =>
+      (await retrieveMessage(ic.key)).payload.fields.map((f) =>
+        "pointer" in f ? f.pointer : "",
+      );
+
+    it("should select the name of the added field, so typing replaces it", async () => {
+      await addField(
+        await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]),
+      );
+      const name = cell("Name", 2);
+      await waitFor(() => expect(document.activeElement).toBe(name));
+      expect(name.value).toBe("Field 2");
+      expect([name.selectionStart, name.selectionEnd]).toEqual([0, "Field 2".length]);
+    });
+
+    it("should move the pointer of the added field when it is renamed", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Name", 2, "Inlet temp");
+      await waitFor(async () =>
+        expect(await storedPointers(ic)).toEqual(["/temp", "/inlet_temp"]),
+      );
+    });
+
+    it("should keep the pointer of a field the message already had when it is renamed", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Name", 1, "Outlet");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields[0].name).toBe("Outlet"),
+      );
+      expect(await storedPointers(ic)).toEqual(["/temp", "/field_2"]);
+    });
+
+    it("should keep the pointer of the added field once the user edits it", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Pointer", 2, "/flow/rate");
+      await commit("Name", 2, "Flow");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields[1].name).toBe("Flow"),
+      );
+      expect(await storedPointers(ic)).toEqual(["/temp", "/flow/rate"]);
+    });
+  });
+
   it("should store the type of a binary field", async () => {
     const ic = await createICD([createMessage([createBinaryField("Temp", 0)])]);
     await renderEditor(ic);
@@ -604,6 +1109,43 @@ describe("ICD editor", () => {
         "default",
       ),
     );
+  });
+
+  it("should show, set, and clear the min and max of a binary field", async () => {
+    const ic = await createICD([
+      createMessage([{ ...createBinaryField("Rpm", 0), min: 0, max: 100 }]),
+    ]);
+    await renderEditor(ic);
+    expect((await screen.findByLabelText<HTMLInputElement>("Max 1")).value).toBe("100");
+    await commit("Min", 1, "5");
+    await commit("Max", 1, "");
+    await waitFor(async () => {
+      const [field] = (await retrieveStoredMessage(ic.key)).payload.fields;
+      expect(field).toMatchObject({ min: 5 });
+      expect(field).not.toHaveProperty("max");
+    });
+  });
+
+  it("should set the min and max of a text field", async () => {
+    const ic = await createICD([createTextMessage()]);
+    await renderEditor(ic);
+    const [addDelimited] = await screen.findAllByRole("button", { name: "Add field" });
+    fireEvent.click(addDelimited);
+    await commit("Min", 1, "-40");
+    await commit("Max", 1, "125.5");
+    await waitFor(async () =>
+      expect((await retrieveStoredMessage(ic.key)).payload.fields).toMatchObject([
+        { min: -40, max: 125.5 },
+      ]),
+    );
+  });
+
+  it("should keep and mark a min that is not a number", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
+    await renderEditor(ic);
+    await commit("Min", 1, "low");
+    expect(await screen.findByText("Field 1: min is not valid")).toBeTruthy();
+    expect(cell("Min", 1).value).toBe("low");
   });
 
   it.each([
@@ -772,7 +1314,50 @@ describe("ICD editor", () => {
     await waitFor(async () =>
       expect(await retrieveJSONField(ic.key)).not.toHaveProperty("default"),
     );
-    expect(await screen.findByText("None")).toBeTruthy();
+    const options = await screen.findByRole("button", { name: "Options 1" });
+    expect(await within(options).findByText("None")).toBeTruthy();
+  });
+
+  it("should show, set, and clear the min and max of a JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONField("Temp", "/temp"), min: 0, max: 100 }]),
+    ]);
+    await renderEditor(ic);
+    expect(await screen.findByText("Min 0, Max 100")).toBeTruthy();
+    await openOptions(1);
+    const min = await screen.findByLabelText<HTMLInputElement>("Min");
+    fireEvent.change(min, { target: { value: "5" } });
+    fireEvent.blur(min);
+    const max = screen.getByLabelText<HTMLInputElement>("Max");
+    fireEvent.change(max, { target: { value: "" } });
+    fireEvent.blur(max);
+    await waitFor(async () => {
+      const field = await retrieveJSONField(ic.key);
+      expect(field.min).toBe(5);
+      expect(field).not.toHaveProperty("max");
+    });
+    expect(await screen.findByText("Min 5")).toBeTruthy();
+  });
+
+  it("should show, set, and clear the min and max of a JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONField("Temp", "/temp"), min: 0, max: 100 }]),
+    ]);
+    await renderEditor(ic);
+    expect(await screen.findByText("Min 0, Max 100")).toBeTruthy();
+    await openOptions(1);
+    const min = await screen.findByLabelText<HTMLInputElement>("Min");
+    fireEvent.change(min, { target: { value: "5" } });
+    fireEvent.blur(min);
+    const max = screen.getByLabelText<HTMLInputElement>("Max");
+    fireEvent.change(max, { target: { value: "" } });
+    fireEvent.blur(max);
+    await waitFor(async () => {
+      const field = await retrieveJSONField(ic.key);
+      expect(field.min).toBe(5);
+      expect(field).not.toHaveProperty("max");
+    });
+    expect(await screen.findByText("Min 5")).toBeTruthy();
   });
 
   it("should store the default of an integer JSON field as text", async () => {
@@ -837,7 +1422,8 @@ describe("ICD editor", () => {
     await waitFor(async () =>
       expect(await retrieveJSONField(ic.key)).not.toHaveProperty("default"),
     );
-    expect(await screen.findByText("None")).toBeTruthy();
+    const options = await screen.findByRole("button", { name: "Options 1" });
+    expect(await within(options).findByText("None")).toBeTruthy();
   });
 
   it("should show the default of a timestamp JSON field that takes the time now", async () => {
@@ -1018,9 +1604,7 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields[1].scale).toBe(0),
     );
@@ -1032,9 +1616,7 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
   });
 
   it("should mark a blank name shortly after an edit", async () => {
@@ -1052,10 +1634,10 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    await screen.findByText(/^Field 2: scale must be finite and non-zero/);
+    await screen.findByText(/^Field 2: scale must be non-zero/);
     await commit("Scale", 2, "2");
     await waitFor(() =>
-      expect(screen.queryByText(/^Field 2: scale must be finite/)).toBeNull(),
+      expect(screen.queryByText(/^Field 2: scale must be non-zero/)).toBeNull(),
     );
   });
 
@@ -1199,5 +1781,121 @@ describe("ICD editor", () => {
     picker.selectFiles([fakePickedFile("engine.csv", ENGINE_CSV)]);
     await findMessageItem("Engine");
     expect(cell("Name", 1).value).toBe("Rpm");
+  });
+
+  describe("framing", () => {
+    afterEach(() => {
+      flags.bus = true;
+    });
+
+    it("should hide the framing while the bus flag is off", async () => {
+      flags.bus = false;
+      await renderEditor(await createFramedICD());
+      expect(screen.queryByText("Framing")).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Framing/ })).toBeNull();
+    });
+
+    it.each<[string, icd.Framing]>([
+      ["Delimited", { type: "delimited", delimiter: "\n" }],
+      ["Fixed length", { type: "fixed", length: 1 }],
+      ["Sync and length", SYNC],
+      ["COBS", { type: "cobs" }],
+      ["SLIP", { type: "slip" }],
+    ])("should store the framing that %s picks", async (option, want) => {
+      const ic = await createFramedICD();
+      await renderEditor(ic);
+      await pick(/^Framing/, option);
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual(want),
+      );
+    });
+
+    it("should remove the framing when None is picked", async () => {
+      const ic = await createFramedICD({ type: "cobs" });
+      await renderEditor(ic);
+      await pick(/^Framing/, "None");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toBeUndefined(),
+      );
+    });
+
+    it("should store a delimiter written with escapes", async () => {
+      const ic = await createFramedICD({ type: "delimited", delimiter: "\n" });
+      await renderEditor(ic);
+      const input = await typeText(/^Delimiter/, "\\r\\n");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual({
+          type: "delimited",
+          delimiter: "\r\n",
+        }),
+      );
+      expect(input.value).toBe("\\r\\n");
+    });
+
+    it("should store the length of a fixed framing", async () => {
+      const ic = await createFramedICD({ type: "fixed", length: 1 });
+      await renderEditor(ic);
+      await typeText(/^Length/, "64");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual({
+          type: "fixed",
+          length: 64,
+        }),
+      );
+    });
+
+    it("should store sync bytes written in hexadecimal", async () => {
+      const ic = await createFramedICD(SYNC);
+      await renderEditor(ic);
+      const input = await typeText(/^Sync bytes/, "0x7E 0x7e01");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual({
+          ...SYNC,
+          sync: new Uint8Array([0x7e, 0x7e, 0x01]),
+        }),
+      );
+      expect(input.value).toBe("7E 7E 01");
+    });
+
+    it.each<[string, icd.Framing, RegExp, string, string]>([
+      [
+        "delimiter",
+        { type: "delimited", delimiter: "\n" },
+        /^Delimiter/,
+        "\\q",
+        "Delimiter must be text, with escapes such as \\n or \\x1F",
+      ],
+      [
+        "sync bytes",
+        SYNC,
+        /^Sync bytes/,
+        "AA 5",
+        "Sync bytes must be pairs of hex digits, such as AA 55",
+      ],
+    ])(
+      "should keep %s text that does not parse, with its error",
+      async (_, framing, label, text, error) => {
+        const ic = await createFramedICD(framing);
+        await renderEditor(ic);
+        await expectRefused(await typeText(label, text), text, error);
+        expect(await retrieveStoredFraming(ic.key)).toEqual(framing);
+      },
+    );
+
+    it("should set and remove the checksum of a sync framing", async () => {
+      const ic = await createFramedICD(SYNC);
+      await renderEditor(ic);
+      await pick(/^Checksum/, "CRC-32");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual({
+          ...SYNC,
+          checksum: { algorithm: "crc32", byteOrder: "little_endian" },
+        }),
+      );
+      await pick(/^Checksum/, "None");
+      await waitFor(async () =>
+        expect(await retrieveStoredFraming(ic.key)).toEqual(SYNC),
+      );
+    });
   });
 });

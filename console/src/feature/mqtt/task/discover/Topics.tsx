@@ -261,6 +261,29 @@ const defaultPick = (
   return pick;
 };
 
+/** @returns each topic that has free values, with a pick of them. */
+const pickableOf = (
+  topics: ListedTopic[],
+  taken: Taken,
+  indexed: boolean,
+): [ListedTopic, TopicPick][] =>
+  topics.flatMap((t) => {
+    const free = defaultPick(t, taken.get(t.topic), indexed);
+    return free.size === 0 ? [] : [[t, free]];
+  });
+
+/** @returns whether picks hold each free value. A whole pick holds all of its topic. */
+const allPicked = (
+  pickable: [ListedTopic, TopicPick][],
+  picks: TopicPicks,
+  whole: boolean,
+): boolean =>
+  pickable.length > 0 &&
+  pickable.every(([t, free]) => {
+    const pick = picks.get(t.topic);
+    return pick != null && (whole || countOf(pick) === countOf(free));
+  });
+
 const toItem = (
   { name, path, topic, topics }: Folder,
   picks: TopicPicks,
@@ -268,10 +291,8 @@ const toItem = (
   whole: boolean,
   indexed: boolean,
 ): ICD.Picker.TreeItem => {
-  const pickable = topics.filter(
-    (t) => defaultPick(t, taken.get(t.topic), indexed).size > 0,
-  );
-  const all = pickable.length > 0 && pickable.every((t) => picks.has(t.topic));
+  const pickable = pickableOf(topics, taken, indexed);
+  const all = allPicked(pickable, picks, whole);
   const values = whole
     ? topics.filter((t) => picks.has(t.topic)).length
     : math.sum(topics.map((t) => countOf(picks.get(t.topic) ?? new Map())));
@@ -307,9 +328,9 @@ const toItems = (
   return into;
 };
 
-/** @returns the title of the group of a shape, such as "44 messages with /temp". */
-const titleOf = ({ count = 0, present }: Shape): string =>
-  `${pluralize("message", count, true)}${present == null ? "" : ` with ${present}`}`;
+/** @returns the title of the group of a shape, such as "Messages that have /temp". */
+const titleOf = ({ present }: Shape): string =>
+  present == null ? "Messages" : `Messages that have ${present}`;
 
 interface TopicValuesProps {
   topic: ListedTopic;
@@ -356,7 +377,7 @@ const TopicValues = ({
           key: keyOf(i, l.pointer),
           name: pointerLabel(l.pointer),
           sample: shape.samples.get(l.pointer) ?? null,
-          dataType: ICD.DEFAULT_DATA_TYPES[l.kind],
+          dataType: ICD.VALUE_TYPES[whole ? l.kind : ICD.readKind(l)],
           lock,
         };
       }),
@@ -438,6 +459,8 @@ export interface TopicPickerProps {
   whole?: boolean;
   /** A pick of a topic that the task does not read takes its index too. */
   indexed?: boolean;
+  /** Says why the list can miss a topic. Set, adding a topic by name comes first. */
+  unlistedHint?: string;
   value: TopicPicks;
   onChange: (value: TopicPicks) => void;
   onAddByName: (topic: string) => void;
@@ -445,12 +468,13 @@ export interface TopicPickerProps {
   children?: ReactNode;
 }
 
-/** Lists the JSON topics the broker publishes, and the fields of the one selected. */
+/** Lists the topics the broker publishes, and the fields of the one selected. */
 export const TopicPicker = ({
   device,
   entries,
   whole = false,
   indexed = false,
+  unlistedHint,
   value,
   onChange,
   onAddByName,
@@ -469,6 +493,7 @@ export const TopicPicker = ({
         .map((t) => ({ ...t, shapes: shapesOf(t) }));
       return { key: id.create(), topics, truncated: r.truncated };
     },
+    { message: "Failed to list topics", name: device.name },
     [device, scope],
   );
   const listing = result.data;
@@ -498,14 +523,12 @@ export const TopicPicker = ({
   const handlePick = (path: string) => {
     const folder = paths.get(path);
     if (folder == null) throw new Error(`No topic level at ${path}`);
-    const pickable = folder.topics.filter(
-      (t) => defaultPick(t, taken.get(t.topic), indexed).size > 0,
-    );
-    const all = pickable.length > 0 && pickable.every((t) => value.has(t.topic));
+    const pickable = pickableOf(folder.topics, taken, indexed);
+    const all = allPicked(pickable, value, whole);
     const next = new Map(value);
-    for (const t of pickable)
+    for (const [t, free] of pickable)
       if (all) next.delete(t.topic);
-      else next.set(t.topic, defaultPick(t, taken.get(t.topic), indexed));
+      else next.set(t.topic, free);
     onChange(next);
     if (folder.topic != null) setSelected(folder.path);
   };
@@ -560,6 +583,12 @@ export const TopicPicker = ({
   else if (listing == null && loading) pane = <ICD.Picker.PaneSkeleton noun="Field" />;
   else pane = <ICD.Picker.Notice message="Select a topic to see what it sends." />;
 
+  const addByName = (
+    <ICD.Picker.SideAction hint={unlistedHint} onClick={() => onAddByName(trimmed)}>
+      {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
+    </ICD.Picker.SideAction>
+  );
+
   return (
     <>
       <ICD.Picker.Status
@@ -569,6 +598,7 @@ export const TopicPicker = ({
         onListen={listen}
       />
       <ICD.Picker.Side>
+        {unlistedHint != null && addByName}
         <ICD.Picker.Search
           value={term}
           onChange={setTerm}
@@ -586,7 +616,6 @@ export const TopicPicker = ({
                 onChange={setScopeDraft}
                 size="small"
                 placeholder="plant/line1"
-                className={CSS.BE("mqtt-discover", "code")}
               />
               <Button.Button
                 variant="outlined"
@@ -598,9 +627,7 @@ export const TopicPicker = ({
             </Flex.Box>
           </Flex.Box>
         )}
-        <ICD.Picker.SideAction onClick={() => onAddByName(trimmed)}>
-          {trimmed === "" ? "Add a topic by name" : `Add “${trimmed}” as a topic`}
-        </ICD.Picker.SideAction>
+        {unlistedHint == null && addByName}
         {children}
       </ICD.Picker.Side>
       <ICD.Picker.Pane>{pane}</ICD.Picker.Pane>

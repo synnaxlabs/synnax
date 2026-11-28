@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import type { ICD as PICD } from "@synnaxlabs/pluto";
+import { ICD as PICD } from "@synnaxlabs/pluto";
 import {
   bounds,
   DataType,
@@ -27,11 +27,11 @@ import type { FC } from "react";
 import { CSS } from "@/platform/css";
 import { defaultDataType, encodes } from "@/platform/icd/dataType";
 import { JSONField, renamedPointer } from "@/platform/icd/Fields";
-import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
+import { formatOf, heldMessage, useFormats } from "@/platform/icd/Formats";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { formatDefault } from "@/platform/icd/Options";
 import { rawBounds } from "@/platform/icd/range";
-import { fieldsPath } from "@/platform/icd/read";
+import { jsonFields } from "@/platform/icd/read";
 import { ValueField } from "@/platform/icd/ValueField";
 import { Task } from "@/platform/task";
 
@@ -74,7 +74,7 @@ const INITIAL_VALUES: {
 const hiddenDataTypes = (field: icd.JSONField): DataType[] =>
   DataType.ALL.filter((dt) => !encodes(field, dt.toString()));
 
-const ONLY_CHANNEL_TOOLTIP = "A message needs at least one field on a channel.";
+const ONLY_CHANNEL_HELP = "A message needs at least one field on a channel.";
 
 export interface FieldDetailsProps {
   /** The bindings of the message that the target sends. */
@@ -117,7 +117,11 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   const isPreview = Task.useIsPreview();
   const formats = useFormats();
   const format = formatOf(formats, icdKey);
-  const fieldPath = fieldsPath(message)[key];
+  const fieldPath = deep.variant(
+    PICD.formPath.messages[message].payload,
+    "format",
+    "json",
+  ).fields[key];
   const field = PForm.useFieldValue(fieldPath, { ctx: format });
   const bindings = PForm.useFieldValue(path);
   const i = bindings.findIndex((b) => b.field === key);
@@ -144,7 +148,11 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
     set(path, bound ? bindings.with(i, next) : [...bindings, next]);
   };
   const handleRename = (name: string) => {
-    const pointer = renamedPointer(field, name, fieldsOf(formats, icdKey, message));
+    const pointer = renamedPointer(
+      field,
+      name,
+      jsonFields(heldMessage(formats, icdKey, message)),
+    );
     if (pointer != null) format.set(fieldPath.pointer, pointer);
   };
   const modes = (
@@ -155,19 +163,11 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
       size="small"
     >
       <Select.Item<Mode> itemKey="channel">Channel</Select.Item>
-      <Select.Item<Mode>
-        itemKey="value"
-        disabled={only}
-        tooltip={only ? ONLY_CHANNEL_TOOLTIP : undefined}
-      >
+      <Select.Item<Mode> itemKey="value" disabled={only}>
         Value
       </Select.Item>
       {field.default != null && (
-        <Select.Item<Mode>
-          itemKey="default"
-          disabled={only}
-          tooltip={only ? ONLY_CHANNEL_TOOLTIP : undefined}
-        >
+        <Select.Item<Mode> itemKey="default" disabled={only}>
           Default
         </Select.Item>
       )}
@@ -179,12 +179,20 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldPath}
+            commanded={binding?.type === "channel"}
             autoFocus={autoFocus}
             onNameChange={created ? handleRename : undefined}
-            actions={<OpenInEditor icdKey={icdKey} message={message} />}
+            actions={
+              <OpenInEditor icdKey={icdKey} message={message} field={field.key} />
+            }
           />
         </PForm.Form>
         <PForm.Section title="Source" actions={modes} role="group" aria-label="Source">
+          {only && (
+            <Text.Text level="small" color={9}>
+              {ONLY_CHANNEL_HELP}
+            </Text.Text>
+          )}
           {bound && binding.type === "channel" && (
             <>
               <Task.ChannelNameField

@@ -25,8 +25,8 @@
 namespace driver::common {
 /// @brief common read task configuration shared across hardware acquisition tasks.
 /// Wraps the schema-generated read config (auto_start, data_saving_disabled,
-/// sample_rate, stream_rate) with the driver-only timing options, so the field set
-/// has a single definition in the oracle schema.
+/// sample_rate, stream_rate) with the Driver-only timing options, so the field set
+/// has a single definition in the Oracle schema.
 struct BaseReadTaskConfig : ::synnax::task::ReadConfig {
     /// @brief timing configuration options for the task.
     TimingConfig timing;
@@ -176,13 +176,13 @@ class ReadTask final : public driver::task::Task {
             if (err) {
                 this->forget_warning();
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
-                    auto description = err.data;
+                    auto description = err.data();
                     if (const auto retry = breaker.next_retry(); !retry.empty()) {
                         if (!description.empty()) description += ' ';
                         description += "Next " + retry + ".";
                     }
                     LOG(WARNING)
-                        << this->p.name() << ": [" << err.type << "] " << description;
+                        << this->p.name() << ": [" << err.type() << "] " << description;
                     this->p.state.send_warning("Failed to read data", description);
                 } else if (!err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
                     LOG(ERROR) << this->p.name() << ": " << err.message();

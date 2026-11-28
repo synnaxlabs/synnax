@@ -309,8 +309,20 @@ func (r retrieveInfo) needsSlices() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
 		return f.Ref == nil && f.IsSlice
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
-		return ref.IsSlice
+		// Only the Detach of an array reference calls the slices package.
+		return ref.IsSlice && ref.OnDelete == "Detach"
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
+}
+
+// needsStrconv reports whether the generated code calls the strconv package.
+func (r retrieveInfo) needsStrconv() bool {
+	return lo.SomeBy(r.Refs, func(ref refInfo) bool { return ref.IsSlice }) ||
+		lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesStrconv })
+}
+
+// needsFmt reports whether the generated code calls the fmt package.
+func (r retrieveInfo) needsFmt() bool {
+	return lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesFmt })
 }
 
 // needsSet reports whether the generated code calls the set package.
@@ -413,6 +425,14 @@ func generateRetrieveFile(
 	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
 		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
+	}
+	if lo.SomeBy(infos, retrieveInfo.needsStrconv) ||
+		lo.SomeBy(refRoots, referencesInfo.needsStrconv) {
+		imps.AddExternal("strconv")
+	}
+	if lo.SomeBy(infos, retrieveInfo.needsFmt) ||
+		lo.SomeBy(refRoots, referencesInfo.needsFmt) {
+		imps.AddExternal("fmt")
 	}
 	if lo.SomeBy(infos, retrieveInfo.needsSet) {
 		imps.AddInternal(
@@ -1069,6 +1089,16 @@ func newIndexes() indexes {
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
 {{- end}}
 			},
+{{- if $ref.IsSlice}}
+			Locate: func(e *{{$ret.GoName}}, t {{$ref.TargetType}}) []string {
+				for i, v := range e.{{$ref.GoName}} {
+					if {{$ref.TargetOf "v"}} == t {
+						return []string{"{{$ref.FieldName}}", strconv.Itoa(i)}
+					}
+				}
+				return nil
+			},
+{{- end}}
 {{- if eq $ref.OnDelete "Detach"}}
 {{- if $ref.IsSlice}}
 			Detach: func(e *{{$ret.GoName}}, t {{$ref.TargetType}}) {
@@ -1082,7 +1112,7 @@ func newIndexes() indexes {
 			Detach: func(e *{{$ret.GoName}}, _ {{$ref.TargetType}}) { e.{{$ref.GoName}} = nil },
 {{- end}}
 {{- end}}
-			Retarget: func(e *{{$ret.GoName}}, from, to {{$ref.TargetType}}) {
+			Retarget: func(e *{{$ret.GoName}}, to map[{{$ref.TargetType}}]{{$ref.TargetType}}) {
 				{{$ref.RetargetBody -}}
 			},
 		}),
@@ -1445,12 +1475,17 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 			Targets: func(e *{{.EntryType}}) []{{.TargetType}} {
 				{{.TargetsBody}}
 			},
+{{- if .LocateBody}}
+			Locate: func(e *{{.EntryType}}, t {{.TargetType}}) []string {
+				{{.LocateBody -}}
+			},
+{{- end}}
 {{- if .DetachBody}}
 			Detach: func(e *{{.EntryType}}, t {{.TargetType}}) {
 				{{.DetachBody -}}
 			},
 {{- end}}
-			Retarget: func(e *{{.EntryType}}, from, to {{.TargetType}}) {
+			Retarget: func(e *{{.EntryType}}, to map[{{.TargetType}}]{{.TargetType}}) {
 				{{.RetargetBody -}}
 			},
 {{- if .InlineBody}}

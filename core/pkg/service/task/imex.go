@@ -30,7 +30,7 @@ func (s *Service) Type() resource.Type { return resource.TypeTask }
 
 // Export retrieves the task identified by id from snap and serializes it as an
 // imex.Envelope. The task's type-specific config is merged flat into the envelope body
-// — the driver reads a task file directly as its config, so the config is not nested
+// — the Driver reads a task file directly as its config, so the config is not nested
 // under a `config` field; version, the fine-grained task type (e.g. "opc_read"), and
 // name are stamped on top. The version is the config type's own number line, taken from
 // its config store. Routing to this exporter still happens under the coarse "task"
@@ -130,8 +130,26 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		}
 		t := Task{Name: env.Name, Type: env.Type, Config: config}
 		if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
-			return resource.ID{}, err
+			return resource.ID{}, fileError(err)
 		}
 		return ResourceID(t.Key), nil
 	}, nil
+}
+
+// fileError roots each path error of a task created from a file at the file, which
+// holds the fields of the config at its root. It returns any other error as it is.
+func fileError(err error) error {
+	if members := errors.UnwrapMulti(err); members != nil {
+		rooted := make([]error, len(members))
+		for i, member := range members {
+			rooted[i] = fileError(member)
+		}
+		return errors.Join(rooted...)
+	}
+	pathErr, ok := errors.AsType[validate.PathError](err)
+	if !ok || len(pathErr.Path) < 2 || pathErr.Path[0] != "config" {
+		return err
+	}
+	pathErr.Path = pathErr.Path[1:]
+	return pathErr
 }

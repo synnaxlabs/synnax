@@ -13,6 +13,7 @@ package enumeration
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
@@ -67,6 +68,19 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Enumeration, t color.Key) []string {
+				for i9, v10 := range e.Entries {
+					if v10.Color != nil {
+						switch v11 := v10.Color.Variant.(type) {
+						case color.NamedRef:
+							if v11.Key == t {
+								return []string{"entries", strconv.Itoa(i9), "color", "key"}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Enumeration, t color.Key) {
 				for i5 := range e.Entries {
 					if e.Entries[i5].Color != nil {
@@ -76,13 +90,13 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Enumeration, from, to color.Key) {
+			Retarget: func(e *Enumeration, to map[color.Key]color.Key) {
 				for i7 := range e.Entries {
 					if e.Entries[i7].Color != nil {
 						switch v8 := e.Entries[i7].Color.Variant.(type) {
 						case color.NamedRef:
-							if v8.Key == from {
-								v8.Key = to
+							if t, ok := to[v8.Key]; ok {
+								v8.Key = t
 							}
 							e.Entries[i7].Color.Variant = v8
 						}

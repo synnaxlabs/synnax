@@ -51,7 +51,7 @@ const quiet = (): void => {};
 
 const TEST_THEME = theme.themeZ.parse(theme.SYNNAX_THEMES.synnaxLight);
 
-// Mounts the production aether theming provider without the React provider's
+// Mounts the production Aether theming provider without the React provider's
 // font loading, which jsdom cannot perform (no FontFace).
 const ThemingSeed = ({ children }: PropsWithChildren): ReactElement => {
   const { path } = Aether.useLifecycle({
@@ -76,10 +76,10 @@ const FixedSeries = ({ children }: PropsWithChildren): ReactElement => {
 
 export interface CreateSynnaxWrapperParams {
   client: Client | null;
-  /** Extra aether components merged into the test render registry. */
+  /** Extra Aether components merged into the test render registry. */
   additionalRegistry?: aether.ComponentRegistry;
   /**
-   * Seeds the given fake render context into the aether tree, so canvas-rendered
+   * Seeds the given fake render context into the Aether tree, so canvas-rendered
    * components can mount and record draw calls without a real canvas. Construct one
    * with {@link canvasTest.record} and keep the reference for assertions.
    */
@@ -95,6 +95,8 @@ export interface CreateSynnaxWrapperParams {
   connectionStatus?: connection.Status;
   /** Called with the root of the worker tree, to read component state in a spec. */
   onRoot?: (root: aether.Root) => void;
+  /** Prints each error that an error handler reports. Defaults to printing nothing. */
+  log?: Status.AggregatorProps["log"];
 }
 
 export const createSynnaxWrapper = ({
@@ -104,6 +106,7 @@ export const createSynnaxWrapper = ({
   telemFactories,
   connectionStatus,
   onRoot,
+  log = quiet,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
   if (client != null) disableActEnvironment();
   const AetherProvider = createAetherProvider(
@@ -139,7 +142,7 @@ export const createSynnaxWrapper = ({
     if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
     return (
       <AetherProvider>
-        <Status.Aggregator log={quiet}>
+        <Status.Aggregator log={log}>
           <Alamos.Provider level="warn">
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>

@@ -11,7 +11,7 @@ import { type device, status } from "@synnaxlabs/client";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { TimeSpan } from "@synnaxlabs/x";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
@@ -36,5 +36,37 @@ describe("StatusBadge", () => {
     await expect
       .poll(() => document.querySelector(".lyra-tooltip")?.textContent)
       .toBe("Health check failedThe server returned 503.");
+  });
+
+  it("should show the message of a disabled status in its tooltip", async () => {
+    const s = status.create<typeof device.statusDetailsZ>({
+      variant: "disabled",
+      message: "Device disabled",
+      details: { rack: 1, connected: false },
+    });
+    const c = await renderThemed(
+      <Triggers.Provider>
+        <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+          <Device.StatusBadge status={s} />
+        </Tooltip.Config>
+      </Triggers.Provider>,
+    );
+    await userEvent.hover(c.getByText("Disconnected"));
+    await expect
+      .poll(() => document.querySelector(".lyra-tooltip")?.textContent)
+      .toBe("Device disabled");
+  });
+
+  it("should show no tooltip for a device without a status", async () => {
+    const c = await renderThemed(
+      <Triggers.Provider>
+        <Tooltip.Config delay={TimeSpan.milliseconds(1)}>
+          <Device.StatusBadge />
+        </Tooltip.Config>
+      </Triggers.Provider>,
+    );
+    await userEvent.hover(c.getByText("Unknown"));
+    await sleep.sleep(TimeSpan.milliseconds(100));
+    expect(document.querySelector(".lyra-tooltip")).toBeNull();
   });
 });

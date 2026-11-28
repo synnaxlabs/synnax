@@ -9,7 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, DisconnectedError, http, icd, type Synnax } from "@synnaxlabs/client";
+import { channel, DisconnectedError, http, icd } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -20,7 +20,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, uuid } from "@synnaxlabs/x";
+import { deep, payload, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -44,6 +44,7 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
@@ -269,8 +270,27 @@ const icdName = (name: string): string =>
 const usePrefix = (deviceName: string, path: deep.Path<ICDEndpoint>): string =>
   endpointPrefix(deviceName, PForm.useFieldValue(path.path));
 
+const MISSING_DESCRIPTION =
+  "The ICD no longer has this message. Add a message to the endpoint, then remove this one.";
+
+const MessageMark = ({ itemKey }: { itemKey: string }) => {
+  const path = icdPath(itemKey);
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const messages = PForm.useFieldValue(path.messages, { optional: true });
+  if (icdKey == null || messages == null) return null;
+  return (
+    <ICD.MessageMark
+      icdKey={icdKey}
+      messages={messages.map(({ message }) => message)}
+      missingDescription={() => MISSING_DESCRIPTION}
+    />
+  );
+};
+
 const SourceItem = (props: Tree.ItemRenderProps<string>) => (
-  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
+  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]}>
+    <MessageMark itemKey={props.itemKey} />
+  </EndpointItem>
 );
 
 /** @returns the props that the panels of a message of an endpoint share. */
@@ -288,8 +308,7 @@ const useMessageProps = (
     // A new index field keeps the channel of the old one.
     indexChannel: bindings.find(({ field }) => field === index)?.channel ?? 0,
     sourceLabel: "Poll time",
-    missingDescription:
-      "The ICD no longer has this message. Add a message to the endpoint, then remove this one.",
+    missingDescription: MISSING_DESCRIPTION,
   };
 };
 
@@ -353,6 +372,8 @@ interface EndpointDetailsProps {
   onAddMessage: () => void;
   /** Reads a message of an ICD instead of the one message that the endpoint reads. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** Makes the endpoint read a new message of the format with no fields. */
+  onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
 }
 
@@ -367,6 +388,7 @@ const EndpointDetails: FC<EndpointDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  onFormatCreate,
   bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
@@ -385,7 +407,7 @@ const EndpointDetails: FC<EndpointDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && (
+                {encoding != null && ICD.isTaskFormat(encoding) && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
@@ -401,6 +423,8 @@ const EndpointDetails: FC<EndpointDetailsProps> = ({
               icdKey={icdKey}
               message={reads[0].message}
               onChange={onFormatChange}
+              formats={payload.FORMATS}
+              onCreate={onFormatCreate}
               disabled={bindDisabled}
             />
           )}
@@ -455,11 +479,13 @@ const Endpoints: FC<EndpointsProps> = ({
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   } = ICD.Tree.use({
     sources: root.config.endpoints,
     sourceOf: (ep) => (readsICD(ep) ? ep : null),
     pathOf: icdPath,
     SourceItem,
+    missingDescription: () => MISSING_DESCRIPTION,
     tareable: true,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an endpoint reads it, another endpoint owns its message, or it no longer
@@ -535,6 +561,7 @@ const Endpoints: FC<EndpointsProps> = ({
       onSelect([ep.key]);
       tree.expand(ep.key);
     }, "Failed to add endpoint");
+  const isPreview = Task.useIsPreview();
 
   const handleAddMessage = (key: string) => {
     const path = root.config.endpoints[key];
@@ -599,6 +626,7 @@ const Endpoints: FC<EndpointsProps> = ({
         onAddField={() => addField(ep.key, 0)}
         onAddMessage={() => handleAddMessage(ep.key)}
         onFormatChange={(icdKey, message) => setMessage(ep.key, icdKey, message)}
+        onFormatCreate={(format) => setNewMessage(ep.key, format)}
         bindDisabled={bindDisabled}
       />
     );
@@ -622,11 +650,12 @@ const Endpoints: FC<EndpointsProps> = ({
       title={title ?? undefined}
     >
       {details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            Select an endpoint or field to configure
-          </Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No endpoint selected"
+          action={isPreview ? undefined : "Add endpoint"}
+          onClick={handleAdd}
+        />
       )}
     </Task.Views.Panes>
   );
@@ -654,26 +683,21 @@ const storedPropsOf = (
 
 /**
  * Plans the channels of each message of endpoints in bound, in deploy order with one
- * namer. A message plans with the channels that earlier ones keep, so it leaves a
- * stored channel that another binding writes. Reads from the Core alone. Throws between
- * messages once signal aborts.
+ * planner. A message plans with the channels that earlier ones keep, so it leaves a
+ * stored channel that another binding writes.
  */
-const planMessages = async (
-  client: Synnax,
+const planMessages = (
+  planner: Task.Planner,
   dev: Device.Device,
   endpoints: ReadEndpoint[],
   bound: BoundMessage[],
-  signal?: AbortSignal,
-): Promise<ICD.MessagePlan[]> => {
-  const namer = Task.createNamer(client);
+): ICD.MessagePlan[] => {
   const written = writtenChannels(endpoints);
   const stored = splitStored(dev.properties.read, endpoints);
   const plans: ICD.MessagePlan[] = [];
   for (const b of bound) {
-    signal?.throwIfAborted();
-    const plan = await ICD.planMessage(
-      client,
-      namer,
+    const plan = ICD.planMessage(
+      planner,
       b,
       endpointPrefix(dev.name, b.source.path),
       storedPropsOf(stored, endpoints, b),
@@ -717,10 +741,8 @@ const MessagePlans = ({ device, children }: MessagePlansProps): ReactElement => 
     prefix: endpointPrefix(device.name, b.source.path),
     props: storedPropsOf(stored, endpoints, b),
   }));
-  const plans = Task.useChannelPlans(
-    sources,
-    async (client, signal) =>
-      await planMessages(client, device, endpoints, bound, signal),
+  const plans = Task.useChannelPlans(sources, (planner) =>
+    planMessages(planner, device, endpoints, bound),
   );
   const reads = bound.map(({ source, read }, i): ICD.PlannedRead => ({
     path: icdPath(source.key),
@@ -791,7 +813,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     // Each endpoint gets its share of the channels stored under its path, even when it
     // is disabled or a create below fails.
     dev.properties.read = splitStored(dev.properties.read, config.endpoints);
-    const plans = await planMessages(client, dev, config.endpoints, bound);
+    const plans = await Task.planChannels(client, (planner) =>
+      planMessages(planner, dev, config.endpoints, bound),
+    );
     for (const [i, b] of bound.entries()) {
       const message = b.source.messages[b.read].message;
       const stored = ownsStored(config.endpoints, b.source, message)

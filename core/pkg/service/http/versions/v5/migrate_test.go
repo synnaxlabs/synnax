@@ -11,6 +11,7 @@ package v5_test
 
 import (
 	"encoding/json/v2"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,6 +35,17 @@ func field(key string, ch channel.Key, pointer string) v4.ReadField {
 		Pointer:    pointer,
 		EnumValues: []payload.EnumEntry{},
 	}
+}
+
+// withRefused returns copies of headers and params with a header that has no value, a
+// header that has no name, and a query parameter that has no name, which the Driver
+// refuses, and a query parameter that has no value, which it accepts.
+func withRefused(
+	headers []v4.Header,
+	params []v4.QueryParam,
+) ([]v4.Header, []v4.QueryParam) {
+	return slices.Concat(headers, []v4.Header{{Name: "X-Key"}, {Value: "abc"}}),
+		slices.Concat(params, []v4.QueryParam{{Parameter: "limit"}, {Value: "10"}})
 }
 
 // storedConfig returns a v4 config with two endpoints, one indexed by its field t.
@@ -108,21 +120,33 @@ var _ = Describe("MigrateReadConfig", func() {
 })
 
 var _ = Describe("MigrateReadEndpoint", func() {
-	It("Should keep the request and fields of an endpoint, with no ICD",
-		func(ctx SpecContext) {
-			old := storedConfig().Endpoints[0]
-			ep := MustSucceed(v5.MigrateReadEndpoint(ctx, old))
-			Expect(ep.Key).To(Equal("ep1"))
-			Expect(ep.Method).To(Equal(v4.MethodPost))
-			Expect(ep.Path).To(Equal("/values"))
-			Expect(ep.Headers).To(Equal(old.Headers))
-			Expect(ep.Body).To(Equal(`{"all":true}`))
-			Expect(ep.Fields).To(Equal(old.Fields))
-			Expect(ep.Index).To(Equal("t"))
-			Expect(ep.ICD).To(BeNil())
-			Expect(ep.Messages).To(BeEmpty())
-		},
-	)
+	It("Should keep the request of an endpoint, with no ICD", func(ctx SpecContext) {
+		old := storedConfig().Endpoints[0]
+		ep := MustSucceed(v5.MigrateReadEndpoint(ctx, old))
+		Expect(ep.Key).To(Equal("ep1"))
+		Expect(ep.Method).To(Equal(v4.MethodPost))
+		Expect(ep.Path).To(Equal("/values"))
+		Expect(ep.Headers).To(Equal(old.Headers))
+		Expect(ep.Body).To(Equal(`{"all":true}`))
+		Expect(ep.ICD).To(BeNil())
+		Expect(ep.Messages).To(BeEmpty())
+	})
+
+	It("Should drop each header and query parameter the Driver refuses", func(
+		ctx SpecContext,
+	) {
+		old := storedConfig().Endpoints[0]
+		old.Headers, old.QueryParams = withRefused(old.Headers, old.QueryParams)
+		ep := MustSucceed(v5.MigrateReadEndpoint(ctx, old))
+		Expect(ep.Headers).To(Equal([]v4.Header{
+			{Name: "Accept", Value: "application/json"},
+		}))
+		Expect(ep.QueryParams).To(Equal([]v4.QueryParam{
+			{Parameter: "limit", Value: ""},
+		}))
+		Expect(old.Headers).To(HaveLen(3))
+		Expect(old.QueryParams).To(HaveLen(2))
+	})
 })
 
 var _ = Describe("StagedFieldsKVKey", func() {
@@ -180,6 +204,24 @@ var _ = Describe("ReadMigration", func() {
 				{Key: "ep1", Index: "t", Fields: old.Endpoints[0].Fields},
 				{Key: "ep2", Fields: old.Endpoints[1].Fields},
 			}}))
+		},
+	)
+
+	It(
+		"Should store each endpoint without the headers and query parameters the Driver "+
+			"refuses",
+		func(ctx SpecContext) {
+			old := storedConfig()
+			e := &old.Endpoints[0]
+			e.Headers, e.QueryParams = withRefused(e.Headers, e.QueryParams)
+			migrate(ctx, old)
+			ep := read(ctx, old.Key).Endpoints[0]
+			Expect(ep.Headers).To(Equal([]v4.Header{
+				{Name: "Accept", Value: "application/json"},
+			}))
+			Expect(ep.QueryParams).To(Equal([]v4.QueryParam{
+				{Parameter: "limit", Value: ""},
+			}))
 		},
 	)
 
@@ -305,6 +347,22 @@ var _ = Describe("MigrateWriteEndpoint", func() {
 		)
 		Expect(ep.Disabled).To(BeTrue())
 	})
+
+	It("Should drop each header and query parameter the Driver refuses", func(
+		ctx SpecContext,
+	) {
+		old := storedWriteConfig().Endpoints[0]
+		old.Headers, old.QueryParams = withRefused(old.Headers, old.QueryParams)
+		ep := MustSucceed(v5.MigrateWriteEndpoint(ctx, old))
+		Expect(ep.Headers).To(Equal([]v4.Header{
+			{Name: "Accept", Value: "application/json"},
+		}))
+		Expect(ep.QueryParams).To(Equal([]v4.QueryParam{
+			{Parameter: "limit", Value: ""},
+		}))
+		Expect(old.Headers).To(HaveLen(3))
+		Expect(old.QueryParams).To(HaveLen(2))
+	})
 })
 
 var _ = Describe("StagedWriteFieldsKVKey", func() {
@@ -357,6 +415,24 @@ var _ = Describe("WriteMigration", func() {
 		Expect(v5.WriteConfig{}.CustomTypeName()).
 			To(Equal(v4.WriteConfig{}.CustomTypeName()))
 	})
+
+	It(
+		"Should store each endpoint without the headers and query parameters the Driver "+
+			"refuses",
+		func(ctx SpecContext) {
+			old := storedWriteConfig()
+			e := &old.Endpoints[0]
+			e.Headers, e.QueryParams = withRefused(e.Headers, e.QueryParams)
+			migrate(ctx, old)
+			ep := read(ctx, old.Key).Endpoints[0]
+			Expect(ep.Headers).To(Equal([]v4.Header{
+				{Name: "Accept", Value: "application/json"},
+			}))
+			Expect(ep.QueryParams).To(Equal([]v4.QueryParam{
+				{Parameter: "limit", Value: ""},
+			}))
+		},
+	)
 
 	It("Should stage the channel and fields of each config under its own KV key",
 		func(ctx SpecContext) {

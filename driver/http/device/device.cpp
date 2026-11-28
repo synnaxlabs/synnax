@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cctype>
 #include <map>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #ifdef _WIN32
@@ -21,6 +24,14 @@
 #include "driver/http/device/device.h"
 
 namespace driver::http::device {
+
+/// @brief returns true if name is the Content-Type header name, in any letter case.
+static bool is_content_type(const std::string_view name) {
+    constexpr std::string_view CONTENT_TYPE = "content-type";
+    return std::ranges::equal(name, CONTENT_TYPE, [](const char a, const char b) {
+        return std::tolower(static_cast<unsigned char>(a)) == b;
+    });
+}
 
 /// @brief builds a full URL from base_url + path + query params.
 static std::string build_url(
@@ -92,10 +103,11 @@ Request build_request(const ConnectionConfig &conn, const RequestConfig &req) {
         headers[conn.auth.header] = conn.auth.key;
     }
 
-    if (!req.request_content_type.empty())
+    if (!req.request_content_type.empty() &&
+        std::ranges::none_of(headers, [](const auto &h) {
+            return is_content_type(h.first);
+        }))
         headers["Content-Type"] = req.request_content_type;
-    else
-        headers.erase("Content-Type");
 
     r.headers.reserve(headers.size());
     for (const auto &[k, v]: headers)

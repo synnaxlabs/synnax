@@ -46,6 +46,9 @@ type groupConfig struct {
 	writer      *writer.Service
 	report      calculator.Report
 	calculators calculator.Group
+	// restartInterval is how long the group waits before it restarts a pipeline that
+	// panicked.
+	restartInterval telem.TimeSpan
 }
 
 var _ config.Config[groupConfig] = (*groupConfig)(nil)
@@ -56,6 +59,7 @@ func (c groupConfig) Override(other groupConfig) groupConfig {
 	c.writer = override.Nil(c.writer, other.writer)
 	c.calculators = override.Slice(c.calculators, other.calculators)
 	c.report = override.Nil(c.report, other.report)
+	c.restartInterval = override.Numeric(c.restartInterval, other.restartInterval)
 	return c
 }
 
@@ -65,6 +69,7 @@ func (c groupConfig) Validate() error {
 	v.NotNil("writer", c.writer)
 	v.NotEmptySlice("calculators", c.calculators)
 	v.NotNil("report", c.report)
+	v.Positive("restart_interval", c.restartInterval)
 	return v.Error()
 }
 
@@ -117,7 +122,12 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		opened:           opened,
 	})
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.WithRetryOnPanic())
+	p.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.WithRetryOnPanic(),
+		confluence.WithBaseRetryInterval(cfg.restartInterval.Duration()),
+	)
 
 	g := &group{
 		shutdown:         signal.NewGracefulShutdown(sCtx, cancel),

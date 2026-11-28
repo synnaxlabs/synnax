@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd, NotFoundError } from "@synnaxlabs/client";
+import { icd, mqtt, NotFoundError } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -114,6 +114,37 @@ describe("ICD queries", () => {
         NotFoundError,
       );
     });
+
+    it("should report an error when a task uses the ICD", async () => {
+      const message = icd.messageZ.parse({
+        key: uuid.create(),
+        name: "Command",
+        payload: { format: "json", fields: [] },
+      });
+      const ic = await client.icds.create({
+        name: `icd-${id.create()}`,
+        messages: [message],
+      });
+      const target = mqtt.plainWriteTargetZ.parse({
+        type: "plain",
+        icd: ic.key,
+        message: { message: message.key, bindings: [] },
+      });
+      const used = await client.tasks.create({
+        name: `task-${id.create()}`,
+        type: "mqtt_write",
+        config: mqtt.writeConfigZ.parse({ targets: [target] }),
+      });
+      const { result } = renderHook(() => ICD.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(ic.key);
+      });
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.status.message).toEqual("Failed to delete ICD");
+      expect(result.current.status.description).toEqual(
+        `cannot delete icd ${ic.name} because task ${used.name} uses it`,
+      );
+    });
   });
 
   describe("useImport", () => {
@@ -130,6 +161,42 @@ describe("ICD queries", () => {
       });
       const retrieved = await client.icds.retrieve({ key: ic.key });
       expect(retrieved.messages.map((m) => m.name)).toEqual(["Engine"]);
+    });
+  });
+
+  describe("useImportNew", () => {
+    const importNew = async (name: string, csv: string) => {
+      const { result } = renderHook(() => ICD.useImportNew(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          name,
+          format: "csv",
+          data: new TextEncoder().encode(csv),
+        });
+      });
+      const named = (await client.icds.retrieve({})).filter((ic) => ic.name === name);
+      return { status: result.current.status, named };
+    };
+
+    it("should create an ICD with the given name from an import", async () => {
+      const name = `icd-${id.create()}`;
+      const { named } = await importNew(
+        name,
+        "message,field,start_bit,bit_length\nEngine,Rpm,0,16",
+      );
+      expect(named.map(({ messages }) => messages.map((m) => m.name))).toEqual([
+        ["Engine"],
+      ]);
+    });
+
+    it("should leave no ICD and show the error when the import fails", async () => {
+      const { status, named } = await importNew(`icd-${id.create()}`, "color\n");
+      expect(status.description).toEqual(
+        'row 1: unknown column "color": expected message, id, extended, length, ' +
+          "field, start_bit, bit_length, byte_order, kind, scale, offset, units, min, " +
+          "or max",
+      );
+      expect(named).toEqual([]);
     });
   });
 

@@ -10,12 +10,15 @@
 package icd_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -77,6 +80,73 @@ var _ = Describe("Resources", func() {
 		ic := create(ctx, "Listed")
 		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
 			resource.Resource{ID: ic.ResourceID(), Name: "Listed"},
+		))
+	})
+})
+
+// holder is a record that holds the key of an ICD, as a task config does.
+type holder struct {
+	Key string
+	ICD icd.Key
+}
+
+func (h holder) GorpKey() string { return h.Key }
+
+func (h holder) EncodeOrc(w *orc.Writer) error {
+	w.String(h.Key)
+	w.Write(h.ICD[:])
+	return nil
+}
+
+func (h *holder) DecodeOrc(r *orc.Reader) (err error) {
+	if h.Key, err = r.String(); err != nil {
+		return err
+	}
+	_, err = r.Read(h.ICD[:])
+	return err
+}
+
+// openHolders opens a table of holders whose reference refuses the delete of the ICD
+// that a holder holds.
+func openHolders(ctx context.Context, db *gorp.DB) *gorp.Table[string, holder] {
+	GinkgoHelper()
+	return MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, holder]{
+		DB:   db,
+		Name: "holder",
+		References: []gorp.Reference[string, holder]{gorp.NewKeyReference(
+			gorp.KeyReferenceConfig[string, holder, icd.Key]{
+				Name:     "icd",
+				Table:    "icd",
+				OnDelete: gorp.Restrict,
+				Kind:     gorp.Use,
+				Targets:  func(h *holder) []icd.Key { return []icd.Key{h.ICD} },
+			},
+		)},
+	}))
+}
+
+var _ = Describe("Uses", func() {
+	var ic icd.ICD
+	BeforeEach(func(ctx SpecContext) {
+		ic = icd.ICD{Name: "Plant"}
+		Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+	})
+
+	It("Should return no records for an unused ICD", func(ctx SpecContext) {
+		Expect(svc.Uses(ctx, tx, ic.Key)).To(BeEmpty())
+	})
+
+	It("Should return each record that uses the ICD", func(ctx SpecContext) {
+		other := icd.ICD{Name: "Other"}
+		Expect(svc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+		Expect(holders.NewCreate().Entries(&[]holder{
+			{Key: "a", ICD: ic.Key},
+			{Key: "b", ICD: ic.Key},
+			{Key: "c", ICD: other.Key},
+		}).Exec(ctx, tx)).To(Succeed())
+		Expect(svc.Uses(ctx, tx, ic.Key)).To(ConsistOf(
+			resource.ID{Type: "holder", Key: "a"},
+			resource.ID{Type: "holder", Key: "b"},
 		))
 	})
 })

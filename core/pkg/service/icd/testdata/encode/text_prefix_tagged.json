@@ -1,0 +1,34 @@
+{
+  "description": "A prefix that ends in the delimiter puts no empty item before a tagged field.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "$SET,",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "t",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "tagged",
+          "tag": "T="
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [4],
+      "text": "$SET,T=4"
+    }
+  ]
+}

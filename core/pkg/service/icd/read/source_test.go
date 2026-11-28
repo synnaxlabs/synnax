@@ -10,44 +10,44 @@
 package read_test
 
 import (
+	"context"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Source", func() {
+	const (
+		clock   channel.Key = 1
+		tempCh  channel.Key = 2
+		tick    channel.Key = 3
+		levelCh channel.Key = 4
+		flowCh  channel.Key = 5
+		dutyCh  channel.Key = 6
+	)
 	var (
-		clock = channel.Channel{
-			Leaseholder: 1, LocalKey: 1, LocalIndex: 1, IsIndex: true,
-			DataType: telem.TimestampT,
+		channels = map[channel.Key]icdv0.Channel{
+			clock: {
+				Name: "clock", DataType: telem.TimestampT, Index: true, IndexKey: clock,
+			},
+			tempCh: {Name: "temp", DataType: telem.Float64T, IndexKey: clock},
+			tick: {
+				Name: "tick", DataType: telem.TimestampT, Index: true, IndexKey: tick,
+			},
+			levelCh: {Name: "level", DataType: telem.Float64T, IndexKey: tick},
+			flowCh:  {Name: "flow", DataType: telem.Float64T},
+			dutyCh:  {Name: "duty", DataType: telem.Float64T},
 		}
-		tempCh = channel.Channel{
-			Leaseholder: 1, LocalKey: 2, LocalIndex: 1, DataType: telem.Float64T,
-		}
-		tick = channel.Channel{
-			Leaseholder: 1, LocalKey: 3, LocalIndex: 3, IsIndex: true,
-			DataType: telem.TimestampT,
-		}
-		levelCh = channel.Channel{
-			Leaseholder: 1, LocalKey: 4, LocalIndex: 3, DataType: telem.Float64T,
-		}
-		flowCh = channel.Channel{
-			Leaseholder: 1, LocalKey: 5, Virtual: true, DataType: telem.Float64T,
-		}
-		dutyCh = channel.Channel{
-			Leaseholder: 1, LocalKey: 6, Virtual: true, DataType: telem.Float64T,
-		}
-		channels = lo.KeyBy(
-			[]channel.Channel{clock, tempCh, tick, levelCh, flowCh, dutyCh},
-			func(c channel.Channel) channel.Key { return c.Key() },
-		)
 		atField = jsonField(
 			"at", "/at", icd.TimestampJSONField{TimeFormat: payload.TimeFormatUnixSec},
 		)
@@ -58,22 +58,47 @@ var _ = Describe("Source", func() {
 		mixed      = jsonMessage(
 			"Mixed", atField, tempField, levelField, flowField, dutyField,
 		)
-		ic = icd.ICD{Name: "Plant", Messages: []icd.Message{mixed}}
+		ic = icd.ICD{Key: uuid.New(), Name: "Plant", Messages: []icd.Message{mixed}}
 		// mixedRead reads a field on each of two index channels, one of them stamped,
 		// and two fields on virtual channels.
 		mixedRead = indexed(atField, readOf(
 			mixed,
-			bind(atField, clock.Key()),
-			bind(tempField, tempCh.Key()),
-			bind(levelField, levelCh.Key()),
-			bind(flowField, flowCh.Key()),
-			bind(dutyField, dutyCh.Key()),
+			bind(atField, clock),
+			bind(tempField, tempCh),
+			bind(levelField, levelCh),
+			bind(flowField, flowCh),
+			bind(dutyField, dutyCh),
 		))
 		f64 = func(v float64) []byte { return telem.NewSeriesV(v).Data }
 	)
-	newSource := func(reads ...icd.ReadMessage) *read.Source {
+	var resolver read.Resolver
+	BeforeEach(func() {
+		resolver = read.NewResolver(icdSvc, func(
+			context.Context,
+			gorp.Snapshot,
+			[]channel.Key,
+		) (map[channel.Key]icdv0.Channel, error) {
+			return channels, nil
+		})
+	})
+	// bindRead returns the Source of a read of rms, messages of ic, after Read accepts
+	// it.
+	bindRead := func(
+		ctx context.Context,
+		ic icd.ICD,
+		rms ...icd.ReadMessage,
+	) *read.Source {
 		GinkgoHelper()
-		return MustSucceed(read.NewSource(reads, ic, channels))
+		rd := readAt(0, ic.Key, rms...)
+		c := MustSucceed(resolver.NewChecker(
+			ctx, db, []read.Read{rd}, nil, map[icd.Key]icd.ICD{ic.Key: ic},
+		))
+		Expect(c.Read(rd)).To(Succeed())
+		return MustSucceed(c.Bind(rd))
+	}
+	newSource := func(ctx context.Context, rms ...icd.ReadMessage) *read.Source {
+		GinkgoHelper()
+		return bindRead(ctx, ic, rms...)
 	}
 	groupsOf := func(samples []read.Sample) []int {
 		return lo.Map(samples, func(s read.Sample, _ int) int { return s.Group })
@@ -85,7 +110,7 @@ var _ = Describe("Source", func() {
 	}
 	// twoReads returns a source of a Reading read whose /type is "reading", and an
 	// Alarm read that meets alarm.
-	twoReads := func(alarm *icd.JSONMatch) *read.Source {
+	twoReads := func(ctx context.Context, alarm *icd.JSONMatch) *read.Source {
 		GinkgoHelper()
 		reading := jsonMessage("Reading", atField, tempField)
 		reading.Payload.Variant = icd.JSONPayload{
@@ -95,41 +120,53 @@ var _ = Describe("Source", func() {
 		alarming.Payload.Variant = icd.JSONPayload{
 			Match: alarm, Fields: []icd.JSONField{levelField},
 		}
-		ic := icd.ICD{Name: "Plant", Messages: []icd.Message{reading, alarming}}
-		return MustSucceed(read.NewSource([]icd.ReadMessage{
+		ic := icd.ICD{
+			Key: uuid.New(), Name: "Plant", Messages: []icd.Message{reading, alarming},
+		}
+		return bindRead(
+			ctx,
+			ic,
 			indexed(atField, readOf(
-				reading, bind(atField, clock.Key()), bind(tempField, tempCh.Key()),
+				reading, bind(atField, clock), bind(tempField, tempCh),
 			)),
-			readOf(alarming, bind(levelField, levelCh.Key())),
-		}, ic, channels))
+			readOf(alarming, bind(levelField, levelCh)),
+		)
 	}
 
-	It("Should group fields by index channel, and each virtual field alone", func() {
-		Expect(newSource(mixedRead).Groups()).To(Equal([]read.Group{
+	It("Should group fields by index channel, and each virtual field alone", func(
+		ctx SpecContext,
+	) {
+		Expect(newSource(ctx, mixedRead).Groups()).To(Equal([]read.Group{
 			{
-				Index:     clock.Key(),
+				Message:   "Mixed",
+				Index:     clock,
 				Stamped:   true,
-				Channels:  channel.Keys{tempCh.Key()},
+				Channels:  channel.Keys{tempCh},
 				DataTypes: []telem.DataType{telem.Float64T},
 			},
 			{
-				Index:     tick.Key(),
-				Channels:  channel.Keys{levelCh.Key()},
+				Message:   "Mixed",
+				Index:     tick,
+				Channels:  channel.Keys{levelCh},
 				DataTypes: []telem.DataType{telem.Float64T},
 			},
 			{
-				Channels:  channel.Keys{flowCh.Key()},
+				Message:   "Mixed",
+				Channels:  channel.Keys{flowCh},
 				DataTypes: []telem.DataType{telem.Float64T},
 			},
 			{
-				Channels:  channel.Keys{dutyCh.Key()},
+				Message:   "Mixed",
+				Channels:  channel.Keys{dutyCh},
 				DataTypes: []telem.DataType{telem.Float64T},
 			},
 		}))
 	})
 
-	It("Should give each group a sample, and stamp only the stamped group", func() {
-		samples, ok := MustSucceed2(newSource(mixedRead).Decode(
+	It("Should give each group a sample, and stamp only the stamped group", func(
+		ctx SpecContext,
+	) {
+		samples, ok := MustSucceed2(newSource(ctx, mixedRead).Decode(
 			[]byte(`{"at":5,"temp":1.5,"level":2.5,"flow":3.5,"duty":4.5}`),
 		))
 		Expect(ok).To(BeTrue())
@@ -142,8 +179,8 @@ var _ = Describe("Source", func() {
 	})
 
 	DescribeTable("Should drop only the group of a field that does not decode",
-		func(doc string, groups []int, msg string) {
-			samples, ok, err := newSource(mixedRead).Decode([]byte(doc))
+		func(ctx SpecContext, doc string, groups []int, msg string) {
+			samples, ok, err := newSource(ctx, mixedRead).Decode([]byte(doc))
 			Expect(ok).To(BeTrue())
 			Expect(err).To(MatchError(msg))
 			Expect(groupsOf(samples)).To(Equal(groups))
@@ -170,8 +207,10 @@ var _ = Describe("Source", func() {
 		),
 	)
 
-	It("Should drop each group with a failed field, and name the first", func() {
-		samples, ok, err := newSource(mixedRead).Decode(
+	It("Should drop each group with a failed field, and name the first", func(
+		ctx SpecContext,
+	) {
+		samples, ok, err := newSource(ctx, mixedRead).Decode(
 			[]byte(`{"at":5,"temp":"hot","flow":3.5,"duty":4.5}`),
 		)
 		Expect(ok).To(BeTrue())
@@ -181,14 +220,18 @@ var _ = Describe("Source", func() {
 		Expect(groupsOf(samples)).To(Equal([]int{2, 3}))
 	})
 
-	It("Should return no samples for a document that is not JSON", func() {
-		Expect(newSource(mixedRead).Decode([]byte("on"))).
-			Error().To(MatchError(validate.ErrValidation))
+	It("Should return no samples for a document that is not JSON", func(
+		ctx SpecContext,
+	) {
+		Expect(newSource(ctx, mixedRead).Decode([]byte("on"))).
+			Error().To(MatchError(
+			"jsontext: invalid character 'o' at start of value: validation error",
+		))
 	})
 
 	It("Should return no samples and no error for a document that meets no rule",
-		func() {
-			samples, ok := MustSucceed2(twoReads(typeMatch("alarm")).Decode(
+		func(ctx SpecContext) {
+			samples, ok := MustSucceed2(twoReads(ctx, typeMatch("alarm")).Decode(
 				[]byte(`{"type":"other","level":2.5}`),
 			))
 			Expect(ok).To(BeFalse())
@@ -196,19 +239,21 @@ var _ = Describe("Source", func() {
 		},
 	)
 
-	It("Should return no samples for a document that meets two match rules", func() {
+	It("Should return no samples for a document that meets two match rules", func(
+		ctx SpecContext,
+	) {
 		present := &icd.JSONMatch{Variant: icd.PresentJSONMatch{
 			JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/level"},
 		}}
-		Expect(twoReads(present).Decode(
+		Expect(twoReads(ctx, present).Decode(
 			[]byte(`{"type":"reading","at":5,"temp":1.5,"level":2.5}`),
 		)).Error().To(MatchError(
 			"document matches messages Reading and Alarm: validation error",
 		))
 	})
 
-	It("Should hold only the samples of the last document", func() {
-		src := newSource(mixedRead)
+	It("Should hold only the samples of the last document", func(ctx SpecContext) {
+		src := newSource(ctx, mixedRead)
 		MustSucceed2(src.Decode(
 			[]byte(`{"at":5,"temp":1.5,"level":2.5,"flow":3.5,"duty":4.5}`),
 		))
@@ -219,36 +264,185 @@ var _ = Describe("Source", func() {
 		Expect(samples[3].Data).To(Equal([][]byte{f64(10.5)}))
 	})
 
-	It("Should give the groups of each read their own positions", func() {
-		src := twoReads(typeMatch("alarm"))
+	It("Should give the groups of each read their own positions", func(
+		ctx SpecContext,
+	) {
+		src := twoReads(ctx, typeMatch("alarm"))
 		samples, _ := MustSucceed2(src.Decode([]byte(`{"type":"alarm","level":2.5}`)))
 		Expect(samples).To(Equal([]read.Sample{
 			{Group: 1, Data: [][]byte{f64(2.5)}},
 		}))
 		Expect(src.Groups()[1]).To(Equal(read.Group{
 			Read:      1,
-			Index:     tick.Key(),
-			Channels:  channel.Keys{levelCh.Key()},
+			Message:   "Alarm",
+			Index:     tick,
+			Channels:  channel.Keys{levelCh},
 			DataTypes: []telem.DataType{telem.Float64T},
 		}))
 	})
 
-	DescribeTable("Should refuse reads that it cannot decode",
-		func(msg string, reads ...icd.ReadMessage) {
-			Expect(read.NewSource(reads, ic, channels)).Error().To(MatchError(msg))
+	It("Should name the message of the read of each group", func(ctx SpecContext) {
+		Expect(lo.Map(
+			twoReads(ctx, typeMatch("alarm")).Groups(),
+			func(g read.Group, _ int) string { return g.Message },
+		)).To(Equal([]string{"Reading", "Alarm"}))
+	})
+
+	Describe("Text and binary messages", func() {
+		var (
+			level = icd.TextField{Variant: icd.DelimitedTextField{
+				TextBaseField: icd.TextBaseField{
+					BaseField: icd.BaseField{Key: uuid.New(), Name: "level", Scale: 1},
+				},
+				Position: 1,
+			}}
+			line = icd.Message{
+				Key:  uuid.New(),
+				Name: "Line",
+				Payload: icd.Payload{Variant: icd.TextPayload{
+					Delimiter: ",", Prefix: "L", Fields: []icd.TextField{level},
+				}},
+			}
+			flow = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+				BinaryBaseField: icd.BinaryBaseField{
+					BaseField: icd.BaseField{Key: uuid.New(), Name: "flow", Scale: 1},
+					BitLength: 16,
+					ByteOrder: icd.ByteOrderLittleEndian,
+				},
+			}}
+			frame = icd.Message{
+				Key:  uuid.New(),
+				Name: "Frame",
+				Payload: icd.Payload{Variant: icd.BinaryPayload{
+					Fields: []icd.BinaryField{flow},
+				}},
+			}
+			plant = icd.ICD{
+				Key: uuid.New(), Name: "Plant", Messages: []icd.Message{line, frame},
+			}
+			lineRead = readOf(line, icd.ReadBinding{
+				Field: level.Base().Key, Channel: levelCh,
+			})
+			frameRead = readOf(frame, icd.ReadBinding{
+				Field: flow.Base().Key, Channel: flowCh,
+			})
+		)
+
+		DescribeTable("Should decode a line of a text message", func(
+			ctx SpecContext,
+			line string,
+		) {
+			samples, ok := MustSucceed2(
+				bindRead(ctx, plant, lineRead).Decode([]byte(line)),
+			)
+			Expect(ok).To(BeTrue())
+			Expect(samples).To(Equal([]read.Sample{
+				{Group: 0, Data: [][]byte{f64(2.5)}},
+			}))
 		},
-		Entry("a read that binds no fields",
-			"message Mixed binds no fields: validation error",
-			readOf(mixed),
+			Entry("with no line end", "L,2.5"),
+			Entry("with a newline", "L,2.5\n"),
+			Entry("with a carriage return and a newline", "L,2.5\r\n"),
+		)
+
+		It("Should drop the group of a text field that does not decode", func(
+			ctx SpecContext,
+		) {
+			samples, ok, err := bindRead(ctx, plant, lineRead).Decode([]byte("L,high"))
+			Expect(ok).To(BeTrue())
+			Expect(err).To(MatchError(
+				`field level: invalid number "high": validation error`,
+			))
+			Expect(samples).To(BeEmpty())
+		})
+
+		It("Should decode a payload of a binary message", func(ctx SpecContext) {
+			samples, ok := MustSucceed2(
+				bindRead(ctx, plant, frameRead).Decode([]byte{0x10, 0x01}),
+			)
+			Expect(ok).To(BeTrue())
+			Expect(samples).To(Equal([]read.Sample{
+				{Group: 0, Data: [][]byte{f64(272)}},
+			}))
+		})
+
+		It(
+			"Should not give the group of a field that the multiplexors of a payload do "+
+				"not select",
+			func(ctx SpecContext) {
+				field := func(
+					name string,
+					offset uint16,
+					mux *icd.FieldKey,
+					values ...int32,
+				) icd.BinaryField {
+					return icd.BinaryField{Variant: icd.UnsignedBinaryField{
+						BinaryBaseField: icd.BinaryBaseField{
+							Key:             uuid.New(),
+							Name:            name,
+							Scale:           1,
+							StartBit:        offset * 8,
+							BitLength:       8,
+							ByteOrder:       icd.ByteOrderLittleEndian,
+							Multiplexor:     mux,
+							MultiplexValues: values,
+						},
+					}}
+				}
+				mode := field("mode", 0, nil)
+				a := field("a", 1, new(mode.Base().Key), 0)
+				b := field("b", 2, new(mode.Base().Key), 1)
+				muxed := icd.Message{
+					Key:  uuid.New(),
+					Name: "Muxed",
+					Payload: icd.Payload{Variant: icd.BinaryPayload{
+						Fields: []icd.BinaryField{mode, a, b},
+					}},
+				}
+				ic := icd.ICD{
+					Key:      uuid.New(),
+					Name:     "Plant",
+					Messages: []icd.Message{muxed},
+				}
+				src := bindRead(ctx, ic, readOf(
+					muxed,
+					icd.ReadBinding{Field: a.Base().Key, Channel: tempCh},
+					icd.ReadBinding{Field: b.Base().Key, Channel: levelCh},
+				))
+				samples, ok := MustSucceed2(src.Decode([]byte{1, 5, 7}))
+				Expect(ok).To(BeTrue())
+				Expect(
+					samples,
+				).To(Equal([]read.Sample{{Group: 1, Data: [][]byte{f64(7)}}}))
+			},
+		)
+
+		It("Should drop the group of a binary field that the payload is too short for",
+			func(ctx SpecContext) {
+				samples, ok, err := bindRead(ctx, plant, frameRead).Decode([]byte{0x10})
+				Expect(ok).To(BeTrue())
+				Expect(err).To(MatchError(
+					"field flow: the payload has 1 bytes and the field needs 2: " +
+						"validation error",
+				))
+				Expect(samples).To(BeEmpty())
+			},
+		)
+	})
+
+	DescribeTable("Should give the keys of a group with its index channel first",
+		func(g read.Group, keys channel.Keys) { Expect(g.Keys()).To(Equal(keys)) },
+		Entry("a group on an index channel",
+			read.Group{Index: clock, Channels: channel.Keys{tempCh}},
+			channel.Keys{clock, tempCh},
 		),
-		Entry("a channel that does not exist",
-			"message Mixed: channel 99 does not exist: validation error",
-			readOf(mixed, bind(tempField, 99)),
+		Entry("a group that binds only the index field",
+			read.Group{Index: clock, Stamped: true},
+			channel.Keys{clock},
 		),
-		Entry("two reads that the decoder cannot tell apart",
-			"messages Mixed and Mixed both have no match rule: validation error",
-			readOf(mixed, bind(tempField, tempCh.Key())),
-			readOf(mixed, bind(levelField, levelCh.Key())),
+		Entry("a group on a virtual channel",
+			read.Group{Channels: channel.Keys{flowCh}},
+			channel.Keys{flowCh},
 		),
 	)
 })

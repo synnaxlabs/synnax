@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.ni.device.client import DELETE_CHANNEL, SET_CHANNEL, Client
 from synnax.ni.device.types_gen import (
     TYPE_RESOURCE_ID,
     AnalogInputPorts,
@@ -31,9 +32,12 @@ from synnax.ni.device.types_gen import (
 )
 
 __all__ = [
+    "DELETE_CHANNEL",
+    "SET_CHANNEL",
     "TYPE_RESOURCE_ID",
     "AnalogInputPorts",
     "AnalogOutputChannels",
+    "Client",
     "CommandStatePair",
     "Configuration",
     "ConfigurationUpdate",

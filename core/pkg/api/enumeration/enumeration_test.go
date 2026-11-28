@@ -301,7 +301,11 @@ func createHolders(ctx SpecContext, e enumeration.Key, keys ...string) {
 				Targets: func(h *holder) []enumeration.Key {
 					return []enumeration.Key{h.Enumeration}
 				},
-				Retarget: func(h *holder, _, to enumeration.Key) { h.Enumeration = to },
+				Retarget: func(h *holder, to map[enumeration.Key]enumeration.Key) {
+					if t, ok := to[h.Enumeration]; ok {
+						h.Enumeration = t
+					}
+				},
 			},
 		)},
 	}))

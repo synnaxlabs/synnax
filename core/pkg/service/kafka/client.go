@@ -85,9 +85,6 @@ func tlsConfig(props Properties) *tls.Config {
 
 // clientOpts translates props into franz-go client options.
 func clientOpts(props Properties) ([]kgo.Opt, error) {
-	if err := validateProperties(props); err != nil {
-		return nil, err
-	}
 	opts := []kgo.Opt{kgo.SeedBrokers(props.Brokers...)}
 	if props.Secure {
 		opts = append(opts, kgo.DialTLSConfig(tlsConfig(props)))
@@ -109,8 +106,9 @@ func clientOpts(props Properties) ([]kgo.Opt, error) {
 	return opts, nil
 }
 
-// openClient opens a client to the cluster in props. extra are appended to the
-// connection options, so a consumer or producer can add its own.
+// openClient opens a client to the cluster in props, which must pass
+// validateProperties. extra are appended to the connection options, so a consumer or
+// producer can add its own.
 func openClient(props Properties, extra ...kgo.Opt) (*kgo.Client, error) {
 	opts, err := clientOpts(props)
 	if err != nil {

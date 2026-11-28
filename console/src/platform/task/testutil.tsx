@@ -48,6 +48,7 @@ import type { z } from "zod";
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import type { Forms, FormTabProps } from "@/platform/task/Form";
+import type { Integration } from "@/platform/task/integration";
 import type { PlotChannels } from "@/platform/task/plot";
 import { type Registry, RegistryProvider } from "@/platform/task/registry";
 import type { CreateParams, UseCreate } from "@/platform/task/useCreate";
@@ -59,6 +60,7 @@ import {
   createTestStore,
   findDialogTriggerByText,
   getBySelector,
+  getIconButton,
   getSwitchInput,
   HaulProvider,
   renderHookWithConsole,
@@ -104,19 +106,28 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 
 const TASK_ICON = <Icon.Task />;
 
-/** Creates a task registry that plots the channels of the given task types. */
-export const createRegistry = (
-  plotChannels: Record<string, PlotChannels> = {},
-): Registry => ({
+export interface CreateRegistryOptions {
+  /** Finds the channels to plot, by task type. */
+  plotChannels?: Record<string, PlotChannels>;
+  integrations?: Integration[];
+}
+
+/** Creates a task registry of the given plot channels and integrations. */
+export const createRegistry = ({
+  plotChannels = {},
+  integrations = [],
+}: CreateRegistryOptions = {}): Registry => ({
   getIcon: () => TASK_ICON,
   parseType: (type) => type,
   getPlotChannels: (type) => plotChannels[type],
+  getIntegration: (type) =>
+    integrations.find(({ prefix }) => prefix === type.split("_")[0]),
 });
 
 const DEFAULT_REGISTRY = createRegistry();
 
 /**
- * Renders a real pluto Form context seeded with `values` and invokes `useValue` with
+ * Renders a real Pluto Form context seeded with `values` and invokes `useValue` with
  * that context. Lets form-context task hooks (useKey, useStatus, useIsRunning) be
  * exercised in isolation without mounting the full task Form UI.
  */
@@ -321,7 +332,7 @@ interface PanelScopesProps extends PropsWithChildren {
 }
 
 /**
- * Provides the pluto panel and tab scopes the way the panel mosaic does, so
+ * Provides the Pluto panel and tab scopes the way the panel mosaic does, so
  * tab-scoped hooks (Session.Panel.useSelectIsFocused, panel view args) resolve.
  */
 const PanelScopes = ({ panelKey, tabKey, children }: PanelScopesProps) => (
@@ -381,7 +392,7 @@ export interface RenderInTaskFormWithClientResult extends RenderInTaskFormResult
 }
 
 /**
- * Like renderInTaskForm, but backs the console provider stack with the given client so
+ * Like renderInTaskForm, but backs the Console provider stack with the given client so
  * components that reach for Synnax.use() (e.g. Controls issuing task commands) see it.
  */
 export const renderInTaskFormWithClient = async (
@@ -430,9 +441,9 @@ export const renderInTaskFormWithClient = async (
 };
 
 export interface RenderTaskFormTabOptions extends Pick<RenderOptions, "onCaughtError"> {
-  /** Client backing the console wrapper; falls back to a shared test client. */
+  /** Client backing the Console wrapper; falls back to a shared test client. */
   client?: Client | null;
-  /** Client the console renders as; the panel and task are created with `client`. */
+  /** Client the Console renders as; the panel and task are created with `client`. */
   as?: Client;
   /** Key of the task row the form edits. */
   taskKey?: task.Key;
@@ -590,7 +601,7 @@ export const awaitEditableForm = async (): Promise<void> => {
 export const clickDeploy = async (container: HTMLElement): Promise<void> =>
   await step("clickDeploy", async () => {
     const button = await waitFor(() => {
-      const b = within(container).getByRole("button", { name: "Start" });
+      const b = getIconButton(container, "play");
       if (b.getAttribute("aria-disabled") === "true")
         throw new Error("start button is disabled");
       return b;
@@ -606,7 +617,7 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> =>
 export const clickFailedDeploy = async (container: HTMLElement): Promise<void> => {
   await clickDeploy(container);
   await waitFor(() => {
-    const b = within(container).getByRole("button", { name: "Start" });
+    const b = getIconButton(container, "play");
     if (b.getAttribute("aria-disabled") === "true") throw new Error("still starting");
   });
   await act(async () => {});
@@ -620,7 +631,7 @@ export const START_FAILURE = expect.objectContaining({
 /** @returns how many saves of the task the form reported as failed. */
 export const countFailedSaves = (statuses: Status.NotificationSpec[]): number =>
   statuses
-    .filter(({ message }) => message === "Failed to save task")
+    .filter(({ message }) => message === "Failed to save change")
     .reduce((n, { count }) => n + count, 0);
 
 /**
@@ -650,6 +661,35 @@ export const findChannelListItem = async (text: string): Promise<HTMLElement> =>
     assertDefined(match, `channel list item showing "${text}" not found`);
     return match;
   });
+
+/**
+ * Gets the button under the channel list that adds a channel. The empty details pane
+ * shows an action of the same name.
+ */
+export const getAddChannelButton = (): HTMLElement => {
+  const list = document.querySelector<HTMLElement>(".console-channel-list");
+  assertDefined(list, "channel list not found");
+  return within(list).getByRole("button", { name: "Add channel" });
+};
+
+/**
+ * Finds the button with name under the list of a task form's panes. The empty details
+ * pane shows an action of the same name.
+ */
+export const findListButton = async (name: string): Promise<HTMLElement> => {
+  const list = await waitFor(() =>
+    getBySelector<HTMLElement>(document, ".console-panes__list"),
+  );
+  return await within(list).findByRole("button", { name });
+};
+
+/** Finds the details pane of a task form's panes. */
+export const findDetailsPane = async (): Promise<HTMLElement> =>
+  await waitFor(() => getBySelector<HTMLElement>(document, ".console-panes__details"));
+
+/** Finds the button with name in the details pane of a task form's panes. */
+export const findDetailsButton = async (name: string): Promise<HTMLElement> =>
+  await within(await findDetailsPane()).findByRole("button", { name });
 
 /** Finds the note under the channel list that shows the message, and its variant. */
 export const findChannelListNote = async (
@@ -778,8 +818,8 @@ export const reportTaskRunning = async (
 };
 
 /**
- * Writes the status a driver reports once a task has stopped. Specs run without a
- * driver, so a start command otherwise leaves the task mid-start forever and the
+ * Writes the status a Driver reports once a task has stopped. Specs run without a
+ * Driver, so a start command otherwise leaves the task mid-start forever and the
  * form offers no way to deploy again.
  */
 export const reportTaskStopped = async (

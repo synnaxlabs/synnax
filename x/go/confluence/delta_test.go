@@ -177,12 +177,7 @@ var _ = Describe("Delta", func() {
 				ctx,
 				RecoverWithErrOnPanic(),
 				WithRetryOnPanic(),
-				func(opts *Options) {
-					opts.Signal = append(
-						opts.Signal,
-						signal.WithBaseRetryInterval(time.Millisecond),
-					)
-				},
+				WithBaseRetryInterval(time.Millisecond),
 			)
 			delta.Connect(outputOne)
 			// A send on the closed inlet panics.

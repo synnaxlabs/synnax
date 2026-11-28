@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -84,33 +85,24 @@ type readTag struct {
 	dataType telem.DataType
 }
 
-// newReadTag validates entry against channels, which holds its channel.
+// newReadTag validates entry, whose channel has the index channel index and the data
+// type dataType.
 func newReadTag(
 	entry SparkplugReadEntry,
-	channels map[channel.Key]channel.Channel,
+	index channel.Key,
+	dataType telem.DataType,
 ) (readTag, error) {
 	t := readTag{
-		node:    sparkplug.NodeID{Group: entry.Group, EdgeNode: entry.EdgeNode},
-		device:  entry.Device,
-		name:    entry.Tag,
-		channel: entry.Channel,
+		node:     sparkplug.NodeID{Group: entry.Group, EdgeNode: entry.EdgeNode},
+		device:   entry.Device,
+		name:     entry.Tag,
+		channel:  entry.Channel,
+		index:    index,
+		dataType: dataType,
 	}
 	if err := t.validate(); err != nil {
 		return readTag{}, err
 	}
-	ch, ok := channels[entry.Channel]
-	if !ok {
-		return readTag{}, errors.Wrapf(
-			validate.ErrValidation, "%s: channel %d does not exist", t, entry.Channel,
-		)
-	}
-	if ch.IsIndex || !takesTags(ch.DataType) {
-		return readTag{}, errors.Wrapf(
-			validate.ErrValidation,
-			"%s: channel %s cannot take the values of a tag", t, ch.Name,
-		)
-	}
-	t.index, t.dataType = ch.Index(), ch.DataType
 	return t, nil
 }
 
@@ -162,13 +154,13 @@ var _ target = commandTarget{}
 // newCommandTarget validates cfg against ch, its command channel.
 func newCommandTarget(
 	cfg SparkplugWriteTarget,
-	ch channel.Channel,
+	ch icdv0.Channel,
 ) (commandTarget, error) {
 	t := commandTarget{
 		node:    sparkplug.NodeID{Group: cfg.Group, EdgeNode: cfg.EdgeNode},
 		device:  cfg.Device,
 		name:    cfg.Tag,
-		channel: ch.Key(),
+		channel: cfg.Channel,
 	}
 	if err := t.validate(); err != nil {
 		return commandTarget{}, err

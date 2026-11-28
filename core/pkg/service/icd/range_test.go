@@ -10,6 +10,8 @@
 package icd_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
@@ -26,6 +28,7 @@ var _ = Describe("CheckRange", func() {
 		Entry("a value that takes no scale",
 			icd.BaseField{Scale: 10, Max: new(100.0)}, 100.0,
 		),
+		Entry("NaN, with no limits", icd.BaseField{Scale: 1}, math.NaN()),
 	)
 
 	DescribeTable("Should refuse a value outside the min and max",
@@ -47,6 +50,52 @@ var _ = Describe("CheckRange", func() {
 		Entry("below a small min, in plain digits",
 			icd.BaseField{Scale: 1, Min: new(5e-5)}, 2e-5,
 			"0.00002 is below the min 0.00005: validation error",
+		),
+		Entry("NaN, with a max",
+			icd.BaseField{Scale: 1, Max: new(100.0)}, math.NaN(),
+			"NaN is outside the limits: validation error",
+		),
+	)
+})
+
+var _ = Describe("CheckRawRange", func() {
+	DescribeTable("Should accept a raw value that decodes inside the min and max",
+		func(b icd.BaseField, raw float64) {
+			Expect(icd.CheckRawRange(b, raw)).To(Succeed())
+		},
+		Entry("no limits", icd.BaseField{Scale: 1}, 1e300),
+		Entry("the min", icd.BaseField{Scale: 1, Min: new(0.0)}, 0.0),
+		Entry("a value that decodes to the max",
+			icd.BaseField{Scale: 10, Max: new(100.0)}, 10.0,
+		),
+		Entry("a value that decodes to the max after float64 rounding",
+			icd.BaseField{Scale: 0.1, Max: new(0.3)}, 3.0,
+		),
+	)
+
+	DescribeTable("Should refuse a raw value that decodes outside the min and max",
+		func(b icd.BaseField, raw float64, expected string) {
+			Expect(icd.CheckRawRange(b, raw)).To(MatchError(expected))
+		},
+		Entry("below the min, with no scale",
+			icd.BaseField{Scale: 1, Min: new(10.4)}, 10.0,
+			"10 is below the min 10.4: validation error",
+		),
+		Entry("above the max, after the scale and offset",
+			icd.BaseField{Scale: 5, Offset: 1, Max: new(10.0)}, 3.0,
+			"3 decodes to 16, which is above the max 10: validation error",
+		),
+		Entry("infinite, above the max",
+			icd.BaseField{Scale: 1, Max: new(10.0)}, math.Inf(1),
+			"Infinity is above the max 10: validation error",
+		),
+		Entry("infinite, below the min",
+			icd.BaseField{Scale: 1, Min: new(-10.0)}, math.Inf(-1),
+			"-Infinity is below the min -10: validation error",
+		),
+		Entry("NaN, with a min",
+			icd.BaseField{Scale: 1, Min: new(-10.0)}, math.NaN(),
+			"NaN is outside the limits: validation error",
 		),
 	)
 })

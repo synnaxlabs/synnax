@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package task implements the driver task and factory infrastructure for executing
+// Package task implements the Driver task and factory infrastructure for executing
 // compiled Arc programs. It is split out from arc/runtime so that arc/runtime (the core
 // the calculation compiler depends on) does not import the Arc service package, which
 // would otherwise form an import cycle once the Arc service depends on the
@@ -164,9 +164,8 @@ func (f *factory) ConfigureTask(
 		status:     driver.NewStatusHandler(f.cfg.DB, f.cfg.Status, t),
 	}
 	// A successful configure writes no status: the start that follows it answers the
-	// command, and a "configured" status would answer it first with running false. An
-	// auto-start that fails must answer it too, since no start follows.
-	if cfg.AutoStart {
+	// command, and a "configured" status would answer it first with running false.
+	if cfg.AutoStart && cmdKey == driver.NoCommand {
 		if err := errors.Combine(arcTask.start(ctx, cmdKey)); err != nil {
 			return nil, err
 		}

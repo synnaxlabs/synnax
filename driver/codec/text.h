@@ -67,10 +67,14 @@ class Text {
         );
         [[nodiscard]] x::errors::Error
         append_float(double v, x::telem::Series &dst) const;
-        /// @brief appends the sample of the field in items, the items of one line, or
-        /// its default, to dst.
+        /// @brief returns the value of the field in items, the items of one line, or
+        /// an empty view when the line has none.
+        [[nodiscard]] std::string_view
+        value(const std::vector<std::string_view> &items) const;
+        /// @brief appends the sample of value, or the field's default when value is
+        /// empty, to dst.
         [[nodiscard]] x::errors::Error
-        decode(const std::vector<std::string_view> &items, x::telem::Series &dst) const;
+        decode(std::string_view value, x::telem::Series &dst) const;
     };
 
     struct Message {
@@ -78,6 +82,7 @@ class Text {
         std::string delimiter;
         std::vector<Field> fields;
         std::vector<x::telem::Series> samples;
+        std::vector<Failure> failures;
     };
 
     /// @brief Prefixed is a message whose lines start with prefix.
@@ -105,8 +110,9 @@ public:
     /// the message with no prefix.
     /// @returns CONFIG_ERROR when two messages have the same prefix or no prefix, a
     /// delimiter or tag is empty, a tag contains its delimiter or starts with
-    /// whitespace, a binding names no field of its message, a default does not fit its
-    /// channel, or a field does not convert to the data type of its binding.
+    /// whitespace, a binding names no field of its message, a bound field has a zero
+    /// scale, a default does not fit its channel, or a field does not convert to the
+    /// data type of its binding.
     static std::pair<Text, x::errors::Error>
     create(const std::vector<TextMessage> &messages);
 
@@ -115,22 +121,27 @@ public:
     /// its message. A delimited field reads the item at its position, and a tagged
     /// field reads the rest of the first item whose longest tag of the message is its
     /// tag. A value is a decimal number, with any spaces, tabs, or carriage returns
-    /// around it. An empty or missing item has no value.
+    /// around it. An empty or missing item has no value. A field with no value and no
+    /// default, a value that is not a number, or a value that does not fit its channel
+    /// gets no sample and goes into its failures.
     /// @returns the index of the message in create order, or nothing when line belongs
     /// to no message. A line of only spaces, tabs, and carriage returns belongs to
     /// none.
-    /// @returns VALIDATION when a field with no default has no value in line, a value
-    /// is not a number, or a scaled value does not fit its channel. The error names the
-    /// field, and also the message when the decoder holds more than one.
-    std::pair<std::optional<std::size_t>, x::errors::Error>
-    decode(std::string_view line);
+    std::optional<std::size_t> decode(std::string_view line);
 
     /// @brief returns the samples of the last decode of message: one series for each
-    /// binding, in binding order, each holding one sample. They are unspecified after a
-    /// decode that does not return message.
+    /// binding, in binding order, each holding one sample, or none for a field in its
+    /// failures. They are unspecified after a decode that does not return message.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
+    }
+
+    /// @brief returns the fields that the last decode of message could not decode, in
+    /// binding order. They are unspecified after a decode that does not return message.
+    [[nodiscard]] const std::vector<Failure> &
+    failures(const std::size_t message) const {
+        return this->messages[message].failures;
     }
 };
 /// @brief TextEncoder encodes samples into the line of one text message. It is not safe
@@ -189,9 +200,9 @@ public:
     /// @returns CONFIG_ERROR when the delimiter is empty, a binding names no field, a
     /// field has two bindings, a tag is empty, contains the delimiter, or starts with
     /// whitespace, two fields have the same position, a position is past 65535, the
-    /// prefix fills the position of a field, a default is not finite, a field's channel
-    /// does not hold numbers, a scaled field's channel does not hold floats, or a field
-    /// has no binding and no default.
+    /// prefix fills the position of a field, a default is not finite, a bound field has
+    /// a zero scale, a field's channel does not hold numbers, a scaled field's channel
+    /// does not hold floats, or a field has no binding and no default.
     static std::pair<TextEncoder, x::errors::Error> create(const TextMessage &message);
 
     /// @brief encodes samples into payload, a line that starts with the prefix. The
@@ -217,10 +228,15 @@ public:
     [[nodiscard]] x::errors::Error
     check(std::size_t binding, const x::telem::Series &s, std::size_t i);
 
-    /// @brief returns true when the field of binding has a default, which encode writes
-    /// for an empty series.
-    [[nodiscard]] bool has_default(std::size_t binding) const {
-        return this->fields[this->bound[binding]].fallback.has_value();
+    /// @brief returns true when each field has a sample or a default, so encode has a
+    /// value for it.
+    /// @param samples is as in encode.
+    [[nodiscard]] bool ready(const std::span<const x::telem::Series> samples) const {
+        for (std::size_t b = 0; b < samples.size(); b++)
+            if (samples[b].empty() &&
+                !this->fields[this->bound[b]].fallback.has_value())
+                return false;
+        return true;
     }
 };
 }

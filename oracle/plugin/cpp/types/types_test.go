@@ -1677,6 +1677,45 @@ var _ = Describe("C++ Types Plugin", func() {
 						)
 				},
 			)
+
+			It("Should include cstdint for a standalone int enum", func() {
+				source := `
+					@cpp output "x/cpp/telem"
+
+					Code enum {
+						unknown = 0
+						uint8 = 1
+					}
+				`
+				resp := MustGenerate(source, "telem", loader, cppPlugin)
+
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"#include <cstdint>",
+						"enum class Code : std::uint8_t {",
+					)
+			})
+
+			It("Should add the headers that an enum's includes name", func() {
+				source := `
+					@cpp output "x/cpp/telem"
+
+					Code enum {
+						unknown = 0
+
+						@cpp includes "x/cpp/telem/telem.h"
+						@cpp system_includes "string"
+					}
+				`
+				resp := MustGenerate(source, "telem", loader, cppPlugin)
+
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"#include <string>",
+						`#include "x/cpp/telem/telem.h"`,
+						"enum class Code : std::uint8_t {",
+					)
+			})
 		})
 
 		Describe("Cross-namespace enum references", func() {
@@ -2559,6 +2598,27 @@ var _ = Describe("C++ Union Generation", func() {
 				)
 		},
 	)
+
+	It("Should escape an enum constant that a Windows SDK macro would expand", func() {
+		source := `
+			@cpp output "out"
+
+			Parity enum {
+				none = "none"
+				odd  = "odd"
+			}
+			Properties struct {
+				parity Parity = none
+			}
+		`
+		resp := MustGenerate(source, "serial", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`constexpr const char* PARITY_NONE_ = "none";`,
+				`constexpr const char* PARITY_ODD_ = "odd";`,
+				`std::string parity = PARITY_NONE_;`,
+			)
+	})
 
 	It("Should include the header of a borrowed enum from another namespace", func() {
 		loader.Add("schemas/auth", `

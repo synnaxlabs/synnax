@@ -19,7 +19,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, json } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   SCAN_SCHEMAS,
@@ -30,10 +30,12 @@ import {
   type APIKeyAuthConfigSendAs,
   type AuthType,
   type Device,
+  headersZ,
   type HealthCheckMethod,
   INTEGRATION_KEY,
   type Response,
   SCHEMAS,
+  validateHeaders,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
   ZERO_RESPONSE,
@@ -42,6 +44,7 @@ import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
+import { Rack } from "@/platform/rack";
 
 const path = deep.path<Device>();
 const { auth, healthCheck } = path.properties;
@@ -70,14 +73,23 @@ const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 // Longer than the usual request timeout to allow for negotiating an SSL handshake.
 const TEST_CONNECTION_REQUEST_TIMEOUT_MS = TimeSpan.seconds(5).milliseconds;
 
-const beforeSave = async ({
-  client,
-  get,
-  set,
-}: Flux.FormBeforeSaveParams<
-  PDevice.RetrieveQuery,
-  PDevice.FormSchema<typeof SCHEMAS>
->) => {
+// A form with no headers reads null at their path.
+const healthCheckHeadersZ = headersZ
+  .check((p) => validateHeaders(p, p.value))
+  .nullish();
+
+const beforeSave = async (
+  params: Flux.FormBeforeSaveParams<
+    PDevice.RetrieveQuery,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >,
+) => {
+  const { client, get, set } = params;
+  // A check adds error statuses without failing validation.
+  if (params.getStatuses().some(({ variant }) => variant === "error")) {
+    Form.focusFirstError(params);
+    return false;
+  }
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
     rack: get(path.rack).value,
@@ -123,7 +135,7 @@ export const Connect = ({
   const { capture } = Analytics.use();
   const {
     form,
-    saveAsync,
+    save,
     status: stat,
     variant,
   } = useForm({
@@ -136,13 +148,24 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION_KEY,
     name: "HTTP",
     rack: rackKey,
   });
 
   const { set: setField } = form;
+
+  // The check starts at the first Connect, so a header the user just added is not an
+  // error before they fill it in.
+  const headersChecked = useRef(false);
+  const handleConnect = () => {
+    if (!headersChecked.current) {
+      form.addCheck(healthCheck.headers, healthCheckHeadersZ);
+      headersChecked.current = true;
+    }
+    save();
+  };
 
   const authType = Form.useFieldValue(auth.type, { ctx: form });
 
@@ -162,6 +185,16 @@ export const Connect = ({
   const secure = Form.useFieldValue(path.properties.secure, { ctx: form });
 
   const [tab, setTab] = useState("authentication");
+  const holdsError = (tabKey: string): boolean => {
+    const errors = form.getStatuses().filter(({ variant }) => variant === "error");
+    return TAB_PATHS[tabKey].some((tabPath) =>
+      errors.some(({ key }) => key != null && deep.pathsMatch(key, String(tabPath))),
+    );
+  };
+  // The open tab keeps the view while it holds an error, since the user reads it.
+  const showTab = (tabKey: string): void => {
+    if (!holdsError(tab)) setTab(tabKey);
+  };
 
   const handleValidateResponseChange = (value: boolean) => {
     setField(healthCheck.validateResponse, value);
@@ -220,24 +253,16 @@ export const Connect = ({
     return <SelectSendAs {...rest} onChange={handleChange} />;
   };
 
-  const handleConnect = async () => {
-    if (await saveAsync()) return;
-    const errorPaths = form
-      .getStatuses()
-      .flatMap(({ key, variant }) => (variant === "error" && key != null ? [key] : []));
-    const holdsError = (tabKey: string) =>
-      TAB_PATHS[tabKey].some((tabPath) =>
-        errorPaths.some((path) => deep.pathsMatch(path, tabPath)),
-      );
-    if (holdsError(tab)) return;
-    const next = Object.keys(TAB_PATHS).find(holdsError);
-    if (next != null) setTab(next);
-  };
   return (
     <PlatformDevice.ConnectFrame className={CSS.B("http-connect")}>
       <Modal.Header icon={<Icon.Logo.HTTP />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
+          {Object.entries(TAB_PATHS).flatMap(([key, paths]) =>
+            paths.map((p) => (
+              <TabFocus key={String(p)} path={p} onFocus={() => showTab(key)} />
+            )),
+          )}
           <Form.TextField
             path={path.name}
             showLabel={false}
@@ -468,7 +493,8 @@ export const Connect = ({
         reason={reason}
         variant={variant}
         message={stat.description}
-        onConnect={() => void handleConnect()}
+        onConnect={handleConnect}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </PlatformDevice.ConnectFrame>
@@ -483,19 +509,27 @@ export const useConnectModal = PlatformDevice.createConnectModal(
 const HEADER = ["Device", "Connect", "HTTP server"];
 
 // The paths each tab edits, so a failed Connect can open the tab with the error.
-const TAB_PATHS: Record<string, string[]> = {
-  authentication: [String(auth)],
-  health_check: [String(healthCheck)],
-  advanced: [
-    String(path.properties.timeoutMs),
-    String(path.properties.maxConcurrentRequests),
-  ],
+const TAB_PATHS: Record<string, deep.Target<unknown>[]> = {
+  authentication: [auth],
+  health_check: [healthCheck],
+  advanced: [path.properties.timeoutMs, path.properties.maxConcurrentRequests],
+};
+
+interface TabFocusProps {
+  path: deep.Target<unknown>;
+  onFocus: () => void;
+}
+
+/** Opens a tab when the form asks a field under the path to take focus. */
+const TabFocus = ({ path, onFocus }: TabFocusProps): null => {
+  Form.useFocusHandler(path, onFocus);
+  return null;
 };
 
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "HTTP server",
+  placeholder: "Server name",
   "aria-label": "Name",
 } as const;
 

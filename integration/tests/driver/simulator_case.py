@@ -24,6 +24,7 @@ Usage:
         sim_classes = [OPCUASim, ModbusSim]
 """
 
+import os
 from multiprocessing.process import BaseProcess
 
 from examples.simulators.device_sim import DeviceSim
@@ -32,6 +33,9 @@ import synnax as sy
 from framework import resources
 from framework.hardware_case import HardwareCase
 from framework.test_case import Config
+
+# MQTT and Kafka tasks run on the Driver inside the Core, which has its own rack.
+CORE_RACK_NAME = os.environ.get("SYNNAX_CORE_RACK", "Node 1")
 
 
 class SimulatorCase(HardwareCase):
@@ -126,14 +130,24 @@ class SimulatorCase(HardwareCase):
         finally:
             super().teardown()
 
+    def device_rack(self) -> sy.Rack:
+        """Return the rack that holds the devices of the simulators."""
+        return self.client.racks.retrieve(name=self.rack_name)
+
     def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
         """Get or create the hardware device for a given simulator class."""
-        rack = self.client.racks.retrieve(name=self.rack_name)
-        device_instance = sim_cls.create_device(self.client, rack.key)
+        rack = self.device_rack().key
+        device_instance = sim_cls.create_device(self.client, rack)
         try:
             existing = self.client.devices.retrieve(name=device_instance.name)
             # A sim device only exists for its sim, so one found here is a leftover from
-            # a killed teardown; adopt it so this run's teardown reclaims it.
+            # a killed teardown; adopt it so this run's teardown reclaims it. Its rack
+            # can be the rack of a Driver that is gone.
+            if existing.rack != rack:
+                self.client.devices.dispatch(
+                    existing.key,
+                    sy.device.set_rack(sy.device.SetRackPayload(rack=rack)),
+                )
             self.track_test_devices([existing])
         except sy.NotFoundError:
             self.create_test_devices([device_instance])

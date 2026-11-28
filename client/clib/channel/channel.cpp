@@ -51,7 +51,7 @@ int32_t synnax_channel_retrieve_keys(
 
         auto [channels, c_err] = client->client.channels.retrieve(req);
         if (!c_err.ok()) {
-            set_err(err, CODE_ERROR, c_err.type, c_err.data);
+            set_err(err, CODE_ERROR, c_err.type(), c_err.data());
             return CODE_ERROR;
         }
 
@@ -93,7 +93,7 @@ int32_t synnax_channel_retrieve_keys(
         }
         if (!missing.empty()) {
             const auto nf = synnax::errors::not_found_error("channels", missing);
-            set_err(err, CODE_ERROR, nf.type, nf.data);
+            set_err(err, CODE_ERROR, nf.type(), nf.data());
             return CODE_ERROR;
         }
         return CODE_OK;
@@ -158,7 +158,7 @@ int32_t synnax_channel_create(
         }
         const auto c_err = client->client.channels.create(chans);
         if (!c_err.ok()) {
-            set_err(err, CODE_ERROR, c_err.type, c_err.data);
+            set_err(err, CODE_ERROR, c_err.type(), c_err.data());
             return CODE_ERROR;
         }
         for (size_t i = 0; i < count; i++) {

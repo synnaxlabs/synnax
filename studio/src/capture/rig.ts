@@ -60,7 +60,7 @@ export interface CaptureOptions {
    */
   hideNotifications?: boolean;
   /**
-   * Port of the core the capture runs against. Injected into the dev Console
+   * Port of the Core the capture runs against. Injected into the dev Console
    * via its dev-connection port override before the app boots.
    */
   corePort?: number;
@@ -112,7 +112,7 @@ const DEV_PORT_KEY = "synnax-dev-connection-port";
 
 /**
  * Stands in for the Synnax Desktop shell, which tells a Desktop build of the Console
- * how to reach its embedded Core. It answers that the core at `connection` runs, the
+ * how to reach its embedded Core. It answers that the Core at `connection` runs, the
  * API key and diagnostics commands with sample values, and records every other command
  * so that the capture fails on it.
  */

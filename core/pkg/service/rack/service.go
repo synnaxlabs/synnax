@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"runtime/pprof"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -42,7 +44,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	HostKey node.Key
-	// DB is the gorp database that racks will be stored in.
+	// DB is the Gorp database that racks will be stored in.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -122,6 +124,8 @@ type Service struct {
 	table           *gorp.Table[Key, Rack]
 	state           *actions.State[Key, Action]
 	indexes         indexes
+	// guard orders Run against Close.
+	guard lifetime.Guard
 	ServiceConfig
 	// EmbeddedKey is the key of the embedded Driver's rack. It is zero when the
 	// embedded Driver is disabled and no rack for it is stored.
@@ -194,7 +198,7 @@ func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // OnSuspect calls handler with the outage of each rack that stops reporting, once for
 // each outage. A handler that returns an error is called again on the next health check
-// until it succeeds or the rack reports healthy.
+// until it succeeds or the rack reports healthy. Handlers run only while Run runs.
 func (s *Service) OnSuspect(handler SuspectHandler) observe.Disconnect {
 	return s.monitor.onSuspect(handler)
 }
@@ -300,7 +304,26 @@ func (s *Service) RetrieveOrCreateEmbedded(
 	return r, nil
 }
 
-func (s *Service) Close() error { return s.closer.Close() }
+// Run marks each rack that sends no status within one HealthCheckInterval as not
+// running, and passes its outage to the OnSuspect handlers, until ctx ends. It then
+// returns nil. A second Run, or a Run after Close, returns an error.
+func (s *Service) Run(ctx context.Context) error {
+	if err := s.guard.Begin(); err != nil {
+		return err
+	}
+	defer s.guard.End()
+	pprof.Do(ctx, pprof.Labels("routine", "rack.monitor"), s.monitor.run)
+	return nil
+}
+
+// Close releases the resources of the Service. Call it after Run returns: while Run
+// runs, Close returns an error and closes nothing.
+func (s *Service) Close() error {
+	if first, err := s.guard.Close(); !first || err != nil {
+		return err
+	}
+	return s.closer.Close()
+}
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{

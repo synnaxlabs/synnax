@@ -57,15 +57,15 @@ func (l *Lookup[S, K, V]) Wait(ctx context.Context) error {
 	return l.population.wait(ctx)
 }
 
-// Set maps key to value in committed state, replacing any prior value of key.
-func (l *Lookup[S, K, V]) Set(key K, value V) {
+// setCommitted maps key to value in committed state, replacing any prior value of key.
+func (l *Lookup[S, K, V]) setCommitted(key K, value V) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.put(key, value)
 }
 
-// Delete removes key from committed state.
-func (l *Lookup[S, K, V]) Delete(key K) {
+// deleteCommitted removes key from committed state.
+func (l *Lookup[S, K, V]) deleteCommitted(key K) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.remove(key)
@@ -75,17 +75,17 @@ func (l *Lookup[S, K, V]) Delete(key K) {
 // state when scope commits.
 func (l *Lookup[S, K, V]) Stage(scope S, key K, value V) {
 	if isNone(scope) {
-		l.Set(key, value)
+		l.setCommitted(key, value)
 		return
 	}
-	l.overlay.load(scope).set(key, []V{value})
+	l.overlay.load(scope).setOne(key, value)
 }
 
 // StageDelete removes key in the changes of scope. The removal applies to committed
 // state when scope commits.
 func (l *Lookup[S, K, V]) StageDelete(scope S, key K) {
 	if isNone(scope) {
-		l.Delete(key)
+		l.deleteCommitted(key)
 		return
 	}
 	l.overlay.load(scope).delete(key)
@@ -109,6 +109,63 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 		committed.Add(l.forward[v]...)
 	}
 	return mergeValues(&l.overlay, scope, committed, values), nil
+}
+
+// Value returns the value that key maps to, with the changes of scope applied, and
+// false when key maps to none. It blocks until the bulk load finishes, and returns the
+// load's error.
+func (l *Lookup[S, K, V]) Value(scope S, key K) (V, bool, error) {
+	var none V
+	<-l.population.done
+	if err := l.population.err; err != nil {
+		return none, false, err
+	}
+	if d, ok := l.overlay.get(scope); ok {
+		if s, staged := d.state[key]; staged {
+			if s.deleted {
+				return none, false, nil
+			}
+			return s.values[0], true, nil
+		}
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	v, ok := l.reverse[key]
+	return v, ok, nil
+}
+
+// Holder returns a key that maps to value, with the changes of scope applied, and false
+// when no key does. A non-nil skip is never returned. It blocks until the bulk load
+// finishes, and returns the load's error.
+func (l *Lookup[S, K, V]) Holder(scope S, value V, skip *K) (K, bool, error) {
+	var none K
+	<-l.population.done
+	if err := l.population.err; err != nil {
+		return none, false, err
+	}
+	other := func(k K) bool { return skip == nil || k != *skip }
+	d, staged := l.overlay.get(scope)
+	if staged {
+		h := d.forward[value]
+		if k, ok := h.find(other); ok {
+			return k, true, nil
+		}
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	for _, k := range l.forward[value] {
+		if !other(k) {
+			continue
+		}
+		if staged {
+			// A staged key holds its staged value, which the delta search saw.
+			if _, ok := d.state[k]; ok {
+				continue
+			}
+		}
+		return k, true, nil
+	}
+	return none, false, nil
 }
 
 // Committing returns the keys that a transaction in its commit maps to any of values.

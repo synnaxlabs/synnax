@@ -851,7 +851,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     auto sink = WriteTaskSink(mismatched_engine, std::move(task_cfg));
     const auto err = sink.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Test Module (serial 12345) is not on the bus.");
+    EXPECT_EQ(err.data(), "Test Module (serial 12345) is not on the bus.");
 }
 
 }

@@ -12,14 +12,15 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::errors {
 /// @brief it should correctly parse an error from a string with type and data.
 TEST(TestXErrors, testErrorConstructionFromString) {
     const std::string error = "sy.validation---invalid key: 1000: validation error";
     const auto err = Error(error);
-    EXPECT_EQ(err.type, VALIDATION.type);
-    EXPECT_EQ(err.data, "invalid key: 1000: validation error");
+    EXPECT_EQ(err.type(), VALIDATION.type());
+    EXPECT_EQ(err.data(), "invalid key: 1000: validation error");
 }
 
 /// @brief it should correctly compare two equal errors.
@@ -62,8 +63,8 @@ TEST(TestXErrors, testErrorMatchesVector) {
 /// @brief it should create a nil error with default constructor.
 TEST(TestXErrors, testDefaultConstructor) {
     const auto err = Error();
-    ASSERT_EQ(err.type, TYPE_NIL);
-    ASSERT_TRUE(err.data.empty());
+    ASSERT_EQ(err.type(), TYPE_NIL);
+    ASSERT_TRUE(err.data().empty());
     // NOLINTNEXTLINE(custom-error-assertion): tests Error itself.
     ASSERT_TRUE(err.ok());
 }
@@ -72,8 +73,8 @@ TEST(TestXErrors, testDefaultConstructor) {
 TEST(TestXErrors, testConstructorWithErrorAndData) {
     const auto base_err = Error("base.error", "base data");
     const auto err = Error(base_err, "new data");
-    ASSERT_EQ(err.type, "base.error");
-    ASSERT_EQ(err.data, "new data");
+    ASSERT_EQ(err.type(), "base.error");
+    ASSERT_EQ(err.data(), "new data");
 }
 
 /// @brief it should correctly construct an error from a protobuf message.
@@ -82,16 +83,16 @@ TEST(TestXErrors, testConstructorFromProtobuf) {
     pb_err.set_type("protobuf.error");
     pb_err.set_data("protobuf data");
     const auto err = Error(pb_err);
-    ASSERT_EQ(err.type, "protobuf.error");
-    ASSERT_EQ(err.data, "protobuf data");
+    ASSERT_EQ(err.type(), "protobuf.error");
+    ASSERT_EQ(err.data(), "protobuf data");
 }
 
 /// @brief it should create a sub-error with appended type.
 TEST(TestXErrors, testSubMethod) {
     const auto base_err = Error("base", "");
     const auto sub_err = base_err.sub("child");
-    ASSERT_EQ(sub_err.type, "base.child");
-    ASSERT_TRUE(sub_err.data.empty());
+    ASSERT_EQ(sub_err.type(), "base.child");
+    ASSERT_TRUE(sub_err.data().empty());
 }
 
 /// @brief it should reparent an error to a new parent type.
@@ -99,13 +100,45 @@ TEST(TestXErrors, testReparentMethod) {
     const auto child_err = Error("old.parent.child", "child data");
     const auto new_parent = Error("new.parent", "");
     const auto reparented = child_err.reparent(new_parent);
-    ASSERT_EQ(reparented.type, "new.parent.child");
-    ASSERT_EQ(reparented.data, "child data");
+    ASSERT_EQ(reparented.type(), "new.parent.child");
+    ASSERT_EQ(reparented.data(), "child data");
 
     const auto no_dot_err = Error("nodot", "data");
     const auto unchanged = no_dot_err.reparent(new_parent);
-    ASSERT_EQ(unchanged.type, "nodot");
-    ASSERT_EQ(unchanged.data, "data");
+    ASSERT_EQ(unchanged.type(), "nodot");
+    ASSERT_EQ(unchanged.data(), "data");
+}
+
+/// @brief it should put context before the data of an error and keep its type.
+TEST(TestXErrors, testWrapMethod) {
+    const auto wrapped = Error("a.b", "data").wrap("outer").wrap("outermost");
+    ASSERT_EQ(wrapped.type(), "a.b");
+    ASSERT_EQ(wrapped.data(), "outermost: outer: data");
+}
+
+/// @brief it should return NIL when it wraps NIL.
+TEST(TestXErrors, testWrapNil) {
+    const auto wrapped = NIL.wrap("context");
+    ASSERT_EQ(wrapped.type(), TYPE_NIL);
+    ASSERT_TRUE(wrapped.data().empty());
+}
+
+/// @brief it should drop the data of an error built with the nil type.
+TEST(TestXErrors, testNilDropsData) {
+    ASSERT_NIL(Error(TYPE_NIL, "data"));
+    ASSERT_TRUE(Error(TYPE_NIL, "data").data().empty());
+    ASSERT_TRUE(Error(NIL, "data").data().empty());
+    ASSERT_TRUE(Error("nil---data").data().empty());
+}
+
+/// @brief it should keep the type and data of each copy of an error.
+TEST(TestXErrors, testCopyKeepsPayload) {
+    auto copy = Error("a.b", "data");
+    const auto original = copy;
+    copy = NIL;
+    ASSERT_NIL(copy);
+    ASSERT_EQ(original.type(), "a.b");
+    ASSERT_EQ(original.data(), "data");
 }
 
 /// @brief it should return true for ok() on nil errors and false otherwise.
@@ -187,13 +220,13 @@ TEST(TestXErrors, testSkipSingleError) {
     const auto skip_err = Error("test", "");
 
     const auto skipped = err.skip(skip_err);
-    ASSERT_EQ(skipped.type, TYPE_NIL);
-    ASSERT_TRUE(skipped.data.empty());
+    ASSERT_EQ(skipped.type(), TYPE_NIL);
+    ASSERT_TRUE(skipped.data().empty());
 
     const auto no_skip_err = Error("other", "");
     const auto not_skipped = err.skip(no_skip_err);
-    ASSERT_EQ(not_skipped.type, "test.error");
-    ASSERT_EQ(not_skipped.data, "data");
+    ASSERT_EQ(not_skipped.type(), "test.error");
+    ASSERT_EQ(not_skipped.data(), "data");
 }
 
 /// @brief it should skip errors matching any in a vector.
@@ -206,8 +239,8 @@ TEST(TestXErrors, testSkipVectorErrors) {
     };
 
     const auto skipped = err.skip(skip_errors);
-    ASSERT_EQ(skipped.type, TYPE_NIL);
-    ASSERT_TRUE(skipped.data.empty());
+    ASSERT_EQ(skipped.type(), TYPE_NIL);
+    ASSERT_TRUE(skipped.data().empty());
 
     const std::vector<Error> no_skip_errors = {
         Error("wrong", ""),
@@ -215,8 +248,8 @@ TEST(TestXErrors, testSkipVectorErrors) {
         Error("another", "")
     };
     const auto not_skipped = err.skip(no_skip_errors);
-    ASSERT_EQ(not_skipped.type, "test.error");
-    ASSERT_EQ(not_skipped.data, "data");
+    ASSERT_EQ(not_skipped.type(), "test.error");
+    ASSERT_EQ(not_skipped.data(), "data");
 }
 
 /// @brief it should skip errors matching a string type.
@@ -224,12 +257,12 @@ TEST(TestXErrors, testSkipString) {
     const auto err = Error("test.error", "data");
 
     const auto skipped = err.skip("test");
-    ASSERT_EQ(skipped.type, TYPE_NIL);
-    ASSERT_TRUE(skipped.data.empty());
+    ASSERT_EQ(skipped.type(), TYPE_NIL);
+    ASSERT_TRUE(skipped.data().empty());
 
     const auto not_skipped = err.skip("other");
-    ASSERT_EQ(not_skipped.type, "test.error");
-    ASSERT_EQ(not_skipped.data, "data");
+    ASSERT_EQ(not_skipped.type(), "test.error");
+    ASSERT_EQ(not_skipped.data(), "data");
 }
 
 /// @brief it should correctly compare errors for inequality.
@@ -258,36 +291,36 @@ TEST(TestXErrors, testNotEqualsStringOperator) {
 
 /// @brief it should define all predefined error types correctly.
 TEST(TestXErrors, testPredefinedErrors) {
-    ASSERT_EQ(NIL.type, TYPE_NIL);
-    ASSERT_EQ(UNKNOWN.type, TYPE_UNKNOWN);
-    ASSERT_EQ(SY.type, "sy");
-    ASSERT_EQ(VALIDATION.type, "sy.validation");
-    ASSERT_EQ(QUERY.type, "sy.query");
-    ASSERT_EQ(MULTIPLE_RESULTS.type, "sy.query.multiple_results");
-    ASSERT_EQ(NOT_FOUND.type, "sy.query.not_found");
-    ASSERT_EQ(NOT_SUPPORTED.type, "sy.not_supported");
-    ASSERT_EQ(INTERNAL.type, "sy.internal");
-    ASSERT_EQ(UNEXPECTED.type, "sy.unexpected");
-    ASSERT_EQ(CONTROL.type, "sy.control");
-    ASSERT_EQ(UNAUTHORIZED.type, "sy.control.unauthorized");
+    ASSERT_EQ(NIL.type(), TYPE_NIL);
+    ASSERT_EQ(UNKNOWN.type(), TYPE_UNKNOWN);
+    ASSERT_EQ(SY.type(), "sy");
+    ASSERT_EQ(VALIDATION.type(), "sy.validation");
+    ASSERT_EQ(QUERY.type(), "sy.query");
+    ASSERT_EQ(MULTIPLE_RESULTS.type(), "sy.query.multiple_results");
+    ASSERT_EQ(NOT_FOUND.type(), "sy.query.not_found");
+    ASSERT_EQ(NOT_SUPPORTED.type(), "sy.not_supported");
+    ASSERT_EQ(INTERNAL.type(), "sy.internal");
+    ASSERT_EQ(UNEXPECTED.type(), "sy.unexpected");
+    ASSERT_EQ(CONTROL.type(), "sy.control");
+    ASSERT_EQ(UNAUTHORIZED.type(), "sy.control.unauthorized");
 }
 
 /// @brief it should parse a string without delimiter as type only.
 TEST(TestXErrors, testStringConstructorWithoutDelimiter) {
     const auto err = Error("simple.error");
-    ASSERT_EQ(err.type, "simple.error");
-    ASSERT_TRUE(err.data.empty());
+    ASSERT_EQ(err.type(), "simple.error");
+    ASSERT_TRUE(err.data().empty());
 }
 
 /// @brief it should correctly parse a string with delimiter into type and data.
 TEST(TestXErrors, testStringConstructorWithDelimiter) {
     const auto err = Error("error.type---error data");
-    ASSERT_EQ(err.type, "error.type");
-    ASSERT_EQ(err.data, "error data");
+    ASSERT_EQ(err.type(), "error.type");
+    ASSERT_EQ(err.data(), "error data");
 
     const auto multiple_delimiters = Error("error---data---more");
-    ASSERT_EQ(multiple_delimiters.type, "error");
-    ASSERT_EQ(multiple_delimiters.data, "data---more");
+    ASSERT_EQ(multiple_delimiters.type(), "error");
+    ASSERT_EQ(multiple_delimiters.data(), "data---more");
 }
 
 /// @brief it should not match when the pattern is longer than the error type.

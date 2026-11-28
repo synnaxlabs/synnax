@@ -16,7 +16,7 @@ import { renderAether } from "@/testutil/internal";
 import { Input } from "@/vis/input";
 import { input } from "@/vis/input/aether";
 
-// Mounts the aether Input under the real provider stack with registered test telem.
+// Mounts the Aether Input under the real provider stack with registered test telem.
 // The source's `setValue` drives the component's `value` through its real subscription.
 const setup = (sourceValue: string = "") => {
   const sink = telemTest.sink<string>();
