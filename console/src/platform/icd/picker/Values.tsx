@@ -260,7 +260,7 @@ export interface ValuesProps {
   onChange?: (value: string[]) => void;
 }
 
-/** @returns the style that sizes the Type column to the longest text of groups in it. */
+/** @returns the style that sizes the Type column to its longest text in groups. */
 const typeStyle = (groups: ValueGroup[]): PCSS.VarProperties => ({
   "--console-type-length": Math.max(
     0,
