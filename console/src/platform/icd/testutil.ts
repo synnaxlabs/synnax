@@ -22,6 +22,10 @@ import { findDialogTriggerByText } from "@/testutil";
 export const createFirstKey = (): icd.Key =>
   `${uuid.create().slice(0, 19)}8000-000000000000`;
 
+/** @returns an ICD key that the Core lists after every key of createFirstKey. */
+export const createSecondKey = (): icd.Key =>
+  `${uuid.create().slice(0, 19)}8000-000000000001`;
+
 /**
  * Opens the message format field that shows current, searches for an ICD name, and
  * waits for the search to answer. Until then the list shows its first page, and the

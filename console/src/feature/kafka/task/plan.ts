@@ -94,7 +94,10 @@ const createMessage = (name: string): icd.Message => ({
 });
 
 /** @returns message with fields after its own fields. */
-const withFields = (message: icd.Message, fields: icd.JSONField[]): icd.Message => {
+export const withFields = (
+  message: icd.Message,
+  fields: icd.JSONField[],
+): icd.Message => {
   const { payload } = message;
   if (payload.format !== "json")
     throw new Error(`Message ${message.key} is not a JSON message`);

@@ -242,6 +242,8 @@ export interface FooterProps extends PropsWithChildren {
   counts: [noun: string, count: number][];
   /** Names what the add button adds while nothing is picked. */
   idle: string;
+  /** Shows that the add waits, such as for a search to finish. */
+  loading?: boolean;
   onAdd: () => void;
   onCancel: () => void;
 }
@@ -250,6 +252,7 @@ export interface FooterProps extends PropsWithChildren {
 export const Footer = ({
   counts,
   idle,
+  loading = false,
   onAdd,
   onCancel,
   children,
@@ -263,6 +266,7 @@ export const Footer = ({
       <Button.Button
         variant="filled"
         disabled={counts.every(([, count]) => count === 0)}
+        status={loading ? "loading" : undefined}
         onClick={onAdd}
       >
         {addLabel(counts, idle)}

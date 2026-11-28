@@ -84,8 +84,9 @@ export interface Params {
   /**
    * @returns what an add of the picks of topics puts in the ICDs and the task, as the
    * add plans it. Absent, the panes say what the ICDs fit.
+   * @param holders - The ICDs that no form opens, whose messages the picks can read.
    */
-  plan?: (topics: TopicPick[]) => Plan;
+  plan?: (topics: TopicPick[], holders: icd.ICD[]) => Plan;
 }
 
 /** A topic picked whole. */
@@ -111,6 +112,8 @@ export interface Result {
   whole: WholePick[];
   /** The message that each topic picked whole sends, or null for one from its shape. */
   format: Format | null;
+  /** The ICDs that no form opens, whose messages the picks can read. */
+  holders: icd.ICD[];
 }
 
 const FRAME = "records";
@@ -124,6 +127,8 @@ const readNothing = (): Reads => NO_READS;
 const NO_FORMATS: ICD.Formats = new Map();
 
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
+
+const SEARCHING = "Finding messages";
 
 const NOT_EXTENDABLE: ICD.Picker.Lock = { checked: false, label: "No JSON message" };
 
@@ -212,6 +217,23 @@ const show = (value: unknown): string | null => {
 };
 
 /** @returns the ICD messages that the new records of a sampled topic read. */
+/**
+ * @returns the messages that the device stores channels for at the keys of shapes, the
+ * shapes of a sample of topic.
+ */
+const storedAt = (
+  topic: string,
+  shapes: json.Shape[],
+  device: Device.Device,
+): icd.MessageKey[] =>
+  unique.unique(
+    shapes
+      .flatMap(({ sources }) => sources)
+      .flatMap((k) =>
+        ICD.Stored.messagesAt(device.properties.read, sourceKey(topic, k)),
+      ),
+  );
+
 const findReading = (
   topic: string,
   sample: kafka.SampledTopic,
@@ -221,19 +243,9 @@ const findReading = (
   home?: icd.Key,
 ): ICD.Reuse.Result => {
   const shapes = freeShapes(sample.shapes, reads);
-  const isStored = (message: icd.MessageKey) =>
-    shapes.some(({ sources }) =>
-      sources.some(
-        (k) =>
-          device.properties.read[ICD.Stored.key(sourceKey(topic, k), message)] != null,
-      ),
-    );
-  const stored = new Set(
-    icds.flatMap(({ messages }) => messages.map(({ key }) => key)).filter(isStored),
-  );
   const source = {
     shapes: shapes.map((shape) => ICD.Reuse.shapeOf(shape, newestFirst(sample, shape))),
-    stored,
+    stored: new Set(storedAt(topic, shapes, device)),
   };
   return ICD.Reuse.find(source, icds, home);
 };
@@ -476,6 +488,8 @@ interface TopicValuesProps {
   reads: Reads;
   /** The ICD messages that the new records of the topic read. */
   found: ICD.Reuse.Result;
+  /** Whether a stored message of the topic has no ICD yet, as the search reads on. */
+  searching: boolean;
   /**
    * The keys of the picked shapes whose new records read a held message in the planned
    * add. Absent, each picked shape reads the message that found fits to it.
@@ -500,6 +514,7 @@ const TopicValues = ({
   sample,
   reads,
   found,
+  searching,
   reused,
   label,
   value,
@@ -520,16 +535,20 @@ const TopicValues = ({
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
     const shapeKey = json.shapeKey(shape);
+    const position = free.indexOf(shape);
+    // A search that reads on can still change the reading.
+    const waits = searching && position >= 0;
     const fit =
-      split == null
-        ? plannedFit(found, shape, free.indexOf(shape), value.has(shapeKey), reused)
+      split == null && !waits
+        ? plannedFit(found, shape, position, value.has(shapeKey), reused)
         : undefined;
+    let note: string | undefined;
+    if (split != null) note = ICD.Picker.splitNote(split);
+    else if (waits) note = SEARCHING;
+    else note = readingNote(found, fit, shape, position);
     return {
       title: titleOf(shape, label),
-      note:
-        split == null
-          ? readingNote(found, fit, shape, free.indexOf(shape))
-          : ICD.Picker.splitNote(split),
+      note,
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
@@ -673,6 +692,7 @@ const Content = ({
   const [picks, setPicks] = useState<Map<string, TopicPick>>(() => new Map());
   const [defaults, setDefaults] = useState<Map<string, FieldDefaults>>(() => new Map());
   const [focus, setFocus] = useState<Focus | null>(null);
+  const [queued, setQueued] = useState<{ record: string | null } | null>(null);
   // A topic that the user selects takes no focus from a refused add.
   const select = (topic: string) => {
     setSelected(topic);
@@ -745,6 +765,41 @@ const Content = ({
       void loadSample(activeEntry.name);
   }, [activeEntry, activeSample, loadSample]);
 
+  const storedIn = (topic: string): icd.MessageKey[] => {
+    const sample = reads.get(topic);
+    if (sample?.variant !== "success") return [];
+    return storedAt(topic, freeShapes(sample.data.shapes, readsOf(topic)), device);
+  };
+  const opened = new Set(
+    icds.flatMap(({ messages }) => messages.map(({ key }) => key)),
+  );
+  const searched = unique.unique([
+    ...(active == null ? [] : [active]),
+    ...picks.keys(),
+  ]);
+  const holders = ICD.Stored.useHolders(
+    searched.flatMap(storedIn).filter((m) => !opened.has(m)),
+  );
+  const holds = (message: icd.MessageKey): boolean =>
+    holders.icds.some(({ messages }) => messages.some(({ key }) => key === message));
+  /**
+   * @returns the ICDs whose messages new records of topic can read: each open ICD, and
+   * each ICD that holds a message stored at the topic.
+   */
+  const candidatesOf = (
+    topic: string,
+  ): Pick<icd.ICD, "key" | "name" | "messages">[] => {
+    const stored = new Set(storedIn(topic));
+    return [
+      ...icds,
+      ...holders.icds.filter(({ messages }) =>
+        messages.some(({ key }) => stored.has(key)),
+      ),
+    ];
+  };
+  const searchingIn = (topic: string): boolean =>
+    holders.searching && storedIn(topic).some((m) => !opened.has(m) && !holds(m));
+
   // The picks that the add makes. A shape that its pane locks picks nothing.
   const added = [...picks.values()]
     .flatMap((pick): TopicPick[] => {
@@ -764,7 +819,14 @@ const Content = ({
       };
       const sample = reads.get(pick.topic);
       if (sample?.variant !== "success") return [next];
-      const found = findReading(pick.topic, sample.data, held, device, icds, home);
+      const found = findReading(
+        pick.topic,
+        sample.data,
+        held,
+        device,
+        candidatesOf(pick.topic),
+        home,
+      );
       const free = freeShapes(sample.data.shapes, held);
       const reading = reusedReading(found, free, kept);
       return [reading == null ? next : { ...next, reading }];
@@ -772,7 +834,7 @@ const Content = ({
     .sort(compare.by(({ topic }) => topic));
   const addedOf = (topic: string): Picks | undefined =>
     added.find((pick) => pick.topic === topic)?.picks;
-  const planned = plan?.(added);
+  const planned = plan?.(added, holders.icds);
   const reusedIn = (topic: string): Set<string> | undefined =>
     planned == null
       ? undefined
@@ -968,7 +1030,15 @@ const Content = ({
           warning={warning === "" ? null : warning}
           sample={data}
           reads={readsOf(topic)}
-          found={findReading(topic, data, readsOf(topic), device, icds, home)}
+          found={findReading(
+            topic,
+            data,
+            readsOf(topic),
+            device,
+            candidatesOf(topic),
+            home,
+          )}
+          searching={searchingIn(topic)}
           reused={reusedIn(topic)}
           label={label}
           value={addedOf(topic) ?? new Map()}
@@ -1008,6 +1078,10 @@ const Content = ({
     : added.reduce((n, p) => n + countOf(p.picks), 0);
   // An add refuses while a Default input spells no default, and focuses that input.
   const finish = (record: string | null) => {
+    if (holders.searching) {
+      setQueued({ record });
+      return;
+    }
     const problem = planned == null ? undefined : findProblem(planned);
     if (problem != null) {
       const { topic, shape, pointer } = problem;
@@ -1028,8 +1102,16 @@ const Content = ({
         .map(([topic, shape]): WholePick => ({ topic, shape }))
         .sort(compare.by(({ topic }) => topic)),
       format,
+      holders: holders.icds,
     });
   };
+
+  // An add that a search holds runs with the plan of the finished search.
+  useEffect(() => {
+    if (queued == null || holders.searching) return;
+    setQueued(null);
+    finish(queued.record);
+  }, [queued, holders.searching]);
 
   let emptyRecord: ReactNode = null;
   if (
@@ -1088,6 +1170,7 @@ const Content = ({
       <ICD.Picker.Footer
         counts={[[kind.noun, count]]}
         idle={kind.noun}
+        loading={queued != null}
         onAdd={() => finish(null)}
         onCancel={() => close()}
       >
