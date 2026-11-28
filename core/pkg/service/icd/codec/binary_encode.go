@@ -311,7 +311,8 @@ func (e *BinaryEncoder) Ready(samples [][]byte) bool {
 		}
 		e.raw[i] = int64(raw)
 	}
-	for _, f := range e.fields {
+	for i := range e.fields {
+		f := &e.fields[i]
 		if !f.hasValue(samples) && e.muxes.selected(f.condition, e.raw) {
 			return false
 		}
