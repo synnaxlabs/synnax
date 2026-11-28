@@ -2776,6 +2776,42 @@ describe("Kafka read form", () => {
         dialog.getByText("oven-1 no longer fits");
       });
 
+      it("should keep New message when the user picks it while the pick does not fit", async () => {
+        const { dev, rec } = await renderTwins();
+        const { name } = await client.icds.retrieve(rec.icd);
+        const held = {
+          ...OVEN_2_SHAPE,
+          sources: ["oven-1"],
+          fields: [
+            ...OVEN_2_SHAPE.fields,
+            createInferredField("/pressure", "string", "string"),
+          ],
+        };
+        const free = {
+          ...OVEN_2_SHAPE,
+          fields: [
+            ...OVEN_2_SHAPE.fields,
+            createInferredField("/pressure", "float", "number"),
+            createInferredField("/flow", "float", "number"),
+          ],
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(held, free) });
+        await pickMessage("oven-2", `oven-1 of ${name}`);
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await dialog.findByText("oven-1 no longer fits");
+        expect(messageOf("oven-2")).toBe("New message");
+        await pickMessage("oven-2", "New message");
+        // The held key of oven-1 no longer appends its text pressure to oven-1.
+        const [heldPressure] = dialog.getAllByRole("checkbox", {
+          name: "Record /pressure",
+        });
+        fireEvent.click(heldPressure);
+        await waitFor(() =>
+          expect(dialog.queryByText("oven-1 no longer fits")).toBeNull(),
+        );
+        expect(messageOf("oven-2")).toBe("New message");
+      });
+
       it("should read the best message again when a new sample does not fit the pick", async () => {
         const { dev, rec } = await renderTwins({
           fields: [

@@ -267,6 +267,22 @@ describe("Select.Single", () => {
     );
   });
 
+  it("should call onReselect and not onChange when the user picks the selected item", () => {
+    const onReselect = vi.fn();
+    const { SelectSingle, onChange } = createSelectSingle("1");
+    const c = render(
+      <SelectSingle
+        allowNone={false}
+        closeDialogOnSelect={false}
+        onReselect={onReselect}
+      />,
+    );
+    fireEvent.click(c.getByText("First Item"));
+    fireEvent.click(c.getByText("First Item Option"));
+    expect(onReselect).toHaveBeenCalledExactlyOnceWith("1");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("should keep the selected item clickable when a re-select closes", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle allowNone={false} />);

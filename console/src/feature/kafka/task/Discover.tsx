@@ -569,6 +569,8 @@ const TopicValues = ({
     else if (unfit) note = `${chosen.message.name} no longer fits`;
     else if (chosen == null && choice !== null) note = tieNote(found, shape, position);
     const title = titleOf(shape, label);
+    const choose = (next: string) =>
+      onChoiceChange(shapeKey, next === NEW_MESSAGE ? null : next);
     const { reading } = found;
     const options = open && position >= 0 ? found.options[position] : [];
     return {
@@ -581,9 +583,10 @@ const TopicValues = ({
             searchHidden
             allowNone={false}
             value={fit?.message.key ?? NEW_MESSAGE}
-            onChange={(next: string) =>
-              onChoiceChange(shapeKey, next === NEW_MESSAGE ? null : next)
-            }
+            onChange={choose}
+            // The select can show a message other than the choice, so picking the
+            // shown one still makes it the choice.
+            onReselect={choose}
             variant="floating"
             triggerProps={{ variant: "shadow", "aria-label": `Message of ${title}` }}
           >
