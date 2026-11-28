@@ -90,10 +90,11 @@ func checkRead(
 ) error {
 	GinkgoHelper()
 	p, key := payloadOf(t, format, c)
-	rm := icd.ReadMessage{
-		Message:  uuid.New(),
-		Bindings: []icd.ReadBinding{{Field: key, DataType: c.DataType}},
+	b := icd.ReadBinding{Field: key}
+	if c.DataType != "" {
+		b.DataType = &c.DataType
 	}
+	rm := icd.ReadMessage{Message: uuid.New(), Bindings: []icd.ReadBinding{b}}
 	if indexed {
 		rm.Index = &key
 	}

@@ -673,7 +673,7 @@ Where filter ICD {
 }
 
 ReadBinding struct {
-    field     FieldKey       {
+    field     FieldKey        {
         @doc value "is the key of the message field to read."
     }
     channel   channel.Key = 0 {
@@ -681,9 +681,9 @@ ReadBinding struct {
         @ref kind      use
         @ref on_delete restrict
     }
-    data_type telem.DataType = "" {
+    data_type telem.DataType? {
         @doc value """
-            is the data type of the channel that a client creates for the field. Empty
+            is the data type of the channel that a client creates for the field. Absent
             takes the default of the field's kind. The Core ignores it once the channel
             exists.
         """
@@ -691,6 +691,7 @@ ReadBinding struct {
     }
 
     @doc value  "writes the value of one message field to a channel."
+    @go json    hand
     @go marshal
     @pb omit
 }

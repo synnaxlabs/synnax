@@ -159,7 +159,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			Expect(fields).To(HaveLen(3))
 			read := cfg.Endpoints[0].Messages[0]
 			Expect(*read.Index).To(Equal(fields[0].Base().Key))
-			Expect(read.Bindings).To(Equal([]icdv0.ReadBinding{
+			Expect(read.Bindings).To(Equal([]icdv1.ReadBinding{
 				{Field: fields[0].Base().Key, Channel: 6},
 				{Field: fields[1].Base().Key, Channel: 7},
 			}))

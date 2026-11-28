@@ -172,10 +172,7 @@ inline ReadBinding ReadBinding::parse(x::json::Parser parser) {
             "channel",
             ::synnax::channel::Key(0)
         ),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("")
-        ),
+        .data_type = parser.field<std::optional<::x::telem::DataType>>("data_type"),
     };
 }
 
@@ -183,7 +180,7 @@ inline x::json::json ReadBinding::to_json() const {
     x::json::json j = x::json::json::object();
     j["field"] = this->field.to_json();
     j["channel"] = this->channel;
-    j["data_type"] = this->data_type;
+    if (this->data_type.has_value()) j["data_type"] = *this->data_type;
     return j;
 }
 

@@ -26,10 +26,109 @@ import (
 )
 
 var (
+	fullyPopulatedBaseReadEntry   = v3.BaseReadEntry{Key: "test_1", Disabled: false}
 	fullyPopulatedBaseWriteTarget = v3.BaseWriteTarget{Key: "test_1", Disabled: false}
 )
 
 var _ = Describe("Codec", func() {
+	Describe("ReadConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.ReadConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.ReadConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v3.ReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Entries: []v3.ReadEntry{
+					{Variant: v3.PlainReadEntry{
+						BaseReadEntry:   fullyPopulatedBaseReadEntry,
+						Topic:           "test_6",
+						Qos:             v3.QoS("at_most_once"),
+						RetainedIgnored: false,
+						ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+						Messages: []icd.ReadMessage{
+							{
+								Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+								Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+								Bindings: []icd.ReadBinding{
+									{
+										Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
+										Channel:  channel.Key(16),
+										DataType: new(telem.DataType("test_16")),
+									},
+								},
+							},
+						},
+					}},
+				},
+			}),
+			Entry("zero values", v3.ReadConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				Entries:            []v3.ReadEntry{},
+			}),
+			Entry("empty collections", v3.ReadConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Entries:            []v3.ReadEntry{},
+			}),
+		)
+	})
+	Describe("ReadEntry", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.ReadEntry) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.ReadEntry
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("plain variant", v3.ReadEntry{Variant: v3.PlainReadEntry{
+				BaseReadEntry:   fullyPopulatedBaseReadEntry,
+				Topic:           "test_1",
+				Qos:             v3.QoS("at_most_once"),
+				RetainedIgnored: true,
+				ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+				Messages: []icd.ReadMessage{
+					{
+						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+						Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+						Bindings: []icd.ReadBinding{
+							{
+								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+								Channel:  channel.Key(11),
+								DataType: new(telem.DataType("test_11")),
+							},
+						},
+					},
+				},
+			}}),
+			Entry("sparkplug variant", v3.ReadEntry{Variant: v3.SparkplugReadEntry{
+				BaseReadEntry: fullyPopulatedBaseReadEntry,
+				Group:         "test_1",
+				EdgeNode:      "test_2",
+				Device:        "test_3",
+				Tag:           "test_4",
+				Channel:       channel.Key(6),
+				Name:          "test_6",
+				DataType:      telem.DataType("test_7"),
+			}}),
+		)
+	})
 	Describe("WriteConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v3.WriteConfig) {
@@ -125,6 +224,86 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
+	seed := v3.ReadConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		Entries: []v3.ReadEntry{
+			{Variant: v3.PlainReadEntry{
+				BaseReadEntry:   fullyPopulatedBaseReadEntry,
+				Topic:           "test_6",
+				Qos:             v3.QoS("at_most_once"),
+				RetainedIgnored: false,
+				ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+				Messages: []icd.ReadMessage{
+					{
+						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+						Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+						Bindings: []icd.ReadBinding{
+							{
+								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
+								Channel:  channel.Key(16),
+								DataType: new(telem.DataType("test_16")),
+							},
+						},
+					},
+				},
+			}},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.ReadConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeReadEntry(b *testing.B) {
+	seed := v3.ReadEntry{Variant: v3.PlainReadEntry{
+		BaseReadEntry:   fullyPopulatedBaseReadEntry,
+		Topic:           "test_1",
+		Qos:             v3.QoS("at_most_once"),
+		RetainedIgnored: true,
+		ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+		Messages: []icd.ReadMessage{
+			{
+				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Bindings: []icd.ReadBinding{
+					{
+						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+						Channel:  channel.Key(11),
+						DataType: new(telem.DataType("test_11")),
+					},
+				},
+			},
+		},
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.ReadEntry
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 	seed := v3.WriteConfig{
 		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -200,6 +379,159 @@ func BenchmarkEncodeDecodeWriteTarget(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeReadConfig(f *testing.F) {
+	{
+		seed := v3.ReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Entries: []v3.ReadEntry{
+				{Variant: v3.PlainReadEntry{
+					BaseReadEntry:   fullyPopulatedBaseReadEntry,
+					Topic:           "test_6",
+					Qos:             v3.QoS("at_most_once"),
+					RetainedIgnored: false,
+					ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+					Messages: []icd.ReadMessage{
+						{
+							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
+							Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
+							Bindings: []icd.ReadBinding{
+								{
+									Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"),
+									Channel:  channel.Key(16),
+									DataType: new(telem.DataType("test_16")),
+								},
+							},
+						},
+					},
+				}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.ReadConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			Entries:            []v3.ReadEntry{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.ReadConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Entries:            []v3.ReadEntry{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.ReadConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.ReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeReadEntry(f *testing.F) {
+	{
+		seed := v3.ReadEntry{Variant: v3.PlainReadEntry{
+			BaseReadEntry:   fullyPopulatedBaseReadEntry,
+			Topic:           "test_1",
+			Qos:             v3.QoS("at_most_once"),
+			RetainedIgnored: true,
+			ICD:             uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"),
+			Messages: []icd.ReadMessage{
+				{
+					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+					Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+					Bindings: []icd.ReadBinding{
+						{
+							Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+							Channel:  channel.Key(11),
+							DataType: new(telem.DataType("test_11")),
+						},
+					},
+				},
+			},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.ReadEntry{Variant: v3.SparkplugReadEntry{
+			BaseReadEntry: fullyPopulatedBaseReadEntry,
+			Group:         "test_1",
+			EdgeNode:      "test_2",
+			Device:        "test_3",
+			Tag:           "test_4",
+			Channel:       channel.Key(6),
+			Name:          "test_6",
+			DataType:      telem.DataType("test_7"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.ReadEntry
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.ReadEntry
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeWriteConfig(f *testing.F) {

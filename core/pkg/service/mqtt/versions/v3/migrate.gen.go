@@ -15,9 +15,25 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 )
+
+func autoMigrateReadConfig(ctx context.Context, old v2.ReadConfig) (ReadConfig, error) {
+	entries, err := lo.MapErr(old.Entries, func(v v2.ReadEntry, _ int) (ReadEntry, error) {
+		return autoMigrateReadEntry(ctx, v)
+	})
+	if err != nil {
+		return ReadConfig{}, err
+	}
+	return ReadConfig{
+		PersistConfig: old.PersistConfig,
+		Device:        old.Device,
+		Entries:       entries,
+	}, nil
+}
 
 func autoMigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, error) {
 	targets, err := lo.MapErr(old.Targets, func(v v2.WriteTarget, _ int) (WriteTarget, error) {
@@ -31,6 +47,41 @@ func autoMigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfi
 		Device:      old.Device,
 		Targets:     targets,
 	}, nil
+}
+
+func autoMigrateReadEntry(ctx context.Context, old v2.ReadEntry) (ReadEntry, error) {
+	switch variant := old.Variant.(type) {
+	case nil:
+		return ReadEntry{}, nil
+	case v2.PlainReadEntry:
+		messages, err := lo.MapErr(variant.Messages, func(v icdv0.ReadMessage, _ int) (icd.ReadMessage, error) {
+			return icd.MigrateReadMessage(ctx, v)
+		})
+		if err != nil {
+			return ReadEntry{}, err
+		}
+		return ReadEntry{Variant: PlainReadEntry{
+			BaseReadEntry:   variant.BaseReadEntry,
+			Topic:           variant.Topic,
+			Qos:             variant.Qos,
+			RetainedIgnored: variant.RetainedIgnored,
+			ICD:             variant.ICD,
+			Messages:        messages,
+		}}, nil
+	case v2.SparkplugReadEntry:
+		return ReadEntry{Variant: SparkplugReadEntry{
+			BaseReadEntry: variant.BaseReadEntry,
+			Group:         variant.Group,
+			EdgeNode:      variant.EdgeNode,
+			Device:        variant.Device,
+			Tag:           variant.Tag,
+			Channel:       variant.Channel,
+			Name:          variant.Name,
+			DataType:      variant.DataType,
+		}}, nil
+	default:
+		return ReadEntry{}, errors.Newf("unknown ReadEntry variant %T", variant)
+	}
 }
 
 func autoMigrateWriteTarget(_ context.Context, old v2.WriteTarget) (WriteTarget, error) {

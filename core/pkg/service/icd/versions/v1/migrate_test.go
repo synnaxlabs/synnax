@@ -342,3 +342,31 @@ var _ = Describe("MigrateJSONField", func() {
 		),
 	)
 })
+
+var _ = Describe("MigrateReadMessage", func() {
+	It(
+		"Should keep each part and drop an empty binding data type",
+		func(ctx SpecContext) {
+			index := uuid.New()
+			old := v0.ReadMessage{
+				Message: uuid.New(),
+				Index:   &index,
+				Bindings: []v0.ReadBinding{
+					{Field: index, Channel: 3},
+					{
+						Field:    uuid.New(),
+						Channel:  4,
+						DataType: telem.Int32T,
+					},
+				},
+			}
+			m := MustSucceed(v1.MigrateReadMessage(ctx, old))
+			Expect(m.Message).To(Equal(old.Message))
+			Expect(m.Index).To(Equal(old.Index))
+			Expect(m.Bindings).To(Equal([]v1.ReadBinding{
+				{Field: index, Channel: 3},
+				{Field: old.Bindings[1].Field, Channel: 4, DataType: new(telem.Int32T)},
+			}))
+		},
+	)
+})

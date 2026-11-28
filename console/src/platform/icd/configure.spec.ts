@@ -42,10 +42,9 @@ const createBound = (
     name: "Status",
     payload: { format: "json", fields },
   };
-  const bindings = fields.map(({ key, name }) => ({
+  const bindings: icd.ReadBinding[] = fields.map(({ key, name }) => ({
     field: key,
     channel: channels[name],
-    dataType: "",
   }));
   return {
     source: {
@@ -288,7 +287,7 @@ describe("planMessage", () => {
     bound.source.messages[0].bindings[0].dataType = "int64";
     const plan = await planMessage(bound, uniqueName("src"));
     expect(plan.fields[0].dataType).toBe("float64");
-    expect(plan.fields[0].binding.dataType).toBe("");
+    expect(plan.fields[0].binding.dataType).toBeUndefined();
   });
 
   it("should plan a new channel when the stored channel was deleted", async () => {

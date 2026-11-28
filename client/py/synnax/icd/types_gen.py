@@ -289,13 +289,13 @@ class ReadBinding(BaseModel):
         field: Is the key of the message field to read.
         channel: Is the channel the value of the field is written to.
         data_type: Is the data type of the channel that a client creates for the field.
-            Empty takes the default of the field's kind. The Core ignores it once the
+            Absent takes the default of the field's kind. The Core ignores it once the
             channel exists.
     """
 
     field: FieldKey
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    data_type: telem.DataType = telem.DataType("")
+    data_type: telem.DataType | None = None
 
 
 class WriteBaseBinding(BaseModel):

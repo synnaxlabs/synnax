@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/payload"
@@ -189,7 +190,7 @@ var _ = Describe("ResolveReadConfig", func() {
 			Expect(f.Base().Pointer).To(Equal("/level"))
 			Expect(
 				cfg.Topics[0].Records[0].Messages[0].Bindings,
-			).To(Equal([]icd.ReadBinding{
+			).To(Equal([]icdv1.ReadBinding{
 				{Field: f.Base().Key, Channel: 7},
 			}))
 			Expect(changes).To(Equal([]string{
@@ -208,8 +209,11 @@ var _ = Describe("ResolveReadConfig", func() {
 			ic := resolve(ctx, &cfg)
 			Expect(
 				cfg.Topics[0].Records[0].Messages[0].Bindings,
-			).To(Equal([]icd.ReadBinding{
-				{Field: fields(ic.Messages[0])[0].Base().Key, DataType: telem.Int16T},
+			).To(Equal([]icdv1.ReadBinding{
+				{
+					Field:    fields(ic.Messages[0])[0].Base().Key,
+					DataType: new(telem.Int16T),
+				},
 			}))
 		},
 	)
