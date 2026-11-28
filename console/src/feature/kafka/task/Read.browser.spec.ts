@@ -2549,6 +2549,81 @@ describe("Kafka read form", () => {
       });
     });
 
+    it("should change no ICD when a picked record loses its message before the add", async () => {
+      const createMessage = (name: string) => {
+        const field = createField("temperature", "float");
+        const message: icd.Message = {
+          key: uuid.create(),
+          name,
+          payload: { format: "json", fields: [field] },
+        };
+        return { field, message };
+      };
+      const kiln = createMessage("kiln");
+      const oven = createMessage("oven");
+      const format = await client.icds.create({
+        name: uniqueName("format"),
+        messages: [kiln.message, oven.message],
+      });
+      const createRecordOf = (recordKey: string, { field, message }: typeof oven) =>
+        kafka.readRecordZ.parse({
+          icd: format.key,
+          recordKey,
+          messages: [{ message: message.key, bindings: [{ field: field.key }] }],
+        });
+      const ovenRecord = createRecordOf("oven-1", oven);
+      const { dev, statuses } = await renderRead({
+        records: [ovenRecord],
+        topics: [
+          kafka.readTopicZ.parse({
+            name: "alpha",
+            records: [createRecordOf("kiln-1", kiln)],
+          }),
+        ],
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*oven-1/ }));
+      const shapeOf = (source: string) => ({
+        sources: [source],
+        fields: [
+          ...OVEN_SHAPE.fields.slice(0, 2),
+          createInferredField("/pressure", "float", "number"),
+        ],
+        index: 0,
+        count: 1,
+        present: -1,
+      });
+      const scan = await createScanTask(client, dev);
+      const first = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browseOf(listTopic("alpha"), listTopic(TOPIC)) },
+        sample: { data: sampleOfTopic(TOPIC, shapeOf("oven-1")) },
+      });
+      const dialog = await clickAddData();
+      expect((await first.answered)[1].args.topics).toEqual([TOPIC]);
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      const second = await answerCommandsUntil(client, [scan], "sample", {
+        sample: { data: sampleOfTopic("alpha", shapeOf("kiln-1")) },
+      });
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick alpha" }));
+      await second.answered;
+      const add = await dialog.findByRole("button", { name: /^Add \d+ fields$/ });
+      await removeMessage(ovenRecord);
+      await screen.findByText("Message not found");
+      fireEvent.click(add);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to add data",
+            description: `Record ${ovenRecord.key} reads no JSON message`,
+          }),
+        ),
+      );
+      const { messages } = await client.icds.retrieve(format.key);
+      expect(messages.map(({ name }) => name)).toEqual(["kiln"]);
+      expect(ICD.jsonFields(messages[0]).map(({ pointer }) => pointer)).toEqual([
+        "/temperature",
+      ]);
+    });
+
     it("should add a field to a read key's message and a record for a free key", async () => {
       const { draft, dev } = await renderRead({
         fields: [createField("temperature", "float")],
