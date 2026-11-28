@@ -20,6 +20,8 @@
 #include "x/cpp/telem/telem.h"
 
 namespace x::json {
+using details::TimeFormat;
+
 /// @brief asserts that appending each timestamp of cases in its format after what out
 /// holds gives its text.
 void assert_appends(
@@ -27,7 +29,7 @@ void assert_appends(
 ) {
     for (const auto &[ns, format, expected]: cases) {
         std::string out = "x";
-        append_timestamp(telem::TimeStamp(ns), format, out);
+        details::append_timestamp(telem::TimeStamp(ns), format, out);
         EXPECT_EQ(out, "x" + expected) << ns;
     }
 }

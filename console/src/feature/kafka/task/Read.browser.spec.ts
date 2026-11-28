@@ -1705,6 +1705,389 @@ describe("Kafka read form", () => {
       );
     });
 
+    describe("defaults", () => {
+      const optional = (pointer: string) => ({
+        ...createInferredField(pointer, "float", "number"),
+        optional: true,
+      });
+
+      type Dialog = Awaited<ReturnType<typeof clickAddData>>;
+
+      /** Types text in the Default input of the field at pointer. */
+      const typeDefault = async (dialog: Dialog, pointer: string, text: string) =>
+        fireEvent.change(
+          await dialog.findByRole("textbox", { name: `Default of ${pointer}` }),
+          { target: { value: text } },
+        );
+
+      /** @returns the default of the field at pointer of each message of an ICD. */
+      const defaultsOf = async (key: string, pointer: string) =>
+        (await client.icds.retrieve(key)).messages.map(
+          (m) => ICD.jsonFields(m).find((f) => f.pointer === pointer)?.default,
+        );
+
+      /** Waits until the Default input of the field at pointer has focus. */
+      const expectFocused = async (dialog: Dialog, pointer: string) =>
+        await waitFor(() =>
+          expect(document.activeElement).toBe(
+            dialog.getByRole("textbox", { name: `Default of ${pointer}` }),
+          ),
+        );
+
+      /** A shape of the keys of sources whose records sometimes hold a flow. */
+      const flowOf = (sources: string[]) => ({
+        sources,
+        fields: [optional("/flow")],
+        index: -1,
+        count: 1,
+        present: -1,
+      });
+
+      /** A shape of a pump that every record of sends a pressure. */
+      const PUMP = {
+        sources: ["pump"],
+        fields: [createInferredField("/pressure", "integer", "number")],
+        index: -1,
+        count: 1,
+        present: -1,
+      };
+
+      /**
+       * Renders a task whose records of oven-1 and oven-2 read one message of a
+       * temperature. Opens Add data on a sample of a shape of each key.
+       */
+      const openTwins = async (one: object[], two: object[]) => {
+        const rec = await createRecord({
+          fields: [createField("temperature", "float")],
+          recordKey: "oven-1",
+        });
+        const twin = kafka.readRecordZ.parse({
+          icd: rec.icd,
+          recordKey: "oven-2",
+          messages: rec.messages,
+        });
+        const rendered = await renderRead({ records: [rec, twin] });
+        await screen.findAllByRole("treeitem", { name: /^temperature/ });
+        const temperature = createInferredField("/temperature", "float", "number");
+        const shapeOf = (key: string, fields: object[]) => ({
+          sources: [key],
+          fields: [temperature, ...fields],
+          index: -1,
+          count: 1,
+          present: -1,
+        });
+        const dialog = await openAddData(rendered.dev, {
+          data: sampleOf(shapeOf("oven-1", one), shapeOf("oven-2", two)),
+        });
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await dialog.findByRole("button", { name: "Add 3 fields" });
+        return { ...rendered, dialog };
+      };
+
+      it("should append a field with the default that its Default input gives", async () => {
+        const time = createTimeField();
+        const { draft, dev } = await renderRead({
+          fields: [time, createField("temperature", "float")],
+          recordKey: "oven-1",
+          index: time.key,
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const shape = {
+          ...OVEN_SHAPE,
+          sources: ["oven-2"],
+          fields: [...OVEN_SHAPE.fields.slice(0, 2), optional("/pressure")],
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(shape) });
+        await dialog.findByText("Adds to oven-1 · Missing from some records");
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await typeDefault(dialog, "/pressure", "0.5");
+        fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+        const [rec] = await waitFor(async () => {
+          const next = await retrieveRecords(draft.key);
+          expect(next).toHaveLength(2);
+          return next;
+        });
+        expect(await defaultsOf(rec.icd, "/pressure")).toEqual([0.5]);
+      });
+
+      it("should give a field of a new message the default of its Default input", async () => {
+        const { draft, dev } = await renderRead({
+          fields: [createField("temperature", "float")],
+          recordKey: "oven-1",
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const shape = {
+          sources: ["oven-2"],
+          fields: [optional("/flow")],
+          index: -1,
+          count: 1,
+          present: -1,
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(shape) });
+        await dialog.findByText("Missing from some records");
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await typeDefault(dialog, "/flow", "2");
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        const [rec] = await waitFor(async () => {
+          const next = await retrieveRecords(draft.key);
+          expect(next).toHaveLength(2);
+          return next;
+        });
+        expect(await defaultsOf(rec.icd, "/flow")).toEqual([undefined, 2]);
+      });
+
+      it("should give a field that a held record adds the default of its Default input", async () => {
+        const temperature = createField("temperature", "float");
+        const { draft, dev } = await renderRead({
+          fields: [temperature],
+          recordKey: "oven-1",
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const shape = {
+          sources: ["oven-1"],
+          fields: [
+            createInferredField("/temperature", "float", "number"),
+            optional("/flow"),
+          ],
+          index: -1,
+          count: 1,
+          present: -1,
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(shape) });
+        fireEvent.click(await dialog.findByRole("checkbox", { name: "Record /flow" }));
+        await typeDefault(dialog, "/flow", "3");
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        const [rec] = await retrieveRecords(draft.key);
+        await waitFor(async () =>
+          expect(await defaultsOf(rec.icd, "/flow")).toEqual([3]),
+        );
+      });
+
+      it("should refuse an add while a Default input spells no value, and focus it", async () => {
+        const { draft, dev } = await renderRead({
+          fields: [createField("temperature", "float")],
+          recordKey: "oven-1",
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const scan = await createScanTask(client, dev);
+        const first = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: browseOf(listTopic(TOPIC), listTopic("plant")) },
+          sample: { data: sampleOf(flowOf(["oven-2"])) },
+        });
+        const dialog = await clickAddData();
+        await first.answered;
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await typeDefault(dialog, "/flow", "fast");
+        const second = await answerCommandsUntil(client, [scan], "sample", {
+          sample: { data: sampleOfTopic("plant", PUMP) },
+        });
+        fireEvent.click(dialog.getByRole("checkbox", { name: "Pick plant" }));
+        await second.answered;
+        const add = await dialog.findByRole("button", { name: "Add 2 fields" });
+        expect(add.getAttribute("aria-disabled")).toBeNull();
+        fireEvent.click(add);
+        await expectFocused(dialog, "/flow");
+        expect(await retrieveRecords(draft.key)).toHaveLength(1);
+        await typeDefault(dialog, "/flow", "2");
+        fireEvent.click(add);
+        const records = await waitFor(async () => {
+          const next = await retrieveRecords(draft.key);
+          expect(next).toHaveLength(3);
+          return next;
+        });
+        expect(await defaultsOf(records[1].icd, "/flow")).toContain(2);
+      });
+
+      it("should refuse an empty record while a Default input spells no value", async () => {
+        const { draft, dev } = await renderRead({
+          fields: [createField("temperature", "float")],
+          recordKey: "oven-1",
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const dialog = await openAddData(dev, { data: sampleOf(flowOf(["oven-2"])) });
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await typeDefault(dialog, "/flow", "fast");
+        fireEvent.click(dialog.getByRole("button", { name: "Add an empty record" }));
+        await expectFocused(dialog, "/flow");
+        expect(await retrieveRecords(draft.key)).toHaveLength(1);
+      });
+
+      it("should keep the text of a Default input of a topic that has no sample", async () => {
+        const { draft, dev } = await renderRead({ empty: true });
+        await screen.findByText("No topics");
+        const scan = await createScanTask(client, dev);
+        const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
+        const first = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: browse },
+          sample: { data: sampleOf(flowOf(["oven-2"])) },
+        });
+        const dialog = await clickAddData();
+        await first.answered;
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await typeDefault(dialog, "/flow", "2");
+        const second = await answerCommandsUntil(client, [scan], "sample", {
+          sample: { data: sampleOfTopic("plant", PUMP) },
+        });
+        fireEvent.click(dialog.getByRole("checkbox", { name: "Pick plant" }));
+        await second.answered;
+        // The listen drops each sample before it reads plant again, the topic it shows.
+        const third = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: browse },
+          sample: { data: sampleOfTopic("plant", PUMP) },
+        });
+        fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+        expect((await third.answered)[1].args.topics).toEqual(["plant"]);
+        fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+        const topics = await waitFor(async () => {
+          const next = await retrieveTopics(draft.key);
+          expect(next).toHaveLength(2);
+          return next;
+        });
+        expect(await defaultsOf(topics[0].records[0].icd, "/flow")).toContain(2);
+      });
+
+      it("should show no Default input for a field that the reused message holds", async () => {
+        const time = createTimeField();
+        // A field with a default takes records that lack it.
+        const pressure = icd.jsonFieldZ.parse({
+          name: "pressure",
+          pointer: "/pressure",
+          type: "float",
+          default: 1,
+        });
+        const { dev } = await renderRead({
+          fields: [time, createField("temperature", "float"), pressure],
+          recordKey: "oven-1",
+          index: time.key,
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const shape = {
+          ...OVEN_SHAPE,
+          sources: ["oven-2"],
+          fields: [...OVEN_SHAPE.fields.slice(0, 2), optional("/pressure")],
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(shape) });
+        await dialog.findByText(/^Reads oven-1 of format/);
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await dialog.findByRole("button", { name: "Add 2 fields" });
+        dialog.getByText("Missing from some records");
+        expect(
+          dialog.queryByRole("textbox", { name: "Default of /pressure" }),
+        ).toBeNull();
+      });
+
+      it("should show no Default input for a field that a read message holds", async () => {
+        const temperature = createField("temperature", "float");
+        const { dev } = await renderRead({
+          fields: [temperature, createField("flow", "float")],
+          recordKey: "oven-1",
+          bound: { [temperature.key]: 0 },
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const shape = {
+          ...flowOf(["oven-1"]),
+          fields: [
+            createInferredField("/temperature", "float", "number"),
+            optional("/flow"),
+          ],
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(shape) });
+        fireEvent.click(await dialog.findByRole("checkbox", { name: "Record /flow" }));
+        await dialog.findByRole("button", { name: "Add 1 field" });
+        expect(dialog.queryByRole("textbox", { name: "Default of /flow" })).toBeNull();
+      });
+
+      it("should show one Default input for a field that two shapes add to a message", async () => {
+        const mode = (kind: payload.Kind, type: "number" | "string") => ({
+          ...createInferredField("/mode", kind, type),
+          optional: true,
+        });
+        const { draft, dialog } = await openTwins(
+          [mode("float", "number")],
+          [mode("string", "string"), createInferredField("/door", "string", "string")],
+        );
+        expect(
+          dialog.getAllByRole("textbox", { name: "Default of /mode" }),
+        ).toHaveLength(1);
+        await typeDefault(dialog, "/mode", "idle");
+        fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+        await expectFocused(dialog, "/mode");
+        const [rec] = await retrieveRecords(draft.key);
+        expect(
+          ICD.jsonFields((await client.icds.retrieve(rec.icd)).messages[0]),
+        ).toHaveLength(1);
+      });
+
+      it("should check a Default input against the field that the add builds", async () => {
+        const { draft, dialog } = await openTwins(
+          [createInferredField("/level", "integer", "number")],
+          [optional("/level"), createInferredField("/door", "string", "string")],
+        );
+        await typeDefault(dialog, "/level", "2.5");
+        fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+        await expectFocused(dialog, "/level");
+        const [rec] = await retrieveRecords(draft.key);
+        expect(
+          ICD.jsonFields((await client.icds.retrieve(rec.icd)).messages[0]),
+        ).toHaveLength(1);
+      });
+
+      it("should keep a problem that the extension of a Default input finds", async () => {
+        const { draft, dev } = await renderRead({
+          fields: [createField("temperature", "float")],
+          recordKey: "oven-1",
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const temperature = createInferredField("/temperature", "float", "number");
+        // The record of oven-1 reads both shapes, and the extension takes the integer.
+        const door = {
+          sources: ["oven-1"],
+          fields: [
+            temperature,
+            createInferredField("/level", "integer", "number"),
+            createInferredField("/door", "string", "string"),
+          ],
+          index: -1,
+          count: 1,
+          present: -1,
+        };
+        // oven-2 has no record, so the add also makes it one with its own float.
+        const tank = {
+          sources: ["oven-1", "oven-2"],
+          fields: [temperature, optional("/level")],
+          index: -1,
+          count: 2,
+          present: -1,
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(door, tank) });
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await typeDefault(dialog, "/level", "2.5");
+        fireEvent.click(await dialog.findByRole("button", { name: "Add 4 fields" }));
+        await expectFocused(dialog, "/level");
+        expect(await retrieveRecords(draft.key)).toHaveLength(1);
+      });
+
+      it("should show no Default input for a field that every record holds", async () => {
+        const { dev } = await renderRead({
+          fields: [createField("temperature", "float")],
+          recordKey: "oven-1",
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const shape = {
+          sources: ["oven-2"],
+          fields: [createInferredField("/flow", "float", "number")],
+          index: -1,
+          count: 1,
+          present: -1,
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(shape) });
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await dialog.findByRole("button", { name: "Add 1 field" });
+        expect(dialog.queryByRole("textbox", { name: /^Default of/ })).toBeNull();
+        expect(dialog.queryByText("Default")).toBeNull();
+      });
+    });
+
     it("should add a field once when a held record and a new key both pick it", async () => {
       const time = createTimeField();
       const { draft, dev } = await renderRead({

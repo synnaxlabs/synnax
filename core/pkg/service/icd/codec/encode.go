@@ -327,11 +327,9 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 		narrow: dt == telem.Float32T,
 	}
 	kind := jf.Type()
-	sample, err := sampleField(jf, dt)
+	sample := sampleField(jf, dt)
+	err := CheckWrite(kind, f.scaled, dt)
 	if err != nil {
-		return encodeField{}, err
-	}
-	if err = CheckWrite(kind, f.scaled, dt); err != nil {
 		return encodeField{}, err
 	}
 	bounded := b.Min != nil || b.Max != nil
@@ -348,7 +346,7 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 }
 
 // sampleField returns the xjson field that writes a sample of dt as a value of jf.
-func sampleField(jf icd.JSONField, dt telem.DataType) (xjson.Field, error) {
+func sampleField(jf icd.JSONField, dt telem.DataType) xjson.Field {
 	f := xjson.Field{DataType: dt, Enums: enumsOf(jf), Type: xjson.Number}
 	switch v := jf.Variant.(type) {
 	case icd.StringJSONField, icd.UuidJSONField, icd.BytesJSONField:
@@ -356,13 +354,9 @@ func sampleField(jf icd.JSONField, dt telem.DataType) (xjson.Field, error) {
 	case icd.BooleanJSONField:
 		f.Type = xjson.Boolean
 	case icd.TimestampJSONField:
-		format, err := xjson.ParseTimeFormat(string(v.TimeFormat))
-		if err != nil {
-			return xjson.Field{}, err
-		}
-		f.TimeFormat = format
+		f.TimeFormat = v.TimeFormat
 	}
-	return f, nil
+	return f
 }
 
 // converted reports whether a field of kind k changes or checks the number that an
@@ -504,16 +498,21 @@ func defaultText(jf icd.JSONField) ([]byte, error) {
 }
 
 func timestampDefault(f icd.TimestampJSONField) ([]byte, generator, error) {
-	format, err := xjson.ParseTimeFormat(string(f.TimeFormat))
+	enc, err := xjson.NewEncoder(
+		xjson.Field{DataType: telem.TimestampT, TimeFormat: f.TimeFormat},
+	)
 	if err != nil {
 		return nil, nil, err
 	}
 	switch d := f.Default.Variant.(type) {
 	case icd.ConstantTimestampDefault:
-		return xjson.AppendTimeStamp(nil, d.Value, format), nil, nil
+		literal, err := enc.Append(nil, telem.NewSeriesV(d.Value).Data)
+		return literal, nil, err
 	case icd.NowTimestampDefault:
 		return nil, func(dst []byte) ([]byte, error) {
-			return xjson.AppendTimeStamp(dst, telem.Now(), format), nil
+			var sample [8]byte
+			telem.ByteOrder.PutUint64(sample[:], uint64(telem.Now()))
+			return enc.Append(dst, sample[:])
 		}, nil
 	case nil:
 	}

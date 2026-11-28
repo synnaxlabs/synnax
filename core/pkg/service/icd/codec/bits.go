@@ -97,6 +97,15 @@ func (r *bitRange) readSigned(p []byte) int64 {
 	return int64(r.read(p)<<shift) >> shift
 }
 
+// write writes the low bits of raw into the field and leaves every other bit of p as it
+// was. p must hold at least r.end bytes.
+func (r *bitRange) write(p []byte, raw uint64) {
+	for _, s := range r.segments[:r.count] {
+		kept := p[s.byte] &^ (s.mask << s.shift)
+		p[s.byte] = kept | (uint8(raw>>s.dest)&s.mask)<<s.shift
+	}
+}
+
 // encoding is how the raw bits of a binary field hold its value.
 type encoding uint8
 
