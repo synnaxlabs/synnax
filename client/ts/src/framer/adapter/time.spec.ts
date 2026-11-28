@@ -11,7 +11,7 @@ import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
+import { type ChannelRetriever, ReadAdapter, WriteAdapter } from "@/framer/adapter";
 import { Frame, NotFoundError, ValidationError } from "@/index";
 
 const INDEX = new channel.Channel({
@@ -34,11 +34,19 @@ const CALC = new channel.Channel({
   expression: "return d * 2",
 }).payload;
 
+// NAMED_TIME is a stored channel that takes the name time.
+const NAMED_TIME = new channel.Channel({
+  key: 5,
+  name: "time",
+  dataType: DataType.FLOAT64,
+  virtual: true,
+}).payload;
+
 const retrieveChannels: ChannelRetriever = async (params) => {
   const wanted = (Array.isArray(params) ? params : [params]) as Array<
     channel.Key | channel.Name
   >;
-  return [INDEX, DATA, CALC].filter(
+  return [INDEX, DATA, CALC, NAMED_TIME].filter(
     (ch) => wanted.includes(ch.key) || wanted.includes(ch.name),
   );
 };
@@ -196,6 +204,54 @@ describe("Frame.time", () => {
     expect(() => fr.get("time")).toThrow(
       '"time" is not a channel. Writes take time under "time", and ' +
         "frame.time(channel) gives a channel's time",
+    );
+  });
+});
+
+describe("WriteAdapter time", () => {
+  // open opens an adapter for channels whose writer lists the index of DATA as a clock.
+  const open = async (channels: channel.Name[]): Promise<WriteAdapter> => {
+    const adapter = await WriteAdapter.open(retrieveChannels, channels);
+    adapter.clocks = [INDEX.key];
+    return adapter;
+  };
+  const stamp = (): Series => stamps([5n], 0n, 0);
+
+  it('should take "time" in every write form, beside a channel named time', async () => {
+    const adapter = await open(["d", "time"]);
+    const frames = [
+      await adapter.adapt({ time: [5n], d: [1] }),
+      await adapter.adapt(["time", "d"], [[5n], [1]]),
+      await adapter.adapt(
+        new Map<channel.Name, Series>([
+          ["time", stamp()],
+          ["d", values([1], 0n, 0)],
+        ]),
+      ),
+    ];
+    for (const fr of frames) expect(fr.columns).toEqual([DATA.key, INDEX.key]);
+  });
+
+  it("should write a channel named time by its key", async () => {
+    const adapter = await open(["d", "time"]);
+    expect((await adapter.adapt(NAMED_TIME.key, [1.5])).columns).toEqual([
+      NAMED_TIME.key,
+    ]);
+  });
+
+  it('should name the index channel that a write holds beside "time"', async () => {
+    const adapter = await open(["d", "a_time"]);
+    await expect(adapter.adapt({ time: [5n], d: [1], a_time: [5n] })).rejects.toThrow(
+      'The write holds "time" and the index channel a_time, which both give the ' +
+        "time of one group",
+    );
+  });
+
+  it('should name both causes when a channel cannot take "time"', async () => {
+    const adapter = await WriteAdapter.open(retrieveChannels, ["d"]);
+    await expect(adapter.adapt({ time: [5n], d: [1] })).rejects.toThrow(
+      'd cannot take "time": its index already stores stamps from the writer\'s ' +
+        "start, or the writer may not write its index",
     );
   });
 });

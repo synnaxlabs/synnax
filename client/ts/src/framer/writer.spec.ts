@@ -91,8 +91,8 @@ describe("Writer", () => {
       await indexWriter.close();
       await using writer = await client.openWriter({ start, channels: [data.key] });
       await expect(writer.write({ time: [start], [data.key]: [1.5] })).rejects.toThrow(
-        `${data.name} takes its time from the stamps that its index already stores, ` +
-          'so the write cannot hold "time" for it',
+        `${data.name} cannot take "time": its index already stores stamps from the ` +
+          "writer's start, or the writer may not write its index",
       );
       await writer.write({ [data.key]: [1.5] });
       await writer.commit();
