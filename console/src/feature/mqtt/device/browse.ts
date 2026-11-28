@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, type Synnax } from "@synnaxlabs/client";
+import { mqtt, status, type Synnax } from "@synnaxlabs/client";
 import { json, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -15,8 +15,10 @@ import { retrieveScanTask } from "@/feature/mqtt/device/retrieveScanTask";
 import {
   BROWSE_COMMAND_TYPE,
   BROWSE_SPARKPLUG_COMMAND_TYPE,
+  SAMPLE_COMMAND_TYPE,
 } from "@/feature/mqtt/device/scan";
 import type { Device } from "@/feature/mqtt/device/types";
+import type { ICD } from "@/platform/icd";
 
 const browsedTopicZ = z.object({
   topic: z.string(),
@@ -91,6 +93,41 @@ export const browseTopics = async (
     topics: data.topics.map((t) => ({ ...t, key: t.topic })),
     truncated: data.truncated,
   };
+};
+
+/**
+ * @returns the last message that the broker delivers on topic while the Core listens,
+ * or null when none arrives. The Core replies at the first message of a topic with no
+ * wildcard.
+ * @throws when the scan task fails the command.
+ */
+export const sampleTopic = async (
+  client: Synnax,
+  device: Device,
+  topic: string,
+): Promise<ICD.Sample | null> => {
+  const scanTask = await retrieveScanTask(client, device.rack);
+  const res = await scanTask.executeCommandSync({
+    type: SAMPLE_COMMAND_TYPE,
+    timeout: BROWSE_TIMEOUT,
+    args: {
+      device: device.key,
+      topics: [topic],
+      count: 1,
+      duration: BROWSE_DURATION.milliseconds,
+    },
+  });
+  if (res.variant !== "success") throw status.toError(res);
+  const messages = mqtt.sampleResultZ
+    .parse(res.details?.data)
+    .topics.flatMap((t) => t.messages);
+  const last = messages.reduce<mqtt.SampledMessage | null>(
+    (a, b) => (a == null || b.time.after(a.time) ? b : a),
+    null,
+  );
+  if (last == null) return null;
+  const { time, format, payload } = last;
+  return { time, format, payload };
 };
 
 interface BrowseArgs {

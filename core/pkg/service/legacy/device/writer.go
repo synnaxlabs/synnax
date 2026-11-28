@@ -74,7 +74,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 			Owner:   new(d.ResourceID()),
 			Name:    d.Name,
 			Time:    telem.Now(),
-			Variant: status.VariantWarning,
+			Variant: status.VariantDisabled,
 			Message: "Device status unknown",
 			Details: StatusDetails{Rack: d.Rack},
 		}

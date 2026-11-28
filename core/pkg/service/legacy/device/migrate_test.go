@@ -26,6 +26,7 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -49,6 +50,26 @@ func markReleased(ctx SpecContext, db *gorp.DB) {
 		Namespace:  "Device",
 		Migrations: applied,
 	})).To(Succeed())
+}
+
+// openDevices opens the device service and the services that it needs, which runs the
+// device migrations.
+func openDevices(ctx SpecContext, db *gorp.DB, stat *status.Service) *device.Service {
+	GinkgoHelper()
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:      db,
+		HostKey: 1,
+		Status:  stat,
+		DriverRole: MustSucceed(
+			racktestutil.CreateDriverRole(ctx, db, roleSvc),
+		),
+	}))
+	return MustOpen(device.OpenService(ctx, device.ServiceConfig{
+		DB:     db,
+		Status: stat,
+		Rack:   rackSvc,
+	}))
 }
 
 var _ = Describe("Migrations", func() {
@@ -78,20 +99,7 @@ var _ = Describe("Migrations", func() {
 			Entry(&server).Exec(ctx, db)).To(Succeed())
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
-		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:      db,
-			HostKey: 1,
-			Status:  stat,
-			DriverRole: MustSucceed(
-				racktestutil.CreateDriverRole(ctx, db, roleSvc),
-			),
-		}))
-		svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-			DB:     db,
-			Status: stat,
-			Rack:   rackSvc,
-		}))
+		svc := openDevices(ctx, db, stat)
 		var got device.Device
 		Expect(svc.NewRetrieve().
 			Where(device.MatchKeys(server.Key)).
@@ -101,5 +109,43 @@ var _ = Describe("Migrations", func() {
 			"headers",
 			[]any{map[string]any{"name": "X-Trace", "value": "on"}},
 		))
+	})
+
+	It("Should give the default status of a device the disabled variant", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		markReleased(ctx, db)
+		StartRun(db.Run)
+		server := device.Device{
+			Key:      "server",
+			Location: "localhost:8080",
+			Name:     "Weather station",
+			Make:     "http",
+			Model:    "HTTP server",
+		}
+		Expect(gorp.NewCreate[device.Key, device.Device]().
+			Entry(&server).Exec(ctx, db)).To(Succeed())
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		stored := device.Status{
+			Key:     "server-status",
+			Owner:   new(server.ResourceID()),
+			Name:    server.Name,
+			Time:    telem.Now(),
+			Variant: status.VariantWarning,
+			Message: "Device status unknown",
+		}
+		// The device table is not open yet, so the status skips reference checks.
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return stat.NewMigrationWriter(tx).Set(ctx, stored.ToAny())
+		})).To(Succeed())
+		openDevices(ctx, db, stat)
+		var got device.Status
+		Expect(stat.NewRetrieve[device.StatusDetails]().
+			Where(status.MatchOwners[device.StatusDetails](server.ResourceID())).
+			Entry(&got).
+			Exec(ctx, db)).To(Succeed())
+		Expect(got.Variant).To(Equal(status.VariantDisabled))
 	})
 })

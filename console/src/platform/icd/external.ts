@@ -9,7 +9,9 @@
 
 export * from "@/platform/icd/Bindings";
 export * from "@/platform/icd/configure";
+export * from "@/platform/icd/Confirm";
 export * from "@/platform/icd/dataType";
+export * from "@/platform/icd/default";
 export * from "@/platform/icd/Details";
 export * from "@/platform/icd/EnumValues";
 export * from "@/platform/icd/fieldNames";
@@ -18,6 +20,7 @@ export * from "@/platform/icd/Formats";
 export * from "@/platform/icd/FormattedField";
 export * from "@/platform/icd/Identifier";
 export * from "@/platform/icd/inferred";
+export * from "@/platform/icd/LastPayload";
 export * from "@/platform/icd/Match";
 export * from "@/platform/icd/MessageFormatField";
 export * from "@/platform/icd/number";

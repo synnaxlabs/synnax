@@ -66,7 +66,7 @@ export const covers = (field: icd.JSONField, pointer: string): boolean =>
   (field.type === "json" && pointer.startsWith(`${field.pointer}/`));
 
 /** @returns whether field reads the values of sampled. */
-const reads = (field: icd.JSONField, sampled: Field): boolean => {
+export const reads = (field: icd.JSONField, sampled: Field): boolean => {
   switch (field.type) {
     case "json":
       return true;

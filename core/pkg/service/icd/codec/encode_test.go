@@ -11,6 +11,7 @@ package codec_test
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"math"
@@ -76,11 +77,12 @@ type encodeFixture struct {
 // encodeCase holds one JSON value for each binding, or null for a missing sample. A
 // case that does not encode names the error, which Check also returns for the one
 // sample that its field cannot hold. Otherwise document is the document of the samples,
-// or text is its exact text.
+// text is its exact text, or hex is its payload in hex.
 type encodeCase struct {
 	Samples  []jsontext.Value `json:"samples"`
 	Document jsontext.Value   `json:"document"`
 	Text     *string          `json:"text"`
+	Hex      *string          `json:"hex"`
 	Error    string           `json:"error"`
 }
 
@@ -91,10 +93,12 @@ type encoder interface {
 }
 
 // checkCases checks that enc, the encoder of the message of f, encodes each case of f.
-// bindings are the bindings of the message.
+// bindings are the bindings of the message. Each case encodes into the output of the
+// case before it.
 func (f encodeFixture) checkCases(enc encoder, bindings []codec.Binding) {
 	GinkgoHelper()
 	Expect(f.Cases).ToNot(BeEmpty())
+	var out []byte
 	for i, c := range f.Cases {
 		By("case " + strconv.Itoa(i))
 		Expect(c.Samples).To(HaveLen(len(bindings)))
@@ -118,10 +122,13 @@ func (f encodeFixture) checkCases(enc encoder, bindings []codec.Binding) {
 			continue
 		}
 		Expect(rejected).To(BeEmpty())
-		out := MustSucceed(enc.Encode(nil, samples))
-		if c.Text != nil {
+		out = MustSucceed(enc.Encode(out[:0], samples))
+		switch {
+		case c.Text != nil:
 			Expect(string(out)).To(Equal(*c.Text))
-		} else {
+		case c.Hex != nil:
+			Expect(out).To(Equal(MustSucceed(hex.DecodeString(*c.Hex))))
+		default:
 			Expect(out).To(MatchJSON([]byte(c.Document)))
 		}
 	}
