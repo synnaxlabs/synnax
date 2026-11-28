@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -43,8 +44,11 @@ const Harness = ({ details }: { details: unknown }): ReactElement => {
   );
 };
 
-const addStatus = async (details: unknown): Promise<void> => {
-  const { wrapper } = await createConsoleWrapper({ client });
+const addStatus = async (
+  details: unknown,
+  wrapperClient: Synnax | null,
+): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client: wrapperClient });
   render(<Harness details={details} />, { wrapper });
   fireEvent.click(screen.getByText("add"));
 };
@@ -62,13 +66,13 @@ describe("LabJack.Device.NOTIFICATIONS", () => {
       model: "t7",
       ports: { model: "t7" },
     });
-    await addStatus({ unconfiguredLabJackDevice: dev.key });
+    await addStatus({ unconfiguredLabJackDevice: dev.key }, client);
     fireEvent.click(await screen.findByText("Configure"));
     expect(await screen.findByDisplayValue(dev.name)).toBeTruthy();
   });
 
   it("should not match a status without a LabJack device key", async () => {
-    await addStatus({ other: "value" });
+    await addStatus({ other: "value" }, null);
     expect(await screen.findByText("LabJack T7 connected")).toBeTruthy();
     expect(screen.queryByText("Configure")).toBeNull();
   });
