@@ -220,6 +220,10 @@
       "types": "./dist/select/index.d.ts",
       "default": "./dist/select/index.js"
     },
+    "./shortcut": {
+      "types": "./dist/shortcut/index.d.ts",
+      "default": "./dist/shortcut/index.js"
+    },
     "./skeleton": {
       "types": "./dist/skeleton/index.d.ts",
       "default": "./dist/skeleton/index.js"
