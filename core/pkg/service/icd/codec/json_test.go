@@ -647,12 +647,12 @@ var _ = Describe("JSON", func() {
 			for i, shape := range shapes {
 				key, field := uuid.New(), shape.Fields[0]
 				var match *icd.JSONMatch
-				if shape.Present >= 0 {
-					field = shape.Fields[shape.Present]
+				if shape.Present != nil {
+					field, _ = lo.Find(shape.Fields, func(f xjson.InferredField) bool {
+						return f.Pointer == *shape.Present
+					})
 					match = &icd.JSONMatch{Variant: icd.PresentJSONMatch{
-						JSONBaseMatch: icd.JSONBaseMatch{
-							Pointer: field.Pointer.String(),
-						},
+						JSONBaseMatch: icd.JSONBaseMatch{Pointer: field.Pointer},
 					}}
 				}
 				messages[i] = codec.JSONMessage{
@@ -663,7 +663,7 @@ var _ = Describe("JSON", func() {
 							Key:     key,
 							Name:    "v",
 							Scale:   1,
-							Pointer: field.Pointer.String(),
+							Pointer: field.Pointer,
 						}}},
 					},
 					Bindings: []codec.Binding{{Field: key, DataType: telem.StringT}},

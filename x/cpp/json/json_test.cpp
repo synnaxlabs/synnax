@@ -13,6 +13,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/json/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -1988,5 +1989,30 @@ TEST(testBytes, testRejectInvalid) {
     reject("+/8AYXNt/x==", "expected padded, canonical base64");
     reject("-_8AYXNt_w==", "expected padded, canonical base64");
     reject(json::array({251, 255}), "expected a base64 string");
+}
+
+/// @brief it should parse a shape with no index or present field, and leave both out of
+/// its JSON.
+TEST(testShape, testAbsentIndexAndPresent) {
+    const json wire = {
+        {"sources", {"pump"}},
+        {"fields",
+         {{{"pointer", "/state"},
+           {"kind", "string"},
+           {"type", "string"},
+           {"enum_labels", {"OFF", "ON"}},
+           {"optional", false},
+           {"sample", "\"ON\""}}}},
+        {"count", 3},
+    };
+    Parser parser(wire);
+    const auto shape = Shape::parse(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_FALSE(shape.index.has_value());
+    EXPECT_FALSE(shape.present.has_value());
+    ASSERT_EQ(shape.fields.size(), 1);
+    EXPECT_FALSE(shape.fields[0].time_format.has_value());
+    EXPECT_EQ(shape.fields[0].enum_labels, std::vector<std::string>({"OFF", "ON"}));
+    EXPECT_EQ(shape.to_json(), wire);
 }
 }

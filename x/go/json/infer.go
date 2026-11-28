@@ -37,7 +37,7 @@ const (
 	maxClusters = 16
 	// maxFieldSets is the most sets of fields of one source that split compares.
 	maxFieldSets = 256
-	// maxSampleLength is the longest sample, in bytes, of a field of a SampledShape.
+	// maxSampleLength is the longest Sample, in bytes, of an InferredField.
 	maxSampleLength = 64
 )
 
@@ -49,49 +49,6 @@ type Document struct {
 	Data []byte
 	// Time is when the document was written. Zero selects the time of inference.
 	Time telem.TimeStamp
-}
-
-// InferredField is a scalar field that inference found in a set of documents.
-type InferredField struct {
-	// Pointer locates the field in a document.
-	Pointer Pointer `json:"pointer" msgpack:"pointer"`
-	// Kind is the kind of a payload field that holds the values of the field.
-	Kind payload.Kind `json:"kind" msgpack:"kind"`
-	// Type is the JSON type of most values of the field.
-	Type Type `json:"type" msgpack:"type"`
-	// TimeFormat is the format of the values of a timestamp field. Nil for any other
-	// field.
-	TimeFormat *payload.TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
-	// Enum holds the distinct values, sorted, of a field of only strings that repeats
-	// a few.
-	Enum []string `json:"enum" msgpack:"enum"`
-	// Optional is true when some documents of the shape lack the field or hold null at
-	// it.
-	Optional bool `json:"optional" msgpack:"optional"`
-}
-
-// Shape is the layout of one cluster of documents, from one or more sources.
-type Shape struct {
-	// Sources are the sources of the documents, in the order first seen.
-	Sources []string `json:"sources" msgpack:"sources"`
-	// Fields are the scalar fields of the documents, in the order first seen.
-	Fields []InferredField `json:"fields" msgpack:"fields"`
-	// Index is the position in Fields of the timestamp that indexes the documents, or
-	// -1 when no field can.
-	Index int `json:"index" msgpack:"index"`
-	// Count is the number of documents of the shape.
-	Count int `json:"count" msgpack:"count"`
-	// Present is the position in Fields of the field that tells the documents of the
-	// shape apart from the other shapes of its sources, or -1 when it has none.
-	Present int `json:"present" msgpack:"present"`
-}
-
-// SampledShape is a Shape with the last value of each of its fields.
-type SampledShape struct {
-	Shape
-	// Samples holds the start of the JSON text of the last value of each of Fields, in
-	// the same order: at most 64 bytes, cut at a rune boundary.
-	Samples []string
 }
 
 // Infer returns the shapes of docs, which are in the order that each source wrote them,
@@ -114,6 +71,7 @@ type SampledShape struct {
 //     type of most values wins.
 //   - A field of only strings that repeats 2 to 16 values of at most 64 bytes gives an
 //     enum.
+//   - A field's sample is the start of its last value.
 //   - A field whose name suggests a time and whose values all fit one format near the
 //     document time gives a timestamp. Unix units come from the magnitude.
 //   - The index is the timestamp nearest the document time that rises in each source.
@@ -295,11 +253,11 @@ func (i *Inferrer) Add(data []byte, t telem.TimeStamp) bool {
 }
 
 // Shapes returns the shapes of the documents added, with no sources.
-func (i *Inferrer) Shapes() []SampledShape {
+func (i *Inferrer) Shapes() []Shape {
 	groups := infer([]*inferSource{i.src})
-	shapes := make([]SampledShape, len(groups))
+	shapes := make([]Shape, len(groups))
 	for k, g := range groups {
-		shapes[k] = SampledShape{Shape: g.shape(), Samples: g.samples()}
+		shapes[k] = g.shape()
 		shapes[k].Sources = nil
 	}
 	return shapes
@@ -684,22 +642,14 @@ func (g *inferGroup) stats(key string, pointer Pointer) *fieldStats {
 	return s
 }
 
-// samples returns the sample of each field of g, in the order of its fields.
-func (g *inferGroup) samples() []string {
-	samples := make([]string, len(g.order))
-	for i, s := range g.order {
-		samples[i] = string(s.sample)
-	}
-	return samples
-}
-
 func (g *inferGroup) shape() Shape {
 	shape := Shape{
 		Sources: g.sources,
 		Fields:  make([]InferredField, len(g.order)),
-		Index:   -1,
-		Count:   g.count,
-		Present: g.present,
+		Count:   uint32(g.count),
+	}
+	if g.present >= 0 {
+		shape.Present = new(g.order[g.present].pointer.String())
 	}
 	nearest := math.Inf(1)
 	for i, s := range g.order {
@@ -709,7 +659,7 @@ func (g *inferGroup) shape() Shape {
 			continue
 		}
 		if d := s.time.distance / float64(s.count); d < nearest {
-			shape.Index, nearest = i, d
+			shape.Index, nearest = new(shape.Fields[i].Pointer), d
 		}
 	}
 	return shape
@@ -875,14 +825,18 @@ func (s *fieldStats) timestamp() bool { return s.time.candidate && s.time.format
 
 // field returns the field of s in a shape of n documents.
 func (s *fieldStats) field(n int) InferredField {
-	f := InferredField{Pointer: s.pointer, Optional: s.count < n}
+	f := InferredField{
+		Pointer:  s.pointer.String(),
+		Optional: s.count < n,
+		Sample:   string(s.sample),
+	}
 	switch {
 	case s.numbers > 0 && s.numbers+s.booleans >= s.strings:
-		f.Type, f.Kind = Number, s.numberKind()
+		f.Type, f.Kind = payload.JSONTypeNumber, s.numberKind()
 	case s.numbers == 0 && s.booleans > s.strings:
-		f.Type, f.Kind = Boolean, payload.KindBoolean
+		f.Type, f.Kind = payload.JSONTypeBoolean, payload.KindBoolean
 	default:
-		f.Type, f.Kind = String, payload.KindString
+		f.Type, f.Kind = payload.JSONTypeString, payload.KindString
 	}
 	if s.timestamp() {
 		f.Kind = payload.KindTimestamp
@@ -891,11 +845,11 @@ func (s *fieldStats) field(n int) InferredField {
 	}
 	if s.numbers == 0 && s.booleans == 0 && !s.longLabel && len(s.labels) >= 2 &&
 		len(s.labels) <= maxEnumLabels && len(s.labels) < s.strings {
-		f.Enum = make([]string, 0, len(s.labels))
+		f.EnumLabels = make([]string, 0, len(s.labels))
 		for label := range s.labels {
-			f.Enum = append(f.Enum, label)
+			f.EnumLabels = append(f.EnumLabels, label)
 		}
-		slices.Sort(f.Enum)
+		slices.Sort(f.EnumLabels)
 	}
 	return f
 }

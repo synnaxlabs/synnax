@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -48,23 +49,6 @@ const (
 
 var errReconnecting = errors.New("the connection is down and tries again on its own")
 
-// browsedField is one scalar field of a shape of browsed JSON payloads.
-type browsedField struct {
-	Pointer string `json:"pointer"`
-	// Type is the JSON type of most values heard at Pointer: "number", "string", or
-	// "boolean".
-	Type string `json:"type"`
-	// Sample is the start of the JSON text of the last value heard at Pointer.
-	Sample string `json:"sample"`
-	// Kind is the kind of a payload field that holds most values heard at Pointer.
-	Kind payload.Kind `json:"kind"`
-	// TimeFormat is the format of a timestamp field. Nil for any other field.
-	TimeFormat *payload.TimeFormat `json:"time_format,omitempty"`
-	// Enum holds the distinct values, sorted, of a field of only strings that repeats
-	// a few.
-	Enum []string `json:"enum"`
-}
-
 // browsedTopic is one topic that a browse heard, with its last payload and the shapes
 // of its JSON messages.
 type browsedTopic struct {
@@ -81,22 +65,7 @@ type browsedTopic struct {
 	Format   payload.Format `json:"format"`
 	Retained bool           `json:"retained"`
 	// Shapes are the shapes of the JSON messages heard, in the order first heard.
-	Shapes []browsedShape `json:"shapes"`
-}
-
-// browsedShape is one shape of the JSON messages that a browse heard on a topic.
-type browsedShape struct {
-	// Fields are the scalars of the shape, each with the start of the last value heard
-	// at its pointer in a message of the shape.
-	Fields []browsedField `json:"fields"`
-	// Index is the pointer of the field that indexes the messages of the shape. Absent
-	// when no field can.
-	Index string `json:"index,omitempty"`
-	// Present is the pointer of the field that every message of the shape holds and no
-	// other shape holds. Absent when no field does.
-	Present string `json:"present,omitempty"`
-	// Count is the number of messages of the shape heard.
-	Count int `json:"count"`
+	Shapes []xjson.Shape `json:"shapes"`
 }
 
 type browseResult struct {

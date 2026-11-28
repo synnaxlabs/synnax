@@ -15,7 +15,7 @@ import { fieldNames } from "@/platform/icd/fieldNames";
 type Inferred = Pick<json.InferredField, "pointer" | "kind" | "timeFormat">;
 
 /** An inferred field with the enum labels that a read can map to numbers. */
-type Labeled = Inferred & Pick<json.InferredField, "enum">;
+type Labeled = Inferred & Pick<json.InferredField, "enumLabels">;
 
 const INTEGER = /^-?(0|[1-9]\d*)$/;
 const NUMBER = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?$/;
@@ -39,8 +39,8 @@ export const createFields = (inferred: Inferred[]): icd.JSONField[] => {
  */
 export const readKind = ({
   kind,
-  enum: labels,
-}: Pick<Labeled, "kind" | "enum">): payload.Kind => {
+  enumLabels: labels,
+}: Pick<Labeled, "kind" | "enumLabels">): payload.Kind => {
   if (labels.length === 0) return kind;
   if (spellNumbers(labels) && !labels.every((l) => INTEGER.test(l))) return "float";
   return "integer";
@@ -51,7 +51,7 @@ export const readKind = ({
  * that all spell numbers read as those numbers. Other labels read as their positions.
  */
 export const createReadField = (inferred: Labeled, name: string): icd.JSONField => {
-  const { pointer, enum: labels } = inferred;
+  const { pointer, enumLabels: labels } = inferred;
   const type = readKind(inferred);
   if (labels.length === 0 || spellNumbers(labels))
     return createField({ ...inferred, kind: type }, name);
@@ -64,15 +64,17 @@ export const createReadField = (inferred: Labeled, name: string): icd.JSONField 
  * field at that pointer. It is that first field with the sorted labels of every field
  * at the pointer, or with no labels when one of them has none.
  */
-export const mergeFields = <F extends Pick<json.InferredField, "pointer" | "enum">>(
+export const mergeFields = <
+  F extends Pick<json.InferredField, "pointer" | "enumLabels">,
+>(
   fields: F[],
 ): F[] => {
   const byPointer = new Map<string, F[]>();
   for (const f of fields) map.getOrInsert(byPointer, f.pointer, () => []).push(f);
   return [...byPointer.values()].map((same) => {
-    const labels = same.map(({ enum: l }) => l);
-    if (labels.some((l) => l.length === 0)) return { ...same[0], enum: [] };
-    return { ...same[0], enum: [...new Set(labels.flat())].sort() };
+    const labels = same.map(({ enumLabels: l }) => l);
+    if (labels.some((l) => l.length === 0)) return { ...same[0], enumLabels: [] };
+    return { ...same[0], enumLabels: [...new Set(labels.flat())].sort() };
   });
 };
 

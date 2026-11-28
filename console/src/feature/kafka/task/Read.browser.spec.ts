@@ -27,6 +27,7 @@ import {
   array,
   DataType,
   deep,
+  json,
   payload,
   TimeSpan,
   TimeStamp,
@@ -355,9 +356,8 @@ const OVEN_SHAPE = {
     createInferredField("/temperature", "float", "number"),
     createInferredField("/state", "string", "string"),
   ],
-  index: 0,
+  index: "/time",
   count: 2,
-  present: -1,
 };
 
 /** The oven shape, with a pressure. */
@@ -475,9 +475,7 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [createInferredField("/pressure", "integer", "number")],
-        index: -1,
         count: 1,
-        present: -1,
       };
       const second = await answerCommandsUntil(client, [scan], "sample", {
         sample: { data: sampleOfTopic("plant", pump) },
@@ -829,9 +827,7 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [createInferredField("/pressure", "integer", "number")],
-        index: -1,
         count: 2,
-        present: -1,
       };
       const dialog = await openAddData(
         dev,
@@ -1278,9 +1274,9 @@ describe("Kafka read form", () => {
         createInferredField("/time", "timestamp", "number", "unix_ms"),
         ...pointers.map((p) => createInferredField(p, "float", "number")),
       ],
-      index: 0,
+      index: "/time",
       count: 2,
-      present: 1,
+      present: pointers[0],
     });
 
     it("should read each record kind of a key in its own message of one record", async () => {
@@ -1363,7 +1359,7 @@ describe("Kafka read form", () => {
         ...kind,
         fields: [
           ...kind.fields,
-          { ...createInferredField("/state", "string", "string"), enum: labels },
+          { ...createInferredField("/state", "string", "string"), enumLabels: labels },
         ],
       });
       const dialog = await openAddData(dev, {
@@ -1435,7 +1431,7 @@ describe("Kafka read form", () => {
         match: { type: "present", pointer: "/rpm" },
       });
       const { draft, dev } = await renderRead({ records: [rec] });
-      const fault = { ...createKind("/fault", "/status"), present: -1 };
+      const { present: _, ...fault } = createKind("/fault", "/status");
       const dialog = await openAddData(dev, { data: sampleOf(fault) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
@@ -1485,9 +1481,7 @@ describe("Kafka read form", () => {
           createInferredField("/id", "unsigned", "number"),
           createInferredField("/level", "float", "number"),
         ],
-        index: -1,
         count: 2,
-        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1512,11 +1506,12 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [
-          { ...createInferredField("/state", "string", "string"), enum: ["OFF", "ON"] },
+          {
+            ...createInferredField("/state", "string", "string"),
+            enumLabels: ["OFF", "ON"],
+          },
         ],
-        index: -1,
         count: 3,
-        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       const state = await dialog.findByRole("checkbox", { name: "Record /state" });
@@ -1553,9 +1548,7 @@ describe("Kafka read form", () => {
           createInferredField("/a/b", "float", "number"),
           createInferredField("/a_b", "float", "number"),
         ],
-        index: -1,
         count: 2,
-        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1598,9 +1591,7 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [createInferredField("/pressure", "integer", "number")],
-        index: -1,
         count: 1,
-        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE, pump) });
       expect(
@@ -1674,9 +1665,7 @@ describe("Kafka read form", () => {
       const shapeOf = (key: string, name: string) => ({
         sources: [key],
         fields: [createInferredField(`/${name}`, "float", "number")],
-        index: -1,
         count: 1,
-        present: -1,
       });
       const dialog = await openAddData(dev, {
         data: sampleOf(shapeOf("oven-2", "pressure"), shapeOf("oven-5", "flow")),
@@ -1711,9 +1700,7 @@ describe("Kafka read form", () => {
       const shape = {
         sources: ["oven-2"],
         fields: [createInferredField("/temperature", "float", "number")],
-        index: -1,
         count: 1,
-        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(shape) });
       await dialog.findByText(/^Reads oven-1 of format/);
@@ -1759,9 +1746,7 @@ describe("Kafka read form", () => {
           createInferredField("/pressure", "float", "number"),
           createInferredField("/flow", "float", "number"),
         ],
-        index: -1,
         count: 1,
-        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(shape) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -1794,9 +1779,7 @@ describe("Kafka read form", () => {
       const shapeOf = (key: string, name: string) => ({
         sources: [key],
         fields: [createInferredField(`/${name}`, "float", "number")],
-        index: -1,
         count: 1,
-        present: -1,
       });
       const dialog = await openAddData(dev, {
         data: sampleOf(shapeOf("oven-2", "pressure"), shapeOf("oven-5", "flow")),
@@ -1835,9 +1818,7 @@ describe("Kafka read form", () => {
           createInferredField("/pressure", "float", "number"),
           createInferredField("/flow", "float", "number"),
         ],
-        index: -1,
         count: 1,
-        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(shape) });
       await dialog.findByRole("checkbox", { name: "Record /flow" });
@@ -1881,12 +1862,11 @@ describe("Kafka read form", () => {
       });
       await screen.findByRole("treeitem", { name: /^temperature/ });
       const kind = createInferredField("/kind", "string", "string");
-      const shapeOf = (field: object) => ({
+      const shapeOf = (field: json.InferredField) => ({
         sources: ["oven-2"],
         fields: [kind, field],
-        index: -1,
         count: 1,
-        present: 1,
+        present: field.pointer,
       });
       const recordOf = (offset: number, value: object) => ({
         ...createSampledRecord(offset, value),
@@ -1912,9 +1892,7 @@ describe("Kafka read form", () => {
     const OVEN_2_SHAPE = {
       sources: ["oven-2"],
       fields: [createInferredField("/temperature", "float", "number")],
-      index: -1,
       count: 1,
-      present: -1,
     };
 
     /** Renders a task whose ICD holds two messages of a temperature. */
@@ -1993,9 +1971,7 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [createInferredField("/pressure", "integer", "number")],
-        index: -1,
         count: 2,
-        present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(pump) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
@@ -2377,9 +2353,8 @@ describe("Kafka read form", () => {
           ...OVEN_SHAPE.fields.slice(0, 2),
           createInferredField("/pressure", "float", "number"),
         ],
-        index: 0,
+        index: "/time",
         count: 1,
-        present: -1,
       };
       const scan = await createScanTask(client, dev);
       const first = await answerCommandsUntil(client, [scan], "sample", {

@@ -650,11 +650,12 @@ var _ = Describe("Scan task", func() {
 
 		field := func(pointer, t, sample string, kind payload.Kind) map[string]any {
 			return map[string]any{
-				"pointer": pointer,
-				"type":    t,
-				"sample":  sample,
-				"kind":    string(kind),
-				"enum":    []any{},
+				"pointer":     pointer,
+				"type":        t,
+				"sample":      sample,
+				"kind":        string(kind),
+				"enum_labels": []any{},
+				"optional":    false,
 			}
 		}
 
@@ -791,11 +792,12 @@ var _ = Describe("Scan task", func() {
 				Expect(ok).To(BeTrue())
 				Expect(topics[0]).To(oneShape(HaveKeyWithValue("fields", []any{
 					map[string]any{
-						"pointer": "/state",
-						"type":    "string",
-						"sample":  `"OFF"`,
-						"kind":    "string",
-						"enum":    []any{"OFF", "ON"},
+						"pointer":     "/state",
+						"type":        "string",
+						"sample":      `"OFF"`,
+						"kind":        "string",
+						"enum_labels": []any{"OFF", "ON"},
+						"optional":    false,
 					},
 				})))
 			},
@@ -879,7 +881,8 @@ var _ = Describe("Scan task", func() {
 							"sample":      strconv.FormatInt(ms+1, 10),
 							"kind":        "timestamp",
 							"time_format": "unix_ms",
-							"enum":        []any{},
+							"enum_labels": []any{},
+							"optional":    false,
 						},
 						field("/v", "number", "2", payload.KindFloat),
 					}),
@@ -918,7 +921,8 @@ var _ = Describe("Scan task", func() {
 								"sample":      strconv.FormatInt(ms, 10),
 								"kind":        "timestamp",
 								"time_format": "unix_ms",
-								"enum":        []any{},
+								"enum_labels": []any{},
+								"optional":    false,
 							},
 							field("/code", "number", "3", payload.KindInteger),
 						}),
@@ -1355,7 +1359,7 @@ var _ = Describe("Scan task", func() {
 			Expect(res.Shapes).To(HaveLen(1))
 			shape := res.Shapes[0]
 			Expect(shape.Sources).To(Equal([]string{"rig/1/temp", "rig/2/temp"}))
-			Expect(shape.Fields[shape.Index].Pointer.String()).To(Equal("/time"))
+			Expect(shape.Index).To(HaveValue(Equal("/time")))
 		})
 
 		It("Should give the format and payload of each sampled message",
@@ -1428,7 +1432,7 @@ var _ = Describe("Scan task", func() {
 				}
 				Expect(kept).To(BeNumerically("<", 80))
 				Expect(res.Shapes).To(HaveLen(1))
-				Expect(res.Shapes[0].Count).To(Equal(80))
+				Expect(res.Shapes[0].Count).To(BeEquivalentTo(80))
 			},
 		)
 

@@ -9,3 +9,4 @@
 
 export * from "@/json/infer";
 export * from "@/json/json";
+export * from "@/json/types.gen";

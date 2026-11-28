@@ -101,9 +101,9 @@ export const carriedFields = (
   const carried = new Map<string, icd.JSONField>();
   if (shape.sources.every((key) => messages.has(key))) return carried;
   const routed = routeOf(shape, messages.get("") ?? []).message?.fields;
-  shape.fields.forEach(({ pointer }, i) => {
+  shape.fields.forEach(({ pointer }) => {
     const field = routed?.get(pointer);
-    if (i !== shape.index && field != null) carried.set(pointer, field);
+    if (pointer !== shape.index && field != null) carried.set(pointer, field);
   });
   return carried;
 };
@@ -143,7 +143,7 @@ export const defaultPicks = (shape: json.Shape, reads: Reads): Set<string> => {
   const taken = takenPointers(shape, reads);
   return new Set(
     shape.fields
-      .filter((f, i) => i !== shape.index && !taken.has(f.pointer))
+      .filter(({ pointer }) => pointer !== shape.index && !taken.has(pointer))
       .map(({ pointer }) => pointer),
   );
 };
@@ -156,17 +156,9 @@ const freeKeys = (shape: json.Shape, { messages }: Reads): string[] =>
 export const freeShapes = (shapes: json.Shape[], reads: Reads): json.Shape[] =>
   shapes.filter((shape) => freeKeys(shape, reads).length > 0);
 
-/** @returns the field that tells the documents of shape apart from other kinds. */
-const presentOf = (shape: json.Shape): json.InferredField | undefined =>
-  shape.present == null ? undefined : shape.fields[shape.present];
-
 /** @returns a match for the documents of shape, or nothing when it is the only kind. */
-const matchOf = (shape: json.Shape): Pick<icd.JSONPayload, "match"> => {
-  const present = presentOf(shape);
-  return present == null
-    ? {}
-    : { match: { type: "present", pointer: present.pointer } };
-};
+const matchOf = ({ present }: json.Shape): Pick<icd.JSONPayload, "match"> =>
+  present == null ? {} : { match: { type: "present", pointer: present } };
 
 const readOf = (
   message: icd.Message,
@@ -185,9 +177,8 @@ const indexOf = (
   message: icd.Message,
 ): icd.JSONField | undefined => {
   if (shape.index == null) return undefined;
-  const { pointer } = shape.fields[shape.index];
   return ICD.jsonFields(message).find(
-    (f) => f.pointer === pointer && f.type === "timestamp",
+    (f) => f.pointer === shape.index && f.type === "timestamp",
   );
 };
 
@@ -264,9 +255,9 @@ export const createAdditions = (
     const reused =
       fit == null ? undefined : reuse(shape, fit, pointers, carried, recordKeys);
     if (reused != null) return [reused];
-    const indexField = shape.index == null ? undefined : shape.fields[shape.index];
     const picked = shape.fields.filter(
-      (f) => f === indexField || (pointers.has(f.pointer) && !carried.has(f.pointer)),
+      ({ pointer }) =>
+        pointer === shape.index || (pointers.has(pointer) && !carried.has(pointer)),
     );
     const names = ICD.fieldNames(
       picked.map(({ pointer }) => pointer),
@@ -279,16 +270,10 @@ export const createAdditions = (
       const own = named.get(f);
       return own == null ? [] : [own];
     });
-    const index =
-      indexField == null
-        ? undefined
-        : fields.find(({ pointer }) => pointer === indexField.pointer)?.key;
+    const index = fields.find(({ pointer }) => pointer === shape.index)?.key;
     const message: icd.Message = {
       key: uuid.create(),
-      name: uniqueName(
-        ICD.kindName(nameOf(recordKeys[0]), presentOf(shape)?.pointer),
-        taken,
-      ),
+      name: uniqueName(ICD.kindName(nameOf(recordKeys[0]), shape.present), taken),
       payload: { format: "json", fields, ...matchOf(shape) },
     };
     taken.push(message);
@@ -440,19 +425,17 @@ const createKindMessage = (
   taken: icd.Message[],
   nameOf: (recordKey: string) => string,
 ): KindMessage => {
-  const indexField = shape.index == null ? undefined : shape.fields[shape.index];
-  const kept = shape.fields.filter((f) => f === indexField || picked.includes(f));
+  const kept = shape.fields.filter(
+    (f) => f.pointer === shape.index || picked.includes(f),
+  );
   const names = ICD.fieldNames(kept.map(({ pointer }) => pointer));
   const fields = kept.map((f, i) => ICD.createReadField(f, names[i]));
   const message: icd.Message = {
     key: uuid.create(),
-    name: uniqueName(
-      ICD.kindName(nameOf(record.recordKey), presentOf(shape)?.pointer),
-      taken,
-    ),
+    name: uniqueName(ICD.kindName(nameOf(record.recordKey), shape.present), taken),
     payload: { format: "json", fields, ...matchOf(shape) },
   };
-  const index = indexField == null ? undefined : fields[kept.indexOf(indexField)].key;
+  const index = fields.find(({ pointer }) => pointer === shape.index)?.key;
   const read = readOf(
     message,
     index,

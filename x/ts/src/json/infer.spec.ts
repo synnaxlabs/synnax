@@ -16,8 +16,9 @@ const field = {
   kind: "timestamp",
   type: "number",
   timeFormat: "unix_ms",
-  enum: [],
+  enumLabels: [],
   optional: false,
+  sample: "1767323045123",
 };
 
 describe("shapeZ", () => {
@@ -25,24 +26,18 @@ describe("shapeZ", () => {
     const shape = json.shapeZ.parse({
       sources: ["tank-1"],
       fields: [field],
-      index: 0,
+      index: "/ts",
       count: 2,
-      present: 0,
+      present: "/ts",
     });
-    expect(shape.index).toEqual(0);
-    expect(shape.present).toEqual(0);
+    expect(shape.index).toEqual("/ts");
+    expect(shape.present).toEqual("/ts");
     expect(shape.fields[0]?.kind).toEqual("timestamp");
     expect(shape.fields[0]?.timeFormat).toEqual("unix_ms");
   });
 
-  it("should read a negative index or present field as none", () => {
-    const shape = json.shapeZ.parse({
-      sources: [],
-      fields: [field],
-      index: -1,
-      count: 2,
-      present: -1,
-    });
+  it("should read an absent index or present field as none", () => {
+    const shape = json.shapeZ.parse({ sources: [], fields: [field], count: 2 });
     expect(shape.index).toBeUndefined();
     expect(shape.present).toBeUndefined();
   });

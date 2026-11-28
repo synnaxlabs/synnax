@@ -31,8 +31,16 @@ describe("MQTT.Device browse", () => {
       payload: '{"v": 21.5}',
       shapes: [
         {
+          sources: [],
           fields: [
-            { pointer: "/v", type: "number", kind: "float", sample: "21.5", enum: [] },
+            {
+              pointer: "/v",
+              type: "number",
+              kind: "float",
+              sample: "21.5",
+              enumLabels: [],
+              optional: false,
+            },
           ],
           count: 1,
         },

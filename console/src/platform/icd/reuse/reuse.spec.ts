@@ -61,11 +61,14 @@ describe("Reuse", () => {
       pointer,
       kind: "string",
       type: "string",
-      enum: [],
+      enumLabels: [],
       optional,
+      sample: '""',
     });
-    const inferredShape = (fields: json.InferredField[], present = -1): json.Shape =>
-      json.shapeZ.parse({ sources: [""], fields, index: -1, count: 2, present });
+    const inferredShape = (
+      fields: json.InferredField[],
+      present?: string,
+    ): json.Shape => json.shapeZ.parse({ sources: [""], fields, count: 2, present });
 
     it("should give a field the value that every document holds", () => {
       const s = inferredShape([inferred("/kind"), inferred("/id")]);
@@ -97,7 +100,7 @@ describe("Reuse", () => {
     });
 
     it("should give the pointer of the field that tells the shape apart", () => {
-      const s = inferredShape([inferred("/id"), inferred("/fault")], 1);
+      const s = inferredShape([inferred("/id"), inferred("/fault")], "/fault");
       expect(ICD.Reuse.shapeOf(s, []).present).toBe("/fault");
       expect(
         ICD.Reuse.shapeOf(inferredShape([inferred("/id")]), []).present,

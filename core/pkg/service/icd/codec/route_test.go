@@ -72,7 +72,7 @@ var _ = Describe("Routes", func() {
 				Expect(shapes).To(HaveLen(1))
 				pointers := lo.Map(
 					shapes[0].Fields,
-					func(f xjson.InferredField, _ int) string { return f.Pointer.String() },
+					func(f xjson.InferredField, _ int) string { return f.Pointer },
 				)
 				Expect(pointers).To(ConsistOf(c.Fields))
 			}
