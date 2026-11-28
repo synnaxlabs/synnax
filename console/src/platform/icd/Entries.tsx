@@ -30,6 +30,7 @@ import {
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { MessageLabel, SuitRead } from "@/platform/icd/Bindings";
+import { messageOf } from "@/platform/icd/configure";
 import {
   AddField,
   FieldDetails,
@@ -41,6 +42,7 @@ import {
 import {
   type FormatForm,
   formatOf,
+  messagesOf,
   useFormats,
   WithFormats,
 } from "@/platform/icd/Formats";
@@ -265,18 +267,25 @@ const Panes = ({
   });
 
   /**
-   * Adds an entry that reads a new binary message with no fields, in the ICD that the
-   * most entries read, or in a new ICD named after the device when no entry reads one.
+   * Adds an entry that reads a new message with no fields, in the ICD that the most
+   * entries read, or in a new ICD named after the device when no entry reads one. The
+   * Core reads the entries as one stream of one format, so the message takes the format
+   * of the messages that the entries read, or binary when they read none.
    */
   const add = async () => {
     if (client == null) throw new DisconnectedError();
-    const home = mostRead(ctx.get(ENTRIES).value);
+    const current = ctx.get(ENTRIES).value;
+    const home = mostRead(current);
     const form = home == null ? null : formatOf(formats, home);
     const held = form?.value().messages ?? [];
+    const messages = messagesOf(formats);
+    const read = current
+      .flatMap((entry) => entry.messages.map((_, r) => messageOf(messages, entry, r)))
+      .find((m) => m != null);
     const message: icd.Message = {
       key: uuid.create(),
       name: messageName(held),
-      payload: createPayload("binary"),
+      payload: createPayload(read?.payload.format ?? "binary"),
     };
     let icdKey = home;
     if (form == null)

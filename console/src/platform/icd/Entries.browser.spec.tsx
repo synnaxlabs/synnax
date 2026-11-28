@@ -149,6 +149,24 @@ describe("ICD.Entries", () => {
     });
   });
 
+  it("should add an entry that reads a message of the format the other entries read", async () => {
+    const { key, device } = await renderEntries();
+    await addEntry(device);
+    await pickNewMessage("Message 1", "New text message");
+    await waitFor(async () => {
+      const [entry] = await retrieveEntries(key);
+      const { messages } = await client.icds.retrieve(entry.icd);
+      expect(messages.map(({ payload }) => payload.format)).toEqual(["text"]);
+    });
+    const item = await addEntry(device);
+    await within(item).findByText("TEXT");
+    const [, entry] = await awaitEntries(key, 2);
+    const { messages } = await client.icds.retrieve(entry.icd);
+    expect(
+      messages.find(({ key }) => key === entry.messages[0].message)?.payload.format,
+    ).toBe("text");
+  });
+
   it("should switch an entry off", async () => {
     const { key, device } = await renderEntries();
     const item = await addEntry(device);
