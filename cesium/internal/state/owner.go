@@ -187,7 +187,8 @@ func (s *State) drain() {
 	s.failParked(err)
 }
 
-// run is one step of the owner: it runs every queued request.
+// run is one step of the owner: it runs every queued request, and ends the publish
+// count after each.
 func (s *State) run() {
 	s.mu.Lock()
 	queue, closed := s.mu.queue, s.mu.closed
@@ -199,13 +200,13 @@ func (s *State) run() {
 			continue
 		}
 		r.run(s)
+		s.core.count.end()
 	}
 	if err := s.Err(); err != nil {
 		s.failParked(err)
 	} else if closed {
 		s.failParked(errClosed)
 	}
-	s.core.count.end()
 	s.stepped <- closed
 }
 
@@ -290,10 +291,10 @@ func (s *State) Channel(key uint32) *Channel {
 }
 
 // Load sets each of chs to the visible state of the key of keys at its index, from one
-// step of the owner, or to nil for a key that the state holds no segment of. It loads
-// them all again while the owner publishes between its loads. It returns the publish
-// count of the loads, which is at or past a Count read before the call. chs must be as
-// long as keys.
+// request of the owner, or to nil for a key that the state holds no segment of. It
+// loads them all again while the owner publishes between its loads. It returns the
+// publish count of the loads, which is at or past a Count read before the call. chs
+// must be as long as keys.
 func (s *State) Load(keys []uint32, chs []*Channel) uint64 {
 	for {
 		count := s.core.count.n.Load()
@@ -310,8 +311,8 @@ func (s *State) Load(keys []uint32, chs []*Channel) uint64 {
 	}
 }
 
-// Count returns the publish count of the owner, which is odd while a step publishes and
-// grows by two with each step that publishes. It takes no lock.
+// Count returns the publish count of the owner, which is odd while a request publishes
+// and grows by two with each request that publishes. It takes no lock.
 func (s *State) Count() uint64 { return s.core.count.n.Load() }
 
 type durableRequest struct {
@@ -431,7 +432,7 @@ type Dead struct {
 	// no durable record named the segment.
 	Sequence uint64
 	// Count is the publish count from which no Load sees the segment: the count at the
-	// end of the step of the owner that took it out of what readers see.
+	// end of the request of the owner that took it out of what readers see.
 	Count uint64
 }
 

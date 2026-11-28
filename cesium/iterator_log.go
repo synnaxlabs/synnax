@@ -23,10 +23,10 @@ import (
 )
 
 // logView holds the Channels of a clock and of the keys it times, for one read. It
-// loads them from one step of the state at the first seek of each step of the read in
-// which the state published. A key that a load drops keeps its last Channel for the
-// rest of the read, and so does every key once a load drops the clock or cuts its
-// stamps, since the keys take their stamps from it.
+// loads them from one request of the state's owner, at the first seek of each step of
+// the read in which the state published. A key that a load drops keeps its last Channel
+// for the rest of the read, and so does every key once a load drops the clock or cuts
+// its stamps, since the keys take their stamps from it.
 type logView struct {
 	e *engine
 	// keys holds the clock and then each key of the read on it, and chs their Channels.

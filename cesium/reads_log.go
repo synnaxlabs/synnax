@@ -27,7 +27,7 @@ type readCount struct {
 // register registers the publish count of the state for a read, which then loads with
 // State.Load, and returns it. Until unregister, cover keeps each dead segment whose
 // Count is past the count. A segment that free took before the call has a Count at most
-// one past it, and Load waits out that step.
+// one past it, and Load waits out that request.
 func (e *engine) register() uint64 {
 	e.cover.Lock()
 	defer e.cover.Unlock()

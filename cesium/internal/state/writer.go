@@ -703,11 +703,12 @@ func sortSeals(seals []log.Seal) {
 
 type switchRequest struct{ generation uint64 }
 
-// run seals each open segment that no writer holds, takes the durable snapshot that the
-// head of the new log holds, appends the Seals, and hands the snapshot over. An unheld
-// open segment that no durable Create made has no durable byte, so it leaves the state
-// for the database to unlink.
+// run takes the durable snapshot that the head of the new log holds, seals each open
+// segment that no writer holds, appends the Seals, and hands the snapshot over. An
+// unheld open segment that no durable Create made has no durable byte, so it leaves the
+// state for the database to unlink.
 func (r *switchRequest) run(s *State) {
+	snap := s.core.snapshot()
 	var seals []log.Seal
 	for id, seg := range s.core.segments {
 		if seg.holder != nil || seg.vis.Sealed {
@@ -726,7 +727,6 @@ func (r *switchRequest) run(s *State) {
 		s.core.channels[seg.key].publish()
 	}
 	sortSeals(seals)
-	snap := s.core.snapshot()
 	if len(seals) > 0 {
 		var e log.Entry
 		for i := range seals {

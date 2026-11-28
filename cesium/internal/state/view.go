@@ -54,14 +54,14 @@ type chanState struct {
 }
 
 // pubCount counts the publishes of the owner, for a reader that loads more than one
-// Channel: it is odd while a step of the owner publishes, and grows by two with each
-// step that publishes. Only the owner writes it.
+// Channel: it is odd while a request of the owner publishes, and grows by two with each
+// request that publishes. Only the owner writes it.
 type pubCount struct {
 	n    atomic.Uint64
 	open bool
 }
 
-// begin makes the count odd before the first publish of a step.
+// begin makes the count odd before the first publish of a request.
 func (p *pubCount) begin() {
 	if !p.open {
 		p.open = true
@@ -69,7 +69,7 @@ func (p *pubCount) begin() {
 	}
 }
 
-// end makes the count even again at the end of a step that published.
+// end makes the count even again at the end of a request that published.
 func (p *pubCount) end() {
 	if p.open {
 		p.open = false
