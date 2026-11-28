@@ -583,8 +583,8 @@ var _ = Describe("Delete on the pointer log", func() {
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, span(0, 15))).
 			To(Succeed())
-		Eventually(func() int {
-			Expect(iter.SeekFirst()).To(BeTrue())
+		Eventually(func(g Gomega) int {
+			g.Expect(iter.SeekFirst()).To(BeTrue())
 			return segments()
 		}).Should(Equal(1))
 	})
@@ -629,8 +629,8 @@ var _ = Describe("Delete on the pointer log", func() {
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, span(0, 15))).
 			To(Succeed())
-		Eventually(func() int {
-			Expect(iter.SeekFirst()).To(BeTrue())
+		Eventually(func(g Gomega) int {
+			g.Expect(iter.SeekFirst()).To(BeTrue())
 			return segments()
 		}).Should(Equal(1))
 		Expect(iter.Next(cesium.AutoSpan)).To(BeTrue())
@@ -659,7 +659,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			Expect(got).To(Equal([]int64{10, 11, 20, 21}))
 			Expect(iter.Close()).To(Succeed())
 			dir := strconv.FormatUint(uint64(data), 10)
-			Eventually(func() []xfs.FileInfo { return MustSucceed(fs.List(dir)) }).
+			Eventually(fs.List).WithArguments(dir).
 				Should(BeEmpty(), "the last reader unlinks the segments")
 		})
 

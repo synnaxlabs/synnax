@@ -739,11 +739,7 @@ var _ = Describe("Drop on the pointer log", func() {
 		close(gate.release)
 		Eventually(dropped).Should(Receive(BeNil()))
 		Expect(fs.Exists(strconv.Itoa(int(clock)))).To(BeFalse())
-		counts := fs.counts()
-		Expect(counts).ToNot(BeEmpty())
-		for name, n := range counts {
-			Expect(n).To(Equal(1), name)
-		}
+		Expect(fs.counts()).To(HaveEach(1))
 	})
 
 	It("Should remove the files of a key only once the log covers its Drop", func(

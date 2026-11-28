@@ -150,7 +150,7 @@ var _ = Describe("OnDead", func() {
 		var dead []state.Dead
 		Eventually(pushed).Should(Receive(&dead))
 		Expect(dead).To(HaveExactElements(deadSegment(3, 6, 10)))
-		Expect(<-counts).To(BeNumerically(">=", dead[0].Count))
+		Eventually(counts).Should(Receive(BeNumerically(">=", dead[0].Count)))
 	})
 
 	It("Should get the Deads of a replayed entry before Run", func() {
@@ -210,8 +210,7 @@ var _ = Describe("Count", func() {
 			Expect(s.Switch(4)).To(Succeed())
 			gate.Store(nil)
 			close(g)
-			var at bool
-			Eventually(even).Should(Receive(&at))
-			Expect(at).To(BeTrue(), "the switch runs at an even count")
+			Eventually(even).
+				Should(Receive(BeTrue()), "the switch runs at an even count")
 		})
 })
