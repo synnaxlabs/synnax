@@ -70,27 +70,32 @@ _LIBRARY_DIRS = tuple(
 )
 
 
+def warn_deprecated(msg: str) -> None:
+    """Warns with msg as a DeprecationWarning that names the first frame outside the
+    client.
+    """
+    warnings.warn(msg, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS)
+
+
 def _warn_secure() -> None:
-    warnings.warn(
-        _SECURE_DEPRECATED_MSG, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS
-    )
+    warn_deprecated(_SECURE_DEPRECATED_MSG)
 
 
 def without_secure(source: Mapping[str, Any]) -> Mapping[str, Any]:
     """Returns the options that one source sets, with the deprecated secure replaced by
-    insecure. Warns with DeprecationWarning when the source sets secure without
-    insecure. A source may set both when they agree, with no warning, so that clients
-    older and newer than Synnax 0.63 read the same choice.
+    insecure. Warns with a DeprecationWarning when source sets secure without insecure.
+    When source sets both, they must agree, so that clients older and newer than Synnax
+    0.63 read the same choice.
 
     :raises ValidationError: If the source sets both, and secure is not the inverse of
         insecure.
     """
     if "secure" not in source:
         return source
+    rest = {k: v for k, v in source.items() if k != "secure"}
     insecure = not source["secure"]
     if "insecure" not in source:
-        _warn_secure()
+        warn_deprecated(_SECURE_DEPRECATED_MSG)
     elif source["insecure"] != insecure:
         raise ValidationError(_TLS_FLAGS_DISAGREE_MSG)
-    rest = {k: v for k, v in source.items() if k != "secure"}
     return {**rest, "insecure": insecure}

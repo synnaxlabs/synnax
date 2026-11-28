@@ -101,8 +101,8 @@ jobs:
               raise SystemExit("The client connected to a Core that does not exist.")
           EOF
           docker run --rm --volume "$RUNNER_TEMP/dist:/dist:ro" \
-            --env SYNNAX_HOST=localhost --env SYNNAX_PORT=9090 \
-            --env SYNNAX_API_KEY=key \
+            --env SYNNAX_CLIENT_HOST=localhost --env SYNNAX_CLIENT_PORT=9090 \
+            --env SYNNAX_CLIENT_API_KEY=key \
             --env PYTHON_KEYRING_BACKEND=keyring.backends.fail.Keyring \
             "$IMAGE" sh -euc '
               pip install --quiet --root-user-action=ignore \

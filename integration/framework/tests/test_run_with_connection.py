@@ -57,7 +57,7 @@ class TestRunScripts:
     def test_should_not_inherit_the_ca_cert_of_the_parent(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("SYNNAX_CA_CERT", "/parent/ca.crt")
+        monkeypatch.setenv("SYNNAX_CLIENT_CA_CERT", "/parent/ca.crt")
         assert run(SynnaxConnection()) == [
             f"{SCRIPT}: ca_cert=None",
             f"{SCRIPT}: insecure=True",
