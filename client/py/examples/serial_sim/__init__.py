@@ -9,6 +9,6 @@
 
 """Serial device simulator package."""
 
-from .server import SerialSim, run_server
+from .server import SerialSim, reading, run_server
 
-__all__ = ["SerialSim", "run_server"]
+__all__ = ["SerialSim", "reading", "run_server"]
