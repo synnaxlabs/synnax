@@ -191,6 +191,9 @@ func (s *Service) NewStream(
 		}
 	} else {
 		distCfg.Keys = lo.Uniq(append(distCfg.Keys, indexes...))
+		if calcTransform == nil {
+			distCfg.Clocks, distCfg.UntimedKeys = indexes, cfg.UntimedKeys
+		}
 	}
 	if calcTransform != nil {
 		// A calculation must see every sample its expression was written over. Fed a
@@ -209,10 +212,6 @@ func (s *Service) NewStream(
 	var routeInletsTo, routeOutletFrom address.Address = "distribution", "distribution"
 	if times != nil {
 		p.SetSegment("time", times)
-		p.MustConnect[Response](routeOutletFrom, "time", 25)
-		routeOutletFrom = "time"
-	} else if calcTransform == nil && len(indexes) > 0 {
-		p.SetSegment("time", newTimeFilter(cfg.Keys, cfg.UntimedKeys))
 		p.MustConnect[Response](routeOutletFrom, "time", 25)
 		routeOutletFrom = "time"
 	}
@@ -263,24 +262,6 @@ func chunkClocks(cfg Config, channels []channel.Channel) channel.Keys {
 		clocks = append(clocks, index)
 	}
 	return lo.Uniq(clocks)
-}
-
-// newTimeFilter returns a transform that keeps, in each data response, the series of
-// keys and the time series that they need, and drops a response that keeps none. See
-// Frame.KeepTimed.
-func newTimeFilter(
-	keys, untimed channel.Keys,
-) *confluence.LinearTransform[Response, Response] {
-	kept, skipped := set.New(keys...), set.New(untimed...)
-	t := &confluence.LinearTransform[Response, Response]{}
-	t.Transform = func(_ context.Context, res Response) (Response, bool, error) {
-		if res.Variant != ResponseVariantData {
-			return res, true, nil
-		}
-		res.Frame = res.Frame.KeepTimed(kept, skipped)
-		return res, res.Frame.Count() > 0, nil
-	}
-	return t
 }
 
 // addCalculationSegments adds the calculation transform to p after the distribution
