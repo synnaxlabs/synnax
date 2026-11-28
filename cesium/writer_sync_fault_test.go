@@ -11,12 +11,10 @@ package cesium_test
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -131,25 +129,17 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 		}
 		return values
 	}
-	running := func() {
-		GinkgoHelper()
-		select {
-		case err := <-ran:
-			Fail("Run ended: " + fmt.Sprint(err))
-		case <-time.After(200 * time.Millisecond):
-		}
-	}
 
 	It("Should keep running after a failed directory sync of a new segment, and sync "+
 		"the directory at the next segment", func(ctx SpecContext) {
 		faults.dirs.Store(true)
 		Expect(write(ctx, 10, 11, 12)).To(MatchError(errSyncFault))
-		running()
+		Consistently(ran).ShouldNot(Receive())
 		faults.dirs.Store(false)
 		before := faults.synced.Load()
 		Expect(write(ctx, 20, 21)).To(Succeed())
 		Expect(faults.synced.Load()).To(BeNumerically(">", before))
-		running()
+		Consistently(ran).ShouldNot(Receive())
 		Expect(stored(ctx)).To(Equal([]int64{20, 21}))
 	})
 
@@ -163,10 +153,10 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 		faults.logSyncs.Store(true)
 		faults.lose.Store(lost)
 		Expect(write(ctx, 20, 21)).To(MatchError(errSyncFault))
-		running()
+		Consistently(ran).ShouldNot(Receive())
 		faults.logSyncs.Store(false)
 		Expect(write(ctx, 30, 31)).To(MatchError(errSyncFault))
-		running()
+		Consistently(ran).ShouldNot(Receive())
 		Expect(shut()).To(MatchError(errSyncFault))
 		open(ctx)
 		Expect(stored(ctx)).To(Equal(want))
@@ -210,10 +200,10 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 		Expect(write(ctx, 10, 11, 12)).To(Succeed())
 		full.Store(true)
 		Expect(write(ctx, 20, 21)).To(MatchError(syscall.ENOSPC))
-		running()
+		Consistently(ran).ShouldNot(Receive())
 		full.Store(false)
 		Expect(write(ctx, 30, 31)).To(Succeed())
-		running()
+		Consistently(ran).ShouldNot(Receive())
 		Expect(stored(ctx)).To(Equal([]int64{10, 11, 12, 30, 31}))
 	},
 		Entry("on a segment", &faults.segmentsFull),
