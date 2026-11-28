@@ -16,7 +16,7 @@ import { Serial } from "@/feature/serial";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack, createTestDevice } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { selectFromDropdown } from "@/platform/task/testutil";
+import { commitFieldInput, selectFromDropdown } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
@@ -71,12 +71,8 @@ describe("Serial.Device.useConnectModal", () => {
     fireEvent.change(screen.getByPlaceholderText("/dev/ttyUSB0"), {
       target: { value: "/dev/ttyUSB3" },
     });
-    const baudRate = screen.getByDisplayValue("9600");
-    fireEvent.change(baudRate, { target: { value: "115200" } });
-    fireEvent.blur(baudRate);
-    const dataBits = screen.getByDisplayValue("8");
-    fireEvent.change(dataBits, { target: { value: "7" } });
-    fireEvent.blur(dataBits);
+    commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("9600"), "115200");
+    commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("8"), "7");
     await selectFromDropdown("None", "Even");
     await selectFromDropdown("1", "2");
     await selectFromDropdown("None", "RTS/CTS");
