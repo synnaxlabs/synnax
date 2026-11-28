@@ -10,6 +10,10 @@
 package channel_test
 
 import (
+	"encoding/json/v2"
+	"os"
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -23,6 +27,19 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// The vectors pin the path that the TypeScript client builds to the path that the Core
+// builds.
+const pathVectorsPath = "../../../testdata/paths/vectors.json"
+
+type pathVectors struct {
+	Cases []struct {
+		Name    string   `json:"name"`
+		Folders []string `json:"folders"`
+		Channel string   `json:"channel"`
+		Path    string   `json:"path"`
+	} `json:"cases"`
+}
 
 var _ = Describe("Paths", Ordered, func() {
 	var (
@@ -226,6 +243,41 @@ var _ = Describe("Paths", Ordered, func() {
 			Path: &filter.Set[string]{In: []string{decomposed}},
 		})
 		Expect(keysAt(ctx, db, MustSucceed(channel.MatchWhere(w)))).To(HaveLen(1))
+	})
+
+	It("Should build the path of each case that the TypeScript client shares", func(
+		ctx SpecContext,
+	) {
+		var vectors pathVectors
+		Expect(json.Unmarshal(MustSucceed(os.ReadFile(pathVectorsPath)), &vectors)).
+			To(Succeed())
+		Expect(vectors.Cases).ToNot(BeEmpty())
+		for i, c := range vectors.Cases {
+			By(c.Name)
+			top, suffix := UniqueChannelName(), "_"+strconv.Itoa(i)
+			var key channel.Key
+			want := top + "." + c.Path + suffix
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if len(c.Folders) == 0 {
+					want = c.Path + suffix
+					key = create(tx, ctx, c.Channel+suffix, nil)
+					return nil
+				}
+				parent := folder(tx, ctx, top, nil)
+				for _, name := range c.Folders {
+					parent = folder(tx, ctx, name, &parent)
+				}
+				key = create(tx, ctx, c.Channel+suffix, &parent)
+				return nil
+			})).To(Succeed())
+			var ch channel.Channel
+			Expect(svc.NewRetrieve().
+				Where(channel.MatchKeys(key)).
+				Entry(&ch).
+				Exec(ctx, db)).To(Succeed())
+			paths := MustSucceed(channel.Paths(ctx, db, []channel.Channel{ch}))
+			Expect(channel.PathTexts(paths)).To(Equal([]string{want}))
+		}
 	})
 })
 

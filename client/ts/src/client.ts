@@ -465,6 +465,25 @@ export default class Synnax extends framer.Client {
       labels: this.labels,
       cache,
     });
+    this.groups = new group.Client({
+      unary,
+      cache,
+      batch: this.batch,
+      setGroup: {
+        channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
+        color: (keys, to) => this.colors.setGroupRequest(keys, to),
+        device: (keys, to) => this.devices.setGroupRequest(keys, to),
+        lineplot: (keys, to) => this.lineplots.setGroupRequest(keys, to),
+        log: (keys, to) => this.logs.setGroupRequest(keys, to),
+        panel: (keys, to) => this.panels.setGroupRequest(keys, to),
+        project: (keys, to) => this.projects.setGroupRequest(keys, to),
+        rack: (keys, to) => this.racks.setGroupRequest(keys.map(Number), to),
+        schematic: (keys, to) => this.schematics.setGroupRequest(keys, to),
+        schematic_symbol: (keys, to) =>
+          this.schematics.symbols.setGroupRequest(keys, to),
+        table: (keys, to) => this.tables.setGroupRequest(keys, to),
+      },
+    });
     this.channels = new channel.Client({
       framer: this,
       unary,
@@ -472,6 +491,7 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       cache,
       batch: this.batch,
+      groups: this.groups,
     });
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
@@ -526,25 +546,6 @@ export default class Synnax extends framer.Client {
     });
     this.certificates = new certificate.Client({ unary, cache });
     this.icds = new icd.Client({ unary, cache });
-    this.groups = new group.Client({
-      unary,
-      cache,
-      batch: this.batch,
-      setGroup: {
-        channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
-        color: (keys, to) => this.colors.setGroupRequest(keys, to),
-        device: (keys, to) => this.devices.setGroupRequest(keys, to),
-        lineplot: (keys, to) => this.lineplots.setGroupRequest(keys, to),
-        log: (keys, to) => this.logs.setGroupRequest(keys, to),
-        panel: (keys, to) => this.panels.setGroupRequest(keys, to),
-        project: (keys, to) => this.projects.setGroupRequest(keys, to),
-        rack: (keys, to) => this.racks.setGroupRequest(keys.map(Number), to),
-        schematic: (keys, to) => this.schematics.setGroupRequest(keys, to),
-        schematic_symbol: (keys, to) =>
-          this.schematics.symbols.setGroupRequest(keys, to),
-        table: (keys, to) => this.tables.setGroupRequest(keys, to),
-      },
-    });
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,

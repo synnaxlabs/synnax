@@ -31,6 +31,7 @@ import {
   rename,
   scopedActionZ,
 } from "@/channel/actions";
+import { Paths } from "@/channel/paths";
 import {
   analyzeParams,
   isCalculated,
@@ -136,6 +137,12 @@ export class Channel {
   readonly status?: status.Status;
   /** The group the channel sits in, if any. */
   readonly group?: group.Key;
+  /**
+   * The names of the channel's folders from the top, then its name, joined by '.'. Set
+   * only by a retrieve with `includePath`, and absent when a folder on it is hidden or
+   * not cached. The payload does not carry it.
+   */
+  readonly path?: string;
 
   constructor({
     dataType,
@@ -152,6 +159,7 @@ export class Channel {
     operations = [],
     concurrency = control.Concurrency.exclusive,
     group: groupKey,
+    path,
   }: New & { frameClient?: framer.Client }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
@@ -167,6 +175,7 @@ export class Channel {
     });
     this.concurrency = concurrency;
     this.group = groupKey;
+    this.path = path;
     if (argsStatus != null)
       this.status = zod.parse(statusZ, argsStatus, { label: "channel status" });
     this.frameClient = frameClient ?? null;
@@ -249,8 +258,9 @@ type OneParams = query.OneInput<typeof retrieveParamsZ>;
 const isOneParams = (params: object): params is RetrieveSingleParams | OneParams =>
   query.addressesOne(params);
 
-/** Statuses are composed from their store on read. */
-const stripComposed = ({ status: _status, ...rest }: Payload): Payload => rest;
+/** Statuses and paths are composed on read. */
+const stripComposed = ({ status: _status, path: _path, ...rest }: Payload): Payload =>
+  rest;
 
 const singleParamsZ = z.union([
   z.strictObject({ key: z.uint32() }),
@@ -284,6 +294,8 @@ export interface ClientConfig {
   statuses: status.Client;
   cache: query.Cache;
   batch: batch.Client;
+  /** The groups, whose folders the path of each channel passes. */
+  groups: group.Client;
 }
 
 /**
@@ -306,6 +318,7 @@ export class Client extends query.Retriever<
   /** Builds requests that move channels between groups. */
   readonly setGroupRequest: group.MoveRequest<Key>;
   private readonly byName: query.LookupIndex<Key, Channel>;
+  private readonly paths: Paths;
 
   constructor(cfg: ClientConfig) {
     const { writer, statuses, cache } = cfg;
@@ -358,6 +371,11 @@ export class Client extends query.Retriever<
       ],
     });
     statuses.holdOwned(store, resourceID);
+    const paths = new Paths({
+      channels: store,
+      groups: cfg.groups,
+      onError: cache.onError,
+    });
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
       name: "channel",
       table: composed,
@@ -384,12 +402,10 @@ export class Client extends query.Retriever<
               query.includeStatus === true ? affectedChannelKeys(event) : null,
             { contentOnly: true },
           ),
+          ...paths.triggers,
         ],
       },
-      compose: (ch, query) =>
-        (query as RetrieveRequest).includeStatus === true
-          ? this.compose(ch.payload)
-          : ch,
+      compose: (ch, query) => this.composeRequest(ch, query as RetrieveRequest),
       single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
@@ -400,6 +416,7 @@ export class Client extends query.Retriever<
       dispatcher.request("/channel/dispatch", key, acts, dispatchResZ),
     );
     this.byName = byName;
+    this.paths = paths;
   }
 
   /**
@@ -643,6 +660,16 @@ export class Client extends query.Retriever<
     return this.sugar(next);
   }
 
+  /** Rebuilds a cached channel with the fields that the request asks for. */
+  private composeRequest(
+    ch: Channel,
+    { includeStatus, includePath }: RetrieveRequest,
+  ): Channel {
+    const composed = includeStatus === true ? this.compose(ch.payload) : ch;
+    if (includePath !== true) return composed;
+    return this.sugar({ ...composed.payload, path: this.paths.get(ch) });
+  }
+
   /**
    * Fetches channel payloads. Missing channels are omitted, not thrown. Saves the
    * statuses the Core returns.
@@ -703,6 +730,8 @@ export class Client extends query.Retriever<
     const names = onlyNames(req);
     const resolved = names != null ? this.resolveNames(names) : null;
     if (resolved != null) return resolved;
-    return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
+    const payloads = await this.execRetrieve(req);
+    if (req.includePath === true) await this.paths.fill(payloads);
+    return payloads.map((p) => this.sugar(stripComposed(p)));
   }
 }

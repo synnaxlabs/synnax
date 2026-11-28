@@ -119,7 +119,10 @@ export interface Trigger<P extends Params, K extends record.Key> {
     onEvent: (result: K[] | "refetch") => void,
     members: () => readonly K[],
   ) => destructor.Destructor;
-  /** The foreign table's {@link Table.version}. */
+  /**
+   * A count that changes whenever the trigger's source changes what an answer composes,
+   * such as the foreign table's {@link Table.version}.
+   */
   version: () => number;
   /**
    * Whether the table's changes leave the matches of every query as they were, so a
