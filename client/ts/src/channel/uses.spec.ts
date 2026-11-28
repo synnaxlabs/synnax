@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import type { channel } from "@/channel";
-import { createTestClient } from "@/testutil";
+import { createTestClient, waitForStreamLive } from "@/testutil";
 
 const client = createTestClient();
 
@@ -74,6 +74,45 @@ describe("Uses", () => {
     await expect
       .poll(async () => (await client.channels.retrieve(request))[0].uses)
       .toEqual([{ id: { type: "schematic", key: sch.key }, direction: "read" }]);
+  });
+
+  it("should read the uses again after an NI device starts to use the channel", async () => {
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    const ch = await createChannel();
+    const sch = await createSchematic(ch);
+    const live = client.channels.watch({
+      where: { key: { eq: ch.key } },
+      includeUses: true,
+    });
+    onTestFinished(live.onChange(() => {}));
+    await live.retrieve();
+    const cachedUses = () => live.getCached()?.records[0]?.uses;
+    const schematicUse = { id: { type: "schematic", key: sch.key }, direction: "read" };
+    expect(cachedUses()).toEqual([schematicUse]);
+    const rack = await client.racks.create({ name: `uses-${id.create()}` });
+    const dev = await client.ni.devices.create({
+      rack: rack.key,
+      name: `uses-${id.create()}`,
+      resourceName: id.create(),
+      model: "PXIe-4300",
+    });
+    await client.ni.devices.update(dev.key, {
+      group: "configuration",
+      name: dev.name,
+      identifier: "",
+      analogInput: { index: 0, temperature: ch.key, channels: {} },
+      analogOutput: {},
+      counterInput: {},
+      digitalInput: {},
+      digitalOutput: {},
+    });
+    await expect
+      .poll(cachedUses)
+      .toEqual([
+        { id: { type: "ni_device", key: dev.key }, direction: "write" },
+        schematicUse,
+      ]);
   });
 });
 
