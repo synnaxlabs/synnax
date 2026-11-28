@@ -362,8 +362,20 @@
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "Channel",
+      "caller": "sy-6398-17b-pointer-log-state"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
       "name": "Config",
       "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "Limits",
+      "caller": "sy-6398-17b-pointer-log-state"
     },
     {
       "module": "cesium",
@@ -376,6 +388,24 @@
       "package": "github.com/synnaxlabs/cesium/internal/state",
       "name": "Open",
       "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "Pointer",
+      "caller": "sy-6398-17b-pointer-log-state"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "Segment",
+      "caller": "sy-6398-17b-pointer-log-state"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "Snapshot",
+      "caller": "sy-6398-17b-pointer-log-state"
     },
     {
       "module": "cesium",
