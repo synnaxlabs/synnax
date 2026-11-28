@@ -35,6 +35,7 @@ import {
 
 import { Device } from "@/feature/kafka/device";
 import {
+  type Addition,
   createRecords,
   type Extension,
   type KindMessage,
@@ -45,7 +46,13 @@ import {
 } from "@/feature/kafka/task/additions";
 import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
-import { planAdd, type TopicAdditions } from "@/feature/kafka/task/plan";
+import {
+  findProblem,
+  type Plan,
+  planAdd,
+  type TopicAdditions,
+  type TopicPick,
+} from "@/feature/kafka/task/plan";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -516,10 +523,13 @@ const Records: FC<RecordsProps> = ({
   const addRecords = async (additions: Map<string, TopicAdditions>) => {
     if (client == null) throw new DisconnectedError();
     const home = ICD.mostRead(records);
-    const newIn = (target?: icd.Key): icd.Message[] =>
+    const addedIn = (target?: icd.Key): Addition[] =>
       [...additions.values()]
         .filter(({ icd: k }) => (k ?? home) === target)
-        .flatMap(({ added }) => added.filter((a) => a.reused !== true))
+        .flatMap(({ added }) => added);
+    const newIn = (target?: icd.Key): icd.Message[] =>
+      addedIn(target)
+        .filter(({ reused }) => reused !== true)
         .map(({ message }) => message);
     const created =
       home == null
@@ -536,6 +546,13 @@ const Records: FC<RecordsProps> = ({
         for (const message of newIn(target)) {
           format.insert(PICD.formPath.messages, message, after);
           after = message.key;
+        }
+        for (const { message, appended } of addedIn(target)) {
+          if (appended == null || appended.length === 0) continue;
+          const held = format.value().messages.find(({ key }) => key === message.key);
+          if (held == null)
+            throw new Error(`ICD ${target} has no message ${message.key}`);
+          ICD.appendFields(format, held, appended);
         }
       });
     }
@@ -608,9 +625,22 @@ const Records: FC<RecordsProps> = ({
       }
     });
 
+  /**
+   * @returns what an add of the picks of topics, and of an empty record of record,
+   * puts in the ICDs and the task.
+   */
+  const plan = (picked: TopicPick[], record: string | null = null): Plan =>
+    planAdd({
+      topics: picked,
+      record,
+      recordsOf: topicRecords,
+      messagesOf,
+      home: ICD.mostRead(records),
+      nameOf: topicMessageName,
+    });
+
   /** Adds the fields that the user picks from topics, and any empty record. */
   const add = async () => {
-    const home = ICD.mostRead(records);
     const result = await addData({
       device,
       topic: selectedTopic(),
@@ -618,17 +648,18 @@ const Records: FC<RecordsProps> = ({
       reads: (name) => readsOf(topicRecords(name), messagesOf),
       label,
       formats,
-      home,
+      home: ICD.mostRead(records),
+      plan,
     });
     if (result == null) return;
-    const { extensions, kinds, additions } = planAdd({
-      topics: result.topics,
-      record: result.record,
-      recordsOf: topicRecords,
-      messagesOf,
-      home,
-      nameOf: topicMessageName,
-    });
+    const planned = plan(result.topics, result.record);
+    // The dialog closes only when every Default input spells a default.
+    const problem = findProblem(planned);
+    if (problem != null)
+      throw new Error(
+        `The default of ${problem.pointer} in ${problem.topic} is invalid: ${problem.message}`,
+      );
+    const { extensions, kinds, additions } = planned;
     extend(extensions, kinds);
     if (additions.size === 0) return;
     await addRecords(additions);

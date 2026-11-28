@@ -866,7 +866,7 @@ describe("Device", async () => {
             });
             return (
               retrieved.status !== undefined &&
-              retrieved.status.variant === "warning" &&
+              retrieved.status.variant === "disabled" &&
               retrieved.status.owner?.key === key
             );
           })
