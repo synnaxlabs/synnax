@@ -59,20 +59,74 @@ var _ = Describe("Cuts", func() {
 		Expect(s.Channel(5).Cuts).To(BeZero())
 	})
 
-	It("Should count a take back of the samples of a key, and no commit", func() {
-		a := &appended{}
-		s := MustSucceed(state.Open(config(a), sample()))
-		a.s, a.seq = s, sample().Sequence
-		run(s)
-		w := MustSucceed(s.OpenWriter(context.Background(), clockWriter(100, false, 9)))
-		id := MustSucceed(w.NewSegment(9))
-		n := MustSucceed(w.NewAlignment())
-		Expect(w.Commit(commit(1, n, 0, 100, 100, slot(id, 8)))).To(Succeed())
-		Expect(a.durable([]log.Record{create(id, 9, 9)})).To(Succeed())
-		Expect(s.Channel(9).Cuts).To(BeZero())
-		Expect(w.TakeBack()).To(HaveLen(1))
-		Expect(s.Channel(9).Segments[0].Pointers).To(BeEmpty())
-		Expect(s.Channel(9).Cuts).To(Equal(uint64(1)))
+	Describe("Of a clock with a new segment", func() {
+		var (
+			a  *appended
+			s  *state.State
+			w  *state.Writer
+			id uint64
+		)
+		BeforeEach(func() {
+			a = &appended{}
+			s = MustSucceed(state.Open(config(a), sample()))
+			a.s, a.seq = s, sample().Sequence
+			run(s)
+			w = MustSucceed(
+				s.OpenWriter(context.Background(), clockWriter(100, false, 9)),
+			)
+			id = MustSucceed(w.NewSegment(9))
+		})
+		commitOne := func() {
+			GinkgoHelper()
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(1, n, 0, 100, 100, slot(id, 8)))).To(Succeed())
+			Expect(s.Channel(9).Segments[0].Pointers).To(HaveLen(1))
+		}
+
+		DescribeTable("Should count each take back of visible samples, and no other "+
+			"change",
+			func(change func(), cuts uint64) {
+				change()
+				Expect(s.Channel(9).Cuts).To(Equal(cuts))
+			},
+			Entry("a take back of a segment with a durable Create", func() {
+				commitOne()
+				Expect(a.durable([]log.Record{create(id, 9, 9)})).To(Succeed())
+				Expect(w.TakeBack()).To(HaveLen(1))
+				Expect(s.Channel(9).Segments[0].Pointers).To(BeEmpty())
+			}, uint64(1)),
+			Entry("a take back of a segment with no durable Create", func() {
+				commitOne()
+				Expect(w.TakeBack()).To(BeEmpty())
+				Expect(s.Channel(9).Segments).To(BeEmpty())
+			}, uint64(1)),
+			Entry("an unknown take back of a segment with no durable Create", func() {
+				commitOne()
+				Expect(w.TakeBackUnknown()).To(Succeed())
+				Expect(s.Channel(9).Segments[0].Pointers).To(BeEmpty())
+			}, uint64(1)),
+			Entry("a commit", commitOne, uint64(0)),
+			Entry("a switch that drops the segment, which holds no sample, as no "+
+				"durable Create made it", func() {
+				Expect(w.Close()).To(Succeed())
+				Expect(s.Switch(4)).To(Succeed())
+				Eventually(a.switched).Should(HaveLen(1))
+				Expect(s.Channel(9).Segments).To(BeEmpty())
+			}, uint64(0)),
+		)
+
+		It("Should give a read of the clock a new load with the same Cuts after a "+
+			"switch drops the segment, so the read keeps loading", func() {
+			chs := make([]*state.Channel, 1)
+			before := s.Load([]uint32{9}, chs)
+			cuts := chs[0].Cuts
+			Expect(w.Close()).To(Succeed())
+			Expect(s.Switch(4)).To(Succeed())
+			Eventually(a.switched).Should(HaveLen(1))
+			Expect(s.Load([]uint32{9}, chs)).To(BeNumerically(">", before))
+			Expect(chs[0].Segments).To(BeEmpty())
+			Expect(chs[0].Cuts).To(Equal(cuts))
+		})
 	})
 })
 
