@@ -21,7 +21,7 @@ export const renderProviderStateZ = z.object({ context: z.any() });
 
 /** Thin Composite that injects a `render.Context`-shaped value into the parent context
  * under the key consumed by `render.Context.use`. Lets a test recorder (or any
- * duck-typed render context) flow into the aether tree without a real `Canvas`
+ * duck-typed render context) flow into the Aether tree without a real `Canvas`
  * component, which depends on WebGL and OffscreenCanvas APIs jsdom does not provide. */
 export class RenderProvider extends aether.Composite<typeof renderProviderStateZ> {
   static readonly TYPE = "render.test.RenderProvider";

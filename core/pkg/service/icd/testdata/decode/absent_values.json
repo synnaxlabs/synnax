@@ -57,11 +57,27 @@
     },
     {
       "document": { "temp": 1, "state": "run", "count": null },
-      "error": "field count: no value at /count: validation error"
+      "message": "reading",
+      "samples": [1, "run", null],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": true,
+          "error": "field count: no value at /count: validation error"
+        }
+      ]
     },
     {
       "document": { "temp": 1, "state": "run", "count": "" },
-      "error": "field count: no value at /count: validation error"
+      "message": "reading",
+      "samples": [1, "run", null],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": true,
+          "error": "field count: no value at /count: validation error"
+        }
+      ]
     }
   ]
 }

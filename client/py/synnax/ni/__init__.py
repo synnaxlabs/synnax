@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.ni import chassis, device
+from synnax.ni.client import Client
 from synnax.ni.types import (
     MAKE,
     AnalogReadTask,
@@ -197,6 +198,7 @@ __all__ = [
     "CIVelocityAngularChannel",
     "CIVelocityLinearChannel",
     "ChanCJC",
+    "Client",
     "CommandedAOChannel",
     "ConstValCJC",
     "CounterReadConfig",

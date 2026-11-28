@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <span>
 #include <string>
 
@@ -21,6 +22,7 @@
 #include <unistd.h>
 
 #include "client/cpp/serial/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace driver::serial {
 inline std::span<const std::uint8_t> bytes(const std::string &s) {
@@ -30,6 +32,25 @@ inline std::span<const std::uint8_t> bytes(const std::string &s) {
 inline std::string as_string(const std::span<const std::uint8_t> data) {
     return {reinterpret_cast<const char *>(data.data()), data.size()};
 }
+
+/// @brief Link is a symlink in the temporary directory, as /dev/serial/by-id holds,
+/// which it removes on destruction.
+struct Link {
+    std::filesystem::path path = std::filesystem::temp_directory_path() /
+                                 ("synnax-port-" + x::uuid::create().to_string());
+
+    Link() = default;
+    explicit Link(const std::string &target) { this->point(target); }
+    Link(const Link &) = delete;
+    Link &operator=(const Link &) = delete;
+    ~Link() { std::filesystem::remove(this->path); }
+
+    /// @brief points the link at target.
+    void point(const std::string &target) const {
+        std::filesystem::remove(this->path);
+        std::filesystem::create_symlink(target, this->path);
+    }
+};
 
 /// @brief a pseudo-terminal pair that plays a device. The port under test opens the
 /// terminal side, and the test plays the device on the controller side.

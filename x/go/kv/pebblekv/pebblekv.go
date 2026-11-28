@@ -47,7 +47,7 @@ type logger struct{ alamos.Instrumentation }
 var _ pebble.Logger = (*logger)(nil)
 
 // NewLogger wraps the provided instrumentation to create a pebble compatible logger for
-// communicating events through the alamos logging infrastructure as opposed to the
+// communicating events through the Alamos logging infrastructure as opposed to the
 // internal pebble logger.
 func NewLogger(ins alamos.Instrumentation) pebble.Logger {
 	ins.L = ins.L.WithOptions(zap.AddCallerSkip(2))

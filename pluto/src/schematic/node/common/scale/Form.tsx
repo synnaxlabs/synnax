@@ -113,7 +113,7 @@ export const TelemForm = ({ allowNone = false }: TelemFormProps): ReactElement =
         />
       </Base.Section>
       <Base.Section title="Range">
-        <NodeForm.BoundsFields path={root.bounds} padHelpText={false} />
+        <NodeForm.RangeField path={root.bounds} />
       </Base.Section>
       <Base.Section title="Format">
         <Base.Field path={root.notation} label="Notation" padHelpText={false}>

@@ -32,12 +32,7 @@ const createOperator = (
       centerSources
       centerSinks={single}
     >
-      <Text.Text
-        level="h4"
-        variant="code"
-        color={10}
-        className={CSS.BE("arc", "operator-label")}
-      >
+      <Text.Text level="h4" color={10} className={CSS.BE("arc", "operator-label")}>
         {operator}
       </Text.Text>
     </Minimal>

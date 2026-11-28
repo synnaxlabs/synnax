@@ -55,7 +55,7 @@ var (
 	hookedKV    *hookkv.DB
 	db          *gorp.DB
 	rackService *rack.Service
-	// coreRack is the key of the rack that each driver of the suite runs on.
+	// coreRack is the key of the rack that each Driver of the suite runs on.
 	coreRack    rack.Key
 	deviceSvc   *device.Service
 	taskService *task.Service

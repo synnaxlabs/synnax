@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import type { lineplot } from "@synnaxlabs/client";
+import { lineplot } from "@synnaxlabs/client";
 import type { Drift } from "@synnaxlabs/drift";
 import { Viewport } from "@synnaxlabs/pluto";
 import { lineplot as etherLineplot } from "@synnaxlabs/pluto/ether";
@@ -101,6 +101,11 @@ export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   /** A window is a viewport, so each holds its own view of every document. */
   windows: z.record(z.string(), windowStateZ).default({}),
+  /**
+   * The line plot that plotting a set of tasks opens, keyed by the sorted keys of the
+   * tasks joined with commas.
+   */
+  tasks: z.record(z.string(), lineplot.keyZ).default({}),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
@@ -174,6 +179,12 @@ export interface SetHiddenPayload extends KeyedPayload {
 
 export interface RemovePayload {
   keys: string[];
+}
+
+export interface SetOfTasksPayload {
+  /** The sorted keys of the tasks, joined with commas. */
+  tasks: string;
+  key: lineplot.Key;
 }
 
 const withSelectedState = Window.createWithDocumentHandler(stateZ);
@@ -284,6 +295,12 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, keys);
     },
+    setOfTasks: (
+      state,
+      { payload: { tasks, key } }: PayloadAction<SetOfTasksPayload>,
+    ) => {
+      state.tasks[tasks] = key;
+    },
   },
   extraReducers: Window.handleRemoved,
 });
@@ -305,6 +322,7 @@ export const {
   setBreaksHidden,
   setHidden,
   remove,
+  setOfTasks,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

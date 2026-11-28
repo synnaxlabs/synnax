@@ -23,6 +23,7 @@
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
 #include "driver/secret/secret.h"
+#include "driver/serial/serial.h"
 #include "driver/version/version.h"
 
 namespace driver::rack {
@@ -101,8 +102,8 @@ void configure_modbus(const Config &, FactoryList &factories) {
     factories.push_back(
         std::make_unique<UnavailableFactory>(
             modbus::INTEGRATION_NAME,
-            "Modbus tasks do not run on NI Linux RT. Connect the device from a Driver on "
-            "Windows, macOS, or Linux."
+            "Modbus tasks do not run on NI Linux Real-Time. Connect the device from a "
+            "Driver on Windows, macOS, or Linux."
         )
     );
 }
@@ -161,6 +162,12 @@ void configure_http(const Config &config, FactoryList &factories) {
     });
 }
 
+void configure_serial(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, serial::INTEGRATION_NAME, []() {
+        return std::make_unique<serial::Factory>();
+    });
+}
+
 std::unique_ptr<task::Factory> Config::new_factory(
     const std::shared_ptr<synnax::Synnax> &client,
     const std::shared_ptr<x::thread::rt::Manager> &rt_manager
@@ -179,6 +186,7 @@ std::unique_ptr<task::Factory> Config::new_factory(
     configure_http(*this, factories);
     configure_file(*this, factories);
     configure_modbus(*this, factories);
+    configure_serial(*this, factories);
     return std::make_unique<task::MultiFactory>(std::move(factories));
 }
 }

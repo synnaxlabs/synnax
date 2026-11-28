@@ -1255,7 +1255,7 @@ TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
     const auto [scanned, err] = scanner.scan(scan_ctx);
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "Failed to renew the Driver certificate: Failed to parse " + corrupt.string()
     );
     ASSERT_EQ(scanned.size(), 1);
@@ -1283,7 +1283,7 @@ TEST_F(TestScanTask, testRecordsFailureIsPartialScan) {
     const auto [scanned, err] = scanner.scan(scan_ctx);
     ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "Failed to save the Driver certificate in the Core: rack:" +
             std::to_string(other.key) + " cannot delete certificate:" +
             file.key.to_string() + ": access denied: auth error"
@@ -1733,7 +1733,7 @@ TEST_F(TestScanTask, testReadNodeStopsAtDeadline) {
     );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to read node");
-    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data());
     slow->stop();
 }
 
@@ -1754,7 +1754,7 @@ TEST_F(TestScanTask, testReadNodeDeadlineCoversNamespaceRead) {
     );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to read node");
-    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data());
     slow->stop();
 }
 
@@ -1772,7 +1772,7 @@ TEST_F(TestScanTask, testReadNodeDeadlineCoversConnection) {
     );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to connect to server");
-    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data);
+    EXPECT_EQ(status.description, errors::DEADLINE_EXCEEDED.data());
 }
 
 /// @brief it should read the attributes and the value of a variable.

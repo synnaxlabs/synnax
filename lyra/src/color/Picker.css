@@ -23,11 +23,11 @@
     }
 
     /* Library and Custom tabs. One inset holds the tab boxes, the search icon, the
-       titles, and the swatches: eight 21 px swatches across, with 6 px gaps. */
+       titles, and the swatches: eight 21 px swatches across, with 8 px gaps. */
     &.lyra-color-picker--tabbed {
         --pluto-color-picker-columns: 8;
         --pluto-color-picker-inset: 1.5rem;
-        --pluto-color-picker-gap: 1rem;
+        --pluto-color-picker-gap: round(1.25rem, 1px);
 
         min-height: 0;
         padding: 0;
@@ -158,7 +158,7 @@
     }
 
     .lyra-color-picker__alpha-input {
-        width: 13rem;
+        width: 13.5rem;
         flex-shrink: 0;
     }
 }
