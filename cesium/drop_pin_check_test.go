@@ -101,14 +101,20 @@ var _ = Describe("Check: a read across the Drop of its key and its index", func(
 		Expect(iter.Error()).ToNot(HaveOccurred())
 		Expect(got).To(Equal([]int64{11, 12, 20, 21}))
 		Expect(iter.Close()).To(Succeed())
-		// The unlinks of the read run after it closes.
+		// The unlinks of the read run after it closes. The poll holds only names, so no
+		// failure message walks a file that an unlink still closes.
 		for _, k := range dropped {
 			dir := strconv.Itoa(int(k))
-			Eventually(func(g Gomega) {
-				if MustSucceed(fs.Exists(dir)) {
-					g.Expect(fs.List(dir)).To(BeEmpty())
+			Eventually(func() []string {
+				if !MustSucceed(fs.Exists(dir)) {
+					return nil
 				}
-			}).Should(Succeed(), "key %d", k)
+				var names []string
+				for _, info := range MustSucceed(fs.List(dir)) {
+					names = append(names, info.Name())
+				}
+				return names
+			}).Should(BeEmpty(), "key %d", k)
 		}
 	},
 		Entry("in a Drop of the key alone", false),
