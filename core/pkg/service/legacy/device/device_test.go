@@ -224,7 +224,7 @@ var _ = Describe("Device", func() {
 				}
 				Expect(w.Create(ctx, &d)).To(Succeed())
 				Expect(d.Status).ToNot(BeNil())
-				Expect(d.Status.Variant).To(Equal(status.VariantWarning))
+				Expect(d.Status.Variant).To(Equal(status.VariantDisabled))
 				Expect(d.Status.Name).To(Equal("Populated Device"))
 				Expect(d.Parent).To(BeNil())
 			},
@@ -1039,7 +1039,7 @@ var _ = Describe("Device", func() {
 				Entry(&s).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(s.Name).To(Equal("After"))
-			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Variant).To(Equal(status.VariantDisabled))
 			Expect(s.Message).To(Equal("Device status unknown"))
 			Expect(s.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
 		})
