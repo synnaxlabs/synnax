@@ -259,13 +259,16 @@ func withFieldValue(p icd.Payload, i int, v icd.WriteValue) (icd.Payload, error)
 		panic(errors.Newf("write: unknown payload variant %T", pv))
 	}
 	if !ok {
-		return p, validate.Errorf(
+		return icd.Payload{}, validate.Errorf(
 			"field %s of kind %s needs a value of its kind",
 			name,
 			kind,
 		)
 	}
-	return p, errors.Wrapf(err, "field %s", name)
+	if err != nil {
+		return icd.Payload{}, errors.Wrapf(err, "field %s", name)
+	}
+	return p, nil
 }
 
 // jsonWithValue returns f with v as its default, and false when v is not of the kind of
