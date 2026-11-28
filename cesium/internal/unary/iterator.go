@@ -817,10 +817,16 @@ func (i *Iterator) readSegment(
 	if err != nil {
 		return segmentRead{}, err
 	}
+	// An index channel is the clock of its own samples.
+	clock := i.Channel.Index
+	if i.Channel.IsIndex {
+		clock = i.Channel.Key
+	}
 	series := telem.Series{
 		DataType:  i.Channel.DataType,
 		TimeRange: tr.BoundBy(seg.TimeRange),
 		Alignment: seg.Alignment,
+		Clock:     clock,
 	}
 	size := endOffset - offset
 	if i.groupSize > 1 {

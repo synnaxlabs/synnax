@@ -345,6 +345,45 @@ var _ = Describe("Streamer Behavior", func() {
 				)
 
 				It(
+					"Should give the generated stamps of an auto-indexed frame their index's clock",
+					func(ctx SpecContext) {
+						idx := GenerateChannelKey()
+						data := GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      idx,
+								Name:     "Hamilton",
+								DataType: telem.TimestampT,
+								IsIndex:  true,
+							},
+							cesium.Channel{
+								Key:      data,
+								Name:     "Johnson",
+								DataType: telem.Float32T,
+								Index:    idx,
+							},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:  []cesium.ChannelKey{idx, data},
+							Start:     telem.Now(),
+							AutoIndex: new(true),
+						}))
+						_, o, closer := openStreamer(ctx, db, cesium.StreamerConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+						})
+						values := telem.NewSeriesV[float32](1, 2, 3)
+						values.Clock = idx
+						MustSucceed(w.Write(telem.UnaryFrame(data, values)))
+						var res cesium.StreamerResponse
+						Eventually(o.Outlet()).Should(Receive(&res))
+						Expect(res.Frame.Get(idx).Series[0].Clock).To(Equal(idx))
+						Expect(closer.Close()).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+
+				It(
 					"Should leave series unstamped when the frame does not carry the index",
 					func(ctx SpecContext) {
 						idx := GenerateChannelKey()
