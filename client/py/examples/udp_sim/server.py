@@ -41,10 +41,14 @@ async def run_server(
     start = time.monotonic()
     i = 0
     while True:
-        sock.sendto(reading(i, rate), peer)
+        # Windows reports a datagram that reached no socket as a reset on the next call.
+        # The client binds its port only while its task runs.
+        with contextlib.suppress(ConnectionResetError):
+            sock.sendto(reading(i, rate), peer)
         with contextlib.suppress(BlockingIOError):
             while True:
-                os.write(out, sock.recv(65535))
+                with contextlib.suppress(ConnectionResetError):
+                    os.write(out, sock.recv(65535))
         i += 1
         await asyncio.sleep(max(0.0, start + i / rate - time.monotonic()))
 
