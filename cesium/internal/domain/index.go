@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/invariants"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -244,6 +245,35 @@ func (idx *index) insert(
 	idx.mu.Unlock()
 	idx.report(change)
 	return write, nil
+}
+
+// checkApart panics when a pointer from i to j ends before it starts, or when a pointer
+// from i to j+1 starts before the one before it ends. A splice that wrote the pointers
+// from i to j calls it. It checks only in a build with the invariants or race tag. The
+// caller must hold idx.mu.
+func (idx *index) checkApart(i, j int) {
+	if !invariants.Enabled {
+		return
+	}
+	ptrs := idx.mu.pointers
+	for k := i; k <= j; k++ {
+		if ptrs[k].End < ptrs[k].Start {
+			panic(
+				errors.Newf("domain pointer %d ends before it starts: %v", k, ptrs[k]),
+			)
+		}
+	}
+	for k := max(i, 1); k <= min(j+1, len(ptrs)-1); k++ {
+		if ptrs[k-1].End > ptrs[k].Start {
+			panic(errors.Newf(
+				"domain pointers %d and %d are not sorted and apart: %v and %v",
+				k-1,
+				k,
+				ptrs[k-1].TimeRange,
+				ptrs[k].TimeRange,
+			))
+		}
+	}
 }
 
 // persist writes the pointers that the index file may not hold. The caller must not

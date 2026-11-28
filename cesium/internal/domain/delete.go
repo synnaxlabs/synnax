@@ -275,6 +275,7 @@ func (idx *index) unprotectedSplice(
 			append(newPointers, idx.mu.pointers[start.position:]...)...,
 		)
 	}
+	idx.checkApart(start.position, start.position+len(newPointers)-1)
 	return revealed
 }
 
