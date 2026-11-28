@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -56,6 +57,13 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorized *bool
+	// ErrOnUnauthorizedExempt holds the channels that ErrOnUnauthorized does not cover
+	// at open: the writer opens each with no error when another writer holds it. A
+	// SetAuthority that leaves one of them out of control fails when ErrOnUnauthorized
+	// is true.
+	//
+	// [OPTIONAL]
+	ErrOnUnauthorizedExempt []ChannelKey
 	// EnableAutoCommit determines whether the writer will automatically commit after
 	// each write. If EnableAutoCommit is true, then the writer will commit after each
 	// write, and will flush that commit to index on FS after the specified
@@ -149,6 +157,10 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
 	c.ControlSubject = c.ControlSubject.Override(other.ControlSubject)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	c.ErrOnUnauthorizedExempt = override.Slice(
+		c.ErrOnUnauthorizedExempt,
+		other.ErrOnUnauthorizedExempt,
+	)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
 	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
@@ -163,7 +175,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 func (c WriterConfig) unaryConfig(i int) unary.WriterConfig {
 	return unary.WriterConfig{
 		Subject:                  c.ControlSubject,
-		ErrOnUnauthorizedOpen:    c.ErrOnUnauthorized,
+		ErrOnUnauthorizedOpen:    c.errOnUnauthorized(i),
 		EnableAutoCommit:         c.EnableAutoCommit,
 		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
 		Start:                    c.Start,
@@ -171,6 +183,13 @@ func (c WriterConfig) unaryConfig(i int) unary.WriterConfig {
 		Bounded:                  new(!c.Mode.Stream()),
 		Authority:                c.authority(i),
 	}
+}
+
+// errOnUnauthorized returns whether the open of the channel at position i fails when
+// another writer holds it.
+func (c WriterConfig) errOnUnauthorized(i int) *bool {
+	exempt := slices.Contains(c.ErrOnUnauthorizedExempt, c.Channels[i])
+	return new(*c.ErrOnUnauthorized && !exempt)
 }
 
 func (c WriterConfig) authority(i int) xcontrol.Authority {
@@ -386,7 +405,7 @@ func openIndexWriters(
 				Subject:               cfg.ControlSubject,
 				Start:                 cfg.Start,
 				Authority:             cfg.authority(i),
-				ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorized,
+				ErrOnUnauthorizedOpen: cfg.errOnUnauthorized(i),
 			})
 			if err != nil {
 				return virtualWriters, transfers, err

@@ -155,6 +155,9 @@ func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(a)
 }
 
+// Authorized reports whether the writer has control over its channel.
+func (w *Writer) Authorized() bool { return w.control.Authorized() }
+
 func (w *Writer) Close() (control.Transfer, error) {
 	if w.closed {
 		return control.Transfer{}, nil
