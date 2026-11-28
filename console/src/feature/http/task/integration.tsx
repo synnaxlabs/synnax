@@ -10,26 +10,16 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { ReadSelectable, WriteSelectable } from "@/feature/http/task/create";
-import {
-  PREFIX,
-  READ_SCHEMAS,
-  READ_TYPE,
-  type ReadEndpoint,
-} from "@/feature/http/task/types";
+import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/http/task/types";
 import { Task } from "@/platform/task";
 
-const endpointChannels = ({ messages }: ReadEndpoint): Task.PlotEntry[] =>
-  messages.flatMap(({ bindings }) =>
-    bindings.map(({ channel }) => ({ channel, disabled: false })),
-  );
-
 const readPlotChannels: Task.PlotChannels = (config) =>
-  Task.enabledChannels(
-    READ_SCHEMAS.config
-      .parse(config)
-      .endpoints.filter(({ disabled }) => !disabled)
-      .flatMap(endpointChannels),
-  );
+  READ_SCHEMAS.config
+    .parse(config)
+    .endpoints.filter(({ disabled }) => !disabled)
+    .flatMap(({ icd, messages }) =>
+      icd == null ? [] : Task.readChannels(icd, messages),
+    );
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,

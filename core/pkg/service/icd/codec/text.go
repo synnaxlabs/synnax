@@ -43,6 +43,8 @@ type Text struct {
 	fallback int
 	// items is scratch space for the items of a line.
 	items [][]byte
+	// failures holds the failures of the last decode.
+	failures []Failure
 }
 
 type prefixedMessage struct {
@@ -70,8 +72,6 @@ type textField struct {
 	scaled        bool
 	scale, offset float64
 	sample        *xjson.Decoder
-	// size is the size of one sample of the field's channel.
-	size int
 	// fallback is the sample used when a line has no value, or nil when the field
 	// requires one.
 	fallback []byte
@@ -156,7 +156,6 @@ func newTextField(
 		scaled: b.Scale != 1 || b.Offset != 0,
 		scale:  b.Scale,
 		offset: b.Offset,
-		size:   int(dt.Density()),
 	}
 	switch v := f.Variant.(type) {
 	case icd.TaggedTextField:
@@ -242,18 +241,19 @@ func (t *Text) route(name, prefix string, i int) error {
 // items on the delimiter of its message. A delimited field reads the item at its
 // position, and a tagged field reads the rest of the first item whose longest tag of
 // the message is its tag. A value is a decimal number, with any spaces, tabs, or
-// carriage returns around it. An empty or missing item has no value.
+// carriage returns around it. An empty or missing item has no value. ok is false, and
+// Decode appends nothing, when line belongs to no message. A line of only spaces, tabs,
+// and carriage returns belongs to none.
 //
-// ok is false, and Decode appends nothing, when line belongs to no message. A line of
-// only spaces, tabs, and carriage returns belongs to none. Decode returns an error
-// wrapping validate.ErrValidation, and appends nothing, when a field with no default
-// has no value, a value is not a number, or a value does not fit its channel. message
-// and ok still name the message of the line. The error names the field, and also the
-// message when the decoder holds more than one.
+// failures holds each field with no value and no default, whose value is not a number,
+// or whose value does not fit its channel. A failed field appends no sample, and the
+// other fields still append. A failure names the field, and also the message when the
+// decoder holds more than one. failures is nil when every field decodes, and valid
+// until the next Decode.
 func (t *Text) Decode(
 	line []byte,
 	samples [][][]byte,
-) (message int, ok bool, err error) {
+) (message int, ok bool, failures []Failure) {
 	if len(bytes.Trim(line, trimmed)) == 0 {
 		return 0, false, nil
 	}
@@ -279,39 +279,51 @@ func (t *Text) Decode(
 		rest = rest[end+len(m.delimiter):]
 	}
 	out := samples[message]
+	t.failures = t.failures[:0]
 	for i := range m.fields {
 		f := &m.fields[i]
-		var sample []byte
-		if sample, err = f.decode(out[i], t.items); err != nil {
-			for j := range i {
-				out[j] = out[j][:len(out[j])-m.fields[j].size]
-			}
-			err = errors.Wrapf(err, "field %s", f.name)
-			if len(t.messages) > 1 {
-				err = errors.Wrapf(err, "message %s", m.name)
-			}
-			return message, true, err
+		value := f.value(t.items)
+		sample, err := f.decode(out[i], value)
+		if err == nil {
+			out[i] = sample
+			continue
 		}
-		out[i] = sample
+		err = errors.Wrapf(err, "field %s", f.name)
+		if len(t.messages) > 1 {
+			err = errors.Wrapf(err, "message %s", m.name)
+		}
+		t.failures = append(
+			t.failures,
+			Failure{Binding: i, Missing: len(value) == 0, Err: err},
+		)
 	}
-	return message, true, nil
+	if len(t.failures) == 0 {
+		return message, true, nil
+	}
+	return message, true, t.failures
 }
 
-// decode appends the sample of the field in items, the items of one line, or its
-// default, to dst.
-func (f *textField) decode(dst []byte, items [][]byte) ([]byte, error) {
-	var value []byte
+// value returns the value of the field in items, the items of one line, or nil when
+// the line has none.
+func (f *textField) value(items [][]byte) []byte {
 	if f.tagged {
 		for _, item := range items {
 			t := bytes.Trim(item, trimmed)
 			if bytes.HasPrefix(t, f.tag) && !f.claimed(t) {
-				value = bytes.Trim(t[len(f.tag):], trimmed)
-				break
+				return bytes.Trim(t[len(f.tag):], trimmed)
 			}
 		}
-	} else if f.position < len(items) {
-		value = bytes.Trim(items[f.position], trimmed)
+		return nil
 	}
+	if f.position < len(items) {
+		return bytes.Trim(items[f.position], trimmed)
+	}
+	return nil
+}
+
+// decode appends the sample of value, or the field's default when value is empty, to
+// dst.
+func (f *textField) decode(dst, value []byte) ([]byte, error) {
 	if len(value) == 0 {
 		switch {
 		case f.fallback != nil:

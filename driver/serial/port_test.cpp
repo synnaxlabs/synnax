@@ -37,7 +37,7 @@ namespace {
 /// @brief expects got to be want, with its message.
 void expect_same(const x::errors::Error &got, const x::errors::Error &want) {
     EXPECT_TRUE(got.matches(want)) << got;
-    EXPECT_EQ(got.data, want.data);
+    EXPECT_EQ(got.data(), want.data());
 }
 }
 
@@ -122,7 +122,7 @@ TEST_F(PtyTest, FailsAWriteThatTimesOut) {
     const auto err = port->write(bytes(data), 50 * x::telem::MILLISECOND);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to write to serial port " + this->path() + ": " +
             std::make_error_code(std::errc::timed_out).message()
     );
@@ -181,7 +181,7 @@ TEST_F(PtyTest, RejectsOneAndAHalfStopBits) {
     p.stop_bits = synnax::serial::STOP_BITS_ONE_AND_HALF;
     const auto [port, err] = Port::open(p);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_TRUE(err.data.ends_with(" does not support 1.5 stop bits")) << err.data;
+    EXPECT_TRUE(err.data().ends_with(" does not support 1.5 stop bits")) << err.data();
 }
 
 /// @brief it should report the device as unreachable when it hangs up.
@@ -191,8 +191,8 @@ TEST_F(PtyTest, ReportsTheDeviceAsUnreachableWhenThePeerCloses) {
     const auto [chunk, err] = port->read(x::telem::SECOND);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_TRUE(
-        err.data.starts_with("failed to read from serial port " + this->path() + ": ")
-    ) << err.data;
+        err.data().starts_with("failed to read from serial port " + this->path() + ": ")
+    ) << err.data();
 }
 
 /// @brief it should open again through a stable link once the device returns.
@@ -238,7 +238,7 @@ TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
     const auto [second, err] = Port::open(this->props());
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to open serial port " + this->path() +
             ": the port is in use by another program"
     );
@@ -266,7 +266,7 @@ TEST_F(PtyTest, RefusesSettingsOutsideTheSchemaAndReleasesThePort) {
     p.data_bits = 9;
     const auto [port, err] = Port::open(p);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "data bits must be 5, 6, 7, or 8, got 9");
+    EXPECT_EQ(err.data(), "data bits must be 5, 6, 7, or 8, got 9");
     ASSERT_NIL_P(Port::open(this->props()));
 }
 

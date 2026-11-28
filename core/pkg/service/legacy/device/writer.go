@@ -17,9 +17,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete devices within Synnax. The writer
@@ -31,6 +33,30 @@ type Writer struct {
 	statuses   *status.Service
 	table      *gorp.Table[Key, Device]
 	dispatcher actions.Dispatcher[Key, Action]
+	properties map[string]func(msgpack.EncodedJSON) error
+}
+
+// CheckProperties returns a check of the properties of a device that decodes them into
+// P and validates the result.
+func CheckProperties[P interface{ Validate() error }]() func(msgpack.EncodedJSON) error {
+	return func(props msgpack.EncodedJSON) error {
+		var p P
+		if err := props.Unmarshal(&p); err != nil {
+			return errors.Wrap(validate.ErrValidation, err.Error())
+		}
+		return p.Validate()
+	}
+}
+
+// validate checks d and the properties of d against the check of its make.
+func (w Writer) validate(d Device) error {
+	if err := d.Validate(); err != nil {
+		return err
+	}
+	if check, ok := w.properties[d.Make]; ok {
+		return validate.PathedError(check(d.Properties), "properties")
+	}
+	return nil
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -87,10 +113,10 @@ func (w Writer) writeStatus(ctx context.Context, d *Device) error {
 // Create creates the given device and attaches a create action that holds it. A device
 // with a parent cannot sit in a group. Create stores the status provided on the device,
 // or the default "unknown" status when none is provided, and sets device.Status to it.
-// Create returns an error wrapping validate.ErrValidation when a device with the key
-// exists.
+// Create returns an error wrapping validate.ErrValidation when the device or its
+// properties fail to validate, or when a device with the key exists.
 func (w Writer) Create(ctx context.Context, device *Device) error {
-	if err := device.Validate(); err != nil {
+	if err := w.validate(*device); err != nil {
 		return err
 	}
 	providedStatus := device.Status
@@ -118,7 +144,8 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 }
 
 // CreateMany creates the given devices. It returns an error wrapping
-// validate.ErrValidation when a device with one of their keys exists.
+// validate.ErrValidation when a device or its properties fail to validate, or when a
+// device with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 	for i := range *devices {
 		if err := w.Create(ctx, &(*devices)[i]); err != nil {
@@ -163,8 +190,9 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 // Apply applies the actions to the device with the given key and attaches them to the
 // transaction of w. A change of name or rack also updates the device's status. Apply
 // returns an error wrapping validate.ErrValidation when an action is a create, the
-// result fails to validate, or the device's group does not sit under its rack or
-// parent, and an error wrapping query.ErrNotFound when no device has the key.
+// result or its properties fail to validate, or the device's group does not sit under
+// its rack or parent, and an error wrapping query.ErrNotFound when no device has the
+// key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var prev Device
 	if err := w.table.NewRetrieve().
@@ -177,7 +205,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err != nil {
 		return err
 	}
-	if err = next.Validate(); err != nil {
+	if err = w.validate(next); err != nil {
 		return err
 	}
 	if err = w.checkGroup(ctx, next.Group, next); err != nil {

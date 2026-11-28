@@ -1907,7 +1907,7 @@ var _ = Describe("Delete", func() {
 					)).To(Succeed())
 					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
 					del, release := MustSucceed2(dataDB.OpenDelete(tr))
-					Expect(del(ctx)).To(Succeed())
+					MustSucceed(del(ctx))
 					release()
 					Expect(MustSucceed(hasDataFor(ctx,
 						dataDB, tr))).To(BeFalse())
@@ -1952,7 +1952,7 @@ var _ = Describe("Delete", func() {
 							dataDB, tr))
 					}()
 					Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
-					Expect(del(ctx)).To(Succeed())
+					MustSucceed(del(ctx))
 					release()
 					Eventually(found).Should(Receive(BeFalse()))
 				})

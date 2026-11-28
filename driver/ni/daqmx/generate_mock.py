@@ -9,7 +9,7 @@
 
 """Generates mock.h from api.h.
 
-Parses every virtual method declared on the DAQmx API interface in api.h and emits
+Parses every virtual method declared on the NI-DAQmx API interface in api.h and emits
 MockAPI, a subclass whose methods all succeed (return 0) and record the call name and
 its arguments as JSON for assertion in tests. Scalars are recorded by value and char
 arrays as strings; other arrays and pointers are recorded as "<array>" and "<ptr>"
@@ -48,8 +48,8 @@ HEADER = """\
 #include "driver/ni/daqmx/api.h"
 
 namespace driver::ni::daqmx {
-/// @brief a mock DAQmx API that records every call and its scalar/string arguments as
-/// JSON for assertion in tests. All calls succeed. A test that needs filled buffers
+/// @brief a mock NI-DAQmx API that records every call and its scalar/string arguments
+/// as JSON for assertion in tests. All calls succeed. A test that needs filled buffers
 /// derives from it and overrides those calls.
 class MockAPI : public API {
 public:

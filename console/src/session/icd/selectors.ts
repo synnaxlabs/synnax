@@ -30,3 +30,7 @@ export const useSelectSelected = (key: icd.Key): icd.MessageKey[] =>
 /** @returns the field that this window's editor of the ICD focuses next, if any. */
 export const useSelectFocused = (key: icd.Key): icd.FieldKey | undefined =>
   Select.useMemo((state: StoreState) => selectState(state, key).focused, [key]);
+
+/** @returns whether this window just created the ICD and has not focused its name. */
+export const useSelectCreated = (key: icd.Key): boolean =>
+  Select.useMemo((state: StoreState) => selectState(state, key).created, [key]);

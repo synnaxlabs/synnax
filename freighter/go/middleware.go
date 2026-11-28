@@ -24,7 +24,7 @@ type (
 	Next = func(Context) (Context, error)
 )
 
-// MDFromContext returns the freighter metadata from the given context. It panics if ctx
+// MDFromContext returns the Freighter metadata from the given context. It panics if ctx
 // is not a Context.
 func MDFromContext(ctx context.Context) Context {
 	md, ok := ctx.(Context)

@@ -84,7 +84,7 @@ TEST(TaskConfigParsing, InvalidPerformance) {
     arc::TaskConfig task_cfg(parser);
     ASSERT_FALSE(parser.ok());
     EXPECT_NE(
-        parser.error().data.find(
+        parser.error().data().find(
             "invalid performance: extreme (must be auto, low, medium, or high)"
         ),
         std::string::npos

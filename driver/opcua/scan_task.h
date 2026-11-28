@@ -69,7 +69,7 @@ struct ScanCommandArgs {
         const auto field = parser.field<std::string>("field", "");
         if (field.empty()) return;
         auto [path, err] = structure::parse(field);
-        if (err) parser.field_err("field", err.data);
+        if (err) parser.field_err("field", err.data());
         this->field = std::move(path);
     }
 };

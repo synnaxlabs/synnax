@@ -26,7 +26,7 @@ export interface SuspendedProps extends PropsWithChildren {
 }
 
 /**
- * Suspended retrieves the panel into the flux cache and publishes its key to
+ * Suspended retrieves the panel into the Flux cache and publishes its key to
  * descendants so panel-scoped hooks resolve it without an explicit argument.
  */
 export const Suspended = ({ panelKey, children }: SuspendedProps): ReactElement => {

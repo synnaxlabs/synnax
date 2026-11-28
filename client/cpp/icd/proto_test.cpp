@@ -364,7 +364,7 @@ TEST(Cursor, RejectsInvalidKeyFromProto) {
     pb.set_key("rig");
     const auto [_, err] = Cursor::from_proto(pb);
     ASSERT_OCCURRED_AS(err, x::uuid::INVALID);
-    ASSERT_EQ(err.data, "Invalid UUID string at position 0: hex digit expected");
+    ASSERT_EQ(err.data(), "Invalid UUID string at position 0: hex digit expected");
 }
 
 /// @brief it should reject a binary field with an unknown byte order.
@@ -394,6 +394,6 @@ TEST(Message, RejectsEmptyKeyFromProto) {
     const ::service::icd::pb::Message pb;
     const auto [_, err] = Message::from_proto(pb);
     ASSERT_OCCURRED_AS(err, x::uuid::INVALID);
-    ASSERT_EQ(err.data, "empty string");
+    ASSERT_EQ(err.data(), "empty string");
 }
 }

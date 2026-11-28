@@ -16,7 +16,16 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { compare, id, json, search, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
+import {
+  compare,
+  id,
+  json,
+  type payload,
+  search,
+  TimeSpan,
+  TimeStamp,
+  unique,
+} from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
@@ -24,12 +33,16 @@ import type { Device } from "@/feature/kafka/device";
 import {
   carriedFields,
   defaultPicks,
+  freeShapes,
   isExtendable,
+  isReusable,
   type Picks,
   type Reads,
+  sourceKey,
   splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
+import type { TopicPick } from "@/feature/kafka/task/plan";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
@@ -62,13 +75,10 @@ export interface Params {
   reads?: (topic: string) => Reads;
   /** Names the Kafka key of a record, such as "Any key" for the empty key. */
   label: (recordKey: string) => string;
-}
-
-/** The fields picked from the shapes of a sample of one topic. */
-export interface TopicPick {
-  topic: string;
-  shapes: json.Shape[];
-  picks: Picks;
+  /** The forms of the ICDs whose messages new records can read. */
+  formats?: ICD.Formats;
+  /** The ICD that the most records of the task read. */
+  home?: icd.Key;
 }
 
 /** A topic picked whole. */
@@ -103,6 +113,8 @@ const FORMAT_HELP = "Optional. A topic with no format gets one from its records.
 const NO_READS: Reads = { messages: new Map(), jsonless: new Set() };
 
 const readNothing = (): Reads => NO_READS;
+
+const NO_FORMATS: ICD.Formats = new Map();
 
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
 
@@ -165,12 +177,18 @@ const parse = (payload: string): unknown => {
   }
 };
 
-/** @returns the parsed JSON records of a shape's keys, newest first. */
-const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] =>
-  sample.records
+/**
+ * @returns the parsed JSON records of a shape, newest first: the records of its keys
+ * that hold its present field, if it has one.
+ */
+const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] => {
+  const present = shape.present == null ? undefined : shape.fields[shape.present];
+  return sample.records
     .filter(({ key, format }) => format === "json" && shape.sources.includes(key))
     .sort((a, b) => Number(b.time.valueOf() - a.time.valueOf()))
-    .map(({ payload }) => parse(payload));
+    .map(({ payload }) => parse(payload))
+    .filter((doc) => present == null || valueAt(doc, present.pointer) !== undefined);
+};
 
 /** @returns the value of a field in the newest record that holds it. */
 const newestValue = (records: unknown[], pointer: string): unknown => {
@@ -184,6 +202,84 @@ const newestValue = (records: unknown[], pointer: string): unknown => {
 const show = (value: unknown): string | null => {
   if (value === undefined) return null;
   return typeof value === "string" ? value : JSON.stringify(value);
+};
+
+/** @returns the ICD messages that the new records of a sampled topic read. */
+const findReading = (
+  topic: string,
+  sample: kafka.SampledTopic,
+  reads: Reads,
+  device: Device.Device,
+  icds: Pick<icd.ICD, "key" | "name" | "messages">[],
+  home?: icd.Key,
+): ICD.Reuse.Result => {
+  const shapes = freeShapes(sample.shapes, reads);
+  const isStored = (message: icd.MessageKey) =>
+    shapes.some(({ sources }) =>
+      sources.some(
+        (k) =>
+          device.properties.read[ICD.Stored.key(sourceKey(topic, k), message)] != null,
+      ),
+    );
+  const stored = new Set(
+    icds.flatMap(({ messages }) => messages.map(({ key }) => key)).filter(isStored),
+  );
+  const source = {
+    shapes: shapes.map((shape) => ICD.Reuse.shapeOf(shape, newestFirst(sample, shape))),
+    stored,
+  };
+  return ICD.Reuse.find(source, icds, home);
+};
+
+/**
+ * @returns the fit whose message the new records of a shape read, by the position of
+ * the shape in the free shapes of its sample.
+ */
+const reusedFit = (
+  { reading }: ICD.Reuse.Result,
+  shape: json.Shape,
+  i: number,
+): ICD.Reuse.Fit | undefined => {
+  const fit = reading?.fits[i];
+  return fit != null && isReusable(shape, fit) ? fit : undefined;
+};
+
+/**
+ * @returns the reading of found when it reuses a message for a shape of free that
+ * picks holds fields of.
+ */
+const reusedReading = (
+  found: ICD.Reuse.Result,
+  free: json.Shape[],
+  picks: Picks,
+): ICD.Reuse.Reading | undefined =>
+  free.some(
+    (shape, i) =>
+      (picks.get(json.shapeKey(shape))?.size ?? 0) > 0 &&
+      reusedFit(found, shape, i) != null,
+  )
+    ? found.reading
+    : undefined;
+
+/**
+ * @returns what the new records of a shape read, by the position of the shape in the
+ * free shapes of its sample.
+ */
+const readingNote = (
+  found: ICD.Reuse.Result,
+  shape: json.Shape,
+  i: number,
+): string | undefined => {
+  if (i < 0) return undefined;
+  const { reading, candidates } = found;
+  const fit = reusedFit(found, shape, i);
+  if (reading != null && fit != null)
+    return `Reads ${fit.message.name} of ${reading.name}`;
+  const tied = candidates
+    .filter(({ icd: k }) => reading == null || k === reading.icd)
+    .flatMap(({ fits }) => fits[i] ?? [])
+    .filter((f) => isReusable(shape, f)).length;
+  return tied < 2 ? undefined : `Fits ${tied} messages`;
 };
 
 /** A partition that the browse could not measure can hide records. */
@@ -276,16 +372,20 @@ const rebase = (
   return withTopic(picks, topic, shapes, kept);
 };
 
-/** @returns the value that a pane shows for a field of a shape. */
+/**
+ * @returns the value that a pane shows for a field of a shape, as a field of the given
+ * kind.
+ */
 const valueOf = (
   key: string,
   field: json.InferredField,
+  kind: payload.Kind,
   newest: unknown[],
 ): ICD.Picker.Value => ({
   key,
   name: field.pointer === "" ? "Whole value" : field.pointer,
   sample: show(newestValue(newest, field.pointer)),
-  dataType: ICD.VALUE_TYPES[field.kind],
+  dataType: ICD.VALUE_TYPES[kind],
 });
 
 /**
@@ -318,6 +418,8 @@ interface TopicValuesProps {
   warning: string | null;
   sample: kafka.SampledTopic;
   reads: Reads;
+  /** The ICD messages that the new records of the topic read. */
+  found: ICD.Reuse.Result;
   label: Params["label"];
   value: Picks;
   onChange: (value: Picks) => void;
@@ -330,11 +432,13 @@ const TopicValues = ({
   warning,
   sample,
   reads,
+  found,
   label,
   value,
   onChange,
 }: TopicValuesProps) => {
   const { shapes } = sample;
+  const free = freeShapes(shapes, reads);
   // Shapes can share a pointer, so each field takes the index of its shape too.
   const fields = new Map<string, [shape: string, pointer: string]>();
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
@@ -345,7 +449,10 @@ const TopicValues = ({
     const carried = carriedFields(shape, reads);
     return {
       title: titleOf(shape, label),
-      note: split == null ? undefined : ICD.Picker.splitNote(split),
+      note:
+        split == null
+          ? readingNote(found, shape, free.indexOf(shape))
+          : ICD.Picker.splitNote(split),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
@@ -355,7 +462,7 @@ const TopicValues = ({
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;
-        return { ...valueOf(key, f, newest), lock };
+        return { ...valueOf(key, f, ICD.readKind(f), newest), lock };
       }),
     };
   });
@@ -414,7 +521,7 @@ const WholeValues = ({
   label,
 }: WholeValuesProps) => {
   const newest = newestFirst(sample, shape);
-  const values = shape.fields.map((f) => valueOf(f.pointer, f, newest));
+  const values = shape.fields.map((f) => valueOf(f.pointer, f, f.kind, newest));
   return (
     <>
       <ICD.Picker.PaneHeader title={name} note={note} />
@@ -450,10 +557,13 @@ const Content = ({
   topics: held,
   reads: readsOf = readNothing,
   label,
+  formats = NO_FORMATS,
+  home,
   close,
   kind,
 }: ContentProps) => {
   const { whole = false } = kind;
+  const icds = ICD.useValues(formats);
   const [term, setTerm] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [entered, setEntered] = useState<string[]>([]);
@@ -527,6 +637,9 @@ const Content = ({
 
   const trimmed = term.trim();
   const visible = entries.filter(({ name }) => search.matches(name, trimmed));
+  // The pane shows the active topic only while the list shows it.
+  const shown =
+    activeEntry != null && visible.includes(activeEntry) ? activeEntry : null;
   const items = visible.map((entry): ICD.Picker.TreeItem => {
     const { name, listed: topic } = entry;
     const sample = reads.get(name);
@@ -609,8 +722,13 @@ const Content = ({
   let emptyMessage = "The cluster has no topics.";
   if (trimmed !== "") emptyMessage = `No topic matches “${trimmed}”.`;
   else if (listing == null) emptyMessage = "Search for a topic to read it by name.";
+  const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
+  const addTerm = `${kind.verb} “${trimmed}”`;
+  // The tree shows its empty content once a browse answers.
+  const answered = listing != null || browseFailed;
+  const termInEmpty = unknownTerm && answered && visible.length === 0;
   let tree: ReactNode;
-  if (listing != null || browseFailed)
+  if (answered)
     tree = (
       <ICD.Picker.Tree
         key={listing?.key ?? "unlisted"}
@@ -619,19 +737,25 @@ const Content = ({
         active={active}
         onActivate={setSelected}
         onPick={(topic) => void handlePick(topic)}
-        emptyContent={<ICD.Picker.Notice message={emptyMessage} />}
+        emptyContent={
+          <ICD.Picker.Notice
+            message={emptyMessage}
+            action={termInEmpty ? addTerm : undefined}
+            onClick={handleTerm}
+          />
+        }
       />
     );
   else tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
 
-  const activeTopic = activeEntry?.listed ?? null;
+  const activeTopic = shown?.listed ?? null;
   const fill = whole ? NO_FIELDS : ADD_EMPTY;
   let pane: ReactNode;
-  if (activeEntry == null && browseFailed)
+  if (shown == null && browseFailed)
     pane = <Status.Summary center status={result.status} />;
-  else if (activeEntry == null && listing == null)
+  else if (shown == null && listing == null)
     pane = <ICD.Picker.PaneSkeleton noun="Field" />;
-  else if (activeEntry == null)
+  else if (shown == null)
     pane = <ICD.Picker.Notice message="Select a topic to see its records." />;
   else if (whole && format != null)
     pane = (
@@ -644,9 +768,9 @@ const Content = ({
   else if (activeTopic != null && !holdsRecords(activeTopic))
     pane = <ICD.Picker.Notice message={`${NO_RECORDS} ${fill}`} />;
   else if (activeSample == null || activeSample.variant === "loading")
-    pane = <ICD.Picker.PaneSkeleton noun="Field" title={activeEntry.name} />;
+    pane = <ICD.Picker.PaneSkeleton noun="Field" title={shown.name} />;
   else if (activeSample.variant === "error" && whole) {
-    const topic = activeEntry.name;
+    const topic = shown.name;
     pane = (
       <Flex.Box center>
         <Flex.Box y align="start" gap="medium">
@@ -661,7 +785,7 @@ const Content = ({
   } else if (activeSample.variant === "error")
     pane = <Status.Summary center status={activeSample.status} />;
   else if (activeSample.data.shapes.length > 0) {
-    const topic = activeEntry.name;
+    const topic = shown.name;
     const { data } = activeSample;
     const warning = [
       activeTopic == null || activeTopic.error === ""
@@ -697,6 +821,7 @@ const Content = ({
           warning={warning === "" ? null : warning}
           sample={data}
           reads={readsOf(topic)}
+          found={findReading(topic, data, readsOf(topic), device, icds, home)}
           label={label}
           value={picks.get(topic)?.picks ?? new Map()}
           onChange={(value) =>
@@ -727,10 +852,19 @@ const Content = ({
   const count = whole
     ? wholePicks.size
     : [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
-  const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
   const finish = (record: string | null) =>
     close({
-      topics: [...picks.values()].sort(compare.by(({ topic }) => topic)),
+      topics: [...picks.values()]
+        .map((pick): TopicPick => {
+          const sample = reads.get(pick.topic);
+          if (sample?.variant !== "success") return pick;
+          const held = readsOf(pick.topic);
+          const found = findReading(pick.topic, sample.data, held, device, icds, home);
+          const free = freeShapes(sample.data.shapes, held);
+          const reading = reusedReading(found, free, pick.picks);
+          return reading == null ? pick : { ...pick, reading };
+        })
+        .sort(compare.by(({ topic }) => topic)),
       record,
       whole: [...wholePicks]
         .map(([topic, shape]): WholePick => ({ topic, shape }))
@@ -742,11 +876,11 @@ const Content = ({
   if (
     !unknownTerm &&
     !whole &&
-    activeEntry != null &&
+    shown != null &&
     (activeTopic == null || activeTopic.readable)
   )
     emptyRecord = (
-      <ICD.Picker.SideAction onClick={() => finish(activeEntry.name)}>
+      <ICD.Picker.SideAction onClick={() => finish(shown.name)}>
         Add an empty record
       </ICD.Picker.SideAction>
     );
@@ -769,11 +903,13 @@ const Content = ({
             placeholder="Search topics"
           />
           <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
-          <ICD.Picker.SideAction
-            onClick={unknownTerm ? handleTerm : () => searchRef.current?.focus()}
-          >
-            {unknownTerm ? `${kind.verb} “${trimmed}”` : `${kind.verb} a topic by name`}
-          </ICD.Picker.SideAction>
+          {!termInEmpty && (
+            <ICD.Picker.SideAction
+              onClick={unknownTerm ? handleTerm : () => searchRef.current?.focus()}
+            >
+              {unknownTerm ? addTerm : `${kind.verb} a topic by name`}
+            </ICD.Picker.SideAction>
+          )}
           {emptyRecord}
           {whole && (
             <Flex.Box y empty className={CSS.BE("kafka-discover", "format")}>

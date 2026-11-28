@@ -123,7 +123,7 @@ TEST(TelemTest, ToSampleDateTimeOutOfRange) {
     const auto err = to_sample(v, x::telem::TIMESTAMP_T).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "the DateTime is outside the years 1677 to 2262 that a timestamp holds"
     );
 }
@@ -134,7 +134,7 @@ TEST(TelemTest, ToSampleEmpty) {
     UA_Variant_init(&v);
     const auto err = to_sample(v, x::telem::FLOAT32_T).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "the value is empty");
+    EXPECT_EQ(err.data(), "the value is empty");
 }
 
 /// @brief it should reject a type that it cannot convert.
@@ -147,7 +147,7 @@ TEST(TelemTest, ToSampleUnsupportedType) {
     UA_Variant_setScalar(&v, &text, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
     const auto err = to_sample(v, x::telem::FLOAT32_T).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "cannot convert a LocalizedText to float32");
+    EXPECT_EQ(err.data(), "cannot convert a LocalizedText to float32");
 }
 
 /// @brief it should write a String array to a string series.
@@ -170,7 +170,7 @@ TEST(TelemTest, DateTimeArrayWritesNothingOnBadElement) {
     const auto err = ua_array_write_to_series(series, &v, 2).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "the DateTime is outside the years 1677 to 2262 that a timestamp holds"
     );
     EXPECT_EQ(series.size(), 0);
@@ -273,7 +273,7 @@ TEST(TelemTest, ByteStringToStringRejected) {
     UA_Variant_setScalar(&v, &bytes, &UA_TYPES[UA_TYPES_BYTESTRING]);
     const auto err = to_sample(v, x::telem::STRING_T).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "cannot convert a ByteString to string");
+    EXPECT_EQ(err.data(), "cannot convert a ByteString to string");
 }
 
 namespace {
@@ -305,10 +305,10 @@ TEST(TelemTest, ToVariantBoolean) {
     }
     auto err = reject(x::telem::Series(2.0), boolean);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "2 is out of range for a Boolean node");
+    EXPECT_EQ(err.data(), "2 is out of range for a Boolean node");
     err = reject(x::telem::Series(std::string("maybe")), boolean);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "\"maybe\" is not a valid Boolean");
+    EXPECT_EQ(err.data(), "\"maybe\" is not a valid Boolean");
 }
 
 /// @brief it should write a whole number in range to an integer node.
@@ -329,15 +329,15 @@ TEST(TelemTest, ToVariantIntegerRejected) {
     const auto &byte = UA_TYPES[UA_TYPES_BYTE];
     auto err = reject(x::telem::Series(300.0), byte);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "300 is out of range for a Byte node");
+    EXPECT_EQ(err.data(), "300 is out of range for a Byte node");
     err = reject(x::telem::Series(1.5), byte);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "1.5 is not a whole number, so a Byte node cannot hold it");
+    EXPECT_EQ(err.data(), "1.5 is not a whole number, so a Byte node cannot hold it");
     err = reject(x::telem::Series(static_cast<int32_t>(-1)), byte);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "-1 is out of range for a Byte node");
+    EXPECT_EQ(err.data(), "-1 is out of range for a Byte node");
     err = reject(x::telem::Series(std::string("12a")), UA_TYPES[UA_TYPES_INT64]);
-    EXPECT_EQ(err.data, "\"12a\" is not a valid Int64");
+    EXPECT_EQ(err.data(), "\"12a\" is not a valid Int64");
 }
 
 /// @brief it should convert a command to a Float or Double node.
@@ -351,7 +351,7 @@ TEST(TelemTest, ToVariantFloat) {
     UA_Variant_clear(&v);
     const auto err = reject(x::telem::Series(1e40), UA_TYPES[UA_TYPES_FLOAT]);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "1e+40 is out of range for a Float node");
+    EXPECT_EQ(err.data(), "1e+40 is out of range for a Float node");
 }
 
 /// @brief it should write a number to a String node as the shortest text that reads
@@ -396,9 +396,9 @@ TEST(TelemTest, ToVariantBaseDataType) {
 TEST(TelemTest, ToVariantRejectsStructuresAndEmptyCommands) {
     auto err = reject(x::telem::Series(1.0), UA_TYPES[UA_TYPES_SERVERSTATUSDATATYPE]);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "cannot write to a ServerStatusDataType node");
+    EXPECT_EQ(err.data(), "cannot write to a ServerStatusDataType node");
     err = reject(x::telem::Series(x::telem::FLOAT64_T, 1), UA_TYPES[UA_TYPES_DOUBLE]);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "the command has no value");
+    EXPECT_EQ(err.data(), "the command has no value");
 }
 }

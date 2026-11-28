@@ -24,7 +24,6 @@
 
 .console-opc-details__value {
     overflow-wrap: anywhere;
-    font-variant-numeric: tabular-nums;
 }
 
 .console-opc-details__time {

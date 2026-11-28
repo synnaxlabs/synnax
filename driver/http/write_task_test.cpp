@@ -229,7 +229,7 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingNameErrors) {
     };
     auto [_1, err1] = WriteTaskConfig::parse(task);
     ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
-    EXPECT_NE(err1.data.find("name"), std::string::npos);
+    EXPECT_NE(err1.data().find("name"), std::string::npos);
 }
 
 /// @brief it should fail when duplicate header names exist.
@@ -250,7 +250,7 @@ TEST(HTTPWriteTask, ParseConfigDuplicateHeaderErrors) {
     };
     auto [_2, err2] = WriteTaskConfig::parse(task);
     ASSERT_TRUE(err2.matches(x::errors::VALIDATION));
-    EXPECT_NE(err2.data.find("duplicate header"), std::string::npos);
+    EXPECT_NE(err2.data().find("duplicate header"), std::string::npos);
 }
 
 /// @brief it should fail when a header entry has no value, since a blank header is
@@ -269,7 +269,7 @@ TEST(HTTPWriteTask, ParseConfigHeaderMissingValueErrors) {
     auto [_, err] = WriteTaskConfig::parse(task);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         R"({"errors":[{"message":"this field is required","path":"endpoints.headers.value"}]})"
     );
 }
@@ -288,7 +288,7 @@ TEST(HTTPWriteTask, ParseConfigQueryParamMissingParameterErrors) {
     };
     auto [_4, err4] = WriteTaskConfig::parse(task);
     ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
-    EXPECT_NE(err4.data.find("parameter"), std::string::npos);
+    EXPECT_NE(err4.data().find("parameter"), std::string::npos);
 }
 
 /// @brief a query_params entry may omit the value field; it defaults to an empty
@@ -328,7 +328,7 @@ TEST(HTTPWriteTask, ParseConfigDuplicateQueryParamErrors) {
     };
     auto [_6, err6] = WriteTaskConfig::parse(task);
     ASSERT_TRUE(err6.matches(x::errors::VALIDATION));
-    EXPECT_NE(err6.data.find("duplicate query parameter"), std::string::npos);
+    EXPECT_NE(err6.data().find("duplicate query parameter"), std::string::npos);
 }
 
 /// @brief it should POST a numeric channel value to the server.
@@ -429,7 +429,7 @@ TEST(HTTPWriteTask, Error4xxResponse) {
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "POST " + server.base_url() + "/api/control returned 400: bad\\nrequest" +
             std::string(MAX_BODY_EXCERPT_SIZE - 11, 'x') + "..."
     );
@@ -635,8 +635,8 @@ TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
 
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
-    EXPECT_NE(err.data.find("/api/bad"), std::string::npos)
-        << "Expected failing endpoint path in error. Got: " << err.data;
+    EXPECT_NE(err.data().find("/api/bad"), std::string::npos)
+        << "Expected failing endpoint path in error. Got: " << err.data();
 
     auto reqs = server.received_requests();
     EXPECT_EQ(count_requests_for_path(reqs, "/api/good"), 1);
@@ -686,10 +686,10 @@ TEST(HTTPWriteTask, ParallelBatchAllFailures) {
     auto err = sink->write(frame);
     // The critical error (400) is the first error type encountered.
     ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
-    EXPECT_NE(err.data.find("/api/client-err"), std::string::npos)
-        << "Expected critical endpoint in error. Got: " << err.data;
-    EXPECT_NE(err.data.find("/api/server-err"), std::string::npos)
-        << "Expected temporary endpoint in error. Got: " << err.data;
+    EXPECT_NE(err.data().find("/api/client-err"), std::string::npos)
+        << "Expected critical endpoint in error. Got: " << err.data();
+    EXPECT_NE(err.data().find("/api/server-err"), std::string::npos)
+        << "Expected temporary endpoint in error. Got: " << err.data();
 
     auto reqs = server.received_requests();
     EXPECT_EQ(count_requests_for_path(reqs, "/api/client-err"), 1);
@@ -1132,7 +1132,7 @@ TEST(HTTPWriteTask, FailingEndpointDropsItsLaterCommands) {
     const auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "POST " + server.base_url() + R"(/api/bad returned 503: {"error":"busy"})"
     );
 
@@ -1427,7 +1427,7 @@ TEST(HTTPWriteTask, BuildWritersRejectsEndpointWithNoMessage) {
         const auto err = build_writers(client, {ep}).second;
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "endpoint POST /a sends no message. Open the task and pick a message for "
             "it."
         );
@@ -1447,7 +1447,7 @@ TEST(HTTPWriteTask, ConfigureRejectsEndpointWithNoMessage) {
     const auto err = configure_write(ctx, task, std::make_shared<Processor>()).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "endpoint PUT /api/setpoint sends no message. Open the task and pick a "
         "message for it."
     );
@@ -1463,7 +1463,7 @@ TEST(HTTPWriteTask, BuildWritersRejectsMissingICD) {
     const auto err = build_writers(client, {ep}).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "endpoint POST /a: ICD " + ep.icd->to_string() + " does not exist"
     );
 }
@@ -1477,6 +1477,9 @@ TEST(HTTPWriteTask, BuildWritersNamesEndpointOfMessageError) {
     const auto err = build_writers(client, {create_icd_endpoint(client, "/a", missing)})
                          .second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    EXPECT_EQ(err.data, "endpoint POST /a: message Setpoint: channel 1 does not exist");
+    EXPECT_EQ(
+        err.data(),
+        "endpoint POST /a: message Setpoint: channel 1 does not exist"
+    );
 }
 }
