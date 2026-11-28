@@ -89,17 +89,18 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 		return errors.Join(err, waitErr)
 	}
 	for _, k := range dropped {
-		err = errors.Join(err, db.removeLogDir(k))
+		err = errors.Join(err, db.removeLogDir(ctx, k))
 	}
 	return err
 }
 
 // removeLogDir removes the files of a dropped key but its segment files, which the
 // engine unlinks, and then the directory once no segment file is left in it. It waits
-// for the unlinks of the key in flight. A segment that a read may still use keeps its
-// file and the directory, which a later Sweep removes.
-func (db *DB) removeLogDir(key ChannelKey) error {
-	if err := db.engine.waitUnlinks(context.Background(), func() bool {
+// for the unlinks of the key in flight, or returns the error of ctx. A segment that a
+// read may still use keeps its file, and a later Sweep removes the directory that it or
+// ctx leaves.
+func (db *DB) removeLogDir(ctx context.Context, key ChannelKey) error {
+	if err := db.engine.waitUnlinks(ctx, func() bool {
 		return db.engine.cover.unlinking[key] > 0
 	}); err != nil {
 		return err
@@ -151,7 +152,7 @@ func (db *DB) decideLog(
 	ctx context.Context,
 	records set.Set[ChannelKey],
 ) (set.Set[ChannelKey], error) {
-	if err := db.removeTorn(records); err != nil {
+	if err := db.removeTorn(ctx, records); err != nil {
 		return nil, err
 	}
 	snapshot, err := db.engine.state.Snapshot()
@@ -204,14 +205,14 @@ func (db *DB) decideLog(
 	return kept, db.dropLog(ctx, drop)
 }
 
-// removeTorn removes the directory of each torn key outside records. The caller holds
-// db.mu.
-func (db *DB) removeTorn(records set.Set[ChannelKey]) error {
+// removeTorn removes the directory of each torn key outside records, or returns the
+// error of ctx. The caller holds db.mu.
+func (db *DB) removeTorn(ctx context.Context, records set.Set[ChannelKey]) error {
 	for k := range db.mu.torn {
 		if records.Contains(k) {
 			continue
 		}
-		if err := db.removeLogDir(k); err != nil {
+		if err := db.removeLogDir(ctx, k); err != nil {
 			return err
 		}
 		db.mu.torn.Remove(k)
