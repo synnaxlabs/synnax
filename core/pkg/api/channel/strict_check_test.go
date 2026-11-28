@@ -29,7 +29,10 @@ var _ = Describe("Strict retrieve check", func() {
 	refused := MatchError(ContainSubstring(
 		"where: a strict retrieve takes only key, name, and path matches",
 	))
-	retrieve := func(ctx SpecContext, where *channel.Where) error {
+	retrieve := func(
+		ctx SpecContext,
+		where *channel.Where,
+	) (apichannel.RetrieveResponse, error) {
 		GinkgoHelper()
 		u := MustSucceed(rbactestutil.CreateUser(
 			ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
@@ -40,16 +43,15 @@ var _ = Describe("Strict retrieve check", func() {
 			[]access.Action{access.ActionRetrieve},
 			resource.ID{Type: resource.TypeChannel},
 		)
-		_, err := retrieveChannels(AuthedCtx(ctx, u), apichannel.RetrieveRequest{
+		return retrieveChannels(AuthedCtx(ctx, u), apichannel.RetrieveRequest{
 			Where:  where,
 			Strict: true,
 		})
-		return err
 	}
 
 	DescribeTable("Should refuse a strict retrieve with no where",
 		func(ctx SpecContext, where *channel.Where) {
-			Expect(retrieve(ctx, where)).To(refused)
+			Expect(retrieve(ctx, where)).Error().To(refused)
 		},
 		Entry("no where", nil),
 	)
@@ -58,6 +60,6 @@ var _ = Describe("Strict retrieve check", func() {
 		Expect(retrieve(ctx, &channel.Where{Or: []channel.Where{{
 			Name: &filter.String{In: []string{"x"}},
 			Or:   []channel.Where{{Name: &filter.String{In: []string{"y"}}}},
-		}}})).To(refused)
+		}}})).Error().To(refused)
 	})
 })
