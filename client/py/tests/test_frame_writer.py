@@ -125,7 +125,8 @@ class TestWriter:
             with pytest.raises(
                 sy.ValidationError,
                 match=rf'^{data_ch.name} cannot take "time": its index already stores '
-                r"stamps from the writer's start, or the writer may not write its index$",
+                r"stamps from the writer's start, or the writer may not write its "
+                r"index$",
             ):
                 w.write({"time": start, data_ch.key: 1.5})
             w.write({data_ch.key: 1.5})
