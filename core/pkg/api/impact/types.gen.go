@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 	"strconv"
 
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	serviceimpact "github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
@@ -25,8 +26,12 @@ import (
 // ChangeType is the "type" value that selects a variant of Change.
 type ChangeType string
 
-// DeleteChangeType deletes records.
-const DeleteChangeType ChangeType = "delete"
+const (
+	// DeleteChangeType deletes records.
+	DeleteChangeType ChangeType = "delete"
+	// DeleteGroupsChangeType deletes channel folders and the tombstones in them.
+	DeleteGroupsChangeType ChangeType = "delete_groups"
+)
 
 // ChangeVariant is implemented by every Change variant.
 type ChangeVariant interface {
@@ -51,6 +56,14 @@ func (d DeleteChange) Validate() error {
 	return v.Error()
 }
 
+// DeleteGroupsChange deletes channel folders and the tombstones in them.
+type DeleteGroupsChange struct {
+	// Groups are the channel folders to delete.
+	Groups []group.Key `json:"groups" msgpack:"groups"`
+}
+
+func (DeleteGroupsChange) isChangeVariant() {}
+
 // Change is a change that a plan covers.
 type Change struct {
 	Variant ChangeVariant
@@ -66,6 +79,11 @@ func (u Change) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type ChangeType `json:"type"`
 			DeleteChange
 		}{Type: DeleteChangeType, DeleteChange: v})
+	case DeleteGroupsChange:
+		return json.MarshalEncode(enc, struct {
+			Type ChangeType `json:"type"`
+			DeleteGroupsChange
+		}{Type: DeleteGroupsChangeType, DeleteGroupsChange: v})
 	default:
 		return errors.Newf("Change: unknown variant %T", v)
 	}
@@ -100,6 +118,15 @@ func (u *Change) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.DeleteChange
+	case DeleteGroupsChangeType:
+		var v struct {
+			Type ChangeType `json:"type"`
+			DeleteGroupsChange
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DeleteGroupsChange
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -115,6 +142,8 @@ func (u Change) Type() ChangeType {
 	switch u.Variant.(type) {
 	case DeleteChange:
 		return DeleteChangeType
+	case DeleteGroupsChange:
+		return DeleteGroupsChangeType
 	}
 	return ""
 }
@@ -134,8 +163,12 @@ func (u Change) Validate() error {
 // ResponseType is the "type" value that selects a variant of Response.
 type ResponseType string
 
-// DeleteResponseType answers a delete of records.
-const DeleteResponseType ResponseType = "delete"
+const (
+	// DeleteResponseType answers a delete of records.
+	DeleteResponseType ResponseType = "delete"
+	// DeleteGroupsResponseType answers a delete of channel folders.
+	DeleteGroupsResponseType ResponseType = "delete_groups"
+)
 
 // ResponseVariant is implemented by every Response variant.
 type ResponseVariant interface {
@@ -158,6 +191,22 @@ func (d DeleteResponse) Validate() error {
 	return v.Error()
 }
 
+// DeleteGroupsResponse answers a delete of channel folders.
+type DeleteGroupsResponse struct {
+	// Plan is the plan of the delete.
+	Plan serviceimpact.Plan `json:"plan" msgpack:"plan"`
+}
+
+func (DeleteGroupsResponse) isResponseVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DeleteGroupsResponse) Validate() error {
+	v := validate.New("DeleteGroupsResponse")
+	v.Exec(func() error { return validate.PathedError(d.Plan.Validate(), "plan") })
+	return v.Error()
+}
+
 // Response is the plan of a change, under the type of the change.
 type Response struct {
 	Variant ResponseVariant
@@ -173,6 +222,11 @@ func (u Response) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type ResponseType `json:"type"`
 			DeleteResponse
 		}{Type: DeleteResponseType, DeleteResponse: v})
+	case DeleteGroupsResponse:
+		return json.MarshalEncode(enc, struct {
+			Type ResponseType `json:"type"`
+			DeleteGroupsResponse
+		}{Type: DeleteGroupsResponseType, DeleteGroupsResponse: v})
 	default:
 		return errors.Newf("Response: unknown variant %T", v)
 	}
@@ -207,6 +261,15 @@ func (u *Response) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.DeleteResponse
+	case DeleteGroupsResponseType:
+		var v struct {
+			Type ResponseType `json:"type"`
+			DeleteGroupsResponse
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DeleteGroupsResponse
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -222,6 +285,8 @@ func (u Response) Type() ResponseType {
 	switch u.Variant.(type) {
 	case DeleteResponse:
 		return DeleteResponseType
+	case DeleteGroupsResponse:
+		return DeleteGroupsResponseType
 	}
 	return ""
 }
@@ -233,6 +298,8 @@ func (u Response) Validate() error {
 	v.Ternary("type", u.Variant == nil, "required")
 	switch variant := u.Variant.(type) {
 	case DeleteResponse:
+		v.Exec(variant.Validate)
+	case DeleteGroupsResponse:
 		v.Exec(variant.Validate)
 	}
 	return v.Error()

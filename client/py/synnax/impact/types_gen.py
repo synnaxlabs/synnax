@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax import resource
+from synnax import group, resource
 
 EFFECT_RESTRICT: Literal["restrict"] = "restrict"
 
@@ -60,12 +60,15 @@ class Entry(BaseModel):
         effect: Is what the change does to the record.
         choices: Are the picks the caller may make, empty when it has none.
         default: Is the pick that applies when the caller makes none.
+        path: Is the path of the deleted channel of a tombstone entry, with its segments
+            joined by a dot. Absent on other entries.
     """
 
     record: resource.ID
     effect: Effect
     choices: list[Effect] = Field(default_factory=list)
     default: Effect | None = None
+    path: str | None = None
 
 
 class Hidden(BaseModel):
@@ -102,9 +105,16 @@ class DeleteChange(BaseModel):
     records: list[resource.ID] = Field(default_factory=list)
 
 
+class DeleteGroupsChange(BaseModel):
+    """Deletes channel folders and the tombstones in them."""
+
+    type: Literal["delete_groups"] = "delete_groups"
+    groups: list[group.Key] = Field(default_factory=list)
+
+
 # Is a change that a plan covers.
 Change = Annotated[
-    DeleteChange,
+    DeleteChange | DeleteGroupsChange,
     Field(discriminator="type"),
 ]
 
@@ -168,8 +178,15 @@ class DeleteResponse(BaseModel):
     plan: Plan
 
 
+class DeleteGroupsResponse(BaseModel):
+    """Answers a delete of channel folders."""
+
+    type: Literal["delete_groups"] = "delete_groups"
+    plan: Plan
+
+
 # Is the plan of a change, under the type of the change.
 Response = Annotated[
-    DeleteResponse,
+    DeleteResponse | DeleteGroupsResponse,
     Field(discriminator="type"),
 ]
