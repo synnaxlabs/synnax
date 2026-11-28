@@ -1071,4 +1071,73 @@ TEST(TestHandleConfigErr, testAutoStartOfADisabledTaskWritesNoLoadingStatus) {
     ASSERT_EQ(raw->cmds.size(), 1);
     EXPECT_EQ(raw->cmds[0].type, synnax::task::START_CMD_TYPE);
 }
+
+/// @brief it should send the text and data of a running task through the flusher.
+TEST(TestSendRunning, SendsTheTextAndDataOfARunningTask) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "arc"};
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
+    handler.send_start("start");
+    handler.send_running(
+        "Idle",
+        "waits",
+        x::json::json::object_t{{"scopes", x::json::json::array()}}
+    );
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto running = ctx->snapshot()[1];
+    EXPECT_EQ(running.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(running.message, "Idle");
+    EXPECT_EQ(running.description, "waits");
+    EXPECT_TRUE(running.details.running);
+    EXPECT_TRUE(
+        running.details.data.value_or(x::json::json::object_t{}).contains("scopes")
+    );
+}
+
+/// @brief it should send nothing for a task that does not run or has an error.
+TEST(TestSendRunning, SendsNothingForAStoppedOrFailedTask) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "arc"};
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
+    handler.send_running("Idle", "", {});
+    handler.send_start("start");
+    handler.send_error(x::errors::Error(x::errors::INTERNAL, "boom"), "Failed");
+    handler.send_running("Idle", "", {});
+    // A stop answers at once, so it shows that the flusher sent nothing before it.
+    handler.send_stop("stop");
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 3);
+    EXPECT_EQ(statuses[1].message, "Failed");
+    EXPECT_EQ(statuses[2].details.cmd, "stop");
+}
+
+/// @brief it should keep a warning's text when the scopes change, and drop the data on
+/// an error.
+TEST(TestSendRunning, KeepsTheDataThroughAWarningAndDropsItOnAnError) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "arc"};
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
+    handler.send_start("start");
+    handler.send_running(
+        "Idle",
+        "",
+        x::json::json::object_t{{"scopes", x::json::json::array()}}
+    );
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    handler.send_warning("Node failed", "");
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 3);
+    EXPECT_TRUE(ctx->snapshot()[2].details.data.has_value());
+    handler.send_running(
+        "Running main › hold",
+        "",
+        x::json::json::object_t{{"scopes", x::json::json::array({1})}}
+    );
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 4);
+    const auto kept = ctx->snapshot()[3];
+    EXPECT_EQ(kept.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(kept.message, "Node failed");
+    handler.send_error(x::errors::Error(x::errors::INTERNAL, "boom"), "Failed");
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 5);
+    EXPECT_FALSE(ctx->snapshot()[4].details.data.has_value());
+}
 }

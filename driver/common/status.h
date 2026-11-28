@@ -97,6 +97,7 @@ struct StatusHandler {
     void send_error(const x::errors::Error &err, const std::string &message) {
         if (!this->error(err, message)) return;
         this->status.details.running = false;
+        this->status.details.data.reset();
         this->set_text(message, err.data());
         this->maybe_set_status();
     }
@@ -122,6 +123,31 @@ struct StatusHandler {
         if (this->closed || this->background == warning) return;
         this->background = warning;
         if (this->last.has_value()) this->defer(this->shown(*this->last));
+    }
+
+    /// @brief sends the text and data of a task that runs with no error, at most once
+    /// per window. A task that does not run, or that has an error, sends nothing and
+    /// keeps its data. An active warning keeps its text and takes only the data. The
+    /// flusher thread sends the status, so the caller never writes to the Core.
+    void send_running(
+        const std::string &message,
+        const std::string &description,
+        x::json::json::object_t data
+    ) {
+        if (this->accumulated_err || !this->status.details.running) return;
+        this->status.details.data = std::move(data);
+        if (this->status.variant == synnax::status::VARIANT_SUCCESS)
+            this->set_text(message, description);
+        std::lock_guard lock(this->mu);
+        if (this->closed) return;
+        this->last = this->status;
+        this->defer(this->shown(this->status));
+    }
+
+    /// @brief sets the task-specific data of the statuses sent after it, until an error
+    /// clears it. It sends nothing by itself.
+    void set_data(std::optional<x::json::json::object_t> data) {
+        this->status.details.data = std::move(data);
     }
 
     void clear_warning() {
@@ -220,7 +246,9 @@ private:
     [[nodiscard]] static bool
     same(const synnax::task::Status &a, const synnax::task::Status &b) {
         return a.variant == b.variant && a.message == b.message &&
-               a.description == b.description && a.details.running == b.details.running;
+               a.description == b.description &&
+               a.details.running == b.details.running &&
+               a.details.data == b.details.data;
     }
 
     /// @brief returns status with background applied. Requires mu.

@@ -185,19 +185,6 @@
       "caller": "sy-6599-name-every-path-describe-and-refuse-ambiguous-names"
     },
     {
-      "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
-      "receiver": "Scheduler",
-      "name": "SetScopeHandler",
-      "caller": "sy-7012-arc-task-scope-status"
-    },
-    {
-      "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
-      "name": "ScopeHandler",
-      "caller": "sy-7012-arc-task-scope-status"
-    },
-    {
       "module": "gorp",
       "package": "github.com/synnaxlabs/gorp",
       "name": "ReferenceID",

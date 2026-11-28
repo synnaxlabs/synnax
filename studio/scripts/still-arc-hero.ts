@@ -27,7 +27,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const editor = page.locator(".pluto-mosaic__leaf:visible .monaco-editor").first();
     await session.waitFor(editor);
     await capture.openToolbar(session, "arc");
-    await session.waitFor(controls(page).getByText("Started task", { exact: true }));
+    // A running sequence program shows "Idle" or the stage that runs.
+    await session.waitFor(controls(page).getByText(/^(Idle|Running .+)$/));
     // On the empty part of the main nav, so nothing on screen shows its hover state.
     await session.moveTo({ x: 26, y: 600 });
     await session.settleWall(1500);

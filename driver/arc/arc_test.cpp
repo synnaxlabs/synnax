@@ -3897,4 +3897,192 @@ TEST(ArcFactory, BootConfigureErrorWritesStatus) {
     EXPECT_EQ(statuses[0].message, "Failed to configure task");
     EXPECT_FALSE(statuses[0].details.running);
 }
+
+namespace scope_status {
+/// @brief replaces every from in s with to.
+std::string replace(std::string s, const std::string &from, const std::string &to) {
+    for (auto at = s.find(from); at != std::string::npos; at = s.find(from, at))
+        s.replace(at, from.size(), to);
+    return s;
+}
+
+/// @brief an Arc task that runs, and the context that holds its statuses.
+struct Run {
+    std::shared_ptr<driver::task::MockContext> ctx;
+    std::shared_ptr<driver::pipeline::testutil::WriterFactory> writer;
+    synnax::channel::Key out = 0;
+    std::unique_ptr<arc::Task> task;
+
+    Run() = default;
+    Run(Run &&) = default;
+    Run(const Run &) = delete;
+    Run &operator=(const Run &) = delete;
+    ~Run() {
+        if (this->task != nullptr) this->task->stop("stop", true);
+    }
+};
+
+/// @brief runs source, in which %start%, %pt%, and %out% name a start command, a
+/// pressure, and an output channel, through an Arc task. The task gets a start command,
+/// then each pressure in order.
+Run run(const std::string &source, const std::vector<float> &pressures) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto start = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("scope_start"),
+        x::telem::UINT8_T
+    ));
+    auto pt = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("scope_pt"),
+        x::telem::FLOAT32_T
+    ));
+    auto out = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("scope_out"),
+        x::telem::UINT8_T
+    ));
+    const auto raw = replace(
+        replace(replace(source, "%start%", start.name), "%pt%", pt.name),
+        "%out%",
+        out.name
+    );
+    synnax::arc::AutomationArc prog{{.name = make_unique_channel_name("scope_status")}};
+    prog.source = synnax::arc::TextSource{.text = ::arc::text::Text{.raw = raw}};
+    EXPECT_NIL(create_automation(client, prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("scope_rack"))
+    );
+    synnax::task::Task meta{
+        .rack = rack.key,
+        .name = "scope_status",
+        .type = "arc_runtime",
+    };
+    meta.config = nlohmann::json{{"arc_key", prog.key.to_string()}};
+    auto parser = x::json::Parser(meta.config);
+    auto cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger(1);
+    trigger.emplace(start.key, x::telem::Series(std::uint8_t(1)));
+    frames->push_back(std::move(trigger));
+    // A source skips a series whose alignment is below the last one it read, as a
+    // streamer never sends one, so each pressure gets the next alignment.
+    for (std::uint32_t i = 0; i < pressures.size(); i++) {
+        x::telem::Frame fr(1);
+        auto series = x::telem::Series(pressures[i]);
+        series.alignment = x::telem::Alignment(1, i);
+        fr.emplace(pt.key, std::move(series));
+        frames->push_back(std::move(fr));
+    }
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto writer = std::make_shared<driver::pipeline::testutil::WriterFactory>();
+    auto tsk = ASSERT_NIL_P(
+        arc::Task::create(
+            meta,
+            ctx,
+            cfg,
+            writer,
+            driver::pipeline::testutil::simple_streamer_factory(
+                {start.key, pt.key},
+                frames
+            )
+        )
+    );
+    tsk->start("start");
+    Run r;
+    r.ctx = std::move(ctx);
+    r.writer = std::move(writer);
+    r.out = out.key;
+    r.task = std::move(tsk);
+    return r;
+}
+
+/// @brief returns the last status in ctx, or a default status when there is none.
+synnax::task::Status last(const std::shared_ptr<driver::task::MockContext> &ctx) {
+    const auto statuses = ctx->snapshot();
+    return statuses.empty() ? synnax::task::Status{} : statuses.back();
+}
+
+/// @brief returns the scopes in the data of status.
+synnax::arc::task::StatusData data_of(const synnax::task::Status &status) {
+    return synnax::arc::task::StatusData::parse(
+        x::json::Parser(
+            x::json::json(status.details.data.value_or(x::json::json::object_t{}))
+        )
+    );
+}
+}
+
+/// @brief it should show the stage that a running sequence is in.
+TEST(ArcScopeStatus, ShowsTheActiveStage) {
+    const auto r = scope_status::run(
+        R"(
+sequence main {
+    stage pressurize {
+        %pt% > 50 => next
+    }
+    stage hold {
+        %pt% > 80 => pressurize
+    }
+}
+%start% => main
+)",
+        {10, 60}
+    );
+    const auto &ctx = r.ctx;
+    // The flusher sends one status per window, so a change can wait a window.
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        scope_status::last(ctx).message,
+        "Running main › hold",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(5)
+    );
+    const auto status = scope_status::last(ctx);
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_TRUE(status.details.running);
+    const auto data = scope_status::data_of(status);
+    ASSERT_EQ(data.scopes.size(), 1);
+    EXPECT_EQ(data.scopes[0].path, (std::vector<std::string>{"main", "hold"}));
+    r.task->stop("stop", true);
+    const auto stopped = scope_status::last(ctx);
+    EXPECT_EQ(stopped.message, "Stopped task");
+    EXPECT_FALSE(stopped.details.data.has_value());
+}
+
+/// @brief it should show that the program is idle after its sequence ends.
+TEST(ArcScopeStatus, ShowsIdleAfterTheSequenceEnds) {
+    // The stage holds longer than the status window, so its status is sent before the
+    // end of the sequence.
+    const auto r = scope_status::run(
+        R"(
+import time
+
+sequence main {
+    stage pressurize {
+        time.wait(duration=1500ms) => next
+    }
+    0 -> %out%
+}
+%start% => main
+)",
+        {}
+    );
+    const auto &ctx = r.ctx;
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        scope_status::last(ctx).message,
+        "Running main › pressurize",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(5)
+    );
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        scope_status::last(ctx).message,
+        "Idle",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(5)
+    );
+    const auto status = scope_status::last(ctx);
+    EXPECT_TRUE(status.details.running);
+    EXPECT_TRUE(scope_status::data_of(status).scopes.empty());
+    EXPECT_TRUE(std::ranges::any_of(r.writer->writes->snapshot(), [&r](const auto &fr) {
+        return fr.contains(r.out);
+    }));
+}
 }

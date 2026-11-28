@@ -13,6 +13,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	stdstrings "strings"
+	"sync"
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -49,6 +51,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/set"
@@ -77,6 +80,10 @@ type impl struct {
 	closer io.Closer
 	// sCtx is the runtime's context. A runtime that fails cancels it.
 	sCtx signal.Context
+	// scopesMu guards scopes.
+	scopesMu sync.Mutex
+	// scopes is the data of the last scope status of this run, which a warning keeps.
+	scopes msgpack.EncodedJSON
 }
 
 var _ driver.Task = (*impl)(nil)
@@ -131,6 +138,9 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 			)
 		}
 	}
+	t.scopesMu.Lock()
+	t.scopes = nil
+	t.scopesMu.Unlock()
 	flow, err := t.open(ctx)
 	if err != nil {
 		return err, t.status.Send(
@@ -174,7 +184,8 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = t.newScheduler(f, &drt); err != nil {
+	scopes := newPendingScopes()
+	if err = t.newScheduler(f, &drt, scopes); err != nil {
 		return nil, err
 	}
 	drt.startReading = timer.Now()
@@ -210,8 +221,20 @@ func (t *impl) open(ctx context.Context) (flow func(), err error) {
 		return nil, err
 	}
 	t.sCtx = sCtx
+	// Closers run in reverse order, so the writer stops after the runtime has ended.
+	scopesCtx, stopScopes := context.WithCancel(context.Background())
+	scopesDone := make(chan struct{})
+	go func() {
+		defer close(scopesDone)
+		t.writeScopes(scopesCtx, scopes)
+	}()
 	closers = append(
 		closers,
+		xio.CloserFunc(func() error {
+			stopScopes()
+			<-scopesDone
+			return nil
+		}),
 		signal.NewGracefulShutdown(sCtx, cancel),
 		in.closeSignal,
 	)
@@ -418,7 +441,11 @@ func (t *impl) instantiate(
 }
 
 // newScheduler creates the nodes of the program with f and sets the scheduler of drt.
-func (t *impl) newScheduler(f node.CompoundFactory, drt *dataRuntime) error {
+func (t *impl) newScheduler(
+	f node.CompoundFactory,
+	drt *dataRuntime,
+	scopes *pendingScopes,
+) error {
 	nodes := make(map[string]node.Node)
 	for _, irNode := range t.prog.Program.Nodes {
 		n, err := f.Create(node.Config{
@@ -454,6 +481,7 @@ func (t *impl) newScheduler(f node.CompoundFactory, drt *dataRuntime) error {
 			},
 		),
 	)
+	sched.SetScopeHandler(scopes.put)
 	drt.scheduler = sched
 	return nil
 }
@@ -652,6 +680,10 @@ func (t *impl) reporter() taskreporter.Reporter {
 		message string,
 		description string,
 	) {
+		if variant == status.VariantWarning {
+			t.warn(ctx, message, description)
+			return
+		}
 		t.setStatus(
 			ctx,
 			driver.NoCommand,
@@ -660,6 +692,21 @@ func (t *impl) reporter() taskreporter.Reporter {
 			message,
 			description,
 		)
+	}
+}
+
+// warn writes a warning that keeps the data of the last scope status, since the
+// program still runs its scopes.
+func (t *impl) warn(ctx context.Context, message, description string) {
+	t.scopesMu.Lock()
+	scopes := t.scopes
+	t.scopesMu.Unlock()
+	if err := t.status.Warn(ctx, driver.Warning{
+		Message:     message,
+		Description: description,
+		Data:        scopes,
+	}); err != nil {
+		t.factoryCfg.L.Error("failed to set warning status", zap.Error(err))
 	}
 }
 
@@ -688,17 +735,108 @@ func (t *impl) setStatus(
 	}
 }
 
+// pathSeparator separates the keys of a scope path in a status message.
+const pathSeparator = " › "
+
+// scopeText returns the status message and description that show the active top-level
+// scopes of a program.
+func scopeText(data StatusData) (message, description string) {
+	if len(data.Scopes) == 0 {
+		return "Idle", "No sequence or stage runs. A trigger can start one."
+	}
+	paths := make([]string, len(data.Scopes))
+	for i, sc := range data.Scopes {
+		paths[i] = stdstrings.Join(sc.Path, pathSeparator)
+	}
+	return "Running " + stdstrings.Join(paths, ", "), ""
+}
+
+// pendingScopes holds the latest active paths of a program until a writer takes them.
+type pendingScopes struct {
+	mu    sync.Mutex
+	paths [][]string
+	set   bool
+	// ready holds a signal while paths wait for the writer.
+	ready chan struct{}
+}
+
+func newPendingScopes() *pendingScopes {
+	return &pendingScopes{ready: make(chan struct{}, 1)}
+}
+
+// put replaces the pending paths. It never blocks, so the runtime cycle calls it.
+func (p *pendingScopes) put(_ context.Context, paths [][]string) {
+	p.mu.Lock()
+	p.paths, p.set = paths, true
+	p.mu.Unlock()
+	select {
+	case p.ready <- struct{}{}:
+	default:
+	}
+}
+
+// take returns the pending paths and clears them. ok is false when none wait.
+func (p *pendingScopes) take() (paths [][]string, ok bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	paths, ok = p.paths, p.set
+	p.paths, p.set = nil, false
+	return paths, ok
+}
+
+// writeScopes shows each pending set of paths in the task status, at most once per
+// StatusWindow, until ctx ends.
+func (t *impl) writeScopes(ctx context.Context, scopes *pendingScopes) {
+	window := stdtime.NewTimer(0)
+	defer window.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-scopes.ready:
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-window.C:
+		}
+		// A stop waits for the write in progress instead of canceling it.
+		if paths, ok := scopes.take(); ok {
+			t.setScopes(context.WithoutCancel(ctx), paths)
+		}
+		window.Reset(t.factoryCfg.StatusWindow.Duration())
+	}
+}
+
+// setScopes shows the active paths of the program in the status of the task.
+func (t *impl) setScopes(ctx context.Context, paths [][]string) {
+	data := StatusData{Scopes: make([]Scope, len(paths))}
+	for i, p := range paths {
+		data.Scopes[i] = Scope{Path: p}
+	}
+	encoded, err := msgpack.NewEncodedJSON(data)
+	if err == nil {
+		t.scopesMu.Lock()
+		t.scopes = encoded
+		t.scopesMu.Unlock()
+		message, description := scopeText(data)
+		err = t.status.SendRunning(ctx, message, description, encoded)
+	}
+	if err != nil {
+		t.factoryCfg.L.Error(
+			"failed to set the scope status of an Arc task",
+			zap.Stringer("key", t.task.Key),
+			zap.Error(err),
+		)
+	}
+}
+
 func (t *impl) setRuntimeError(ctx context.Context, nodeKey, text string) {
 	nodeType := nodeKey
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
-	if setErr := t.status.Warn(ctx, driver.Warning{
-		Message:     "Node failed",
-		Description: fmt.Sprintf("The %s node failed: %s", nodeType, text),
-	}); setErr != nil {
-		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
-	}
+	t.warn(ctx, "Node failed", fmt.Sprintf("The %s node failed: %s", nodeType, text))
 }
 
 type state struct {

@@ -963,14 +963,15 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("FactoryConfig", func() {
 		full := func() arctask.FactoryConfig {
 			return arctask.FactoryConfig{
-				DB:         db,
-				Channel:    channelSvc,
-				Framer:     framerSvc,
-				Status:     statusSvc,
-				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
-				Ranger:     rangerSvc,
-				Now:        telem.Now,
-				LoopBudget: 1000,
+				DB:           db,
+				Channel:      channelSvc,
+				Framer:       framerSvc,
+				Status:       statusSvc,
+				GetProgram:   func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
+				Ranger:       rangerSvc,
+				Now:          telem.Now,
+				LoopBudget:   1000,
+				StatusWindow: telem.Second,
 			}
 		}
 
@@ -1021,6 +1022,11 @@ var _ = Describe("Task", Ordered, func() {
 					func(c *arctask.FactoryConfig) { c.LoopBudget = 0 },
 					"loop_budget",
 				),
+				Entry(
+					"status_window",
+					func(c *arctask.FactoryConfig) { c.StatusWindow = 0 },
+					"status_window",
+				),
 			)
 		})
 
@@ -1035,6 +1041,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.GetProgram).ToNot(BeNil())
 				Expect(merged.Now).ToNot(BeNil())
 				Expect(merged.LoopBudget).To(Equal(src.LoopBudget))
+				Expect(merged.StatusWindow).To(Equal(src.StatusWindow))
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -1402,6 +1409,242 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("Scope status", func() {
+		type scopeTask struct {
+			driver.Task
+			trig, step *channel.Channel
+			key        task.Key
+		}
+
+		// startScopeTask starts a task whose sequence main has the stages first and
+		// second, then a last write. trig starts main, and step 1 and 2 leave the
+		// stages.
+		startScopeTask := func(ctx SpecContext, window telem.TimeSpan) scopeTask {
+			GinkgoHelper()
+			trig := createVirtualCh(ctx, "scope_trig", telem.Uint8T)
+			step := createVirtualCh(ctx, "scope_step", telem.Uint8T)
+			out := createVirtualCh(ctx, "scope_out", telem.Uint8T)
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				sequence main {
+				    stage first {
+				        %[2]s == 1 => next
+				    }
+				    stage second {
+				        %[2]s == 2 => next
+				    }
+				    1 -> %[3]s
+				}
+
+				%[1]s => main
+			`, trig.Name, step.Name, out.Name)}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-scope-status",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(newTextFactory(
+				ctx,
+				prog,
+				arctask.FactoryConfig{StatusWindow: window},
+			).ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			DeferCleanup(func() { Expect(t.Stop(true)).To(Succeed()) })
+			return scopeTask{Task: t, trig: trig, step: step, key: svcTask.Key}
+		}
+
+		write := func(ctx SpecContext, ch *channel.Channel, v uint8) {
+			GinkgoHelper()
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{ch.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV(v)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+		}
+
+		retrieveStatus := func(
+			ctx context.Context,
+			key task.Key,
+			stat *task.Status,
+		) error {
+			return statusSvc.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchOwners[task.StatusDetails](task.ResourceID(key))).
+				Entry(stat).Exec(ctx, db)
+		}
+
+		matchScopes := func(
+			ctx SpecContext,
+			key task.Key,
+			message string,
+			description string,
+			paths ...[]string,
+		) func(g Gomega) {
+			return func(g Gomega) {
+				var stat task.Status
+				g.Expect(retrieveStatus(ctx, key, &stat)).To(Succeed())
+				g.Expect(stat.Message).To(Equal(message))
+				g.Expect(stat.Description).To(Equal(description))
+				g.Expect(stat.Variant).To(BeEquivalentTo("success"))
+				g.Expect(stat.Details.Running).To(BeTrue())
+				var data arctask.StatusData
+				g.Expect(stat.Details.Data.Unmarshal(&data)).To(Succeed())
+				g.Expect(data.Scopes).To(HaveLen(len(paths)))
+				for i, p := range paths {
+					g.Expect(data.Scopes[i].Path).To(Equal(p))
+				}
+			}
+		}
+
+		matchIdle := func(ctx SpecContext, key task.Key) func(g Gomega) {
+			return matchScopes(
+				ctx,
+				key,
+				"Idle",
+				"No sequence or stage runs. A trigger can start one.",
+			)
+		}
+
+		It(
+			"Should show each start, stage change, and end of a sequence",
+			func(ctx SpecContext) {
+				t := startScopeTask(ctx, telem.Millisecond)
+				Eventually(matchIdle(ctx, t.key)).Should(Succeed())
+				write(ctx, t.trig, 1)
+				Eventually(matchScopes(
+					ctx,
+					t.key,
+					"Running main › first",
+					"",
+					[]string{"main", "first"},
+				)).Should(Succeed())
+				write(ctx, t.step, 1)
+				Eventually(matchScopes(
+					ctx,
+					t.key,
+					"Running main › second",
+					"",
+					[]string{"main", "second"},
+				)).Should(Succeed())
+				write(ctx, t.step, 2)
+				Eventually(matchIdle(ctx, t.key)).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should clear the scopes on a stop and show them again on a restart",
+			func(ctx SpecContext) {
+				t := startScopeTask(ctx, telem.Millisecond)
+				Eventually(matchIdle(ctx, t.key)).Should(Succeed())
+				Expect(t.Exec(ctx, task.Command{Type: "stop", Key: "cmd-stop"})).
+					To(Succeed())
+				var stat task.Status
+				Expect(retrieveStatus(ctx, t.key, &stat)).To(Succeed())
+				Expect(stat.Message).To(Equal("Stopped task"))
+				Expect(stat.Details.Data).To(BeNil())
+				Expect(t.Exec(ctx, task.Command{Type: "start", Key: "cmd-start"})).
+					To(Succeed())
+				Eventually(matchIdle(ctx, t.key)).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should merge the scope changes inside a window into the newest one",
+			func(ctx SpecContext) {
+				t := startScopeTask(ctx, 2*telem.Second)
+				Eventually(matchIdle(ctx, t.key)).Should(Succeed())
+				write(ctx, t.trig, 1)
+				write(ctx, t.step, 1)
+				Consistently(matchIdle(ctx, t.key)).
+					WithTimeout(300 * time.Millisecond).
+					Should(Succeed())
+				Eventually(matchScopes(
+					ctx,
+					t.key,
+					"Running main › second",
+					"",
+					[]string{"main", "second"},
+				)).WithTimeout(5 * time.Second).Should(Succeed())
+			},
+		)
+
+		It("Should keep the scopes in a node failure warning", func(ctx SpecContext) {
+			trig := createVirtualCh(ctx, "scope_fail_trig", telem.Uint8T)
+			in := createVirtualCh(ctx, "scope_fail_in", telem.Int32T)
+			out := createVirtualCh(ctx, "scope_fail_out", telem.Int32T)
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				func divide() {
+				    %[3]s = 10 / %[2]s
+				}
+
+				sequence main {
+				    stage hold {
+				        %[2]s -> divide()
+				    }
+				}
+
+				%[1]s => main
+			`, trig.Name, in.Name, out.Name)}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-scope-fail",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(newTextFactory(
+				ctx,
+				prog,
+				arctask.FactoryConfig{StatusWindow: telem.Millisecond},
+			).ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			DeferCleanup(func() { Expect(t.Stop(true)).To(Succeed()) })
+			Eventually(matchIdle(ctx, svcTask.Key)).Should(Succeed())
+			write(ctx, trig, 1)
+			Eventually(matchScopes(
+				ctx, svcTask.Key, "Running main › hold", "", []string{"main", "hold"},
+			)).Should(Succeed())
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{in.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(in.Key(), telem.NewSeriesV[int32](0)))).
+				To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(retrieveStatus(ctx, svcTask.Key, &stat)).To(Succeed())
+				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
+				g.Expect(stat.Message).To(Equal("Node failed"))
+				var data arctask.StatusData
+				g.Expect(stat.Details.Data.Unmarshal(&data)).To(Succeed())
+				g.Expect(data.Scopes).To(HaveLen(1))
+				g.Expect(data.Scopes[0].Path).To(Equal([]string{"main", "hold"}))
+			}).Should(Succeed())
+		})
+		It("Should not show scopes for a program with none", func(ctx SpecContext) {
+			ch := createVirtualCh(ctx, "scope_none", telem.Float32T)
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-scope-none",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+				ConfigureTask(ctx, svcTask, "cmd-1"))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+			Consistently(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Message).To(Equal("Started task"))
+			}).WithTimeout(200 * time.Millisecond).Should(Succeed())
+		})
+	})
 	Describe("Entry node one-shot", func() {
 		It(
 			"Should create exactly one status for an untriggered status.set in a stage",

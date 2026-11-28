@@ -84,8 +84,10 @@ The status shows "Task not deployed".
    - `true => press` starts the sequence, at its first stage, when the automation
      starts.
 
-2. Click **Start** (<Icon.Play />) in the controls bar. The status shows "Started task".
-3. Select the **Tank** tab, and click **Start** on the schematic.
+2. Click **Start** (<Icon.Play />) in the controls bar. The status names the sequence
+   and its active stage: "Running press › idle".
+3. Select the **Tank** tab, and click **Start** on the schematic. The status changes to
+   "Running press › pressurize".
 
 The press valve opens, and the pressure climbs on the Tank pressure line plot. The
 sequence stays in `pressurize`, because the stage has no way out yet. The control legend
