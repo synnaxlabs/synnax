@@ -49,7 +49,7 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
 /// @brief a factory for instantiating and operating NI data acquisition, control,
 /// and device scanning tasks.
 class Factory final : public task::Factory {
-    /// @brief the DAQmx library that read and write tasks use.
+    /// @brief the NI-DAQmx library that read and write tasks use.
     std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx;
     /// @brief the System Configuration library that the scanner uses.
     std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> syscfg;
@@ -62,7 +62,7 @@ public:
         common::TimingConfig timing_cfg = common::TimingConfig{}
     );
 
-    /// @brief creates a new NI factory that loads the DAQmx and System Configuration
+    /// @brief creates a new NI factory that loads the NI-DAQmx and System Configuration
     /// libraries on first use.
     static std::unique_ptr<Factory>
     create(common::TimingConfig timing_cfg = common::TimingConfig{});

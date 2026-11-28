@@ -38,7 +38,7 @@ import (
 )
 
 // loadV55 reads a stored log body fixture and wraps it in the v0 snapshot shape that
-// the gorp boot migration consumes. The fixture's promoted key and name become the
+// the Gorp boot migration consumes. The fixture's promoted key and name become the
 // envelope-level Key and Name; the whole object is also handed through as the raw Data
 // blob, so any envelope-only keys (version, type) are simply ignored by the lenient v1
 // parse the way an unrecognized persisted field would be.

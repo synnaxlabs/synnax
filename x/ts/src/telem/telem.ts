@@ -1562,8 +1562,6 @@ export class DataType
     return DataType.BIG_INT_TYPES.some((t) => t.equals(this));
   }
 
-  /** Represents an Unknown/Invalid DataType. */
-  static readonly UNKNOWN = new DataType("unknown");
   /** Represents a 64-bit floating point value. */
   static readonly FLOAT64 = new DataType("float64");
   /** Represents a 32-bit floating point value. */
@@ -1658,7 +1656,6 @@ export class DataType
 
   /** All the data types. */
   static readonly ALL = [
-    DataType.UNKNOWN,
     DataType.UINT8,
     DataType.UINT16,
     DataType.UINT32,

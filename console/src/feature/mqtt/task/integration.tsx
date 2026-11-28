@@ -18,18 +18,14 @@ import { PREFIX, READ_SCHEMAS, READ_TYPE } from "@/feature/mqtt/task/types";
 import { Task } from "@/platform/task";
 
 const readPlotChannels: Task.PlotChannels = (config) =>
-  Task.enabledChannels(
-    READ_SCHEMAS.config
-      .parse(config)
-      .entries.filter(({ disabled }) => !disabled)
-      .flatMap<Task.PlotEntry>((entry) =>
-        entry.type === "plain"
-          ? entry.messages.flatMap(({ bindings }) =>
-              bindings.map(({ channel }) => ({ channel, disabled: false })),
-            )
-          : [entry],
-      ),
-  );
+  READ_SCHEMAS.config
+    .parse(config)
+    .entries.filter(({ disabled }) => !disabled)
+    .flatMap((entry) =>
+      entry.type === "plain"
+        ? Task.readChannels(entry.icd, entry.messages)
+        : [{ channel: entry.channel }],
+    );
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,

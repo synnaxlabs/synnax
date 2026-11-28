@@ -121,7 +121,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 // when from is built in or equals to, and one wrapping query.ErrNotFound when from or
 // to does not exist.
 func (w Writer) Replace(ctx context.Context, from, to Key) error {
-	if err := w.table.Retarget(ctx, w.tx, from, to); err != nil {
+	if err := w.table.Retarget(ctx, w.tx, map[Key]Key{from: to}); err != nil {
 		return err
 	}
 	return w.Delete(ctx, from)

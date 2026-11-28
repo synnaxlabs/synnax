@@ -800,6 +800,7 @@ var _ = Describe("license", func() {
 			activate(ctx, svc)
 			d := openMockDriver(ctx, logger, driver.Config{License: svc})
 			activate(ctx, svc)
+			Eventually(countStarts(buffer)).Should(Equal(1))
 			Consistently(countStarts(buffer), 500*time.Millisecond).Should(Equal(1))
 			Expect(d.Close()).To(Succeed())
 		},

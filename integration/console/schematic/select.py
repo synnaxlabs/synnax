@@ -15,6 +15,7 @@ class Select(Symbol):
     """Schematic select symbol (dropdown, Set button, and optional read-back)"""
 
     _symbol_group: str | None = "General"
+    _enumeration_tab: str = "control"
 
     def __init__(
         self,

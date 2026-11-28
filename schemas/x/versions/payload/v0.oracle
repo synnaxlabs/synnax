@@ -255,13 +255,13 @@ EnumEntry struct {
 
 JSONType enum {
     number  = "number" {
-        @doc value "writes the value as a JSON number."
+        @doc value "is a JSON number."
     }
     string  = "string" {
-        @doc value "writes the value as a JSON string."
+        @doc value "is a JSON string."
     }
     boolean = "boolean" {
-        @doc value "writes the value as a JSON boolean."
+        @doc value "is a JSON boolean."
     }
 
     @doc value "is the JSON type a channel value is serialized as in a payload."

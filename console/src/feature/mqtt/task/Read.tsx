@@ -25,7 +25,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, map, primitive, unique } from "@synnaxlabs/x";
+import { DataType, deep, map, payload, primitive } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -68,6 +68,7 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
@@ -131,7 +132,7 @@ const createDraft = (
   index?: string,
   present?: string,
 ): Draft => {
-  const fields = ICD.createFields(leaves);
+  const fields = ICD.createReadFields(leaves);
   return {
     type: "plain",
     topic,
@@ -156,7 +157,7 @@ const draftsOf = (topic: string, pick: TopicPick): Draft[] => {
     createDraft(topic, pickedLeaves(p), p.index, p.shape.present),
   );
   for (const [read, picks] of extended) {
-    const leaves = unique.by(picks.flatMap(pickedLeaves), ({ pointer }) => pointer);
+    const leaves = ICD.mergeFields(picks.flatMap(pickedLeaves));
     const index = picks.find((p) => p.index != null)?.index;
     drafts.push({ ...createDraft(topic, leaves, index), read });
   }
@@ -226,34 +227,6 @@ const splitStored = (
       .filter(isPlain)
       .map((entry) => ({ ...storedSource(entry), disabled: entry.disabled })),
   );
-
-/** Inserts entries into the lists of one ICD. */
-type Inserter = Pick<ICD.FormatForm, "insert">;
-
-/**
- * Appends each field whose pointer the message lacks.
- * @returns the fields it appends.
- */
-const appendFields = (
-  to: Inserter,
-  message: icd.Message,
-  fields: icd.JSONField[],
-): icd.JSONField[] => {
-  const held = ICD.jsonFields(message);
-  const pointers = new Set(held.map(({ pointer }) => pointer));
-  const added = fields.filter(({ pointer }) => !pointers.has(pointer));
-  const names = ICD.fieldNames(
-    added.map(({ pointer }) => pointer),
-    held.map(({ name }) => name),
-  );
-  const appended = added.map((field, i) => ({ ...field, name: names[i] }));
-  let after = held.at(-1)?.key;
-  for (const field of appended) {
-    to.insert(ICD.fieldsPath(message.key), field, after);
-    after = field.key;
-  }
-  return appended;
-};
 
 /** @returns a message for the fields of a draft, named after its topic and kind. */
 const createMessage = (
@@ -353,7 +326,7 @@ const addTopics = async ({
 }: AddTopicsParams): Promise<AddTopicsResult> => {
   const messages = await readMessages(client, format, entries);
   const actions = new Map<icd.Key, icd.Action[]>();
-  const inserterOf = (key: icd.Key): Inserter => {
+  const inserterOf = (key: icd.Key): ICD.Inserter => {
     if (key === format.key) return format.form;
     const pending = map.getOrInsert(actions, key, () => []);
     return {
@@ -373,7 +346,7 @@ const addTopics = async ({
           ? undefined
           : ICD.messageOf(messages, entry, read);
       if (entry != null && message != null) {
-        const appended = appendFields(inserterOf(key), message, draft.fields);
+        const appended = ICD.appendFields(inserterOf(key), message, draft.fields);
         result.held.push({
           key: entry.key,
           read,
@@ -495,6 +468,8 @@ interface TopicDetailsProps {
   onAddMessage: () => void;
   /** Makes a topic that reads one message read a message of any ICD. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** Makes the topic read a new message of the format with no fields. */
+  onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
 }
 
@@ -509,6 +484,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  onFormatCreate,
   bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
@@ -527,7 +503,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && (
+                {encoding != null && ICD.isTaskFormat(encoding) && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
@@ -549,6 +525,8 @@ const TopicDetails: FC<TopicDetailsProps> = ({
               icdKey={icdKey}
               message={reads[0].message}
               onChange={onFormatChange}
+              formats={payload.FORMATS}
+              onCreate={onFormatCreate}
               disabled={bindDisabled}
               preview={isPreview}
             />
@@ -669,6 +647,7 @@ const Entries: FC<EntriesProps> = ({
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   } = ICD.Tree.use({
     sources: root.config.entries,
     sourceOf: (e) => (isPlain(e) ? e : null),
@@ -782,6 +761,7 @@ const Entries: FC<EntriesProps> = ({
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add data");
+  const isPreview = Task.useIsPreview();
 
   const entry =
     current == null ? undefined : entries.find(({ key }) => key === current.source);
@@ -851,6 +831,7 @@ const Entries: FC<EntriesProps> = ({
           onAddField={() => addField(entry.key, 0)}
           onAddMessage={() => addMessage(entry.key)}
           onFormatChange={(icdKey, message) => setMessage(entry.key, icdKey, message)}
+          onFormatCreate={(format) => setNewMessage(entry.key, format)}
           bindDisabled={bindDisabled}
         />
       );
@@ -875,9 +856,12 @@ const Entries: FC<EntriesProps> = ({
       title={title ?? undefined}
     >
       {details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Add data to read a topic or a tag</Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No entry selected"
+          action={isPreview || bindDisabled ? undefined : "Add data"}
+          onClick={handleAdd}
+        />
       )}
     </Task.Views.Panes>
   );

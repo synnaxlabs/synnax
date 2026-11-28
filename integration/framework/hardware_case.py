@@ -19,7 +19,7 @@ from framework.test_case import Config, TestCase
 
 
 class HardwareCase(TestCase):
-    """TestCase whose teardown deletes the racks, devices, and tasks it creates.
+    """TestCase whose teardown deletes the racks, devices, tasks, and ICDs it creates.
 
     A leftover device keeps the Driver health-checking a dead endpoint, and a leftover
     rack keeps the rack monitor warning for the rest of the run. Deleting each one also
@@ -31,6 +31,7 @@ class HardwareCase(TestCase):
         self._test_rack_keys: list[int] = []
         self._test_device_keys: list[str] = []
         self._test_task_keys: list[sy.task.Key] = []
+        self._test_icd_keys: list[sy.icd.Key] = []
 
     def create_test_rack(
         self, name: str, *, integrations: list[str] | None = None
@@ -63,6 +64,10 @@ class HardwareCase(TestCase):
         """Mark existing tasks for deletion in teardown."""
         self._test_task_keys.extend(t.key for t in tasks)
 
+    def track_test_icds(self, icds: list[sy.ICD]) -> None:
+        """Mark existing ICDs for deletion in teardown."""
+        self._test_icd_keys.extend(i.key for i in icds)
+
     def delete_racks(self, keys: list[int]) -> None:
         """Deletes the racks with the tasks and devices on them. The Core refuses to
         delete a rack while either is attached."""
@@ -74,7 +79,8 @@ class HardwareCase(TestCase):
         self.client.racks.delete(keys)
 
     def teardown(self) -> None:
-        """Run the chained teardown, then delete tracked tasks, devices, and racks.
+        """Run the chained teardown, then delete tracked tasks, ICDs, devices, and
+        racks.
 
         The deletions are server-side, so they run after the chain to stay out of
         Console traces captured by earlier teardowns.
@@ -90,6 +96,9 @@ class HardwareCase(TestCase):
                     keys.extend(t.key for t in self.client.tasks.list(rack=rack_key))
                 if keys:
                     self.client.tasks.delete(list(dict.fromkeys(keys)))
+            with self._try_to("delete test ICDs"):
+                if self._test_icd_keys:
+                    self.client.icds.delete(self._test_icd_keys)
             with self._try_to("delete test devices"):
                 if self._test_device_keys:
                     self.client.devices.delete(self._test_device_keys)

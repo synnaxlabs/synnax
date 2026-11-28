@@ -35,9 +35,20 @@ type registeredTable interface {
 	// detach removes or inlines the targets of ops in the entry with the text key k and
 	// writes it back as a detach.
 	detach(ctx context.Context, tx Tx, k string, ops []detachOp) error
-	// retarget moves the entry with the text key k from the target from to the target
-	// to through the references at refs, and writes it back with a checked write.
-	retarget(ctx context.Context, tx Tx, k string, refs []int, from, to Target) error
+	// retarget moves the entry with the text key k from each target that moves holds
+	// to the target it maps to, through the references at refs, and writes it back with
+	// a checked write. from is the first moved target that the entry holds.
+	retarget(
+		ctx context.Context,
+		tx Tx,
+		k string,
+		refs []int,
+		from Target,
+		moves map[Target]Target,
+	) error
+	// checkRelations runs the unique and acyclic checks of the references at refs
+	// on the entry with the text key k.
+	checkRelations(ctx context.Context, tx Tx, k string, refs []int) error
 	// watches reports whether the table runs a hook when an entry of the table named
 	// table that its entries hold is set.
 	watches(table string) bool

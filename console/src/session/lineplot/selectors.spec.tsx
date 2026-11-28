@@ -53,7 +53,7 @@ const wrapperFor = (
 };
 
 const createCustomStore = () =>
-  storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
+  storeWith({ version: 0, windows: inWindow({ [KEY]: customState }), tasks: {} });
 
 describe("lineplot selector hooks", () => {
   it("should resolve the key from the surrounding scope", () => {
@@ -94,7 +94,11 @@ describe("lineplot selector hooks", () => {
 
 describe("lineplot hidden items", () => {
   it("should read the items and the isolation that setHidden sets", () => {
-    const store = storeWith({ version: 0, windows: inWindow({ [KEY]: ZERO }) });
+    const store = storeWith({
+      version: 0,
+      windows: inWindow({ [KEY]: ZERO }),
+      tasks: {},
+    });
     const { result } = renderHook(
       () => ({
         hidden: LinePlot.useSelectHidden(),
@@ -141,6 +145,7 @@ describe("lineplot selector stability under dispatch", () => {
   it("should re-point the selector when its key dependency changes", () => {
     const store = storeWith({
       version: 0,
+      tasks: {},
       windows: inWindow({
         [KEY]: customState,
         "plot-2": { ...ZERO, toolbar: { ...ZERO.toolbar, activeTab: "axes" } },

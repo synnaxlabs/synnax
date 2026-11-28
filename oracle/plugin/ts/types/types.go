@@ -619,6 +619,7 @@ func (p *Plugin) processOverriddenTypeDef(
 			data.Request.Resolutions,
 			data,
 			typeOverride,
+			false,
 		)
 		zodType = result.ZodType
 	}
@@ -670,6 +671,7 @@ func (p *Plugin) typeDefZod(
 		data.Request.Resolutions,
 		data,
 		"",
+		false,
 	).ZodType
 }
 
@@ -1800,6 +1802,7 @@ func (p *Plugin) overrideSchema(
 			table,
 			data,
 			typeOverride,
+			refusesZero(field),
 		)
 		fd.ZodType = result.ZodType
 		if result.HasDefault {
@@ -1852,6 +1855,7 @@ func (p *Plugin) fieldSchema(
 		table,
 		data,
 		"",
+		refusesZero(field),
 	)
 	fd.ZodType = paramPart + result.ZodType
 	if result.HasDefault {
@@ -2788,6 +2792,7 @@ func (p *Plugin) applyValidation(
 	table *resolution.Table,
 	data *templateData,
 	tsTypeOverride string,
+	refusesZero bool,
 ) validationResult {
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return validationResult{ZodType: zodType, HasDefault: false}
@@ -2799,6 +2804,9 @@ func (p *Plugin) applyValidation(
 		resolution.IsNumberPrimitive(effectiveType)
 	if isString {
 		zodType = applyStringRules(zodType, rules, fieldName, data)
+	}
+	if effectiveType == "uuid" && refusesZero {
+		zodType = refuseNilUUID(zodType, rules, fieldName)
 	}
 	if effectiveType == "bytes" {
 		zodType = applyBytesRules(zodType, rules, data)
@@ -2882,6 +2890,31 @@ func applyBytesRules(
 		zodType = fmt.Sprintf("%s.check(zod.maxBytes(%d))", zodType, *rules.MaxLength)
 	}
 	return zodType
+}
+
+// refusesZero reports whether a client must send a value other than the zero value of
+// field. The Core mints a key, so a client sends a zero key on create, and an optional
+// field is never required.
+func refusesZero(field resolution.Field) bool {
+	_, isKey := field.Domains["key"]
+	return !isKey && !field.Optional
+}
+
+// nilUUID is the UUID with every bit zero, which a required UUID refuses.
+const nilUUID = "00000000-0000-0000-0000-000000000000"
+
+// refuseNilUUID refuses the nil UUID for a required UUID. The string rules refuse an
+// empty one first, so a form that starts the field at "" reports it as required.
+func refuseNilUUID(zodType string, rules *validation.Rules, fieldName string) string {
+	if !rules.Required {
+		return zodType
+	}
+	return fmt.Sprintf(
+		"%s.refine((v) => v !== %q, %q)",
+		zodType,
+		nilUUID,
+		casing.Label(fieldName)+" is required",
+	)
 }
 
 func applyStringRules(

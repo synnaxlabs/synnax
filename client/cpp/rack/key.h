@@ -12,7 +12,7 @@
 #include <cstdint>
 
 namespace synnax::rack {
-/// @brief Key is a composite identifier for a rack. The high 16 bits contain the core
+/// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
 /// node key, and the low 16 bits contain the local sequential key. Kept in its own
 /// header so task headers can reference it without pulling in the full rack types.
 using Key = std::uint32_t;

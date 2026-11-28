@@ -94,7 +94,7 @@ TEST_F(CertificateTest, ParseInvalidCertificate) {
 TEST_F(CertificateTest, ParseNoKey) {
     const auto err = Identity::parse(identity.certificate.pem(), "").second;
     ASSERT_MATCHES(err, errors::CLIENT_CERTIFICATE_INVALID);
-    ASSERT_EQ(err.data, "The client certificate has no private key.");
+    ASSERT_EQ(err.data(), "The client certificate has no private key.");
 }
 
 /// @brief it should reject a key that does not match the certificate.
@@ -102,6 +102,6 @@ TEST_F(CertificateTest, ParseMismatchedKey) {
     const auto err = Identity::parse(identity.certificate.pem(), other.private_key)
                          .second;
     ASSERT_MATCHES(err, errors::CLIENT_CERTIFICATE_INVALID);
-    ASSERT_EQ(err.data, "The private key does not match the certificate.");
+    ASSERT_EQ(err.data(), "The private key does not match the certificate.");
 }
 }

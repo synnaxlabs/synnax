@@ -163,7 +163,7 @@ x::telem::Frame frame(const synnax::channel::Key key, x::telem::Series s) {
 void assert_refuses(const Config &cfg, const std::string &text) {
     const auto err = cfg.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data(), text);
 }
 }
 
@@ -316,7 +316,7 @@ TEST(Sender, ReturnsFramingError) {
     Wire t;
     const auto err = s.write(t, frame(2, x::telem::Series(123.0))).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "the frame has 3 bytes, not the fixed length of 2");
+    EXPECT_EQ(err.data(), "the frame has 3 bytes, not the fixed length of 2");
     ASSERT_TRUE(t.writes.empty());
 }
 

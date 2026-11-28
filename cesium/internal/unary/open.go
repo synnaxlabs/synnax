@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -64,9 +63,9 @@ type Config struct {
 	//
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
-	// OnHistoryChange receives the time range of each delete and of each write before
-	// the channel's newest data. It runs inline under the DB's locks, so it must not
-	// block or call back into the DB.
+	// OnHistoryChange receives the time range of each write before the channel's newest
+	// data, after the index releases its lock. A delete returns its range and the
+	// changes of the commits that it reveals instead.
 	//
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
@@ -142,7 +141,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
 		pending:          &atomic.Int32{},
-		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
+		leadingAlignment: telem.NewAlignmentCounter(telem.LeadingDomain),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
 	if cfg.Channel.IsIndex {

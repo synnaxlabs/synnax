@@ -138,7 +138,11 @@ const Reading = ({
   return (
     <Flex.Box y gap="small">
       {shown?.text != null && (
-        <Text.Text variant="code" color={11} className={CSS.BE("opc-details", "value")}>
+        <Text.Text
+          variant="numeric"
+          color={11}
+          className={CSS.BE("opc-details", "value")}
+        >
           {shown.text}
         </Text.Text>
       )}
@@ -148,7 +152,7 @@ const Reading = ({
             <Description.Item key={path}>
               <Description.Label>{path}</Description.Label>
               <Description.Value
-                variant="code"
+                variant="numeric"
                 color={11}
                 className={CSS.BE("opc-details", "value")}
               >
@@ -278,10 +282,10 @@ export const Details = ({
             value={details.nodeClass === "Variable" ? access(details) : undefined}
           />
           <Row label="Sampling" value={sampling(details.minimumSamplingInterval)} />
-          <Row label="Node ID" value={details.node.nodeId} variant="code">
+          <Row label="Node ID" value={details.node.nodeId}>
             {breakAfterSeparators(details.node.nodeId)}
           </Row>
-          <Row label="Field" value={details.node.field} variant="code">
+          <Row label="Field" value={details.node.field}>
             {breakAfterSeparators(details.node.field)}
           </Row>
           <Row

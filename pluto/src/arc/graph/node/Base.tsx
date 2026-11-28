@@ -43,7 +43,6 @@ export const TypeText = ({ type, icon, color, textColor }: TypeTextProps) => (
     weight={500}
     bordered
     overflow="nowrap"
-    variant="code"
     rounded="tiny"
     background={color}
     borderColor={textColor}

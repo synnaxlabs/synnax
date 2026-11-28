@@ -801,6 +801,61 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should turn each kind of map key into a string path segment", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Port enum {
+					ain0 = "AIN0"
+				}
+
+				Slot enum {
+					first = 1
+				}
+
+				Name string
+
+				Ident uuid
+
+				Big uint64
+
+				PortAlias Port
+
+				Param struct {
+					level float64 {
+						@validate gt 0
+					}
+				}
+
+				Holder struct {
+					by_port map<Port, Param>
+					by_slot map<Slot, Param>
+					by_name map<Name, Param>
+					by_index map<uint16, Param>
+					by_key map<uuid, Param>
+					by_ident map<Ident, Param>
+					by_big map<Big, Param>
+					by_port_alias map<PortAlias, Param>
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToBeValidGoSource().ToContain(
+				`"strconv"`,
+				`validate.PathedError(value.Validate(), "by_port", string(key))`,
+				`validate.PathedError(value.Validate(), "by_slot", `+
+					`strconv.FormatInt(int64(key), 10))`,
+				`validate.PathedError(value.Validate(), "by_name", string(key))`,
+				`validate.PathedError(value.Validate(), "by_index", `+
+					`strconv.FormatUint(uint64(key), 10))`,
+				`validate.PathedError(value.Validate(), "by_key", key.String())`,
+				`validate.PathedError(value.Validate(), "by_ident", `+
+					`uuid.UUID(key).String())`,
+				`validate.PathedError(value.Validate(), "by_big", `+
+					`strconv.FormatUint(uint64(key), 10))`,
+				`validate.PathedError(value.Validate(), "by_port_alias", string(key))`,
+			)
+		})
+
 		It("Should not recurse into a distinct struct, which has no methods", func() {
 			source := `
 				@go output "core/pkg/service/x"
