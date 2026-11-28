@@ -254,8 +254,9 @@ func (s *Service) createChannels(
 }
 
 // createCalculatedChannels finds or creates the calculated metrics. A calculated metric
-// that does not compile, such as one that reads a name that several channels hold, is
-// a status and never stops the service.
+// that does not compile, such as one that reads a channel of another data type, is an
+// error status of the host and never stops the service. A create that compiles deletes
+// that status.
 func (s *Service) createCalculatedChannels(
 	ctx context.Context,
 	namePrefix string,
@@ -263,11 +264,18 @@ func (s *Service) createCalculatedChannels(
 	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.findOrCreate(ctx, tx, createCalculatedMetrics(namePrefix))
 	})
+	key := node.ResourceID(s.cfg.HostKey).String() + ":metrics:calculated"
+	if err == nil {
+		return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return s.cfg.Status.NewWriter(tx).Delete(ctx, key)
+		})
+	}
 	diags, ok := errors.AsType[*diagnostics.Diagnostics](err)
 	if !ok {
 		return err
 	}
 	st := status.Status[any]{
+		Key:         key,
 		Name:        "Calculated metrics",
 		Variant:     status.VariantError,
 		Message:     "Failed to create calculated metrics",
