@@ -689,6 +689,47 @@ describe("ICD editor", () => {
       );
     });
 
+    it("should ask again for a field that another client adds while it asks", async () => {
+      const rpm = createBinaryField("Rpm", 0);
+      const ic = await createICD([createMessage([rpm])]);
+      await renderEditor(ic);
+      fireEvent.click(await screen.findByRole("button", { name: "JSON" }));
+      await screen.findByText(CONFIRM);
+      const [engine] = ic.messages;
+      await dispatchElsewhere(
+        ic.key,
+        icd.insert({
+          path: ["messages", engine.key, "payload", "fields"],
+          value: createBinaryField("Temp", 8),
+          after: rpm.key,
+        }),
+      );
+      await screen.findByLabelText("Name 2");
+      fireEvent.click(findLastButton("Change format"));
+      await screen.findByText(
+        "This removes its 2 fields. Tasks that bind them lose those channels.",
+      );
+      expect((await retrieveMessage(ic.key)).payload.format).toBe("binary");
+      fireEvent.click(findLastButton("Change format"));
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.format).toBe("json"),
+      );
+    });
+
+    it("should say this message and this ICD for blank names", async () => {
+      const engine = createMessage([createBinaryField("Rpm", 0)]);
+      const { ic } = await createUsedICD([engine]);
+      await renderEditor(ic, client, [engine.key]);
+      const icdName = await screen.findByDisplayValue(ic.name);
+      const messageName = screen.getByDisplayValue("Engine");
+      fireEvent.change(icdName, { target: { value: "" } });
+      fireEvent.blur(icdName);
+      fireEvent.change(messageName, { target: { value: "" } });
+      fireEvent.click(screen.getByRole("button", { name: "JSON" }));
+      await screen.findByText("Change this message to JSON?");
+      await screen.findByText("Tasks that use this ICD");
+    });
+
     it("should say why it cannot list the tasks and still change the format", async () => {
       const subject = createTestClient();
       const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
