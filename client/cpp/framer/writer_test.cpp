@@ -320,7 +320,7 @@ TEST(WriterTests, testCommitResultReportsControl) {
             .start = start,
             .authorities = std::vector{authority},
             .subject = x::control::Subject{key},
-            .enable_auto_commit = false,
+            .auto_commit_disabled = true,
         };
     };
     auto frame_at = [&](const x::telem::TimeSpan offset) {

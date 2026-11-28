@@ -72,7 +72,7 @@ int32_t synnax_writer_open(
         };
         wc.mode = mode_from_int(mode);
         wc.err_on_unauthorized = err_on_unauthorized != 0;
-        wc.enable_auto_commit = enable_auto_commit != 0;
+        wc.auto_commit_disabled = enable_auto_commit == 0;
         wc.auto_index_persist_interval = auto_index_persist_interval > 0
                                            ? x::telem::TimeSpan(
                                                  auto_index_persist_interval

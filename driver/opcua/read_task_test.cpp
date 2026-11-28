@@ -1666,7 +1666,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_server->stop();
 }
 
-/// Regression test to ensure enable_auto_commit is set to true in WriterConfig.
+/// Regression test to ensure auto commit is not disabled in WriterConfig.
 /// This prevents data from being written but not committed, making it unavailable for
 /// reads.
 TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
@@ -1722,9 +1722,8 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     auto cfg = std::make_unique<ReadTaskConfig>(client, p);
     ASSERT_NIL(p.error());
 
-    // Verify that writer_config has enable_auto_commit set to true
     auto writer_cfg = cfg->writer_config();
-    ASSERT_TRUE(writer_cfg.enable_auto_commit);
+    ASSERT_FALSE(writer_cfg.auto_commit_disabled);
 }
 
 /// @brief it should stamp array samples in order, no more than one sample period apart
