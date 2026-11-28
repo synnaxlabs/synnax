@@ -28,6 +28,13 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// The values below copy the constants of the format.
+const (
+	fixedTrailer        = 4
+	noStart      uint32 = 0xFFFFFFFF
+	version      uint16 = 1
+)
+
 var (
 	cfg    = segment.Config{DB: 7, ID: 3, DataType: 4, Clock: 0x00200001}
 	varCfg = segment.Config{
@@ -50,7 +57,7 @@ func pattern(n int) []byte {
 
 // placeAt returns the place of bytes at file offset off of the segment of c.
 func placeAt(c segment.Config, off int64) place.Place {
-	return place.Segment(c.DB, c.ID, uint64(off), segment.Version, c.DataType, c.Clock)
+	return place.Segment(c.DB, c.ID, uint64(off), version, c.DataType, c.Clock)
 }
 
 // samples returns the stream of variable-density samples with the body sizes, and the
@@ -75,11 +82,11 @@ func expectVariableTrailers(b, stream []byte, starts []int64) {
 	for blk := range full {
 		lo, hi := int64(blk*segment.BlockSize), int64((blk+1)*segment.BlockSize)
 		var pos uint32
-		off := segment.NoStart
+		off := noStart
 		for _, s := range starts {
 			if s < lo {
 				pos++
-			} else if s < hi && off == segment.NoStart {
+			} else if s < hi && off == noStart {
 				off = uint32(s - lo)
 			}
 		}
@@ -132,7 +139,7 @@ var _ = Describe("Segment", func() {
 						Expect(w.Write(data)).To(Succeed())
 						Expect(h.Close()).To(Succeed())
 						b := fileBytes()
-						Expect(b).To(HaveLen(len(data) + 2*segment.FixedTrailer))
+						Expect(b).To(HaveLen(len(data) + 2*fixedTrailer))
 						first := b[:segment.BlockSize]
 						Expect(binary.LittleEndian.Uint32(b[segment.BlockSize:])).
 							To(Equal(placeAt(cfg, 0).Sum(first)))

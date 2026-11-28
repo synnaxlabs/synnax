@@ -25,15 +25,15 @@ import (
 const (
 	// BlockSize is the number of stream bytes in a block.
 	BlockSize = 65_536
-	// FixedTrailer is the size of the trailer of a block of a fixed-density type.
-	FixedTrailer = 4
+	// fixedTrailer is the size of the trailer of a block of a fixed-density type.
+	fixedTrailer = 4
 	// VariableTrailer is the size of the trailer of a block of a variable-density type:
 	// first_pos, first_off, crc, and tcrc.
 	VariableTrailer = 16
-	// NoStart is the first_off of a block in which no sample starts.
-	NoStart uint32 = 0xFFFFFFFF
-	// Version is the segment format version that this package writes.
-	Version uint16 = 1
+	// noStart is the first_off of a block in which no sample starts.
+	noStart uint32 = 0xFFFFFFFF
+	// version is the segment format version that this package writes.
+	version uint16 = 1
 	// lengthSize is the size of the length that starts each variable-density sample.
 	lengthSize = 4
 )
@@ -65,14 +65,14 @@ type Config struct {
 }
 
 func (c Config) place(offset int64) place.Place {
-	return place.Segment(c.DB, c.ID, uint64(offset), Version, c.DataType, c.Clock)
+	return place.Segment(c.DB, c.ID, uint64(offset), version, c.DataType, c.Clock)
 }
 
 func (c Config) trailer() int64 {
 	if c.Variable {
 		return VariableTrailer
 	}
-	return FixedTrailer
+	return fixedTrailer
 }
 
 // FileOffset returns the file offset of stream offset x of the segment.
@@ -99,7 +99,7 @@ type cursor struct {
 	crc    uint32
 	// The fields below count only variable-density samples. samples is the number of
 	// samples that start before length, blockPos the number that start before the
-	// unfinished block, and blockOff where the first sample in it starts, or NoStart.
+	// unfinished block, and blockOff where the first sample in it starts, or noStart.
 	samples  uint32
 	blockPos uint32
 	blockOff uint32
@@ -117,7 +117,7 @@ type Writer struct {
 // NewWriter returns the writer of the empty segment of cfg in h.
 func NewWriter(h *Handle, cfg Config) *Writer {
 	w := &Writer{cfg: cfg, handle: h}
-	w.at = cursor{crc: cfg.place(0).Start(), blockOff: NoStart}
+	w.at = cursor{crc: cfg.place(0).Start(), blockOff: noStart}
 	w.committed = w.at
 	return w
 }
@@ -192,7 +192,7 @@ func (w *Writer) Write(p []byte) error {
 func (w *Writer) countStarts(p []byte, next, i, n int) int {
 	inBlock := int(w.at.length % BlockSize)
 	for ; next < i+n; w.at.samples++ {
-		if w.at.blockOff == NoStart {
+		if w.at.blockOff == noStart {
 			w.at.blockOff = uint32(inBlock + next - i)
 		}
 		next += lengthSize + int(binary.LittleEndian.Uint32(p[next:]))
@@ -211,7 +211,7 @@ func (w *Writer) appendTrailer(dst []byte) []byte {
 		dst = binary.LittleEndian.AppendUint32(dst, w.at.crc)
 		tcrc := w.cfg.place(next - VariableTrailer).Sum(dst[t:])
 		dst = binary.LittleEndian.AppendUint32(dst, tcrc)
-		w.at.blockPos, w.at.blockOff = w.at.samples, NoStart
+		w.at.blockPos, w.at.blockOff = w.at.samples, noStart
 	} else {
 		dst = binary.LittleEndian.AppendUint32(dst, w.at.crc)
 	}

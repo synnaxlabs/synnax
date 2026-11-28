@@ -336,12 +336,6 @@
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/segment",
-      "name": "FixedTrailer",
-      "caller": "sy-6568-18b-tombstones"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/segment",
       "name": "Handle",
       "caller": "sy-6398-17c-pointer-log-engine"
     },
@@ -360,19 +354,7 @@
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/segment",
-      "name": "NoStart",
-      "caller": "sy-6568-18b-tombstones"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/segment",
       "name": "VariableTrailer",
-      "caller": "sy-6568-18b-tombstones"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/segment",
-      "name": "Version",
       "caller": "sy-6568-18b-tombstones"
     },
     {
