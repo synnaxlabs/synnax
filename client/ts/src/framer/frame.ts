@@ -329,6 +329,16 @@ export class Frame {
     else held.push(series);
   }
 
+  // Adds the time series that other holds to the frame's own.
+  private keepTimes(other: Frame): void {
+    other.times?.forEach((series, clock) => {
+      this.times ??= new Map();
+      const held = this.times.get(clock);
+      if (held == null) this.times.set(clock, [...series]);
+      else held.push(...series.filter((s) => !held.includes(s)));
+    });
+  }
+
   private timeOf(series: Series, name: string): Series {
     for (const time of this.times?.get(series.clock) ?? []) {
       const step = time.alignmentMultiple;
@@ -362,6 +372,7 @@ export class Frame {
         this.series.push(s);
         (this.columns as channel.Key[]).push(keyOrFrame.columns[i] as channel.Key);
       });
+      this.keepTimes(keyOrFrame);
       return;
     }
     if (typeof keyOrFrame === "string" && this.colType === "key")
@@ -379,10 +390,13 @@ export class Frame {
    * and the provided frame.
    */
   concat(frame: Frame): Frame {
-    return new Frame([...this.columns, ...frame.columns] as channel.Key[], [
+    const out = new Frame([...this.columns, ...frame.columns] as channel.Key[], [
       ...this.series,
       ...frame.series,
     ]);
+    out.keepTimes(this);
+    out.keepTimes(frame);
+    return out;
   }
 
   /**
@@ -408,6 +422,7 @@ export class Frame {
   ): Frame {
     const frame = new Frame();
     this.forEach((k, arr, i) => frame.push(...fn(k, arr, i)));
+    frame.keepTimes(this);
     return frame;
   }
 
@@ -423,6 +438,7 @@ export class Frame {
       const [newK, newArr, keep] = fn(k, arr, i);
       if (keep) frame.push(newK, newArr);
     });
+    frame.keepTimes(this);
     return frame;
   }
 
@@ -478,6 +494,7 @@ export class Frame {
       const a = this.series[i];
       if (fn(k, a, i)) frame.push(k, a);
     });
+    frame.keepTimes(this);
     return frame;
   }
 
