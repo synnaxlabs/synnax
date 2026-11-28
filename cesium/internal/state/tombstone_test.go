@@ -32,8 +32,14 @@ func cutOf(i uint32, stamp int64) *log.Cut {
 }
 
 var _ = Describe("Tombstone", func() {
-	var s *state.State
-	BeforeEach(func() { s = MustSucceed(state.Open(config(&appended{}), sample())) })
+	var (
+		a *appended
+		s *state.State
+	)
+	BeforeEach(func() {
+		a = &appended{}
+		s = MustSucceed(state.Open(config(a), sample()))
+	})
 
 	// pointersOf runs s and returns the visible pointers of the first segment of key.
 	pointersOf := func(key uint32) []state.Pointer {
@@ -166,8 +172,8 @@ var _ = Describe("Tombstone", func() {
 		MustSucceed(s.Snapshot())
 		Expect(s.Channel(5).Segments).To(HaveLen(1))
 		Expect(s.Channel(5).Segments[0].ID).To(Equal(uint64(4)))
-		Expect(s.TakeDead()).To(HaveExactElements(deadSegment(2, 5, 10)))
-		Expect(s.TakeDead()).To(BeEmpty())
+		Expect(a.takeDead(s)).To(HaveExactElements(deadSegment(2, 5, 10)))
+		Expect(a.takeDead(s)).To(BeEmpty())
 	})
 
 	DescribeTable("Should bury an open segment that a Tombstone empties once it is "+
@@ -178,7 +184,7 @@ var _ = Describe("Tombstone", func() {
 				seal,
 			})).To(Succeed())
 			run(s)
-			Expect(s.TakeDead()).To(HaveExactElements(deadSegment(3, 6, 10)))
+			Expect(a.takeDead(s)).To(HaveExactElements(deadSegment(3, 6, 10)))
 			Expect(s.Channel(6).Segments).To(BeEmpty())
 		},
 		Entry("by its Seal", &log.Seal{Segment: 3, Length: 12, TailCRC: 3}),
@@ -187,10 +193,10 @@ var _ = Describe("Tombstone", func() {
 
 	It("Should seal an open segment that a durable Tombstone empties, and report the "+
 		"segment once its Seal takes it out", func() {
-		a := &appended{}
-		dead := make(chan struct{}, 4)
+		a = &appended{}
+		dead := make(chan []state.Dead, 4)
 		cfg := config(a)
-		cfg.OnDead = func() { dead <- struct{}{} }
+		cfg.OnDead = func(d []state.Dead) { dead <- d }
 		s = MustSucceed(state.Open(cfg, sample()))
 		run(s)
 		Expect(s.Durable(10, []log.Record{
@@ -199,8 +205,7 @@ var _ = Describe("Tombstone", func() {
 		seal := log.Seal{Segment: 3, Length: 12, TailCRC: 3}
 		Eventually(a.seals).Should(Equal([]log.Seal{seal}))
 		Expect(s.Durable(11, []log.Record{&seal})).To(Succeed())
-		Eventually(dead).Should(Receive())
-		Expect(s.TakeDead()).To(HaveExactElements(deadSegment(3, 6, 11)))
+		Eventually(dead).Should(Receive(HaveExactElements(deadSegment(3, 6, 11))))
 	})
 
 	It("Should bury a segment that a Tombstone empties after a replayed Seal", func() {
@@ -209,7 +214,7 @@ var _ = Describe("Tombstone", func() {
 			&log.Tombstone{Key: 6, Start: 0, End: 100},
 		})).To(Succeed())
 		run(s)
-		Expect(s.TakeDead()).To(HaveExactElements(deadSegment(3, 6, 10)))
+		Expect(a.takeDead(s)).To(HaveExactElements(deadSegment(3, 6, 10)))
 	})
 
 	DescribeTable(
@@ -309,7 +314,7 @@ var _ = Describe("Tombstone", func() {
 		"Should refuse a commit and a writer start that reach a delete in flight, until "+
 			"its release",
 		func() {
-			a := &appended{}
+			a = &appended{}
 			s = MustSucceed(state.Open(config(a), sample()))
 			a.s, a.seq = s, sample().Sequence
 			run(s)
@@ -344,7 +349,7 @@ var _ = Describe("Tombstone", func() {
 	It("Should log no Seal of a segment that a writer sealed in view when a Tombstone "+
 		"cuts its durable pointers, and apply the writer's Seal after its commit",
 		func() {
-			a := &appended{}
+			a = &appended{}
 			s = MustSucceed(state.Open(config(a), sample()))
 			a.s, a.seq = s, sample().Sequence
 			run(s)
@@ -370,12 +375,12 @@ var _ = Describe("Tombstone", func() {
 			Expect(s.Channel(6).Segments).To(HaveLen(1))
 			Expect(s.Channel(6).Segments[0].Pointers).
 				To(Equal([]state.Pointer{pointer(n, 0, 40, 40, 12, 4, 1)}))
-			Expect(s.TakeDead()).To(BeEmpty())
+			Expect(a.takeDead(s)).To(BeEmpty())
 		})
 
 	It("Should log the Seal of a segment that a Tombstone empties once the writer "+
 		"that sealed it in view closes with its Seal not logged", func() {
-		a := &appended{}
+		a = &appended{}
 		s = MustSucceed(state.Open(config(a), sample()))
 		run(s)
 		w := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{

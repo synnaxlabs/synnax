@@ -32,9 +32,29 @@ type appended struct {
 	mu      sync.Mutex
 	entries [][]byte
 	heads   []*state.Snapshot
+	dead    []state.Dead
 	s       *state.State
 	seq     uint64
 	refusal error
+}
+
+// pushDead collects the Deads that the state pushes to its OnDead hook.
+func (a *appended) pushDead(dead []state.Dead) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.dead = append(a.dead, dead...)
+}
+
+// takeDead returns the Deads that s pushed since the last call, once s ran every
+// request queued before the call.
+func (a *appended) takeDead(s *state.State) []state.Dead {
+	GinkgoHelper()
+	Expect(s.Settle()).To(Succeed())
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	dead := a.dead
+	a.dead = nil
+	return dead
 }
 
 // durable hands a.s records as durable at the next sequence.
@@ -158,6 +178,7 @@ func config(a *appended) state.Config {
 		Append:   a.append,
 		Executor: func(f func()) { go f() },
 		OnHead:   a.onHead,
+		OnDead:   a.pushDead,
 	}
 }
 

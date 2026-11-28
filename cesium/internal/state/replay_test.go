@@ -166,8 +166,14 @@ var _ = Describe("Run", func() {
 })
 
 var _ = Describe("Replay", func() {
-	var s *state.State
-	BeforeEach(func() { s = MustSucceed(state.Open(config(&appended{}), sample())) })
+	var (
+		a *appended
+		s *state.State
+	)
+	BeforeEach(func() {
+		a = &appended{}
+		s = MustSucceed(state.Open(config(a), sample()))
+	})
 
 	replay := func(records ...log.Record) error { return s.Replay(10, records) }
 
@@ -243,9 +249,8 @@ var _ = Describe("Replay", func() {
 			run(s)
 			Expect(MustSucceed(s.Snapshot()).Channels).To(HaveLen(2))
 			Expect(s.Channel(9).Segments).To(BeEmpty())
-			Expect(s.HasDead()).To(BeTrue())
-			Expect(s.TakeDead()).To(HaveExactElements(deadSegment(7, 9, 10)))
-			Expect(s.HasDead()).To(BeFalse())
+			Expect(a.takeDead(s)).To(HaveExactElements(deadSegment(7, 9, 10)))
+			Expect(a.takeDead(s)).To(BeEmpty())
 		},
 		Entry("a Seal", &log.Seal{Segment: 7}),
 		Entry("a Restart", &log.Restart{}),

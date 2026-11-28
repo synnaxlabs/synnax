@@ -287,9 +287,9 @@ var _ = Describe("Writer", func() {
 				durable(create(clk, 5, 5))
 				Expect(w.TakeBack()).To(Equal([]log.Seal{{Segment: clk}}))
 				Expect(s.Channel(6).Segments).To(BeEmpty())
-				Expect(s.TakeDead()).To(HaveExactElements(deadSegment(data, 6, 0)))
+				Expect(a.takeDead(s)).To(HaveExactElements(deadSegment(data, 6, 0)))
 				durable(&log.Seal{Segment: clk})
-				Expect(s.TakeDead()).To(
+				Expect(a.takeDead(s)).To(
 					HaveExactElements(deadSegment(clk, 5, a.last())),
 					"sealed with no durable pointer",
 				)
@@ -617,8 +617,8 @@ var _ = Describe("Writer", func() {
 			Eventually(a.switched).Should(HaveLen(1))
 			Expect(a.seals()).To(BeEmpty())
 			Expect(s.Channel(5).Segments).To(BeEmpty())
-			Expect(s.TakeDead()).To(HaveExactElements(deadSegment(id, 5, 0)))
-			Expect(s.TakeDead()).To(BeEmpty())
+			Expect(a.takeDead(s)).To(HaveExactElements(deadSegment(id, 5, 0)))
+			Expect(a.takeDead(s)).To(BeEmpty())
 		})
 
 		It("Should fail a request that comes after the state failed", func() {

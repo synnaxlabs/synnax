@@ -67,7 +67,7 @@ var _ = Describe("Dead", func() {
 		func(remove func() []uint64) {
 			before, _ := load()
 			removed := remove()
-			dead := MustSucceed(s.TakeDead())
+			dead := a.takeDead(s)
 			after, ids := load()
 			Expect(dead).To(HaveLen(len(removed)))
 			for i, d := range dead {
@@ -107,6 +107,60 @@ var _ = Describe("Dead", func() {
 			return []uint64{id}
 		}),
 	)
+})
+
+var _ = Describe("Settle", func() {
+	It("Should return once the owner ran every request queued before it", func() {
+		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		run(s)
+		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+		Expect(s.Settle()).To(Succeed())
+		Expect(s.Channel(6)).To(BeNil())
+	})
+
+	It("Should return the error of a closed state", func() {
+		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		ctx, cancel := context.WithCancel(context.Background())
+		ran := make(chan error, 1)
+		go func() { ran <- s.Run(ctx) }()
+		Expect(s.Close()).To(Succeed())
+		Eventually(ran).Should(Receive(BeNil()))
+		cancel()
+		Expect(s.Settle()).To(MatchError(ContainSubstring("state is closed")))
+	})
+})
+
+var _ = Describe("OnDead", func() {
+	It("Should get each Dead once the request that took the segment out ends, at a "+
+		"count at or past its Count", func() {
+		a := &appended{}
+		cfg := config(a)
+		var (
+			s      *state.State
+			pushed = make(chan []state.Dead, 1)
+			counts = make(chan uint64, 1)
+		)
+		cfg.OnDead = func(dead []state.Dead) {
+			counts <- s.Count()
+			pushed <- dead
+		}
+		s = MustSucceed(state.Open(cfg, sample()))
+		run(s)
+		Expect(s.Durable(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+		var dead []state.Dead
+		Eventually(pushed).Should(Receive(&dead))
+		Expect(dead).To(HaveExactElements(deadSegment(3, 6, 10)))
+		Expect(<-counts).To(BeNumerically(">=", dead[0].Count))
+	})
+
+	It("Should get the Deads of a replayed entry before Run", func() {
+		a := &appended{}
+		s := MustSucceed(state.Open(config(a), sample()))
+		Expect(s.Replay(10, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		Expect(a.dead).To(HaveExactElements(deadSegment(3, 6, 10)))
+	})
 })
 
 var _ = Describe("Count", func() {

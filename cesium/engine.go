@@ -154,7 +154,7 @@ func openEngine(o *options) (*engine, error) {
 		Append:   e.append,
 		Executor: e.exec,
 		OnHead:   e.onHead,
-		OnDead:   e.askReap,
+		OnDead:   func([]state.Dead) { e.askReap() },
 	}, snapshot); err != nil {
 		return nil, err
 	}

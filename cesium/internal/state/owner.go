@@ -43,7 +43,7 @@ type Config struct {
 	// OnDead reports that a durable entry took a segment out of the state, so TakeDead
 	// returns it. It runs on a step of the owner and must return at once. A nil OnDead
 	// gets nothing.
-	OnDead func()
+	OnDead func(dead []Dead)
 }
 
 // validate returns an error that wraps validate.ErrValidation when a field of c is not
@@ -331,7 +331,7 @@ func (r *durableRequest) run(s *State) {
 	}
 	s.sealDeleted(r.records)
 	if len(s.core.dead) > dead && s.cfg.OnDead != nil {
-		s.cfg.OnDead()
+		s.cfg.OnDead(nil)
 	}
 	if invariants.Enabled {
 		s.checkCommits(r.records)
@@ -410,6 +410,22 @@ func (s *State) Timed(clock uint32) (set.Set[uint32], error) {
 		return nil, err
 	}
 	return r.keys, nil
+}
+
+type settleRequest struct{ done chan error }
+
+func (r *settleRequest) fail(err error) { r.done <- err }
+
+func (r *settleRequest) run(*State) { r.done <- nil }
+
+// Settle returns once the owner ran every request queued before the call, or with the
+// error of a failed or closed state.
+func (s *State) Settle() error {
+	r := &settleRequest{done: make(chan error, 1)}
+	if err := s.enqueue(r); err != nil {
+		return err
+	}
+	return wait(s, r.done)
 }
 
 // Drops returns the count of the Drop records that the state applied.
