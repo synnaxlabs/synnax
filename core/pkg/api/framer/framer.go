@@ -180,6 +180,9 @@ func (s *Service) Delete(
 // ReadRequest requests every sample in TimeRanges for the given channels.
 type ReadRequest struct {
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// UntimedKeys are the keys among Keys that the read needs with no time. A frame of
+	// the read holds the time series of each other key's clock beside its series.
+	UntimedKeys channel.Keys `json:"untimed_keys" msgpack:"untimed_keys"`
 	// TimeRanges are the time ranges to read, in any order. A read takes at least one.
 	// Ranges that overlap or touch read as one, and the samples of every range arrive
 	// in time order.
@@ -241,11 +244,13 @@ type ReadResponse struct {
 	// them.
 	Earliest uint32
 	// OpenIterator opens an iterator over keys within bounds and under the read's
-	// reduction. The caller must close it.
+	// reduction. The iterator reads with no time the keys of untimed, and the keys
+	// among keys that the read reads with no time. The caller must close it.
 	OpenIterator func(
 		ctx context.Context,
 		keys channel.Keys,
 		bounds telem.TimeRange,
+		untimed channel.Keys,
 	) (*framer.Iterator, error)
 }
 
@@ -257,7 +262,7 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 	if err != nil {
 		return ReadResponse{}, err
 	}
-	channels, indexes, err := s.retrieveReadChannels(ctx, req)
+	channels, indexes, readUntimed, err := s.retrieveReadChannels(ctx, req)
 	if err != nil {
 		return ReadResponse{}, err
 	}
@@ -272,12 +277,19 @@ func (s *Service) Read(ctx context.Context, req ReadRequest) (ReadResponse, erro
 			ctx context.Context,
 			keys channel.Keys,
 			bounds telem.TimeRange,
+			untimed channel.Keys,
 		) (*framer.Iterator, error) {
+			for _, key := range readUntimed {
+				if keys.Contains(key) {
+					untimed = append(untimed, key)
+				}
+			}
 			return s.internal.OpenIterator(ctx, framer.IteratorConfig{
-				Keys:      keys,
-				Bounds:    bounds,
-				Reduction: req.Reduction,
-				ChunkSize: int64(max(req.Latest, req.Earliest)),
+				Keys:        keys,
+				UntimedKeys: untimed.Unique(),
+				Bounds:      bounds,
+				Reduction:   req.Reduction,
+				ChunkSize:   int64(max(req.Latest, req.Earliest)),
 			})
 		},
 	}, nil
@@ -291,6 +303,15 @@ func validateRead(req ReadRequest) ([]telem.TimeRange, error) {
 			validate.ErrValidation,
 			"a read cannot take both latest and earliest",
 		)
+	}
+	for _, key := range req.UntimedKeys {
+		if !req.Keys.Contains(key) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"untimed_keys: channel %d is not requested",
+				key,
+			)
+		}
 	}
 	if (req.Latest > 0 || req.Earliest > 0) && req.Reduction.Variant != nil {
 		return nil, errors.Wrap(
@@ -318,14 +339,14 @@ func validateRead(req ReadRequest) ([]telem.TimeRange, error) {
 }
 
 // retrieveReadChannels checks that the caller may read the channels in req and returns
-// them, along with their missing index channels when req sets TimestampsIncluded.
+// them, along with their missing index channels when req sets TimestampsIncluded, and
+// the keys that the read reads with no time.
 func (s *Service) retrieveReadChannels(
 	ctx context.Context,
 	req ReadRequest,
-) ([]channel.Channel, []channel.Channel, error) {
+) (channels, indexes []channel.Channel, untimed channel.Keys, err error) {
 	subject := auth.GetSubject(ctx)
-	var channels, indexes []channel.Channel
-	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
 		if err = s.enforceRetrieve(ctx, snap, subject, req.Keys); err != nil {
 			return err
 		}
@@ -333,6 +354,15 @@ func (s *Service) retrieveReadChannels(
 			Entries(&channels).
 			Where(channel.MatchKeys(req.Keys...)).
 			Exec(ctx, snap); err != nil {
+			return err
+		}
+		if untimed, err = s.untimed(
+			ctx,
+			snap,
+			subject,
+			channels,
+			req.UntimedKeys,
+		); err != nil {
 			return err
 		}
 		if !req.TimestampsIncluded {
@@ -348,9 +378,55 @@ func (s *Service) retrieveReadChannels(
 		}
 		return nil
 	}); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return channels, indexes, nil
+	return channels, indexes, untimed, nil
+}
+
+// untimed returns the keys of untimed, and the key of each channel in channels whose
+// index subject may not retrieve, unless channels holds the index. A time series leaves
+// the Core only for a subject that may read it.
+func (s *Service) untimed(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	subject resource.ID,
+	channels []channel.Channel,
+	untimed channel.Keys,
+) (channel.Keys, error) {
+	allowed, err := s.access.NewEnforcer(snap).
+		Allowed(ctx, subject, access.ActionRetrieve)
+	if err != nil {
+		return nil, err
+	}
+	untimed = slices.Clone(untimed)
+	keys := channel.KeysFromChannels(channels)
+	for _, ch := range channels {
+		index := ch.Index()
+		if index == 0 || keys.Contains(index) || untimed.Contains(ch.Key()) {
+			continue
+		}
+		if !allowed(framer.ResourceIDs(channel.Keys{index})[0]) {
+			untimed = append(untimed, ch.Key())
+		}
+	}
+	return untimed, nil
+}
+
+// untimedKeys returns untimed with the keys that untimed adds for the channels of keys.
+func (s *Service) untimedKeys(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	subject resource.ID,
+	keys, untimed channel.Keys,
+) (channel.Keys, error) {
+	var channels []channel.Channel
+	if err := s.channel.NewRetrieve().
+		Entries(&channels).
+		Where(channel.MatchKeys(keys...)).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	return s.untimed(ctx, snap, subject, channels, untimed)
 }
 
 // mergeTimeRanges returns ranges sorted by start, with each run of ranges that overlap
@@ -522,16 +598,28 @@ func (s *Service) openIterator(
 	if err != nil {
 		return nil, err
 	}
-	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.enforceRetrieve(ctx, snap, auth.GetSubject(ctx), req.Keys)
+	subject := auth.GetSubject(ctx)
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if err = s.enforceRetrieve(ctx, snap, subject, req.Keys); err != nil {
+			return err
+		}
+		req.UntimedKeys, err = s.untimedKeys(
+			ctx,
+			snap,
+			subject,
+			req.Keys,
+			req.UntimedKeys,
+		)
+		return err
 	}); err != nil {
 		return nil, err
 	}
 	iter, err := s.internal.NewStreamIterator(ctx, framer.IteratorConfig{
-		Bounds:    req.Bounds,
-		Keys:      req.Keys,
-		ChunkSize: req.ChunkSize,
-		Reduction: req.Reduction,
+		Bounds:      req.Bounds,
+		Keys:        req.Keys,
+		UntimedKeys: req.UntimedKeys,
+		ChunkSize:   req.ChunkSize,
+		Reduction:   req.Reduction,
 	})
 	if err != nil {
 		return nil, err
@@ -577,12 +665,11 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 				ctx context.Context,
 				req StreamerRequest,
 			) (StreamerRequest, bool, error) {
-				return req, true, s.db.WithSnapshot(
-					ctx,
-					func(snap gorp.Snapshot) error {
-						return s.enforceRetrieve(ctx, snap, subject, req.Keys)
-					},
-				)
+				err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+					req, err = s.checkStreamRequest(ctx, snap, subject, req)
+					return err
+				})
+				return req, true, err
 			},
 		}
 		sender = &freightfluence.Sender[StreamerResponse]{
@@ -614,6 +701,22 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 	return sCtx.Wait()
 }
 
+// checkStreamRequest checks that subject may read the channels of req, and returns req
+// with the keys that the stream sends with no time.
+func (s *Service) checkStreamRequest(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	subject resource.ID,
+	req StreamerRequest,
+) (StreamerRequest, error) {
+	if err := s.enforceRetrieve(ctx, snap, subject, req.Keys); err != nil {
+		return req, err
+	}
+	var err error
+	req.UntimedKeys, err = s.untimedKeys(ctx, snap, subject, req.Keys, req.UntimedKeys)
+	return req, err
+}
+
 func (s *Service) openStreamer(
 	ctx context.Context,
 	subject resource.ID,
@@ -623,8 +726,9 @@ func (s *Service) openStreamer(
 	if err != nil {
 		return nil, req, err
 	}
-	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.enforceRetrieve(ctx, snap, subject, req.Keys)
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		req, err = s.checkStreamRequest(ctx, snap, subject, req)
+		return err
 	}); err != nil {
 		return nil, req, err
 	}

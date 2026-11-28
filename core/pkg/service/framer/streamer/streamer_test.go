@@ -104,6 +104,48 @@ var _ = Describe("Streamer", Ordered, func() {
 				false,
 			),
 		)
+
+		It("Should refuse an untimed key that the streamer does not request", func(
+			ctx SpecContext,
+		) {
+			Expect(streamerSvc.New(ctx, streamer.Config{
+				Keys:        channel.Keys{1},
+				UntimedKeys: channel.Keys{1, 2},
+			})).Error().To(MatchError("untimed_keys: channel 2 is not requested"))
+		})
+
+		It(
+			"Should fail on a request that marks a key untimed but does not request it",
+			func(
+				ctx SpecContext,
+			) {
+				ch := &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, ch)
+				})).To(Succeed())
+				s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+					Keys:        channel.Keys{ch.Key()},
+					SendOpenAck: true,
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				inlet, outlet := confluence.Attach(s)
+				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				Eventually(outlet.Outlet()).Should(Receive())
+				inlet.Inlet() <- streamer.Request{
+					Keys:        channel.Keys{ch.Key()},
+					UntimedKeys: channel.Keys{ch.Key() + 1},
+				}
+				Expect(sCtx.Wait()).To(MatchError(fmt.Sprintf(
+					"untimed_keys: channel %d is not requested",
+					ch.Key()+1,
+				)))
+			},
+		)
 	})
 
 	Describe("Happy Path", func() {
@@ -585,6 +627,52 @@ var _ = Describe("Streamer", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(BeClosed())
 			},
 		)
+
+		It("Should send the time of a calculated channel with its values", func(
+			ctx SpecContext,
+		) {
+			calculation := &channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Expression: fmt.Sprintf("return %s + %s", dataCh1.Name, dataCh2.Name),
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, calculation)
+			})).To(Succeed())
+			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
+			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.SecondTS,
+				Keys:  keys,
+			}))
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:        []channel.Key{calculation.Key()},
+				SendOpenAck: true,
+			}))
+			sCtx, cancel := signal.Isolated()
+			inlet, outlet := confluence.Attach(s)
+			defer cancel()
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(outlet.Outlet()).Should(Receive())
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+				telem.NewSeriesV[float32](1, 2, 3),
+				telem.NewSeriesV[float32](1, 2, 3),
+			}))).To(BeTrue())
+			var res streamer.Response
+			Eventually(outlet.Outlet()).Should(Receive(&res))
+			inlet.Close()
+			Eventually(outlet.Outlet()).Should(BeClosed())
+			values := res.Frame.Get(calculation.Key()).Series
+			stamps := res.Frame.Get(calculation.Index()).Series
+			Expect(values).To(HaveLen(1))
+			Expect(stamps).To(HaveLen(1))
+			Expect(values[0].Clock).To(Equal(uint32(calculation.Index())))
+			Expect(stamps[0].Clock).To(Equal(uint32(calculation.Index())))
+			Expect(stamps[0].AlignmentBounds()).To(Equal(values[0].AlignmentBounds()))
+			Expect(stamps[0]).To(MatchSeriesDataV[telem.TimeStamp](
+				telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
+			))
+		})
 	})
 
 	Describe("Downsampling", func() {

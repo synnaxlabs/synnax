@@ -64,10 +64,12 @@ func openExport(b *testing.B, samples int) (apiframer.ReadResponse, func()) {
 			ctx context.Context,
 			keys svcchannel.Keys,
 			bounds telem.TimeRange,
+			untimed svcchannel.Keys,
 		) (*svcframer.Iterator, error) {
 			return layer.Framer.OpenIterator(ctx, svcframer.IteratorConfig{
-				Keys:   keys,
-				Bounds: bounds,
+				Keys:        keys,
+				UntimedKeys: untimed,
+				Bounds:      bounds,
 			})
 		},
 	}

@@ -38,6 +38,7 @@ message IteratorRequest {
   int64 stamp = 4;
   repeated uint32 keys = 5;
   int64 chunk_size = 6;
+  repeated uint32 untimed_keys = 7;
 }
 
 message IteratorResponse {
@@ -87,6 +88,7 @@ message StreamerRequest {
   repeated uint32 exclude_groups = 5;
   bool ack_requested = 6;
   bool missed_requested = 7;
+  repeated uint32 untimed_keys = 8;
 }
 
 message StreamerResponse {

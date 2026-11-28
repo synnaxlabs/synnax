@@ -29,6 +29,7 @@ const FRAME_ENCODING = { contentType: "application/vnd.synnax.frame" };
 
 const reqZ = z.object({
   keys: channel.keyZ.array(),
+  untimedKeys: channel.keyZ.array().optional(),
   timeRanges: TimeRange.z.array(),
   reduction: reductionZ.optional(),
   timestampsIncluded: z.boolean(),
@@ -77,6 +78,8 @@ export class Reader {
    * @param channels - the channels to read, by key or by name. A frame read by name is
    * keyed by name.
    * @param opts - see {@link ReadOptions}.
+   * @param untimed - reads the samples with no time, as a caller that returns one bare
+   * series needs them.
    * @returns the samples as a frame.
    * @throws {NotFoundError} if a channel does not exist.
    * @throws {AccessDeniedError} if the caller may not retrieve a channel.
@@ -86,14 +89,17 @@ export class Reader {
     tr: CrudeTimeRange | CrudeTimeRange[],
     channels: channel.Params,
     opts: ReadOptions = {},
+    untimed: boolean = false,
   ): Promise<Frame> {
     const adapter = await ReadAdapter.open(this.retrieveChannels, channels);
+    const keys = Array.from(adapter.keys);
     const stream = await this.download(
-      Array.from(adapter.keys),
+      keys,
       tr,
       FRAME_ENCODING,
       false,
       opts,
+      untimed ? keys : undefined,
     );
     const frame = new Frame();
     for await (const record of readRecords(stream))
@@ -171,11 +177,13 @@ export class Reader {
     encoding: FileOptions["encoding"],
     timestampsIncluded: boolean,
     opts: ReadOptions,
+    untimedKeys?: channel.Key[],
   ): Promise<ReadableStream<Uint8Array>> {
     return await this.file.download(
       READ_ENDPOINT,
       {
         keys,
+        untimedKeys,
         timeRanges: array.toArray(tr).map((t) => new TimeRange(t)),
         reduction: opts.reduction,
         timestampsIncluded,

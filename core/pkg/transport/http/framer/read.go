@@ -37,10 +37,11 @@ const recordHeaderSize = 5
 
 // NewFrameEncoder returns an encoder that writes a read as a sequence of records, each
 // a one-byte kind, a four-byte little-endian length, and that many bytes of payload.
-// Data records hold the requested channels, and only those, encoded by the frame codec.
-// The last record is a terminator: empty when the read completed, a JSON error payload
-// when it did not. A body that ends without a terminator was cut short in transit. ctx
-// bounds the iterators the encoder opens, and errs encodes the error payload.
+// Data records hold the requested channels and the time of each timed one, encoded by
+// the frame codec. The last record is a terminator: empty when the read completed, a
+// JSON error payload when it did not. A body that ends without a terminator was cut
+// short in transit. ctx bounds the iterators the encoder opens, and errs encodes the
+// error payload.
 func NewFrameEncoder(ctx context.Context, errs *errors.Codec) xhttp.Encoder {
 	return frameEncoder{ctx: ctx, errs: errs}
 }
@@ -70,7 +71,7 @@ func (e frameEncoder) EncodeStream(w io.Writer, value any) error {
 		return err
 	}
 	keys, dataTypes := keysAndDataTypes(res.Channels)
-	iter, err := openRanges(e.ctx, res, keys, res.TimeRanges)
+	iter, err := openRanges(e.ctx, res, keys, res.TimeRanges, nil)
 	if err != nil {
 		return err
 	}
@@ -115,14 +116,15 @@ type rangeIterator struct {
 }
 
 // openRanges opens an iterator over keys that reads ranges, which holds at least one
-// range. The caller must close it.
+// range, and reads the keys of untimed with no time. The caller must close it.
 func openRanges(
 	ctx context.Context,
 	res ReadResponse,
 	keys channel.Keys,
 	ranges []telem.TimeRange,
+	untimed channel.Keys,
 ) (*rangeIterator, error) {
-	iter, err := res.OpenIterator(ctx, keys, ranges[0])
+	iter, err := res.OpenIterator(ctx, keys, ranges[0], untimed)
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +319,9 @@ func openColumns(ctx context.Context, res ReadResponse, columns []*column) error
 			}
 			ranges[c.index] = r
 		}
-		iter, err := openRanges(ctx, res, channel.Keys{c.key}, r)
+		// A column takes its rows from its index, so it reads no time.
+		keys := channel.Keys{c.key}
+		iter, err := openRanges(ctx, res, keys, r, keys)
 		if err != nil {
 			return errors.Combine(err, closeColumns(columns))
 		}
@@ -337,7 +341,7 @@ func rowRanges(
 	if res.Latest == 0 && res.Earliest == 0 {
 		return res.TimeRanges, nil
 	}
-	iter, err := openRanges(ctx, res, channel.Keys{index}, res.TimeRanges)
+	iter, err := openRanges(ctx, res, channel.Keys{index}, res.TimeRanges, nil)
 	if err != nil {
 		return nil, err
 	}

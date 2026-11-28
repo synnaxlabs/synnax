@@ -86,12 +86,15 @@ std::vector<uint8_t> encode_strings(const std::vector<std::string> &strings) {
 template<typename T>
 void accumulate_values(
     synnax::framer::Streamer &streamer,
+    const synnax::channel::Key key,
     std::vector<T> &out,
     const size_t n
 ) {
     while (out.size() < n) {
         auto frame = ASSERT_NIL_P(streamer.read());
         for (size_t i = 0; i < frame.size(); i++) {
+            // A frame also holds the time of the channel under its index's key.
+            if (frame.channels->at(i) != key) continue;
             const auto values = frame.series->at(i).values<T>();
             out.insert(out.end(), values.begin(), values.end());
         }
@@ -100,12 +103,14 @@ void accumulate_values(
 
 void accumulate_strings(
     synnax::framer::Streamer &streamer,
+    const synnax::channel::Key key,
     std::vector<std::string> &out,
     const size_t n
 ) {
     while (out.size() < n) {
         auto frame = ASSERT_NIL_P(streamer.read());
         for (size_t i = 0; i < frame.size(); i++) {
+            if (frame.channels->at(i) != key) continue;
             const auto values = frame.series->at(i).strings();
             out.insert(out.end(), values.begin(), values.end());
         }
@@ -272,7 +277,7 @@ TEST(ClibWriter, testWritesFixedWidthRoundTrip) {
     EXPECT_GT(end_ts, base.nanoseconds());
 
     std::vector<float> received;
-    accumulate_values<float>(streamer, received, values.size());
+    accumulate_values<float>(streamer, data.key, received, values.size());
     ASSERT_EQ(received.size(), values.size());
     for (size_t i = 0; i < values.size(); i++)
         EXPECT_FLOAT_EQ(received[i], values[i]);
@@ -457,7 +462,7 @@ TEST(ClibWriter, testWritesStringsRoundTrip) {
     ASSERT_EQ(synnax_writer_commit(writer, nullptr, &err), OK) << err.message;
 
     std::vector<std::string> received;
-    accumulate_strings(streamer, received, values.size());
+    accumulate_strings(streamer, data.key, received, values.size());
     ASSERT_EQ(received.size(), values.size());
     for (size_t i = 0; i < values.size(); i++)
         EXPECT_EQ(received[i], values[i]);
@@ -742,7 +747,7 @@ TEST(ClibWriter, testWritesInt64RoundTrip) {
     ASSERT_EQ(synnax_writer_commit(writer, nullptr, &err), OK) << err.message;
 
     std::vector<int64_t> received;
-    accumulate_values<int64_t>(streamer, received, values.size());
+    accumulate_values<int64_t>(streamer, data.key, received, values.size());
     EXPECT_EQ(received, values);
 
     ASSERT_EQ(synnax_writer_close(writer, &err), OK) << err.message;
@@ -802,7 +807,7 @@ TEST(ClibWriter, testWritesUint8RoundTrip) {
     ASSERT_EQ(synnax_writer_commit(writer, nullptr, &err), OK) << err.message;
 
     std::vector<uint8_t> received;
-    accumulate_values<uint8_t>(streamer, received, values.size());
+    accumulate_values<uint8_t>(streamer, data.key, received, values.size());
     EXPECT_EQ(received, values);
 
     ASSERT_EQ(synnax_writer_close(writer, &err), OK) << err.message;
@@ -976,7 +981,7 @@ TEST(ClibWriter, testWritesAutoIndexWithoutIndexChannel) {
     ASSERT_EQ(synnax_writer_commit(writer, nullptr, &err), OK) << err.message;
 
     std::vector<float> received;
-    accumulate_values<float>(streamer, received, values.size());
+    accumulate_values<float>(streamer, data.key, received, values.size());
     ASSERT_EQ(received.size(), values.size());
     for (size_t i = 0; i < values.size(); i++)
         EXPECT_FLOAT_EQ(received[i], values[i]);

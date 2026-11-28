@@ -47,7 +47,11 @@ export interface Hooks {
 /** Opens the underlying frame stream, hardened against connection loss. */
 export interface HardenedOpener {
   (
-    config: { channels: channel.Key[]; throttleRate: number },
+    config: {
+      channels: channel.Key[];
+      untimedKeys: channel.Key[];
+      throttleRate: number;
+    },
     hooks: Hooks,
   ): Promise<Streamer>;
 }
@@ -79,9 +83,19 @@ export interface Demand {
   onDrop: (handler: () => void) => destructor.Destructor;
 }
 
+/** Options for {@link Streamer.demand}. */
+export interface DemandOptions {
+  /**
+   * Streams the keys with no time, as a display that shows only values needs them. A
+   * key streams with no time only while every demand that holds it sets this.
+   */
+  untimed?: boolean;
+}
+
 interface Entry {
   handler: FrameHandler;
   keys: Set<channel.Key>;
+  untimed: boolean;
   statusHandlers: Set<StatusHandler>;
   dropHandlers: Set<() => void>;
   removed: boolean;
@@ -168,6 +182,8 @@ export class Multiplexed {
   // The key set last accepted by the stream. Kept separately from the streamer so a
   // mid-reconnect streamer cannot be consulted for it.
   private sentKeys = new Set<channel.Key>();
+  // The keys among sentKeys that the stream sends with no time.
+  private sentUntimed = new Set<channel.Key>();
   // outdated is true from a stream drop until a stream opens again.
   private outdated = false;
   // Keys the Core rejected on their own, with the rejection. They stay off the stream
@@ -218,13 +234,18 @@ export class Multiplexed {
    * handler. The stream converges to the new demand in the background.
    * @throws {UnexpectedError} if the streamer has been closed.
    */
-  demand(keys: channel.Key[], handler: FrameHandler): Demand {
+  demand(
+    keys: channel.Key[],
+    handler: FrameHandler,
+    { untimed = false }: DemandOptions = {},
+  ): Demand {
     if (this.connMu.closed)
       throw new UnexpectedError("demand() called on a closed telemetry streamer");
     this.props.instrumentation.L.debug("adding stream demand", { keys });
     const entry: Entry = {
       handler,
       keys: new Set(keys),
+      untimed,
       statusHandlers: new Set(),
       dropHandlers: new Set(),
       removed: false,
@@ -369,6 +390,16 @@ export class Multiplexed {
     return demanded.difference(this.rejected).difference(new Set(this.deferred));
   }
 
+  /** @returns the keys of desired that every demand holding them streams untimed. */
+  private untimedKeys(desired: Set<channel.Key>): Set<channel.Key> {
+    const untimed = new Set<channel.Key>();
+    desired.forEach((key) => {
+      const entries = this.entriesByKey.get(key);
+      if (entries != null && entries.values().every((e) => e.untimed)) untimed.add(key);
+    });
+    return untimed;
+  }
+
   private setStatus(key: channel.Key, crude: status.Crude): void {
     const prev = this.statuses.get(key);
     if (prev?.variant === crude.variant && prev?.message === crude.message) return;
@@ -476,12 +507,15 @@ export class Multiplexed {
     await this.connMu.runExclusive(async () => {
       if (this.connMu.closed) return;
       const desired = this.desiredKeys();
+      const untimed = this.untimedKeys(desired);
       const arrKeys = Array.from(desired);
+      const untimedKeys = Array.from(untimed);
       const fresh = arrKeys.filter((k) => !this.sentKeys.has(k));
       try {
         if (desired.size === 0) {
           const removed = this.sentKeys;
           this.sentKeys = new Set();
+          this.sentUntimed = new Set();
           this.pruneStatuses();
           await this.releaseStream();
           this.flushBuffers(removed);
@@ -493,7 +527,9 @@ export class Multiplexed {
         if (
           this.streamer != null &&
           desired.size === this.sentKeys.size &&
-          desired.isSubsetOf(this.sentKeys)
+          desired.isSubsetOf(this.sentKeys) &&
+          untimed.size === this.sentUntimed.size &&
+          untimed.isSubsetOf(this.sentUntimed)
         )
           return this.releaseDeferred();
         const removed = Array.from(this.sentKeys).filter((k) => !desired.has(k));
@@ -501,7 +537,7 @@ export class Multiplexed {
           ins.L.info("creating new streamer", { keys: arrKeys });
           this.streamAbort = new AbortController();
           const streamer = await this.props.openStreamer(
-            { channels: arrKeys, throttleRate: THROTTLE_RATE },
+            { channels: arrKeys, untimedKeys, throttleRate: THROTTLE_RATE },
             {
               signal: this.streamAbort.signal,
               // The reopened stream acked its keys when it opened.
@@ -527,9 +563,17 @@ export class Multiplexed {
             prev: Array.from(this.sentKeys),
             next: arrKeys,
           }));
-          await this.streamer.update(arrKeys, { waitForAck: true });
+          // A key that now needs its time is not acked until the update that sends
+          // its time is.
+          const timed = Array.from(this.sentUntimed).filter((k) => !untimed.has(k));
+          if (timed.length > 0)
+            this.setAcked(
+              new Set(Array.from(this.acked).filter((k) => !timed.includes(k))),
+            );
+          await this.streamer.update(arrKeys, { waitForAck: true, untimedKeys });
         }
         this.sentKeys = desired;
+        this.sentUntimed = untimed;
         this.setAcked(new Set(desired));
         this.flushBuffers(removed);
         // Existing keys keep their status so a demand change cannot clear a per-key
@@ -619,6 +663,7 @@ export class Multiplexed {
         this.flushBuffers(this.sentKeys);
         this.drop();
         this.sentKeys = new Set();
+        this.sentUntimed = new Set();
         this.reconcileNow();
       }
     }

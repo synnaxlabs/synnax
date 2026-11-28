@@ -161,12 +161,13 @@ func (t frameIteratorRequestTranslator) Backward(
 		}
 	}
 	return framer.IteratorRequest{
-		Command:   framer.IteratorCommand(msg.Command),
-		Span:      telem.TimeSpan(msg.Span),
-		Bounds:    tr,
-		Keys:      keys,
-		Stamp:     telem.TimeStamp(msg.Stamp),
-		ChunkSize: msg.ChunkSize,
+		Command:     framer.IteratorCommand(msg.Command),
+		Span:        telem.TimeSpan(msg.Span),
+		Bounds:      tr,
+		Keys:        keys,
+		UntimedKeys: channel.KeysFromUint32(msg.UntimedKeys),
+		Stamp:       telem.TimeStamp(msg.Stamp),
+		ChunkSize:   msg.ChunkSize,
 	}, nil
 }
 
@@ -205,6 +206,7 @@ func (t frameStreamerRequestTranslator) Backward(
 ) (framer.StreamerRequest, error) {
 	rq := framer.StreamerRequest{
 		Keys:             channel.KeysFromUint32(msg.Keys),
+		UntimedKeys:      channel.KeysFromUint32(msg.UntimedKeys),
 		DownsampleFactor: msg.DownsampleFactor,
 		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
 		ExcludeGroups:    msg.ExcludeGroups,

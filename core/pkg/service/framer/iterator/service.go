@@ -42,6 +42,12 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// UntimedKeys are the keys among Keys whose samples the read needs with no time.
+	// Each frame holds the time series of each other key's clock, for the same
+	// alignments as the key's series.
+	//
+	// [OPTIONAL]
+	UntimedKeys channel.Keys `json:"untimed_keys" msgpack:"untimed_keys"`
 	// Bounds are the bounds of the time range to iterate over. This time range must be
 	// valid i.e., the start value must be before or equal to the end value.
 	//
@@ -76,6 +82,14 @@ func (c Config) validate() error {
 	// A read without a reduction keeps every sample.
 	if c.Reduction.Variant != nil {
 		v.Exec(c.Reduction.Validate)
+	}
+	for _, key := range c.UntimedKeys {
+		v.Ternaryf(
+			"untimed_keys",
+			!c.Keys.Contains(key),
+			"channel %d is not requested",
+			key,
+		)
 	}
 	return v.Error()
 }
@@ -144,7 +158,12 @@ func (s *Service) NewStream(
 		return nil, err
 	}
 	p := plumber.New()
-	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg)
+	channels, err := s.retrieveChannels(ctx, cfg.Keys)
+	if err != nil {
+		return nil, err
+	}
+	indexes := timeIndexes(cfg, channels)
+	calcTransform, sizer, err := s.newCalculationTransform(ctx, &cfg, channels)
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +182,19 @@ func (s *Service) NewStream(
 		}
 	}
 	distCfg := cfg.distribution()
+	// A chunked read counts the samples of each channel on its own, so it reads each
+	// index beside the chunks of its data instead of chunking the index too.
+	var times *chunkTime
+	if clocks := chunkClocks(cfg, channels); calcTransform == nil && len(clocks) > 0 {
+		if times, err = newChunkTime(ctx, s.cfg.Framer, cfg, clocks); err != nil {
+			return nil, err
+		}
+	} else {
+		distCfg.Keys = lo.Uniq(append(distCfg.Keys, indexes...))
+		if calcTransform == nil {
+			distCfg.Clocks, distCfg.UntimedKeys = indexes, cfg.UntimedKeys
+		}
+	}
 	if calcTransform != nil {
 		// A calculation must see every sample its expression was written over. Fed a
 		// strided or aggregated input, a stateful expression returns a different signal
@@ -171,10 +203,18 @@ func (s *Service) NewStream(
 	}
 	dist, err := s.cfg.Framer.NewStreamIterator(ctx, distCfg)
 	if err != nil {
+		if times != nil {
+			err = errors.Combine(err, times.indexes.Close())
+		}
 		return nil, err
 	}
 	p.SetSegment("distribution", dist)
 	var routeInletsTo, routeOutletFrom address.Address = "distribution", "distribution"
+	if times != nil {
+		p.SetSegment("time", times)
+		p.MustConnect[Response](routeOutletFrom, "time", 25)
+		routeOutletFrom = "time"
+	}
 	if calcTransform != nil {
 		routeInletsTo, routeOutletFrom = addCalculationSegments(
 			p,
@@ -189,6 +229,39 @@ func (s *Service) NewStream(
 		RouteInletsTo:    []address.Address{routeInletsTo},
 		RouteOutletsFrom: []address.Address{routeOutletFrom},
 	}, nil
+}
+
+// timeIndexes returns the index of each stored channel in channels that cfg reads with
+// its time, when cfg does not request the index.
+func timeIndexes(cfg Config, channels []channel.Channel) channel.Keys {
+	var indexes channel.Keys
+	for _, ch := range channels {
+		index := ch.Index()
+		if index == 0 || ch.Virtual || cfg.UntimedKeys.Contains(ch.Key()) ||
+			cfg.Keys.Contains(index) {
+			continue
+		}
+		indexes = append(indexes, index)
+	}
+	return lo.Uniq(indexes)
+}
+
+// chunkClocks returns the index of each timed stored data channel in channels when cfg
+// reads in chunks, and none otherwise.
+func chunkClocks(cfg Config, channels []channel.Channel) channel.Keys {
+	if cfg.ChunkSize <= 0 {
+		return nil
+	}
+	var clocks channel.Keys
+	for _, ch := range channels {
+		index := ch.Index()
+		if index == 0 || index == ch.Key() || ch.Virtual ||
+			cfg.UntimedKeys.Contains(ch.Key()) {
+			continue
+		}
+		clocks = append(clocks, index)
+	}
+	return lo.Uniq(clocks)
 }
 
 // addCalculationSegments adds the calculation transform to p after the distribution
@@ -256,18 +329,15 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 }
 
 // newCalculationTransform returns a transform that runs the calculations cfg requests,
-// and rewrites cfg.Keys to the concrete channels those calculations read. When cfg
-// aggregates, it also returns the group sizer for the transform's output. It returns
-// nil for both when cfg requests no calculated channels.
+// whose channels are channels, and rewrites cfg.Keys to the concrete channels those
+// calculations read. When cfg aggregates, it also returns the group sizer for the
+// transform's output. It returns nil for both when cfg requests no calculated channels.
 func (s *Service) newCalculationTransform(
 	ctx context.Context,
 	cfg *Config,
+	channels []channel.Channel,
 ) (*calculationTransform, *groupSizer, error) {
 	originalKeys := slices.Clone(cfg.Keys)
-	channels, err := s.retrieveChannels(ctx, cfg.Keys)
-	if err != nil {
-		return nil, nil, err
-	}
 	// A free index has no expression, so add the calculated channel that writes it.
 	owners, err := s.retrieveFreeIndexOwners(ctx, channels)
 	if err != nil {
@@ -314,7 +384,12 @@ func (s *Service) newCalculationTransform(
 	}
 	// Calculators hold resources until they close, so they open after every other step
 	// that can fail.
-	transform, err := openCalculationTransform(ctx, originalKeys, modules)
+	transform, err := openCalculationTransform(
+		ctx,
+		originalKeys,
+		cfg.UntimedKeys,
+		modules,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -411,14 +486,17 @@ func concreteKeys(
 }
 
 // openCalculationTransform opens a calculator for each of modules and returns the
-// transform that runs them. originalKeys are the keys that the caller requested.
+// transform that runs them. originalKeys are the keys that the caller requested, and
+// untimed the ones among them that it reads with no time.
 func openCalculationTransform(
 	ctx context.Context,
 	originalKeys []channel.Key,
+	untimed []channel.Key,
 	modules []compiler.Module,
 ) (*calculationTransform, error) {
 	transform := newCalculationTransform(
 		originalKeys,
+		untimed,
 		make([]*calculator.Calculator, 0, len(modules)),
 	)
 	for _, mod := range modules {
@@ -451,6 +529,7 @@ func (s *Service) newGroupSizer(
 		if !ch.IsCalculated() {
 			if !ch.Virtual {
 				indexes[ch.Key()] = []channel.Key{ch.Index()}
+				indexes[ch.Index()] = []channel.Key{ch.Index()}
 			}
 			continue
 		}

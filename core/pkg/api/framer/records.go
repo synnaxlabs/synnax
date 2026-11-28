@@ -92,11 +92,11 @@ func (s *recordSender) Send(res StreamerResponse) error {
 		keys = append(keys, key)
 		series = append(series, sr)
 	}
-	if len(keys) == 0 {
+	res.Frame = frame.NewMulti(keys, series)
+	if res.Frame.Empty() {
 		s.applied += res.Applied
 		return nil
 	}
-	res.Frame = frame.NewMulti(keys, series)
 	return s.send(res)
 }
 

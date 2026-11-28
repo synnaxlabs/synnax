@@ -12,6 +12,7 @@ package iterator_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -129,6 +130,105 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					To(Equal(uint32(idx.Key())))
 			}
 			Expect(iter.Close()).To(Succeed())
+		})
+
+		Describe("Time", func() {
+			var (
+				idx  *channel.Channel
+				data *channel.Channel
+			)
+			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
+				idx = &channel.Channel{
+					Name:     "time_index",
+					DataType: telem.TimestampT,
+					IsIndex:  true,
+				}
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, idx)
+				})).To(Succeed())
+				data = &channel.Channel{
+					Name:       "time_data",
+					DataType:   telem.Float32T,
+					LocalIndex: idx.LocalKey,
+				}
+				Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, data)
+				})).To(Succeed())
+				keys := channel.Keys{idx.Key(), data.Key()}
+				w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.SecondTS,
+					Keys:  keys,
+				}))
+				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+					telem.NewSeriesV[float32](1, 2, 3),
+				}))).To(BeTrue())
+				Expect(w.Close()).To(Succeed())
+			})
+
+			// read reads cfg in one Next and returns the frame.
+			read := func(ctx SpecContext, cfg iterator.Config) framer.Frame {
+				GinkgoHelper()
+				cfg.Bounds = telem.TimeRangeMax
+				iter := MustSucceed(iteratorSvc.Open(ctx, cfg))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+				fr := iter.Value()
+				Expect(iter.Close()).To(Succeed())
+				return fr
+			}
+
+			It(
+				"Should read the time of a data channel that the read requests alone",
+				func(
+					ctx SpecContext,
+				) {
+					fr := read(ctx, iterator.Config{Keys: channel.Keys{data.Key()}})
+					Expect(fr.KeysSlice()).To(ConsistOf(idx.Key(), data.Key()))
+					stamps := fr.Get(idx.Key()).Series[0]
+					values := fr.Get(data.Key()).Series[0]
+					Expect(stamps).To(MatchSeriesDataV[telem.TimeStamp](
+						telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
+					))
+					Expect(stamps.Clock).To(Equal(uint32(idx.Key())))
+					Expect(stamps.AlignmentBounds()).To(Equal(values.AlignmentBounds()))
+				},
+			)
+
+			It("Should read no time for an untimed channel", func(ctx SpecContext) {
+				fr := read(ctx, iterator.Config{
+					Keys:        channel.Keys{data.Key()},
+					UntimedKeys: channel.Keys{data.Key()},
+				})
+				Expect(fr.KeysSlice()).To(Equal([]channel.Key{data.Key()}))
+			})
+
+			It("Should read the time once when the read also requests the index", func(
+				ctx SpecContext,
+			) {
+				fr := read(ctx, iterator.Config{
+					Keys:        channel.Keys{data.Key(), idx.Key()},
+					UntimedKeys: channel.Keys{data.Key()},
+				})
+				Expect(fr.KeysSlice()).To(ConsistOf(idx.Key(), data.Key()))
+				Expect(read(ctx, iterator.Config{
+					Keys: channel.Keys{data.Key(), idx.Key()},
+				}).Count()).To(Equal(2))
+			})
+
+			It("Should refuse an untimed key that the read does not request", func(
+				ctx SpecContext,
+			) {
+				Expect(iteratorSvc.Open(ctx, iterator.Config{
+					Keys:        channel.Keys{data.Key()},
+					Bounds:      telem.TimeRangeMax,
+					UntimedKeys: channel.Keys{idx.Key()},
+				})).Error().To(MatchError(fmt.Sprintf(
+					"untimed_keys: channel %d is not requested",
+					idx.Key(),
+				)))
+			})
 		})
 
 		It("Should read written frames correctly", func(ctx SpecContext) {
@@ -1776,29 +1876,33 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(iter.Close()).To(Succeed())
 				})
 
-				It("Should keep only requested keys alongside a stored channel", func(
-					ctx SpecContext,
-				) {
-					calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
-						Name:       "idx_only_mixed",
-						DataType:   telem.Float32T,
-						Expression: "return sensor_1",
-					}))
-					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{calc.Index(), dataCh1.Key()},
-						Bounds: telem.TimeRangeMax,
-					}))
-					Expect(iter.SeekFirst()).To(BeTrue())
-					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-					v := iter.Value()
-					Expect(v.KeysSlice()).To(HaveEach(
-						BeElementOf(calc.Index(), dataCh1.Key()),
-					))
-					Expect(v.Get(calc.Index()).Series).To(HaveLen(2))
-					Expect(v.Get(dataCh1.Key()).Series).To(HaveLen(2))
-					Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
-					Expect(iter.Close()).To(Succeed())
-				})
+				It(
+					"Should keep only requested keys and their time beside a stored channel",
+					func(ctx SpecContext) {
+						calc := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "idx_only_mixed",
+								DataType:   telem.Float32T,
+								Expression: "return sensor_1",
+							}),
+						)
+						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
+							Keys:   []channel.Key{calc.Index(), dataCh1.Key()},
+							Bounds: telem.TimeRangeMax,
+						}))
+						Expect(iter.SeekFirst()).To(BeTrue())
+						Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
+						v := iter.Value()
+						Expect(v.KeysSlice()).To(HaveEach(
+							BeElementOf(calc.Index(), dataCh1.Key(), indexCh.Key()),
+						))
+						Expect(v.Get(calc.Index()).Series).To(HaveLen(2))
+						Expect(v.Get(dataCh1.Key()).Series).To(HaveLen(2))
+						Expect(v.Get(indexCh.Key()).Series).To(HaveLen(2))
+						Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
+						Expect(iter.Close()).To(Succeed())
+					},
+				)
 
 				It("Should resolve two calculated indexes in one request", func(
 					ctx SpecContext,
@@ -2597,6 +2701,41 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(idx.Series[0].AlignmentBounds()).
 				To(Equal(v.Series[0].AlignmentBounds()))
 			Expect(idx.Series[0].Unmarshal[telem.TimeStamp]()[:2]).
+				To(Equal([]telem.TimeStamp{telem.SecondTS, 20 * telem.SecondTS}))
+		})
+
+		It(
+			"Should reduce the time of a channel over the groups of its data",
+			func(
+				ctx SpecContext,
+			) {
+				fr := read(ctx, iteratorSvc, aggregated(sensorCh.Key()))
+				Expect(fr.KeysSlice()).To(ConsistOf(indexCh.Key(), sensorCh.Key()))
+				v := fr.Get(sensorCh.Key()).Series[0]
+				idx := fr.Get(indexCh.Key()).Series[0]
+				Expect(idx.AlignmentBounds()).To(Equal(v.AlignmentBounds()))
+				Expect(idx.AlignmentMultiple).To(Equal(v.AlignmentMultiple))
+				Expect(idx.Unmarshal[telem.TimeStamp]()[:2]).
+					To(Equal([]telem.TimeStamp{telem.SecondTS, 20 * telem.SecondTS}))
+			},
+		)
+
+		It("Should reduce the time of a calculation read alone", func(ctx SpecContext) {
+			calc := &channel.Channel{
+				Name:       "aggregate_timed",
+				DataType:   telem.Float32T,
+				Expression: "return aggregate_sensor * 4",
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, calc)
+			})).To(Succeed())
+			fr := read(ctx, iteratorSvc, aggregated(calc.Key()))
+			Expect(fr.KeysSlice()).To(ConsistOf(calc.Key(), calc.Index()))
+			v := fr.Get(calc.Key()).Series[0]
+			idx := fr.Get(calc.Index()).Series[0]
+			Expect(v.Clock).To(Equal(uint32(calc.Index())))
+			Expect(idx.AlignmentBounds()).To(Equal(v.AlignmentBounds()))
+			Expect(idx.Unmarshal[telem.TimeStamp]()[:2]).
 				To(Equal([]telem.TimeStamp{telem.SecondTS, 20 * telem.SecondTS}))
 		})
 

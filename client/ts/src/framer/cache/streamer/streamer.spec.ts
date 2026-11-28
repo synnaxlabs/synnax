@@ -51,6 +51,8 @@ class MockStreamer implements framer.Streamer {
 
   private keysI: channel.Params[];
   readonly updateVi = vi.fn();
+  // The untimed keys of each update.
+  readonly untimed: (channel.Key[] | undefined)[] = [];
   readonly closeVi = vi.fn();
   readonly iteratorVi = vi.fn();
   readonly nextVi = vi.fn();
@@ -71,8 +73,9 @@ class MockStreamer implements framer.Streamer {
     return this.keysI.at(-1) as channel.Key[];
   }
 
-  update(keys: channel.Params): Promise<void> {
+  update(keys: channel.Params, options?: framer.StreamerUpdateOptions): Promise<void> {
     this.keysI.push(keys);
+    this.untimed.push(options?.untimedKeys);
     this.updateVi(keys);
     return Promise.resolve();
   }
@@ -385,6 +388,32 @@ describe("Multiplexed", () => {
       await vi.advanceTimersByTimeAsync(1000);
       expect(attempts).toBe(2);
       expect(again.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
+  });
+
+  describe("untimed demand", () => {
+    it("should stream a key untimed only while every demand that holds it is untimed", async () => {
+      const configs: framer.StreamerConfig[] = [];
+      const ms = pendingStreamer([1, 2]);
+      const streamer = new cacheStreamer.Multiplexed({
+        ...createCache(),
+        removalDelay: TimeSpan.seconds(1),
+        openStreamer: async (config) => {
+          configs.push(config);
+          return ms;
+        },
+      });
+      streamer.demand([1, 2], () => {}, { untimed: true });
+      await vi.advanceTimersByTimeAsync(200);
+      expect(configs).toHaveLength(1);
+      expect(configs[0]).toMatchObject({ untimedKeys: [1, 2] });
+      const timed = streamer.demand([2], () => {});
+      await vi.advanceTimersByTimeAsync(200);
+      expect(ms.untimed.at(-1)).toEqual([1]);
+      timed.close();
+      await vi.advanceTimersByTimeAsync(1200);
+      expect(ms.untimed.at(-1)).toEqual([1, 2]);
       await streamer.close();
     });
   });

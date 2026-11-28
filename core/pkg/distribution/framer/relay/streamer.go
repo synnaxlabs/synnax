@@ -38,8 +38,11 @@ type streamer struct {
 	excludeGroups   []uint32
 	// keys holds the streamer's channels. The relay's delta reads it to skip frames
 	// before they reach the streamer's buffer.
-	keys atomic.Pointer[set.Set[channel.Key]]
+	keys atomic.Pointer[keySets]
 }
+
+// keySets holds the channels of a streamer and the untimed ones among them.
+type keySets struct{ keys, untimed set.Set[channel.Key] }
 
 // StreamerConfig is the configuration for creating a new streamer.
 type StreamerConfig struct {
@@ -54,6 +57,12 @@ type StreamerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to empty.
 	Keys channel.Keys
+	// UntimedKeys are the keys among Keys whose samples the streamer needs with no
+	// time. A frame holds the time series of a clock only beside a series of a key
+	// outside them that names the clock.
+	//
+	// [OPTIONAL] - Defaults to empty.
+	UntimedKeys channel.Keys
 	// ExcludeGroups is a list of writer group IDs whose frames should be filtered out
 	// before delivery. This is used by the telemetry bypass to prevent duplicate
 	// delivery of frames that were already routed via the local bus.
@@ -72,6 +81,7 @@ var _ config.Config[StreamerConfig] = StreamerConfig{}
 // Override implements config.Config.
 func (c StreamerConfig) Override(other StreamerConfig) StreamerConfig {
 	c.Keys = override.Slice(c.Keys, other.Keys)
+	c.UntimedKeys = override.Slice(c.UntimedKeys, other.UntimedKeys)
 	c.SendOpenAck = override.Nil(c.SendOpenAck, other.SendOpenAck)
 	c.ExcludeGroups = override.Slice(c.ExcludeGroups, other.ExcludeGroups)
 	c.MissedRequested = override.Nil(c.MissedRequested, other.MissedRequested)
@@ -104,13 +114,12 @@ func (r *Relay) NewStreamer(cfgs ...StreamerConfig) (Streamer, error) {
 		addr:            address.Rand(),
 		relay:           r,
 	}
-	s.setKeys(cfg.Keys)
+	s.setKeys(cfg.Keys, cfg.UntimedKeys)
 	return s, nil
 }
 
-func (s *streamer) setKeys(keys channel.Keys) {
-	k := set.New(keys...)
-	s.keys.Store(&k)
+func (s *streamer) setKeys(keys, untimed channel.Keys) {
+	s.keys.Store(&keySets{keys: set.New(keys...), untimed: set.New(untimed...)})
 }
 
 // accepts reports whether r holds any of the streamer's channels and comes from a
@@ -119,7 +128,7 @@ func (s *streamer) accepts(r Response) bool {
 	if r.Group != 0 && slices.Contains(s.excludeGroups, r.Group) {
 		return false
 	}
-	keys := *s.keys.Load()
+	keys := s.keys.Load().keys
 	for k := range r.Frame.Keys() {
 		if keys.Contains(k) {
 			return true
@@ -145,7 +154,7 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 		state := &demandState{}
 		if err := s.relay.sendDemand(ctx, demand{
 			addr:  s.addr,
-			keys:  s.keys.Load().Slice(),
+			keys:  s.keys.Load().keys.Slice(),
 			ack:   ack,
 			state: state,
 		}); err != nil {
@@ -189,7 +198,7 @@ func (s *streamer) sendMissed(
 	if !ok {
 		return pending, nil
 	}
-	keys := *s.keys.Load()
+	keys := s.keys.Load().keys
 	maps.DeleteFunc(ranges, func(k channel.Key, _ telem.TimeRange) bool {
 		return !keys.Contains(k)
 	})
@@ -269,7 +278,7 @@ func (s *streamer) forward(
 			req.Keys = lo.Uniq(req.Keys)
 			// The keys must change before the demand, so the delta accepts frames for
 			// an added channel as soon as the relay taps it.
-			s.setKeys(req.Keys)
+			s.setKeys(req.Keys, req.UntimedKeys)
 			if len(req.Keys) > 0 {
 				applied++
 			}
@@ -294,7 +303,8 @@ func (s *streamer) forward(
 			received++
 			// A frame buffered before a key update can hold channels the streamer no
 			// longer wants.
-			filtered := r.Frame.KeepKeys(*s.keys.Load())
+			keys := s.keys.Load()
+			filtered := r.Frame.KeepTimed(keys.keys, keys.untimed)
 			if filtered.Empty() {
 				continue
 			}

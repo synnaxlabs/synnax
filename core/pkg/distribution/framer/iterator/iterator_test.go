@@ -275,6 +275,59 @@ var _ = Describe("Read failure", func() {
 	})
 })
 
+var _ = Describe("Clocks", func() {
+	It("Should keep a clock's series only in a frame where a read key names it", func(
+		ctx SpecContext,
+	) {
+		dist := testutil.OpenNode(ctx)
+		DeferCleanup(func() { Expect(dist.Close()).To(Succeed()) })
+		index := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
+			Name:     "clock",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		}}))[0]
+		data := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
+			Name:       "clocked",
+			DataType:   telem.Float32T,
+			LocalIndex: index.LocalKey,
+		}}))[0]
+		write := func(start telem.TimeStamp, fr frame.Frame) {
+			GinkgoHelper()
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  fr.KeysSlice(),
+				Start: start,
+				Sync:  new(true),
+			}))
+			Expect(w.Write(fr)).To(BeTrue())
+			MustCommit(w)
+			Expect(w.Close()).To(Succeed())
+		}
+		write(10*telem.SecondTS, frame.NewMulti(
+			channel.Keys{index.Key(), data.Key()},
+			[]telem.Series{
+				telem.NewSeriesSecondsTSV(10, 11, 12),
+				telem.NewSeriesV[float32](1, 2, 3),
+			},
+		))
+		write(
+			20*telem.SecondTS,
+			frame.NewUnary(index.Key(), telem.NewSeriesSecondsTSV(20, 21)),
+		)
+		iter := MustSucceed(dist.Framer.OpenIterator(ctx, iterator.Config{
+			Keys:   channel.Keys{data.Key(), index.Key()},
+			Bounds: telem.TimeRangeMax,
+			Clocks: channel.Keys{index.Key()},
+		}))
+		Expect(iter.SeekGE(20 * telem.SecondTS)).To(BeTrue())
+		iter.Next(5 * telem.Second)
+		Expect(iter.Value().Get(index.Key()).Series).To(BeEmpty())
+		Expect(iter.SeekFirst()).To(BeTrue())
+		Expect(iter.Next(5 * telem.Second)).To(BeTrue())
+		Expect(iter.Value().Get(index.Key()).Series).To(HaveLen(1))
+		Expect(iter.Close()).To(Succeed())
+	})
+})
+
 type scenario struct {
 	dist     testutil.Node
 	close    io.Closer

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -34,11 +35,17 @@ func (t *calculationUpdaterTransform) transform(
 	ctx context.Context,
 	req Request,
 ) (framer.StreamerRequest, bool, error) {
+	v := validate.New("streamer.request")
+	validateUntimed(v, req.Keys, req.UntimedKeys)
+	if err := v.Error(); err != nil {
+		return framer.StreamerRequest{}, false, err
+	}
 	if err := t.calcManager.Set(ctx, req.Keys); err != nil {
 		t.L.Error("failed to update calculated channels", zap.Error(err))
 	}
 	return framer.StreamerRequest{
 		Keys:         req.Keys,
+		UntimedKeys:  req.UntimedKeys,
 		AckRequested: req.AckRequested,
 	}, true, nil
 }

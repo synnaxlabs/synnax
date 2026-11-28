@@ -282,7 +282,7 @@ var _ = Describe("Framer", func() {
 				TimeRanges: []telem.TimeRange{telem.TimeRangeMax},
 			}))
 			iter := MustSucceed(
-				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0]),
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0], nil),
 			)
 			Expect(iter.Close()).To(Succeed())
 			Expect(res.Channels).To(HaveLen(1))
@@ -532,7 +532,7 @@ var _ = Describe("Framer", func() {
 			}))
 			Expect(res.Reduction).To(Equal(reduction))
 			iter := MustSucceed(
-				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0]),
+				res.OpenIterator(ctx, channel.Keys{data.Key()}, res.TimeRanges[0], nil),
 			)
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
@@ -789,14 +789,13 @@ var _ = Describe("Framer", func() {
 			return out
 		}
 		// open runs in each spec, since a BeforeEach's context ends with the
-		// BeforeEach. With an index, the record channel stores its samples on it.
-		open := func(ctx SpecContext, index channel.Channel) {
+		// BeforeEach.
+		open := func(ctx SpecContext) {
 			GinkgoHelper()
 			records = channel.Channel{
-				Name:       UniqueChannelName(),
-				DataType:   telem.JSONT,
-				Virtual:    index.LocalKey == 0,
-				LocalIndex: index.LocalKey,
+				Name:     UniqueChannelName(),
+				DataType: telem.JSONT,
+				Virtual:  true,
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Channel.NewWriter(tx).Create(ctx, &records)
@@ -843,9 +842,6 @@ var _ = Describe("Framer", func() {
 			})
 			Expect(client.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
 			Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
-			if index.LocalKey != 0 {
-				keys = append(keys, index.Key())
-			}
 			writer = MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
@@ -856,7 +852,7 @@ var _ = Describe("Framer", func() {
 		It(
 			"Should send only the samples that the subject can read",
 			func(ctx SpecContext) {
-				open(ctx, channel.Channel{})
+				open(ctx)
 				Expect(writer.Write(frame.NewUnary(
 					records.Key(), samples(denied, readable, denied),
 				))).To(BeTrue())
@@ -867,7 +863,7 @@ var _ = Describe("Framer", func() {
 		It("Should send no frame when the subject can read none of its samples", func(
 			ctx SpecContext,
 		) {
-			open(ctx, channel.Channel{})
+			open(ctx)
 			Expect(writer.Write(frame.NewUnary(
 				records.Key(), samples(denied),
 			))).To(BeTrue())
@@ -877,31 +873,8 @@ var _ = Describe("Framer", func() {
 			Expect(received()).To(Equal([]string{readable.String()}))
 		})
 
-		It("Should keep the clock of a series that it filters", func(ctx SpecContext) {
-			index := channel.Channel{
-				Name:     UniqueChannelName(),
-				DataType: telem.TimestampT,
-				IsIndex:  true,
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Channel.NewWriter(tx).Create(ctx, &index)
-			})).To(Succeed())
-			open(ctx, index)
-			Expect(writer.Write(frame.NewMulti(
-				channel.Keys{index.Key(), records.Key()},
-				[]telem.Series{
-					telem.NewSeriesSecondsTSV(1, 2),
-					samples(denied, readable),
-				},
-			))).To(BeTrue())
-			series := MustSucceed(client.Receive()).Frame.Get(records.Key()).Series
-			Expect(series).To(HaveLen(1))
-			Expect(series[0].Len()).To(BeEquivalentTo(1))
-			Expect(series[0].Clock).To(Equal(uint32(index.Key())))
-		})
-
 		It("Should keep the other channels of a frame", func(ctx SpecContext) {
-			open(ctx, channel.Channel{})
+			open(ctx)
 			Expect(writer.Write(frame.NewMulti(
 				channel.Keys{records.Key(), other.Key()},
 				[]telem.Series{samples(denied), telem.NewSeriesV[float32](1)},
@@ -914,7 +887,7 @@ var _ = Describe("Framer", func() {
 		It(
 			"Should leave a frame with no record channel as it is",
 			func(ctx SpecContext) {
-				open(ctx, channel.Channel{})
+				open(ctx)
 				Expect(writer.Write(frame.NewUnary(
 					other.Key(), telem.NewSeriesV[float32](1, 2),
 				))).To(BeTrue())
@@ -1010,5 +983,182 @@ var _ = Describe("Framer", func() {
 				},
 			)
 		})
+	})
+
+	Describe("Time", func() {
+		var (
+			index channel.Channel
+			data  channel.Channel
+		)
+		BeforeEach(func(ctx SpecContext) {
+			index = createIndex(ctx)
+			data = channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: index.LocalKey,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &data)
+			})).To(Succeed())
+		})
+		// write writes two samples of data and their stamps.
+		write := func(ctx SpecContext, start telem.TimeStamp) {
+			GinkgoHelper()
+			keys := channel.Keys{index.Key(), data.Key()}
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start: start,
+				Keys:  keys,
+			}))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeries([]telem.TimeStamp{start, start + telem.SecondTS}),
+				telem.NewSeriesV[float32](1, 2),
+			}))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+		}
+		// granted returns a context whose subject may retrieve data, and index when
+		// withIndex is true.
+		granted := func(ctx SpecContext, withIndex bool) freighter.Context {
+			GinkgoHelper()
+			keys := channel.Keys{data.Key()}
+			if withIndex {
+				keys = append(keys, index.Key())
+			}
+			u := createUserGranted(ctx, svcframer.ResourceIDs(keys)...)
+			return subjectCtx(ctx, u.ResourceID())
+		}
+		// read reads req through Read and returns the frame of its first span.
+		read := func(ctx freighter.Context, req apiframer.ReadRequest) frame.Frame {
+			GinkgoHelper()
+			req.TimeRanges = []telem.TimeRange{telem.TimeRangeMax}
+			res := MustSucceed(apiSvc.Read(ctx, req))
+			iter := MustSucceed(res.OpenIterator(ctx, req.Keys, res.TimeRanges[0], nil))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(apiframer.IteratorAutoSpan)).To(BeTrue())
+			fr := iter.Value()
+			Expect(iter.Close()).To(Succeed())
+			return fr
+		}
+		// iterate reads data through Iterate and returns the frame of its first span.
+		iterate := func(ctx freighter.Context) frame.Frame {
+			GinkgoHelper()
+			client, server := freightertestutil.NewStreams[
+				apiframer.IteratorRequest,
+				apiframer.IteratorResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Iterate(ctx, server) }()
+			Expect(client.Send(apiframer.IteratorRequest{
+				Keys:   channel.Keys{data.Key()},
+				Bounds: telem.TimeRangeMax,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandSeekFirst,
+			})).To(Succeed())
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			Expect(client.Send(apiframer.IteratorRequest{
+				Command: apiframer.IteratorCommandNext,
+				Span:    apiframer.IteratorAutoSpan,
+			})).To(Succeed())
+			res := MustSucceed(client.Receive())
+			Expect(res.Variant).To(Equal(apiframer.IteratorResponseVariantData))
+			Expect(client.Receive()).To(HaveField("Ack", BeTrue()))
+			Expect(client.CloseSend()).To(Succeed())
+			Eventually(done).WithTimeout(5 * time.Second).Should(Receive(BeNil()))
+			return res.Frame
+		}
+		// stream streams data and returns the frame of the first write after the open.
+		stream := func(ctx freighter.Context, spec SpecContext) frame.Frame {
+			GinkgoHelper()
+			client, server := freightertestutil.NewStreams[
+				apiframer.StreamerRequest,
+				apiframer.StreamerResponse,
+			](ctx)
+			done := make(chan error, 1)
+			go func() { done <- apiSvc.Stream(ctx, server) }()
+			DeferCleanup(func() {
+				Expect(client.CloseSend()).To(Succeed())
+				Eventually(done).WithTimeout(5 * time.Second).Should(Receive())
+			})
+			Expect(client.Send(apiframer.StreamerRequest{
+				Keys: channel.Keys{data.Key()},
+			})).To(Succeed())
+			Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
+			write(spec, 10*telem.SecondTS)
+			return MustSucceed(client.Receive()).Frame
+		}
+
+		It("Should read the time of a channel whose index the subject may read", func(
+			ctx SpecContext,
+		) {
+			write(ctx, telem.SecondTS)
+			fr := read(granted(ctx, true), apiframer.ReadRequest{
+				Keys: channel.Keys{data.Key()},
+			})
+			Expect(fr.KeysSlice()).To(ConsistOf(index.Key(), data.Key()))
+		})
+
+		It(
+			"Should read a channel untimed when the subject may not read its index",
+			func(
+				ctx SpecContext,
+			) {
+				write(ctx, telem.SecondTS)
+				fr := read(granted(ctx, false), apiframer.ReadRequest{
+					Keys: channel.Keys{data.Key()},
+				})
+				Expect(fr.KeysSlice()).To(Equal([]channel.Key{data.Key()}))
+			},
+		)
+
+		It("Should read a channel untimed when the request marks it", func(
+			ctx SpecContext,
+		) {
+			write(ctx, telem.SecondTS)
+			fr := read(rootCtx(ctx), apiframer.ReadRequest{
+				Keys:        channel.Keys{data.Key()},
+				UntimedKeys: channel.Keys{data.Key()},
+			})
+			Expect(fr.KeysSlice()).To(Equal([]channel.Key{data.Key()}))
+		})
+
+		It(
+			"Should iterate the time of a channel whose index the subject may read",
+			func(
+				ctx SpecContext,
+			) {
+				write(ctx, telem.SecondTS)
+				Expect(iterate(granted(ctx, true)).KeysSlice()).
+					To(ConsistOf(index.Key(), data.Key()))
+			},
+		)
+
+		It(
+			"Should iterate a channel untimed when the subject may not read its index",
+			func(
+				ctx SpecContext,
+			) {
+				write(ctx, telem.SecondTS)
+				Expect(iterate(granted(ctx, false)).KeysSlice()).
+					To(Equal([]channel.Key{data.Key()}))
+			},
+		)
+
+		It("Should stream the time of a channel whose index the subject may read", func(
+			ctx SpecContext,
+		) {
+			Expect(stream(granted(ctx, true), ctx).KeysSlice()).
+				To(ConsistOf(index.Key(), data.Key()))
+		})
+
+		It(
+			"Should stream a channel untimed when the subject may not read its index",
+			func(
+				ctx SpecContext,
+			) {
+				Expect(stream(granted(ctx, false), ctx).KeysSlice()).
+					To(Equal([]channel.Key{data.Key()}))
+			},
+		)
 	})
 })

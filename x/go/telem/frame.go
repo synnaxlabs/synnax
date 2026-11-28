@@ -526,6 +526,46 @@ func (f Frame[K]) KeepKeys(keys set.Set[K]) Frame[K] {
 	return f.filter(keys, len(keys), set.Set[K].Contains)
 }
 
+// KeepTimed filters the frame to the series of keys and the time series they need: the
+// series of each key that a kept series names as its clock, unless untimed holds the
+// key of the kept series. It returns a shallow copy of the filtered frame.
+func (f Frame[K]) KeepTimed(keys, untimed set.Set[K]) Frame[K] {
+	var buf [8]uint32
+	clocks := buf[:0]
+	for i, k := range f.keys {
+		if f.ShouldExcludeRaw(i) || !keys.Contains(k) || untimed.Contains(k) {
+			continue
+		}
+		if c := f.series[i].Clock; c != 0 && !slices.Contains(clocks, c) {
+			clocks = append(clocks, c)
+		}
+	}
+	if len(clocks) == 0 {
+		return f.KeepKeys(keys)
+	}
+	// The loops below repeat filter, since passing clocks to it moves buf to the heap.
+	if len(f.keys) < f.mask.Cap() {
+		f.mask.enabled = true
+		for i, k := range f.keys {
+			if !keys.Contains(k) && !slices.Contains(clocks, uint32(k)) {
+				f.mask.Mask128 = f.mask.Set(i, true)
+			}
+		}
+		return f
+	}
+	var (
+		fKeys   = make([]K, 0, len(f.keys))
+		fSeries = make([]Series, 0, len(f.keys))
+	)
+	for k, s := range f.Entries() {
+		if keys.Contains(k) || slices.Contains(clocks, uint32(k)) {
+			fKeys = append(fKeys, k)
+			fSeries = append(fSeries, s)
+		}
+	}
+	return Frame[K]{keys: fKeys, series: fSeries}
+}
+
 // notContain is defined statically so that it doesn't accidentally escape to the heap,
 // applying more pressure on GC.
 func notContains[T comparable](s []T, e T) bool { return !lo.Contains(s, e) }

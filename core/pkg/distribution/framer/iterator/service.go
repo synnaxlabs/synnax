@@ -47,6 +47,17 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	Reduction telem.Reduction
+	// Clocks are the keys among Keys that the iterator reads only for the time of the
+	// other keys. A data response keeps the series of a clock only when a series of a
+	// key outside UntimedKeys names it as its clock, and one left with no series is
+	// not sent.
+	//
+	// [OPTIONAL]
+	Clocks channel.Keys
+	// UntimedKeys are the keys among Keys whose series keep no series of Clocks.
+	//
+	// [OPTIONAL]
+	UntimedKeys channel.Keys
 }
 
 // Validate ensures that Keys is non-empty and contains no free channels, which cannot

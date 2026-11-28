@@ -32,6 +32,7 @@ _TRUNCATED = "The Core cut the read short before it finished."
 
 class _Request(BaseModel):
     keys: list[channel.Key]
+    untimed_keys: list[channel.Key] = []
     time_ranges: list[TimeRange]
     reduction: Reduction | None = None
     timestamps_included: bool = False
@@ -58,6 +59,7 @@ class Reader:
         *,
         reduction: Reduction | None = None,
         timestamps_included: bool = False,
+        untimed: bool = False,
     ) -> Frame:
         """Reads every sample the given channels hold within tr.
 
@@ -69,6 +71,8 @@ class Reader:
             keeping every sample.
         :param timestamps_included: also reads the index channels of the channels
             that channels leaves out.
+        :param untimed: reads the samples with no time, as a caller that returns one
+            bare series needs them.
         :returns: the samples as a frame.
         """
         adapter = ReadFrameAdapter(
@@ -78,7 +82,10 @@ class Reader:
         )
         adapter.update(channels)
         req = _Request(
-            keys=adapter.keys, time_ranges=_time_ranges(tr), reduction=reduction
+            keys=adapter.keys,
+            untimed_keys=adapter.keys if untimed else [],
+            time_ranges=_time_ranges(tr),
+            reduction=reduction,
         )
         frame = Frame()
         with self._file.stream(_ENDPOINT, req, accept=_FRAME_CONTENT_TYPE) as body:

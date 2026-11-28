@@ -190,6 +190,17 @@ class Client:
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
+        return self._open_iterator(tr, channels, chunk_size, reduction, untimed=False)
+
+    def _open_iterator(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        chunk_size: int,
+        reduction: Reduction | None,
+        *,
+        untimed: bool,
+    ) -> Iterator:
         adapter = ReadFrameAdapter(self._channels, reduction=reduction)
         adapter.update(channels)
         return Iterator(
@@ -199,6 +210,7 @@ class Client:
             chunk_size=chunk_size,
             reduction=reduction,
             instrumentation=self.instrumentation,
+            untimed=untimed,
         )
 
     @overload
@@ -298,7 +310,11 @@ class Client:
         """
         normal = channel.normalize_params(channels)
         frame = self._reader.read(
-            tr, channels, reduction=reduction, timestamps_included=not normal.single
+            tr,
+            channels,
+            reduction=reduction,
+            timestamps_included=not normal.single,
+            untimed=normal.single,
         )
         if not normal.single:
             return frame
@@ -384,10 +400,8 @@ class Client:
         normal = channel.normalize_params(channels)
         aggregate = Frame()
         if n > 0:
-            with self.open_iterator(
-                tr=TimeRange.MAX,
-                channels=channels,
-                chunk_size=n,
+            with self._open_iterator(
+                TimeRange.MAX, channels, n, None, untimed=normal.single
             ) as i:
                 i.seek_last()
                 i.prev(AUTO_SPAN)

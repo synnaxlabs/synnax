@@ -71,6 +71,13 @@ func (f Frame) KeepKeys(keys set.Set[channel.Key]) Frame {
 	return Frame{Frame: f.Frame.KeepKeys(keys)}
 }
 
+// KeepTimed returns a new frame containing only the series of keys and the time series
+// that they name as their clock, unless untimed holds their key. The original frame is
+// not modified.
+func (f Frame) KeepTimed(keys, untimed set.Set[channel.Key]) Frame {
+	return Frame{Frame: f.Frame.KeepTimed(keys, untimed)}
+}
+
 func (f Frame) ExcludeKeys(keys channel.Keys) Frame {
 	return Frame{Frame: f.Frame.ExcludeKeys(keys)}
 }
