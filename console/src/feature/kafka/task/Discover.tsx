@@ -773,10 +773,10 @@ const Content = ({
   const opened = new Set(
     icds.flatMap(({ messages }) => messages.map(({ key }) => key)),
   );
-  const searched = unique.unique([
-    ...(active == null ? [] : [active]),
-    ...picks.keys(),
-  ]);
+  // A pick of a whole topic never reads a message of an ICD.
+  const searched = whole
+    ? []
+    : unique.unique([...(active == null ? [] : [active]), ...picks.keys()]);
   const holders = ICD.Stored.useHolders(
     searched.flatMap(storedIn).filter((m) => !opened.has(m)),
   );
@@ -1077,8 +1077,11 @@ const Content = ({
     ? wholePicks.size
     : added.reduce((n, p) => n + countOf(p.picks), 0);
   // An add refuses while a Default input spells no default, and focuses that input.
+  const waitsFor = (record: string | null): boolean =>
+    added.some(({ topic }) => searchingIn(topic)) ||
+    (record != null && searchingIn(record));
   const finish = (record: string | null) => {
-    if (holders.searching) {
+    if (waitsFor(record)) {
       setQueued({ record });
       return;
     }
@@ -1107,11 +1110,12 @@ const Content = ({
   };
 
   // An add that a search holds runs with the plan of the finished search.
+  const waiting = queued != null && waitsFor(queued.record);
   useEffect(() => {
-    if (queued == null || holders.searching) return;
+    if (queued == null || waiting) return;
     setQueued(null);
     finish(queued.record);
-  }, [queued, holders.searching]);
+  }, [queued, waiting]);
 
   let emptyRecord: ReactNode = null;
   if (

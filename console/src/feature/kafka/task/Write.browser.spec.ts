@@ -20,9 +20,10 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { deep, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { Kafka } from "@/feature/kafka";
 import {
@@ -33,6 +34,7 @@ import {
   listTopic,
   sampleOfTopic,
 } from "@/feature/kafka/testutil";
+import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
 import { pickMessageFormat, setField } from "@/platform/icd/testutil";
 import {
@@ -210,6 +212,26 @@ describe("Kafka Write form", () => {
     await screen.findByText("Produce");
     expect(screen.getByDisplayValue(TOPIC)).toBeTruthy();
   }, 30_000);
+
+  it("should not search the ICDs for a message that the device stores channels for", async () => {
+    const fresh = createTestClient();
+    onTestFinished(async () => await fresh.close());
+    const more = vi.spyOn(fresh.icds.watch({ limit: 50 }), "more");
+    const dev = await createKafkaDevice(client);
+    const stored = await client.devices.retrieve({
+      key: dev.key,
+      schemas: Kafka.Device.SCHEMAS,
+    });
+    const before = deep.copy(stored.properties);
+    stored.properties.read[ICD.Stored.key(`${TOPIC}#pump-1`, uuid.create())] = {
+      index: 0,
+      channels: {},
+    };
+    await Device.setProperties(client, stored, before, Kafka.Device.SCHEMAS);
+    const { draft } = await renderWrite([], { dev, as: fresh });
+    await addSampledTarget(dev, draft.key, [createShape(["pump-1"], 2, "/speed")]);
+    expect(more).not.toHaveBeenCalled();
+  });
 
   it("should open Add targets from the empty details pane", async () => {
     await renderWrite();

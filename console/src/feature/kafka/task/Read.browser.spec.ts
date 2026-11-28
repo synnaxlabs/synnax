@@ -2919,6 +2919,44 @@ describe("Kafka read form", () => {
         expect(records[1].icd).toBe(elsewhere.key);
         expect(records[1].messages.map(({ message }) => message)).toEqual([twin.key]);
       });
+
+      it("should not wait for the search of a topic that the add does not use", async () => {
+        const { fresh, list } = createFresh();
+        const read = list.more.bind(list);
+        let release = () => {};
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        onTestFinished(() => release());
+        vi.spyOn(list, "more").mockImplementation(async (size) => {
+          await gate;
+          return await read(size);
+        });
+        const { draft, dev } = await renderStoredElsewhere({ as: fresh });
+        const scan = await createScanTask(client, dev);
+        const first = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: browseOf(listTopic(TOPIC), listTopic("plant")) },
+          sample: { data: sampleOf(OVEN_2_SHAPE) },
+        });
+        const dialog = await clickAddData();
+        await first.answered;
+        await dialog.findByText("Finding messages");
+        const second = await answerCommandsUntil(client, [scan], "sample", {
+          sample: { data: sampleOfTopic("plant", OVEN_2_SHAPE) },
+        });
+        fireEvent.click(dialog.getByRole("checkbox", { name: "Pick plant" }));
+        await second.answered;
+        await dialog.findByText("1 field selected");
+        fireEvent.click(dialog.getByText(TOPIC));
+        await dialog.findByText("Finding messages");
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        const topics = await waitFor(async () => {
+          const next = await retrieveTopics(draft.key);
+          expect(next).toHaveLength(2);
+          return next;
+        });
+        expect(topics.map(({ name }) => name)).toEqual([TOPIC, "plant"]);
+      });
     });
 
     it("should not edit an ICD whose message the dialog only ranks", async () => {
