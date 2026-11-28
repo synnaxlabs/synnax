@@ -100,10 +100,10 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Channel, from, to Key) {
+			Retarget: func(e *Channel, to map[Key]Key) {
 				for i3 := range e.Rewires {
-					if e.Rewires[i3].From == from {
-						e.Rewires[i3].From = to
+					if t, ok := to[e.Rewires[i3].From]; ok {
+						e.Rewires[i3].From = t
 					}
 				}
 			},
