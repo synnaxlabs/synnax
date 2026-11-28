@@ -25,4 +25,4 @@ class Light(Symbol):
         self.channel_name = channel_name
 
     def _apply_properties(self) -> None:
-        self.bind_state("Active", channel=self.channel_name)
+        self.bind_state(channel=self.channel_name)

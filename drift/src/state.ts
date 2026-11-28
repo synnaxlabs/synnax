@@ -48,7 +48,7 @@ export const sliceStateZ = z.object({
 /** The Slice State */
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
-/** State of a store with a drift slice */
+/** State of a store with a Drift slice */
 export interface StoreState {
   drift: SliceState;
 }
@@ -105,7 +105,7 @@ export type SetWindowErrorPayload = KeyPayload & { message: string };
 export type SetWindowDecorationsPayload = KeyPayload & BooleanPayload;
 export type SetConfigPayload = Partial<Config>;
 
-/** Type representing all possible actions that are drift related. */
+/** Type representing all possible actions that are Drift related. */
 export type Payload =
   | LabelPayload
   | CreateWindowPayload
@@ -134,7 +134,7 @@ export type Payload =
   | SetConfigPayload
   | ReloadWindowPayload;
 
-/** Type representing all possible actions that are drift related. */
+/** Type representing all possible actions that are Drift related. */
 export type Action = PayloadAction<Payload>;
 
 // For some reason, delaying the reload causes Tauri to crash less
@@ -571,7 +571,7 @@ export const ensureOrdinals = (s: SliceState): void => {
 };
 
 /**
- * @returns true if the given action type is a drift action.
+ * @returns true if the given action type is a Drift action.
  * @param type - The action type to check.
  */
 export const isDriftAction = (type: string): boolean => type.startsWith(SLICE_NAME);

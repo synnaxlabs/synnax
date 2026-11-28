@@ -39,7 +39,8 @@ describe("Symbol form", () => {
     );
   });
   beforeEach(() => {
-    prompt.mockReset();
+    // The user cancels the prompt unless a test says otherwise.
+    prompt.mockReset().mockResolvedValue(null);
   });
 
   const render = async (tab: "telemetry" | "style" = "telemetry") =>
@@ -99,14 +100,14 @@ describe("Symbol form", () => {
     const { findByRole, findByText, value } = await render();
     fireEvent.click(await findByRole("button", { name: /^Enumeration/ }));
     fireEvent.click(await screen.findByRole("option", { name: "New enumeration" }));
-    fireEvent.click(await findByText("Exact"));
+    fireEvent.click(await findByText("Local"));
     const created = await client.enumerations.create({ name: `Valve ${id.create()}` });
     link(created.key);
     await waitFor(() =>
       expect(value(path.states)).toEqual([
         schematic.stateBindingZ.parse({
           key: "active",
-          match: { type: "exact" },
+          source: { type: "local", value: 0 },
           enumeration: created.key,
         }),
       ]),
@@ -124,7 +125,7 @@ describe("Symbol form", () => {
       throw new Error("expected the valve to draw an enumeration");
     const drawn = await client.enumerations.retrieve({ key: state.enumeration });
     await waitFor(() =>
-      expect(prompt).toHaveBeenCalledWith({ name: "Active", entries: drawn.entries }),
+      expect(prompt).toHaveBeenCalledWith({ name: "State", entries: drawn.entries }),
     );
   });
 });

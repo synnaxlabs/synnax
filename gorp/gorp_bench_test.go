@@ -61,7 +61,7 @@ func setupBenchDB(b *testing.B) *gorp.DB {
 }
 
 // openBenchTable opens a Table for the given (K, E) on a fresh in-memory DB.
-// The Table caches the gorp key prefix so each query construction inside the
+// The Table caches the Gorp key prefix so each query construction inside the
 // benchmark loop reuses it instead of rebuilding via reflection. The backing
 // DB is returned alongside the Table so benchmarks can pass it to Exec.
 func openBenchTable[K gorp.Key, E gorp.Entry[K]](

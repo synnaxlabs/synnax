@@ -843,7 +843,7 @@ func reciprocal() {val i32} i32 {
     ASSERT_EQ(reported_errors.size(), 1);
     EXPECT_TRUE(reported_errors[0].matches(arc::runtime::errors::WASM_TRAP));
     EXPECT_EQ(
-        reported_errors[0].data,
+        reported_errors[0].data(),
         "WASM execution failed in node " + func_node->key +
             " at sample 1/3: integer divide by zero"
     );

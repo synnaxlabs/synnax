@@ -13,6 +13,7 @@
 #include <map>
 #include <set>
 #include <span>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
@@ -90,8 +91,7 @@ std::pair<Readers, x::errors::Error> build_readers(
                 ),
             };
         auto [reader, err] = driver::icd::Reader::create(
-            ep.messages,
-            *ic,
+            {{.ic = *ic, .reads = ep.messages}},
             readers.channels
         );
         if (err) return {Readers{}, err.wrap(name)};
@@ -113,12 +113,20 @@ std::pair<Readers, x::errors::Error> build_readers(
                 rm.message,
                 &synnax::icd::Message::key
             );
-            const auto *payload = std::get_if<synnax::icd::JSONPayload>(&msg->payload);
-            if (payload == nullptr) continue;
-            for (const auto &b: rm.bindings)
-                for (const auto &f: payload->fields)
-                    if (const auto &base = synnax::icd::base(f); base.key == b.field)
-                        readers.pointers.emplace(b.channel, base.pointer);
+            std::visit(
+                [&]<typename P>(const P &payload) {
+                    for (const auto &b: rm.bindings)
+                        for (const auto &f: payload.fields) {
+                            const auto &base = synnax::icd::base(f);
+                            if (base.key != b.field) continue;
+                            if constexpr (std::is_same_v<P, synnax::icd::JSONPayload>)
+                                readers.fields.emplace(b.channel, base.pointer);
+                            else
+                                readers.fields.emplace(b.channel, base.name);
+                        }
+                },
+                msg->payload
+            );
         }
         readers.endpoints.push_back(std::move(reader));
     }
@@ -186,7 +194,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             failed++;
             warnings.push_back(
                 std::string(to_string(req.method)) + " " + req.url +
-                " failed: " + req_err.data
+                " failed: " + req_err.data()
             );
             continue;
         }
@@ -214,7 +222,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         );
         if (read_err) {
             warnings.push_back(
-                "Failed to read the response from " + ep.path + ": " + read_err.data
+                "Failed to read the response from " + ep.path + ": " + read_err.data()
             );
             continue;
         }
@@ -223,15 +231,15 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             continue;
         }
         for (const auto &f: reader.failures()) {
-            const auto &pointer = this->readers.pointers.at(f.channel);
+            const auto &field = this->readers.fields.at(f.channel);
             if (f.missing)
                 warnings.push_back(
-                    "Field " + pointer + " not found in response from " + ep.path
+                    "Field " + field + " not found in response from " + ep.path
                 );
             else
                 warnings.push_back(
-                    "Failed to convert " + pointer + " for channel " +
-                    this->readers.channels.at(f.channel).name + ": " + f.error.data
+                    "Failed to convert " + field + " for channel " +
+                    this->readers.channels.at(f.channel).name + ": " + f.error.data()
                 );
         }
     }

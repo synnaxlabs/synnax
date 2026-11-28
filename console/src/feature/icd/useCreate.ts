@@ -11,13 +11,20 @@ import { icd } from "@synnaxlabs/client";
 import { ICD } from "@synnaxlabs/pluto";
 
 import { Panel } from "@/platform/panel";
+import { Session } from "@/session";
 
-/** @returns a function that creates an empty ICD and opens it in a tab. */
+/**
+ * @returns a function that creates an empty ICD and opens it in a tab, with its name
+ * focused and selected.
+ */
 export const useCreate = (): (() => void) => {
   const openTab = Panel.useOpenTab();
+  const dispatch = Session.useDispatch();
   const { update } = ICD.useCreate({
-    afterOptimistic: ({ data: { key } }) =>
-      openTab({ variant: "resource", resource: icd.resourceID(key) }),
+    afterOptimistic: ({ data: { key } }) => {
+      dispatch(Session.ICD.setCreated({ key, created: true }));
+      openTab({ variant: "resource", resource: icd.resourceID(key) });
+    },
   });
   return () => update({ name: "ICD", messages: [] });
 };

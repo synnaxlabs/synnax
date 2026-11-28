@@ -63,7 +63,14 @@
     {
       "hex": "0f21436587a9cbed",
       "message": "frame",
-      "error": "field v: the payload has 8 bytes and the field needs 9: validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "field v: the payload has 8 bytes and the field needs 9: validation error"
+        }
+      ]
     }
   ]
 }

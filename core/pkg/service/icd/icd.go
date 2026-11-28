@@ -37,8 +37,5 @@ func parse(format ImportFormat, data []byte) ([]Message, error) {
 }
 
 func dataErrorf(format string, args ...any) error {
-	return validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, format, args...),
-		"data",
-	)
+	return errors.Wrapf(validate.ErrValidation, format, args...)
 }

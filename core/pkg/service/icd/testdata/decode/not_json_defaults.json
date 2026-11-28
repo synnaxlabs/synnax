@@ -1,0 +1,54 @@
+{
+  "description": "A document that is not JSON is an error, and takes no defaults, when no field reads the root of a document.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "temp",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/temp",
+            "type": "float",
+            "default": -1
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "state",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/state",
+            "type": "string",
+            "default": "idle"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "string"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {},
+      "message": "reading",
+      "samples": [-1, "idle"]
+    },
+    {
+      "text": "garbage",
+      "error": "jsontext: invalid character 'g' at start of value: validation error"
+    }
+  ]
+}

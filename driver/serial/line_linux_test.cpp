@@ -180,6 +180,6 @@ TEST(Line, RejectsOneAndAHalfStopBits) {
     Settings s{};
     const auto err = apply(p, s);
     ASSERT_MATCHES(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "Linux does not support 1.5 stop bits");
+    EXPECT_EQ(err.data(), "Linux does not support 1.5 stop bits");
 }
 }

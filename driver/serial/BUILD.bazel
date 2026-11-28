@@ -46,6 +46,96 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "ports",
+    srcs = ["ports.cpp"],
+    hdrs = ["ports.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":serial",
+        "//client/cpp/device",
+        "//client/cpp/serial",
+        "//client/cpp/task",
+        "//driver/errors",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "ports_test",
+    size = "small",
+    srcs = ["ports_test.cpp"] + select({
+        "@platforms//os:windows": ["open_windows_test.cpp"],
+        "//conditions:default": [
+            "open_posix_test.cpp",
+            "ports_posix_test.cpp",
+            "pty.h",
+        ],
+    }),
+    deps = [
+        ":ports",
+        "//client/cpp/serial",
+        "//client/cpp/task",
+        "//driver/errors",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "tasks",
+    srcs = [
+        "factory.cpp",
+        "read_task.cpp",
+    ],
+    hdrs = [
+        "read_task.h",
+        "serial.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":ports",
+        ":serial",
+        "//client/cpp/channel",
+        "//client/cpp/device",
+        "//client/cpp/framer",
+        "//client/cpp/icd",
+        "//client/cpp/serial",
+        "//client/cpp/task",
+        "//driver/common",
+        "//driver/errors",
+        "//driver/icd:receiver",
+        "//driver/icd:retrieve",
+        "//driver/task",
+        "//driver/transport",
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "retrieve_device_test",
+    srcs = ["retrieve_device_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":ports",
+        "//client/cpp/serial",
+        "//client/cpp/testutil",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "port_test",
     size = "small",
@@ -68,6 +158,58 @@ cc_test(
         "//x/cpp/defer",
         "//x/cpp/telem",
         "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "read_task_test",
+    size = "small",
+    srcs = [
+        "pty.h",
+        "read_task_test.cpp",
+    ],
+    # The tests play the device on a pseudo-terminal, which Windows lacks.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":serial",
+        ":tasks",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//client/cpp/serial",
+        "//driver/common",
+        "//driver/icd:receiver",
+        "//driver/pipeline/testutil",
+        "//driver/task",
+        "//driver/transport",
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "configure_test",
+    srcs = ["configure_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":tasks",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//client/cpp/serial",
+        "//client/cpp/testutil",
+        "//driver/task",
+        "//x/cpp/breaker",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )
@@ -119,6 +261,37 @@ cc_test(
         ":serial",
         "//driver/transport",
         "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "list",
+    srcs = ["list_linux.cpp"],
+    hdrs = [
+        "list.h",
+        "list_linux.h",
+    ],
+    target_compatible_with = ["@platforms//os:linux"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":serial",
+        "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "list_test",
+    size = "small",
+    srcs = [
+        "list_linux_test.cpp",
+        "list_test.cpp",
+    ],
+    deps = [
+        ":list",
+        "//driver/transport",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

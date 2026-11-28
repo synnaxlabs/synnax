@@ -17,7 +17,14 @@ import {
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -132,6 +139,16 @@ describe("auth guard", () => {
     await renderGuard(CORE_KEY);
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
     expect(screen.queryByText("authenticated content")).toBeNull();
+  });
+
+  it("should show Login with no failed connection on a dev server with no session", async () => {
+    mocks.coreSelectable = true;
+    pinLocationOrigin("http://localhost:5173");
+    await renderGuard(CORE_KEY);
+    await act(async () => {});
+    expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
+    expect(screen.queryByText("authenticated content")).toBeNull();
+    expect(screen.queryByText("Failed to authenticate")).toBeNull();
   });
 
   it("should finish a browser login even when a Core is already selected", async () => {

@@ -127,10 +127,9 @@ import { Search as S } from "@/components/search/Search";
     .search-result.lyra--hovered {
         --pluto-btn-bg: var(--pluto-primary-z-10);
 
+        /* A fill would hide the brand color of a logo, so only the border changes. */
         & .search-result__icon {
-            background: var(--pluto-primary-z);
             border-color: var(--pluto-primary-z);
-            color: var(--pluto-text-on-primary);
         }
 
         & .search-result__enter {

@@ -113,12 +113,10 @@ class ConsoleCase(TestCase):
         self.page.set_default_timeout(default_timeout)  # 1s
         self.page.set_default_navigation_timeout(default_nav_timeout)  # 1s
 
-    def _goto_console(
-        self, query: str = "", host: str | None = None, port: int | None = None
-    ) -> None:
+    def _goto_console(self, host: str | None = None, port: int | None = None) -> None:
         """Navigate to the Console, falling back to the dev server when the
-        Core lacks an embedded Console. ``query`` is appended verbatim (e.g.
-        ``"?select-core"``). ``host`` and ``port`` default to the Core's."""
+        Core lacks an embedded Console. ``host`` and ``port`` default to the
+        Core's."""
         host = host or self.synnax_connection.server_address
         port = port or self.synnax_connection.port
 
@@ -130,7 +128,7 @@ class ConsoleCase(TestCase):
                     f"localStorage.setItem('synnax-dev-connection-port', '{port}')"
                 )
                 port = 5173
-        self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
+        self.page.goto(f"http://{host}:{port}/", timeout=20000)
 
         self.log(f"Console found on port {port}")
         self.console = Console(

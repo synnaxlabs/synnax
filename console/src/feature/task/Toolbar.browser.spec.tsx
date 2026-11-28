@@ -12,6 +12,7 @@ import {
   arc,
   channel,
   device,
+  lineplot,
   NotFoundError,
   panel,
   project,
@@ -802,6 +803,47 @@ describe("task/Toolbar", () => {
       const plot = await client.lineplots.retrieve(tab.resource.key);
       expect(plot.name).toBe(`Plot for ${t.name}`);
       expect(plot.channels.y1).toEqual([shown.key]);
+    });
+
+    it("reopens the plot of a set of tasks picked in another order", async () => {
+      const [a, b] = await Promise.all([createValue(), createValue()]);
+      const [first, second] = await Promise.all(
+        [a, b].map(
+          async ({ key }) =>
+            await createTask({
+              config: {
+                channels: [
+                  { ...NI.Task.createAIChannel(), channel: key, disabled: false },
+                ],
+              },
+            }),
+        ),
+      );
+      const { store } = await renderToolbar();
+      const proj = await client.projects.create({ name: uniqueName("proj") });
+      store.dispatch(Session.Project.select(proj.key));
+      const plotRows = async (...names: string[]) => {
+        await selectRows(names[0], ...names.slice(1));
+        await openContextMenuUntil(names[0], "Plot");
+        fireEvent.click(screen.getByText("Plot"));
+      };
+      const findPlots = async () =>
+        await client.lineplots.retrieve({ projects: [proj.key] });
+      await plotRows(first.name, second.name);
+      const plot = await waitFor(async () => {
+        const [created] = await findPlots();
+        assertDefined(created, "the line plot was not created");
+        return created;
+      });
+      await client.lineplots.dispatch(plot.key, [
+        lineplot.removeChannel({ axisKey: "y1", channel: b.key }),
+      ]);
+      await plotRows(second.name, first.name);
+      await waitFor(async () => {
+        const plots = await findPlots();
+        expect(plots.map(({ key }) => key)).toEqual([plot.key]);
+        expect(plots[0].channels.y1).toEqual([a.key, b.key]);
+      });
     });
 
     it("offers no Plot for a write task", async () => {

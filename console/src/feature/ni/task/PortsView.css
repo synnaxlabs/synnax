@@ -53,7 +53,5 @@
     border-radius: var(--pluto-border-radius-tiny);
     background: var(--pluto-gray-l3);
     color: var(--pluto-gray-l10);
-    font-family: var(--pluto-code-font-family);
-    font-size: var(--pluto-small-size);
     line-height: 1.2;
 }

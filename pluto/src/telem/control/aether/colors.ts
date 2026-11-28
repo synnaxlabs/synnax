@@ -60,9 +60,9 @@ export class Colors extends aether.Composite<typeof colorsStateZ, InternalState>
   private disconnect?: destructor.Destructor;
 
   /**
-   * Grabs the color assignment from the current aether context.
+   * Grabs the color assignment from the current Aether context.
    *
-   * @param ctx - The component's current aether context.
+   * @param ctx - The component's current Aether context.
    * @throws {Error} if it is not in the context.
    */
   static use(ctx: aether.Context): Colors {
