@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Device } from "@/feature/ni/device";
 import type { AIChannel } from "@/feature/ni/task/types";
-
-/** The key the built-in temperature sensor is stored under. It has no port. */
-const BUILT_IN_TEMP_KEY = "boardTempSensor";
 
 /**
  * Returns the key an analog input channel's Synnax channel is stored under in its
  * device's properties.
  */
 export const getAIChannelDeviceKey = (channel: AIChannel): string =>
-  channel.type === "ai_temp_builtin" ? BUILT_IN_TEMP_KEY : channel.port.toString();
+  channel.type === "ai_temp_builtin"
+    ? Device.BUILT_IN_TEMP_KEY
+    : channel.port.toString();
 
 /** Names an analog input channel that the user left unnamed. */
 export const getAIChannelSuffix = (channel: AIChannel): string =>

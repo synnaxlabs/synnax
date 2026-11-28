@@ -25,6 +25,22 @@ const { useResult: useResultMultiple } = PDevice.createRetrieveMultiple(SCHEMAS)
 export const useByKeys = (keys: device.Key[]): Device[] | undefined =>
   useResultMultiple(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
 
+const { useResult: useTypedResult } = Flux.createRetrieve<
+  { keys: ni.device.Key[] },
+  ni.device.Device[]
+>({
+  name: "NI devices",
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.ni.devices.retrieve(keys),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.ni.devices.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.ni.devices.watch(keys).getCached(),
+});
+
+/** The typed NI devices the keys name, or undefined until they resolve or fail. */
+export const useTypedByKeys = (keys: ni.device.Key[]): ni.device.Device[] | undefined =>
+  useTypedResult(keys.length === 0 ? null : { keys }).data;
+
 const RESOURCE_NAME = "NI device";
 
 const BASE_QUERY = { includeStatus: true } as const;

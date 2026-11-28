@@ -9,10 +9,9 @@
 
 import type { device, ni, Synnax } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Flux } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
 
-import { useByKeys } from "@/feature/ni/device/queries";
+import { useByKeys, useTypedByKeys } from "@/feature/ni/device/queries";
 import { type Device, SCHEMAS } from "@/feature/ni/device/types";
 import { FLAGS } from "@/flags";
 
@@ -39,19 +38,8 @@ export const toView = ({
 const useGenericViews = (keys: device.Key[]): View[] | undefined =>
   useByKeys(keys)?.map(toView);
 
-const { useResult: useTypedResult } = Flux.createRetrieve<
-  { keys: ni.device.Key[] },
-  ni.device.Device[]
->({
-  name: "NI devices",
-  retrieve: async ({ client, query: { keys } }) =>
-    await client.ni.devices.retrieve(keys),
-  onChange: ({ client, query: { keys } }, handler) =>
-    client.ni.devices.watch(keys).onChange(handler),
-  getCached: ({ client, query: { keys } }) => client.ni.devices.watch(keys).getCached(),
-});
-
-const fromTyped = ({
+/** The view of a device from the typed device table. */
+export const fromTyped = ({
   key,
   rack,
   name,
@@ -69,13 +57,9 @@ const fromTyped = ({
 });
 
 const useTypedViews = (keys: device.Key[]): View[] | undefined =>
-  useTypedResult(keys.length === 0 ? null : { keys }).data?.map(fromTyped);
+  useTypedByKeys(keys)?.map(fromTyped);
 
-/**
- * The views of the devices the keys name, or undefined until they resolve or on
- * failure. Reads the typed device table when `typedNIDevices` is on.
- */
-export const useViews = FLAGS.typedNIDevices ? useTypedViews : useGenericViews;
+const useViews = FLAGS.typedNIDevices ? useTypedViews : useGenericViews;
 
 const retrieveGenericViews = async (
   client: Synnax,

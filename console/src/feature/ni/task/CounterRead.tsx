@@ -113,14 +113,15 @@ const hasPortList = (devices: Device.View[]): boolean =>
   devices.some(({ hardware }) => hardware != null);
 
 const Form: FC = () => {
-  const keys = Task.useChannelDeviceKeys(root.config.channels);
-  const devices = Device.useViews(keys);
-  const configured = Device.useByKeys(keys);
+  const devices = Device.useReadTargets(
+    Task.useChannelDeviceKeys(root.config.channels),
+    "counterInput",
+  );
   PForm.useCheck(root.config, counterReadHardwareZ(devices ?? []));
   const resolve = (ch: CIChannel) => {
-    const dev = configured?.find(({ key }) => key === ch.device);
+    const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
-    return { channel: dev.properties.counterInput.channels[ch.port.toString()] ?? 0 };
+    return { channel: dev.channels.channels[ch.port.toString()] ?? 0 };
   };
   const ports =
     devices != null && hasPortList(devices)
@@ -159,10 +160,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  const allDevices = await client.devices.retrieve({
-    key: devices,
-    schemas: Device.SCHEMAS,
-  });
+  const allDevices = await Device.retrieveReadTargets(client, devices, "counterInput");
   PlatformDevice.checkFound(devices, allDevices);
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1)
@@ -171,18 +169,19 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
-    const before = deep.copy(dev.properties);
+    const ci = dev.channels;
+    const before = deep.copy(ci);
     let devModified = false;
 
-    let shouldCreateIndex = primitive.isZero(dev.properties.counterInput.index);
+    let shouldCreateIndex = primitive.isZero(ci.index);
     if (!shouldCreateIndex)
       try {
-        await client.channels.retrieve(dev.properties.counterInput.index);
+        await client.channels.retrieve(ci.index);
       } catch (e) {
         if (NotFoundError.matches(e)) shouldCreateIndex = true;
         else throw errors.fromUnknown(e);
       }
-    const identifier = channel.escapeInvalidName(dev.properties.identifier);
+    const identifier = channel.escapeInvalidName(dev.identifier);
     try {
       if (shouldCreateIndex) {
         devModified = true;
@@ -191,15 +190,15 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
           dataType: "timestamp",
           isIndex: true,
         });
-        dev.properties.counterInput.index = ciIndex.key;
-        dev.properties.counterInput.channels = {};
+        ci.index = ciIndex.key;
+        ci.channels = {};
       }
 
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
       for (const channel of Task.firstPerPort(deviceChannels, portOf)) {
         const key = channel.port.toString();
-        const exKey = dev.properties.counterInput.channels[key];
+        const exKey = ci.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {
@@ -214,22 +213,19 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         devModified = true;
         const channels = await client.channels.create(
           toCreate.map((c) => ({
-            name: COUNTER_INPUT.name(c, Device.toView(dev)),
+            name: COUNTER_INPUT.name(c, dev),
             dataType: "float64",
-            index: dev.properties.counterInput.index,
+            index: ci.index,
           })),
         );
-        channels.forEach(
-          (c, i) =>
-            (dev.properties.counterInput.channels[toCreate[i].port.toString()] = c.key),
-        );
+        channels.forEach((c, i) => (ci.channels[toCreate[i].port.toString()] = c.key));
       }
       deviceChannels.forEach((c) => {
-        c.channel = dev.properties.counterInput.channels[c.port.toString()];
+        c.channel = ci.channels[c.port.toString()];
       });
     } finally {
       if (devModified)
-        await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
+        await Device.writeReadChannels(client, dev.key, "counterInput", before, ci);
     }
   }
 
