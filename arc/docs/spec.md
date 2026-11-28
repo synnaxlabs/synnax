@@ -674,7 +674,8 @@ sequence main {
     }
 
     stage complete {
-        // terminal stage
+        igniter_cmd = false
+        true => next // completes main
     }
 }
 
@@ -687,7 +688,8 @@ sequence abort {
 
 ### Definition order and `next`
 
-The `next` keyword resolves to the next stage in definition order:
+The `next` keyword resolves to the next step in definition order. In the last step of a
+sequence, it completes the sequence (see [Step completion](#step-completion)):
 
 ```arc
 stage step1 {
@@ -696,33 +698,39 @@ stage step1 {
 stage step2 {
     true => next
 } // next = step3
-stage step3 {} // terminal (no outgoing transitions)
+stage step3 {
+    done => next
+} // completes the sequence
 ```
 
 **Rules**:
 
-- `next` is only valid within a stage (not in top-level flow statements)
-- Using `next` on the last stage in a sequence is a compile-time error
+- `next` is only valid within a sequence (not in top-level flow statements)
+- Because `next` follows definition order, moving a stage to the end of its sequence
+  changes its `next` from "go to the next stage" to "complete the sequence"
 
 ### Transition targets
 
-- `=> next` — Go to the next stage in definition order
+- `=> next` — Go to the next stage in definition order, or complete the sequence from
+  its last stage
 - `=> stage_name` — Jump to any stage in the same sequence
 - `=> sequence_name` — Jump to a different sequence (starts at its first stage)
 
 ### Step completion
 
 A sequence runs its steps in order. When a step completes, the sequence advances; when
-its last step completes, the sequence exits. A completed gated sequence can be triggered
-again.
+its last step completes, the sequence exits. A completed top-level sequence goes idle:
+the task keeps running, and the trigger of the sequence can start it again.
 
 A nested sequence is one step of its parent: when it completes, the parent advances or
 exits in turn. A sequence declared inside a stage does not advance anything when it
 completes. The stage leaves only through its own transition.
 
 A flow step completes when it writes any value to a channel or variable, when its final
-node emits a truthy output, or when that node runs without error and has no outputs.
-Stages do not complete; they leave only through an explicit `=>` or `->` transition.
+node emits a truthy output, or when that node runs without error and has no outputs. A
+stage completes only through `next` in the last stage of its sequence. Otherwise it
+leaves only through an explicit `=>` or `->` transition. Writes that the stage makes in
+the cycle it completes reach their channels.
 
 ### Reactive vs one-shot semantics
 

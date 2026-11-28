@@ -551,7 +551,7 @@ source() -> sink()`,
 		Severity: protocol.DiagnosticSeverityError,
 		Message:  "invalid transition target",
 		Problem: "A transition has a target that the code cannot reach from there, " +
-			"such as `next` outside a sequence or in the last stage.",
+			"such as `next` outside a sequence.",
 		Example: `sensor > 10 => next`,
 	}
 	// FlowOperator is a => where the flow needs a ->.

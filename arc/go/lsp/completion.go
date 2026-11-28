@@ -287,11 +287,11 @@ var completions = []completionInfo{
 	},
 	{
 		Label:        parser.LiteralNEXT,
-		Detail:       "next statement",
-		Doc:          "Transitions to a stage unconditionally",
-		Insert:       "next ${1:stage}",
+		Detail:       "next transition target",
+		Doc:          "Goes to the next stage, or completes the sequence from its last stage",
+		Insert:       "next",
 		Kind:         protocol.CompletionItemKindKeyword,
-		InsertFormat: protocol.InsertTextFormatSnippet,
+		InsertFormat: protocol.InsertTextFormatPlainText,
 		Category:     categoryStageKeyword,
 	},
 	{

@@ -114,9 +114,8 @@ type shellBuilder struct {
 	// inlineNodes accumulates the flat IR of every lowered inline body; the
 	// bodies' scopes are placed in their enclosing scope's members.
 	inlineNodes []ir.Node
-	// inlineBodyBases records the stack length at the entry of each enclosing
-	// inline routing case body; `next` is rejected if no frame was pushed since.
-	inlineBodyBases []int
+	// inlineBodies records each enclosing inline routing case body, innermost last.
+	inlineBodies []inlineBody
 	// synthByAST maps each inline-body declaration to its synth scope, keyed by
 	// the declaration's parser node.
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
@@ -126,6 +125,14 @@ type shellBuilder struct {
 	rootNodes []*ir.Node
 	// edges accumulates every walk-emitted edge, flushed into the program.
 	edges []ir.Edge
+}
+
+// inlineBody is an enclosing inline routing case body.
+type inlineBody struct {
+	// base is the stack length at the entry of the body.
+	base int
+	// sequence is true for an inline sequence body, false for an inline stage body.
+	sequence bool
 }
 
 // varEntry holds a variable's runtime nodes: every reassignment writes the
@@ -202,21 +209,19 @@ func (s *shellBuilder) top() *seqFrame {
 	return s.stack[len(s.stack)-1]
 }
 
-// inlineBoundaryBlocksNext returns true inside an inline stage body (no own
+// inlineBoundaryBlocksNext returns true directly inside an inline stage body (no own
 // frame) or at the last step of an inline sequence body (no further step).
 func (s *shellBuilder) inlineBoundaryBlocksNext() bool {
-	n := len(s.inlineBodyBases)
+	n := len(s.inlineBodies)
 	if n == 0 {
 		return false
 	}
-	base := s.inlineBodyBases[n-1]
-	if len(s.stack) == base {
+	body := s.inlineBodies[n-1]
+	if len(s.stack) == body.base {
 		return true
 	}
-	if len(s.stack) == base+1 && s.stack[len(s.stack)-1].nextMember() == "" {
-		return true
-	}
-	return false
+	return body.sequence && len(s.stack) == body.base+1 &&
+		s.stack[len(s.stack)-1].nextMember() == ""
 }
 
 // addTransition appends a transition to the innermost sequence frame. Panics
@@ -235,8 +240,9 @@ func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
 	f.transitions = append(f.transitions, t)
 }
 
-// addCompletion wires a terminal step's completion with the given kind to the nearest
-// frame that can take it.
+// addCompletion wires the completion of the innermost frame's active member with the
+// given kind: it advances to the next member, or completes the sequence through the
+// nearest frame that can take it.
 func (s *shellBuilder) addCompletion(on ir.Handle, kind ir.EdgeKind) {
 	for i := len(s.stack) - 1; ; i-- {
 		f := s.stack[i]
@@ -302,12 +308,7 @@ func (s *shellBuilder) applyTransitionIntent(
 ) {
 	switch {
 	case intent.isNext:
-		next := s.top().nextMember()
-		s.addTransition(ir.Transition{
-			On:     on,
-			Kind:   kind,
-			Target: ir.Target{Variant: ir.StepTarget{Key: next}},
-		})
+		s.addCompletion(on, kind)
 	case intent.memberKey != "":
 		frame := intent.targetFrame
 		if frame == nil {
@@ -357,9 +358,8 @@ func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
 // intra-sequence jumps and `next`) and/or registers an activation on the
 // target scope (for cross-scope jumps).
 type transitionIntent struct {
-	// isNext is true when the intent came from the `next` token. The target
-	// member is resolved against the innermost sequence frame at the time the
-	// intent is consumed.
+	// isNext is true when the intent came from the `next` token. It acts as the
+	// completion of the innermost sequence's active member.
 	isNext bool
 	// memberKey, when non-empty and isNext is false, names a sibling member
 	// to transition to. The transition lives on targetFrame (or shell.top()
@@ -1295,9 +1295,8 @@ func buildChannelWriteNode(
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
-// analyzeNextToken emits a transition intent that advances the enclosing
-// sequence to the next sibling member. The target member is resolved against
-// the innermost sequence frame at intent-consumption time.
+// analyzeNextToken emits a transition intent that advances the enclosing sequence to
+// the next sibling member, or completes the sequence from its last member.
 func analyzeNextToken(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	shell *shellBuilder,
@@ -1312,14 +1311,6 @@ func analyzeNextToken(
 		ctx.Diagnostics.Add(
 			codes.TransitionTarget.Atf(ctx.AST, "'next' used outside of a sequence"),
 		)
-		return flowNodeResult{}, false
-	}
-	if frame.nextMember() == "" {
-		ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
-			ctx.AST,
-			"'next' in last stage '%s' has no next stage",
-			frame.memberKeys[frame.activeIdx],
-		))
 		return flowNodeResult{}, false
 	}
 	intent := transitionIntent{isNext: true}
@@ -2557,10 +2548,12 @@ func processInlineBody(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, bool) {
-	shell.inlineBodyBases = append(shell.inlineBodyBases, len(shell.stack))
-	defer func() {
-		shell.inlineBodyBases = shell.inlineBodyBases[:len(shell.inlineBodyBases)-1]
-	}()
+	_, sequence := synth.AST.(parser.ISequenceDeclarationContext)
+	shell.inlineBodies = append(
+		shell.inlineBodies,
+		inlineBody{base: len(shell.stack), sequence: sequence},
+	)
+	defer func() { shell.inlineBodies = shell.inlineBodies[:len(shell.inlineBodies)-1] }()
 	var (
 		scope ir.Scope
 		nodes []ir.Node
