@@ -847,6 +847,8 @@ export const JSONField = ({
 export interface TextFieldProps extends Pick<JSONFieldProps, "actions" | "commanded"> {
   /** The form path of the field. */
   path: deep.Path<icd.TextField>;
+  /** A write task sends the field, so its labels say how the task writes it. */
+  written?: boolean;
 }
 
 /** A text field read the other way keeps its name, conversion, and limits. */
@@ -866,6 +868,7 @@ export const TextField = ({
   path,
   actions,
   commanded = false,
+  written = false,
 }: TextFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const encoding = Form.useFieldValue(path.encoding);
@@ -875,7 +878,7 @@ export const TextField = ({
   return (
     <Form.Section title="Field" actions={actions}>
       <Form.TextField path={path.name} label="Name" padHelpText={false} />
-      <Input.Item label="Read by" padHelpText={false}>
+      <Input.Item label={written ? "Written by" : "Read by"} padHelpText={false}>
         <Select.Buttons<icd.TextFieldType>
           value={encoding}
           onChange={handleEncoding}

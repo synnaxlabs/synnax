@@ -706,6 +706,24 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should say how the task writes a text field", async () => {
+      const level = icd.textFieldZ.parse({
+        key: uuid.create(),
+        name: "level",
+        encoding: "delimited",
+        position: 1,
+      });
+      await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [level],
+      });
+      await fieldGroup(level.name);
+      expect(screen.getByText("Written by")).toBeTruthy();
+      expect(screen.queryByText("Read by")).toBeNull();
+    });
+
     it("should offer no Duplicate on a text field", async () => {
       const level = icd.textFieldZ.parse({
         key: uuid.create(),

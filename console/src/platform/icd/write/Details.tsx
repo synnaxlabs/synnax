@@ -99,6 +99,7 @@ const FIELD_SECTIONS: Record<
       path={deep.variant(payload, "format", "text").fields[field]}
       commanded={commanded}
       actions={actions}
+      written
     />
   ),
   binary: ({ payload, field, commanded, actions }) => (
