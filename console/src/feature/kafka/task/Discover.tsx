@@ -31,6 +31,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { Device } from "@/feature/kafka/device";
 import {
+  blockOf,
   carriedFields,
   defaultPicks,
   type FieldDefaults,
@@ -41,7 +42,6 @@ import {
   type Picks,
   type Reads,
   sourceKey,
-  splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
 import { findProblem, type Plan, type TopicPick } from "@/feature/kafka/task/plan";
@@ -516,25 +516,22 @@ const TopicValues = ({
   const groups = shapes.map((shape, i): ICD.Picker.ValueGroup => {
     const newest = newestFirst(sample, shape);
     const extendable = isExtendable(shape, reads);
-    const split = splitOf(shape, reads);
+    const block = blockOf(shape, reads);
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
     const shapeKey = json.shapeKey(shape);
     const fit =
-      split == null
+      block == null
         ? plannedFit(found, shape, free.indexOf(shape), value.has(shapeKey), reused)
         : undefined;
     return {
       title: titleOf(shape, label),
-      note:
-        split == null
-          ? readingNote(found, fit, shape, free.indexOf(shape))
-          : ICD.Picker.splitNote(split),
+      note: block?.note ?? readingNote(found, fit, shape, free.indexOf(shape)),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
-        if (split != null) lock = ICD.Picker.SPLIT;
+        if (block != null) lock = block.lock;
         else if (j === shape.index) lock = ICD.Picker.INDEX;
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
