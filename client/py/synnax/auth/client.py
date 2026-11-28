@@ -26,7 +26,8 @@ from freighter import (
 )
 from synnax import resource
 from synnax.auth import apikey, password, session
-from synnax.auth.types_gen import PasswordProof, Proof, Session
+from synnax.auth.apikey.types_gen import APIKey
+from synnax.auth.types_gen import APIKeyProof, PasswordProof, Proof, Session
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.types_gen import User
 from synnax.util.send_required import send_required
@@ -106,7 +107,7 @@ class Client:
         self.user = None
         self.authenticated = False
         self._login_lock = threading.Lock()
-        self.api_keys = apikey.Client(transport)
+        self.api_keys = apikey.Client(transport, self._on_rotate)
         self.sessions = session.Client(transport)
         self.passwords = password.Client(transport, self._on_username)
         # Scoped to the caller's thread or task, so only the logout's own request
@@ -158,6 +159,11 @@ class Client:
         self.session = res.session
         self.user = res.user
         return res.session
+
+    def _on_rotate(self, token: str, key: APIKey) -> None:
+        self.proof = APIKeyProof(key=token)
+        if self.session is not None:
+            self.session = self.session.model_copy(update={"credential": key.key})
 
     def _on_username(self, key: password.Key, username: str) -> None:
         own = self.session is not None and self.session.credential == key

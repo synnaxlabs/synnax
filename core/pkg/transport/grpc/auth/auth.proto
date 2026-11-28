@@ -49,6 +49,7 @@ service AuthMethodsService {
 
 message MethodsResponse {
   repeated string methods = 1;
+  int64 api_key_max_lifetime = 2;
 }
 
 service AuthSessionCreateService {
@@ -77,6 +78,10 @@ service AuthAPIKeyRetrieveService {
 
 service AuthAPIKeyDeleteService {
   rpc Exec(APIKeyDeleteRequest) returns (google.protobuf.Empty);
+}
+
+service AuthAPIKeyRotateService {
+  rpc Exec(google.protobuf.Empty) returns (APIKeyCreateResponse);
 }
 
 // Proof is what a subject presents to log in. The method selects which fields apply.

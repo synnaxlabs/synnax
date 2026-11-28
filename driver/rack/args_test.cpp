@@ -75,4 +75,36 @@ TEST(ArgsTest, RejectBothIntegrationFlags) {
         std::string::npos
     );
 }
+
+/// @brief it should read the API key renewal settings.
+TEST(ArgsTest, ReadsKeyRenewal) {
+    x::errors::Error err;
+    const auto cfg = load(
+        {"--renew-lead",
+         "0.5",
+         "--renew-retry-base-interval",
+         "2",
+         "--renew-retry-max-interval",
+         "30"},
+        err
+    );
+    ASSERT_NIL(err);
+    EXPECT_EQ(cfg.key_renewal.renew_lead, 0.5);
+    EXPECT_EQ(cfg.key_renewal.retry_base_interval, 2 * x::telem::SECOND);
+    EXPECT_EQ(cfg.key_renewal.retry_max_interval, 30 * x::telem::SECOND);
+}
+
+/// @brief it should reject API key renewal settings that cannot work.
+TEST(ArgsTest, RejectsBadKeyRenewal) {
+    for (const auto &flags: std::vector<std::vector<std::string>>{
+             {"--renew-lead", "1"},
+             {"--renew-lead", "0"},
+             {"--renew-retry-base-interval", "0"},
+             {"--renew-retry-base-interval", "60", "--renew-retry-max-interval", "30"},
+         }) {
+        x::errors::Error err;
+        load(flags, err);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    }
+}
 }

@@ -55,7 +55,8 @@ func main() {
 		}
 	}
 
-	if statePath != "" {
+	// Like the Driver, the mock keeps the state that it finds.
+	if _, err := os.Stat(statePath); statePath != "" && os.IsNotExist(err) {
 		if err := os.WriteFile(statePath, []byte("{}"), 0o644); err != nil {
 			fmt.Fprintf(
 				os.Stderr,

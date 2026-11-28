@@ -55,7 +55,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-// Service creates, lists, and deletes API keys.
+// Service creates, lists, rotates, and deletes API keys.
 type Service struct {
 	auth   *auth.Service
 	apiKey *apikey.Service
@@ -117,6 +117,38 @@ func (s *Service) Create(
 	subject := lo.Ternary(req.Subject.IsZero(), apiauth.GetSubject(ctx), req.Subject)
 	k, token, err := s.apiKey.NewWriter(tx).Create(ctx, subject, req.Name, req.Expires)
 	if err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse{Token: token, Key: apiKey(k)}, nil
+}
+
+// Rotate gives the API key that the caller's session logged in with a new secret, and
+// returns the key with its new token. The key's sessions stay open, but the old token
+// cannot log in again. The key then lasts an hour short of the maximum key lifetime
+// when one is set, and otherwise as long as it did before. Rotate returns a validation
+// error when the API key method is off or the session did not log in with an API key,
+// and [auth.ErrInvalidCredentials] when the key has expired.
+func (s *Service) Rotate(
+	ctx context.Context,
+	tx gorp.Tx,
+	_ struct{},
+) (CreateResponse, error) {
+	if err := s.auth.Accepts(auth.MethodAPIKey); err != nil {
+		return CreateResponse{}, err
+	}
+	k, token, err := s.apiKey.NewWriter(tx).
+		Rotate(ctx, apiauth.GetSession(ctx).Credential)
+	if errors.Is(err, query.ErrNotFound) {
+		return CreateResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"the session did not log in with an API key",
+		)
+	}
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err = s.auth.NewWriter(tx).
+		SetCredentialVersion(ctx, k.Key, k.Created); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Token: token, Key: apiKey(k)}, nil

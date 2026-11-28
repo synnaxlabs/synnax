@@ -478,6 +478,56 @@ class TestAPIKeys:
         keyed.close()
         admin.close()
 
+    def test_rotate(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should give the key a new secret, keep the session, and log in again with
+        the new token.
+        """
+        host, port, username, password = login_info
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        lifetime = sy.TimeSpan.DAY * 30
+        token, key = admin.auth.api_keys.create(
+            "rotated", expires=sy.TimeStamp.now() + lifetime
+        )
+        keyed = sy.Synnax(host=host, port=port, api_key=token, secure=False)
+        assert keyed.auth.session is not None
+        session = keyed.auth.session.key
+        new_token, new_key = keyed.auth.api_keys.rotate()
+        assert new_key.key == key.key
+        assert new_token != token
+        assert new_key.name == "rotated"
+        assert new_key.subject == key.subject
+        kept = sy.TimeSpan(new_key.expires - new_key.created)
+        assert abs(kept - lifetime) < sy.TimeSpan.SECOND
+        keyed.auth.sessions.retrieve()
+        assert keyed.auth.session is not None
+        assert keyed.auth.session.key == session
+        with pytest.raises(sy.AuthError):
+            sy.Synnax(host=host, port=port, api_key=token, secure=False)
+        admin.auth.sessions.delete(session)
+        keyed.auth.sessions.retrieve()
+        assert keyed.auth.session is not None
+        assert keyed.auth.session.key != session
+        assert keyed.auth.session.credential == new_key.key
+        fresh = sy.Synnax(host=host, port=port, api_key=new_token, secure=False)
+        fresh.close()
+        admin.auth.api_keys.delete(new_key.key)
+        keyed.close()
+        admin.close()
+
+    def test_rotate_password_session(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should refuse to rotate when the client logged in with a password."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        with pytest.raises(sy.ValidationError):
+            admin.auth.api_keys.rotate()
+        admin.close()
+
     def test_wrong_key(self, login_info: tuple[str, int, str, str]) -> None:
         """Should reject a key the Core never issued."""
         host, port, _, _ = login_info

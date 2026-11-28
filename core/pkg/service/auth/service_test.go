@@ -806,6 +806,44 @@ var _ = Describe("Service", func() {
 				MustSucceed(svc.Authenticate(ctx, token))
 			})
 		})
+		Describe("SetCredentialVersion", func() {
+			It("Should keep the sessions of the credential at its new version", func(
+				ctx SpecContext,
+			) {
+				first, firstToken := login(ctx)
+				_, secondToken := login(ctx)
+				changed := hash(pw, "changed")
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := pw.NewWriter(tx).
+						SetHash(ctx, alice, changed); err != nil {
+						return err
+					}
+					version, err := pw.Version(ctx, tx, first.Credential)
+					if err != nil {
+						return err
+					}
+					return svc.NewWriter(tx).
+						SetCredentialVersion(ctx, first.Credential, version)
+				})).To(Succeed())
+				for _, token := range []string{firstToken, secondToken} {
+					MustSucceed(svc.Authenticate(ctx, token))
+				}
+			})
+			It("Should end the sessions when the version is stale", func(
+				ctx SpecContext,
+			) {
+				first, token := login(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).SetCredentialVersion(
+						ctx,
+						first.Credential,
+						first.CredentialVersion-1,
+					)
+				})).To(Succeed())
+				Expect(svc.Authenticate(ctx, token)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+			})
+		})
 		Describe("Open", func() {
 			It(
 				"Should open a session on the credential's version in the transaction",

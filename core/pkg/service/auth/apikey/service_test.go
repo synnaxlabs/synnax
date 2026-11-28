@@ -298,4 +298,125 @@ var _ = Describe("Service", func() {
 			Expect(keys[0].Subject).To(Equal(kept))
 		})
 	})
+	Describe("Rotate", func() {
+		rotate := func(
+			ctx context.Context,
+			key apikey.Key,
+		) (apikey.APIKey, string, error) {
+			var (
+				k     apikey.APIKey
+				token string
+			)
+			err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				k, token, err = svc.NewWriter(tx).Rotate(ctx, key)
+				return err
+			})
+			return k, token, err
+		}
+		createExpiring := func(
+			ctx context.Context,
+			lifetime time.Duration,
+		) apikey.APIKey {
+			GinkgoHelper()
+			sub, expires := subject(), telem.NewTimeStamp(clock.Now().Add(lifetime))
+			var k apikey.APIKey
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				k, _, err = svc.NewWriter(tx).Create(ctx, sub, "rotated", expires)
+				return err
+			})).To(Succeed())
+			return k
+		}
+		It("Should give the key a new secret and keep its key, subject, and name", func(
+			ctx SpecContext,
+		) {
+			old, oldToken := create(ctx, svc, subject(), "rotated")
+			clock.Advance(time.Hour)
+			k, token := MustSucceed2(rotate(ctx, old.Key))
+			Expect(k.Key).To(Equal(old.Key))
+			Expect(k.Created).To(Equal(old.Created.Add(telem.Hour)))
+			Expect(k.Subject).To(Equal(old.Subject))
+			Expect(k.Name).To(Equal("rotated"))
+			Expect(k.Expires).To(Equal(telem.TimeStampMax))
+			Expect(svc.Authenticate(ctx, proof(oldToken))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(MustSucceed(svc.Authenticate(ctx, proof(token))).Credential).
+				To(Equal(k.Key))
+		})
+		It(
+			"Should give the new key the lifetime of the old key",
+			func(ctx SpecContext) {
+				old := createExpiring(ctx, 30*24*time.Hour)
+				clock.Advance(20 * 24 * time.Hour)
+				k, _ := MustSucceed2(rotate(ctx, old.Key))
+				Expect(k.Created).To(Equal(telem.NewTimeStamp(clock.Now())))
+				lifetime := old.Created.Span(old.Expires)
+				Expect(k.Expires).To(Equal(k.Created.Add(lifetime)))
+			},
+		)
+		It("Should refuse an expired key", func(ctx SpecContext) {
+			old := createExpiring(ctx, time.Hour)
+			clock.Advance(time.Hour)
+			Expect(rotate(ctx, old.Key)).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+			Expect(svc.NewRetrieve().Where(apikey.MatchKeys(old.Key)).Exists(ctx, db)).
+				To(BeTrue())
+		})
+		It("Should return not found for an unknown key", func(ctx SpecContext) {
+			Expect(rotate(ctx, uuid.New())).Error().To(MatchError(query.ErrNotFound))
+		})
+	})
+})
+
+var _ = Describe("Service with a maximum lifetime", func() {
+	var (
+		svc   *apikey.Service
+		clock *timetestutil.Clock
+	)
+	BeforeEach(func(ctx SpecContext) {
+		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
+		svc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+			DB:          db,
+			Clock:       clock,
+			MaxLifetime: telem.Day,
+		}))
+	})
+	DescribeTable(
+		"Should give a rotated key the longest expiry",
+		func(ctx SpecContext, lifetime telem.TimeSpan) {
+			expires := telem.TimeStampMax
+			if lifetime != 0 {
+				expires = telem.NewTimeStamp(clock.Now()).Add(lifetime)
+			}
+			sub := subject()
+			var k apikey.APIKey
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := svc.NewWriter(tx)
+				old, _, err := w.Create(ctx, sub, "rotated", expires)
+				if err != nil {
+					return err
+				}
+				k, _, err = w.Rotate(ctx, old.Key)
+				return err
+			})).To(Succeed())
+			Expect(k.Expires).To(Equal(k.Created.Add(telem.Day - telem.Hour)))
+		},
+		Entry("for a key with a shorter lifetime", telem.Hour),
+		Entry("for a key that never expires", telem.TimeSpan(0)),
+	)
+	It("Should stop the longest expiry an hour short of the maximum lifetime", func() {
+		Expect(svc.LongestExpiry()).
+			To(Equal(telem.NewTimeStamp(clock.Now()).Add(telem.Day - telem.Hour)))
+		Expect(svc.ValidateLifetime(svc.LongestExpiry())).To(Succeed())
+	})
+	It("Should stop half a short maximum lifetime short", func(ctx SpecContext) {
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
+		short := MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+			DB:          other,
+			Clock:       clock,
+			MaxLifetime: 90 * telem.Minute,
+		}))
+		Expect(short.LongestExpiry()).
+			To(Equal(telem.NewTimeStamp(clock.Now()).Add(45 * telem.Minute)))
+	})
 })

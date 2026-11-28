@@ -85,6 +85,15 @@ TEST_F(RackConfigTest, Default) {
     ASSERT_NE(cfg.rack.name, "");
 }
 
+/// @brief it should renew the key that it enrolled, since it saved the key itself.
+TEST_F(RackConfigTest, RenewsEnrolledKey) {
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_TRUE(cfg.api_key_persisted);
+    const auto reloaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(reloaded.connection.api_key, cfg.connection.api_key);
+    ASSERT_TRUE(reloaded.api_key_persisted);
+}
+
 /// @brief it should write the version of this Driver to its rack and find a Core of the
 /// same train compatible.
 TEST_F(RackConfigTest, WritesDriverVersionToRack) {
@@ -106,7 +115,7 @@ Config started_config() {
 
 /// @brief it should find no change when the Driver reaches the Core it started with.
 TEST_F(RackConfigTest, CheckCoreFindsTheSameCore) {
-    ASSERT_NIL(started_config().check_core());
+    ASSERT_NIL(started_config().check_core(new_test_client()));
 }
 
 /// @brief it should stop the Driver when the Core is now another cluster.
@@ -114,7 +123,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherCluster) {
     auto cfg = started_config();
     const auto core_key = cfg.remote_info.cluster_key;
     cfg.remote_info.cluster_key = x::uuid::create();
-    const auto err = cfg.check_core();
+    const auto err = cfg.check_core(new_test_client());
     ASSERT_OCCURRED_AS(err, CORE_CHANGED);
     EXPECT_EQ(
         err.data(),
@@ -130,7 +139,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherVersion) {
     auto cfg = started_config();
     cfg.incompatible_core_version = "99.1.0";
     const auto version = new_test_client().connectivity->check().node_version;
-    const auto err = cfg.check_core();
+    const auto err = cfg.check_core(new_test_client());
     ASSERT_OCCURRED_AS(err, CORE_CHANGED);
     EXPECT_EQ(
         err.data(),
@@ -445,6 +454,21 @@ TEST_F(RackConfigTest, APIKeyKeepsEnrollmentAddress) {
     ASSERT_EQ(cfg.connection.host, "fish");
     ASSERT_EQ(cfg.connection.port, 451);
     ASSERT_EQ(cfg.connection.api_key, "syk_saved");
+}
+
+/// @brief it should renew only a key that came from the persisted state.
+TEST_F(RackConfigTest, RenewsOnlyPersistedKey) {
+    ASSERT_NIL(Config::save_api_key(args, key_conn("syk_saved")));
+    const auto saved = ASSERT_NIL_P(Config::resolve(args, brk));
+    EXPECT_EQ(saved.connection.api_key, "syk_saved");
+    EXPECT_TRUE(saved.api_key_persisted);
+    auto flagged = x::args::Parser(
+        std::vector<
+            std::string>{"program", "--state-file", STATE_PATH, "--api-key", "syk_flag"}
+    );
+    const auto from_flag = ASSERT_NIL_P(Config::resolve(flagged, brk));
+    EXPECT_EQ(from_flag.connection.api_key, "syk_flag");
+    EXPECT_FALSE(from_flag.api_key_persisted);
 }
 
 /// @brief it should run as the rack its API key logs in as.

@@ -47,6 +47,12 @@ type (
 		struct{},
 		*emptypb.Empty,
 	]
+	rotateServer = grpc.UnaryServer[
+		struct{},
+		*emptypb.Empty,
+		apikey.CreateResponse,
+		*grpcauth.APIKeyCreateResponse,
+	]
 )
 
 const errInvalidUUID = "invalid uuid"
@@ -88,6 +94,8 @@ var _ = Describe("APIKey", func() {
 	Expect(ok).To(BeTrue())
 	keyDelete, ok := transport.AuthAPIKeyDelete.(*deleteServer)
 	Expect(ok).To(BeTrue())
+	keyRotate, ok := transport.AuthAPIKeyRotate.(*rotateServer)
+	Expect(ok).To(BeTrue())
 
 	Describe("New", func() {
 		It("Should bind every API key server onto the API transport", func() {
@@ -95,6 +103,7 @@ var _ = Describe("APIKey", func() {
 				BeIdenticalTo(keyCreate),
 				BeIdenticalTo(keyRetrieve),
 				BeIdenticalTo(keyDelete),
+				BeIdenticalTo(keyRotate),
 			))
 		})
 	})
@@ -125,6 +134,17 @@ var _ = Describe("APIKey", func() {
 				apikey.CreateResponse{Token: "syk_secret", Key: apiKey},
 			))
 			Expect(pb.Token).To(Equal("syk_secret"))
+			Expect(pb.Key).To(matchAPIKey(apiKey))
+		})
+	})
+
+	Describe("APIKeyRotateResponse", func() {
+		It("Should translate the token and new key", func(ctx SpecContext) {
+			pb := MustSucceed(keyRotate.ResponseTranslator.Forward(
+				ctx,
+				apikey.CreateResponse{Token: "syk_new", Key: apiKey},
+			))
+			Expect(pb.Token).To(Equal("syk_new"))
 			Expect(pb.Key).To(matchAPIKey(apiKey))
 		})
 	})

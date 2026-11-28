@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -44,6 +46,15 @@ struct Health {
     std::string description;
 };
 
+/// @brief returns a problem to report in place of a healthy status, or nothing.
+using Problem = std::function<std::optional<Health>()>;
+
+/// @brief returns health, or the problem that problem reports when health is healthy.
+inline Health with_problem(const Health &health, const Problem &problem) {
+    if (health.variant != ::synnax::status::VARIANT_SUCCESS || !problem) return health;
+    return problem().value_or(health);
+}
+
 const std::string CLOCK_TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/"
                                               "enterprise/troubleshooting"
                                               "#clock-out-of-sync-with-the-core";
@@ -78,13 +89,15 @@ class Source final : public driver::pipeline::Base {
     x::loop::Timer loop;
     std::shared_ptr<task::Context> ctx;
     const Health health;
+    const Problem problem;
 
 public:
     Source(
         const synnax::rack::Rack &rack,
         synnax::task::Task task,
         const std::shared_ptr<task::Context> &ctx,
-        Health health
+        Health health,
+        Problem problem
     ):
         Base(
             x::breaker::Config{
@@ -100,7 +113,8 @@ public:
         task(std::move(task)),
         loop(x::loop::Timer(EMISSION_RATE)),
         ctx(ctx),
-        health(std::move(health)) {}
+        health(std::move(health)),
+        problem(std::move(problem)) {}
 
     /// @brief writes the started status, then starts the heartbeat. The status is in
     /// place when this returns, so a status that the last run left is never kept.
@@ -116,7 +130,7 @@ public:
         while (breaker.running()) {
             this->loop.wait(breaker);
             const auto health = with_clock_skew(
-                this->health,
+                with_problem(this->health, this->problem),
                 this->ctx->client->connectivity->state()
             );
             synnax::rack::Status status{
@@ -197,9 +211,10 @@ public:
         const synnax::rack::Rack &rack,
         const synnax::task::Task &task,
         const std::shared_ptr<task::Context> &ctx,
-        Health health = {}
+        Health health = {},
+        Problem problem = nullptr
     ):
-        pipe(rack, task, ctx, std::move(health)) {
+        pipe(rack, task, ctx, std::move(health), std::move(problem)) {
         this->pipe.start();
     }
 
@@ -213,7 +228,8 @@ public:
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
-        Health health = {}
+        Health health = {},
+        Problem problem = nullptr
     ) {
         auto rack_key = task.rack;
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
@@ -228,15 +244,24 @@ public:
             ctx->set_status(stat);
             return nullptr;
         }
-        return std::make_unique<Task>(rack, task, ctx, std::move(health));
+        return std::make_unique<Task>(
+            rack,
+            task,
+            ctx,
+            std::move(health),
+            std::move(problem)
+        );
     }
 };
 
 struct Factory final : task::Factory {
     /// @brief what the heartbeat of each configured task reports.
     const Health health;
+    /// @brief a problem that the heartbeat reports in place of a healthy status.
+    const Problem problem;
 
-    explicit Factory(Health health = {}): health(std::move(health)) {}
+    explicit Factory(Health health = {}, Problem problem = nullptr):
+        health(std::move(health)), problem(std::move(problem)) {}
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
@@ -245,7 +270,7 @@ struct Factory final : task::Factory {
         x::breaker::Breaker &cancel
     ) override {
         if (task.type == TASK_TYPE)
-            return {Task::configure(ctx, task, this->health), true};
+            return {Task::configure(ctx, task, this->health, this->problem), true};
         return {nullptr, false};
     }
 

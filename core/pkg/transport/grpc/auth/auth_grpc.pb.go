@@ -927,3 +927,103 @@ var AuthAPIKeyDeleteService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
 }
+
+const (
+	AuthAPIKeyRotateService_Exec_FullMethodName = "/grpc.auth.AuthAPIKeyRotateService/Exec"
+)
+
+// AuthAPIKeyRotateServiceClient is the client API for AuthAPIKeyRotateService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AuthAPIKeyRotateServiceClient interface {
+	Exec(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*APIKeyCreateResponse, error)
+}
+
+type authAPIKeyRotateServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAuthAPIKeyRotateServiceClient(cc grpc.ClientConnInterface) AuthAPIKeyRotateServiceClient {
+	return &authAPIKeyRotateServiceClient{cc}
+}
+
+func (c *authAPIKeyRotateServiceClient) Exec(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*APIKeyCreateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(APIKeyCreateResponse)
+	err := c.cc.Invoke(ctx, AuthAPIKeyRotateService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AuthAPIKeyRotateServiceServer is the server API for AuthAPIKeyRotateService service.
+// All implementations should embed UnimplementedAuthAPIKeyRotateServiceServer
+// for forward compatibility.
+type AuthAPIKeyRotateServiceServer interface {
+	Exec(context.Context, *emptypb.Empty) (*APIKeyCreateResponse, error)
+}
+
+// UnimplementedAuthAPIKeyRotateServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAuthAPIKeyRotateServiceServer struct{}
+
+func (UnimplementedAuthAPIKeyRotateServiceServer) Exec(context.Context, *emptypb.Empty) (*APIKeyCreateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedAuthAPIKeyRotateServiceServer) testEmbeddedByValue() {}
+
+// UnsafeAuthAPIKeyRotateServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AuthAPIKeyRotateServiceServer will
+// result in compilation errors.
+type UnsafeAuthAPIKeyRotateServiceServer interface {
+	mustEmbedUnimplementedAuthAPIKeyRotateServiceServer()
+}
+
+func RegisterAuthAPIKeyRotateServiceServer(s grpc.ServiceRegistrar, srv AuthAPIKeyRotateServiceServer) {
+	// If the following call panics, it indicates UnimplementedAuthAPIKeyRotateServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AuthAPIKeyRotateService_ServiceDesc, srv)
+}
+
+func _AuthAPIKeyRotateService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthAPIKeyRotateServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthAPIKeyRotateService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthAPIKeyRotateServiceServer).Exec(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AuthAPIKeyRotateService_ServiceDesc is the grpc.ServiceDesc for AuthAPIKeyRotateService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AuthAPIKeyRotateService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.auth.AuthAPIKeyRotateService",
+	HandlerType: (*AuthAPIKeyRotateServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _AuthAPIKeyRotateService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/auth/auth.proto",
+}

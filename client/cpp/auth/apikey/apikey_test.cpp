@@ -73,6 +73,45 @@ TEST(TestAPIKeys, Expiry) {
     ASSERT_NIL(client.api_keys.del({never.key.key, created.key.key}));
 }
 
+/// @brief it should replace the key the client logged in with, keep its session, and
+/// log in with the new key after the old key stops working.
+TEST(TestAPIKeys, Rotate) {
+    auto client = new_test_client();
+    const auto created = ASSERT_NIL_P(client.api_keys.create("rotated"));
+    const auto keyed = keyed_client(created.token);
+    ASSERT_NIL(keyed.auth->authenticate());
+    const auto session = keyed.auth->current_session();
+    const auto rotated = ASSERT_NIL_P(keyed.api_keys.rotate());
+    ASSERT_EQ(rotated.key.key, created.key.key);
+    ASSERT_NE(rotated.token, created.token);
+    ASSERT_EQ(rotated.key.name, "rotated");
+    ASSERT_EQ(rotated.key.subject, created.key.subject);
+    ASSERT_NIL_P(keyed.api_keys.retrieve());
+    ASSERT_EQ(keyed.auth->current_session().key, session.key);
+    ASSERT_OCCURRED_AS(
+        keyed_client(created.token).auth->authenticate(),
+        ERR_INVALID_CREDENTIALS
+    );
+    ASSERT_NIL(keyed.auth->logout());
+    ASSERT_NIL(keyed.auth->authenticate());
+    ASSERT_EQ(keyed.auth->current_session().credential, rotated.key.key);
+    ASSERT_NIL(client.api_keys.del({rotated.key.key}));
+}
+
+/// @brief it should refuse to rotate when the client logged in with a password.
+TEST(TestAPIKeys, RotatePasswordSession) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(client.api_keys.rotate(), x::errors::VALIDATION);
+}
+
+/// @brief it should ask for a key that never expires from a Core with no limit.
+TEST(TestAPIKeys, LongestExpiryWithoutLimit) {
+    ASSERT_EQ(
+        ASSERT_NIL_P(new_test_client().api_keys.longest_expiry()),
+        x::telem::TIME_STAMP_MAX
+    );
+}
+
 /// @brief it should reject a key the Core never issued.
 TEST(TestAPIKeys, UnknownKey) {
     const auto keyed = keyed_client("syk_00000000-0000-0000-0000-000000000000secret");

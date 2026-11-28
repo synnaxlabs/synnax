@@ -79,6 +79,9 @@ x::errors::Error Config::enroll() {
     if (const auto err = client.auth->authenticate()) return err;
     const auto [cluster_key, key_err] = parse_cluster_key(client.connectivity->check());
     if (key_err) return key_err;
+    // Asked before the rack exists, so a failure leaves no rack behind.
+    const auto [expires, expiry_err] = client.api_keys.longest_expiry();
+    if (expiry_err) return expiry_err;
     std::pair<synnax::rack::Rack, x::errors::Error> res;
     bool created = false;
     if (this->remote_info.rack_key != 0 &&
@@ -97,7 +100,8 @@ x::errors::Error Config::enroll() {
     if (res.second) return res.second;
     auto [key, create_err] = client.api_keys.create(
         API_KEY_NAME,
-        synnax::rack::resource_id(res.first.key)
+        synnax::rack::resource_id(res.first.key),
+        expires
     );
     if (create_err) {
         // A retry creates another rack, so remove the one no key logs in as.
@@ -203,8 +207,7 @@ x::errors::Error Config::load_remote() {
     );
 }
 
-x::errors::Error Config::check_core() const {
-    const auto client = synnax::Synnax(this->connection);
+x::errors::Error Config::check_core(const synnax::Synnax &client) const {
     const auto core = client.connectivity->check();
     const auto [cluster_key, err] = parse_cluster_key(core);
     if (err) return err;

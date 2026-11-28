@@ -116,6 +116,11 @@ The key acts as its user, with the same role. To use it, see
 [connect a client](/reference/client/connect). To delete a key, click <Icon.Delete />
 next to it. Deleting a key ends its sessions.
 
+A client that logged in with a key can rotate it: `client.auth.api_keys.rotate()` in
+Python or `client.auth.apiKeys.rotate()` in TypeScript. The Core gives the key a new
+secret, and the client logs in with the new token from then on. Open sessions continue,
+but the old token cannot log in again.
+
 <Divider.Divider x />
 
 ## Manage users from code

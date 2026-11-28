@@ -256,10 +256,11 @@ func (x *User) GetKey() string {
 }
 
 type MethodsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Methods       []string               `protobuf:"bytes,1,rep,name=methods,proto3" json:"methods,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Methods           []string               `protobuf:"bytes,1,rep,name=methods,proto3" json:"methods,omitempty"`
+	ApiKeyMaxLifetime int64                  `protobuf:"varint,2,opt,name=api_key_max_lifetime,json=apiKeyMaxLifetime,proto3" json:"api_key_max_lifetime,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *MethodsResponse) Reset() {
@@ -297,6 +298,13 @@ func (x *MethodsResponse) GetMethods() []string {
 		return x.Methods
 	}
 	return nil
+}
+
+func (x *MethodsResponse) GetApiKeyMaxLifetime() int64 {
+	if x != nil {
+		return x.ApiKeyMaxLifetime
+	}
+	return 0
 }
 
 // Proof is what a subject presents to log in. The method selects which fields apply.
@@ -1148,9 +1156,10 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x04user\x18\x02 \x01(\v2\x0f.grpc.auth.UserR\x04user\x129\n" +
 	"\fcluster_info\x18\x03 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfo\"(\n" +
 	"\x04User\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03keyJ\x04\b\x02\x10\x03R\busername\"+\n" +
+	"\x03key\x18\x01 \x01(\tR\x03keyJ\x04\b\x02\x10\x03R\busername\"\\\n" +
 	"\x0fMethodsResponse\x12\x18\n" +
-	"\amethods\x18\x01 \x03(\tR\amethods\"\xd8\x01\n" +
+	"\amethods\x18\x01 \x03(\tR\amethods\x12/\n" +
+	"\x14api_key_max_lifetime\x18\x02 \x01(\x03R\x11apiKeyMaxLifetime\"\xd8\x01\n" +
 	"\x05Proof\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
@@ -1224,7 +1233,9 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x19AuthAPIKeyRetrieveService\x12K\n" +
 	"\x04Exec\x12 .grpc.auth.APIKeyRetrieveRequest\x1a!.grpc.auth.APIKeyRetrieveResponse2Y\n" +
 	"\x17AuthAPIKeyDeleteService\x12>\n" +
-	"\x04Exec\x12\x1e.grpc.auth.APIKeyDeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
+	"\x04Exec\x12\x1e.grpc.auth.APIKeyDeleteRequest\x1a\x16.google.protobuf.Empty2Z\n" +
+	"\x17AuthAPIKeyRotateService\x12?\n" +
+	"\x04Exec\x12\x16.google.protobuf.Empty\x1a\x1f.grpc.auth.APIKeyCreateResponseB\x95\x01\n" +
 	"\rcom.grpc.authB\tAuthProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/transport/grpc/auth\xa2\x02\x03GAX\xaa\x02\tGrpc.Auth\xca\x02\tGrpc\\Auth\xe2\x02\x15Grpc\\Auth\\GPBMetadata\xea\x02\n" +
 	"Grpc::Authb\x06proto3"
 
@@ -1289,17 +1300,19 @@ var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
 	15, // 21: grpc.auth.AuthAPIKeyCreateService.Exec:input_type -> grpc.auth.APIKeyCreateRequest
 	17, // 22: grpc.auth.AuthAPIKeyRetrieveService.Exec:input_type -> grpc.auth.APIKeyRetrieveRequest
 	19, // 23: grpc.auth.AuthAPIKeyDeleteService.Exec:input_type -> grpc.auth.APIKeyDeleteRequest
-	2,  // 24: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
-	4,  // 25: grpc.auth.AuthMethodsService.Exec:output_type -> grpc.auth.MethodsResponse
-	9,  // 26: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
-	10, // 27: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
-	12, // 28: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
-	20, // 29: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
-	16, // 30: grpc.auth.AuthAPIKeyCreateService.Exec:output_type -> grpc.auth.APIKeyCreateResponse
-	18, // 31: grpc.auth.AuthAPIKeyRetrieveService.Exec:output_type -> grpc.auth.APIKeyRetrieveResponse
-	20, // 32: grpc.auth.AuthAPIKeyDeleteService.Exec:output_type -> google.protobuf.Empty
-	24, // [24:33] is the sub-list for method output_type
-	15, // [15:24] is the sub-list for method input_type
+	20, // 24: grpc.auth.AuthAPIKeyRotateService.Exec:input_type -> google.protobuf.Empty
+	2,  // 25: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
+	4,  // 26: grpc.auth.AuthMethodsService.Exec:output_type -> grpc.auth.MethodsResponse
+	9,  // 27: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
+	10, // 28: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
+	12, // 29: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
+	20, // 30: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
+	16, // 31: grpc.auth.AuthAPIKeyCreateService.Exec:output_type -> grpc.auth.APIKeyCreateResponse
+	18, // 32: grpc.auth.AuthAPIKeyRetrieveService.Exec:output_type -> grpc.auth.APIKeyRetrieveResponse
+	20, // 33: grpc.auth.AuthAPIKeyDeleteService.Exec:output_type -> google.protobuf.Empty
+	16, // 34: grpc.auth.AuthAPIKeyRotateService.Exec:output_type -> grpc.auth.APIKeyCreateResponse
+	25, // [25:35] is the sub-list for method output_type
+	15, // [15:25] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
 	15, // [15:15] is the sub-list for extension extendee
 	0,  // [0:15] is the sub-list for field type_name
@@ -1320,7 +1333,7 @@ func file_core_pkg_transport_grpc_auth_auth_proto_init() {
 			NumEnums:      0,
 			NumMessages:   20,
 			NumExtensions: 0,
-			NumServices:   9,
+			NumServices:   10,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_auth_auth_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_auth_auth_proto_depIdxs,

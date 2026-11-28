@@ -139,6 +139,35 @@ func (s *Service) expired(k APIKey) bool {
 	return s.now() >= k.Expires
 }
 
+// expiryMargin is how far short of the maximum lifetime LongestExpiry stops, as the
+// clients do.
+const expiryMargin = telem.Hour
+
+// LongestExpiry returns the expiry to give a new key that should last as long as it
+// can: [telem.TimeStampMax] with no maximum lifetime, else an hour short of now plus
+// the maximum lifetime, or half the lifetime short when it is under two hours.
+func (s *Service) LongestExpiry() telem.TimeStamp {
+	maxLifetime := s.cfg.MaxLifetime
+	if maxLifetime == 0 {
+		return telem.TimeStampMax
+	}
+	margin := expiryMargin
+	if maxLifetime < 2*expiryMargin {
+		margin = maxLifetime / 2
+	}
+	return s.now().Add(maxLifetime - margin)
+}
+
+// renewedExpiry returns the expiry of k after a rotation: the longest expiry when there
+// is a maximum lifetime, and otherwise as far from now as k's expiry was from its
+// creation.
+func (s *Service) renewedExpiry(k APIKey) telem.TimeStamp {
+	if s.cfg.MaxLifetime != 0 || k.Expires == telem.TimeStampMax {
+		return s.LongestExpiry()
+	}
+	return s.now().Add(k.Created.Span(k.Expires))
+}
+
 // Authenticate implements [auth.Authenticator]. A malformed key, an unknown key, a
 // wrong secret, and an expired key all return [auth.ErrInvalidCredentials].
 func (s *Service) Authenticate(
@@ -185,8 +214,8 @@ func (s *Service) Authenticate(
 	}, nil
 }
 
-// Version implements [auth.Authenticator]. An API key keeps one version for life. An
-// expired key returns [auth.ErrInvalidCredentials], so its sessions end.
+// Version implements [auth.Authenticator]. An API key gets a new version at each
+// rotation. An expired key returns [auth.ErrInvalidCredentials], so its sessions end.
 func (s *Service) Version(
 	ctx context.Context,
 	snap gorp.Snapshot,

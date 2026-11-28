@@ -9,6 +9,8 @@
 
 #pragma once
 #include "driver/arc/arc.h"
+#include "driver/rack/key/key.h"
+#include "driver/rack/status/status.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -139,6 +141,11 @@ struct Config {
     task::ManagerConfig manager;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
+    /// @brief whether the API key in connection came from the persisted state, where
+    /// the Driver can save the key that replaces it.
+    bool api_key_persisted = false;
+    /// @brief settings for the renewal of the API key.
+    key::Config key_renewal;
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
     /// @brief the directory that holds the persisted state file. Integrations keep
@@ -157,7 +164,8 @@ struct Config {
     /// other task.
     [[nodiscard]] std::unique_ptr<task::Factory> new_factory(
         const std::shared_ptr<synnax::Synnax> &client,
-        const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager,
+        status::Problem key_problem = nullptr
     ) const;
 
     /// @brief returns a new Synnax client using the stored connection parameters.
@@ -173,6 +181,7 @@ struct Config {
            << cfg.connection << "\n"
            << cfg.timing << "\n"
            << cfg.manager << "\n"
+           << cfg.key_renewal << "\n"
            << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET()
            << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
@@ -199,12 +208,19 @@ struct Config {
         };
         VLOG(1) << "loading configuration from persisted state";
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
+        // A key from a later source wins, and the Driver cannot save a new key there.
+        const auto persisted_key = cfg.connection.api_key;
+        cfg.connection.api_key.clear();
         VLOG(1) << "loading configuration from config file";
         if (const auto err = cfg.load_config_file(parser, breaker)) return {cfg, err};
         VLOG(1) << "loading configuration from environment";
         if (const auto err = cfg.load_env()) return {cfg, err};
         VLOG(1) << "loading configuration from command line";
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
+        if (cfg.connection.api_key.empty() && !persisted_key.empty()) {
+            cfg.connection.api_key = persisted_key;
+            cfg.api_key_persisted = true;
+        }
         cfg.resolve_credentials(breaker.retry_count() == 0);
         return {cfg, x::errors::NIL};
     }
@@ -241,6 +257,7 @@ struct Config {
                 return {cfg, err};
             else {
                 if (err = save_api_key(parser, cfg.connection); err) return {cfg, err};
+                cfg.api_key_persisted = true;
                 LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name
                           << " and saved its API key" << x::log::RESET();
             }
@@ -320,10 +337,10 @@ struct Config {
     /// Driver's version and integrations, and records an incompatible Core version.
     [[nodiscard]] x::errors::Error load_remote();
 
-    /// @brief checks the Core again, after the Driver lost it.
+    /// @brief checks the Core again with client, after the Driver lost it.
     /// @returns CORE_CHANGED when the Core is now another cluster, or became compatible
     /// or incompatible with this Driver, or the error of a check that failed.
-    [[nodiscard]] x::errors::Error check_core() const;
+    [[nodiscard]] x::errors::Error check_core(const synnax::Synnax &client) const;
 };
 
 /// @brief clears the persisted state file, removing all cached information.

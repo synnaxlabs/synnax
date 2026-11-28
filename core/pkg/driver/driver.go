@@ -42,7 +42,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -62,7 +61,18 @@ const stateFileName = "state.json"
 
 const configFileName = "config.json"
 
-const keyFileName = "embedded-driver-key"
+// keptStateDirName is the directory in KeyDirname that holds the Driver's persisted
+// state, and the files of its integrations, between starts. The Driver saves each API
+// key that it rotates in its state file there.
+const keptStateDirName = "embedded-driver"
+
+// legacyKeyFileName is the file in KeyDirname that held the API key before the Driver
+// kept it in its persisted state.
+const legacyKeyFileName = "embedded-driver-key"
+
+// connParamsEntry is the entry of the persisted state that holds the Driver's
+// connection and API key, as a JSON string.
+const connParamsEntry = "conn_params"
 
 const apiKeyName = "Embedded Driver"
 
@@ -134,9 +144,9 @@ type Config struct {
 	TaskPollInterval time.Duration `json:"task_poll_interval"`
 	// TaskShutdownTimeout sets the max time to wait for task workers during shutdown.
 	TaskShutdownTimeout time.Duration `json:"task_shutdown_timeout"`
-	// KeyDirname is the owner-only directory that keeps the Driver's API key between
-	// starts. It must outlive the process and belong to this node. When empty, each
-	// start creates a new key.
+	// KeyDirname is the owner-only directory that keeps the Driver's persisted state,
+	// API key included, between starts. It must outlive the process and belong to this
+	// node. When empty, each start creates a new key.
 	KeyDirname string `json:"-"`
 	// RackKey is the key of the rack that the Driver logs in as.
 	RackKey rack.Key `json:"rack_key"`
@@ -147,13 +157,12 @@ type Config struct {
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
-func (c Config) format(apiKey string) map[string]any {
+func (c Config) format() map[string]any {
 	formatted := map[string]any{
 		"connection": map[string]any{
-			"host":    c.Address.Host(),
-			"port":    c.Address.Port(),
-			"api_key": apiKey,
-			"secure":  !*c.Insecure,
+			"host":   c.Address.Host(),
+			"port":   c.Address.Port(),
+			"secure": !*c.Insecure,
 		},
 		"retry": map[string]any{
 			"base_interval": 1,
@@ -311,8 +320,6 @@ const restartScale = 1.1
 // methods are no-ops.
 type Driver struct {
 	cfg Config
-	// apiKey is the key the Driver logs in with. It is set once Open starts the Driver.
-	apiKey string
 	// started is closed once the subprocess prints "started successfully". Open blocks
 	// on this channel to know when startup is complete.
 	started chan struct{}
@@ -388,8 +395,7 @@ func Bundled() bool { return defaultFS != nil }
 
 func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded Driver")
-	var err error
-	if d.apiKey, err = d.resolveKey(ctx); err != nil {
+	if err := d.resolveKey(ctx); err != nil {
 		return err
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
@@ -706,68 +712,147 @@ func (d *Driver) exitAction(
 	return policy.Decide(ctx, expected, time.Since(e.startedAt)), err
 }
 
-// resolveKey returns the API key saved by an earlier start when the Core still accepts
-// it for the Driver's rack, and creates and saves a new key otherwise.
-func (d *Driver) resolveKey(ctx context.Context) (string, error) {
-	saved, err := d.savedKey()
-	if err != nil {
-		return "", err
+// resolveKey keeps the API key in the Driver's persisted state when the Core still
+// accepts it for the Driver's rack. The Driver rotates that key and saves each new key
+// there, so the state is the only copy. Otherwise, resolveKey creates a key with the
+// longest expiry that the maximum key lifetime allows, saves it in the state, and
+// deletes the other embedded Driver keys of the rack, which no Driver logs in with
+// again.
+func (d *Driver) resolveKey(ctx context.Context) error {
+	if err := d.secureState(); err != nil {
+		return err
 	}
-	if saved != "" {
+	state, conn, err := d.readState()
+	if err != nil {
+		return err
+	}
+	if saved, _ := conn["api_key"].(string); saved != "" {
 		id, err := d.cfg.Keys.Authenticate(ctx, auth.Proof{
 			Variant: auth.APIKeyProof{
 				APIKeyCredentials: auth.APIKeyCredentials{Key: saved},
 			},
 		})
 		if err == nil && id.Subject == d.cfg.RackKey.ResourceID() {
-			return saved, nil
+			return nil
 		}
 		if err != nil && !errors.Is(err, auth.ErrInvalidCredentials) {
-			return "", err
+			return err
 		}
 	}
-	var (
-		created apikey.APIKey
-		token   string
-	)
-	if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		created, token, err = d.cfg.Keys.NewWriter(tx).Create(
-			ctx,
-			d.cfg.RackKey.ResourceID(),
-			apiKeyName,
-			telem.TimeStampMax,
-		)
+	created, token, err := d.replaceKey(ctx)
+	if err != nil {
 		return err
-	}); err != nil {
-		return "", err
 	}
-	if d.cfg.KeyDirname == "" {
-		return token, nil
-	}
+	conn["api_key"] = token
 	// A key that was never saved cannot be used again, so it must not stay stored.
-	if err = writeFileAtomic(d.keyPath(), []byte(token)); err != nil {
-		return "", errors.Combine(
+	if err = d.writeState(state, conn); err != nil {
+		return errors.Combine(
 			err,
 			d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return d.cfg.Keys.NewWriter(tx).Delete(ctx, created.Key)
 			}),
 		)
 	}
-	return token, nil
+	if d.cfg.KeyDirname == "" {
+		return nil
+	}
+	err = os.Remove(filepath.Join(d.cfg.KeyDirname, legacyKeyFileName))
+	return errors.Skip(err, fs.ErrNotExist)
 }
 
-func (d *Driver) savedKey() (string, error) {
-	if d.cfg.KeyDirname == "" {
-		return "", nil
+// replaceKey creates an API key for the Driver's rack and deletes the rack's other
+// embedded Driver keys.
+func (d *Driver) replaceKey(ctx context.Context) (apikey.APIKey, string, error) {
+	var (
+		created apikey.APIKey
+		token   string
+	)
+	err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+		w := d.cfg.Keys.NewWriter(tx)
+		created, token, err = w.Create(
+			ctx,
+			d.cfg.RackKey.ResourceID(),
+			apiKeyName,
+			d.cfg.Keys.LongestExpiry(),
+		)
+		if err != nil {
+			return err
+		}
+		var rackKeys []apikey.APIKey
+		if err = d.cfg.Keys.NewRetrieve().
+			Where(apikey.MatchSubjects(d.cfg.RackKey.ResourceID())).
+			Entries(&rackKeys).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		var stale []apikey.Key
+		for _, k := range rackKeys {
+			if k.Name == apiKeyName && k.Key != created.Key {
+				stale = append(stale, k.Key)
+			}
+		}
+		return w.Delete(ctx, stale...)
+	})
+	if err != nil {
+		return apikey.APIKey{}, "", err
 	}
-	b, err := os.ReadFile(d.keyPath())
+	return created, token, nil
+}
+
+// secureState makes the Driver's state readable by the Core's user alone, as the
+// Driver requires. A restored backup or a volume mount can loosen its modes.
+func (d *Driver) secureState() error {
+	path := d.statePath()
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, xfs.UserRWX); err != nil {
+		return err
+	}
+	if err := os.Chmod(dir, xfs.UserRWX); err != nil {
+		return err
+	}
+	return errors.Skip(os.Chmod(path, xfs.UserRW), fs.ErrNotExist)
+}
+
+// readState returns the Driver's persisted state and the connection parameters in it.
+// Both are empty when the state does not exist or is not valid JSON, as after a crash
+// while the Driver wrote it, since such a state holds no key.
+func (d *Driver) readState() (map[string]any, map[string]any, error) {
+	b, err := os.ReadFile(d.statePath())
 	if errors.Is(err, fs.ErrNotExist) {
-		return "", nil
+		return map[string]any{}, map[string]any{}, nil
 	}
 	if err != nil {
-		return "", err
+		return nil, nil, err
 	}
-	return string(b), nil
+	state, conn := map[string]any{}, map[string]any{}
+	err = json.Unmarshal(b, &state)
+	if raw, ok := state[connParamsEntry].(string); ok && err == nil {
+		err = json.Unmarshal([]byte(raw), &conn)
+	}
+	if err != nil {
+		d.cfg.L.Warn(
+			"replacing the damaged state of the embedded Driver",
+			zap.String("path", d.statePath()),
+			zap.Error(err),
+		)
+		return map[string]any{}, map[string]any{}, nil
+	}
+	return state, conn, nil
+}
+
+// writeState replaces the connection parameters in the Driver's persisted state with
+// conn and keeps its other entries.
+func (d *Driver) writeState(state, conn map[string]any) error {
+	raw, err := json.Marshal(conn)
+	if err != nil {
+		return err
+	}
+	state[connParamsEntry] = string(raw)
+	b, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(d.statePath(), b)
 }
 
 // writeFileAtomic replaces the file at path with data, so an interrupted write leaves
@@ -782,7 +867,14 @@ func writeFileAtomic(path string, data []byte) error {
 
 func (d *Driver) workDir() string { return filepath.Join(d.cfg.ParentDirname, "driver") }
 
-func (d *Driver) keyPath() string { return filepath.Join(d.cfg.KeyDirname, keyFileName) }
+// statePath returns the Driver's persisted state file. Without KeyDirname, the state
+// lives only as long as the working directory.
+func (d *Driver) statePath() string {
+	if d.cfg.KeyDirname == "" {
+		return filepath.Join(d.workDir(), stateFileName)
+	}
+	return filepath.Join(d.cfg.KeyDirname, keptStateDirName, stateFileName)
+}
 
 // Close stops the Driver and waits for it to exit. It cancels the supervisor context,
 // which asks the subprocess to stop gracefully and escalates to a kill after
@@ -826,7 +918,7 @@ func (d *Driver) setupCmd(
 		}
 		tempFiles = append(tempFiles, trustAnchorFile)
 	}
-	b, err := json.Marshal(d.cfg.format(d.apiKey))
+	b, err := json.Marshal(d.cfg.format())
 	if err != nil {
 		return nil, tempFiles, err
 	}
@@ -846,7 +938,7 @@ func (d *Driver) setupCmd(
 	flags = append(
 		flags,
 		"--config", cfgFile,
-		"--state-file", filepath.Join(workDir, stateFileName),
+		"--state-file", d.statePath(),
 	)
 	cmd := exec.CommandContext(ctx, binary, flags...)
 	if trustAnchorFile != "" {

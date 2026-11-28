@@ -314,8 +314,8 @@ func (s *Service) version(
 }
 
 // current returns true when the session holds the current version of its credential in
-// snap. A session's version never changes after login. A session whose method is off,
-// or whose credential no longer logs in, is never current.
+// snap. A session's version changes only through SetCredentialVersion. A session whose
+// method is off, or whose credential no longer logs in, is never current.
 func (s *Service) current(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -613,6 +613,26 @@ func (w Writer) RevokeCredential(ctx context.Context, credentials ...uuid.UUID) 
 	return w.svc.table.NewDelete().
 		Where(MatchCredentials(credentials...)(w.svc.NewRetrieve())).
 		Exec(ctx, w.tx)
+}
+
+// SetCredentialVersion keeps every session of the credential open across a change of
+// its secret to version.
+func (w Writer) SetCredentialVersion(
+	ctx context.Context,
+	credential uuid.UUID,
+	version telem.TimeStamp,
+) error {
+	var sessions []Session
+	if err := w.svc.NewRetrieve().
+		Where(MatchCredentials(credential)).
+		Entries(&sessions).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for i := range sessions {
+		sessions[i].CredentialVersion = version
+	}
+	return w.svc.table.NewCreate().Entries(&sessions).Exec(ctx, w.tx)
 }
 
 // Open opens a session for the subject on the credential at its version in tx, and

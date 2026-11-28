@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/driver"
@@ -37,6 +38,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
@@ -528,11 +530,11 @@ var _ = Describe("Open", func() {
 			dir := GinkgoT().TempDir()
 			d := openMockDriver(ctx, logger, driver.Config{ParentDirname: dir})
 			conn := readDriverConnection(dir)
+			apiKey := readStateKey(filepath.Join(dir, "driver", "state.json"))
 			Expect(d.Close()).To(Succeed())
 			Expect(conn).ToNot(HaveKey("username"))
 			Expect(conn).ToNot(HaveKey("password"))
-			apiKey, ok := conn["api_key"].(string)
-			Expect(ok).To(BeTrue())
+			Expect(conn).ToNot(HaveKey("api_key"))
 			Expect(authenticate(ctx, apiKey).Subject).To(Equal(rackKey.ResourceID()))
 		})
 
@@ -569,18 +571,83 @@ var _ = Describe("Open", func() {
 			Expect(authenticate(ctx, second).Subject).To(Equal(rackKey.ResourceID()))
 		})
 
+		It("Should reuse a key that the Driver rotated", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			keyDir := GinkgoT().TempDir()
+			cfg := driver.Config{KeyDirname: keyDir}
+			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
+			var rotated string
+			id := authenticate(ctx, readSavedKey(keyDir))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				_, rotated, err = keys.NewWriter(tx).Rotate(ctx, id.Credential)
+				return err
+			})).To(Succeed())
+			writeStateKey(keptState(keyDir), rotated)
+			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
+			Expect(readSavedKey(keyDir)).To(Equal(rotated))
+			Expect(embeddedKeys(ctx)).To(HaveLen(1))
+		})
+
+		It("Should replace a damaged state with a new key", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			keyDir := GinkgoT().TempDir()
+			Expect(os.MkdirAll(filepath.Dir(keptState(keyDir)), 0o700)).To(Succeed())
+			Expect(os.WriteFile(keptState(keyDir), []byte(`{"conn_par`), 0o600)).
+				To(Succeed())
+			Expect(openMockDriver(ctx, logger, driver.Config{KeyDirname: keyDir}).
+				Close()).To(Succeed())
+			Expect(authenticate(ctx, readSavedKey(keyDir)).Subject).
+				To(Equal(rackKey.ResourceID()))
+		})
+
+		It("Should make the state readable by its owner alone", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			keyDir := GinkgoT().TempDir()
+			cfg := driver.Config{KeyDirname: keyDir}
+			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
+			Expect(os.Chmod(keptState(keyDir), 0o640)).To(Succeed())
+			Expect(os.Chmod(filepath.Dir(keptState(keyDir)), 0o750)).To(Succeed())
+			Expect(openMockDriver(ctx, logger, cfg).Close()).To(Succeed())
+			Expect(MustSucceed(os.Stat(keptState(keyDir))).Mode().Perm()).
+				To(Equal(os.FileMode(0o600)))
+			Expect(MustSucceed(os.Stat(filepath.Dir(keptState(keyDir)))).Mode().Perm()).
+				To(Equal(os.FileMode(0o700)))
+		})
+
+		It("Should delete the embedded Driver keys that no Driver logs in with", func(
+			ctx SpecContext,
+		) {
+			logger, _ := newTestLogger()
+			keyDir := GinkgoT().TempDir()
+			Expect(os.WriteFile(
+				filepath.Join(keyDir, "embedded-driver-key"),
+				[]byte("syk_legacy"),
+				0o600,
+			)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				_, _, err := keys.NewWriter(tx).Create(
+					ctx,
+					rackKey.ResourceID(),
+					"Embedded Driver",
+					telem.TimeStampMax,
+				)
+				return err
+			})).To(Succeed())
+			Expect(openMockDriver(ctx, logger, driver.Config{KeyDirname: keyDir}).
+				Close()).To(Succeed())
+			saved := authenticate(ctx, readSavedKey(keyDir))
+			Expect(embeddedKeys(ctx)).To(ConsistOf(
+				HaveField("Key", saved.Credential),
+			))
+			Expect(filepath.Join(keyDir, "embedded-driver-key")).
+				ToNot(BeAnExistingFile())
+		})
+
 		It("Should delete the API key it could not save", func(ctx SpecContext) {
 			logger, _ := newTestLogger()
 			keyDir := GinkgoT().TempDir()
-			Expect(os.Mkdir(filepath.Join(keyDir, "embedded-driver-key.tmp"), 0o700)).
-				To(Succeed())
-			count := func() int {
-				GinkgoHelper()
-				return MustSucceed(keys.NewRetrieve().
-					Where(apikey.MatchSubjects(rackKey.ResourceID())).
-					Count(ctx, db))
-			}
-			before := count()
+			Expect(os.MkdirAll(keptState(keyDir)+".tmp", 0o700)).To(Succeed())
+			before := embeddedKeys(ctx)
 			Expect(driver.Open(ctx, driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 				FS:              mockFS,
@@ -594,7 +661,9 @@ var _ = Describe("Open", func() {
 				License:         licenses,
 				RackKey:         rackKey,
 			})).Error().To(MatchError(syscall.EISDIR))
-			Expect(count()).To(Equal(before))
+			for _, k := range embeddedKeys(ctx) {
+				Expect(before).To(ContainElement(k))
+			}
 		})
 
 		It("Should keep the Driver's state inside its working directory", func(
@@ -749,10 +818,50 @@ func authenticate(ctx context.Context, key string) auth.Identity {
 	}))
 }
 
-// readSavedKey returns the API key the Driver saved in keyDir.
+// readStateKey returns the API key in the persisted state file at path.
+func readStateKey(path string) string {
+	GinkgoHelper()
+	var state map[string]string
+	Expect(json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &state)).
+		To(Succeed())
+	var conn map[string]any
+	Expect(json.Unmarshal([]byte(state["conn_params"]), &conn)).To(Succeed())
+	key, ok := conn["api_key"].(string)
+	Expect(ok).To(BeTrue())
+	return key
+}
+
+// writeStateKey saves key as the API key in the persisted state file at path, as the
+// Driver does after it rotates its key.
+func writeStateKey(path, key string) {
+	GinkgoHelper()
+	conn := MustSucceed(json.Marshal(map[string]any{"api_key": key, "port": 9090}))
+	state := MustSucceed(json.Marshal(map[string]string{"conn_params": string(conn)}))
+	Expect(os.WriteFile(path, state, 0o600)).To(Succeed())
+}
+
+// keptState returns the state file that the Driver keeps in keyDir.
+func keptState(keyDir string) string {
+	return filepath.Join(keyDir, "embedded-driver", "state.json")
+}
+
+// readSavedKey returns the API key that the Driver keeps in keyDir.
 func readSavedKey(keyDir string) string {
 	GinkgoHelper()
-	return string(MustSucceed(fs.ReadFile(os.DirFS(keyDir), "embedded-driver-key")))
+	return readStateKey(keptState(keyDir))
+}
+
+// embeddedKeys returns the embedded Driver keys of the test rack.
+func embeddedKeys(ctx context.Context) []apikey.APIKey {
+	GinkgoHelper()
+	var rackKeys []apikey.APIKey
+	Expect(keys.NewRetrieve().
+		Where(apikey.MatchSubjects(rackKey.ResourceID())).
+		Entries(&rackKeys).
+		Exec(ctx, db)).To(Succeed())
+	return lo.Filter(rackKeys, func(k apikey.APIKey, _ int) bool {
+		return k.Name == "Embedded Driver"
+	})
 }
 
 // readDriverConfig returns the config file the Driver was started with. It must be

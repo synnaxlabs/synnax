@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
+
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
@@ -61,15 +63,25 @@ def longest_expiry(max_lifetime: TimeSpan | None) -> TimeStamp:
 _CREATE_ENDPOINT = "/auth/api-key/create"
 _RETRIEVE_ENDPOINT = "/auth/api-key/retrieve"
 _DELETE_ENDPOINT = "/auth/api-key/delete"
+_ROTATE_ENDPOINT = "/auth/api-key/rotate"
 
 
 class Client:
-    """Creates, lists, and deletes API keys."""
+    """Creates, lists, rotates, and deletes API keys."""
 
     _client: UnaryClient
+    _on_rotate: Callable[[str, APIKey], None]
 
-    def __init__(self, transport: UnaryClient) -> None:
+    def __init__(
+        self,
+        transport: UnaryClient,
+        on_rotate: Callable[[str, APIKey], None] = lambda _token, _key: None,
+    ) -> None:
+        """
+        :param on_rotate: receives the new token and the key after each rotation.
+        """
         self._client = transport
+        self._on_rotate = on_rotate
 
     def create(
         self,
@@ -96,6 +108,20 @@ class Client:
             ),
             _CreateResponse,
         )
+        return res.token, res.key
+
+    def rotate(self) -> tuple[str, APIKey]:
+        """Gives the API key that the client logged in with a new secret. The key lasts
+        as long as it did before, or an hour short of the lifetime cap of the Core. The
+        client's session stays open and later logins use the new token. The old token
+        cannot log in again.
+
+        :returns: the new token, the only copy of the new secret, and the key.
+        :raises ValidationError: if the client did not log in with an API key.
+        :raises AuthError: if the key has expired.
+        """
+        res = send_required(self._client, _ROTATE_ENDPOINT, Empty(), _CreateResponse)
+        self._on_rotate(res.token, res.key)
         return res.token, res.key
 
     def retrieve(self, subjects: list[resource.ID] | None = None) -> list[APIKey]:
