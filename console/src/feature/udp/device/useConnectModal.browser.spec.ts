@@ -134,4 +134,15 @@ describe("UDP.Device.useConnectModal", () => {
     expect(sameRow(box("10.0.0.7"), box("5031"))).toBe(true);
     expect(box("10.0.0.7").top).toBeGreaterThanOrEqual(box("5032").bottom);
   });
+
+  it("should mark the remote host as required and not the remote port", async () => {
+    const dev = await createUDPDevice();
+    await renderModalOpener(UDP.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    const mark = (input: HTMLElement) =>
+      input.closest(".lyra-input__item")?.querySelector(".lyra-required-indicator");
+    expect(mark(await screen.findByDisplayValue("10.0.0.7"))).toBeTruthy();
+    expect(mark(screen.getByDisplayValue("5031"))).toBeFalsy();
+  });
 });

@@ -88,12 +88,7 @@ const RemoteFields = () => {
             required
             inputProps={HOST_INPUT_PROPS}
           />
-          <Form.NumericField
-            path={shownRemote.port}
-            label="Port"
-            padHelpText={false}
-            required
-          />
+          <Form.NumericField path={shownRemote.port} label="Port" padHelpText={false} />
         </Flex.Box>
       )}
     </>
