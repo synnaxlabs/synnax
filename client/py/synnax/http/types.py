@@ -10,7 +10,7 @@
 from typing import Any, override
 from uuid import uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from synnax import device, icd, rack as rack_, task
 from synnax.http.types_gen import (
@@ -61,6 +61,21 @@ class HealthCheck(BaseModel):
     query_params: list[QueryParam] | None = None
     body: str | None = None
     response: ExpectedResponse | None = None
+
+    @field_validator("headers", "query_params", mode="before")
+    @classmethod
+    def _drop_blank_rows(cls, rows: Any) -> Any:
+        """Drop the stored rows with no name, which the Driver skipped."""
+        if not isinstance(rows, list):
+            return rows
+        return [
+            r
+            for r in rows
+            if not (
+                isinstance(r, dict)
+                and (r.get("name") == "" or r.get("parameter") == "")
+            )
+        ]
 
 
 class ReadTask(

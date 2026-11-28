@@ -461,6 +461,21 @@ TEST(BuildRequestTest, AppendsPathToBasePathWithTrailingSlash) {
     EXPECT_EQ(build_request(conn, req).url, "http://example.com/v2/api/data");
 }
 
+/// @brief it should send the same URL for a query in the path and the same query as
+/// query parameters, which the Core's upgrade repair relies on.
+TEST(BuildRequestTest, InlineQueryMatchesQueryParams) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com/v2"}})
+    );
+    RequestConfig inline_req{.method = Method::GET, .path = "/data?a=1&units=si"};
+    RequestConfig params_req{
+        .method = Method::GET,
+        .path = "/data",
+        .query_params = {{"a", "1"}, {"units", "si"}},
+    };
+    EXPECT_EQ(build_request(conn, inline_req).url, build_request(conn, params_req).url);
+}
+
 TEST(BuildRequestTest, CarriesBaseURLAndCap) {
     auto conn = ConnectionConfig(
         x::json::Parser(
