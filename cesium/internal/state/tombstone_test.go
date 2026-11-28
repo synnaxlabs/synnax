@@ -341,6 +341,38 @@ var _ = Describe("Tombstone", func() {
 		},
 	)
 
+	It("Should log no Seal of a segment that a writer sealed in view when a Tombstone "+
+		"cuts its durable pointers, and apply the writer's Seal after its commit",
+		func() {
+			a := &appended{}
+			s = MustSucceed(state.Open(config(a), sample()))
+			a.s, a.seq = s, sample().Sequence
+			run(s)
+			w := MustSucceed(s.OpenWriter(context.Background(), state.WriterConfig{
+				Keys:  []state.WriterKey{{Key: 6, DataType: 4}},
+				Clock: 5,
+				Start: 40,
+			}))
+			held, ok := MustSucceed2(w.Held(6))
+			Expect(ok).To(BeTrue(), "the writer takes over open segment 3")
+			n := MustSucceed(w.NewAlignment())
+			c := commit(1, n, 0, 40, 40, slot(held.ID, held.Length+4))
+			Expect(w.Commit(c)).To(Succeed())
+			seal := MustSucceed(w.Seal(6))
+			Expect(a.durable([]log.Record{
+				&log.Tombstone{Key: 6, Start: 0, End: 35},
+			})).To(Succeed())
+			MustSucceed(s.Snapshot())
+			Expect(a.seals()).To(BeEmpty())
+			Expect(a.durable([]log.Record{c, &seal})).To(Succeed())
+			MustSucceed(s.Snapshot())
+			Expect(s.Err()).ToNot(HaveOccurred())
+			Expect(s.Channel(6).Segments).To(HaveLen(1))
+			Expect(s.Channel(6).Segments[0].Pointers).
+				To(Equal([]state.Pointer{pointer(n, 0, 40, 40, 12, 4, 1)}))
+			Expect(s.TakeDead()).To(BeEmpty())
+		})
+
 	It("Should apply a durable tombstone to what readers see", func() {
 		run(s)
 		MustSucceed(s.Snapshot())
