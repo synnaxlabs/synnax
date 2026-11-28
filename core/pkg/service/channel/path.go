@@ -11,6 +11,8 @@ package channel
 
 import (
 	"context"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
@@ -18,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // MatchPaths returns a filter for the channels at paths. A path is the names of the
@@ -154,4 +157,94 @@ func Paths(
 		}
 	}
 	return paths, nil
+}
+
+// visible reports whether a subject that allowed accepts can see each folder of p.
+func (p Path) visible(allowed func(resource.ID) bool) bool {
+	return lo.EveryBy(p.Folders, func(g group.Group) bool {
+		return allowed(g.ResourceID())
+	})
+}
+
+// KeysByPaths returns the key of the channel at each of paths, as a subject that
+// allowed accepts sees snap, or as anyone sees it when allowed is nil. A path that
+// holds only digits is a key. Any other path is the names of the folders from the top
+// level down and the name of the channel, joined by '.', so a path with no '.' is a
+// channel at the top level. Names compare in NFC. A channel that allowed refuses is
+// missing, and so is a path through a folder that it refuses. A key finds a channel in
+// any folder. The first missing path returns a query.ErrNotFound error that names the
+// paths of the channels of its last name that the subject can see.
+func (s *Service) KeysByPaths(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	allowed func(resource.ID) bool,
+	paths []string,
+) (Keys, error) {
+	if allowed == nil {
+		allowed = func(resource.ID) bool { return true }
+	}
+	keys := make(Keys, 0, len(paths))
+	for _, path := range paths {
+		match := MatchPaths(path)
+		if key, err := strconv.ParseUint(path, 10, 32); err == nil {
+			match = MatchKeys(Key(key))
+		}
+		var found []Channel
+		if err := s.NewRetrieve().
+			AllowFolders(allowed).
+			Where(match).
+			Entries(&found).
+			Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+		found = lo.Filter(found, func(ch Channel, _ int) bool {
+			return allowed(ch.ResourceID())
+		})
+		if len(found) == 0 {
+			return nil, s.notFound(ctx, snap, allowed, path)
+		}
+		keys = append(keys, found[0].Key())
+	}
+	return keys, nil
+}
+
+// notFound returns the query.ErrNotFound error of path, which names the path of each
+// channel of its last name that a subject that allowed accepts can see.
+func (s *Service) notFound(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	allowed func(resource.ID) bool,
+	path string,
+) error {
+	name := path[strings.LastIndexByte(path, pathSeparator)+1:]
+	var named []Channel
+	if err := s.NewRetrieve().
+		Where(MatchNames(normalizeName(name))).
+		Entries(&named).
+		Exec(ctx, snap); err != nil {
+		return err
+	}
+	named = lo.Filter(named, func(ch Channel, _ int) bool {
+		return allowed(ch.ResourceID())
+	})
+	paths, err := Paths(ctx, snap, named)
+	if err != nil {
+		return err
+	}
+	texts := PathTexts(paths)
+	var seen []string
+	for i, p := range paths {
+		if p.visible(allowed) {
+			seen = append(seen, texts[i])
+		}
+	}
+	if len(seen) == 0 {
+		return query.NotFound("%s does not exist", path)
+	}
+	slices.Sort(seen)
+	return query.NotFound(
+		"%s does not exist. Did you mean %s?",
+		path,
+		strings.Join(seen, ", "),
+	)
 }

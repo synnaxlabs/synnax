@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -146,27 +147,27 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	var (
-		resChannels []channel.Channel
-		q           = s.channel.NewRetrieve().Entries(&resChannels)
-		hasKeys     = len(req.Keys) > 0
-		hasNames    = len(req.Names) > 0
+	named, err := apichannel.LookUpToAct(
+		ctx,
+		tx,
+		s.access,
+		s.channel,
+		access.ActionDelete,
+		resource.TypeFramer,
+		req.Names,
 	)
-	// Early return for safety if a caller passes nothing, that way there is no
-	// accidental deletion of all data.
-	if !hasKeys && !hasNames {
-		return struct{}{}, nil
-	}
-	if hasKeys {
-		q = q.Where(channel.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(channel.MatchNames(channel.NormalizeNames(req.Names)...))
-	}
-	if err := q.Exec(ctx, tx); err != nil {
+	if err != nil {
 		return struct{}{}, err
 	}
-	keys := channel.KeysFromChannels(resChannels)
+	keys := slices.Concat(req.Keys, named)
+	var resChannels []channel.Channel
+	if err := s.channel.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&resChannels).
+		Exec(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	keys = channel.KeysFromChannels(resChannels)
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,

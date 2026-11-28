@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"strconv"
 	"sync"
 
@@ -18,7 +19,11 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -87,8 +92,10 @@ var _ = Describe("NewArcSymbolResolver", func() {
 
 	Describe("Filters", func() {
 		var visible, hidden channel.Channel
-		hide := func() channel.Filter {
-			return channel.Not(channel.MatchKeys(hidden.Key()))
+		hide := func() func(context.Context) (func(resource.ID) bool, error) {
+			return func(context.Context) (func(resource.ID) bool, error) {
+				return func(id resource.ID) bool { return id != hidden.ResourceID() }, nil
+			}
 		}
 		BeforeEach(func(ctx SpecContext) {
 			visible = channel.Channel{
@@ -120,7 +127,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})
 
 		It("Should not resolve a hidden channel by name", func(ctx SpecContext) {
-			r := svc.NewArcSymbolResolver(db, hide())
+			r := svc.NewSubjectResolver(db, hide())
 			Expect(r.Resolve(ctx, hidden.Name)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, visible.Name)).
@@ -128,7 +135,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})
 
 		It("Should not resolve a hidden channel by numeric key", func(ctx SpecContext) {
-			r := svc.NewArcSymbolResolver(db, hide())
+			r := svc.NewSubjectResolver(db, hide())
 			Expect(r.Resolve(ctx, strconv.Itoa(int(hidden.Key())))).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, strconv.Itoa(int(visible.Key())))).
@@ -143,11 +150,77 @@ var _ = Describe("NewArcSymbolResolver", func() {
 						HaveField("ID", int(hidden.Key())),
 					))
 			}).Should(Succeed())
-			Expect(svc.NewArcSymbolResolver(db, hide()).Search(ctx, "resolver_filter")).
+			Expect(svc.NewSubjectResolver(db, hide()).Search(ctx, "resolver_filter")).
 				To(SatisfyAll(
 					ContainElement(HaveField("ID", int(visible.Key()))),
 					Not(ContainElement(HaveField("ID", int(hidden.Key())))),
 				))
+		})
+	})
+
+	Context("Bare names in folders", Ordered, func() {
+		var (
+			db     *gorp.DB
+			svc    *channel.Service
+			folder group.Group
+		)
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			node := testutil.NewNode(ctx)
+			db = node.DB
+			cfg, groupSvc := serviceConfig(ctx, node, node.DB)
+			svc = MustOpen(channel.OpenService(ctx, cfg))
+			folder = MustSucceed(
+				groupSvc.CreateOrRetrieve(ctx, "Stand A", resource.TypeChannel),
+			)
+		})
+		create := func(ctx SpecContext, name string, g *group.Key) channel.Channel {
+			GinkgoHelper()
+			ch := channel.Channel{
+				Name:     name,
+				DataType: telem.Float32T,
+				Virtual:  true,
+				Group:    g,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			return ch
+		}
+
+		It("Should resolve a bare name whose one holder sits in a folder", func(
+			ctx SpecContext,
+		) {
+			ch := create(ctx, UniqueChannelName(), &folder.Key)
+			Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, ch.Name)).
+				To(HaveField("ID", int(ch.Key())))
+		})
+
+		It("Should resolve a channel that the subject can see in a folder that it "+
+			"cannot", func(ctx SpecContext) {
+			ch := create(ctx, UniqueChannelName(), &folder.Key)
+			r := svc.NewSubjectResolver(db, func(
+				context.Context,
+			) (func(resource.ID) bool, error) {
+				return func(id resource.ID) bool {
+					return id != folder.ResourceID()
+				}, nil
+			})
+			Expect(r.Resolve(ctx, ch.Name)).To(HaveField("ID", int(ch.Key())))
+			Expect(r.Resolve(ctx, ch.Key().String())).To(HaveField("ID", int(ch.Key())))
+		})
+
+		It("Should resolve the highest key of a bare name in two folders", func(
+			ctx SpecContext,
+		) {
+			lower := create(ctx, UniqueChannelName(), nil)
+			higher := create(ctx, UniqueChannelName(), &folder.Key)
+			// A v0.62 Core can store one name twice. The highest key wins, as there.
+			higher.Name = lower.Name
+			Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, higher)).
+				To(Succeed())
+			Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, lower.Name)).
+				To(HaveField("ID", int(higher.Key())))
 		})
 	})
 })

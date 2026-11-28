@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -247,13 +248,19 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 
 // NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by name or
 // numeric key, for analyzing and compiling Arc expressions such as calculated channels.
-// The resolver looks up channels in snap and sees only the channels that every filter
-// matches.
-func (s *Service) NewArcSymbolResolver(
+// The resolver looks up channels in snap.
+func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
+	return &symbolResolver{svc: s, snap: snap}
+}
+
+// NewSubjectResolver returns a resolver like NewArcSymbolResolver that sees only the
+// channels that a subject can retrieve, in any folder. access returns whether the
+// subject can retrieve a record, and the resolver calls it at each lookup.
+func (s *Service) NewSubjectResolver(
 	snap gorp.Snapshot,
-	filters ...Filter,
+	access func(context.Context) (func(resource.ID) bool, error),
 ) arc.SymbolResolver {
-	return &symbolResolver{svc: s, snap: snap, filters: filters}
+	return &symbolResolver{svc: s, snap: snap, access: access}
 }
 
 // CalculationInputs returns the stored channels that the calculated channels among

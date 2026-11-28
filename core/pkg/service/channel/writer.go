@@ -286,7 +286,7 @@ func (w Writer) DeleteManyByNames(
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(NormalizeNames(names)...)).
+		Where(MatchNames(normalizeNames(names)...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -361,7 +361,7 @@ func (w Writer) Rename(
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
-	newNames = NormalizeNames(newNames)
+	newNames = normalizeNames(newNames)
 	if err := w.rename(ctx, keys, newNames, allowInternal); err != nil {
 		return err
 	}
@@ -582,13 +582,13 @@ func addPosition(positions set.Set[int], at int) set.Set[int] {
 
 // resetStoredNames resets each channel whose name exists to its stored record. Of
 // channels in two folders with the name, it takes the one with the highest key, which a
-// v0.62 Core retrieved and Arc binds the name to.
+// v0.62 Core retrieved.
 func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,
 	reset set.Set[int],
 ) (set.Set[int], error) {
-	names := NormalizeNames(Names(channels))
+	names := normalizeNames(Names(channels))
 	var existing []Channel
 	if err := w.svc.newRetrieve().
 		Where(MatchNames(names...)).

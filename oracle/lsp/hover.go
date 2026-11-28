@@ -60,6 +60,8 @@ var hoverDocs = map[string]string{
 		"`pattern`",
 	"@filter": "**@filter**\n\nRetrieve requests can filter on this field.",
 	"@search": "**@search**\n\nRetrieve requests can search the text of this field.",
+	"@request": "**@request**\n\nAdds a retrieve option to a filter's request: a " +
+		"bool that is false by default.\n\nUse `@request <name> \"<doc>\"`.",
 	"@response": "**@response**\n\nSets the record type of a filter's retrieve " +
 		"response.\n\nUse `@response type <Type>`.",
 	"@include": "**@include**\n\nRetrieve requests can ask the Core to fill this " +

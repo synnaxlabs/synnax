@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -269,6 +271,59 @@ var _ = Describe("Metrics", func() {
 			svc = open(ctx)
 			Expect(retrieve(ctx, names[2]).Group).To(Equal(&custom.Key))
 			Expect(svc.Close()).To(Succeed())
+		})
+
+		It("Should report one status while a calculated metric does not compile, and "+
+			"clear it once the metric compiles", func(ctx SpecContext) {
+			names := getNames(dist.Identity.HostKey)
+			Expect(open(ctx).Close()).To(Succeed())
+			ts := retrieve(ctx, names[4])
+			total := retrieve(ctx, names[3])
+			text := channel.Channel{
+				Name:       ts.Name,
+				DataType:   telem.StringT,
+				LocalIndex: ts.LocalIndex,
+			}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				w := channelSvc.NewWriter(tx)
+				if err := w.Delete(ctx, ts.Key(), false); err != nil {
+					return err
+				}
+				if err := w.Delete(ctx, total.Key(), false); err != nil {
+					return err
+				}
+				return w.Create(ctx, &text)
+			})).To(Succeed())
+			deleteText := func(ctx SpecContext) {
+				GinkgoHelper()
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Delete(ctx, text.Key(), false)
+				})).To(Succeed())
+			}
+			DeferCleanup(func(ctx SpecContext) {
+				deleteText(ctx)
+				Expect(open(ctx).Close()).To(Succeed())
+			})
+			failures := func(ctx SpecContext) []status.Status[any] {
+				GinkgoHelper()
+				var all []status.Status[any]
+				Expect(statusSvc.NewRetrieve[any]().Entries(&all).Exec(ctx, dist.DB)).
+					To(Succeed())
+				return lo.Filter(all, func(s status.Status[any], _ int) bool {
+					return s.Message == "Failed to create calculated metrics"
+				})
+			}
+			Expect(open(ctx).Close()).To(Succeed())
+			Expect(open(ctx).Close()).To(Succeed())
+			st := failures(ctx)
+			Expect(st).To(HaveLen(1))
+			Expect(st[0].Variant).To(Equal(status.VariantError))
+			Expect(st[0].Description).To(ContainSubstring(
+				"type mismatch: cannot use str and f32 in + operation",
+			))
+			deleteText(ctx)
+			Expect(open(ctx).Close()).To(Succeed())
+			Expect(failures(ctx)).To(BeEmpty())
 		})
 	})
 	Describe("Run", func() {

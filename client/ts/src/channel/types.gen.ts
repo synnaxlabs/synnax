@@ -235,6 +235,14 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
   /** includePath includes the path of each record. */
   includePath: z.boolean().optional(),
+  /**
+   * strict looks up each key, name, and path of the where as the Core does: a name is
+   * the channel of that name at the top level, and a missing one fails as not found. A
+   * strict where holds only key, name, and path matches, at the top level or as the
+   * branches of one or. A strict retrieve takes no search term, order, cursor, or
+   * limit.
+   */
+  strict: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof payloadZ> {}

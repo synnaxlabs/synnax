@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -208,8 +209,7 @@ func (r RetrieveRequest) Named() []resource.ID {
 
 // Retrieve retrieves the channels that the request selects and that the subject can
 // retrieve. A channel that the top level of Where names by exact name or path needs
-// retrieve,
-// as a named key does.
+// retrieve, as a named key does.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -283,6 +283,12 @@ func (s *Service) retrieve(
 		where := channel.NormalizeWhere(*req.Where)
 		req.Where = &where
 	}
+	if req.Strict {
+		if err := checkStrict(req); err != nil {
+			return nil, err
+		}
+		return s.lookUp(ctx, snap, req.Where)
+	}
 	q, err := ApplyRetrieve(
 		req,
 		s.internal.NewRetrieve().AllowFolders(snap.Allowed).Entries(&res),
@@ -303,6 +309,128 @@ func (s *Service) retrieve(
 		}
 	}
 	return res, nil
+}
+
+// checkStrict returns a validation error when the strict retrieve req holds a search
+// term, an order, a cursor, or a limit, since a strict retrieve returns each channel
+// that it looks up.
+func checkStrict(req RetrieveRequest) error {
+	for _, f := range []struct {
+		path, name string
+		set        bool
+	}{
+		{"search_term", "search term", req.SearchTerm != ""},
+		{"order", "order", req.Order != nil},
+		{"after", "cursor", req.After != nil},
+		{"limit", "limit", req.Limit != nil},
+	} {
+		if f.set {
+			return validate.PathedError(
+				validate.Errorf("a strict retrieve takes no %s", f.name),
+				f.path,
+			)
+		}
+	}
+	return nil
+}
+
+// lookUp returns the channel at each key, name, and path of the strict where, as the
+// subject of snap sees them (channel.Service.KeysByPaths): a name is the channel of
+// that name at the top level. It returns a validation error when where holds a match
+// other than a key, name, or path, at the top level or as the branches of one or.
+func (s *Service) lookUp(
+	ctx context.Context,
+	snap bind.Snapshot,
+	where *channel.Where,
+) ([]channel.Channel, error) {
+	lookups, err := strictLookups(where)
+	if err != nil {
+		return nil, err
+	}
+	keys, err := s.internal.KeysByPaths(ctx, snap, snap.Allowed, lookups)
+	if err != nil {
+		return nil, err
+	}
+	var res []channel.Channel
+	return res, s.internal.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&res).
+		Exec(ctx, snap)
+}
+
+// strictLookups returns each key, name, and path that a strict where looks up, a key as
+// its digits, and a validation error when where holds a match other than a key, name,
+// or path.
+func strictLookups(where *channel.Where) ([]string, error) {
+	refuse := validate.PathedError(
+		validate.Errorf("a strict retrieve takes only key, name, and path matches"),
+		"where",
+	)
+	if where == nil {
+		return nil, refuse
+	}
+	branches := []channel.Where{*where}
+	if len(where.Or) > 0 {
+		if !lookupsOnly(*where) || where.Key != nil || where.Name != nil ||
+			where.Path != nil {
+			return nil, refuse
+		}
+		branches = where.Or
+	}
+	var lookups []string
+	for _, b := range branches {
+		var ok bool
+		if lookups, ok = appendBranchLookups(lookups, b); !ok {
+			return nil, refuse
+		}
+	}
+	return lookups, nil
+}
+
+// appendBranchLookups appends to lookups each key, name, and path that one branch of a
+// strict where looks up, and returns false when the branch holds any other match.
+func appendBranchLookups(lookups []string, b channel.Where) ([]string, bool) {
+	if !lookupsOnly(b) || len(b.Or) > 0 || !looksUp(b) {
+		return nil, false
+	}
+	if k := b.Key; k != nil {
+		for _, key := range append(slices.Clone(k.In), lo.FromPtr(k.Eq)) {
+			if key != 0 {
+				lookups = append(lookups, key.String())
+			}
+		}
+	}
+	if n := b.Name; n != nil {
+		if n.Contains != nil || n.StartsWith != nil || n.Regex != nil ||
+			n.CaseInsensitive {
+			return nil, false
+		}
+		lookups = append(lookups, n.In...)
+		if n.Eq != nil {
+			lookups = append(lookups, *n.Eq)
+		}
+	}
+	if p := b.Path; p != nil {
+		lookups = append(lookups, p.In...)
+		if p.Eq != nil {
+			lookups = append(lookups, *p.Eq)
+		}
+	}
+	return lookups, true
+}
+
+// looksUp reports whether w holds a key, name, or path to look up.
+func looksUp(w channel.Where) bool {
+	return w.Key != nil && (w.Key.Eq != nil || len(w.Key.In) > 0) ||
+		w.Name != nil && (w.Name.Eq != nil || len(w.Name.In) > 0) ||
+		w.Path != nil && (w.Path.Eq != nil || len(w.Path.In) > 0)
+}
+
+// lookupsOnly reports whether w holds no match but key, name, path, and or.
+func lookupsOnly(w channel.Where) bool {
+	return len(w.And) == 0 && w.Not == nil && w.Leaseholder == nil &&
+		w.DataType == nil && w.IsIndex == nil && w.Internal == nil &&
+		w.Virtual == nil && len(w.Groups) == 0 && w.Grouped == nil
 }
 
 // namedExactly reports whether the top level of where names channels by exact name or
@@ -392,23 +520,64 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
-// Delete deletes the channels that the request names by key or by name. Deleting an
-// internal channel is a validation error.
+// Delete deletes the channels that the request names by key or by path
+// (channel.Service.KeysByPaths), as the subject of ctx sees them. Deleting an internal
+// channel is a validation error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	w := s.internal.NewWriter(tx)
-	if len(req.Keys) > 0 {
-		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
-			return struct{}{}, err
+	named, err := LookUpToAct(
+		ctx,
+		tx,
+		s.access,
+		s.internal,
+		access.ActionDelete,
+		resource.TypeChannel,
+		req.Names,
+	)
+	if err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.NewWriter(tx).
+		DeleteMany(ctx, slices.Concat(req.Keys, named), false)
+}
+
+// LookUpToAct returns the key of the channel at each of paths
+// (channel.Service.KeysByPaths), as the subject of ctx sees tx to take action on the
+// resources of type object that have the keys of the channels. A channel counts when
+// the subject can retrieve it or take action on its resource of type object. A folder
+// counts when the subject can retrieve it or take action on it. It returns no keys for
+// no paths.
+func LookUpToAct(
+	ctx context.Context,
+	tx gorp.Tx,
+	rbacSvc *rbac.Service,
+	channels *channel.Service,
+	action access.Action,
+	object resource.Type,
+	paths []string,
+) (channel.Keys, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	subject := auth.GetSubject(ctx)
+	policies, err := rbacSvc.NewEnforcer(tx).Policies(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+	retrieve := rbac.Allows(subject, policies, access.ActionRetrieve)
+	act := rbac.Allows(subject, policies, action)
+	return channels.KeysByPaths(ctx, tx, func(id resource.ID) bool {
+		if retrieve(id) {
+			return true
 		}
-	}
-	if len(req.Names) > 0 {
-		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
-	}
-	return struct{}{}, nil
+		if id.Type == resource.TypeChannel {
+			id.Type = object
+		}
+		return act(id)
+	}, paths)
 }
 
 // DispatchRequest carries an action sequence to apply to a single channel. DispatchKey

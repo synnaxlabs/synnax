@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/pprof"
+	"slices"
 	"time"
 
 	"github.com/samber/lo"
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
@@ -215,41 +217,30 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-// createChannels creates the index and metric channels, retrieving any that already
-// exist by name. It returns the metrics bound to their stored channels.
+// createChannels finds or creates the index and metric channels. It returns the metrics
+// bound to their stored channels.
 func (s *Service) createChannels(
 	ctx context.Context,
 	namePrefix string,
 ) ([]metric, []channel.Channel, error) {
-	idx := channel.Channel{
-		Name:     namePrefix + "time",
-		DataType: telem.TimestampT,
-		IsIndex:  true,
-		Group:    &s.group.Key,
-	}
 	var (
 		metrics         []metric
 		metricsChannels []channel.Channel
 	)
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		chWriter := s.cfg.Channel.NewWriter(tx)
-		if err := chWriter.Create(
-			ctx,
-			&idx,
-			channel.RetrieveIfNameExists(),
-		); err != nil {
+		idx := []channel.Channel{{
+			Name:     namePrefix + "time",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}}
+		if err := s.findOrCreate(ctx, tx, idx); err != nil {
 			return err
 		}
-		metrics = s.createMetrics(namePrefix, idx.LocalKey)
+		metrics = s.createMetrics(namePrefix, idx[0].LocalKey)
 		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
-			m.ch.Group = &s.group.Key
 			return m.ch
 		})
-		if err := chWriter.CreateMany(
-			ctx,
-			&metricsChannels,
-			channel.RetrieveIfNameExists(),
-		); err != nil {
+		if err := s.findOrCreate(ctx, tx, metricsChannels); err != nil {
 			return err
 		}
 		for i, ch := range metricsChannels {
@@ -262,21 +253,61 @@ func (s *Service) createChannels(
 	return metrics, metricsChannels, nil
 }
 
+// createCalculatedChannels finds or creates the calculated metrics. A calculated metric
+// that does not compile, such as one that reads a channel of another data type, is an
+// error status of the host and never stops the service. A create that compiles deletes
+// that status.
 func (s *Service) createCalculatedChannels(
 	ctx context.Context,
 	namePrefix string,
 ) error {
-	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		calculatedChannels := createCalculatedMetrics(namePrefix)
-		for i := range calculatedChannels {
-			calculatedChannels[i].Group = &s.group.Key
-		}
-		return s.cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&calculatedChannels,
-			channel.RetrieveIfNameExists(),
-		)
+	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.findOrCreate(ctx, tx, createCalculatedMetrics(namePrefix))
 	})
+	key := node.ResourceID(s.cfg.HostKey).String() + ":metrics:calculated"
+	if err == nil {
+		return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return s.cfg.Status.NewWriter(tx).Delete(ctx, key)
+		})
+	}
+	diags, ok := errors.AsType[*diagnostics.Diagnostics](err)
+	if !ok {
+		return err
+	}
+	st := status.Status[any]{
+		Key:         key,
+		Name:        "Calculated metrics",
+		Variant:     status.VariantError,
+		Message:     "Failed to create calculated metrics",
+		Description: diags.Error(),
+		Time:        telem.Now(),
+	}
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.cfg.Status.NewWriter(tx).Set(ctx, &st)
+	})
+}
+
+// findOrCreate sets each of chs to the stored channel of its name
+// (channel.RetrieveIfNameExists), and creates each other one in the folder of the
+// metrics.
+func (s *Service) findOrCreate(
+	ctx context.Context,
+	tx gorp.Tx,
+	chs []channel.Channel,
+) error {
+	created := slices.Clone(chs)
+	for i := range created {
+		created[i].Group = &s.group.Key
+	}
+	if err := s.cfg.Channel.NewWriter(tx).CreateMany(
+		ctx,
+		&created,
+		channel.RetrieveIfNameExists(),
+	); err != nil {
+		return err
+	}
+	copy(chs, created)
+	return nil
 }
 
 // Run writes the host metrics on each CollectionInterval until ctx ends. It then

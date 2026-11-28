@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -30,9 +31,11 @@ import (
 // can appear or disappear at runtime, so they cannot be snapshotted into the ambient
 // prelude at analysis time.
 type symbolResolver struct {
-	svc     *Service
-	snap    gorp.Snapshot
-	filters []Filter
+	svc  *Service
+	snap gorp.Snapshot
+	// access returns whether the subject of the resolver can retrieve a record, or is
+	// nil when the resolver sees every channel and folder.
+	access func(context.Context) (func(resource.ID) bool, error)
 }
 
 var _ symbol.Resolver = (*symbolResolver)(nil)
@@ -47,12 +50,23 @@ func toSymbol(ch Channel) *symbol.Symbol {
 	}
 }
 
-func (r *symbolResolver) retrieve() Retrieve {
+// retrieve returns a query that sees only what the subject of r can retrieve.
+func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
 	q := r.svc.NewRetrieve()
-	for _, f := range r.filters {
-		q = q.Where(f)
+	if r.access == nil {
+		return q, nil
 	}
-	return q
+	allowed, err := r.access(ctx)
+	if err != nil {
+		return q, err
+	}
+	return q.Where(Match(func(
+		_ gorp.Context,
+		_ Retrieve,
+		ch *Channel,
+	) (bool, error) {
+		return allowed(ch.ResourceID()), nil
+	})), nil
 }
 
 // Resolve resolves a single cluster channel by name, compared in NFC, or by numeric
@@ -62,16 +76,18 @@ func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
 ) (*symbol.Symbol, error) {
-	var (
-		matches []Channel
-		q       = r.retrieve().Entries(&matches)
-	)
+	q, err := r.retrieve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var matches []Channel
+	q = q.Entries(&matches)
 	if key, err := strconv.ParseUint(name, 10, 32); err == nil {
 		q = q.Where(MatchKeys(Key(key)))
 	} else {
 		q = q.Where(MatchNames(normalizeName(name)))
 	}
-	if err := q.Exec(ctx, r.snap); err != nil {
+	if err = q.Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	if len(matches) == 0 {
@@ -87,8 +103,12 @@ func (r *symbolResolver) Search(
 	ctx context.Context,
 	name string,
 ) ([]*symbol.Symbol, error) {
+	q, err := r.retrieve(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var results []Channel
-	if err := r.retrieve().
+	if err = q.
 		Where(MatchInternal(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.snap); err != nil {

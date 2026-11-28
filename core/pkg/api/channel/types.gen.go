@@ -148,6 +148,12 @@ type RetrieveRequest struct {
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 	// IncludePath includes the path of each record.
 	IncludePath bool `json:"include_path" msgpack:"include_path"`
+	// Strict looks up each key, name, and path of the where as the Core does: a name is
+	// the channel of that name at the top level, and a missing one fails as not found.
+	// A strict where holds only key, name, and path matches, at the top level or as the
+	// branches of one or. A strict retrieve takes no search term, order, cursor, or
+	// limit.
+	Strict bool `json:"strict" msgpack:"strict"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

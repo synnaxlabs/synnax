@@ -742,10 +742,11 @@ var _ = Describe("Framer", func() {
 				Expect(iter.Close()).To(Succeed())
 				return found
 			}
+			// Each name is a path, so ".*" names a channel "*" in a folder.
 			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 				Names:  []string{index.Name + ".*", data.Name + ".*"},
 				Bounds: telem.TimeRangeMax,
-			})).Error().ToNot(HaveOccurred())
+			})).Error().To(MatchError(query.ErrNotFound))
 			Expect(hasData()).To(BeTrue())
 			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 				Names:  []string{index.Name, data.Name},

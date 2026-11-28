@@ -110,6 +110,27 @@ var _ = Describe("Unique names", Ordered, func() {
 		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
 	})
 
+	It("Should refuse two new channels of one name in two folders before any key",
+		func(ctx SpecContext) {
+			first := virtual(UniqueChannelName())
+			Expect(create(ctx, &first)).To(Succeed())
+			name := UniqueChannelName()
+			inFolder := virtual(name)
+			inFolder.Group = &folder.Key
+			chs := []channel.Channel{inFolder, virtual(name)}
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &chs)
+			})
+			Expect(err).To(MatchError(ContainSubstring(
+				fmt.Sprintf("duplicate channel name '%s' in request", name),
+			)))
+			pathErr := MustBeOk(errors.AsType[validate.PathError](err))
+			Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+			next := virtual(UniqueChannelName())
+			Expect(create(ctx, &next)).To(Succeed())
+			Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
+		})
+
 	It("Should use no channel key on a create into a taken name", func(
 		ctx SpecContext,
 	) {

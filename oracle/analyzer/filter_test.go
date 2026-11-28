@@ -484,6 +484,54 @@ var _ = Describe("Filter definitions", func() {
 	})
 
 	Describe("Retrieve request", func() {
+		It("Should add a bool retrieve option for each @request expression", func() {
+			table, diag := Analyze(`
+				import "schemas/x/filter"
+
+				@go output "out"
+
+				Thing struct {
+					key  uuid   { @key }
+					name string { @filter }
+				}
+				Where filter Thing {
+					key
+					name
+					@request strict "refuses each name that several things hold."
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form, ok := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			option, found := lo.Find(form.Fields, func(f resolution.Field) bool {
+				return f.Name == "strict"
+			})
+			Expect(found).To(BeTrue())
+			Expect(option.Type.Name).To(Equal("bool"))
+			Expect(option.Default).ToNot(BeNil())
+			Expect(option.Default.Kind).To(Equal(resolution.ValueKindBool))
+			Expect(option.Default.BoolValue).To(BeFalse())
+		})
+
+		It("Should refuse an @request expression with no doc string", func() {
+			_, diag := Analyze(`
+				import "schemas/x/filter"
+
+				@go output "out"
+
+				Thing struct {
+					key uuid { @key }
+				}
+				Where filter Thing {
+					key
+					@request strict
+				}
+			`, "test", loader)
+			Expect(diag.String()).To(ContainSubstring(
+				"filter Where: @request strict takes one doc string",
+			))
+		})
+
 		It("Should derive the request and response", func() {
 			table, diag := Analyze(`
 				import "schemas/x/filter"

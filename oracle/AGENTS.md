@@ -344,6 +344,9 @@ line's value. `@go match <Func>` on the line calls an existing matcher instead, 
 `nested bool { @go match MatchHasParent }`. A line that takes an operator cannot carry
 it.
 
+`@request <name> "<doc>"` on a filter adds a retrieve option to its request: a bool that
+is false by default, with doc as its doc comment.
+
 `@index sorted` with several values on a struct field declares one sorted index per
 sub-field: `@index sorted start end` on `time_range` gives `OrderByTimeRangeStart` and
 `OrderByTimeRangeEnd`. Hand-written matchers filter each index by a range of values with
