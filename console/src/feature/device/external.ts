@@ -13,7 +13,9 @@ import { Kafka } from "@/feature/kafka";
 import { Modbus } from "@/feature/modbus";
 import { MQTT } from "@/feature/mqtt";
 import { OPCUA } from "@/feature/opcua";
+import { Serial } from "@/feature/serial";
 import { Sift } from "@/feature/sift";
+import { FLAGS } from "@/flags";
 import type { Command } from "@/platform/command";
 
 export * from "@/feature/device/Connect";
@@ -34,4 +36,5 @@ export const COMMANDS: Command.Command[] = [
   ...MQTT.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,
   ...Sift.Device.COMMANDS,
+  ...(FLAGS.bus ? Serial.Device.COMMANDS : []),
 ];
