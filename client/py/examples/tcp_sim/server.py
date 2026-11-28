@@ -31,7 +31,7 @@ async def run_server(host: str, port: int, rate: float, received: str) -> None:
     # Windows opens a file in text mode, which turns each newline into two bytes, unless
     # O_BINARY is set.
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
-    out = os.open(received, flags, 0o644)
+    out = os.open(received, flags, 0o600)
 
     async def serve(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         async def send() -> None:
