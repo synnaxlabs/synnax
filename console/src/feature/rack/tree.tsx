@@ -221,6 +221,15 @@ const TreeItem = Tree.createItem({
           ),
         ]
       : []),
+    ...(FLAGS.typedLabJackDevices
+      ? [
+          Tree.createSource(
+            client.labjack.devices,
+            { where: { rack: { eq: Number(id.key) } } },
+            Tree.toResource("labjack_device"),
+          ),
+        ]
+      : []),
   ],
   canDrop: (props) =>
     props.moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) &&

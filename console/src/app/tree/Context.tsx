@@ -13,6 +13,7 @@ import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
+import { LabJack } from "@/feature/labjack";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { NI } from "@/feature/ni";
@@ -47,6 +48,7 @@ const TREE_ITEMS: Tree.Items = {
   ...(FLAGS.typedNIDevices
     ? { ...NI.Chassis.TREE_ITEMS, ...NI.Device.TREE_ITEMS }
     : {}),
+  ...(FLAGS.typedLabJackDevices ? LabJack.Device.TREE_ITEMS : {}),
   ...Group.createTreeItems(GROUP_MEMBERS),
   ...LinePlot.TREE_ITEMS,
   ...Log.TREE_ITEMS,

@@ -10,4 +10,5 @@
 export * from "@/feature/labjack/device/hardware";
 export * from "@/feature/labjack/device/queries";
 export * from "@/feature/labjack/device/Select";
+export * from "@/feature/labjack/device/tree";
 export * from "@/feature/labjack/device/types";
