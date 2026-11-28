@@ -302,8 +302,15 @@ func (s *Source) Decode(data []byte) (samples []Sample, ok bool, err error) {
 			continue
 		}
 		grp := &s.groups[g]
+		// A binary payload holds no sample for a field that its multiplexors do not
+		// select, and a group writes only when it has each of its samples.
+		unselected := false
 		for j, b := range grp.bindings {
 			grp.data[j] = s.samples[r][b]
+			unselected = unselected || len(grp.data[j]) == 0
+		}
+		if unselected {
+			continue
 		}
 		sample := Sample{Group: g, Data: grp.data}
 		if grp.stamp >= 0 {

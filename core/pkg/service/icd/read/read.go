@@ -438,7 +438,90 @@ func (c Checker) message(
 			return icd.Message{}, err
 		}
 	}
+	if p, ok := msg.Payload.Variant.(icd.BinaryPayload); ok {
+		if err := c.checkSelections(rm, p, path); err != nil {
+			return icd.Message{}, err
+		}
+	}
 	return msg, nil
+}
+
+// checkSelections returns a validation error at the path of a binding of rm whose
+// channel shares an index channel with the channel of an earlier binding, when
+// different multiplexor values of p select their fields. A payload would then write the
+// index and one channel without the other.
+func (c Checker) checkSelections(
+	rm icd.ReadMessage,
+	p icd.BinaryPayload,
+	path []string,
+) error {
+	type selected struct {
+		name string
+		sel  selection
+	}
+	fields := make(map[icd.FieldKey]selected, len(p.Fields))
+	for _, f := range p.Fields {
+		fields[f.Base().Key] = selected{name: f.Base().Name, sel: selectionOf(f)}
+	}
+	first := make(map[channel.Key]selected, len(rm.Bindings))
+	for j, b := range rm.Bindings {
+		ch, ok := c.channels[b.Channel]
+		if !ok || ch.IndexKey == 0 {
+			continue
+		}
+		f := fields[b.Field]
+		seen, ok := first[ch.IndexKey]
+		if !ok {
+			first[ch.IndexKey] = f
+			continue
+		}
+		if seen.sel.equal(f.sel) {
+			continue
+		}
+		return validate.PathedError(validate.Errorf(
+			"fields %s and %s write to one index channel, but different multiplexor "+
+				"values select them",
+			seen.name,
+			f.name,
+		), slices.Concat(path, []string{"bindings", strconv.Itoa(j)})...)
+	}
+	return nil
+}
+
+// selection is the multiplexor of a binary field and the sorted values of it that
+// select the field. It is zero for a field that each payload holds: one with no
+// multiplexor, or with a default.
+type selection struct {
+	multiplexor icd.FieldKey
+	values      []int32
+}
+
+func selectionOf(f icd.BinaryField) selection {
+	b := f.Base()
+	if b.Multiplexor == nil || defaulted(f) {
+		return selection{}
+	}
+	return selection{
+		multiplexor: *b.Multiplexor,
+		values:      slices.Sorted(slices.Values(b.MultiplexValues)),
+	}
+}
+
+func (s selection) equal(o selection) bool {
+	return s.multiplexor == o.multiplexor && slices.Equal(s.values, o.values)
+}
+
+func defaulted(f icd.BinaryField) bool {
+	switch v := f.Variant.(type) {
+	case icd.FloatBinaryField:
+		return v.Default != nil
+	case icd.IntegerBinaryField:
+		return v.Default != nil
+	case icd.UnsignedBinaryField:
+		return v.Default != nil
+	default:
+		panic(errors.Newf("read: unknown binary field variant %T", v))
+	}
 }
 
 // checkIndex checks the index field of rm, which has one, against fields, the fields

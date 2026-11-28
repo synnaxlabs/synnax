@@ -366,6 +366,57 @@ var _ = Describe("Source", func() {
 			}))
 		})
 
+		It(
+			"Should not give the group of a field that the multiplexors of a payload do "+
+				"not select",
+			func(ctx SpecContext) {
+				field := func(
+					name string,
+					offset uint16,
+					mux *icd.FieldKey,
+					values ...int32,
+				) icd.BinaryField {
+					return icd.BinaryField{Variant: icd.UnsignedBinaryField{
+						BinaryBaseField: icd.BinaryBaseField{
+							Key:             uuid.New(),
+							Name:            name,
+							Scale:           1,
+							StartBit:        offset * 8,
+							BitLength:       8,
+							ByteOrder:       icd.ByteOrderLittleEndian,
+							Multiplexor:     mux,
+							MultiplexValues: values,
+						},
+					}}
+				}
+				mode := field("mode", 0, nil)
+				a := field("a", 1, new(mode.Base().Key), 0)
+				b := field("b", 2, new(mode.Base().Key), 1)
+				muxed := icd.Message{
+					Key:  uuid.New(),
+					Name: "Muxed",
+					Payload: icd.Payload{Variant: icd.BinaryPayload{
+						Fields: []icd.BinaryField{mode, a, b},
+					}},
+				}
+				ic := icd.ICD{
+					Key:      uuid.New(),
+					Name:     "Plant",
+					Messages: []icd.Message{muxed},
+				}
+				src := bindRead(ctx, ic, readOf(
+					muxed,
+					icd.ReadBinding{Field: a.Base().Key, Channel: tempCh},
+					icd.ReadBinding{Field: b.Base().Key, Channel: levelCh},
+				))
+				samples, ok := MustSucceed2(src.Decode([]byte{1, 5, 7}))
+				Expect(ok).To(BeTrue())
+				Expect(
+					samples,
+				).To(Equal([]read.Sample{{Group: 1, Data: [][]byte{f64(7)}}}))
+			},
+		)
+
 		It("Should drop the group of a binary field that the payload is too short for",
 			func(ctx SpecContext) {
 				samples, ok, err := bindRead(ctx, plant, frameRead).Decode([]byte{0x10})

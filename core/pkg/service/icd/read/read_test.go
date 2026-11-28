@@ -334,6 +334,89 @@ var _ = Describe("Read", func() {
 				},
 			)
 
+			Describe("Multiplexed binary fields", func() {
+				field := func(
+					name string,
+					offset uint16,
+					mux *icd.FieldKey,
+					values ...int32,
+				) icd.BinaryField {
+					return icd.BinaryField{Variant: icd.UnsignedBinaryField{
+						BinaryBaseField: icd.BinaryBaseField{
+							Key:             uuid.New(),
+							Name:            name,
+							Scale:           1,
+							StartBit:        offset * 8,
+							BitLength:       8,
+							ByteOrder:       icd.ByteOrderLittleEndian,
+							Multiplexor:     mux,
+							MultiplexValues: values,
+						},
+					}}
+				}
+				var (
+					mode  = field("mode", 0, nil)
+					a     = field("a", 1, new(mode.Base().Key), 0, 2)
+					same  = field("same", 2, new(mode.Base().Key), 2, 0)
+					b     = field("b", 3, new(mode.Base().Key), 1)
+					plain = field("plain", 4, nil)
+					muxed = icd.Message{
+						Key:  uuid.New(),
+						Name: "Muxed",
+						Payload: icd.Payload{Variant: icd.BinaryPayload{
+							Fields: []icd.BinaryField{mode, a, same, b, plain},
+						}},
+					}
+					panel = icd.ICD{
+						Key: uuid.New(), Name: "Panel", Messages: []icd.Message{muxed},
+					}
+				)
+				checkMuxed := func(
+					ctx context.Context,
+					first, second icd.BinaryField,
+					secondCh channel.Key,
+				) error {
+					GinkgoHelper()
+					rd := readAt(0, panel.Key, readOf(
+						muxed,
+						icd.ReadBinding{Field: first.Base().Key, Channel: valueKey},
+						icd.ReadBinding{Field: second.Base().Key, Channel: secondCh},
+					))
+					c := MustSucceed(resolver.NewChecker(
+						ctx,
+						db,
+						[]read.Read{rd},
+						nil,
+						map[icd.Key]icd.ICD{panel.Key: panel},
+					))
+					return c.Read(rd)
+				}
+
+				It("Should accept two fields on one index channel that the same "+
+					"multiplexor values select", func(ctx SpecContext) {
+					Expect(checkMuxed(ctx, a, same, levelKey)).To(Succeed())
+				})
+
+				It("Should accept fields that different multiplexor values select on "+
+					"two index channels", func(ctx SpecContext) {
+					Expect(checkMuxed(ctx, a, b, pressureKey)).To(Succeed())
+				})
+
+				DescribeTable("Should reject two fields on one index channel that "+
+					"different multiplexor values select",
+					func(ctx SpecContext, second icd.BinaryField, name string) {
+						Expect(checkMuxed(ctx, a, second, levelKey)).To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError("reads.0.messages.0.bindings.1: fields a and "+
+								name+" write to one index channel, but different "+
+								"multiplexor values select them"),
+						))
+					},
+					Entry("another value of the same multiplexor", b, "b"),
+					Entry("a field that each payload holds", plain, "plain"),
+				)
+			})
+
 			It("Should reject a read of messages of different formats", func(
 				ctx SpecContext,
 			) {
