@@ -934,7 +934,7 @@ var _ = Describe("TDMS", func() {
 						read(ctx, index, channels...),
 					)))
 					keyed := fmt.Sprintf("%s (%s)", channels[1].Name, channels[1].Key())
-					var paths []string
+					paths := make([]string, 0, len(segments[0].objects))
 					for _, o := range segments[0].objects {
 						paths = append(paths, o.path)
 					}
