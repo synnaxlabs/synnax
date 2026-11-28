@@ -30,3 +30,16 @@ const (
 
 // Config configures an Arc task, which runs a compiled Arc module.
 type Config = versions.Config
+
+// Scope is a top-level sequence or stage of the program that runs.
+type Scope struct {
+	// Path is the key of a top-level sequence or stage, then the key of each active
+	// step below it, down to a step that is not a sequence.
+	Path []string `json:"path" msgpack:"path"`
+}
+
+// StatusData is the status data of an Arc task.
+type StatusData struct {
+	// Scopes are the top-level scopes that run, in program order.
+	Scopes []Scope `json:"scopes" msgpack:"scopes"`
+}

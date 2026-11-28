@@ -105,15 +105,29 @@ type UpdateRequest struct {
 	Key server.Key `json:"key" msgpack:"key"`
 }
 
+// UpdateResponse carries the server as stored after an update.
+type UpdateResponse struct {
+	// Server is the stored server, without its status.
+	Server server.Server `json:"server" msgpack:"server"`
+}
+
 // Update writes the field group of req to the server stored under req.Key, as
-// server.Writer.Apply does. It returns a validation error when the request carries no
-// group.
+// server.Writer.Apply does. It returns the stored server, or a validation error when
+// the request carries no group.
 func (s *Service) Update(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateRequest,
-) (struct{}, error) {
-	return struct{}{}, s.cfg.Server.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+) (UpdateResponse, error) {
+	if err := s.cfg.Server.NewWriter(tx).Apply(ctx, req.Key, req.Update); err != nil {
+		return UpdateResponse{}, err
+	}
+	var res UpdateResponse
+	err := s.cfg.Server.NewRetrieve().
+		Where(server.MatchKeys(req.Key)).
+		Entry(&res.Server).
+		Exec(ctx, tx)
+	return res, err
 }
 
 // DeleteRequest carries the keys of the servers to delete.

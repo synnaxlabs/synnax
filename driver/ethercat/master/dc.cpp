@@ -35,7 +35,7 @@ resolve_dc(const std::vector<slave::DiscoveryResult> &slaves, const Plan &plan) 
                         "module {} ({}) cannot use its chosen mode: {}",
                         props.position,
                         props.name,
-                        select_err.data
+                        select_err.data()
                     )
                 )
             };
@@ -56,7 +56,7 @@ resolve_dc(const std::vector<slave::DiscoveryResult> &slaves, const Plan &plan) 
                         props.position,
                         props.name,
                         period.to_string(),
-                        err.data
+                        err.data()
                     )
                 )
             };

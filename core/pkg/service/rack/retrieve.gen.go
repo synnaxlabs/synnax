@@ -58,9 +58,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Rack, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Rack, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Rack, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -72,9 +74,9 @@ func newIndexes() indexes {
 			Targets: func(e *Rack) []role.Key {
 				return []role.Key{e.Role}
 			},
-			Retarget: func(e *Rack, from, to role.Key) {
-				if e.Role == from {
-					e.Role = to
+			Retarget: func(e *Rack, to map[role.Key]role.Key) {
+				if t, ok := to[e.Role]; ok {
+					e.Role = t
 				}
 			},
 		}),

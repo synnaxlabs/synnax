@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mochi-mqtt/server/v2/packets"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -527,6 +528,27 @@ var _ = Describe("Scan task", func() {
 			})
 		})
 
+		DescribeTable("Should report the end of the command during a stage",
+			func(ctx SpecContext, properties msgpack.EncodedJSON) {
+				properties["port"] = startSilentServer()
+				configured, t := scan(ctx)
+				limited, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+				defer cancel()
+				Expect(configured.Exec(limited, task.Command{
+					Type: "test_connection",
+					Key:  "test",
+					Args: msgpack.EncodedJSON{
+						"location": "127.0.0.1", "properties": properties,
+					},
+				})).To(Succeed())
+				stat := answered(ctx, t, "test")
+				Expect(stat.Message).To(Equal("Failed to execute command"))
+				expectError(stat, Equal(context.DeadlineExceeded.Error()))
+			},
+			Entry("the dial", msgpack.EncodedJSON{"secure": true}),
+			Entry("the probe", msgpack.EncodedJSON{}),
+		)
+
 		DescribeTable("Should reject properties that are not valid",
 			func(
 				ctx SpecContext,
@@ -628,7 +650,11 @@ var _ = Describe("Scan task", func() {
 
 		field := func(pointer, t, sample string, kind payload.Kind) map[string]any {
 			return map[string]any{
-				"pointer": pointer, "type": t, "sample": sample, "kind": string(kind),
+				"pointer": pointer,
+				"type":    t,
+				"sample":  sample,
+				"kind":    string(kind),
+				"enum":    []any{},
 			}
 		}
 
@@ -756,6 +782,25 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
+		It("Should give the labels of a string field that repeats a few values",
+			func(ctx SpecContext) {
+				broker.publish("plant/a", `{"state": "ON"}`, true)
+				publishUntilDone(broker, "plant/a", `{"state": "OFF"}`)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(oneShape(HaveKeyWithValue("fields", []any{
+					map[string]any{
+						"pointer": "/state",
+						"type":    "string",
+						"sample":  `"OFF"`,
+						"kind":    "string",
+						"enum":    []any{"OFF", "ON"},
+					},
+				})))
+			},
+		)
+
 		It("Should give every scalar of a payload longer than its sample",
 			func(ctx SpecContext) {
 				long := strings.Repeat("x", 300)
@@ -834,6 +879,7 @@ var _ = Describe("Scan task", func() {
 							"sample":      strconv.FormatInt(ms+1, 10),
 							"kind":        "timestamp",
 							"time_format": "unix_ms",
+							"enum":        []any{},
 						},
 						field("/v", "number", "2", payload.KindFloat),
 					}),
@@ -872,6 +918,7 @@ var _ = Describe("Scan task", func() {
 								"sample":      strconv.FormatInt(ms, 10),
 								"kind":        "timestamp",
 								"time_format": "unix_ms",
+								"enum":        []any{},
 							},
 							field("/code", "number", "3", payload.KindInteger),
 						}),
@@ -1067,6 +1114,186 @@ var _ = Describe("Scan task", func() {
 				"Devices with keys [missing] not found: not found: query",
 			))
 		})
+	})
+
+	Describe("Browse failures", func() {
+		// command sends a command of cmdType about dev to a scan task and returns its
+		// answer.
+		command := func(
+			ctx context.Context,
+			dev device.Device,
+			cmdType string,
+			args msgpack.EncodedJSON,
+		) task.Status {
+			GinkgoHelper()
+			args["device"] = dev.Key
+			args["duration"] = 50
+			configured, t := scan(ctx)
+			return answer(ctx, configured, t, task.Command{
+				Type: cmdType, Key: cmdType, Args: args,
+			})
+		}
+
+		expectReply := func(
+			stat task.Status,
+			message string,
+			description types.GomegaMatcher,
+		) {
+			GinkgoHelper()
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal(message))
+			Expect(stat.Description).To(description)
+		}
+
+		DescribeTable("Should report a broker that it cannot reach",
+			func(ctx SpecContext, cmdType string, args msgpack.EncodedJSON) {
+				broker := startBroker(0)
+				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
+				broker.stop()
+				expectReply(
+					command(ctx, dev, cmdType, args),
+					"Failed to reach broker",
+					SatisfyAll(
+						HavePrefix(fmt.Sprintf(
+							"Could not reach 127.0.0.1:%d: ", broker.port,
+						)),
+						ContainSubstring("refused"),
+					),
+				)
+			},
+			Entry("a browse", "browse", msgpack.EncodedJSON{}),
+			Entry("a sample", "sample", msgpack.EncodedJSON{
+				"topics": []string{"plant/a"},
+			}),
+			Entry("a browse of Sparkplug B nodes",
+				"browse_sparkplug", msgpack.EncodedJSON{},
+			),
+			Entry("a browse of Sparkplug B tags",
+				"browse_sparkplug",
+				msgpack.EncodedJSON{"group": "plant", "edge_node": "line-1"},
+			),
+		)
+
+		DescribeTable("Should report why the broker refuses a browse",
+			func(
+				ctx SpecContext,
+				options func() brokerOptions,
+				properties msgpack.EncodedJSON,
+				message string,
+				description types.GomegaMatcher,
+			) {
+				broker := startBrokerWith(options())
+				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
+				expectReply(
+					command(ctx, dev, "browse", msgpack.EncodedJSON{}),
+					message,
+					description,
+				)
+			},
+			Entry("credentials that it rejects",
+				func() brokerOptions {
+					return brokerOptions{username: "operator", password: "valve-7"}
+				},
+				msgpack.EncodedJSON{"username": "operator", "password": "wrong"},
+				"Authentication failed",
+				Equal("the broker rejected the username or password: not Authorized. "+
+					"Check the username and the password."),
+			),
+			Entry("a client ID that it rejects",
+				func() brokerOptions {
+					return brokerOptions{refusal: packets.ErrClientIdentifierNotValid}
+				},
+				msgpack.EncodedJSON{},
+				"Client ID rejected",
+				SatisfyAll(
+					HavePrefix("the broker rejected the client ID: "),
+					HaveSuffix(". Set a client ID that the broker accepts."),
+				),
+			),
+			Entry("a broker that is not available",
+				func() brokerOptions {
+					return brokerOptions{refusal: packets.ErrServerUnavailable}
+				},
+				msgpack.EncodedJSON{},
+				"Broker not available",
+				SatisfyAll(
+					HavePrefix("the broker is not available: "),
+					HaveSuffix(". Try again later."),
+				),
+			),
+			Entry(
+				"a plain connection to a TLS broker",
+				func() brokerOptions {
+					tlsCfg, _ := createCerts()
+					return brokerOptions{tls: tlsCfg}
+				},
+				msgpack.EncodedJSON{},
+				"Failed to connect",
+				HaveSuffix(
+					". Check that the TLS setting matches the port of the broker.",
+				),
+			),
+			Entry("a TLS connection to a plain broker",
+				func() brokerOptions { return brokerOptions{} },
+				msgpack.EncodedJSON{"secure": true},
+				"TLS handshake failed",
+				HaveSuffix(". Check that this port of the server uses TLS."),
+			),
+		)
+
+		It("Should report the end of a browse during the dial as the end of the "+
+			"command", func(ctx SpecContext) {
+			dev := createBrokerDevice(
+				ctx,
+				rackKey,
+				startSilentServer(),
+				msgpack.EncodedJSON{
+					"secure": true,
+				},
+			)
+			configured, t := scan(ctx)
+			limited, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+			defer cancel()
+			Expect(configured.Exec(limited, task.Command{
+				Type: "browse",
+				Key:  "browse",
+				Args: msgpack.EncodedJSON{"device": dev.Key, "duration": 50},
+			})).To(Succeed())
+			expectReply(
+				answered(ctx, t, "browse"),
+				"Failed to execute command",
+				Equal(context.DeadlineExceeded.Error()),
+			)
+		})
+
+		DescribeTable("Should report broker settings that are not valid",
+			func(
+				ctx SpecContext,
+				properties msgpack.EncodedJSON,
+				description types.GomegaMatcher,
+			) {
+				dev := createBrokerDevice(ctx, rackKey, 0, properties)
+				expectReply(
+					command(ctx, dev, "browse", msgpack.EncodedJSON{}),
+					"Invalid broker settings",
+					description,
+				)
+			},
+			Entry("a port of zero",
+				msgpack.EncodedJSON{"port": 0},
+				Equal("invalid broker properties: port: must be 1 to 65535. "+
+					"Edit the broker settings."),
+			),
+			Entry("a CA file that does not exist",
+				msgpack.EncodedJSON{
+					"port": 8883, "secure": true, "ca_file": "/no/such/ca.crt",
+				},
+				SatisfyAll(
+					HavePrefix("failed to read the CA file: "),
+					HaveSuffix(". Edit the broker settings."),
+				),
+			),
+		)
 	})
 
 	Describe("Sample", func() {

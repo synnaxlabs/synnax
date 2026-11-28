@@ -337,6 +337,17 @@ describe("log/aether/Log", () => {
       expect(leaf.state.scrolling).toBe(false);
     });
 
+    it("should stay paused after a drag selects to the newest entry", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      updateState({ scrolling: true, empty: false, wheelPos: 0, selecting: true });
+      expect(leaf.state.scrolling).toBe(true);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(leaf.state.scrolling).toBe(true);
+    });
+
     it("should resume the source when it resumes on its own", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { source, updateState } = setup(entries);
@@ -443,14 +454,54 @@ describe("log/aether/Log", () => {
   });
 
   describe("timestampPrecision", () => {
-    it("should default to 0 and produce 8-char timestamps", () => {
-      const { leaf } = setup();
-      expect(leaf.state.timestampPrecision).toBe(0);
+    const lineTime = (timestampPrecision: number, stamp = 1_123_456_789n): string => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: new TimeStamp(stamp), value: "v" },
+      ];
+      const { leaf } = setup(entries, REGION_500, {
+        timestampPrecision,
+        timeZone: "UTC",
+        channelNamesHidden: true,
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      leaf.render();
+      return selectedText(leaf).split(" ")[1];
+    };
+
+    it("should show whole seconds at a precision of 0", () => {
+      expect(lineTime(0)).toBe("00:00:01");
     });
 
-    it("should accept precision values 0-3", () => {
-      const { leaf } = setup([], REGION_500, { timestampPrecision: 3 });
-      expect(leaf.state.timestampPrecision).toBe(3);
+    it("should show milliseconds at a precision of 3", () => {
+      expect(lineTime(3)).toBe("00:00:01.123");
+    });
+
+    it("should show microseconds at a precision of 6", () => {
+      expect(lineTime(6)).toBe("00:00:01.123456");
+    });
+
+    it("should show nanoseconds at a precision of 9", () => {
+      expect(lineTime(9)).toBe("00:00:01.123456789");
+    });
+
+    it("should show the fraction of a timestamp before 1970", () => {
+      expect(lineTime(3, -1_123_456_789n)).toBe("23:59:58.876");
+    });
+
+    it("should pad leading zeros in the fraction", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: new TimeStamp(1_000_000_042n), value: "v" },
+      ];
+      const { leaf } = setup(entries, REGION_500, {
+        timestampPrecision: 9,
+        timeZone: "UTC",
+        channelNamesHidden: true,
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      leaf.render();
+      expect(selectedText(leaf)).toMatch(/ 00:00:01\.000000042 /);
     });
   });
 
@@ -704,6 +755,93 @@ describe("log/aether/Log", () => {
       source.notify();
       expect(leaf.state.selectionStart).toBe(2);
       expect(leaf.state.selectionEnd).toBe(16);
+    });
+
+    it("should end a selection at the top row of a scrolled view", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({ scrolling: true, empty: false });
+      updateState({
+        scrolling: true,
+        empty: false,
+        wheelPos: 10 * leaf.lineHeight,
+        selectionStart: 90,
+        selectionEnd: log.selectRow(0),
+      });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(leaf.state.rowEntries[0]);
+      expect(leaf.state.rowEntries.at(-1)).toBe(89);
+    });
+
+    it("should keep a row end following the view until the drag ends", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({ scrolling: true, empty: false });
+      const drag = {
+        scrolling: true,
+        empty: false,
+        selecting: true,
+        selectionStart: 90,
+        selectionEnd: log.selectRow(0),
+      };
+      updateState({ ...drag, wheelPos: 5 * leaf.lineHeight });
+      leaf.render();
+      const firstTop = leaf.state.rowEntries[0];
+      expect(leaf.state.selectionEnd).toBe(log.selectRow(0));
+      updateState({ ...drag, wheelPos: 10 * leaf.lineHeight });
+      leaf.render();
+      const top = leaf.state.rowEntries[0];
+      expect(top).toBeLessThan(firstTop);
+      expect(leaf.selection().lines).toHaveLength(90 - top + 1);
+      updateState({ ...drag, wheelPos: 10 * leaf.lineHeight, selecting: false });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(top);
+    });
+
+    it("should end a selection at the last row for a row past it", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({
+        empty: false,
+        selectionStart: 50,
+        selectionEnd: log.selectRow(1_000),
+      });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(99);
+    });
+
+    it("should end a selection at a row inside the view", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({ empty: false, selectionStart: 50, selectionEnd: log.selectRow(3) });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(leaf.state.rowEntries[3]);
+    });
+
+    it("should keep select-all open while rendering", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({
+        empty: false,
+        selectionStart: 0,
+        selectionEnd: log.SELECT_ALL_END,
+      });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(log.SELECT_ALL_END);
+    });
+
+    it("should keep a selection end at a row open while entries arrive", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { leaf, source, updateState } = setup(entries);
+      updateState({
+        empty: false,
+        selectionStart: 5,
+        selectionEnd: log.selectRow(1_000),
+      });
+      source.setEntries([...entries, makeEntry(20)]);
+      source.notify();
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(20);
     });
 
     it("should keep select-all open while entries are evicted", () => {

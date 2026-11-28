@@ -477,7 +477,7 @@ var _ = Describe("Python Types Plugin", func() {
 					`key: int = Field(ge=0, le=4294967295)`,
 					`name: str = Field(min_length=1)`,
 					`make: Make = Field(min_length=1)`,
-					"owner: UUID\n",
+					"owner: Annotated[UUID, AfterValidator(validate.non_nil_uuid)]\n",
 					`serial: Serial = Field(gt=0, le=4294967295)`,
 					`count: int = Field(gt=0, le=65535)`,
 					"alias: Name | None = None\n",
@@ -544,6 +544,31 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(string(resp.Files[0].Content)).To(ContainSubstring(
 					`data: Bytes = Field(min_length=1, max_length=64)`,
 				))
+			},
+		)
+
+		It(
+			"Should refuse the nil UUID for a required UUID",
+			func() {
+				source := `
+				@py output "out"
+
+				Item struct {
+					owner uuid @validate { required }
+					parent uuid?
+				}
+			`
+				table, diag := Analyze(source, "item", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`owner: Annotated[UUID, AfterValidator(validate.non_nil_uuid)]`,
+				))
+				Expect(content).To(ContainSubstring(`from x import validate`))
+				Expect(content).To(ContainSubstring(`parent: UUID | None`))
 			},
 		)
 

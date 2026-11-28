@@ -26,7 +26,6 @@ import (
 	"context"
 	"io"
 	"io/fs"
-	"os"
 	"path/filepath"
 
 	"github.com/cockroachdb/pebble/v2"
@@ -107,6 +106,14 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to CesiumTS
 	TSEngine TSEngine
+	// KVFS is the file system of the key-value store and the directory lock.
+	//
+	// [OPTIONAL] - Defaults to the OS file system, or to memory when InMemory is true.
+	KVFS vfs.FS
+	// TSFS is the file system of the time-series engine.
+	//
+	// [OPTIONAL] - Defaults to the OS file system, or to memory when InMemory is true.
+	TSFS xfs.FS
 	// Version is the semantic version of the Core, without a "v" prefix. Open checks it
 	// against the version recorded in the data directory, unless it is a 0.0 version.
 	//
@@ -139,6 +146,8 @@ func (cfg LayerConfig) Override(other LayerConfig) LayerConfig {
 	cfg.InMemory = override.Nil(cfg.InMemory, other.InMemory)
 	cfg.KVEngine = override.Numeric(cfg.KVEngine, other.KVEngine)
 	cfg.TSEngine = override.Numeric(cfg.TSEngine, other.TSEngine)
+	cfg.KVFS = override.Nil(cfg.KVFS, other.KVFS)
+	cfg.TSFS = override.Nil(cfg.TSFS, other.TSFS)
 	cfg.Version = override.String(cfg.Version, other.Version)
 	cfg.UpdateBackupDisabled = override.Nil(
 		cfg.UpdateBackupDisabled,
@@ -254,7 +263,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	kvFS, tsFS := openFileSystems(cfg)
 
 	// Configure our storage directory with the correct permissions.
-	if err = configureStorageDir(cfg, kvFS); !ok(err, nil) {
+	if err = configureStorageDir(cfg, kvFS, tsFS); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -290,6 +299,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
 		return nil, err
 	}
+	// Neither store syncs the path to the storage directory, nor Cesium's entry in it.
+	syncStorageDir(cfg, tsFS)
 	l.Update = update
 	return l, nil
 }
@@ -323,21 +334,57 @@ func (s *Layer) TSSize() telem.Size { return s.TS.Metrics().DiskSize }
 func (s *Layer) Size() telem.Size { return s.KVSize() + s.TSSize() }
 
 func openFileSystems(cfg LayerConfig) (vfs.FS, xfs.FS) {
-	if *cfg.InMemory {
-		return vfs.NewMem(), xfs.NewMem()
-	} else {
-		return vfs.Default, xfs.Default
+	kvFS, tsFS := cfg.KVFS, cfg.TSFS
+	if kvFS == nil {
+		kvFS = vfs.Default
+		if *cfg.InMemory {
+			kvFS = vfs.NewMem()
+		}
 	}
+	if tsFS == nil {
+		tsFS = xfs.Default
+		if *cfg.InMemory {
+			tsFS = xfs.NewMem()
+		}
+	}
+	return kvFS, tsFS
 }
 
-func configureStorageDir(cfg LayerConfig, vfs vfs.FS) error {
+func configureStorageDir(cfg LayerConfig, vfs vfs.FS, tsFS xfs.FS) error {
 	if err := vfs.MkdirAll(cfg.Dirname, cfg.Perm); err != nil {
 		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
 	}
+	// The two file systems are one on disk, but an injected pair needs the directory in
+	// each.
+	if _, err := tsFS.Sub(cfg.Dirname); err != nil {
+		return errors.Wrapf(err, "failed to create storage directory %s", cfg.Dirname)
+	}
 	if !*cfg.InMemory {
-		return validateSufficientDirPermissions(cfg)
+		return validateSufficientDirPermissions(cfg, vfs)
 	}
 	return nil
+}
+
+// syncStorageDir makes durable the entries of the storage directory and of each of its
+// parents, on every open, so a directory that an earlier open made is covered too. The
+// two file systems are one on disk, so the syncs on tsFS cover both stores. A failed
+// sync is logged, since it leaves the entries no less durable than no sync.
+func syncStorageDir(cfg LayerConfig, tsFS xfs.FS) {
+	if *cfg.InMemory {
+		return
+	}
+	for dir := cfg.Dirname; ; dir = filepath.Dir(dir) {
+		if err := tsFS.SyncDir(dir); err != nil {
+			cfg.L.Warn(
+				"failed to sync storage directory",
+				zap.String("dir", dir),
+				zap.Error(err),
+			)
+		}
+		if filepath.Dir(dir) == dir {
+			return
+		}
+	}
 }
 
 const insufficientDirPermissions = `
@@ -356,8 +403,8 @@ Synnax requires the storage directory to have at least
 permissions.
 `
 
-func validateSufficientDirPermissions(cfg LayerConfig) error {
-	stat, err := os.Stat(cfg.Dirname)
+func validateSufficientDirPermissions(cfg LayerConfig, fs vfs.FS) error {
+	stat, err := fs.Stat(cfg.Dirname)
 	if err != nil {
 		return err
 	}
