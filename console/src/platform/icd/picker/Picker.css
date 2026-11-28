@@ -119,6 +119,11 @@
         padding: 0.5rem 3rem 2rem;
     }
 
+    .console-icd-picker__values.console--defaults {
+        --console-values-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr) 11rem
+            18rem;
+    }
+
     .console-icd-picker__values {
         --console-values-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr)
             minmax(11rem, calc(var(--console-type-length, 0) * 1ch));

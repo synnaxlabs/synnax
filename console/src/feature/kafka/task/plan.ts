@@ -16,6 +16,8 @@ import {
   createAdditions,
   createExtensions,
   type Extension,
+  type FieldDefaults,
+  type Inputs,
   type KindMessage,
   type MessagesOf,
   type Picks,
@@ -30,9 +32,13 @@ export interface TopicPick {
   topic: string;
   shapes: json.Shape[];
   picks: Picks;
+  /** The text of each Default input. Absent, none has text. */
+  defaults?: FieldDefaults;
   /** The ICD that the new records of the topic read. Absent for no fit or a tie. */
   reading?: ICD.Reuse.Reading;
 }
+
+const NO_DEFAULTS: FieldDefaults = new Map();
 
 /** The additions of a topic, and the ICD that its new records read. */
 export interface TopicAdditions {
@@ -47,7 +53,27 @@ export interface Plan {
   kinds: KindMessage[];
   /** The additions of each topic, by topic name. */
   additions: Map<string, TopicAdditions>;
+  /** The Default inputs of the fields that the add creates, by topic name. */
+  inputs: Map<string, Inputs>;
 }
+
+/** A Default input whose text spells no default of its field. */
+export interface Problem {
+  topic: string;
+  shape: string;
+  pointer: string;
+  /** Says why the text spells no default. */
+  message: string;
+}
+
+/** @returns the first Default input of plan whose text spells no default, if any. */
+export const findProblem = ({ inputs }: Plan): Problem | undefined => {
+  for (const [topic, shapes] of inputs)
+    for (const [shape, pointers] of shapes)
+      for (const [pointer, message] of pointers)
+        if (message != null) return { topic, shape, pointer, message };
+  return undefined;
+};
 
 export interface PlanParams {
   topics: TopicPick[];
@@ -102,13 +128,22 @@ export const planAdd = ({
     ...(icdKey == null ? [] : draftOf(icdKey)),
     ...(making.get(icdKey) ?? []),
   ];
-  const plan: Plan = { extensions: [], kinds: [], additions: new Map() };
+  const plan: Plan = {
+    extensions: [],
+    kinds: [],
+    additions: new Map(),
+    inputs: new Map(),
+  };
+  const inputsOf = (topic: string): Inputs =>
+    map.getOrInsert(plan.inputs, topic, () => new Map());
   const held = topics.map(({ topic }) => readsOf(recordsOf(topic), messagesOf));
   const nameIn = (topic: string) => (recordKey: string) => nameOf(topic, recordKey);
-  for (const { topic, shapes, picks } of topics) {
+  for (const { topic, shapes, picks, defaults = NO_DEFAULTS } of topics) {
     const { extensions, kinds } = createExtensions(
       shapes,
       picks,
+      defaults,
+      inputsOf(topic),
       recordsOf(topic),
       draftOf,
       nameIn(topic),
@@ -124,11 +159,14 @@ export const planAdd = ({
     plan.kinds.push(...kinds);
   }
   const appends: Appends = new Map();
-  for (const [i, { topic, shapes, picks, reading }] of topics.entries()) {
+  for (const [i, pick] of topics.entries()) {
+    const { topic, shapes, picks, defaults = NO_DEFAULTS, reading } = pick;
     const target = reading?.icd ?? home;
     const added = createAdditions(
       shapes,
       picks,
+      defaults,
+      inputsOf(topic),
       held[i],
       takenIn(target),
       nameIn(topic),
