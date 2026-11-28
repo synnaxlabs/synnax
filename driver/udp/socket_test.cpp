@@ -187,7 +187,7 @@ TEST(Socket, ReceiveFromAnySender) {
     peer.send("anyone", loopback(port));
     EXPECT_EQ(text(ASSERT_NIL_P(s->read(TIMEOUT))), "anyone");
     const auto err = s->write(bytes("x"), TIMEOUT);
-    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data(), "no remote host is set to send to");
 }
 
@@ -250,12 +250,23 @@ TEST(Socket, RefuseOversizedDatagram) {
     auto s = open_to(peer);
     const std::vector<std::uint8_t> big(70000);
     const auto err = s->write(big, TIMEOUT);
-    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
         err.data(),
         "failed to send to 127.0.0.1:" + std::to_string(peer.port()) +
             ": 70000 bytes exceed the 65507 bytes of a datagram"
     );
+}
+
+/// @brief it should refuse a datagram over the limit of the operating system as it
+/// refuses one over the limit of UDP. macOS refuses one this size by default, and Linux
+/// sends it.
+TEST(Socket, RefuseDatagramOverSystemLimitAsValidation) {
+    Peer peer;
+    auto s = open_to(peer);
+    const std::vector<std::uint8_t> big(20000);
+    if (const auto err = s->write(big, TIMEOUT))
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
 }
 
 /// @brief it should fail when no interface holds the local address.

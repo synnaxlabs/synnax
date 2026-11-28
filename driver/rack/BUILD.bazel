@@ -74,6 +74,7 @@ cc_library(
         "//driver/serial:tasks",
         "//driver/task",
         "//driver/tcp:tasks",
+        "//driver/udp:tasks",
         "//x/cpp/args",
         "//x/cpp/defer",
         "//x/cpp/env",
@@ -124,6 +125,7 @@ cc_test(
         "//driver/serial:tasks",
         "//driver/task",
         "//driver/tcp:tasks",
+        "//driver/udp:tasks",
         "@googletest//:gtest_main",
     ],
 )

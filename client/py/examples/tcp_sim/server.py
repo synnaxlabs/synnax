@@ -28,7 +28,10 @@ from synnax import tcp
 async def run_server(host: str, port: int, rate: float, received: str) -> None:
     """Serve on host and port. Send reading lines at rate to each client, and write the
     bytes that the clients send to the file at received."""
-    out = os.open(received, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    # Windows opens a file in text mode, which turns each newline into two bytes, unless
+    # O_BINARY is set.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0)
+    out = os.open(received, flags, 0o644)
 
     async def serve(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         async def send() -> None:
