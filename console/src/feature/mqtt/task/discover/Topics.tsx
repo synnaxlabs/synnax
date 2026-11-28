@@ -197,7 +197,11 @@ const takenBy = (
     const takenOf = (shape: Shape): ShapeTaken => {
       // A target holds a whole topic, so one in the task takes all its values.
       if (whole) return { pointers: new Set(shape.leaves.map((l) => l.pointer)) };
-      const route = ICD.route(shape.leaves, entry.messages, ({ fields }) =>
+      const sampled = shape.leaves.map((l) => ({
+        ...l,
+        sample: shape.samples.get(l.pointer) ?? "",
+      }));
+      const route = ICD.route(sampled, entry.messages, ({ fields }) =>
         fields.map(({ pointer }) => pointer),
       );
       const { message } = route;
