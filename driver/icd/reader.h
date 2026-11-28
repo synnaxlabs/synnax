@@ -72,6 +72,11 @@ private:
         std::vector<Index> indexes;
         /// @brief index_field is the position in the bindings of the index field.
         std::optional<std::size_t> index_field;
+        /// @brief positions holds the position of the series of each binding in the
+        /// frame of the last read, and index_positions that of each index. A read
+        /// checks one before it scans the frame.
+        std::vector<std::size_t> positions;
+        std::vector<std::size_t> index_positions;
     };
     std::vector<Message> messages;
     std::variant<codec::Binary, codec::Text, codec::JSON> decoder;
@@ -147,7 +152,7 @@ public:
     );
 
     /// @brief returns the failures of the last read, in binding order. Empty after a
-    /// read that returned no message or an error, and for a format other than JSON.
+    /// read that returned no message or an error.
     [[nodiscard]] const std::vector<Failure> &failures() const { return this->failed; }
 };
 }

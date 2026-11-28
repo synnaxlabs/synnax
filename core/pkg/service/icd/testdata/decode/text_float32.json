@@ -36,7 +36,14 @@
     {
       "text": "1e39",
       "message": "line",
-      "error": "field a: 1e+39 overflows float32: validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field a: 1e+39 overflows float32: validation error"
+        }
+      ]
     }
   ]
 }

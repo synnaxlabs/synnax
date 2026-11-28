@@ -25,7 +25,7 @@ var (
 	_ freighter.UnaryServer[any, any] = (*UnaryServer[any, any, any, any])(nil)
 )
 
-// UnaryClient wraps a unary gRPC client to provide a freighter compatible interface.
+// UnaryClient wraps a unary gRPC client to provide a Freighter compatible interface.
 // The unary gRPC service being internal must meet two requirements:
 //
 //  1. It contains only a single RPC method.

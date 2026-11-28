@@ -55,7 +55,7 @@ export interface ProviderProps extends Base.ProviderProps {}
 
 /**
  * The lyra theming provider plus a bridge that hands the theme and its fonts to the
- * aether worker thread. Mount it inside the Aether provider.
+ * Aether worker thread. Mount it inside the Aether provider.
  */
 export const Provider = ({ children, ...rest }: ProviderProps): ReactElement => (
   <Base.Provider {...rest}>

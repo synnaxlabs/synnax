@@ -551,10 +551,10 @@ public:
     open_streamer(const StreamerConfig &config) const;
 
 private:
-    /// @brief freighter transport implementation for opening streamers to the
+    /// @brief Freighter transport implementation for opening streamers to the
     /// Synnax cluster.
     std::unique_ptr<StreamerClient> streamer_client;
-    /// @brief freighter transport implementation for opening writers to the Synnax
+    /// @brief Freighter transport implementation for opening writers to the Synnax
     /// cluster.
     std::unique_ptr<WriterClient> writer_client;
     /// @brief a utility function used to retrieve information about channels from the

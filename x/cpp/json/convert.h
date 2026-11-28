@@ -17,6 +17,7 @@
 #include <nlohmann/json.hpp>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
 namespace x::json {
@@ -26,7 +27,9 @@ const errors::Error BASE_ERROR = errors::Error("x.json");
 /// @brief error when conversion from JSON to a Synnax DataType fails.
 const errors::Error CONVERSION_ERROR = BASE_ERROR.sub("conversion");
 
-/// @brief time format for converting between `telem::TimeStamp`s and JSON values.
+namespace details {
+/// @brief TimeFormat is a payload time format in the form that a conversion reads for
+/// each sample.
 enum class TimeFormat {
     ISO8601,
     UnixSecond,
@@ -35,12 +38,16 @@ enum class TimeFormat {
     UnixNanosecond,
 };
 
-/// @brief parses a TimeFormat from a string.
-/// @param str the string to parse ("iso8601", "unix_sec", "unix_ms", "unix_us",
-/// "unix_ns").
-/// @returns the TimeFormat and nil, or ISO8601 and INVALID_TIME_FORMAT_ERROR if the
-/// string is unknown.
-std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str);
+/// @brief parses format, a payload time format such as payload::TIME_FORMAT_UNIX_MS.
+/// @returns VALIDATION when format is not a payload time format.
+std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &format);
+
+/// @brief splits ts into a whole count of the units of format, a Unix format, and the
+/// nanoseconds left over, both with the sign of ts. UnixMillisecond and UnixMicrosecond
+/// round the count toward negative infinity and leave nothing over.
+std::pair<std::int64_t, std::int64_t>
+split_unix(telem::TimeStamp ts, TimeFormat format);
+}
 
 /// @brief maps enum labels to the samples they stand for.
 using EnumMap = std::map<std::string, telem::SampleValue>;
@@ -49,7 +56,7 @@ using EnumMap = std::map<std::string, telem::SampleValue>;
 /// Inspects the JSON value's type at runtime to determine the conversion path.
 /// @param value the JSON value to convert.
 /// @param target the Synnax DataType to convert to.
-/// @param time_format the expected time format for TIMESTAMP_T conversions. Ignored
+/// @param time_format the payload time format of a TIMESTAMP_T conversion. Ignored
 /// when the target type is not TIMESTAMP_T.
 /// @param enum_values optional mapping of labels to samples. When non-null and the
 /// JSON value is a string targeting a numeric or string type, the map is checked
@@ -61,21 +68,16 @@ using EnumMap = std::map<std::string, telem::SampleValue>;
 /// string of padded, canonical base64 holds. Build a series that keeps the target
 /// type with telem::Series(SampleValue, DataType).
 /// @returns the converted SampleValue and errors::NIL, or a zero SampleValue and one of
-/// CONVERSION_ERROR if an issue occurred while trying to convert the value.
+/// CONVERSION_ERROR if an issue occurred while trying to convert the value, or
+/// VALIDATION when time_format is not a payload time format.
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
     const telem::DataType &target,
-    TimeFormat time_format = TimeFormat::ISO8601,
+    const std::string &time_format = payload::TIME_FORMAT_ISO_8601,
     const EnumMap *enum_values = nullptr
 );
 
 /// @brief JSON value type.
 enum class Type { Number, String, Boolean };
-
-/// @brief splits ts into a whole count of the units of format, a Unix format, and the
-/// nanoseconds left over, both with the sign of ts. UnixMillisecond and UnixMicrosecond
-/// round the count toward negative infinity and leave nothing over.
-std::pair<std::int64_t, std::int64_t>
-split_unix(telem::TimeStamp ts, TimeFormat format);
 
 }

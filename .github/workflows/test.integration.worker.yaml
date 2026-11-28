@@ -97,7 +97,7 @@ jobs:
           cache-dependency-glob: uv.lock
 
       # The Kafka simulator runs a real Apache Kafka broker, which needs Java. The Kafka
-      # cases run in the driver suite or in a run of custom flags, and skip on Windows.
+      # cases run in the Driver suite or in a run of custom flags, and skip on Windows.
       - name: Install Java (Ubuntu)
         if: >-
           runner.os == 'Linux' && (matrix.target == '' || contains(matrix.target,

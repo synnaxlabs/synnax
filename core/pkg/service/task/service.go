@@ -38,7 +38,7 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	// DB is the gorp database that tasks will be stored in.
+	// DB is the Gorp database that tasks will be stored in.
 	//
 	// [REQUIRED]
 	DB *gorp.DB

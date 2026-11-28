@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
+from functools import partial
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from pydantic import JsonValue
@@ -298,12 +299,7 @@ class DevicesToolbar(ConsoleCase):
         self._assert_modules_under(self.chassis_a.name)
 
     def test_device_state_display(self) -> None:
-        """Devices with no reported status show the disabled 'unknown' state.
-
-        The Core no longer stamps a default status on device creation, so a
-        device the Driver has never reported on renders the disabled variant
-        with 'Device status unknown'.
-        """
+        """Each device shows the variant and the message of its stored status."""
         self.log("Testing: Device state display")
         for dev in [
             self.chassis_a,
@@ -319,10 +315,17 @@ class DevicesToolbar(ConsoleCase):
             self.http_dev,
             self.ethercat_dev,
         ]:
-            status = self.console.devices.get_status(dev.name)
-            assert status.variant == "disabled", (
-                f"Expected 'disabled' variant for '{dev.name}', got '{status.variant}'"
-            )
+            # A Driver can change the status between the two reads.
+            if sy.poll(partial(self._shows_stored_status, dev), timeout=10) is None:
+                raise AssertionError(f"'{dev.name}' should show its stored status")
+
+    def _shows_stored_status(self, dev: sy.Device) -> bool | None:
+        stored = self.client.devices.retrieve(key=dev.key, include_status=True).status
+        shown = self.console.devices.get_status(dev.name)
+        if stored is None:
+            return None
+        matched = (shown.variant, shown.message) == (stored.variant, stored.message)
+        return True if matched else None
 
     def test_change_identifier(self) -> None:
         """Change identifier should update the device's identifier property."""

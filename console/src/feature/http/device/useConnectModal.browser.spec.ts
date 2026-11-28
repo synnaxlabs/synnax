@@ -202,6 +202,70 @@ describe("useConnectModal", () => {
     ).toBe("true");
   });
 
+  it("should open a device whose health check holds a blank header", async () => {
+    const dev = await createHTTPDevice(client, {
+      properties: {
+        healthCheck: {
+          method: "GET",
+          path: "/health",
+          headers: [{ name: "X-Key", value: "" }],
+          validateResponse: false,
+        },
+      },
+    });
+    await renderModalOpener(HTTP.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByDisplayValue(dev.name);
+    clickTab("Health check");
+    expect(await screen.findByDisplayValue("X-Key")).toBeTruthy();
+  });
+
+  it("should mark a blank health check header on Connect and connect once it is filled", async () => {
+    const rack = await createRunningRack(client, "http");
+    const scan = await rack.createTask({
+      name: uniqueName("http_scan"),
+      type: HTTP.Device.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      HTTP.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("www.example.com"), {
+      target: { value: "localhost:8080" },
+    });
+    clickTab("Health check");
+    clickButton("Add header");
+    clickButton("Add header");
+    const names = screen.getAllByPlaceholderText("Content-Type");
+    const values = screen.getAllByPlaceholderText("application/json");
+    fireEvent.change(names[0], { target: { value: "X-Key" } });
+    fireEvent.change(values[1], { target: { value: "abc" } });
+    expect(values[0].getAttribute("aria-invalid")).toBeNull();
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await waitFor(() => expect(values[0].getAttribute("aria-invalid")).toBe("true"));
+    expect(names[1].getAttribute("aria-invalid")).toBe("true");
+    expect(names[0].getAttribute("aria-invalid")).toBeNull();
+    fireEvent.change(values[0], { target: { value: "secret" } });
+    fireEvent.change(names[1], { target: { value: "X-Trace" } });
+    // A first Connect that sent a command still holds the button, or closed the dialog.
+    const connect = screen.getByRole("button", { name: /^Connect/ });
+    expect(connect.getAttribute("aria-disabled")).toBeNull();
+    // A second shortcut press within 300 ms reads as a double press.
+    fireEvent.click(connect);
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: HTTP.Device.SCHEMAS });
+    expect(dev.properties.healthCheck.headers).toEqual([
+      { name: "X-Key", value: "secret" },
+      { name: "X-Trace", value: "abc" },
+    ]);
+  });
+
   it("should resolve with the device it connected", async () => {
     const rack = await createRunningRack(client, "http");
     const scan = await rack.createTask({
