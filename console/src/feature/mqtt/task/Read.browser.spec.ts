@@ -1086,8 +1086,11 @@ describe("MQTT read form", () => {
       };
 
       // Holds a message of each value at /kind: status with /code and reading with
-      // /temperature.
-      const renderKinds = async (...pointers: string[]) => {
+      // /temperature. found sets the sample or the enum labels of /kind in the shape.
+      const renderKinds = async (
+        found: { sample?: string; enumLabels?: string[] },
+        ...pointers: string[]
+      ) => {
         const time = createTimeField();
         const kind = createField("kind", "string");
         const entry = await createEntry({
@@ -1109,7 +1112,7 @@ describe("MQTT read form", () => {
         const dialog = await openKinds(dev.rack, {
           fields: [
             TIMED_TOPIC.shapes[0].fields[0],
-            KIND,
+            { ...KIND, ...found },
             ...pointers.map((pointer) => ({
               pointer,
               type: "number",
@@ -1125,13 +1128,14 @@ describe("MQTT read form", () => {
         return { dialog, entry, reading };
       };
 
-      it("should give a shape to the message of a value that reads the most of its fields", async () => {
-        const { dialog, entry, reading } = await renderKinds("/temperature", "/rpm");
-        const temperature = await dialog.findByRole<HTMLInputElement>("checkbox", {
-          name: "Record temperature",
-        });
-        expect(temperature.disabled).toBe(true);
-        fireEvent.click(dialog.getByRole("checkbox", { name: "Record rpm" }));
+      it("should give a shape to the message of the value that its sample meets", async () => {
+        // The status message reads more of the fields: /time, /kind, and /code.
+        const { dialog, entry, reading } = await renderKinds(
+          { sample: '"reading"' },
+          "/code",
+          "/rpm",
+        );
+        fireEvent.click(await dialog.findByRole("checkbox", { name: "Record rpm" }));
         fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
         await waitFor(async () => {
           const { messages } = await client.icds.retrieve(entry.icd);
@@ -1147,8 +1151,12 @@ describe("MQTT read form", () => {
         });
       });
 
-      it("should lock a shape that two messages of a value read as much of", async () => {
-        const { dialog } = await renderKinds("/flow");
+      it("should lock a shape whose enum labels meet the values of two messages", async () => {
+        const { dialog } = await renderKinds(
+          { enumLabels: ["reading", "status"] },
+          "/temperature",
+          "/flow",
+        );
         await dialog.findByText(
           "Split by the value at /kind. Add fields in the ICD editor.",
         );
@@ -1221,6 +1229,34 @@ describe("MQTT read form", () => {
       });
       expect(fault.disabled).toBe(true);
       expect(fault.checked).toBe(false);
+    });
+
+    it("should lock a shape that meets a present rule and whose sample meets a value rule", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+        match: { type: "present", pointer: "/temperature" },
+      });
+      await addMessage(entry, `${TOPIC} status`, [createTimeField()], KIND_MATCH);
+      const { dev } = await renderRead({ entries: [entry] });
+      const shape = createShape("/temperature", "float", 5);
+      const kind = {
+        pointer: "/kind",
+        type: "string",
+        sample: '"status"',
+        kind: "string",
+        enumLabels: [],
+        optional: false,
+      };
+      const dialog = await openKinds(dev.rack, {
+        ...shape,
+        fields: [...shape.fields, kind],
+      });
+      await dialog.findByText(
+        `Matches messages ${TOPIC} and ${TOPIC} status. The Core refuses these documents. Change a match rule in the ICD editor.`,
+      );
+      expect(dialog.getAllByText("Matches 2 messages")).toHaveLength(3);
     });
   });
 

@@ -1,5 +1,5 @@
 {
-  "description": "The message that the Core gives a document, for the Core and the Console. The Console routes the fields that inference gives the document, so each case holds those pointers. A shape does not hold the value at the pointer of a value rule, so a document that holds one is here only when it also meets a present rule and its value meets no rule. A document that meets two present rules names their messages in matches, and the Core refuses it.",
+  "description": "The message that the Core gives a document, for the Core and the Console. The Console routes the fields that inference gives the document, so each case holds those pointers. The Console reads the value of a document at the pointer of a value rule from the sample of its field there. A document that meets two rules names their messages in matches, and the Core refuses it.",
   "groups": [
     {
       "description": "Present rules and a message with no rule",
@@ -66,7 +66,7 @@
       ]
     },
     {
-      "description": "Value rules at a pointer that the document does not hold",
+      "description": "A value rule and a message with no rule",
       "messages": [
         {
           "name": "status",
@@ -83,7 +83,19 @@
           "bindings": []
         }
       ],
-      "cases": [{ "document": { "temp": 1 }, "fields": ["/temp"], "message": "rest" }]
+      "cases": [
+        { "document": { "temp": 1 }, "fields": ["/temp"], "message": "rest" },
+        {
+          "document": { "kind": "status", "temp": 1 },
+          "fields": ["/kind", "/temp"],
+          "message": "status"
+        },
+        {
+          "document": { "kind": "reading", "temp": 1 },
+          "fields": ["/kind", "/temp"],
+          "message": "rest"
+        }
+      ]
     },
     {
       "description": "Rules on every message",
@@ -113,6 +125,11 @@
           "document": { "kind": "reading", "rpm": 3000 },
           "fields": ["/kind", "/rpm"],
           "message": "rpm"
+        },
+        {
+          "document": { "kind": "status", "rpm": 3000 },
+          "fields": ["/kind", "/rpm"],
+          "matches": ["rpm", "status"]
         }
       ]
     }
