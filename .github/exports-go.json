@@ -213,6 +213,25 @@
       "package": "github.com/synnaxlabs/arc/runtime/scheduler",
       "name": "ScopeHandler",
       "caller": "sy-7012-arc-task-scope-status"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "DeleteEffect",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7855"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "DeleteEffects",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7855"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "Table",
+      "name": "PlanDelete",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7855"
     }
   ]
 }

@@ -703,7 +703,10 @@ func (r *reference[K, E, T]) dependentsOf(
 	if !ok {
 		return nil, nil
 	}
-	keys, err := probeEach(ctx, r.store, snap, []T{t})
+	if err := r.store.Wait(ctx); err != nil {
+		return nil, err
+	}
+	keys, err := r.store.GetEach(scopeOf(snap), []T{t})
 	if err != nil || keys == nil {
 		return nil, err
 	}
