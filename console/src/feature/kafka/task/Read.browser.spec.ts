@@ -69,28 +69,6 @@ import {
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
-const flags = vi.hoisted((): { textMessages: boolean } => ({ textMessages: true }));
-
-vi.mock("@/flags", async (importOriginal) => {
-  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
-  return {
-    FLAGS: {
-      ...FLAGS,
-      get textMessages() {
-        return flags.textMessages;
-      },
-    },
-  };
-});
-
-/** Takes only JSON messages in the task for the rest of the test, as a release does. */
-const hideTextMessages = () => {
-  flags.textMessages = false;
-  onTestFinished(() => {
-    flags.textMessages = true;
-  });
-};
-
 const client = createTestClient();
 
 const REFUSED = "unable to dial: dial tcp 127.0.0.1:9092: connect: connection refused";
@@ -1136,37 +1114,17 @@ describe("Kafka read form", () => {
       await waitFor(() => expect(screen.getAllByText("BINARY")).toHaveLength(2));
     });
 
-    it.each([
-      { name: "gone", note: "Message not found", change: removeMessage },
-      {
-        name: "not JSON",
-        note: "Message is not JSON",
-        change: async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
-          await client.icds.dispatch(
-            key,
-            icd.set({
-              path: ["messages", messages[0].message, "payload"],
-              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
-            }),
-          ),
-      },
-    ])(
-      "should not offer Add field for a record whose message is $name",
-      async ({ note, change }) => {
-        hideTextMessages();
-        const rec = await createRecord({
-          fields: [createField("temperature", "float")],
-        });
-        await renderRead({ records: [rec], beforeRender: () => change(rec) });
-        await screen.findByText(note);
-        expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
-        const item = await screen.findByRole("treeitem", { name: /Any key/ });
-        within(item).getByRole("img", { name: note });
-        fireEvent.contextMenu(item);
-        await screen.findByRole("menuitem", { name: "Add message" });
-        expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
-      },
-    );
+    it("should not offer Add field for a record whose message is gone", async () => {
+      const rec = await createRecord({ fields: [createField("temperature", "float")] });
+      await renderRead({ records: [rec], beforeRender: () => removeMessage(rec) });
+      await screen.findByText("Message not found");
+      expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
+      const item = await screen.findByRole("treeitem", { name: /Any key/ });
+      within(item).getByRole("img", { name: "Message not found" });
+      fireEvent.contextMenu(item);
+      await screen.findByRole("menuitem", { name: "Add message" });
+      expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
+    });
 
     it("should add a field to a record whose message is text", async () => {
       const rec = await createRecord({
@@ -1185,8 +1143,6 @@ describe("Kafka read form", () => {
           ),
       });
       fireEvent.click(await screen.findByRole("treeitem", { name: /Any key/ }));
-      // The Core reads only JSON messages over Kafka, so it would undo the read.
-      holdRequests(client, "/task/create");
       fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
       await screen.findByLabelText("Position");
       await waitFor(async () => {
@@ -1195,32 +1151,6 @@ describe("Kafka read form", () => {
           { encoding: "delimited", position: 0 },
         ]);
       });
-    });
-
-    it("should mark a later message that is not JSON and its record", async () => {
-      hideTextMessages();
-      const rec = await createRecord({ fields: [createField("temperature", "float")] });
-      const status = await addMessage(
-        rec,
-        "status",
-        [createField("mode", "string")],
-        KIND_MATCH,
-      );
-      await renderRead({
-        records: [rec],
-        beforeRender: async () =>
-          await client.icds.dispatch(
-            rec.icd,
-            icd.set({
-              path: ["messages", status.key, "payload"],
-              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
-            }),
-          ),
-      });
-      const message = await screen.findByRole("treeitem", { name: /^status/ });
-      await within(message).findByRole("img", { name: "Message is not JSON" });
-      const record = screen.getByRole("treeitem", { name: /JSON.*Any key/ });
-      within(record).getByRole("img", { name: "Message is not JSON" });
     });
   });
 

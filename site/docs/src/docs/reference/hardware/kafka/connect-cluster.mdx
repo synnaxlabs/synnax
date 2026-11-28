@@ -15,12 +15,11 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The Kafka integration moves JSON records between an
-[Apache Kafka](https://kafka.apache.org/) cluster and Synnax channels. In Synnax, a
-Kafka cluster is a list of brokers with their TLS and authentication settings. The
-[read task](/reference/hardware/kafka/read-task) records the values in the records of a
-topic, and the [write task](/reference/hardware/kafka/write-task) sends commands to a
-topic as records.
+The Kafka integration moves records between an [Apache Kafka](https://kafka.apache.org/)
+cluster and Synnax channels. In Synnax, a Kafka cluster is a list of brokers with their
+TLS and authentication settings. The [read task](/reference/hardware/kafka/read-task)
+records the values in the records of a topic, and the
+[write task](/reference/hardware/kafka/write-task) sends commands to a topic as records.
 
 Kafka tasks run inside the Synnax Core, not in a Driver. The Core uses the rack "Node
 1", and it runs Kafka tasks wherever the Core runs, Docker included.
@@ -31,7 +30,8 @@ Kafka tasks run inside the Synnax Core, not in a Driver. The Core uses the rack 
 
 <Platforms integration="kafka" />
 
-- A Kafka cluster with JSON records, or a topic that a write task can send records to.
+- A Kafka cluster with JSON, text, or binary records, or a topic that a write task can
+  send records to.
 - A Core that can reach every broker on the network. Synnax Desktop runs one for you.
 - The advertised listeners of each broker give an address that the Core can reach. The
   Core reads the broker addresses from the cluster after it connects to the first one.

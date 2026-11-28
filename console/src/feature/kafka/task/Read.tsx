@@ -365,7 +365,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding != null && ICD.isTaskFormat(encoding) && (
+                {encoding != null && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>

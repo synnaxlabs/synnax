@@ -1,6 +1,6 @@
 ---
 title: "HTTP read task"
-description: "Poll a web API and record values from its JSON responses in channels."
+description: "Poll a web API and record values from its responses in channels."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -12,8 +12,8 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-An HTTP read task polls a web API at a fixed rate and records values from each JSON
-response in channels. Before you start,
+An HTTP read task polls a web API at a fixed rate and records values from each response
+in channels. Before you start,
 [connect an HTTP server](/reference/hardware/http/connect-server).
 
 <Divider.Divider x />
@@ -22,9 +22,12 @@ response in channels. Before you start,
 
 An [interface control document (ICD)](/reference/hardware/icds) holds the messages that
 a system sends, and the format of each one. For an HTTP endpoint, a message is the
-format of a JSON response: a list of fields. A field finds one value by a
-[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901), such as `/temperature`,
-and gives its type.
+format of a response: a list of fields. A message can be
+[JSON](/reference/hardware/icds/reference#json-messages),
+[text](/reference/hardware/icds/reference#text-messages), or
+[binary](/reference/hardware/icds/reference#binary-messages). A JSON field finds one
+value by a [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901), such as
+`/temperature`, and gives its type.
 
 The task reads each response of an endpoint as a message of an ICD. You choose the
 fields that the task reads and the channel that records each one. The task does not read
@@ -34,6 +37,10 @@ a field with no channel.
   [enum mapping](#set-a-default-or-an-enum-mapping) maps a text label to a value.
 - **Several messages** -> an endpoint can read more than one message. Each message has a
   match rule under **Responses** that selects the responses it reads.
+- **Multiplexed fields** -> binary fields with no default whose channels share an index
+  channel must have the same multiplexor values. For a payload whose multiplexor does
+  not select a field, the task writes the default of the field, or nothing when it has
+  none.
 - **Shared formats** -> an ICD is not part of a task, so more than one task can read it.
   You cannot delete an ICD while a task reads it.
 - **New endpoints** -> the message of a new endpoint goes into the ICD that most
@@ -301,14 +308,15 @@ endpoint, as the [examples](#create-an-http-read-task) do.
 <Problem.Item message={"Failed to read the response from ..."}>
 <Problem.Cause>
 
-The response matches more than one message, or it is not JSON and no field or match rule
-of the endpoint has an empty pointer. The task records nothing from the response.
+The response matches more than one message, or a JSON message gets a response that is
+not JSON and no field or match rule of the endpoint has an empty pointer. The task
+records nothing from the response.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check that the server sends JSON, and check the match rules of the messages of the
-endpoint against a response from the server.
+Check that the server sends the format of the message, and check the match rules of the
+messages of the endpoint against a response from the server.
 
 </Problem.Fix>
 </Problem.Item>

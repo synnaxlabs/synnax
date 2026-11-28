@@ -32,5 +32,3 @@ export const typedNIDevices = false;
 export const symbolMotion = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
 // Owner: Emiliano Bonilla. Umbrella: SY-6323. Removed in 0.64.
 export const bus = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
-// Owner: Emiliano Bonilla. Umbrella: SY-6979. Removed in 0.64.
-export const textMessages = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";

@@ -1,7 +1,6 @@
 ---
 title: "Kafka read task"
-description:
-  "Consume Kafka topics and record values from their JSON records in channels."
+description: "Consume Kafka topics and record values from their records in channels."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -13,8 +12,8 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A Kafka read task consumes one or more topics and records values from their JSON records
-in channels. Before you start,
+A Kafka read task consumes one or more topics and records values from their records in
+channels. Before you start,
 [connect a Kafka cluster](/reference/hardware/kafka/connect-cluster).
 
 <Divider.Divider x />
@@ -27,7 +26,10 @@ all of its topics.
 
 A record of the task is one Kafka record key of its topic. It names an ICD, which holds
 the layout of each message, and the messages of that ICD that records with the key
-carry. A field of a message is one value in the JSON value of the record, found by a
+carry. A message can be [JSON](/reference/hardware/icds/reference#json-messages),
+[text](/reference/hardware/icds/reference#text-messages), or
+[binary](/reference/hardware/icds/reference#binary-messages). A field of a message is
+one value in the record value. A JSON field finds it by a
 [JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`.
 The task reads a field into a channel only when the record binds the field to one.
 
@@ -36,7 +38,12 @@ The task reads a field into a channel only when the record binds the field to on
   topic that no other record of the topic claims, records with no key included.
 - **Messages** -> when one key carries more than one message, the match rule of each
   message picks the message for a record value.
-- **Values** -> each record value must be JSON. The task does not read Avro or Protobuf.
+- **Values** -> each record value must be a JSON, text, or binary message. The task does
+  not read Avro or Protobuf.
+- **Multiplexed fields** -> binary fields with no default whose channels share an index
+  channel must have the same multiplexor values. For a payload whose multiplexor does
+  not select a field, the task writes the default of the field, or nothing when it has
+  none.
 - **Strings** -> a string channel records the text. The **Enum mapping** of a field maps
   text labels to channel values.
 
@@ -283,7 +290,10 @@ Each message of a record has these settings:
 | Bindings <small>`bindings`</small> |                 | The fields to read. A field with no binding is not read. |
 
 A binding has a `field`, the key of a field of the message, and a `channel`, the channel
-that records the value. The field itself is part of the ICD:
+that records the value. The field itself is part of the ICD. A JSON field has these
+settings, and [text fields](/reference/hardware/icds/reference#text-field-properties)
+and [binary fields](/reference/hardware/icds/reference#binary-field-properties) have
+their own:
 
 | Setting                                   | Default | Notes                                                     |
 | ----------------------------------------- | ------- | --------------------------------------------------------- |
