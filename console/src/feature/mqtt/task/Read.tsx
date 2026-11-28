@@ -504,7 +504,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding != null && ICD.isTaskFormat(encoding) && (
+                {encoding != null && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
@@ -539,18 +539,15 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
           />
         </PForm.Section>
-        {topic !== "" &&
-          read != null &&
-          read.format !== "json" &&
-          ICD.isTaskFormat(read.format) && (
-            <ICD.LastPayload
-              key={device.key}
-              payload={read}
-              source={topic}
-              duration={Device.BROWSE_DURATION}
-              sample={(client) => Device.sampleTopic(client, device, topic)}
-            />
-          )}
+        {topic !== "" && read != null && read.format !== "json" && (
+          <ICD.LastPayload
+            key={device.key}
+            payload={read}
+            source={topic}
+            duration={Device.BROWSE_DURATION}
+            sample={(client) => Device.sampleTopic(client, device, topic)}
+          />
+        )}
         {reads.length === 1 && (
           <MessageSections path={path} read={0} format={format} device={device} />
         )}

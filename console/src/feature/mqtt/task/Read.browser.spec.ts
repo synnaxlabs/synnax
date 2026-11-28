@@ -54,28 +54,6 @@ import {
 } from "@/platform/task/testutil";
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
-const flags = vi.hoisted((): { textMessages: boolean } => ({ textMessages: true }));
-
-vi.mock("@/flags", async (importOriginal) => {
-  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
-  return {
-    FLAGS: {
-      ...FLAGS,
-      get textMessages() {
-        return flags.textMessages;
-      },
-    },
-  };
-});
-
-/** Takes only JSON messages in the task for the rest of the test, as a release does. */
-const hideTextMessages = () => {
-  flags.textMessages = false;
-  onTestFinished(() => {
-    flags.textMessages = true;
-  });
-};
-
 const client = createTestClient();
 
 /** The reply of the Core when it cannot reach the broker. */
@@ -236,15 +214,6 @@ const removeMessage = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =
   await client.icds.dispatch(
     key,
     icd.remove({ path: ["messages"], key: messages[0].message }),
-  );
-
-const setTextFormat = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =>
-  await client.icds.dispatch(
-    key,
-    icd.set({
-      path: ["messages", messages[0].message, "payload"],
-      value: { format: "text", delimiter: ",", prefix: "", fields: [] },
-    }),
   );
 
 const NOT_JSON_NOTE = "Message is not JSON";
@@ -1562,31 +1531,12 @@ describe("MQTT read form", () => {
     await screen.findByText("Message not found");
   });
 
-  it("should show the format and the message of a topic whose message is text", async () => {
-    hideTextMessages();
+  it("should mark a topic whose message is gone in the tree", async () => {
     const entry = await createEntry({ fields: [createField("temperature", "float")] });
-    await renderRead({ entries: [entry], beforeRender: () => setTextFormat(entry) });
-    await screen.findByText(NOT_JSON_NOTE);
-    await screen.findByRole("treeitem", { name: /TEXT.*plant\/oven/ });
-    // The message format field shows the name of the message.
-    await screen.findByRole("button", { name: /plant\/oven/ });
+    await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
+    const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+    await within(item).findByRole("img", { name: "Message not found" });
   });
-
-  it.each([
-    { name: "gone", mark: "Message not found", change: removeMessage },
-    { name: "not JSON", mark: NOT_JSON_NOTE, change: setTextFormat },
-  ])(
-    "should mark a topic whose message is $name in the tree",
-    async ({ mark, change }) => {
-      hideTextMessages();
-      const entry = await createEntry({
-        fields: [createField("temperature", "float")],
-      });
-      await renderRead({ entries: [entry], beforeRender: () => change(entry) });
-      const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
-      await within(item).findByRole("img", { name: mark });
-    },
-  );
 
   it("should drop the mark of a topic once its message has a field", async () => {
     const entry = await createEntry({ fields: [] });
@@ -1607,52 +1557,15 @@ describe("MQTT read form", () => {
     );
   });
 
-  it("should mark a later message that is not JSON and its topic", async () => {
-    hideTextMessages();
+  it("should not offer Add field for a topic whose message is gone", async () => {
     const entry = await createEntry({ fields: [createField("temperature", "float")] });
-    const status = await addMessage(
-      entry,
-      "status",
-      [createField("mode", "string")],
-      KIND_MATCH,
-    );
-    await renderRead({
-      entries: [entry],
-      beforeRender: async () =>
-        await client.icds.dispatch(
-          entry.icd,
-          icd.set({
-            path: ["messages", status.key, "payload"],
-            value: { format: "text", delimiter: ",", prefix: "", fields: [] },
-          }),
-        ),
-    });
-    const message = await screen.findByRole("treeitem", { name: /^status/ });
-    await within(message).findByRole("img", { name: NOT_JSON_NOTE });
-    const topic = screen.getByRole("treeitem", { name: /JSON.*plant\/oven/ });
-    within(topic).getByRole("img", { name: NOT_JSON_NOTE });
+    await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
+    await screen.findByText("Message not found");
+    expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /plant\/oven/ }));
+    await screen.findByRole("menuitem", { name: "Add message" });
+    expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
   });
-
-  it.each([
-    { name: "gone", note: "Message not found", change: removeMessage },
-    { name: "not JSON", note: NOT_JSON_NOTE, change: setTextFormat },
-  ])(
-    "should not offer Add field for a topic whose message is $name",
-    async ({ note, change }) => {
-      hideTextMessages();
-      const entry = await createEntry({
-        fields: [createField("temperature", "float")],
-      });
-      await renderRead({ entries: [entry], beforeRender: () => change(entry) });
-      await screen.findByText(note);
-      expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
-      fireEvent.contextMenu(
-        await screen.findByRole("treeitem", { name: /plant\/oven/ }),
-      );
-      await screen.findByRole("menuitem", { name: "Add message" });
-      expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
-    },
-  );
 
   it("should point a topic whose message is gone at a new message", async () => {
     const time = createTimeField();
@@ -1881,49 +1794,6 @@ describe("MQTT read form", () => {
         expect((await screen.findByRole("tooltip")).textContent).toContain(removeIt);
       },
     );
-
-    it("should open the editor at a message that is not JSON", async () => {
-      hideTextMessages();
-      const entry = await createEntry({
-        fields: [createField("temperature", "float")],
-      });
-      const { store } = await renderRead({
-        entries: [entry],
-        beforeRender: () => setTextFormat(entry),
-      });
-      await screen.findByText(NOT_JSON_NOTE);
-      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
-      expect(selectedIn(store, entry.icd)).toEqual([entry.messages[0].message]);
-      expect(focusedIn(store, entry.icd)).toBeUndefined();
-    });
-
-    it("should open the editor at a later message that is not JSON", async () => {
-      hideTextMessages();
-      const entry = await createEntry({
-        fields: [createField("temperature", "float")],
-      });
-      const status = await addMessage(
-        entry,
-        "status",
-        [createField("mode", "string")],
-        KIND_MATCH,
-      );
-      const { store } = await renderRead({
-        entries: [entry],
-        beforeRender: async () =>
-          await client.icds.dispatch(
-            entry.icd,
-            icd.set({
-              path: ["messages", status.key, "payload"],
-              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
-            }),
-          ),
-      });
-      fireEvent.click(await screen.findByRole("treeitem", { name: /^status/ }));
-      await screen.findByText(NOT_JSON_NOTE);
-      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
-      expect(selectedIn(store, entry.icd)).toEqual([status.key]);
-    });
 
     it("should open the editor at the message of the selected field", async () => {
       const entry = await createEntry({
@@ -2345,8 +2215,6 @@ describe("MQTT read form", () => {
           }),
         ],
       });
-      // The Core reads only JSON messages over MQTT, so it would undo the read.
-      holdRequests(client, "/task/create");
       const read = await screen.findByRole<HTMLInputElement>("checkbox", {
         name: "Read temperature",
       });
@@ -2410,8 +2278,6 @@ describe("MQTT read form", () => {
         ],
       });
       await openText();
-      // The Core reads only JSON messages over MQTT, so it would undo the read.
-      holdRequests(client, "/task/create");
       fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
       await screen.findByLabelText("Position");
       await waitFor(async () =>
@@ -2438,7 +2304,6 @@ describe("MQTT read form", () => {
       fireEvent.click(
         await screen.findByRole("treeitem", { name: new RegExp(`BINARY.*${TOPIC}`) }),
       );
-      holdRequests(client, "/task/create");
       fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
       await screen.findByLabelText("Start bit");
       await waitFor(async () =>
@@ -2593,16 +2458,6 @@ describe("MQTT read form", () => {
         await scanner.answer(UNREACHABLE);
         await screen.findByText("Failed to read the last payload");
         screen.getByText(/Could not reach dev1:1883/);
-      });
-
-      it("should not listen while the task takes only JSON messages", async () => {
-        hideTextMessages();
-        await renderPayload(TEXT);
-        fireEvent.click(
-          await screen.findByRole("treeitem", { name: new RegExp(`TEXT.*${TOPIC}`) }),
-        );
-        await screen.findByText("Subscription");
-        expect(screen.queryByText("Last payload")).toBeNull();
       });
 
       it("should not listen for a JSON message", async () => {
@@ -2949,8 +2804,6 @@ describe("MQTT read form", () => {
       });
       await renderRead({ entries: [entry] });
       await openTopic();
-      // The Core reads only JSON messages over MQTT, so it would undo the read.
-      holdRequests(client, "/task/create");
       await pickNewMessage(TOPIC, item);
       await findDialogTriggerByText(`${TOPIC} 2`);
       await waitFor(async () => {

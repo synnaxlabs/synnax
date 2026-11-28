@@ -9,9 +9,8 @@
 
 import type { channel, icd, Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { DataType, type deep, type payload, unique } from "@synnaxlabs/x";
+import { DataType, type deep, unique } from "@synnaxlabs/x";
 
-import { FLAGS } from "@/flags";
 import { converts } from "@/platform/icd/dataType";
 
 /** A source of a read task, such as a topic or a record, that reads ICD messages. */
@@ -50,16 +49,6 @@ export const fieldsPath = (key: icd.MessageKey): deep.Path<Field[]> =>
 
 export const jsonFields = (message?: icd.Message | null): icd.JSONField[] =>
   message?.payload.format === "json" ? message.payload.fields : [];
-
-/** @returns whether a task takes messages of the format. Text and binary wait. */
-export const isTaskFormat = (format: payload.Format): boolean =>
-  FLAGS.textMessages || format === "json";
-
-/** @returns the fields of a message, or null when a task does not take its format. */
-export const taskFields = (message?: icd.Message | null): Field[] | null =>
-  message != null && isTaskFormat(message.payload.format)
-    ? message.payload.fields
-    : null;
 
 export const retrieveMessages = async (
   client: Synnax,

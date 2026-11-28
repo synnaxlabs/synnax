@@ -19,7 +19,7 @@ import type { FC, ReactElement } from "react";
 
 import { converts, unbind } from "@/platform/icd/dataType";
 import { useFormats } from "@/platform/icd/Formats";
-import { type ReadSource, suit, taskFields, type TreeField } from "@/platform/icd/read";
+import { type ReadSource, suit, type TreeField } from "@/platform/icd/read";
 import { useSuit } from "@/platform/icd/useSuit";
 import { Task } from "@/platform/task";
 
@@ -107,7 +107,7 @@ export const SuitRead: FC<SuitReadProps> = ({ path, read }) => {
   useSuit({
     path: readPath,
     message,
-    fieldsOf: taskFields,
+    fieldsOf: ({ payload }) => payload.fields,
     suit,
     bound: ({ bindings }) => bindings.map((b) => b.channel),
     unbind: (readMessage, fields, channels) => ({

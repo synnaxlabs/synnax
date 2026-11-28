@@ -25,7 +25,6 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import type { destructor, payload, record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { useFormats } from "@/platform/icd/Formats";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
@@ -135,10 +134,9 @@ export const MessageFormatField = ({
 }: MessageFormatFieldProps): ReactElement => {
   const icds = PICD.useList();
   const forms = useFormats();
-  const listed = FLAGS.textMessages ? formats : JSON_ONLY;
   // A user who cannot update the ICD gets its form in preview.
   const editable = icdKey != null && forms.get(icdKey)?.mode === "normal";
-  const creates = onCreate != null && editable ? listed : [];
+  const creates = onCreate != null && editable ? formats : [];
   // List readers need one choice object for as long as its ICD stays the same.
   const cache = useInitializerRef(() => new WeakMap<icd.ICD, Map<string, Choice>>());
   const choicesOf = (parent: icd.ICD): Map<string, Choice> => {
@@ -171,7 +169,7 @@ export const MessageFormatField = ({
   const data = useMemoDeepEqual(
     parents.flatMap((parent) =>
       [...choicesOf(parent).values()]
-        .filter(({ format }) => listed.includes(format))
+        .filter(({ format }) => formats.includes(format))
         .map(({ key }) => key),
     ),
   );
@@ -247,7 +245,7 @@ export const MessageFormatField = ({
             )
           }
         >
-          {listed.length > 1 ? formatChoiceRenderProp : choiceRenderProp}
+          {formats.length > 1 ? formatChoiceRenderProp : choiceRenderProp}
         </Select.Single>
         {icdKey != null && message != null && (
           <OpenInEditor icdKey={icdKey} message={message} />

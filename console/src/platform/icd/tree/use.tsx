@@ -34,10 +34,8 @@ import {
   fieldsPath,
   isIndexable,
   isReadable,
-  isTaskFormat,
   type ReadSource,
   reindex,
-  taskFields,
   type TreeField,
   treeFieldOf,
 } from "@/platform/icd/read";
@@ -64,7 +62,7 @@ const fieldsOf = (
   formats: Formats,
   icdKey: icd.Key,
   message: icd.MessageKey,
-): Field[] => taskFields(heldMessage(formats, icdKey, message)) ?? [];
+): Field[] => heldMessage(formats, icdKey, message)?.payload.fields ?? [];
 
 /** Starts or stops reading a field of a message. */
 const setRead = (
@@ -443,7 +441,7 @@ export const use = <
     const source = ctx.get(path).value;
     const [prior] = source.messages;
     if (source.icd === icdKey && prior.message === message.key) return;
-    const fields = taskFields(message) ?? [];
+    const fields = message.payload.fields;
     const readable = fields.filter(isReadable);
     const timestamps = fields.filter((f) => "type" in f && f.type === "timestamp");
     const index =
@@ -493,11 +491,9 @@ export const use = <
     return heldMessage(formats, icdKey, messages[r].message);
   };
 
-  /** Whether the ICD holds the message of a read of a source, in a task format. */
-  const takesFields = (sourceKey: string, r: number): boolean => {
-    const message = heldRead(sourceKey, r);
-    return message != null && isTaskFormat(message.payload.format);
-  };
+  /** Whether the ICD holds the message of a read of a source. */
+  const takesFields = (sourceKey: string, r: number): boolean =>
+    heldRead(sourceKey, r) != null;
 
   const addField = (sourceKey: string, r: number) => {
     const source = ctx.get(pathOf(sourceKey)).value;

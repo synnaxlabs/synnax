@@ -34,7 +34,6 @@ import {
   fieldsPath,
   hiddenDataTypes,
   isIndexable,
-  isTaskFormat,
   jsonFields,
   type ReadSource,
   reindex,
@@ -321,11 +320,6 @@ export interface MessageWarningProps {
   jsonOnly?: boolean;
 }
 
-interface MessageStatusProps extends MessageWarningProps {
-  /** Actions beside the note on a message that is not JSON. */
-  actions?: ReactNode;
-}
-
 interface Problem {
   message: string;
   description: string;
@@ -352,7 +346,7 @@ const problemOf = ({
   if (message == null)
     return { message: "Message not found", description: missingDescription };
   const { format } = message.payload;
-  if (jsonOnly ? format !== "json" : !isTaskFormat(format)) return NOT_JSON;
+  if (jsonOnly && format !== "json") return NOT_JSON;
   return message.payload.fields.length > 0 ? null : NO_FIELDS;
 };
 
@@ -406,17 +400,10 @@ export const MessageMark = ({
 };
 
 /** Shows the warning of {@link MessageWarning} in a section of its own. */
-const MessageStatus = ({
-  actions,
-  ...rest
-}: MessageStatusProps): ReactElement | null => {
-  const warning = warningOf(rest);
-  if (warning == null) return null;
-  const notJSON = rest.message != null && !isTaskFormat(rest.message.payload.format);
-  return (
-    <PForm.Section title="Message" actions={notJSON ? actions : undefined}>
-      {warning}
-    </PForm.Section>
+const MessageStatus = (props: MessageWarningProps): ReactElement | null => {
+  const warning = warningOf(props);
+  return warning == null ? null : (
+    <PForm.Section title="Message">{warning}</PForm.Section>
   );
 };
 
@@ -473,8 +460,6 @@ export const MessageSections: FC<MessageSectionsProps> = ({
 }) => {
   const { path, read } = rest;
   const plan = usePlan(path, read);
-  const icdKey = PForm.useFieldValue(path.icd);
-  const several = PForm.useFieldValue(path.messages).length > 1;
   const readMessage = PForm.useFieldValue(path.messages[read]);
   const message = PForm.useFieldValue(PICD.formPath.messages[readMessage.message], {
     optional: true,
@@ -483,15 +468,8 @@ export const MessageSections: FC<MessageSectionsProps> = ({
   const fields = jsonFields(message);
   return (
     <>
-      <MessageStatus
-        message={message}
-        missingDescription={missingDescription}
-        // A source that reads one message opens the editor from its format picker.
-        actions={
-          several && <OpenInEditor icdKey={icdKey} message={readMessage.message} />
-        }
-      />
-      {message != null && isTaskFormat(message.payload.format) && (
+      <MessageStatus message={message} missingDescription={missingDescription} />
+      {message != null && (
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <Frame
             path={PICD.formPath.messages[message.key].payload}
@@ -541,7 +519,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
-        {encoding != null && isTaskFormat(encoding) && (
+        {encoding != null && (
           <PForm.Form<typeof PICD.formSchema> {...format}>
             <PForm.Section
               title="Message"
