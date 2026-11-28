@@ -92,7 +92,11 @@ class Client:
         self.instrumentation = instrumentation
 
     @deprecate_positional("authorities")
-    @deprecate_negated(enable_auto_commit="auto_commit_disabled")
+    @deprecate_negated(
+        enable_auto_commit="auto_commit_disabled",
+        suppress_warnings="warnings_shown",
+        err_on_extra_chans="extra_channels_allowed",
+    )
     def open_writer(
         self,
         start: CrudeTimeStamp | None = None,
@@ -102,13 +106,13 @@ class Client:
         name: str = "",
         group: int = 0,
         strict: bool = False,
-        suppress_warnings: bool = True,
+        warnings_shown: bool = False,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
         err_on_unauthorized: bool = False,
         auto_commit_disabled: bool = False,
         auto_index_persist_interval: TimeSpan = TimeSpan.SECOND,
         auto_index: bool = False,
-        err_on_extra_chans: bool = True,
+        extra_channels_allowed: bool = False,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -126,8 +130,9 @@ class Client:
         particular channel does not exactly match this data type. When False, the
         default, the writer will automatically convert the data to the correct type if
         possible.
-        :param suppress_warnings: Suppress various print warnings that may be emitted by
-        the writer.
+        :param warnings_shown: when True, the writer warns each time it converts samples
+        to the data type of the channel. The deprecated suppress_warnings keyword is the
+        opposite of this one.
         :param mode: sets the persistence and streaming mode of the writer. The default
         mode is WriterModePersistStream. See the WriterMode documentation for more.
         :param err_on_unauthorized: sets whether the writer should return an error if it
@@ -146,14 +151,18 @@ class Client:
         monotonic across all writes on the writer. If you open the writer with data
         channels whose index channels are not included, those index channels are added
         to the writer implicitly.
+        :param extra_channels_allowed: when True, a write of a Frame or DataFrame leaves
+        out the channel names that the writer is not open on instead of raising
+        ValidationError. The deprecated err_on_extra_chans keyword is the opposite of
+        this one.
         """
         if channels is None:
             raise ValidationError("open_writer requires channels")
         adapter = WriteFrameAdapter(
             retriever=self._channels,
-            err_on_extra_chans=err_on_extra_chans,
+            extra_channels_allowed=extra_channels_allowed,
             strict_data_types=strict,
-            suppress_warnings=suppress_warnings,
+            warnings_shown=warnings_shown,
         )
         adapter.update(channels)
         return Writer(

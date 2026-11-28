@@ -133,9 +133,9 @@ class WriteFrameAdapter:
     _adapter: dict[str, channel.Key] | None
     _channels: dict[channel.Key, channel.Payload]
     _keys: list[channel.Key]
-    _err_on_extra_chans: bool
+    _extra_channels_allowed: bool
     _strict_data_types: bool
-    _suppress_warnings: bool
+    _warnings_shown: bool
 
     retriever: Retriever
     codec: Codec
@@ -144,17 +144,17 @@ class WriteFrameAdapter:
         self,
         *,
         retriever: Retriever,
-        err_on_extra_chans: bool = True,
+        extra_channels_allowed: bool = False,
         strict_data_types: bool = False,
-        suppress_warnings: bool = True,
+        warnings_shown: bool = False,
     ):
         self.retriever = retriever
         self._adapter = None
         self._channels = {}
         self._keys = []
-        self._err_on_extra_chans = err_on_extra_chans
+        self._extra_channels_allowed = extra_channels_allowed
         self._strict_data_types = strict_data_types
-        self._suppress_warnings = suppress_warnings
+        self._warnings_shown = warnings_shown
         self.codec = Codec()
 
     def update(self, channels: channel.Params) -> None:
@@ -216,7 +216,7 @@ class WriteFrameAdapter:
                             + f"not match series data type {series.data_type}.",
                         ),
                     )
-                if not self._suppress_warnings and not (
+                if self._warnings_shown and not (
                     ch.data_type == DataType.TIMESTAMP
                     and series.data_type == DataType.INT64
                 ):
@@ -224,10 +224,10 @@ class WriteFrameAdapter:
                         f"""Series for channel {ch.name} has type {series.data_type} but
                         channel expects type {ch.data_type}. We can safely convert
                         between the two, but this can cause performance degradations
-                        and is not recommended. To suppress this warning,
-                        set suppress_warnings=True when constructing the writer. To
-                        raise an error instead, set strict=True when constructing
-                        the writer.""",
+                        and is not recommended. To hide this warning, set
+                        warnings_shown=False when constructing the writer. To raise
+                        an error instead, set strict=True when constructing the
+                        writer.""",
                         stacklevel=3,
                     )
                 frame.series[i] = series.astype(ch.data_type)
@@ -310,7 +310,7 @@ class WriteFrameAdapter:
                     )
                     adapted_series.append(column)
                 except KeyError as e:
-                    if self._err_on_extra_chans:
+                    if not self._extra_channels_allowed:
                         raise ValidationError(
                             f"Channel {e} was not provided in the list of "
                             f"channels when the writer was opened."

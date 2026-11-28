@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import warnings
 from types import MappingProxyType
 
 import numpy as np
@@ -607,6 +608,75 @@ class TestWriter:
                 enable_auto_commit=True,
                 auto_commit_disabled=False,
             )
+
+    @pytest.mark.parametrize(
+        ("old", "new"),
+        [
+            ("suppress_warnings", "warnings_shown"),
+            ("err_on_extra_chans", "extra_channels_allowed"),
+        ],
+    )
+    def test_old_and_new_writer_option_names_raise(self, old: str, new: str) -> None:
+        """Should reject a call that gives both the old and the new name."""
+        with pytest.raises(TypeError, match=f"Pass only {new}"):
+            untyped(sy.framer.Client.open_writer)(
+                None, channels=[1], **{old: True, new: False}
+            )
+
+    def test_warnings_hidden_by_default(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
+        """Should convert samples to the channel data type without a warning."""
+        with (
+            warnings.catch_warnings(),
+            client.open_writer(channels=virtual_channel.key) as w,
+        ):
+            warnings.simplefilter("error")
+            w.write(virtual_channel.key, np.array([1.0], dtype=np.float32))
+
+    @pytest.mark.parametrize(
+        "option",
+        [{"warnings_shown": True}, {"suppress_warnings": False}],
+    )
+    def test_warnings_shown(
+        self, option: dict[str, bool], virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
+        """Should warn on a conversion when warnings_shown is True or the deprecated
+        suppress_warnings is False."""
+        with (
+            warnings.catch_warnings(record=True) as record,
+            untyped(client.open_writer)(channels=virtual_channel.key, **option) as w,
+        ):
+            warnings.simplefilter("always")
+            w.write(virtual_channel.key, np.array([1.0], dtype=np.float32))
+        assert any("can safely convert" in str(r.message) for r in record)
+
+    def test_extra_channels_rejected_by_default(
+        self, virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
+        """Should raise on a frame that holds a channel the writer is not open on."""
+        with (
+            client.open_writer(channels=virtual_channel.key) as w,
+            pytest.raises(sy.ValidationError, match="was not provided"),
+        ):
+            w.write(pd.DataFrame({virtual_channel.name: [1.0], "not_open": [2.0]}))
+
+    @pytest.mark.parametrize(
+        "option",
+        [{"extra_channels_allowed": True}, {"err_on_extra_chans": False}],
+    )
+    def test_extra_channels_allowed(
+        self, option: dict[str, bool], virtual_channel: sy.Channel, client: sy.Synnax
+    ) -> None:
+        """Should leave out a channel the writer is not open on when
+        extra_channels_allowed is True or the deprecated err_on_extra_chans is
+        False."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            with untyped(client.open_writer)(
+                channels=virtual_channel.key, **option
+            ) as w:
+                w.write(pd.DataFrame({virtual_channel.name: [1.0], "not_open": [2.0]}))
 
     def test_commit_result_writer_closed(self) -> None:
         writer = _open_endable(_EndableTransport())

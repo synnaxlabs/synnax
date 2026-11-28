@@ -472,24 +472,24 @@ read each sample.
 </Field.Item>
 
 <Field.Item
-  name="suppress_warnings"
-  id="python-suppress-warnings"
+  name="warnings_shown"
+  id="python-warnings-shown"
   type="bool"
-  default="True"
+  default="False"
 >
-  When false, the writer prints a warning each time it converts samples to the data type
+  When true, the writer prints a warning each time it converts samples to the data type
   of the channel.
 </Field.Item>
 
 <Field.Item
-  name="err_on_extra_chans"
-  id="python-err-on-extra-chans"
+  name="extra_channels_allowed"
+  id="python-extra-channels-allowed"
   type="bool"
-  default="True"
+  default="False"
 >
-  Raise a `ValidationError` when a write holds a channel that the writer is not open on.
-  When false, a write of a `Frame` or a DataFrame leaves out a channel name that the
-  writer is not open on. Other writes still raise.
+  When true, a write of a `Frame` or a DataFrame leaves out a channel name that the
+  writer is not open on. Other writes still raise. When false, a write that holds a
+  channel that the writer is not open on raises a `ValidationError`.
 </Field.Item>
 
 </Field.List>
