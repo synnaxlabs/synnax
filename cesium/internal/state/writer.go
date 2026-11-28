@@ -718,17 +718,16 @@ func (r *switchRequest) run(s *State) {
 		if seg.holder != nil || seg.vis.Sealed {
 			continue
 		}
-		if !seg.dur.created {
+		if seg.dur.created {
+			seg.vis.Sealed = true
+			seals = append(seals, log.Seal{
+				Segment: id,
+				Length:  seg.vis.Length,
+				TailCRC: seg.vis.TailCRC,
+			})
+		} else {
 			s.drop(seg)
-			s.core.channels[seg.key].publish()
-			continue
 		}
-		seg.vis.Sealed = true
-		seals = append(seals, log.Seal{
-			Segment: id,
-			Length:  seg.vis.Length,
-			TailCRC: seg.vis.TailCRC,
-		})
 		s.core.channels[seg.key].publish()
 	}
 	sortSeals(seals)
