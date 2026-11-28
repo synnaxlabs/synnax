@@ -101,10 +101,14 @@ var _ = Describe("Check: a read across the Drop of its key and its index", func(
 		Expect(iter.Error()).ToNot(HaveOccurred())
 		Expect(got).To(Equal([]int64{11, 12, 20, 21}))
 		Expect(iter.Close()).To(Succeed())
+		// The unlinks of the read run after it closes.
 		for _, k := range dropped {
-			if dir := strconv.Itoa(int(k)); MustSucceed(fs.Exists(dir)) {
-				Expect(fs.List(dir)).To(BeEmpty(), "key %d", k)
-			}
+			dir := strconv.Itoa(int(k))
+			Eventually(func(g Gomega) {
+				if MustSucceed(fs.Exists(dir)) {
+					g.Expect(fs.List(dir)).To(BeEmpty())
+				}
+			}).Should(Succeed(), "key %d", k)
 		}
 	},
 		Entry("in a Drop of the key alone", false),

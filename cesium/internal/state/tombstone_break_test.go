@@ -20,27 +20,29 @@ import (
 var _ = Describe("Tombstone, broken", func() {
 	It("Should remove a segment that a replayed Seal sealed and a replayed Tombstone "+
 		"left with no live pointer", func() {
-		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		a := &appended{}
+		s := MustSucceed(state.Open(config(a), sample()))
 		Expect(s.Replay(10, []log.Record{
 			&log.Seal{Segment: 4, Length: 16, TailCRC: 2},
 			&log.Tombstone{Key: 5, Start: 35, End: 60},
 		})).To(Succeed())
 		run(s)
 		MustSucceed(s.Snapshot())
-		Expect(s.TakeDead()).To(HaveExactElements(deadSegment(4, 5, 10)))
+		Expect(a.takeDead(s)).To(HaveExactElements(deadSegment(4, 5, 10)))
 		Expect(s.Channel(5).Segments).To(HaveLen(1))
 	})
 
 	It("Should remove a segment that a Tombstone left with no live pointer once a "+
 		"later Seal seals it", func() {
-		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		a := &appended{}
+		s := MustSucceed(state.Open(config(a), sample()))
 		Expect(s.Replay(10, []log.Record{
 			&log.Tombstone{Key: 5, Start: 35, End: 60},
 			&log.Seal{Segment: 4, Length: 16, TailCRC: 2},
 		})).To(Succeed())
 		run(s)
 		MustSucceed(s.Snapshot())
-		Expect(s.TakeDead()).To(HaveExactElements(deadSegment(4, 5, 10)))
+		Expect(a.takeDead(s)).To(HaveExactElements(deadSegment(4, 5, 10)))
 		Expect(s.Channel(5).Segments).To(HaveLen(1))
 	})
 })
