@@ -243,6 +243,16 @@ describe("Form", () => {
           message: "Not John",
         });
       });
+      it("should word a check's issue that has no message by the field it checks", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck(path.age, z.number().lt(18));
+        });
+        expect(result.current.get(path.age).status).toMatchObject({
+          variant: "error",
+          message: "Age must be less than 18",
+        });
+      });
       it("should not make the form invalid", () => {
         const { result } = renderHook(useBasicForm);
         act(() => {

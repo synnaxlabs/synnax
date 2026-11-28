@@ -7,11 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type destructor, errors, map, observe, zod } from "@synnaxlabs/x";
+import {
+  deep,
+  type destructor,
+  errors,
+  map,
+  observe,
+  strings,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import type { Entry, Store } from "@/form/store";
 import type { Status } from "@/status";
+
+/**
+ * @returns parse params that word each issue whose schema gives no message as a
+ * sentence about its field. prefix is the path in the form of the value parsed.
+ */
+const wordIssues = (prefix: PropertyKey[] = []) => ({
+  error: (issue: z.core.$ZodRawIssue) =>
+    strings.capitalize(
+      zod.issueMessage({ ...issue, path: [...prefix, ...(issue.path ?? [])] }),
+    ),
+});
+
+const PARSE_PARAMS = wordIssues();
 
 export interface FieldState<V = unknown> {
   value: V;
@@ -399,12 +420,12 @@ export class State<Z extends z.ZodType> implements observe.Observable<void> {
   }
 
   validate(validateUntouched?: boolean, path?: string): boolean {
-    const result = this.schema?.safeParse(this.values);
+    const result = this.schema?.safeParse(this.values, PARSE_PARAMS);
     return this.processValidation(validateUntouched, result, path);
   }
 
   async validateAsync(validateUntouched?: boolean, path?: string): Promise<boolean> {
-    const result = await this.schema?.safeParseAsync(this.values);
+    const result = await this.schema?.safeParseAsync(this.values, PARSE_PARAMS);
     return this.processValidation(validateUntouched, result, path);
   }
 
@@ -471,9 +492,9 @@ export class State<Z extends z.ZodType> implements observe.Observable<void> {
     this.checks.forEach(({ path, schema }) => {
       const root = path === "";
       const value = root ? this.values : deep.get(this.values, path);
-      const checked = schema.safeParse(value);
-      if (checked.success) return;
       const prefix = root ? [] : path.split(deep.SEPARATOR);
+      const checked = schema.safeParse(value, wordIssues(prefix));
+      if (checked.success) return;
       this.errorsToStatuses(checked.error.issues, prefix, []).forEach((status) => {
         if (status.key != null) add(status.key, status);
       });
