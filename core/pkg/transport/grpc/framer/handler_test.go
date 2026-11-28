@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 	"slices"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -366,6 +367,38 @@ var _ = Describe("gRPC Framer Transport", func() {
 				).To(MatchSeriesData(telem.NewSeriesV[int64](2)))
 			},
 		)
+
+		It("Should apply the keys of a request at an empty response's Applied", func(
+			ctx SpecContext,
+		) {
+			a := createVirtualChannel(ctx, telem.Int64T)
+			b := createVirtualChannel(ctx, telem.Int64T)
+			both := append(slices.Clone(a), b...)
+			serve(
+				transport.FrameStreamer,
+				2,
+				framer.StreamerResponse{Ack: true, Applied: 1},
+				framer.StreamerResponse{
+					Frame: frame.NewMulti(
+						b,
+						[]telem.Series{telem.NewSeriesV[int64](2)},
+					),
+				},
+			)
+			res := exchange(
+				MustSucceed(client.Exec(ctx)),
+				2,
+				&grpcframer.StreamerRequest{Keys: a.Uint32()},
+				&grpcframer.StreamerRequest{Keys: both.Uint32()},
+			)
+			Expect(res[0].Ack).To(BeTrue())
+			Expect(res[0].Buffer).To(BeEmpty())
+			dec := newClientCodec(ctx, a)
+			Expect(dec.Update(ctx, both)).To(Succeed())
+			fr := MustSucceed(dec.Decode(res[1].Buffer))
+			Expect(channel.Keys(fr.KeysSlice())).To(Equal(b))
+			Expect(fr.SeriesAt(0)).To(MatchSeriesData(telem.NewSeriesV[int64](2)))
+		}, SpecTimeout(10*time.Second))
 
 		It("Should send a protobuf frame before a request names keys", func(
 			ctx SpecContext,
