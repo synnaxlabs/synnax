@@ -13,45 +13,19 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
-func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
+// OpenIterator opens an iterator over the channels of cfg. It returns an error for a
+// channel that db does not hold, and for a virtual channel, which stores no data.
+func (db *DB) OpenIterator(cfg IteratorConfig) (iter *Iterator, err error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	internal, err := db.newStreamIterator(cfg)
-	if err != nil {
-		// return early to prevent panic in wrapStreamIterator
-		return nil, err
-	}
-	return wrapStreamIterator(internal), nil
-}
-
-// NewStreamIterator opens a segment that reads the DB in time order, as OpenIterator
-// does. Each IteratorRequest sent to its inlet gets zero or more responses with frames,
-// then one response of the IteratorResponseVariantAck variant with the command, the
-// request's sequence number, and whether the command succeeded. Close the inlet to
-// close the segment: it serves the requests in progress, closes its outlet, and returns
-// any error through the context passed to Flow.
-func (db *DB) NewStreamIterator(
-	cfg IteratorConfig,
-) (confluence.Segment[IteratorRequest, IteratorResponse], error) {
-	if db.closed.Load() {
-		return nil, ErrDBClosed
-	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	return db.newStreamIterator(cfg)
-}
-
-func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err error) {
 	var (
 		internal []*unary.Iterator
 		cache    = index.NewCache()
@@ -60,24 +34,22 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		if err == nil {
 			return
 		}
-		for _, iter := range internal {
-			if iter != nil {
-				err = errors.Combine(err, iter.Close())
-			}
+		for _, u := range internal {
+			err = errors.Combine(err, u.Close())
 		}
 	}()
 	for _, key := range cfg.Channels {
 		if uDB, ok := db.mu.dbs.unary[key]; ok {
-			iter, iterErr := uDB.OpenIterator(unary.IteratorConfig{
+			u, err := uDB.OpenIterator(unary.IteratorConfig{
 				Bounds:        cfg.Bounds,
 				AutoChunkSize: cfg.AutoChunkSize,
 				Reduction:     cfg.Reduction,
 				Cache:         cache,
 			})
-			if iterErr != nil {
-				return nil, iterErr
+			if err != nil {
+				return nil, err
 			}
-			internal = append(internal, iter)
+			internal = append(internal, u)
 			continue
 		}
 		if vdb, ok := db.mu.dbs.virtual[key]; ok {
@@ -90,14 +62,11 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 		return nil, channel.NewNotFoundError(key)
 	}
 	_, limited := cfg.Reduction.Variant.(telem.LimitReduction)
-	return &streamIterator{
-		internal: internal,
-		validateCommand: validate.NewInclusiveBoundsChecker(
-			IteratorCommandNext,
-			IteratorCommandSetBounds,
-		),
+	return &Iterator{
+		internal:  internal,
 		cache:     cache,
 		limited:   limited,
 		chunkSize: db.chunkSize,
+		ins:       db.Instrumentation,
 	}, nil
 }

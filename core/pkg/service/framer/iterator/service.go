@@ -239,7 +239,8 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 		signal.WithInstrumentation(s.cfg.Instrumentation),
 	)
 	req := confluence.NewStream[Request]()
-	res := confluence.NewStream[Response]()
+	// One slot lets the stream read its next chunk while the caller takes the last.
+	res := confluence.NewStream[Response](1)
 	stream.InFrom(req)
 	stream.OutTo(res)
 	stream.Flow(

@@ -11,6 +11,12 @@
   ],
   "pending": [
     {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/confluence",
+      "name": "Attach",
+      "caller": "sy-6397-confluence-attach-testutil"
+    },
+    {
       "module": "core",
       "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
       "name": "TextEncoder",
@@ -86,12 +92,6 @@
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium",
       "name": "Writer",
-      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium",
-      "name": "Iterator",
       "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
     },
     {
