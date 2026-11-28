@@ -1181,6 +1181,10 @@ binary_field_from_proto(const ::service::icd::pb::BinaryField &pb);
 
 /// @brief ReadEntry reads the messages of one device on a serial port or a socket.
 struct ReadEntry {
+    /// @brief key uniquely identifies the entry within the task.
+    std::string key;
+    /// @brief disabled is true when the entry is excluded from the task.
+    bool disabled = false;
     /// @brief icd is the key of the ICD that holds the messages of the entry.
     Key icd;
     /// @brief messages are the messages the device sends. Each frame is read as the

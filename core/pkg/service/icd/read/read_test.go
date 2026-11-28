@@ -1029,4 +1029,14 @@ var _ = Describe("Entries", func() {
 			},
 		}))
 	})
+
+	It("Should skip a disabled entry and keep the path of each other entry", func() {
+		first, second := uuid.New(), uuid.New()
+		Expect(read.Entries([]icd.ReadEntry{
+			{ICD: first, Disabled: true},
+			{ICD: second},
+		})).To(Equal([]read.Read{
+			{Path: []string{"entries", "1"}, ICD: second, Framed: true},
+		}))
+	})
 })

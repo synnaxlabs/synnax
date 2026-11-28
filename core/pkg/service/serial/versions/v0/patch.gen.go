@@ -28,7 +28,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "entries":
-		return patch.Value(&rc.Entries, c.Next())
+		return patch.List(&rc.Entries, c.Next())
 	default:
 		return c.UnknownField()
 	}

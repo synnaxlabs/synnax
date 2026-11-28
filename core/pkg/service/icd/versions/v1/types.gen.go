@@ -2740,6 +2740,10 @@ func (p Poll) Validate() error {
 
 // ReadEntry reads the messages of one device on a serial port or a socket.
 type ReadEntry struct {
+	// Key uniquely identifies the entry within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Disabled is true when the entry is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// ICD is the key of the ICD that holds the messages of the entry.
 	ICD Key `json:"icd" msgpack:"icd"`
 	// Messages are the messages the device sends. Each frame is read as the message

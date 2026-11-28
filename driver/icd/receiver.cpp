@@ -76,9 +76,12 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
     Receiver r;
     r.datagram = datagram;
     r.now = std::move(now);
+    std::vector<std::size_t> enabled;
+    for (std::size_t i = 0; i < entries.size(); i++)
+        if (!entries[i].disabled) enabled.push_back(i);
     std::vector<Reader::Source> sources;
-    sources.reserve(entries.size());
-    for (std::size_t i = 0; i < entries.size(); i++) {
+    sources.reserve(enabled.size());
+    for (const auto i: enabled) {
         const auto ic = std::ranges::find(icds, entries[i].icd, &synnax::icd::ICD::key);
         if (ic == icds.end())
             return {
@@ -113,7 +116,7 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
             if (err) return {Receiver{}, err};
             r.framer = std::move(framer);
         }
-    for (std::size_t i = 0; i < entries.size(); i++) {
+    for (const auto i: enabled) {
         const auto &entry_poll = entries[i].poll;
         if (!entry_poll.has_value()) continue;
         const auto &poll = *entry_poll;

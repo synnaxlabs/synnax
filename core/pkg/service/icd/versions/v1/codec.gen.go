@@ -1327,6 +1327,8 @@ func (p *Poll) DecodeOrc(r *orc.Reader) error {
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (re ReadEntry) EncodeOrc(w *orc.Writer) error {
+	w.String(re.Key)
+	w.Bool(re.Disabled)
 	w.Write(re.ICD[:])
 	w.Bool(re.Messages != nil)
 	if re.Messages != nil {
@@ -1350,6 +1352,13 @@ func (re ReadEntry) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (re *ReadEntry) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if re.Key, err = r.String(); err != nil {
+		return err
+	}
+	if re.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
 	if _, err := r.Read(re.ICD[:]); err != nil {
 		return err
 	}

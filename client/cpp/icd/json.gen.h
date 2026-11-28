@@ -260,6 +260,8 @@ inline x::json::json Poll::to_json() const {
 
 inline ReadEntry ReadEntry::parse(x::json::Parser parser) {
     return ReadEntry{
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
+        .disabled = parser.field<bool>("disabled", false),
         .icd = parser.field<Key>("icd"),
         .messages = parser.field<std::vector<ReadMessage>>(
             "messages",
@@ -271,6 +273,8 @@ inline ReadEntry ReadEntry::parse(x::json::Parser parser) {
 
 inline x::json::json ReadEntry::to_json() const {
     x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    j["disabled"] = this->disabled;
     j["icd"] = this->icd.to_json();
     j["messages"] = x::json::to_array(this->messages);
     if (this->poll.has_value()) j["poll"] = this->poll->to_json();

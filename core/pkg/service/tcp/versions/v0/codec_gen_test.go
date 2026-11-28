@@ -44,21 +44,23 @@ var _ = Describe("Codec", func() {
 				Device:             "test_4",
 				Entries: []icd.ReadEntry{
 					{
-						ICD: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+						Key:      "test_6",
+						Disabled: true,
+						ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
 						Messages: []icd.ReadMessage{
 							{
-								Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-								Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+								Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
+								Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
 								Bindings: []icd.ReadBinding{
 									{
-										Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
-										Channel:  channel.Key(13),
-										DataType: telem.DataType("test_13"),
+										Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+										Channel:  channel.Key(15),
+										DataType: telem.DataType("test_15"),
 									},
 								},
 							},
 						},
-						Poll: new(icd.Poll{Query: []byte{15, 16, 17}, Rate: telem.Rate(16.5)}),
+						Poll: new(icd.Poll{Query: []byte{17, 18, 19}, Rate: telem.Rate(18.5)}),
 					},
 				},
 			}),
@@ -136,21 +138,23 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		Device:             "test_4",
 		Entries: []icd.ReadEntry{
 			{
-				ICD: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				Key:      "test_6",
+				Disabled: true,
+				ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
 				Messages: []icd.ReadMessage{
 					{
-						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-						Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
+						Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
 						Bindings: []icd.ReadBinding{
 							{
-								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
-								Channel:  channel.Key(13),
-								DataType: telem.DataType("test_13"),
+								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+								Channel:  channel.Key(15),
+								DataType: telem.DataType("test_15"),
 							},
 						},
 					},
 				},
-				Poll: new(icd.Poll{Query: []byte{15, 16, 17}, Rate: telem.Rate(16.5)}),
+				Poll: new(icd.Poll{Query: []byte{17, 18, 19}, Rate: telem.Rate(18.5)}),
 			},
 		},
 	}
@@ -217,21 +221,23 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Device:             "test_4",
 			Entries: []icd.ReadEntry{
 				{
-					ICD: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+					Key:      "test_6",
+					Disabled: true,
+					ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
 					Messages: []icd.ReadMessage{
 						{
-							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
-							Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"))),
+							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780a"),
+							Index:   new(icd.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
 							Bindings: []icd.ReadBinding{
 								{
-									Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
-									Channel:  channel.Key(13),
-									DataType: telem.DataType("test_13"),
+									Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+									Channel:  channel.Key(15),
+									DataType: telem.DataType("test_15"),
 								},
 							},
 						},
 					},
-					Poll: new(icd.Poll{Query: []byte{15, 16, 17}, Rate: telem.Rate(16.5)}),
+					Poll: new(icd.Poll{Query: []byte{17, 18, 19}, Rate: telem.Rate(18.5)}),
 				},
 			},
 		}

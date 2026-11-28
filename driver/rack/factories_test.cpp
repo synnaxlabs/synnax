@@ -302,7 +302,7 @@ TEST(RackFactoriesTest, ListedSerialConfiguresItsTasks) {
     EXPECT_EQ(status.message, "Failed to configure task");
     EXPECT_EQ(
         status.description,
-        "device: this field is required\nentries: at least one entry is required"
+        "device: this field is required\nentries: at least one entry must be enabled"
     );
 }
 }

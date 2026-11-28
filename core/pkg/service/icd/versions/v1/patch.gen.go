@@ -16,14 +16,58 @@ import (
 	"github.com/synnaxlabs/x/patch"
 )
 
+// Patch applies the path action at c, which is not done, to the value.
+func (p *Poll) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "query":
+		return patch.Value(&p.Query, c.Next())
+	case "rate":
+		return patch.Defaulted(&p.Rate, c.Next(), func(def *Poll) {
+			p.Rate = def.Rate
+		})
+	default:
+		return c.UnknownField()
+	}
+}
+
 // HashContent writes the content of the value to h, without its keys.
 func (p *Poll) HashContent(h *content.Hash) {
 	h.Bytes(p.Query)
 	h.Float(float64(p.Rate))
 }
 
+// Patch applies the path action at c, which is not done, to the value.
+func (re *ReadEntry) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&re.Key, c.Next())
+	case "disabled":
+		return patch.Value(&re.Disabled, c.Next())
+	case "icd":
+		return patch.Value(&re.ICD, c.Next())
+	case "messages":
+		return patch.Value(&re.Messages, c.Next())
+	case "poll":
+		if c = c.Next(); c.Done() || re.Poll == nil {
+			return patch.OptionalValue(&re.Poll, c)
+		}
+		next := *re.Poll
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		re.Poll = &next
+		return nil
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (re *ReadEntry) PatchKey() string { return re.Key }
+
 // HashContent writes the content of the value to h, without its keys.
 func (re *ReadEntry) HashContent(h *content.Hash) {
+	h.Bool(re.Disabled)
 	h.Bytes(re.ICD[:])
 	h.Len(len(re.Messages))
 	for i0 := range re.Messages {

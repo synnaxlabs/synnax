@@ -815,6 +815,34 @@ TEST(Receiver, RejectsEntriesWithOnePrefix) {
     );
 }
 
+/// @brief it should leave out a disabled entry, which needs no ICD and reads nothing.
+TEST(Receiver, LeavesOutDisabledEntry) {
+    const auto a = lines("A", 2, 1, "first");
+    const auto b = lines("B", 3, 4, "second");
+    auto off = a.entry();
+    off.disabled = true;
+    const auto r = ASSERT_NIL_P(
+        Receiver::create({off, b.entry()}, {b.ic}, b.channels, false)
+    );
+    ASSERT_EQ(r.channels(), (std::vector<synnax::channel::Key>{3, 4}));
+}
+
+/// @brief it should send no poll query for a disabled entry.
+TEST(Receiver, SendsNoQueryOfDisabledEntry) {
+    const auto on = pairs();
+    auto off = pairs().entry(
+        synnax::icd::Poll{.query = {0xAA, 0x01}, .rate = x::telem::Rate(10)}
+    );
+    off.disabled = true;
+    auto r = ASSERT_NIL_P(
+        Receiver::create({off, on.entry()}, {on.ic}, on.channels, false)
+    );
+    Memory t;
+    x::telem::Frame fr;
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_TRUE(t.writes.empty());
+}
+
 /// @brief it should refuse a JSON entry and a text entry on one transport, as it
 /// refuses messages of different formats in one entry.
 TEST(Receiver, RejectsJSONAndTextEntries) {
