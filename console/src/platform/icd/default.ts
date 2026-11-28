@@ -49,8 +49,8 @@ const PARSERS: { [T in Type]: (text: string) => Default<T> } = {
     if (text.trim().toLowerCase() === "now") return { type: "now" };
     try {
       return { type: "constant", value: new TimeStamp(text.trim()) };
-    } catch {
-      throw new Error("Enter now or a date.");
+    } catch (cause) {
+      throw new Error("Enter now or a date.", { cause });
     }
   },
   uuid: (text) => {
@@ -63,8 +63,8 @@ const PARSERS: { [T in Type]: (text: string) => Default<T> } = {
   json: (text) => {
     try {
       JSON.parse(text);
-    } catch {
-      throw new Error("Enter JSON.");
+    } catch (cause) {
+      throw new Error("Enter JSON.", { cause });
     }
     return text;
   },
