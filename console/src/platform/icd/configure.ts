@@ -13,6 +13,7 @@ import { DataType, primitive } from "@synnaxlabs/x";
 import { bindingDataType, converts, defaultDataType } from "@/platform/icd/dataType";
 import { kindOf } from "@/platform/icd/inferred";
 import {
+  type Field,
   isIndexable,
   type Messages,
   readFields,
@@ -36,7 +37,7 @@ export interface BoundMessage<S extends ReadSource> {
   /** The index of the message in the source's reads. */
   read: number;
   message: icd.Message;
-  fields: icd.JSONField[];
+  fields: Field[];
 }
 
 /**
@@ -51,12 +52,10 @@ export const boundMessage = <S extends ReadSource>(
   name: string,
 ): BoundMessage<S> => {
   const message = messageOf(messages, source, read);
-  const where =
-    message != null && source.messages.length > 1 ? `${message.name} of ${name}` : name;
-  if (message?.payload.format !== "json")
-    throw new ValidationError(`The message format of ${where} is missing or not JSON`);
+  if (message == null) throw new ValidationError(`The message of ${name} is missing`);
+  const where = source.messages.length > 1 ? `${message.name} of ${name}` : name;
   const readMessage = source.messages[read];
-  const fields = readFields(message.payload.fields, readMessage);
+  const fields = readFields<Field>(message.payload.fields, readMessage);
   const index = fields.find(({ key }) => key === readMessage.index);
   if (index != null && !isIndexable(index))
     throw new ValidationError(
@@ -77,6 +76,11 @@ const channelNames = ({ source, read, fields }: BoundMessage<ReadSource>): strin
   return indexed ? names : [...names, Task.ARRIVAL_NAME];
 };
 
+// A JSON field stores its channel at its pointer. A text or binary field has none, so
+// it stores its channel at its key, which no pointer can equal.
+const storedKey = (field: Field): string =>
+  "pointer" in field ? field.pointer : field.key;
+
 /** A field that a message reads, with the binding that deploying writes for it. */
 export interface MessageField extends Task.ReadChannelField {
   binding: icd.ReadBinding;
@@ -92,9 +96,9 @@ export interface MessagePlan {
 
 /**
  * Plans the channel of each field that a message reads: the one it has, the one stored
- * for its pointer, or a new one of the binding's data type. A channel that is gone or
- * no longer suits its field is replaced, and leaves the stored channels. Changes
- * neither bound nor props.
+ * for the field, or a new one of the binding's data type. A channel that is gone or no
+ * longer suits its field is replaced, and leaves the stored channels. Changes neither
+ * bound nor props.
  *
  * @param planner - Reads for every source that the task plans, and names their new
  * channels.
@@ -128,7 +132,7 @@ export const planMessage = (
       : prefix;
   const prefixOf = (name: string): string => (clashes.has(name) ? kindPrefix : prefix);
   const held = { ...props?.channels };
-  const bindingOf = (f: icd.JSONField): icd.ReadBinding =>
+  const bindingOf = (f: Field): icd.ReadBinding =>
     read.bindings.find(({ field }) => field === f.key) ?? {
       field: f.key,
       channel: 0,
@@ -165,17 +169,17 @@ export const planMessage = (
   // The Core refuses a channel that two bindings write, and an index that two messages
   // write.
   for (const f of fields) {
-    const key = held[f.pointer];
+    const key = held[storedKey(f)];
     if (bindingOf(f).channel === 0 && written.has(key) && !lentKeys.has(key))
-      delete held[f.pointer];
+      delete held[storedKey(f)];
   }
-  const reused = fields.map((f) => bindingOf(f).channel || (held[f.pointer] ?? 0));
-  const storedKeys = fields.map(({ pointer }) => held[pointer] ?? 0);
+  const reused = fields.map((f) => bindingOf(f).channel || (held[storedKey(f)] ?? 0));
+  const storedKeys = fields.map((f) => held[storedKey(f)] ?? 0);
   const onTaken = (ch: channel.Channel): boolean =>
     taken.has(ch.key) || taken.has(ch.index);
-  for (const [pointer, key] of Object.entries(held)) {
+  for (const [at, key] of Object.entries(held)) {
     const ch = live.get(key);
-    if (ch != null && onTaken(ch)) delete held[pointer];
+    if (ch != null && onTaken(ch)) delete held[at];
   }
   const storedIndex = props == null || taken.has(props.index) ? 0 : props.index;
   // A message stores every field on one index when it has an index field, a stored
@@ -190,7 +194,7 @@ export const planMessage = (
     });
   // An edit of the field's kind or index role since the last deploy, or a streamed
   // field that the message now stores, needs a new channel.
-  const stale = (f: icd.JSONField, ch?: channel.Channel): ch is channel.Channel =>
+  const stale = (f: Field, ch?: channel.Channel): ch is channel.Channel =>
     ch != null &&
     (!converts(f, ch.dataType.toString()) ||
       ch.isIndex !== (f.key === index) ||
@@ -204,11 +208,11 @@ export const planMessage = (
     // A deleted channel, or one on an index that another message writes, needs a new
     // channel too.
     const replaced = ch == null ? reused[i] !== 0 : stale(f, ch) || onTaken(ch);
-    if (stale(f, live.get(storedKeys[i]))) delete held[f.pointer];
+    if (stale(f, live.get(storedKeys[i]))) delete held[storedKey(f)];
     const name = channel.escapeInvalidName(f.name);
     return {
       key: f.key,
-      pointer: f.pointer,
+      pointer: storedKey(f),
       name: `${prefixOf(name)}_${name}`,
       dataType: isIndex
         ? DataType.TIMESTAMP.toString()

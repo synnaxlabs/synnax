@@ -167,6 +167,133 @@ const deployKinds = async (
   );
 };
 
+/** @returns a source that reads every field of message, with no channels yet. */
+const createSource = (message: icd.Message) => ({
+  icd: uuid.create(),
+  disabled: false,
+  messages: [
+    {
+      message: message.key,
+      bindings: message.payload.fields.map(({ key }) => ({
+        field: key,
+        channel: 0,
+        dataType: "",
+      })),
+    },
+  ],
+});
+
+/** Binds, plans, and applies the one message that source reads, as a deploy does. */
+const deployMessage = async (
+  message: icd.Message,
+  prefix: string,
+  props?: Task.ReadChannelProps,
+) => {
+  const source = createSource(message);
+  const bound = ICD.boundMessage(new Map([[source.icd, [message]]]), source, 0, "src");
+  await ICD.applyMessage(client, bound, await planMessage(bound, prefix, props));
+  return await Promise.all(
+    source.messages[0].bindings.map(
+      async ({ channel }) => await client.channels.retrieve(channel),
+    ),
+  );
+};
+
+const describeChannel = ({ name, dataType }: channel.Channel) => ({
+  name,
+  dataType: dataType.toString(),
+});
+
+describe("boundMessage", () => {
+  it("should refuse a message that its ICD does not hold", () => {
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: "Status",
+      payload: { format: "json", fields: [] },
+    };
+    const source = createSource(message);
+    expect(() => ICD.boundMessage(new Map(), source, 0, "plant/temp")).toThrow(
+      "The message of plant/temp is missing",
+    );
+  });
+
+  describe("a text message", () => {
+    const createMessage = (): icd.Message => ({
+      key: uuid.create(),
+      name: "Line",
+      payload: icd.textPayloadZ.parse({
+        format: "text",
+        fields: ["level", "flow"].map((name, i) =>
+          icd.textFieldZ.parse({
+            key: uuid.create(),
+            name,
+            encoding: "delimited",
+            position: i + 1,
+          }),
+        ),
+      }),
+    });
+
+    it("should give each field a new float64 channel", async () => {
+      const prefix = uniqueName("src");
+      const channels = await deployMessage(createMessage(), prefix);
+      expect(channels.map(describeChannel)).toEqual([
+        { name: `${prefix}_level`, dataType: "float64" },
+        { name: `${prefix}_flow`, dataType: "float64" },
+      ]);
+    });
+
+    it("should keep the channel that the device stores for a field", async () => {
+      const prefix = uniqueName("src");
+      const index = await createIndex(`${prefix}_time`);
+      const old = await client.channels.create({
+        name: `${prefix}_old`,
+        dataType: "float64",
+        index: index.key,
+      });
+      const message = createMessage();
+      const [level] = message.payload.fields;
+      const props = { index: index.key, channels: { [level.key]: old.key } };
+      const [ch] = await deployMessage(message, prefix, props);
+      expect(ch.key).toBe(old.key);
+    });
+  });
+
+  describe("a binary message", () => {
+    it("should give each field a new channel of its kind", async () => {
+      const prefix = uniqueName("src");
+      const message: icd.Message = {
+        key: uuid.create(),
+        name: "Frame",
+        payload: icd.binaryPayloadZ.parse({
+          format: "binary",
+          fields: [
+            icd.binaryFieldZ.parse({
+              key: uuid.create(),
+              name: "valve",
+              kind: "unsigned",
+              startBit: 0,
+              bitLength: 8,
+            }),
+            icd.binaryFieldZ.parse({
+              key: uuid.create(),
+              name: "speed",
+              kind: "float",
+              startBit: 8,
+              bitLength: 32,
+            }),
+          ],
+        }),
+      };
+      const channels = await deployMessage(message, prefix);
+      expect(channels.map(describeChannel)).toEqual([
+        { name: `${prefix}_valve`, dataType: "uint64" },
+        { name: `${prefix}_speed`, dataType: "float64" },
+      ]);
+    });
+  });
+});
+
 describe("planMessage", () => {
   it("should plan a new channel for a field whose channel was deleted", async () => {
     const prefix = uniqueName("src");

@@ -4122,8 +4122,7 @@ describe("Kafka read form", () => {
         expect(statuses).toContainEqual(
           expect.objectContaining({
             message: "Failed to start task",
-            description:
-              "The message format of record Any key in topic oven is missing or not JSON",
+            description: "The message of record Any key in topic oven is missing",
           }),
         ),
       );
