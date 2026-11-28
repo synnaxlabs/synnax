@@ -777,6 +777,58 @@ var _ = Describe("Drop on the pointer log", func() {
 	})
 })
 
+var _ = Describe("Close on the pointer log", func() {
+	It("Should end Run and Close only once the unlinks in flight end", func(
+		ctx SpecContext,
+	) {
+		fs := newRemoveCountFS(xfs.NewMem())
+		DeferCleanup(fs.freeRemoves)
+		db := openDBOnFS(ctx, fs, cesium.WithPointerLog())
+		runCtx, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		ran := make(chan error, 1)
+		go func() { ran <- db.Run(runCtx) }()
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		for _, start := range []telem.TimeStamp{10, 20} {
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Clock:    idx,
+				Start:    start * telem.SecondTS,
+			}))
+			mustWrite(ctx, w, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(start, start+1),
+				telem.NewSeriesV[int64](1, 2),
+			}))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+		}
+		fs.arm()
+		Expect(db.DeleteTimeRange(
+			ctx,
+			[]cesium.ChannelKey{data},
+			telem.TimeStamp(0).Range(15*telem.SecondTS),
+		)).To(Succeed())
+		Eventually(fs.c.entered).Should(BeClosed())
+		cancel()
+		closed := make(chan error, 1)
+		go func() {
+			runErr := <-ran
+			closed <- xerrors.Join(runErr, db.Close())
+		}()
+		Consistently(closed).ShouldNot(Receive(), "an unlink is in flight")
+		fs.freeRemoves()
+		Eventually(closed).Should(Receive(BeNil()))
+	})
+})
+
 // removeCountFS counts the removes of each segment file of its tree. Once armed, it
 // holds each remove of a segment file until freeRemoves.
 type removeCountFS struct {
