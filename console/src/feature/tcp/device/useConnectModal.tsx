@@ -105,7 +105,6 @@ export const Connect = ({
                   path={path.properties.port}
                   label="Port"
                   padHelpText={false}
-                  required
                 />
               </Flex.Box>
               <PlatformDevice.RackField integration={INTEGRATION_KEY} />
