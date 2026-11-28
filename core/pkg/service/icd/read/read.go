@@ -14,6 +14,7 @@ package read
 import (
 	"context"
 	"maps"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -153,8 +155,10 @@ func (r Resolver) Hash(
 }
 
 // Check checks each of reads, in order, against its ICD, from icds or else retrieved
-// through snap, and its channels, then claims the index channels that each read writes.
-// It returns the validation error of the first problem.
+// through snap, and its channels, and claims the index channels that each read writes.
+// The framed reads share one stream, so they must then frame it the same way, read each
+// message once, and read messages of one format. It returns the validation error of the
+// first problem.
 func (r Resolver) Check(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -173,6 +177,70 @@ func (r Resolver) Check(
 	for _, rd := range reads {
 		if err = c.claimIndexes(rd); err != nil {
 			return err
+		}
+	}
+	return c.checkStream(lo.Filter(reads, func(rd Read, _ int) bool {
+		_, held := c.icds[rd.ICD]
+		return rd.Framed && held
+	}))
+}
+
+// checkStream returns a validation error when reads, which share one stream and pass
+// Read, frame the stream differently, read one message twice, or read messages of
+// different formats. A message name includes its ICD when reads have more than one.
+func (c Checker) checkStream(reads []Read) error {
+	if len(reads) == 0 {
+		return nil
+	}
+	first := c.icds[reads[0].ICD]
+	for _, rd := range reads {
+		if ic := c.icds[rd.ICD]; !reflect.DeepEqual(ic.Framing, first.Framing) {
+			return validate.PathedError(validate.Errorf(
+				"ICDs %s and %s frame the stream differently", first.Name, ic.Name,
+			), slices.Concat(rd.Path, []string{"icd"})...)
+		}
+	}
+	several := slices.ContainsFunc(reads, func(rd Read) bool {
+		return rd.ICD != first.Key
+	})
+	type message struct {
+		icd icd.Key
+		key icd.MessageKey
+	}
+	var (
+		seen        = make(set.Set[message])
+		firstName   string
+		firstFormat payload.Format
+	)
+	for _, rd := range reads {
+		ic := c.icds[rd.ICD]
+		for j, rm := range rd.Messages {
+			path := slices.Concat(
+				rd.Path,
+				[]string{"messages", strconv.Itoa(j), "message"},
+			)
+			msg := ic.Messages[slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
+				return m.Key == rm.Message
+			})]
+			name := msg.Name
+			if several {
+				name += " of ICD " + ic.Name
+			}
+			read := message{icd: ic.Key, key: rm.Message}
+			if seen.Contains(read) {
+				return validate.PathedError(
+					validate.Errorf("message %s is read twice", name),
+					path...,
+				)
+			}
+			seen.Add(read)
+			if format := msg.Payload.Format(); firstFormat == "" {
+				firstName, firstFormat = name, format
+			} else if format != firstFormat {
+				return validate.PathedError(validate.Errorf(
+					"messages %s and %s have different formats", firstName, name,
+				), path...)
+			}
 		}
 	}
 	return nil

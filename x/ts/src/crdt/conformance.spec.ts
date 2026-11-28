@@ -17,7 +17,7 @@ import { assertDefined } from "@/testutil";
 // The conformance vectors are authored once and shared with the Go implementation so
 // that both runtimes materialize identically for the same edit schedule. The canonical
 // copy lives in x/testdata/crdt; the operations' wire encoding is owned and tested by
-// oracle codegen.
+// Oracle codegen.
 const VECTORS_URL = new URL("../../../testdata/crdt/vectors.json", import.meta.url);
 
 interface Step {

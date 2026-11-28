@@ -97,6 +97,28 @@ export const queryParamsZ = http.queryParamZ.array().check(
   ),
 );
 
+/**
+ * Adds an issue to payload at the cell of each header in headers with an empty name or
+ * value, as the Driver refuses one. path leads from the value of payload to headers.
+ */
+export const validateHeaders = (
+  payload: z.core.ParsePayload,
+  headers: http.Header[],
+  path: PropertyKey[] = [],
+) =>
+  headers.forEach(({ name, value }, i) => {
+    const required = (field: string, message: string) =>
+      payload.issues.push({
+        continue: true,
+        code: "custom",
+        input: payload.value,
+        message,
+        path: [...path, i, field],
+      });
+    if (name === "") required("name", "Name is required");
+    if (value === "") required("value", "Value is required");
+  });
+
 const sharedHealthCheckZ = z.object({
   path: z.string(),
   headers: headersZ.optional(),

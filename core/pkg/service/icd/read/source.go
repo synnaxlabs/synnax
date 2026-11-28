@@ -273,9 +273,6 @@ func (s *Source) Groups() []Group {
 	return lo.Map(s.groups, func(g group, _ int) Group { return g.Group })
 }
 
-// Format returns the format of the messages that s reads.
-func (s *Source) Format() payload.Format { return s.format }
-
 // Decode decodes data, one payload, as the read whose match rule it meets, and returns
 // a sample for each group of that read whose fields all decode. ok is false when data
 // meets no match rule. err is not nil when data does not decode as a whole, such as a

@@ -94,7 +94,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// skips the read for every channel on the same index.
     const bool nan_fill_enabled;
     /// @brief keys of the index channels for the input channels.
-    /// Dynamically populated by querying the core.
+    /// Dynamically populated by querying the Core.
     std::set<synnax::channel::Key> index_keys;
     /// @brief the enabled channels to read from the server.
     std::vector<std::unique_ptr<InputChan>> channels;

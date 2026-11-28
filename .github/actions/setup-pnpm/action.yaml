@@ -80,20 +80,20 @@ runs:
       shell: bash
       run: pnpm install --no-runtime
 
-    # The store is saved once per lockfile and branch. A merge group runs on a throwaway
-    # branch that no later run can read, so it never saves. Without an install the store
-    # is empty, so it never saves either.
+    # Only main saves the store, once per lockfile. A save on any other branch helps
+    # only reruns of that branch. An empty store, from a run without an install, never
+    # saves.
     - name: Prune the pnpm store
       if:
         inputs.cache == 'true' && inputs.install == 'true' &&
-        steps.cache.outputs.cache-hit != 'true' && github.event_name != 'merge_group'
+        steps.cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
       shell: bash
       run: pnpm store prune
 
     - name: Save the pnpm store
       if:
         inputs.cache == 'true' && inputs.install == 'true' &&
-        steps.cache.outputs.cache-hit != 'true' && github.event_name != 'merge_group'
+        steps.cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ steps.key.outputs.path }}

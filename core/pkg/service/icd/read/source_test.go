@@ -332,9 +332,9 @@ var _ = Describe("Source", func() {
 			ctx SpecContext,
 			line string,
 		) {
-			src := bindRead(ctx, plant, lineRead)
-			Expect(src.Format()).To(Equal(payload.FormatText))
-			samples, ok := MustSucceed2(src.Decode([]byte(line)))
+			samples, ok := MustSucceed2(
+				bindRead(ctx, plant, lineRead).Decode([]byte(line)),
+			)
 			Expect(ok).To(BeTrue())
 			Expect(samples).To(Equal([]read.Sample{
 				{Group: 0, Data: [][]byte{f64(2.5)}},
@@ -357,9 +357,9 @@ var _ = Describe("Source", func() {
 		})
 
 		It("Should decode a payload of a binary message", func(ctx SpecContext) {
-			src := bindRead(ctx, plant, frameRead)
-			Expect(src.Format()).To(Equal(payload.FormatBinary))
-			samples, ok := MustSucceed2(src.Decode([]byte{0x10, 0x01}))
+			samples, ok := MustSucceed2(
+				bindRead(ctx, plant, frameRead).Decode([]byte{0x10, 0x01}),
+			)
 			Expect(ok).To(BeTrue())
 			Expect(samples).To(Equal([]read.Sample{
 				{Group: 0, Data: [][]byte{f64(272)}},
@@ -377,10 +377,6 @@ var _ = Describe("Source", func() {
 				Expect(samples).To(BeEmpty())
 			},
 		)
-
-		It("Should give the format of a read of JSON messages", func(ctx SpecContext) {
-			Expect(newSource(ctx, mixedRead).Format()).To(Equal(payload.FormatJSON))
-		})
 	})
 
 	DescribeTable("Should give the keys of a group with its index channel first",

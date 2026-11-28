@@ -146,7 +146,7 @@ interface VariantCellProps {
 
 // VariantCell is the bridge between the connected Table and the per-variant
 // cell components in @/table/cells. The variant component renders its own
-// <td> (via the Cell primitive); VariantCell wires it to flux state and a
+// <td> (via the Cell primitive); VariantCell wires it to Flux state and a
 // dispatch-backed onChange handler. It takes x/y/width/height as primitives
 // (not a Box) so the memo barrier compares stable scalars; the Box is
 // constructed once per geometry change inside. Selection is read via

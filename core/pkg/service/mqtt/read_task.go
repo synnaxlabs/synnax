@@ -12,7 +12,6 @@ package mqtt
 import (
 	"bytes"
 	"context"
-	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 	"strings"
@@ -28,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -80,8 +78,6 @@ type readTopic struct {
 	topicSubscription
 	source *read.Source
 	groups []read.Group
-	// text holds a payload that is not JSON as a JSON string.
-	text []byte
 }
 
 // newReadTopic validates entry, whose documents source decodes.
@@ -103,19 +99,11 @@ func newReadTopic(entry PlainReadEntry, source *read.Source) (*readTopic, error)
 	return t, nil
 }
 
-// convert reads data as the message whose match rule it meets, and returns a sample for
-// each group whose fields decode. A JSON message reads data that is not JSON as a bare
-// string, such as ON. An error that names a field comes with the samples of the other
-// groups.
-func (t *readTopic) convert(data []byte) ([]read.Sample, error) {
-	samples, ok, err := t.source.Decode(data)
-	if err != nil && t.source.Format() == payload.FormatJSON &&
-		!jsontext.Value(data).IsValid(jsontext.AllowDuplicateNames(true)) {
-		if t.text, err = jsontext.AppendQuote(t.text[:0], data); err != nil {
-			return nil, err
-		}
-		samples, ok, err = t.source.Decode(t.text)
-	}
+// convert reads payload as the message whose match rule it meets, and returns a sample
+// for each group whose fields decode. An error that names a field comes with the
+// samples of the other groups.
+func (t *readTopic) convert(payload []byte) ([]read.Sample, error) {
+	samples, ok, err := t.source.Decode(payload)
 	if err == nil && !ok {
 		err = errors.New("the payload matches no message")
 	}
