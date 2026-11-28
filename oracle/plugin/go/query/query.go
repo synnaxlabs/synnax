@@ -20,6 +20,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	"github.com/synnaxlabs/oracle/plugin"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
@@ -310,7 +311,7 @@ func (r retrieveInfo) needsSlices() bool {
 		return f.Ref == nil && f.IsSlice
 	}) || lo.SomeBy(r.Refs, func(ref refInfo) bool {
 		// Only the Detach of an array reference calls the slices package.
-		return ref.IsSlice && ref.OnDelete == "Detach"
+		return ref.IsSlice && ref.Detaches()
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
@@ -655,7 +656,7 @@ func (c *fieldCollector) add(field resolution.Field) error {
 	hasFilter = hasFilter && !c.indexesOnly
 	hasIndex := plugindomain.HasDomainFromField(field, "index")
 	hasSearch := plugindomain.HasDomainFromField(field, "search")
-	hasRef := plugindomain.HasDomainFromField(field, "ref")
+	hasRef := refdomain.Declares(field)
 	if !hasFilter && !hasIndex && !hasSearch && !hasRef {
 		return nil
 	}
@@ -1060,6 +1061,9 @@ func newIndexes() indexes {
 			{{$ref.TablesField}}
 			OnDelete: gorp.{{$ref.OnDelete}},
 			Kind:     gorp.{{$ref.Kind}},
+{{- if $ref.Direction}}
+			Tag:      {{printf "%d" $ref.Direction}}, // direction {{$ref.Direction}}
+{{- end}}
 {{- if $ref.Unique}}
 			Unique:   true,
 {{- end}}
@@ -1099,7 +1103,7 @@ func newIndexes() indexes {
 				return nil
 			},
 {{- end}}
-{{- if eq $ref.OnDelete "Detach"}}
+{{- if $ref.Detaches}}
 {{- if $ref.IsSlice}}
 			Detach: func(e *{{$ret.GoName}}, t {{$ref.TargetType}}) {
 				e.{{$ref.GoName}} = slices.DeleteFunc(e.{{$ref.GoName}}, func(v {{$ref.ElemGoType}}) bool {
@@ -1466,6 +1470,9 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 			{{.TablesField}}
 			OnDelete: gorp.{{.OnDelete}},
 			Kind:     gorp.{{.Kind}},
+{{- if .Direction}}
+			Tag:      {{printf "%d" .Direction}}, // direction {{.Direction}}
+{{- end}}
 {{- if .Unique}}
 			Unique:   true,
 {{- end}}

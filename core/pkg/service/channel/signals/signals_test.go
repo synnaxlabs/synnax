@@ -107,6 +107,43 @@ var _ = Describe("Signals", func() {
 		},
 	)
 
+	DescribeTable(
+		"Should mark a set channel as internal only when a Core service declared it",
+		func(
+			ctx SpecContext,
+			write func(context.Context, channel.Writer, *channel.Channel) error,
+			internal bool,
+		) {
+			responses := openStreamer(ctx, "sy_channel_set")
+			ch := channel.Channel{
+				Name: UniqueChannelName(), DataType: telem.TimestampT, IsIndex: true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return write(ctx, channelSvc.NewWriter(tx), &ch)
+			})).To(Succeed())
+			receiveSeries(responses, func(g Gomega, s telem.Series) {
+				g.Expect(s.DecodeJSON[map[string]any]()).To(ContainElement(SatisfyAll(
+					HaveKeyWithValue("name", ch.Name),
+					HaveKeyWithValue("internal", internal),
+				)))
+			})
+		},
+		Entry(
+			"a created channel",
+			func(ctx context.Context, w channel.Writer, ch *channel.Channel) error {
+				return w.Create(ctx, ch)
+			},
+			false,
+		),
+		Entry(
+			"a declared channel",
+			func(ctx context.Context, w channel.Writer, ch *channel.Channel) error {
+				return w.Declare(ctx, ch)
+			},
+			true,
+		),
+	)
+
 	It(
 		"Should propagate a channel deletion to the delete channel",
 		func(ctx SpecContext) {

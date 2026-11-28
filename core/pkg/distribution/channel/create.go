@@ -58,6 +58,33 @@ func (s *Service) Allocate(ctx context.Context, channels []Channel) ([]Channel, 
 	return out, nil
 }
 
+// Issued reports whether no later Allocate can return key k. A key leased to the host
+// node or free counts once storage holds its counter at or past its local key. A key of
+// another node counts, since Allocate issues only host and free keys. A key of a
+// deleted channel counts.
+func (s *Service) Issued(k Key) bool {
+	switch {
+	case k.Free():
+		return s.freeCounter.issued(k.LocalKey())
+	case k.Lease() == s.cfg.HostKey:
+		return s.leasedCounter.issued(k.LocalKey())
+	}
+	return true
+}
+
+// IssuedAtFirstOpen reports whether Issued(k) held at the first open of the service on
+// its storage, before any Allocate. Later opens keep the answer, so a start that stops
+// before it finishes does not change it.
+func (s *Service) IssuedAtFirstOpen(k Key) bool {
+	switch {
+	case k.Free():
+		return s.freeCounter.issuedAtFirstOpen(k.LocalKey())
+	case k.Lease() == s.cfg.HostKey:
+		return s.leasedCounter.issuedAtFirstOpen(k.LocalKey())
+	}
+	return true
+}
+
 // assignKeys draws len(channels with a zero LocalKey) values from the provided counter
 // and assigns them sequentially. Index channels have their LocalIndex set to their own
 // LocalKey, whether that key was just assigned or already present.

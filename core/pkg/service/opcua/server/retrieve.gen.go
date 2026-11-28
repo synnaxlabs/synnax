@@ -69,9 +69,13 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Server) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Reads {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Reads))
+					}
 					targets = append(targets, v1.Index)
 				}
 				return targets
@@ -105,9 +109,13 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Server) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Reads {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Reads))
+					}
 					targets = append(targets, v1.Channel)
 				}
 				return targets
@@ -141,9 +149,13 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *Server) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Writes {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Writes))
+					}
 					targets = append(targets, v1.Channel)
 				}
 				return targets

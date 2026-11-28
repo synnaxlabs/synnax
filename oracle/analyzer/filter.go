@@ -621,12 +621,15 @@ func includeFields(records []resolution.Field) []resolution.Field {
 	var fields []resolution.Field
 	for _, f := range records {
 		if _, ok := f.Domains["include"]; ok {
-			fields = append(fields, defaultField(
+			flag := defaultField(
 				"include_"+f.Name,
 				resolution.TypeRef{Name: "bool"},
 				fmt.Sprintf("includes the %s of each record.", f.Name),
 				resolution.ExpressionValue{Kind: resolution.ValueKindBool},
-			))
+			)
+			// A language that omits the field has no use for its flag.
+			flag.Domains = layDomains(flag.Domains, f.Domains, "omit")
+			fields = append(fields, flag)
 		}
 	}
 	return fields

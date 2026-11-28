@@ -35,13 +35,13 @@ type symbolResolver struct {
 
 var _ symbol.Resolver = (*symbolResolver)(nil)
 
-func toSymbol(ch Channel) *symbol.Symbol {
+func (r *symbolResolver) toSymbol(ch Channel) *symbol.Symbol {
 	return &symbol.Symbol{
 		Name:       ch.Name,
 		Kind:       symbol.KindChannel,
 		Type:       types.Chan(types.FromTelem(ch.DataType)),
 		ID:         int(ch.Key()),
-		Renameable: !ch.Internal,
+		Renameable: !r.svc.IsBuiltIn(ch.Key()),
 	}
 }
 
@@ -69,7 +69,7 @@ func (r *symbolResolver) Resolve(
 	if err = q.Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	return toSymbol(ch), nil
+	return r.toSymbol(ch), nil
 }
 
 // Search fuzzy-searches non-internal cluster channels by name.
@@ -85,7 +85,7 @@ func (r *symbolResolver) Search(
 		return nil, err
 	}
 	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {
-		return toSymbol(item)
+		return r.toSymbol(item)
 	}), nil
 }
 

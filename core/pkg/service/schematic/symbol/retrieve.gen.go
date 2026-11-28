@@ -86,6 +86,9 @@ func newIndexes() indexes {
 					switch v2 := v1.Variant.(type) {
 					case EnumerationState:
 						if v2.Enumeration != nil {
+							if targets == nil {
+								targets = make([]enumeration.Key, 0, len(e.Data.States))
+							}
 							targets = append(targets, *v2.Enumeration)
 						}
 					}
@@ -141,6 +144,9 @@ func newIndexes() indexes {
 						case ColorPaint:
 							switch v3 := v2.Value.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Data.Looks))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -221,6 +227,9 @@ func newIndexes() indexes {
 						case ColorPaint:
 							switch v3 := v2.Value.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Data.Looks))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}

@@ -64,7 +64,13 @@ func Dependents[K gorp.Key, E gorp.Entry[K]](
 	table *gorp.Table[K, E],
 	key K,
 ) ([]ID, error) {
-	return targetIDs(table.Dependents(ctx, snap, key))
+	deps, err := table.Dependents(ctx, snap, key)
+	if err != nil {
+		return nil, err
+	}
+	return lo.Map(deps, func(d gorp.Dependent, _ int) ID {
+		return ID{Type: Type(d.Holder.Table), Key: d.Holder.Key}
+	}), nil
 }
 
 // Uses returns the ID of every record that holds a use reference to the entry of table

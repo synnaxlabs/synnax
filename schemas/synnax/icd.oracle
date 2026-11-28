@@ -678,6 +678,7 @@ ReadBinding struct {
     }
     channel   channel.Key = 0 {
         @doc value     "is the channel the value of the field is written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -804,6 +805,7 @@ WriteBinding union on type extends WriteBaseBinding {
                 is the command channel whose values the field sends. 0 means that a
                 client creates the channel on configure.
             """
+            @ref direction read
             @ref kind      use
             @ref on_delete restrict
         }

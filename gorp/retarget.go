@@ -209,7 +209,7 @@ func (r *registry) retargetHolders(
 	)
 	for _, from := range froms {
 		for _, ref := range r.referencesTo(from.Table) {
-			deps, err := ref.dependents(ctx, tx, from)
+			deps, err := ref.dependentsOf(ctx, tx, from)
 			if err != nil {
 				return nil, err
 			}

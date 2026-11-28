@@ -12,7 +12,9 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { box, text, xy } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
@@ -67,6 +69,7 @@ export const Symbol = ({
     valueBackgroundOverScan: VALUE_BACKGROUND_OVERSCAN,
     valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
+  const deleted = Channel.useDeleted(channel);
   // The text can widen the box past inlineSize, so a drag starts from the drawn width.
   const resize = Grid.useInlineResize(oWidth, (inlineSize) =>
     onConfigChange({ inlineSize }),
@@ -76,6 +79,7 @@ export const Symbol = ({
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false} {...resize}>
       <Label.Label config={label} onChange={onConfigChange} />
       <Indicator.Slot stale={stale} />
+      {deleted && <Deleted.Item />}
       <Primitive.Value
         strokeColor={resolve(strokeColor)}
         orientation={orientation}

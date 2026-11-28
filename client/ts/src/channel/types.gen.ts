@@ -32,6 +32,10 @@ export const OPERATION_TYPES = ["min", "max", "avg", "none", "derivative"] as co
 export const operationTypeZ = z.enum(OPERATION_TYPES);
 export type OperationType = z.infer<typeof operationTypeZ>;
 
+export const DIRECTIONS = ["read", "write"] as const;
+export const directionZ = z.enum(DIRECTIONS);
+export type Direction = z.infer<typeof directionZ>;
+
 export const ORDER_FIELDS = ["name"] as const;
 export const orderFieldZ = z.enum(ORDER_FIELDS);
 export type OrderField = z.infer<typeof orderFieldZ>;
@@ -56,6 +60,15 @@ export const operationZ = z.object({
   duration: telem.timeSpanZ.default(TimeSpan.ZERO),
 });
 export interface Operation extends z.infer<typeof operationZ> {}
+
+/** Use is a record that reads or writes a channel. */
+export const useZ = z.object({
+  /** id is the record that uses the channel. */
+  id: resource.idZ,
+  /** direction is how the record uses the channel. */
+  direction: directionZ,
+});
+export interface Use extends z.infer<typeof useZ> {}
 
 /**
  * CountLimitedResponse holds the count of the channels that count against the license
@@ -105,7 +118,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   dataType: filter.setZ(telem.dataTypeZ).optional(),
   /** isIndex selects by is_index. */
   isIndex: filter.boolZ.optional(),
-  /** internal selects by internal. */
+  /** internal matches the built-in channels, or every other channel when false. */
   internal: filter.boolZ.optional(),
   /**
    * virtual matches virtual channels that are not calculated, or every other channel
@@ -204,6 +217,12 @@ export const payloadZ = z.object({
   status: statusZ.optional(),
   /** group is the group the channel sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * uses are the records that read or write the channel and that the caller can
+   * retrieve, filled only when a retrieve request asks for them. A task config shows as
+   * its task.
+   */
+  uses: zod.nullToUndefined(useZ.array()),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -221,6 +240,8 @@ export const retrieveRequestZ = z.strictObject({
   limit: z.uint32().optional(),
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().optional(),
+  /** includeUses includes the uses of each record. */
+  includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof payloadZ> {}

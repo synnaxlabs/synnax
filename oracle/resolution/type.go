@@ -78,6 +78,13 @@ const (
 	OperatorBool     = FilterNamespace + ".Bool"
 )
 
+// IsOperator reports whether ref names an operator type, such as OperatorBool. A typed
+// line of an operator type reads as a bare line, with a hand-written matcher.
+func IsOperator(ref TypeRef) bool {
+	_, ok := operatorMembers[ref.Name]
+	return ok
+}
+
 var operatorMembers = map[string][]string{
 	OperatorSet:      {"eq", "in"},
 	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
@@ -118,7 +125,8 @@ type Filter struct {
 	// Target is the struct or union the filter selects.
 	Target TypeRef
 	// Lines are the lines as declared. A bare line has no type and names a field of the
-	// target. A typed line names a hand-written matcher that takes its type.
+	// target. A typed line names a hand-written matcher that takes its type, or the
+	// values of its type when the type is an operator type.
 	Lines []Field
 	// Request and Response are the qualified names of the derived retrieve request and
 	// response, or empty when the analyzer derived none.

@@ -184,6 +184,25 @@ describe("Grid slot layout", () => {
     expect(slot(container, "left")?.querySelector('[data-testid="l"]')).not.toBeNull();
   });
 
+  it("should let an edit drag an item but not a fixed one", () => {
+    const { container } = render(
+      <GridHost editable nodeKey={NODE_KEY}>
+        <Grid.Item itemKey="moved" location="bottom">
+          <div data-testid="moved">M</div>
+        </Grid.Item>
+        <Grid.Item itemKey="fixed" location="bottom" fixed>
+          <div data-testid="fixed">F</div>
+        </Grid.Item>
+      </GridHost>,
+    );
+    const moved = container.querySelector<HTMLElement>('[data-testid="moved"]');
+    const fixed = container.querySelector<HTMLElement>('[data-testid="fixed"]');
+    expect(moved?.getAttribute("draggable")).toBe("true");
+    expect(moved?.style.cursor).toBe("grab");
+    expect(fixed?.getAttribute("draggable")).toBeNull();
+    expect(fixed?.style.cursor).toBe("default");
+  });
+
   it("should not render the center slot by default", () => {
     const { container } = render(
       <GridHost editable nodeKey={NODE_KEY}>

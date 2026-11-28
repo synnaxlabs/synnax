@@ -11,8 +11,10 @@ import type { schematic } from "@synnaxlabs/client";
 import { border, box, type dimensions, primitive, xy } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Border } from "@/schematic/node/common/border";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
@@ -65,6 +67,7 @@ const Body = ({
     dimensions = Border.DEFAULT_DIMENSIONS,
     borderRadius,
   } = config;
+  const deleted = Channel.useDeleted(config.channel);
   return (
     <Grid.Grid
       allowCenter
@@ -75,6 +78,7 @@ const Body = ({
     >
       <Label.Label config={label} onChange={onConfigChange} />
       <Indicator.Slot stale={staleIndicated} />
+      {deleted && <Deleted.Item />}
       <Tank
         strokeColor={resolve(strokeColor)}
         dimensions={dimensions}

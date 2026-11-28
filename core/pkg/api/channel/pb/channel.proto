@@ -28,6 +28,7 @@ enum OrderField {
 // single source. Channels are the fundamental unit of telemetry storage and streaming
 // in Synnax.
 message Channel {
+  reserved 14;
   // key is the unique identifier for this channel, automatically assigned by Synnax.
   uint32 key = 1;
   // name is the human-readable channel name.
@@ -84,6 +85,7 @@ message Order {
 
 // RetrieveRequest is a request to retrieve channels.
 message RetrieveRequest {
+  reserved 7;
   // where selects the channels to retrieve. An absent where selects all of them.
   optional .service.channel.pb.Where where = 1;
   // search_term keeps the channels that match the term, closest match first.

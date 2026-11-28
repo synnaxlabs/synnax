@@ -67,15 +67,13 @@ message Channel {
   // concurrency sets the policy for concurrent writes to the channel's data. Only
   // virtual channels can have a policy of shared concurrency.
   .x.control.pb.Concurrency concurrency = 8;
-  // internal is true if this is a system channel hidden from normal user queries.
-  bool internal = 9;
   // operations contains aggregation operations applied to this channel's data.
-  repeated Operation operations = 10;
+  repeated Operation operations = 9;
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
-  string expression = 11;
+  string expression = 10;
   // group is the group the channel sits in, if any.
-  optional string group = 12;
+  optional string group = 11;
 }
 message WhereList {
   repeated Where values = 1;
@@ -138,7 +136,7 @@ message Where {
   optional TelemDataTypeSet data_type = 7;
   // is_index selects by is_index.
   optional .x.filter.pb.Bool is_index = 8;
-  // internal selects by internal.
+  // internal matches the built-in channels, or every other channel when false.
   optional .x.filter.pb.Bool internal = 9;
   // virtual matches virtual channels that are not calculated, or every other channel
   // when false.

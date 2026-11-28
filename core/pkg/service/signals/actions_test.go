@@ -121,10 +121,10 @@ var _ = Describe("Actions", func() {
 			responses = openStreamer(ctx, ch.Key())
 		})
 
-		It("Should create the channel as a free, internal JSON channel", func() {
+		It("Should create the channel as a free, built-in JSON channel", func() {
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Free()).To(BeTrue())
-			Expect(ch.Internal).To(BeTrue())
+			Expect(channelSvc.IsBuiltIn(ch.Key())).To(BeTrue())
 			Expect(ch.DataType).To(Equal(telem.JSONT))
 		})
 

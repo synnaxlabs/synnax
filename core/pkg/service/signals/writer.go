@@ -38,7 +38,21 @@ type feed interface {
 	records() map[channel.Key]Record
 }
 
-// add creates channels as free, virtual, internal channels, stores their keys in them,
+// declare declares each of channels as a built-in channel and fills it with the stored
+// channel.
+func (p *Provider) declare(ctx context.Context, channels []channel.Channel) error {
+	return p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		w := p.cfg.Channel.NewWriter(tx)
+		for i := range channels {
+			if err := w.Declare(ctx, &channels[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// add declares channels as free, virtual, built-in channels, stores their keys in them,
 // and adds f to the feeds that Start writes and its records to Records.
 func (p *Provider) add(
 	ctx context.Context,
@@ -48,25 +62,17 @@ func (p *Provider) add(
 	if p.started {
 		return errors.New("[signals] - cannot publish a change channel after Start")
 	}
-	created := make([]channel.Channel, len(channels))
+	declared := make([]channel.Channel, len(channels))
 	for i, ch := range channels {
-		created[i] = *ch
-		created[i].Virtual = true
-		created[i].Internal = true
-		created[i].Leaseholder = node.KeyFree
+		declared[i] = *ch
+		declared[i].Virtual = true
+		declared[i].Leaseholder = node.KeyFree
 	}
-	if err := p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return p.cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&created,
-			channel.RetrieveIfNameExists(),
-			channel.OverwriteIfNameExistsAndDifferentProperties(),
-		)
-	}); err != nil {
+	if err := p.declare(ctx, declared); err != nil {
 		return err
 	}
 	for i, ch := range channels {
-		*ch = created[i]
+		*ch = declared[i]
 		p.keys = append(p.keys, ch.Key())
 	}
 	p.feeds = append(p.feeds, f)

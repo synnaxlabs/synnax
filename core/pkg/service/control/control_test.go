@@ -109,7 +109,7 @@ var _ = Describe("Control", func() {
 			).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Free()).To(BeTrue())
-			Expect(ch.Internal).To(BeTrue())
+			Expect(channelSvc.IsBuiltIn(ch.Key())).To(BeTrue())
 			Expect(ch.DataType).To(Equal(telem.JSONT))
 		})
 	})

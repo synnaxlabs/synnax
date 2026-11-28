@@ -57,6 +57,9 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				var targets []icd.Key
 				for _, v1 := range e.Topics {
 					for _, v2 := range v1.Records {
+						if targets == nil {
+							targets = make([]icd.Key, 0, len(e.Topics))
+						}
 						targets = append(targets, v2.ICD)
 					}
 				}
@@ -97,6 +100,7 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Topics {
@@ -104,6 +108,9 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 						for _, v3 := range v2.Messages {
 							for _, v4 := range v3.Bindings {
 								if v4.Channel != 0 {
+									if targets == nil {
+										targets = make([]channel.Key, 0, len(e.Topics))
+									}
 									targets = append(targets, v4.Channel)
 								}
 							}
@@ -153,6 +160,60 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 			},
 		}),
+		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
+			Name:     "inline.records.fields.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *ReadConfig) []channel.Key {
+				var targets []channel.Key
+				if e.Inline != nil {
+					for _, v1 := range e.Inline.Records {
+						for _, v2 := range v1.Fields {
+							if v2.Channel != 0 {
+								targets = append(targets, v2.Channel)
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				if e.Inline != nil {
+					for i7, v8 := range e.Inline.Records {
+						for i9, v10 := range v8.Fields {
+							if v10.Channel == t {
+								return []string{"inline", "records", strconv.Itoa(i7), "fields", strconv.Itoa(i9), "channel"}
+							}
+						}
+					}
+				}
+				return nil
+			},
+			Detach: func(e *ReadConfig, t channel.Key) {
+				if e.Inline != nil {
+					for i3 := range e.Inline.Records {
+						for i4 := range e.Inline.Records[i3].Fields {
+							if e.Inline.Records[i3].Fields[i4].Channel == t {
+								e.Inline.Records[i3].Fields[i4].Channel = 0
+							}
+						}
+					}
+				}
+			},
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
+				if e.Inline != nil {
+					for i5 := range e.Inline.Records {
+						for i6 := range e.Inline.Records[i5].Fields {
+							if t, ok := to[e.Inline.Records[i5].Fields[i6].Channel]; ok {
+								e.Inline.Records[i5].Fields[i6].Channel = t
+							}
+						}
+					}
+				}
+			},
+		}),
 	}
 }
 
@@ -190,6 +251,9 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Targets: func(e *WriteConfig) []icd.Key {
 				var targets []icd.Key
 				for _, v1 := range e.Targets {
+					if targets == nil {
+						targets = make([]icd.Key, 0, len(e.Targets))
+					}
 					targets = append(targets, v1.ICD)
 				}
 				return targets
@@ -223,6 +287,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Targets {
@@ -230,6 +295,9 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 						switch v3 := v2.Variant.(type) {
 						case icd.ChannelWriteBinding:
 							if v3.Channel != 0 {
+								if targets == nil {
+									targets = make([]channel.Key, 0, len(e.Targets))
+								}
 								targets = append(targets, v3.Channel)
 							}
 						}
@@ -282,6 +350,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				if e.Inline != nil {

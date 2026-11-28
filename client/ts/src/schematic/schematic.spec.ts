@@ -148,6 +148,11 @@ describe("Schematic", () => {
 
   describe("config case preservation", () => {
     test("preserves element key casing and round-trips telem args", async () => {
+      const ch = await client.channels.create({
+        name: `value_${id.create()}`,
+        dataType: "float32",
+        virtual: true,
+      });
       const proj = await client.projects.create({ name: "CaseTest" });
       const schem = await client.schematics.create({
         project: proj.key,
@@ -156,7 +161,7 @@ describe("Schematic", () => {
           {
             key: "myNode_A1",
             position: { x: 0, y: 0 },
-            config: { variant: "value", channel: 42, rollingAverage: 5 },
+            config: { variant: "value", channel: ch.key, rollingAverage: 5 },
           },
         ],
       });
@@ -165,7 +170,7 @@ describe("Schematic", () => {
       const { config } = retrieved.nodes[0];
       expect(config.variant).toBe("value");
       if (config.variant !== "value") return;
-      expect(config.channel).toBe(42);
+      expect(config.channel).toBe(ch.key);
       expect(config.rollingAverage).toBe(5);
     });
   });
@@ -493,6 +498,10 @@ describe("Schematic", () => {
     });
 
     test("round-trips telem args through dispatch", async () => {
+      const [state, command] = await client.channels.create([
+        { name: `state_${id.create()}`, dataType: "float32", virtual: true },
+        { name: `command_${id.create()}`, dataType: "float32", virtual: true },
+      ]);
       const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({
@@ -503,7 +512,10 @@ describe("Schematic", () => {
               variant: "symbol",
               spec: { type: "builtin", name: "valve" },
               states: [
-                { key: "active", source: { type: "channel", key: 12, command: 13 } },
+                {
+                  key: "active",
+                  source: { type: "channel", key: state.key, command: command.key },
+                },
               ],
             },
           },
@@ -516,8 +528,8 @@ describe("Schematic", () => {
       if (config.variant !== "symbol") return;
       expect(config.states[0].source).toEqual({
         type: "channel",
-        key: 12,
-        command: 13,
+        key: state.key,
+        command: command.key,
       });
     });
   });

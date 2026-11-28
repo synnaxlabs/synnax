@@ -51,20 +51,30 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *ReadConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AnalogReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case DigitalReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					case ThermocoupleReadChannel:
 						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Channel)
 						}
 					}
@@ -167,16 +177,23 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AnalogWriteChannel:
 						if v2.CmdChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.CmdChannel)
 						}
 					case DigitalWriteChannel:
 						if v2.CmdChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.CmdChannel)
 						}
 					}
@@ -236,16 +253,23 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
 					switch v2 := v1.Variant.(type) {
 					case AnalogWriteChannel:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					case DigitalWriteChannel:
 						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.StateChannel)
 						}
 					}

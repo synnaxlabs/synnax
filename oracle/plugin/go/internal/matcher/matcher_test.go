@@ -94,6 +94,22 @@ var _ = Describe("Matcher", func() {
 			},
 		)
 
+		It("Should match a field whose @ref sets only a direction by value", func() {
+			t := table(`
+				Thing struct {
+					key     uuid   { @key }
+					sources uuid[] { @ref direction read }
+				}
+				Where filter Thing {
+					sources
+				}
+			`)
+			ms := MustSucceed(matcher.List(t.MustGet("thing.Thing"), t))
+			Expect(summarize(ms)).To(Equal([]summary{
+				{Func: "MatchSource", Access: "Sources", Kind: matcher.Element},
+			}))
+		})
+
 		It("Should read a union's base fields and tag through its methods", func() {
 			t := table(`
 				Type enum {

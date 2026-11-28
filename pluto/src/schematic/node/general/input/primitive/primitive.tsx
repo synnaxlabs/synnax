@@ -92,6 +92,7 @@ export const Input = ({
               draft.send();
             }}
             onClickDelay={new TimeSpan(onClickDelay ?? 0)}
+            disabled={disabled}
           >
             Set
           </BaseButton.Button>

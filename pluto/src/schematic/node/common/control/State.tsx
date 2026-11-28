@@ -27,6 +27,11 @@ export interface State {
   /** channels are the channels that the chip acquires and the indicator reports. */
   channels: channel.Key[];
   onChange?: (next: { control: StateConfig }) => void;
+  /**
+   * True when the Core deleted a channel of the symbol. The chip and the indicator
+   * hide.
+   */
+  deleted?: boolean;
   /** Shown after the chip and the indicator, even with no channel. */
   children?: ReactNode;
 }
@@ -34,15 +39,17 @@ export interface State {
 interface InternalProps extends Flex.BoxProps {
   config: StateConfig;
   channels: channel.Key[];
+  deleted: boolean;
 }
 
 const Internal = ({
   config: { hidden, chipHidden, indicatorHidden, authority, orientation },
   channels,
+  deleted,
   children,
   ...rest
 }: InternalProps) => {
-  const controlShown = !hidden && channels.length > 0;
+  const controlShown = !hidden && !deleted && channels.length > 0;
   const chip = {
     source: control.authoritySource({ channels }),
     sink: control.acquireChannelControl({
@@ -67,11 +74,11 @@ const Internal = ({
 };
 
 export const State = Grid.createItem<State>(
-  ({ config, channels: all, onChange, children }) => {
-    // The chip and the indicator report control of the channels, so with none only the
-    // children show.
+  ({ config, channels: all, onChange, deleted = false, children }) => {
+    // The chip and the indicator report control of the channels, so with none, or with
+    // a deleted one, only the children show.
     const channels = all.filter(primitive.isNonZero);
-    if (channels.length === 0 && children == null) return null;
+    if ((channels.length === 0 || deleted) && children == null) return null;
     return (
       <Grid.Item
         itemKey="control"
@@ -80,7 +87,7 @@ export const State = Grid.createItem<State>(
           onChange?.({ control: { ...config, orientation: loc } })
         }
       >
-        <Internal config={config} channels={channels}>
+        <Internal config={config} channels={channels} deleted={deleted}>
           {children}
         </Internal>
       </Grid.Item>

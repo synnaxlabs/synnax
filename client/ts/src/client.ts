@@ -46,6 +46,7 @@ import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
 import { ni } from "@/ni";
+import { opcua } from "@/opcua";
 import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -222,7 +223,10 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   ni_chassis: changes(ni.chassis.SET_CHANNEL_NAME, ni.chassis.DELETE_CHANNEL_NAME),
   ni_device: changes(ni.device.SET_CHANNEL_NAME, ni.device.DELETE_CHANNEL_NAME),
   node: null,
-  opcua_server: null,
+  opcua_server: changes(
+    opcua.server.SET_CHANNEL_NAME,
+    opcua.server.DELETE_CHANNEL_NAME,
+  ),
   panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
   policy: changes(access.policy.ACTION_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
   project: changes(project.ACTION_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
@@ -242,6 +246,25 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   user: changes(user.ACTION_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
   view: changes(view.ACTION_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
 };
+
+// The types of the records that a channel's uses list. A task config shows as its task.
+const USE_HOLDERS: resource.Type[] = [
+  "lineplot",
+  "log",
+  "ni_device",
+  "opcua_server",
+  "schematic",
+  "table",
+  "task",
+];
+
+const holderChannels = (): string[] =>
+  USE_HOLDERS.flatMap((type) => {
+    const channels = RESOURCE_CHANNELS[type];
+    if (channels == null)
+      throw new Error(`${type} holds uses but has no change channels`);
+    return [channels.set, channels.delete];
+  });
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -472,6 +495,7 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       cache,
       batch: this.batch,
+      usesChannels: holderChannels(),
     });
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({

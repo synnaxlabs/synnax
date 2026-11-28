@@ -45,6 +45,9 @@ const stubCore = (clockSkew: TimeSpan = TimeSpan.ZERO): StubCore => ({
     retrieve: async () => {
       throw new Error("unused");
     },
+    watch: () => {
+      throw new Error("unused");
+    },
   },
 });
 

@@ -15,6 +15,7 @@ import type { ReactElement, RefCallback } from "react";
 
 import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
@@ -80,6 +81,7 @@ export const Symbol = ({
   const sink = Telem.stringSink(commandChannel);
   const source = telem.streamChannelStringValue({ channel: commandChannel });
   const { set, value } = InputTelem.use({ aetherKey: nodeKey, sink, source });
+  const deleted = Deleted.useEither(stateChannel, commandChannel);
   const { stale, valueRef } = useReadback({
     nodeKey,
     position,
@@ -96,9 +98,11 @@ export const Symbol = ({
         config={control}
         channels={[commandChannel]}
         onChange={onConfigChange}
+        deleted={deleted}
       >
         {stale ? <Staleness.Badge /> : null}
       </Control.State>
+      {deleted && <Deleted.Item />}
       <Label.Label config={label} onChange={onConfigChange} />
       <Primitive.Input
         onSend={set}
@@ -112,6 +116,7 @@ export const Symbol = ({
           )
         }
         {...rest}
+        disabled={rest.disabled || deleted}
       />
     </Grid.Grid>
   );

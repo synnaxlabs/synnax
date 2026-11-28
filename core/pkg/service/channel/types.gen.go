@@ -60,6 +60,51 @@ type Operation = versions.Operation
 // use APIChannel instead.
 type Channel = versions.Channel
 
+// Direction is how a record uses a channel.
+type Direction string
+
+const (
+	// DirectionRead is a record that reads the channel.
+	DirectionRead Direction = "read"
+	// DirectionWrite is a record that writes the channel.
+	DirectionWrite Direction = "write"
+)
+
+// IsValid reports whether d is one of the defined Direction
+// values.
+func (d Direction) IsValid() bool {
+	switch d {
+	case DirectionRead, DirectionWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Tag returns the Tag of a generated reference whose holder uses its targets as d says,
+// or 0 when d is not valid.
+func (d Direction) Tag() uint8 {
+	switch d {
+	case DirectionRead:
+		return 1
+	case DirectionWrite:
+		return 2
+	}
+	return 0
+}
+
+// DirectionOfTag returns the Direction whose Tag is tag, and false when no value has
+// it.
+func DirectionOfTag(tag uint8) (d Direction, ok bool) {
+	switch tag {
+	case 1:
+		return DirectionRead, true
+	case 2:
+		return DirectionWrite, true
+	}
+	return d, false
+}
+
 // Where is a filter that selects channels.
 type Where struct {
 	// And matches when every child matches.
@@ -78,7 +123,7 @@ type Where struct {
 	DataType *filter.Set[telem.DataType] `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
 	// IsIndex selects by is_index.
 	IsIndex *filter.Bool `json:"is_index,omitzero" msgpack:"is_index,omitempty"`
-	// Internal selects by internal.
+	// Internal matches the built-in channels, or every other channel when false.
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Virtual matches virtual channels that are not calculated, or every other channel
 	// when false.

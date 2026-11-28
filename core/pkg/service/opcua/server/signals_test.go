@@ -23,6 +23,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -34,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -127,6 +129,62 @@ var _ = Describe("Signals", Ordered, func() {
 		Eventually(responses.Outlet(), 5*time.Second).Should(Receive())
 		return responses
 	}
+
+	It("Should make the server a use of each channel it binds, by direction", func(
+		ctx SpecContext,
+	) {
+		idx := channel.Channel{
+			Name:     channeltestutil.UniqueChannelName(),
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, &idx)
+		})).To(Succeed())
+		chs := []channel.Channel{
+			{
+				Name:       channeltestutil.UniqueChannelName(),
+				DataType:   telem.Float64T,
+				LocalIndex: idx.LocalKey,
+			},
+			{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			},
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).CreateMany(ctx, &chs)
+		})).To(Succeed())
+		s := server.Server{
+			Key:        uuid.New(),
+			Rack:       rackSvc.EmbeddedKey,
+			Name:       "Boiler PLC",
+			Connection: newConnection("opc.tcp://boiler:4840"),
+			Reads: []server.Read{
+				{Node: "ns=2;s=Temp", Index: idx.Key(), Channel: chs[0].Key()},
+			},
+			Writes: []server.Write{{Node: "ns=2;s=Valve", Channel: chs[1].Key()}},
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.NewCreate[server.Key, server.Server]().Entry(&s).Exec(ctx, tx)
+		})).To(Succeed())
+		holder := gorp.Target{Table: "opcua_server", Key: gorp.FormatKey(s.Key)}
+		uses := MustSucceed(channelSvc.Uses(
+			ctx,
+			node.DB,
+			[]channel.Key{idx.Key(), chs[0].Key(), chs[1].Key()},
+		))
+		Expect(uses[0]).To(ContainElement(
+			channel.Use{Holder: holder, Direction: channel.DirectionWrite},
+		))
+		Expect(uses[1]).To(ContainElement(
+			channel.Use{Holder: holder, Direction: channel.DirectionWrite},
+		))
+		Expect(uses[2]).To(ContainElement(
+			channel.Use{Holder: holder, Direction: channel.DirectionRead},
+		))
+	})
 
 	It("Should publish server sets and deletes", func(ctx SpecContext) {
 		sets := openStreamer(ctx, "sy_opcua_server_set")

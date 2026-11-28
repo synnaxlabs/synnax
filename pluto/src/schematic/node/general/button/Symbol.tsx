@@ -10,8 +10,10 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
 import { Primitive } from "@/schematic/node/general/button/primitive";
@@ -39,6 +41,7 @@ export const Symbol = ({
     sink,
     mode,
   });
+  const deleted = Channel.useDeleted(commandChannel);
   return (
     <Grid.Grid
       orientation={orientation}
@@ -51,7 +54,9 @@ export const Symbol = ({
         config={control}
         channels={[commandChannel]}
         onChange={onConfigChange}
+        deleted={deleted}
       />
+      {deleted && <Deleted.Item />}
       <Primitive.Button
         label={label}
         mode={mode}
@@ -61,6 +66,7 @@ export const Symbol = ({
         orientation={orientation}
         fillColor={resolve(fillColor)}
         {...rest}
+        disabled={deleted}
       />
     </Grid.Grid>
   );

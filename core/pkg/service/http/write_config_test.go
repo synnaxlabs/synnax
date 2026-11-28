@@ -86,6 +86,20 @@ var _ = Describe("Write config", func() {
 		valves = createChannel(ctx, telem.Float64T, idx)
 	})
 
+	It("Should make the task a use that reads each command channel it binds", func(
+		ctx SpecContext,
+	) {
+		key := MustSucceed(tasks.Create(
+			ctx, svc.Write, writeConfigOf(writeEndpoint(ic, m, cmd)),
+		))
+		Expect(channelSvc.Uses(ctx, db, []channel.Key{cmd.Key()})).To(HaveExactElements(
+			HaveExactElements(SatisfyAll(
+				HaveField("Holder.Key", gorp.FormatKey(key)),
+				HaveField("Direction", channel.DirectionRead),
+			)),
+		))
+	})
+
 	It("Should save an endpoint that sends a message of its ICD", func(
 		ctx SpecContext,
 	) {

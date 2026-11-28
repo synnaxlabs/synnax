@@ -11,6 +11,7 @@ import { DataType, id } from "@synnaxlabs/x";
 
 import type { channel } from "@/channel";
 import type Synnax from "@/client";
+import type { spyOnSend } from "@/testutil/client";
 
 export const newIndexedPair = async (
   client: Synnax,
@@ -67,3 +68,21 @@ export const newVirtualBoolChannel = async (
   });
   return ch;
 };
+
+/** @returns whether a request is a client's fetch of the built-in channel keys. */
+export const isBuiltInsFetch = (target: string, req: unknown): boolean =>
+  target === "/channel/retrieve" &&
+  (req as channel.RetrieveRequest).where?.internal?.eq === true;
+
+/**
+ * @returns the response of each fetch of the built-in channel keys that send saw, in
+ * the order the client sent them.
+ */
+export const builtInsFetches = (
+  send: ReturnType<typeof spyOnSend>,
+): Promise<unknown>[] =>
+  send.mock.calls.flatMap(([target, req], i) =>
+    isBuiltInsFetch(target, req)
+      ? [send.mock.results[i].value as Promise<unknown>]
+      : [],
+  );

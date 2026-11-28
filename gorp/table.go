@@ -49,6 +49,10 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// through a Use reference, after Gorp writes it, with the holding entry. An error
 	// fails the write.
 	OnTargetSet map[string]func(ctx context.Context, tx Tx, e E) error
+	// Issued reports whether the table issued key k: a deleted entry's key counts, and
+	// a key the table has not issued yet does not. A Weak reference may point at the
+	// table only when Issued is set.
+	Issued func(k K) bool
 	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
@@ -79,6 +83,8 @@ type Table[K Key, E Entry[K]] struct {
 	onRewrite func(ctx context.Context, tx Tx, e E) error
 	// onTargetSet is TableConfig.OnTargetSet.
 	onTargetSet map[string]func(ctx context.Context, tx Tx, e E) error
+	// issuedKey is TableConfig.Issued.
+	issuedKey func(k K) bool
 }
 
 // Close stops the populate of the indexes of the table, waits for it to return, and
@@ -122,6 +128,7 @@ func OpenTable[K Key, E Entry[K]](
 		references:  cfg.References,
 		onRewrite:   cfg.OnRewrite,
 		onTargetSet: cfg.OnTargetSet,
+		issuedKey:   cfg.Issued,
 	}
 	if t.name == "" {
 		t.name = types.Name[E]()
