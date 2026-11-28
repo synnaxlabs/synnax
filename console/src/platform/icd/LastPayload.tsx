@@ -119,13 +119,15 @@ const Payload = ({ payload, sample }: PayloadProps): ReactElement => {
 export interface LastPayloadProps {
   /** The payload of the message that the source sends. */
   payload: icd.TextPayload | icd.BinaryPayload;
-  /** Names the source, such as a topic, in the text for a source that sends nothing. */
+  /** Names the source, such as a topic, in a failure. A new source listens again. */
   source: string;
-  /** How long a listen lasts. */
-  duration: TimeSpan;
+  /** Says what a listen does while it runs, such as "Listening for 3 seconds". */
+  pendingMessage: string;
+  /** Says that a listen found no message. */
+  emptyMessage: string;
   /**
    * Listens to the source.
-   * @returns its last message, or null when it sends none while it listens.
+   * @returns its last message, or null when it finds none.
    */
   sample: (client: Synnax) => Promise<Sample | null>;
 }
@@ -138,7 +140,8 @@ export interface LastPayloadProps {
 export const LastPayload = ({
   payload,
   source,
-  duration,
+  pendingMessage,
+  emptyMessage,
   sample,
 }: LastPayloadProps): ReactElement => {
   const [settled, setSettled] = useState(source);
@@ -155,9 +158,8 @@ export const LastPayload = ({
   let body: ReactElement;
   if (result.variant === "error") body = <Status.Summary status={result.status} />;
   else if (result.variant === "loading" || result.data == null || source !== settled)
-    body = <Note>{`Listening for ${duration.seconds} seconds`}</Note>;
-  else if (result.data.sample == null)
-    body = <Note>{`No message on ${settled} in ${duration.seconds} seconds.`}</Note>;
+    body = <Note>{pendingMessage}</Note>;
+  else if (result.data.sample == null) body = <Note>{emptyMessage}</Note>;
   else body = <Payload payload={payload} sample={result.data.sample} />;
   return (
     <PForm.Section

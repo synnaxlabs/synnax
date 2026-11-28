@@ -46,6 +46,7 @@ import {
 import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import { planAdd, type TopicAdditions } from "@/feature/kafka/task/plan";
+import { lastRecord } from "@/feature/kafka/task/scan";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -344,12 +345,15 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
+  const name = PForm.useFieldValue(topicPath(topic).name);
+  const recordKey = PForm.useFieldValue(path.recordKey);
   const reads = PForm.useFieldValue(path.messages);
   const icdKey = PForm.useFieldValue(path.icd);
-  const encoding = PForm.useFieldValue(
-    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
+  const read = PForm.useFieldValue(
+    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload,
     { optional: true, ctx: format },
   );
+  const encoding = read?.format;
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -387,6 +391,23 @@ const RecordDetails: FC<RecordDetailsProps> = ({
             />
           )}
         </PForm.Section>
+        {name !== "" &&
+          read != null &&
+          read.format !== "json" &&
+          ICD.isTaskFormat(read.format) && (
+            <ICD.LastPayload
+              key={device.key}
+              payload={read}
+              source={recordKey === "" ? name : `${name}, key ${recordKey}`}
+              pendingMessage={`Reading ${name}`}
+              emptyMessage={
+                recordKey === ""
+                  ? `Read no records from ${name}.`
+                  : `Read no record with key ${recordKey} from ${name}.`
+              }
+              sample={(client) => lastRecord(client, device, name, recordKey)}
+            />
+          )}
         {reads.length === 1 && (
           <MessageSections
             topic={topic}

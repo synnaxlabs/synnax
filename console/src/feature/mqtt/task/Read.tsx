@@ -547,7 +547,8 @@ const TopicDetails: FC<TopicDetailsProps> = ({
               key={device.key}
               payload={read}
               source={topic}
-              duration={Device.BROWSE_DURATION}
+              pendingMessage={Device.LISTENING}
+              emptyMessage={`No message on ${topic} in ${Device.BROWSE_DURATION.seconds} seconds.`}
               sample={(client) => Device.sampleTopic(client, device, topic)}
             />
           )}
