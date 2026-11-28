@@ -44,6 +44,15 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("acronym with a digit suffix", "iso8601", "ISO8601"),
 		Entry("utf8 acronym", "utf8", "UTF8"),
 		Entry("icd acronym", "icd_hash", "ICDHash"),
+		Entry("leading domain acronym", "ai_min_rate", "AIMinRate"),
+		Entry("domain acronym before a plural", "ao_voltage_ranges", "AOVoltageRanges"),
+		Entry("rtd acronym", "rtd_type", "RTDType"),
+		Entry("cjc acronym", "cjc_source", "CJCSource"),
+		Entry("can acronym", "can", "CAN"),
+		Entry("brand spelling", "ethercat_master", "EtherCATMaster"),
+		Entry("mixed-case spelling", "nan_fill_enabled", "NaNFillEnabled"),
+		Entry("unit spelling", "hz", "Hz"),
+		Entry("word that is an initialism", "to_do", "ToDO"),
 	)
 
 	DescribeTable("should pass screaming-case identifiers through unchanged",
@@ -310,6 +319,30 @@ var _ = Describe("GetGoName", func() {
 			},
 		}
 		Expect(naming.GetGoName(t)).To(Equal("CustomName"))
+	})
+})
+
+var _ = Describe("GetEnumValueName", func() {
+	It("should return PascalCase of the member name by default", func() {
+		v := resolution.EnumValue{Name: "ni_chassis"}
+		Expect(naming.GetEnumValueName(v)).To(Equal("NIChassis"))
+	})
+
+	It("should use the go name override when present", func() {
+		v := resolution.EnumValue{
+			Name: "to_do",
+			Domains: map[string]resolution.Domain{
+				"go": {
+					Expressions: []resolution.Expression{
+						{
+							Name:   "name",
+							Values: []resolution.ExpressionValue{{StringValue: "ToDo"}},
+						},
+					},
+				},
+			},
+		}
+		Expect(naming.GetEnumValueName(v)).To(Equal("ToDo"))
 	})
 })
 

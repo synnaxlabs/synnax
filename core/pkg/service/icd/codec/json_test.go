@@ -396,7 +396,7 @@ var _ = Describe("JSON", func() {
 		})
 
 		It("Should fill a missing UUID with a new random UUID on each read", func() {
-			dec := decoder(icd.JSONField{Variant: icd.UuidJSONField{
+			dec := decoder(icd.JSONField{Variant: icd.UUIDJSONField{
 				Key: uuid.New(), Name: "id", Scale: 1, Pointer: "/id",
 				Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
 			}}, telem.UUIDT)
@@ -458,7 +458,7 @@ var _ = Describe("JSON", func() {
 				TimeFormat: payload.TimeFormatUnixMs,
 				Default:    &icd.TimestampDefault{},
 			}}, telem.TimestampT),
-			Entry("for a UUID", icd.JSONField{Variant: icd.UuidJSONField{
+			Entry("for a UUID", icd.JSONField{Variant: icd.UUIDJSONField{
 				Key: uuid.New(), Name: "v", Scale: 1, Pointer: "/v",
 				Default: &icd.UUIDDefault{},
 			}}, telem.UUIDT),

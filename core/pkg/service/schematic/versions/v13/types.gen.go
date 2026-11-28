@@ -844,10 +844,10 @@ const (
 	FlowStraightenerNodeConfigType NodeConfigType = "flow_straightener"
 	// HeaterElementNodeConfigType is the configuration for heater element symbols.
 	HeaterElementNodeConfigType NodeConfigType = "heater_element"
-	// IsoCapNodeConfigType is the configuration for ISO cap symbols.
-	IsoCapNodeConfigType NodeConfigType = "iso_cap"
-	// IsoFilterNodeConfigType is the configuration for ISO filter symbols.
-	IsoFilterNodeConfigType NodeConfigType = "iso_filter"
+	// ISOCapNodeConfigType is the configuration for ISO cap symbols.
+	ISOCapNodeConfigType NodeConfigType = "iso_cap"
+	// ISOFilterNodeConfigType is the configuration for ISO filter symbols.
+	ISOFilterNodeConfigType NodeConfigType = "iso_filter"
 	// NozzleNodeConfigType is the configuration for nozzle symbols.
 	NozzleNodeConfigType NodeConfigType = "nozzle"
 	// OrificeNodeConfigType is the configuration for orifice symbols.
@@ -1006,8 +1006,8 @@ const (
 	// FlameArrestorFireResDetonationNodeConfigType is the configuration for fire
 	// resistant and detonation-proof flame arrestor symbols.
 	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = "flame_arrestor_fire_res_detonation"
-	// IsoBurstDiscNodeConfigType is the configuration for ISO burst disc symbols.
-	IsoBurstDiscNodeConfigType NodeConfigType = "iso_burst_disc"
+	// ISOBurstDiscNodeConfigType is the configuration for ISO burst disc symbols.
+	ISOBurstDiscNodeConfigType NodeConfigType = "iso_burst_disc"
 	// AngledValveNodeConfigType is the configuration for angled valve symbols.
 	AngledValveNodeConfigType NodeConfigType = "angled_valve"
 	// AngledReliefValveNodeConfigType is the configuration for angled relief valve
@@ -1041,8 +1041,8 @@ const (
 	FourWayValveNodeConfigType NodeConfigType = "four_way_valve"
 	// GateValveNodeConfigType is the configuration for gate valve symbols.
 	GateValveNodeConfigType NodeConfigType = "gate_valve"
-	// IsoCheckValveNodeConfigType is the configuration for ISO check valve symbols.
-	IsoCheckValveNodeConfigType NodeConfigType = "iso_check_valve"
+	// ISOCheckValveNodeConfigType is the configuration for ISO check valve symbols.
+	ISOCheckValveNodeConfigType NodeConfigType = "iso_check_valve"
 	// ManualValveNodeConfigType is the configuration for manual valve symbols.
 	ManualValveNodeConfigType NodeConfigType = "manual_valve"
 	// NeedleValveNodeConfigType is the configuration for needle valve symbols.
@@ -1168,42 +1168,42 @@ func (h HeaterElementNodeConfig) Validate() error {
 	return v.Error()
 }
 
-// IsoCapNodeConfig is the configuration for ISO cap symbols.
-type IsoCapNodeConfig struct {
+// ISOCapNodeConfig is the configuration for ISO cap symbols.
+type ISOCapNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (IsoCapNodeConfig) isNodeConfigVariant() {}
+func (ISOCapNodeConfig) isNodeConfigVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
-func (i *IsoCapNodeConfig) SetDefaults() {
+func (i *ISOCapNodeConfig) SetDefaults() {
 	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoCapNodeConfig) Validate() error {
-	v := validate.New("IsoCapNodeConfig")
+func (i ISOCapNodeConfig) Validate() error {
+	v := validate.New("ISOCapNodeConfig")
 	v.Exec(i.StaticSymbolConfig.Validate)
 	return v.Error()
 }
 
-// IsoFilterNodeConfig is the configuration for ISO filter symbols.
-type IsoFilterNodeConfig struct {
+// ISOFilterNodeConfig is the configuration for ISO filter symbols.
+type ISOFilterNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (IsoFilterNodeConfig) isNodeConfigVariant() {}
+func (ISOFilterNodeConfig) isNodeConfigVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
-func (i *IsoFilterNodeConfig) SetDefaults() {
+func (i *ISOFilterNodeConfig) SetDefaults() {
 	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoFilterNodeConfig) Validate() error {
-	v := validate.New("IsoFilterNodeConfig")
+func (i ISOFilterNodeConfig) Validate() error {
+	v := validate.New("ISOFilterNodeConfig")
 	v.Exec(i.StaticSymbolConfig.Validate)
 	return v.Error()
 }
@@ -2874,22 +2874,22 @@ func (f FlameArrestorFireResDetonationNodeConfig) Validate() error {
 	return v.Error()
 }
 
-// IsoBurstDiscNodeConfig is the configuration for ISO burst disc symbols.
-type IsoBurstDiscNodeConfig struct {
+// ISOBurstDiscNodeConfig is the configuration for ISO burst disc symbols.
+type ISOBurstDiscNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (IsoBurstDiscNodeConfig) isNodeConfigVariant() {}
+func (ISOBurstDiscNodeConfig) isNodeConfigVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
-func (i *IsoBurstDiscNodeConfig) SetDefaults() {
+func (i *ISOBurstDiscNodeConfig) SetDefaults() {
 	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoBurstDiscNodeConfig) Validate() error {
-	v := validate.New("IsoBurstDiscNodeConfig")
+func (i ISOBurstDiscNodeConfig) Validate() error {
+	v := validate.New("ISOBurstDiscNodeConfig")
 	v.Exec(i.StaticSymbolConfig.Validate)
 	return v.Error()
 }
@@ -3157,22 +3157,22 @@ func (g GateValveNodeConfig) Validate() error {
 	return v.Error()
 }
 
-// IsoCheckValveNodeConfig is the configuration for ISO check valve symbols.
-type IsoCheckValveNodeConfig struct {
+// ISOCheckValveNodeConfig is the configuration for ISO check valve symbols.
+type ISOCheckValveNodeConfig struct {
 	StaticSymbolConfig
 }
 
-func (IsoCheckValveNodeConfig) isNodeConfigVariant() {}
+func (ISOCheckValveNodeConfig) isNodeConfigVariant() {}
 
 // SetDefaults sets every field that has a schema default to that default.
-func (i *IsoCheckValveNodeConfig) SetDefaults() {
+func (i *ISOCheckValveNodeConfig) SetDefaults() {
 	i.StaticSymbolConfig.SetDefaults()
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (i IsoCheckValveNodeConfig) Validate() error {
-	v := validate.New("IsoCheckValveNodeConfig")
+func (i ISOCheckValveNodeConfig) Validate() error {
+	v := validate.New("ISOCheckValveNodeConfig")
 	v.Exec(i.StaticSymbolConfig.Validate)
 	return v.Error()
 }
@@ -3631,16 +3631,16 @@ func (u NodeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type NodeConfigType `json:"variant"`
 			HeaterElementNodeConfig
 		}{Type: HeaterElementNodeConfigType, HeaterElementNodeConfig: v})
-	case IsoCapNodeConfig:
+	case ISOCapNodeConfig:
 		return json.MarshalEncode(enc, struct {
 			Type NodeConfigType `json:"variant"`
-			IsoCapNodeConfig
-		}{Type: IsoCapNodeConfigType, IsoCapNodeConfig: v})
-	case IsoFilterNodeConfig:
+			ISOCapNodeConfig
+		}{Type: ISOCapNodeConfigType, ISOCapNodeConfig: v})
+	case ISOFilterNodeConfig:
 		return json.MarshalEncode(enc, struct {
 			Type NodeConfigType `json:"variant"`
-			IsoFilterNodeConfig
-		}{Type: IsoFilterNodeConfigType, IsoFilterNodeConfig: v})
+			ISOFilterNodeConfig
+		}{Type: ISOFilterNodeConfigType, ISOFilterNodeConfig: v})
 	case NozzleNodeConfig:
 		return json.MarshalEncode(enc, struct {
 			Type NodeConfigType `json:"variant"`
@@ -3971,11 +3971,11 @@ func (u NodeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type NodeConfigType `json:"variant"`
 			FlameArrestorFireResDetonationNodeConfig
 		}{Type: FlameArrestorFireResDetonationNodeConfigType, FlameArrestorFireResDetonationNodeConfig: v})
-	case IsoBurstDiscNodeConfig:
+	case ISOBurstDiscNodeConfig:
 		return json.MarshalEncode(enc, struct {
 			Type NodeConfigType `json:"variant"`
-			IsoBurstDiscNodeConfig
-		}{Type: IsoBurstDiscNodeConfigType, IsoBurstDiscNodeConfig: v})
+			ISOBurstDiscNodeConfig
+		}{Type: ISOBurstDiscNodeConfigType, ISOBurstDiscNodeConfig: v})
 	case AngledValveNodeConfig:
 		return json.MarshalEncode(enc, struct {
 			Type NodeConfigType `json:"variant"`
@@ -4041,11 +4041,11 @@ func (u NodeConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type NodeConfigType `json:"variant"`
 			GateValveNodeConfig
 		}{Type: GateValveNodeConfigType, GateValveNodeConfig: v})
-	case IsoCheckValveNodeConfig:
+	case ISOCheckValveNodeConfig:
 		return json.MarshalEncode(enc, struct {
 			Type NodeConfigType `json:"variant"`
-			IsoCheckValveNodeConfig
-		}{Type: IsoCheckValveNodeConfigType, IsoCheckValveNodeConfig: v})
+			ISOCheckValveNodeConfig
+		}{Type: ISOCheckValveNodeConfigType, ISOCheckValveNodeConfig: v})
 	case ManualValveNodeConfig:
 		return json.MarshalEncode(enc, struct {
 			Type NodeConfigType `json:"variant"`
@@ -4196,26 +4196,26 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.HeaterElementNodeConfig
-	case IsoCapNodeConfigType:
+	case ISOCapNodeConfigType:
 		var v struct {
 			Type NodeConfigType `json:"variant"`
-			IsoCapNodeConfig
+			ISOCapNodeConfig
 		}
-		v.IsoCapNodeConfig.SetDefaults()
+		v.ISOCapNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.IsoCapNodeConfig
-	case IsoFilterNodeConfigType:
+		u.Variant = v.ISOCapNodeConfig
+	case ISOFilterNodeConfigType:
 		var v struct {
 			Type NodeConfigType `json:"variant"`
-			IsoFilterNodeConfig
+			ISOFilterNodeConfig
 		}
-		v.IsoFilterNodeConfig.SetDefaults()
+		v.ISOFilterNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.IsoFilterNodeConfig
+		u.Variant = v.ISOFilterNodeConfig
 	case NozzleNodeConfigType:
 		var v struct {
 			Type NodeConfigType `json:"variant"`
@@ -4876,16 +4876,16 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.FlameArrestorFireResDetonationNodeConfig
-	case IsoBurstDiscNodeConfigType:
+	case ISOBurstDiscNodeConfigType:
 		var v struct {
 			Type NodeConfigType `json:"variant"`
-			IsoBurstDiscNodeConfig
+			ISOBurstDiscNodeConfig
 		}
-		v.IsoBurstDiscNodeConfig.SetDefaults()
+		v.ISOBurstDiscNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.IsoBurstDiscNodeConfig
+		u.Variant = v.ISOBurstDiscNodeConfig
 	case AngledValveNodeConfigType:
 		var v struct {
 			Type NodeConfigType `json:"variant"`
@@ -5016,16 +5016,16 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.GateValveNodeConfig
-	case IsoCheckValveNodeConfigType:
+	case ISOCheckValveNodeConfigType:
 		var v struct {
 			Type NodeConfigType `json:"variant"`
-			IsoCheckValveNodeConfig
+			ISOCheckValveNodeConfig
 		}
-		v.IsoCheckValveNodeConfig.SetDefaults()
+		v.ISOCheckValveNodeConfig.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v.IsoCheckValveNodeConfig
+		u.Variant = v.ISOCheckValveNodeConfig
 	case ManualValveNodeConfigType:
 		var v struct {
 			Type NodeConfigType `json:"variant"`
@@ -5219,9 +5219,9 @@ func (u NodeConfig) Validate() error {
 		v.Exec(variant.Validate)
 	case HeaterElementNodeConfig:
 		v.Exec(variant.Validate)
-	case IsoCapNodeConfig:
+	case ISOCapNodeConfig:
 		v.Exec(variant.Validate)
-	case IsoFilterNodeConfig:
+	case ISOFilterNodeConfig:
 		v.Exec(variant.Validate)
 	case NozzleNodeConfig:
 		v.Exec(variant.Validate)
@@ -5355,7 +5355,7 @@ func (u NodeConfig) Validate() error {
 		v.Exec(variant.Validate)
 	case FlameArrestorFireResDetonationNodeConfig:
 		v.Exec(variant.Validate)
-	case IsoBurstDiscNodeConfig:
+	case ISOBurstDiscNodeConfig:
 		v.Exec(variant.Validate)
 	case AngledValveNodeConfig:
 		v.Exec(variant.Validate)
@@ -5383,7 +5383,7 @@ func (u NodeConfig) Validate() error {
 		v.Exec(variant.Validate)
 	case GateValveNodeConfig:
 		v.Exec(variant.Validate)
-	case IsoCheckValveNodeConfig:
+	case ISOCheckValveNodeConfig:
 		v.Exec(variant.Validate)
 	case ManualValveNodeConfig:
 		v.Exec(variant.Validate)

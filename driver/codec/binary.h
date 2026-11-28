@@ -119,7 +119,7 @@ class Binary {
     /// no identifier.
     x::errors::Error
     route(const BinaryMessage &m, std::size_t i, const Multiplexors::Layout &fields);
-    x::errors::Error route_can(const synnax::icd::CanIdentifier &id, std::size_t i);
+    x::errors::Error route_can(const synnax::icd::CANIdentifier &id, std::size_t i);
     /// @brief decodes payload as the message at index i.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode_as(std::optional<std::size_t> i, std::span<const std::uint8_t> payload);

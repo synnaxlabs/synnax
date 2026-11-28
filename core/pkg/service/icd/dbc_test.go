@@ -68,9 +68,9 @@ func messageNamed(messages []icd.Message, name string) icd.Message {
 	return icd.Message{}
 }
 
-func canIdentifier(m icd.Message) icd.CanIdentifier {
+func canIdentifier(m icd.Message) icd.CANIdentifier {
 	GinkgoHelper()
-	id, ok := binaryPayloadOf(m).Identifier.Variant.(icd.CanIdentifier)
+	id, ok := binaryPayloadOf(m).Identifier.Variant.(icd.CANIdentifier)
 	Expect(ok).To(BeTrue())
 	return id
 }
@@ -321,7 +321,7 @@ BA_DEF_DEF_ "VFrameFormat" "J1939PG";
 				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
 				"M",
 			)
-			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{
+			Expect(canIdentifier(m)).To(Equal(icd.CANIdentifier{
 				ID:       id,
 				Extended: true,
 				Mask:     new(mask),
@@ -364,7 +364,7 @@ BA_ "ProtocolType" "J1939";
 				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
 				"M",
 			)
-			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{ID: 0x100}))
+			Expect(canIdentifier(m)).To(Equal(icd.CANIdentifier{ID: 0x100}))
 		},
 	)
 
@@ -382,7 +382,7 @@ BA_ "VFrameFormat" BO_ 2364539904 1;
 				MustSucceed(importFile(ctx, icd.ImportFormatDBC, data)),
 				"M",
 			)
-			Expect(canIdentifier(m)).To(Equal(icd.CanIdentifier{
+			Expect(canIdentifier(m)).To(Equal(icd.CANIdentifier{
 				ID:       0x0CF00400,
 				Extended: true,
 			}))
@@ -401,7 +401,7 @@ BO_ %d M2: 8 Ecu
 			messages := MustSucceed(importFile(ctx, icd.ImportFormatDBC, data))
 			for name, id := range map[string]uint32{"M1": first, "M2": second} {
 				Expect(canIdentifier(messageNamed(messages, name))).To(Equal(
-					icd.CanIdentifier{ID: id, Extended: true, Mask: new(mask)},
+					icd.CANIdentifier{ID: id, Extended: true, Mask: new(mask)},
 				))
 			}
 		},

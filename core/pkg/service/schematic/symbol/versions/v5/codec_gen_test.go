@@ -143,7 +143,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("svg variant", v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_1"}}),
+			Entry("svg variant", v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_1"}}),
 		)
 	})
 	Describe("Interaction", func() {
@@ -319,7 +319,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v5.Spec{
-				Drawing: v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_2"}},
+				Drawing: v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_2"}},
 				Parts: []v5.Part{
 					{
 						Key:       "test_4",
@@ -374,7 +374,7 @@ var _ = Describe("Codec", func() {
 				PreviewViewport: new(spatial.Viewport{Zoom: 47.5, Position: spatial.XY{X: 49.5, Y: 50.5}}),
 			}),
 			Entry("zero values", v5.Spec{
-				Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: ""}},
+				Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: ""}},
 				Parts:           []v5.Part{},
 				Handles:         []v5.Handle{},
 				States:          []v5.State{},
@@ -386,7 +386,7 @@ var _ = Describe("Codec", func() {
 				PreviewViewport: nil,
 			}),
 			Entry("empty collections", v5.Spec{
-				Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_2"}},
+				Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_2"}},
 				Parts:           []v5.Part{},
 				Handles:         []v5.Handle{},
 				States:          []v5.State{},
@@ -437,7 +437,7 @@ var _ = Describe("Codec", func() {
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
 				Data: v5.Spec{
-					Drawing: v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+					Drawing: v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_5"}},
 					Parts: []v5.Part{
 						{
 							Key:       "test_7",
@@ -497,7 +497,7 @@ var _ = Describe("Codec", func() {
 				Key:  uuid.Nil(),
 				Name: "",
 				Data: v5.Spec{
-					Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: ""}},
+					Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: ""}},
 					Parts:           []v5.Part{},
 					Handles:         []v5.Handle{},
 					States:          []v5.State{},
@@ -514,7 +514,7 @@ var _ = Describe("Codec", func() {
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
 				Data: v5.Spec{
-					Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+					Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_5"}},
 					Parts:           []v5.Part{},
 					Handles:         []v5.Handle{},
 					States:          []v5.State{},
@@ -639,7 +639,7 @@ func BenchmarkEncodeDecodeCondition(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeDrawing(b *testing.B) {
-	seed := v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_1"}}
+	seed := v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_1"}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -793,7 +793,7 @@ func BenchmarkEncodeDecodeRef(b *testing.B) {
 
 func BenchmarkEncodeDecodeSpec(b *testing.B) {
 	seed := v5.Spec{
-		Drawing: v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_2"}},
+		Drawing: v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_2"}},
 		Parts: []v5.Part{
 			{
 				Key:       "test_4",
@@ -889,7 +889,7 @@ func BenchmarkEncodeDecodeSymbol(b *testing.B) {
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
 		Data: v5.Spec{
-			Drawing: v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+			Drawing: v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_5"}},
 			Parts: []v5.Part{
 				{
 					Key:       "test_7",
@@ -1198,7 +1198,7 @@ func FuzzDecodeCondition(f *testing.F) {
 
 func FuzzDecodeDrawing(f *testing.F) {
 	{
-		seed := v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_1"}}
+		seed := v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_1"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1608,7 +1608,7 @@ func FuzzDecodeRef(f *testing.F) {
 func FuzzDecodeSpec(f *testing.F) {
 	{
 		seed := v5.Spec{
-			Drawing: v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_2"}},
+			Drawing: v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_2"}},
 			Parts: []v5.Part{
 				{
 					Key:       "test_4",
@@ -1670,7 +1670,7 @@ func FuzzDecodeSpec(f *testing.F) {
 	}
 	{
 		seed := v5.Spec{
-			Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: ""}},
+			Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: ""}},
 			Parts:           []v5.Part{},
 			Handles:         []v5.Handle{},
 			States:          []v5.State{},
@@ -1689,7 +1689,7 @@ func FuzzDecodeSpec(f *testing.F) {
 	}
 	{
 		seed := v5.Spec{
-			Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_2"}},
+			Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_2"}},
 			Parts:           []v5.Part{},
 			Handles:         []v5.Handle{},
 			States:          []v5.State{},
@@ -1781,7 +1781,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
 			Data: v5.Spec{
-				Drawing: v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+				Drawing: v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_5"}},
 				Parts: []v5.Part{
 					{
 						Key:       "test_7",
@@ -1848,7 +1848,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 			Key:  uuid.Nil(),
 			Name: "",
 			Data: v5.Spec{
-				Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: ""}},
+				Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: ""}},
 				Parts:           []v5.Part{},
 				Handles:         []v5.Handle{},
 				States:          []v5.State{},
@@ -1872,7 +1872,7 @@ func FuzzDecodeSymbol(f *testing.F) {
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
 			Data: v5.Spec{
-				Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: "test_5"}},
+				Drawing:         v5.Drawing{Variant: v5.SVGDrawing{Markup: "test_5"}},
 				Parts:           []v5.Part{},
 				Handles:         []v5.Handle{},
 				States:          []v5.State{},

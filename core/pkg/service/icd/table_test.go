@@ -55,7 +55,7 @@ func tableMessage(
 
 func canID(id uint32, extended bool) *icd.Identifier {
 	return &icd.Identifier{
-		Variant: icd.CanIdentifier{ID: id, Extended: extended},
+		Variant: icd.CANIdentifier{ID: id, Extended: extended},
 	}
 }
 

@@ -126,7 +126,7 @@ func (wv *WriteValue) HashContent(h *content.Hash) {
 	case JSONWriteValue:
 		h.String("json")
 		v.HashContent(h)
-	case UuidWriteValue:
+	case UUIDWriteValue:
 		h.String("uuid")
 		v.HashContent(h)
 	case BytesWriteValue:
@@ -173,8 +173,8 @@ func (jsonwv *JSONWriteValue) HashContent(h *content.Hash) {
 }
 
 // HashContent writes the content of the value to h, without its keys.
-func (uwv *UuidWriteValue) HashContent(h *content.Hash) {
-	h.Bytes(uwv.Value[:])
+func (uuidwv *UUIDWriteValue) HashContent(h *content.Hash) {
+	h.Bytes(uuidwv.Value[:])
 }
 
 // HashContent writes the content of the value to h, without its keys.

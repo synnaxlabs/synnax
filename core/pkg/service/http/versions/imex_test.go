@@ -90,7 +90,7 @@ var _ = Describe("ReadConfigLadder", func() {
 					}},
 				},
 			))
-			Expect(cfg.NanFillEnabled).To(BeFalse())
+			Expect(cfg.NaNFillEnabled).To(BeFalse())
 			Expect(cfg.Endpoints).To(HaveLen(1))
 			Expect(cfg.Endpoints[0].Path).To(Equal("/values"))
 			Expect(cfg.Endpoints[0].ICD).To(BeNil())

@@ -271,7 +271,7 @@ var _ = Describe("ResolveReadConfig", func() {
 				FillValue: new(any("f81d4fae-7dec-11d0-a765-00a0c91e6bf6")),
 			},
 			func(v icdv1.JSONFieldVariant) any {
-				return as[icdv1.UuidJSONField](v).Default.Variant
+				return as[icdv1.UUIDJSONField](v).Default.Variant
 			},
 			icdv1.ConstantUUIDDefault{
 				Value: uuid.MustParse("f81d4fae-7dec-11d0-a765-00a0c91e6bf6"),

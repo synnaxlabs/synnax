@@ -81,7 +81,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	td.Enum = qualifier + naming.GetGoName(data.Enum)
 	constant := func(v resolution.EnumValue) string {
-		return td.Enum + naming.ToPascalCase(v.Name)
+		return td.Enum + naming.GetEnumValueName(v)
 	}
 	for _, m := range data.Members {
 		td.Members = append(td.Members, memberData{

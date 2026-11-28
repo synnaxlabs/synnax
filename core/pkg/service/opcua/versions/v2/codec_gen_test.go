@@ -92,7 +92,7 @@ var _ = Describe("Codec", func() {
 						Field:    "test_17",
 					},
 				},
-				NanFillEnabled: false,
+				NaNFillEnabled: false,
 			}),
 			Entry("zero values", v2.ReadConfig{
 				Key:                uuid.Nil(),
@@ -103,7 +103,7 @@ var _ = Describe("Codec", func() {
 				Device:             "",
 				Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 				Channels:           []v2.ReadChannel{},
-				NanFillEnabled:     false,
+				NaNFillEnabled:     false,
 			}),
 			Entry("empty collections", v2.ReadConfig{
 				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -114,7 +114,7 @@ var _ = Describe("Codec", func() {
 				Device:             "test_6",
 				Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 				Channels:           []v2.ReadChannel{},
-				NanFillEnabled:     true,
+				NaNFillEnabled:     true,
 			}),
 		)
 	})
@@ -184,7 +184,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Field:    "test_17",
 			},
 		},
-		NanFillEnabled: false,
+		NaNFillEnabled: false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -300,7 +300,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Field:    "test_17",
 				},
 			},
-			NanFillEnabled: false,
+			NaNFillEnabled: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -318,7 +318,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Device:             "",
 			Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 			Channels:           []v2.ReadChannel{},
-			NanFillEnabled:     false,
+			NaNFillEnabled:     false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -336,7 +336,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Device:             "test_6",
 			Sampling:           v2.Sampling{Variant: v2.UnarySampling{}},
 			Channels:           []v2.ReadChannel{},
-			NanFillEnabled:     true,
+			NaNFillEnabled:     true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

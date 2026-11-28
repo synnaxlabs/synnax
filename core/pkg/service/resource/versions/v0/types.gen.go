@@ -65,14 +65,14 @@ const (
 	TypeUser Type = "user"
 	// TypeView identifies a view.
 	TypeView           Type = "view"
-	TypeEthercatMaster Type = "ethercat_master"
-	TypeEthercatSlave  Type = "ethercat_slave"
+	TypeEtherCATMaster Type = "ethercat_master"
+	TypeEtherCATSlave  Type = "ethercat_slave"
 	TypeHTTPServer     Type = "http_server"
 	TypeLabjackDevice  Type = "labjack_device"
 	TypeModbusServer   Type = "modbus_server"
-	TypeNiChassis      Type = "ni_chassis"
-	TypeNiDevice       Type = "ni_device"
-	TypeOpcuaServer    Type = "opcua_server"
+	TypeNIChassis      Type = "ni_chassis"
+	TypeNIDevice       Type = "ni_device"
+	TypeOPCUAServer    Type = "opcua_server"
 	TypeArcDirectory   Type = "arc_directory"
 	// TypeSecret identifies a secret.
 	TypeSecret Type = "secret"
@@ -90,7 +90,7 @@ const (
 // values.
 func (t Type) IsValid() bool {
 	switch t {
-	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEthercatMaster, TypeEthercatSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNiChassis, TypeNiDevice, TypeOpcuaServer, TypeArcDirectory, TypeSecret, TypeCertificate, TypeColor, TypeICD, TypeEnumeration:
+	case TypeArc, TypeBuiltin, TypeChannel, TypeDevice, TypeFramer, TypeGroup, TypeLabel, TypeLineplot, TypeLog, TypeNode, TypePanel, TypePolicy, TypeProject, TypeRack, TypeRange, TypeRangeAlias, TypeRole, TypeSchematic, TypeSchematicSymbol, TypeStatus, TypeTable, TypeTask, TypeUser, TypeView, TypeEtherCATMaster, TypeEtherCATSlave, TypeHTTPServer, TypeLabjackDevice, TypeModbusServer, TypeNIChassis, TypeNIDevice, TypeOPCUAServer, TypeArcDirectory, TypeSecret, TypeCertificate, TypeColor, TypeICD, TypeEnumeration:
 		return true
 	default:
 		return false

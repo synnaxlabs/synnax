@@ -30,7 +30,7 @@ func (s *Service) Resources() *resource.TableProvider[Key, Device] {
 
 // ResourceID returns the resource ID of the device under key.
 func ResourceID(key Key) resource.ID {
-	return resource.ID{Type: resource.TypeNiDevice, Key: key.String()}
+	return resource.ID{Type: resource.TypeNIDevice, Key: key.String()}
 }
 
 // KeyFromResourceID parses the key of a device resource ID. A malformed key is a

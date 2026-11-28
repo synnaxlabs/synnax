@@ -63,7 +63,7 @@ var (
 	temp     = jsonField("temp", icd.FloatJSONField{})
 	limit    = jsonField("limit", icd.FloatJSONField{Default: new(payload.Float(1))})
 	mode     = jsonField("mode", icd.StringJSONField{Default: new("auto")})
-	id       = jsonField("id", icd.UuidJSONField{})
+	id       = jsonField("id", icd.UUIDJSONField{})
 	setpoint = jsonMessage("Setpoint", temp, mode, limit)
 	tagged   = jsonMessage("Tagged", id)
 	empty    = jsonMessage("Empty")
@@ -179,8 +179,8 @@ var _ = Describe("NewPayloads", func() {
 			`{"max":10}`,
 		),
 		Entry("a UUID",
-			jsonField("v", icd.UuidJSONField{}),
-			icd.UuidWriteValue{Value: uuid.MustParse(
+			jsonField("v", icd.UUIDJSONField{}),
+			icd.UUIDWriteValue{Value: uuid.MustParse(
 				"6f1c3a52-9a4e-4c1b-8d2e-0b7a1f3c5d90",
 			)},
 			`"6f1c3a52-9a4e-4c1b-8d2e-0b7a1f3c5d90"`,

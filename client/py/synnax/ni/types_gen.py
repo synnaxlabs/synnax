@@ -1219,7 +1219,7 @@ class AIPressureBridgePolynomialChannel(
     physical_units: PressureUnits = "PoundsPerSquareInch"
 
 
-class AIThermistorIexChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcitation):
+class AIThermistorIExChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcitation):
     """Reads temperature from a current-excited thermistor."""
 
     type: Literal["ai_thermistor_iex"] = "ai_thermistor_iex"
@@ -1229,7 +1229,7 @@ class AIThermistorIexChannel(BaseAIChannel, MinMaxVal, Resistance, CurrentExcita
     c: float = 0
 
 
-class AIThermistorVexChannel(BaseAIChannel, MinMaxVal, Resistance, VoltageExcitation):
+class AIThermistorVExChannel(BaseAIChannel, MinMaxVal, Resistance, VoltageExcitation):
     """Reads temperature from a voltage-excited thermistor."""
 
     type: Literal["ai_thermistor_vex"] = "ai_thermistor_vex"
@@ -1294,8 +1294,8 @@ AIChannel = Annotated[
     | AIForceBridgePolynomialChannel
     | AIFreqVoltageChannel
     | AIPressureBridgePolynomialChannel
-    | AIThermistorIexChannel
-    | AIThermistorVexChannel
+    | AIThermistorIExChannel
+    | AIThermistorVExChannel
     | AITorqueBridgePolynomialChannel
     | AIVoltageRMSChannel
     | AIVoltageWithExcitChannel,

@@ -23,6 +23,12 @@ type fieldHolder struct{ F resolution.Field }
 
 func (h fieldHolder) GetDomains() map[string]resolution.Domain { return h.F.Domains }
 
+type enumValueHolder struct{ V resolution.EnumValue }
+
+func (h enumValueHolder) GetDomains() map[string]resolution.Domain {
+	return h.V.Domains
+}
+
 func getString(h holder, domainName, exprName string) string {
 	domain, ok := h.GetDomains()[domainName]
 	if !ok {
@@ -44,6 +50,13 @@ func GetStringFromType(t resolution.Type, domainName, exprName string) string {
 
 func GetStringFromField(f resolution.Field, domainName, exprName string) string {
 	return getString(fieldHolder{f}, domainName, exprName)
+}
+
+func GetStringFromEnumValue(
+	v resolution.EnumValue,
+	domainName, exprName string,
+) string {
+	return getString(enumValueHolder{v}, domainName, exprName)
 }
 
 // getAllStrings collects string values from ALL expressions with the given name.

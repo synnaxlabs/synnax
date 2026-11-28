@@ -104,9 +104,9 @@ func resolveDetails(s *status.Status[any]) error {
 		resource.TypeProject, resource.TypeRange, resource.TypeRangeAlias,
 		resource.TypeRole, resource.TypeSchematic, resource.TypeSchematicSymbol,
 		resource.TypeStatus, resource.TypeTable, resource.TypeUser, resource.TypeView,
-		resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+		resource.TypeEtherCATMaster, resource.TypeEtherCATSlave,
 		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
-		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
+		resource.TypeNIChassis, resource.TypeNIDevice, resource.TypeOPCUAServer,
 		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
 		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}

@@ -63,7 +63,7 @@ func equals(values ...float64) *v5.Condition {
 }
 
 func svg(markup string) v5.Drawing {
-	return v5.Drawing{Variant: v5.SvgDrawing{Markup: markup}}
+	return v5.Drawing{Variant: v5.SVGDrawing{Markup: markup}}
 }
 
 var activeState = v5.State{Variant: v5.EnumerationState{

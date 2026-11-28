@@ -323,7 +323,7 @@ var _ = Describe("LiftWrite", func() {
 				Generator: payload.GeneratorTypeTimestamp,
 			},
 		)
-		Expect(f[1].Variant).To(Equal(icd.UuidJSONField{
+		Expect(f[1].Variant).To(Equal(icd.UUIDJSONField{
 			JSONBaseField: f[1].Base(),
 			Default:       &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
 		}))

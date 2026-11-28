@@ -549,7 +549,7 @@ TEST(Writer, SendJSONValues) {
     auto t = field<synnax::icd::TimestampJSONField>("t");
     t.time_format = "iso8601";
     const auto j = field<synnax::icd::JSONJSONField>("j");
-    const auto id = field<synnax::icd::UuidJSONField>("id");
+    const auto id = field<synnax::icd::UUIDJSONField>("id");
     const auto by = field<synnax::icd::BytesJSONField>("by");
     for (const synnax::icd::JSONField &x: {
              synnax::icd::JSONField(f),
@@ -576,7 +576,7 @@ TEST(Writer, SendJSONValues) {
         synnax::icd::TimestampWriteValue{.value = x::telem::TimeStamp(x::telem::SECOND)}
     );
     c.fix(j.key, synnax::icd::JSONWriteValue{.value = R"({"k":[1]})"});
-    c.fix(id.key, synnax::icd::UuidWriteValue{.value = key});
+    c.fix(id.key, synnax::icd::UUIDWriteValue{.value = key});
     c.fix(by.key, synnax::icd::BytesWriteValue{.value = "AQI="});
     auto w = ASSERT_NIL_P(c.create());
     EXPECT_EQ(

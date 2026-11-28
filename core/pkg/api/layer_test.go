@@ -264,7 +264,7 @@ var _ = Describe("Layer", func() {
 				Name: "moved",
 				Data: symbol.Spec{
 					Drawing: symbol.Drawing{
-						Variant: symbol.SvgDrawing{Markup: "<svg></svg>"},
+						Variant: symbol.SVGDrawing{Markup: "<svg></svg>"},
 					},
 				},
 			})

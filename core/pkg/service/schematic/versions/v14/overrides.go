@@ -360,7 +360,7 @@ func overridden(
 	states []symbolv4.State,
 ) (symbol.Spec, drawing, error) {
 	want := maps.Clone(draw(spec, entries))
-	svg, ok := spec.Drawing.Variant.(symbol.SvgDrawing)
+	svg, ok := spec.Drawing.Variant.(symbol.SVGDrawing)
 	if !ok {
 		return symbol.Spec{}, nil, errors.New("only an svg drawing has regions")
 	}

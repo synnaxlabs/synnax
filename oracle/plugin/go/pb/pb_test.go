@@ -383,7 +383,7 @@ var _ = Describe("Go PB Plugin", func() {
 					resp := MustGenerate(source, "schematic", loader, pbPlugin)
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							"case schematic.IsoCapShape:",
+							"case schematic.ISOCapShape:",
 							"pb.Variant = &Shape_IsoCap{IsoCap: inner}",
 							"case *Shape_TJunction:",
 							"r.Variant = schematic.TJunctionShape{Body: inner}",
@@ -958,6 +958,29 @@ var _ = Describe("Go PB Plugin", func() {
 					Expect(content).To(ContainSubstring("if err != nil"))
 				},
 			)
+		})
+
+		It("Should translate an enum member by its @go name", func() {
+			source := `
+					@go output "core/ranger"
+					@pb
+
+					Stage enum {
+						to_do = "to_do" {
+							@go name "ToDo"
+						}
+						done = "done"
+					}
+
+					Range struct {
+						key uuid
+						stage Stage
+					}
+				`
+			resp := MustGenerate(source, "ranger", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").
+				ToContain("case ranger.StageToDo:").
+				ToNotContain("StageToDO")
 		})
 
 		It("Should preserve enum declaration order", func() {

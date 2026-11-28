@@ -21,5 +21,5 @@ func (c Chassis) GorpKey() Key { return c.Key }
 
 // ResourceID returns the resource identifier of the Chassis.
 func (c Chassis) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeNiChassis, Key: c.Key.String()}
+	return resource.ID{Type: resource.TypeNIChassis, Key: c.Key.String()}
 }

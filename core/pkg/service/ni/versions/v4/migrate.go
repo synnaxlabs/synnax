@@ -133,7 +133,7 @@ func MigrateAnalogReadConfig(
 		if !ok {
 			continue
 		}
-		c, ok := tc.Cjc.Variant.(v3.ChanCJC)
+		c, ok := tc.CJC.Variant.(v3.ChanCJC)
 		if !ok {
 			continue
 		}
@@ -317,7 +317,7 @@ func logAIChannel(l changeLog, old v3.AIChannel, migrated AIChannel) error {
 	if !ok {
 		return nil
 	}
-	oldCJC, ok := tc.Cjc.Variant.(v3.ChanCJC)
+	oldCJC, ok := tc.CJC.Variant.(v3.ChanCJC)
 	if !ok {
 		return nil
 	}
@@ -325,11 +325,11 @@ func logAIChannel(l changeLog, old v3.AIChannel, migrated AIChannel) error {
 	if !ok {
 		return errVariantChanged(o.Key, migrated.Variant)
 	}
-	newCJC, ok := newTC.Cjc.Variant.(ChanCJC)
+	newCJC, ok := newTC.CJC.Variant.(ChanCJC)
 	if !ok {
-		return errVariantChanged(o.Key, newTC.Cjc.Variant)
+		return errVariantChanged(o.Key, newTC.CJC.Variant)
 	}
-	logNumber(l, "Cjc.Port", oldCJC.Port, newCJC.Port)
+	logNumber(l, "CJC.Port", oldCJC.Port, newCJC.Port)
 	return nil
 }
 

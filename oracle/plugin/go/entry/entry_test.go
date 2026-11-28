@@ -38,6 +38,9 @@ Type enum {
 	ni_device = "ni_device"
 	icd = "icd"
 	status = "status"
+	rack = "rack" {
+		@go name "Shelf"
+	}
 }
 `
 
@@ -310,7 +313,7 @@ Device struct {
 				ContainSubstring(
 					"func (d Device) GorpKey() uuid.UUID { return d.Key }",
 				),
-				ContainSubstring("Type: resource.TypeNiDevice, Key: d.Key.String()"),
+				ContainSubstring("Type: resource.TypeNIDevice, Key: d.Key.String()"),
 			))
 	})
 
@@ -390,6 +393,33 @@ Status struct<Details?> {
 					"func (s Status[Details]) GorpKey() Key { return s.Key }",
 				),
 				ContainSubstring("Type: resource.TypeStatus, Key: s.Key}"),
+			))
+	})
+
+	It("Should name the resource type member by its @go name", func() {
+		resp := MustSucceed(generate("rack", `
+@go output "core/pkg/service/rack"
+
+Rack struct {
+	key uint32 @key
+
+	@go entry "rack"
+	@resource type "rack"
+}
+`, map[string]string{
+			"rack/v0.oracle": `
+Rack struct {
+	key uint32 @key
+
+	@go entry "rack"
+	@resource type "rack"
+}
+`,
+		}))
+		Expect(fileAt(resp, "core/pkg/service/rack/versions/v0/entry.gen.go")).
+			To(And(
+				ContainSubstring("Type: resource.TypeShelf,"),
+				Not(ContainSubstring("TypeRack")),
 			))
 	})
 

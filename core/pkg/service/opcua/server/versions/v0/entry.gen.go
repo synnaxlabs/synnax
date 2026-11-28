@@ -21,5 +21,5 @@ func (s Server) GorpKey() Key { return s.Key }
 
 // ResourceID returns the resource identifier of the Server.
 func (s Server) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeOpcuaServer, Key: s.Key.String()}
+	return resource.ID{Type: resource.TypeOPCUAServer, Key: s.Key.String()}
 }

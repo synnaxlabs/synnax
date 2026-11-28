@@ -230,7 +230,7 @@ func (c *Condition) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (d Drawing) EncodeOrc(w *orc.Writer) error {
 	switch v := d.Variant.(type) {
-	case SvgDrawing:
+	case SVGDrawing:
 		w.String("svg")
 		w.String(v.Markup)
 	default:
@@ -247,7 +247,7 @@ func (d *Drawing) DecodeOrc(r *orc.Reader) error {
 	}
 	switch string(tag) {
 	case "svg":
-		var v SvgDrawing
+		var v SVGDrawing
 		if v.Markup, err = r.String(); err != nil {
 			return err
 		}

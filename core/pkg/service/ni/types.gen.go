@@ -510,10 +510,10 @@ const (
 	// AIPressureBridgePolynomialChannelType reads pressure from a bridge with
 	// polynomial calibration.
 	AIPressureBridgePolynomialChannelType AIChannelType = versions.AIPressureBridgePolynomialChannelType
-	// AIThermistorIexChannelType reads temperature from a current-excited thermistor.
-	AIThermistorIexChannelType AIChannelType = versions.AIThermistorIexChannelType
-	// AIThermistorVexChannelType reads temperature from a voltage-excited thermistor.
-	AIThermistorVexChannelType AIChannelType = versions.AIThermistorVexChannelType
+	// AIThermistorIExChannelType reads temperature from a current-excited thermistor.
+	AIThermistorIExChannelType AIChannelType = versions.AIThermistorIExChannelType
+	// AIThermistorVExChannelType reads temperature from a voltage-excited thermistor.
+	AIThermistorVExChannelType AIChannelType = versions.AIThermistorVExChannelType
 	// AITorqueBridgePolynomialChannelType reads torque from a bridge with polynomial
 	// calibration.
 	AITorqueBridgePolynomialChannelType AIChannelType = versions.AITorqueBridgePolynomialChannelType
@@ -603,11 +603,11 @@ type AIFreqVoltageChannel = versions.AIFreqVoltageChannel
 // calibration.
 type AIPressureBridgePolynomialChannel = versions.AIPressureBridgePolynomialChannel
 
-// AIThermistorIexChannel reads temperature from a current-excited thermistor.
-type AIThermistorIexChannel = versions.AIThermistorIexChannel
+// AIThermistorIExChannel reads temperature from a current-excited thermistor.
+type AIThermistorIExChannel = versions.AIThermistorIExChannel
 
-// AIThermistorVexChannel reads temperature from a voltage-excited thermistor.
-type AIThermistorVexChannel = versions.AIThermistorVexChannel
+// AIThermistorVExChannel reads temperature from a voltage-excited thermistor.
+type AIThermistorVExChannel = versions.AIThermistorVExChannel
 
 // AITorqueBridgePolynomialChannel reads torque from a bridge with polynomial
 // calibration.
@@ -705,8 +705,8 @@ const (
 type CIAngularVelocityUnits = versions.CIAngularVelocityUnits
 
 const (
-	// CIAngularVelocityUnitsRpm is revolutions per minute.
-	CIAngularVelocityUnitsRpm CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRpm
+	// CIAngularVelocityUnitsRPM is revolutions per minute.
+	CIAngularVelocityUnitsRPM CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRPM
 	// CIAngularVelocityUnitsRadiansPerSecond is radians per second.
 	CIAngularVelocityUnitsRadiansPerSecond CIAngularVelocityUnits = versions.CIAngularVelocityUnitsRadiansPerSecond
 	// CIAngularVelocityUnitsDegreesPerSecond is degrees per second.
@@ -1022,37 +1022,37 @@ type Hardware struct {
 	DigitalPorts []DigitalPort `json:"digital_ports" msgpack:"digital_ports"`
 	// Terminals are the terminals of the device, such as PFI0, without the device name.
 	Terminals []string `json:"terminals" msgpack:"terminals"`
-	// AiMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
+	// AIMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
 	// does not support the attribute.
-	AiMinRate telem.Rate `json:"ai_min_rate" msgpack:"ai_min_rate"`
-	// AiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
+	AIMinRate telem.Rate `json:"ai_min_rate" msgpack:"ai_min_rate"`
+	// AIMaxSingleChannelRate is the highest analog input sample rate of one channel, in
 	// Hz. 0 means that the device does not support the attribute.
-	AiMaxSingleChannelRate telem.Rate `json:"ai_max_single_channel_rate" msgpack:"ai_max_single_channel_rate"`
-	// AiMaxMultiChannelRate is the highest analog input sample rate of the device, in
+	AIMaxSingleChannelRate telem.Rate `json:"ai_max_single_channel_rate" msgpack:"ai_max_single_channel_rate"`
+	// AIMaxMultiChannelRate is the highest analog input sample rate of the device, in
 	// Hz. A task with several channels divides it by the channel count. 0 means that
 	// the device does not support the attribute.
-	AiMaxMultiChannelRate telem.Rate `json:"ai_max_multi_channel_rate" msgpack:"ai_max_multi_channel_rate"`
-	// AoMaxRate is the highest analog output sample rate, in Hz. 0 means that the
+	AIMaxMultiChannelRate telem.Rate `json:"ai_max_multi_channel_rate" msgpack:"ai_max_multi_channel_rate"`
+	// AOMaxRate is the highest analog output sample rate, in Hz. 0 means that the
 	// device does not support the attribute.
-	AoMaxRate telem.Rate `json:"ao_max_rate" msgpack:"ao_max_rate"`
-	// AiVoltageRanges are the analog input voltage ranges of the device.
-	AiVoltageRanges []spatial.ClosedBounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
-	// AiCurrentRanges are the analog input current ranges of the device.
-	AiCurrentRanges []spatial.ClosedBounds `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
-	// AoVoltageRanges are the analog output voltage ranges of the device.
-	AoVoltageRanges []spatial.ClosedBounds `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
-	// AoCurrentRanges are the analog output current ranges of the device.
-	AoCurrentRanges []spatial.ClosedBounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
+	AOMaxRate telem.Rate `json:"ao_max_rate" msgpack:"ao_max_rate"`
+	// AIVoltageRanges are the analog input voltage ranges of the device.
+	AIVoltageRanges []spatial.ClosedBounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
+	// AICurrentRanges are the analog input current ranges of the device.
+	AICurrentRanges []spatial.ClosedBounds `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
+	// AOVoltageRanges are the analog output voltage ranges of the device.
+	AOVoltageRanges []spatial.ClosedBounds `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
+	// AOCurrentRanges are the analog output current ranges of the device.
+	AOCurrentRanges []spatial.ClosedBounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (h Hardware) Validate() error {
 	v := validate.New("Hardware")
-	v.GreaterThanEq("ai_min_rate", h.AiMinRate, 0)
-	v.GreaterThanEq("ai_max_single_channel_rate", h.AiMaxSingleChannelRate, 0)
-	v.GreaterThanEq("ai_max_multi_channel_rate", h.AiMaxMultiChannelRate, 0)
-	v.GreaterThanEq("ao_max_rate", h.AoMaxRate, 0)
+	v.GreaterThanEq("ai_min_rate", h.AIMinRate, 0)
+	v.GreaterThanEq("ai_max_single_channel_rate", h.AIMaxSingleChannelRate, 0)
+	v.GreaterThanEq("ai_max_multi_channel_rate", h.AIMaxMultiChannelRate, 0)
+	v.GreaterThanEq("ao_max_rate", h.AOMaxRate, 0)
 	for i := range h.AnalogInputs {
 		v.Exec(func() error {
 			return validate.PathedError(h.AnalogInputs[i].Validate(), "analog_inputs", strconv.Itoa(i))
@@ -1063,24 +1063,24 @@ func (h Hardware) Validate() error {
 			return validate.PathedError(h.DigitalPorts[i].Validate(), "digital_ports", strconv.Itoa(i))
 		})
 	}
-	for i := range h.AiVoltageRanges {
+	for i := range h.AIVoltageRanges {
 		v.Exec(func() error {
-			return validate.PathedError(h.AiVoltageRanges[i].Validate(), "ai_voltage_ranges", strconv.Itoa(i))
+			return validate.PathedError(h.AIVoltageRanges[i].Validate(), "ai_voltage_ranges", strconv.Itoa(i))
 		})
 	}
-	for i := range h.AiCurrentRanges {
+	for i := range h.AICurrentRanges {
 		v.Exec(func() error {
-			return validate.PathedError(h.AiCurrentRanges[i].Validate(), "ai_current_ranges", strconv.Itoa(i))
+			return validate.PathedError(h.AICurrentRanges[i].Validate(), "ai_current_ranges", strconv.Itoa(i))
 		})
 	}
-	for i := range h.AoVoltageRanges {
+	for i := range h.AOVoltageRanges {
 		v.Exec(func() error {
-			return validate.PathedError(h.AoVoltageRanges[i].Validate(), "ao_voltage_ranges", strconv.Itoa(i))
+			return validate.PathedError(h.AOVoltageRanges[i].Validate(), "ao_voltage_ranges", strconv.Itoa(i))
 		})
 	}
-	for i := range h.AoCurrentRanges {
+	for i := range h.AOCurrentRanges {
 		v.Exec(func() error {
-			return validate.PathedError(h.AoCurrentRanges[i].Validate(), "ao_current_ranges", strconv.Itoa(i))
+			return validate.PathedError(h.AOCurrentRanges[i].Validate(), "ao_current_ranges", strconv.Itoa(i))
 		})
 	}
 	return v.Error()

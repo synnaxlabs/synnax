@@ -408,8 +408,8 @@ var _ = Describe("Codec", func() {
 			Entry("heater_element variant", v13.NodeConfig{Variant: v13.HeaterElementNodeConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("iso_cap variant", v13.NodeConfig{Variant: v13.IsoCapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("iso_filter variant", v13.NodeConfig{Variant: v13.IsoFilterNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("iso_cap variant", v13.NodeConfig{Variant: v13.ISOCapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("iso_filter variant", v13.NodeConfig{Variant: v13.ISOFilterNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("nozzle variant", v13.NodeConfig{Variant: v13.NozzleNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("orifice variant", v13.NodeConfig{Variant: v13.OrificeNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("orifice_plate variant", v13.NodeConfig{Variant: v13.OrificePlateNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
@@ -852,7 +852,7 @@ var _ = Describe("Codec", func() {
 			Entry("flame_arrestor_fire_res_detonation variant", v13.NodeConfig{Variant: v13.FlameArrestorFireResDetonationNodeConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("iso_burst_disc variant", v13.NodeConfig{Variant: v13.IsoBurstDiscNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("iso_burst_disc variant", v13.NodeConfig{Variant: v13.ISOBurstDiscNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("angled_valve variant", v13.NodeConfig{Variant: v13.AngledValveNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
 			Entry("angled_relief_valve variant", v13.NodeConfig{Variant: v13.AngledReliefValveNodeConfig{
 				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
@@ -882,7 +882,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("four_way_valve variant", v13.NodeConfig{Variant: v13.FourWayValveNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
 			Entry("gate_valve variant", v13.NodeConfig{Variant: v13.GateValveNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("iso_check_valve variant", v13.NodeConfig{Variant: v13.IsoCheckValveNodeConfig{
+			Entry("iso_check_valve variant", v13.NodeConfig{Variant: v13.ISOCheckValveNodeConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("manual_valve variant", v13.NodeConfig{Variant: v13.ManualValveNodeConfig{
@@ -2040,7 +2040,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.NodeConfig{Variant: v13.IsoCapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		seed := v13.NodeConfig{Variant: v13.ISOCapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2048,7 +2048,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.NodeConfig{Variant: v13.IsoFilterNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		seed := v13.NodeConfig{Variant: v13.ISOFilterNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2960,7 +2960,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.NodeConfig{Variant: v13.IsoBurstDiscNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		seed := v13.NodeConfig{Variant: v13.ISOBurstDiscNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3088,7 +3088,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v13.NodeConfig{Variant: v13.IsoCheckValveNodeConfig{
+		seed := v13.NodeConfig{Variant: v13.ISOCheckValveNodeConfig{
 			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)

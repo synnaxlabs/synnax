@@ -35,7 +35,7 @@ var _ = Describe("Symbol save", func() {
 		sym = defaults.Fill(symbol.Symbol{
 			Name: "Valve",
 			Data: symbol.Spec{
-				Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
+				Drawing: symbol.Drawing{Variant: symbol.SVGDrawing{Markup: "<svg/>"}},
 				Commands: []symbol.Command{{
 					Key:  "vent",
 					Name: "Vent",

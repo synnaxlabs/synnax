@@ -88,7 +88,7 @@ func newBinaryEncoder(m BinaryMessage) (*BinaryEncoder, error) {
 		switch v := m.Payload.Identifier.Variant.(type) {
 		case icd.FieldIdentifier:
 			id = &v
-		case icd.CanIdentifier:
+		case icd.CANIdentifier:
 			// A CAN task writes the identifier in the frame, not the payload.
 		default:
 			panic(errors.Newf("codec: unknown identifier %T", v))

@@ -85,13 +85,13 @@ export interface Order extends z.infer<typeof orderZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/** SvgDrawing is a drawing stored as SVG markup. */
+/** SVGDrawing is a drawing stored as SVG markup. */
 export const svgDrawingZ = z.object({
   type: z.literal("svg"),
   /** markup is the SVG markup of the drawing. */
   markup: z.string().min(1),
 });
-export interface SvgDrawing extends z.infer<typeof svgDrawingZ> {}
+export interface SVGDrawing extends z.infer<typeof svgDrawingZ> {}
 
 export const DRAWING_TYPES = ["svg"] as const;
 export const drawingTypeZ = z.enum(DRAWING_TYPES);
@@ -99,7 +99,7 @@ export type DrawingType = z.infer<typeof drawingTypeZ>;
 
 /** Drawing is the picture of a symbol. */
 export const drawingZ = z.discriminatedUnion("type", [svgDrawingZ]);
-export type Drawing = SvgDrawing;
+export type Drawing = SVGDrawing;
 
 export const DRAWING_SCHEMAS: {
   [K in DrawingType]: z.ZodType<Extract<Drawing, { type: K }>>;

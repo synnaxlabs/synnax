@@ -178,7 +178,7 @@ func buildAliasDecls(
 		form := resolution.MustForm[resolution.EnumForm](d.typ)
 		decl := &b.decls[len(b.decls)-1]
 		for _, v := range form.Values {
-			member := naming.ToPascalCase(v.Name)
+			member := naming.GetEnumValueName(v)
 			decl.Consts = append(decl.Consts, aliasConst{
 				Name:   name + member,
 				Type:   name,

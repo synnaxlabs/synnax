@@ -290,7 +290,7 @@ var _ = Describe("JSONEncoder", func() {
 
 	It("Should write a new UUID at each encode for a random default", func() {
 		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
-			{Variant: icd.UuidJSONField{
+			{Variant: icd.UUIDJSONField{
 				Key:     uuid.New(),
 				Name:    "v",
 				Scale:   1,
@@ -336,7 +336,7 @@ var _ = Describe("JSONEncoder", func() {
 		func() {
 			key := uuid.New()
 			enc := MustSucceed(codec.NewJSONEncoder(message(
-				[]icd.JSONField{{Variant: icd.UuidJSONField{
+				[]icd.JSONField{{Variant: icd.UUIDJSONField{
 					Key:     key,
 					Name:    "v",
 					Scale:   1,
@@ -439,7 +439,7 @@ var _ = Describe("JSONEncoder", func() {
 				Name: "status",
 				Payload: icd.JSONPayload{
 					Match: &match,
-					Fields: []icd.JSONField{{Variant: icd.UuidJSONField{
+					Fields: []icd.JSONField{{Variant: icd.UUIDJSONField{
 						Key:     uuid.New(),
 						Name:    "id",
 						Scale:   1,
@@ -610,7 +610,7 @@ var _ = Describe("JSONEncoder", func() {
 			"message command: field at: default: type is required: validation error",
 		),
 		Entry("a UUID default with no type",
-			message([]icd.JSONField{{Variant: icd.UuidJSONField{
+			message([]icd.JSONField{{Variant: icd.UUIDJSONField{
 				Key:     uuid.New(),
 				Name:    "id",
 				Scale:   1,
@@ -621,7 +621,7 @@ var _ = Describe("JSONEncoder", func() {
 		),
 		Entry("a bound field whose default has no type",
 			message(
-				[]icd.JSONField{{Variant: icd.UuidJSONField{
+				[]icd.JSONField{{Variant: icd.UUIDJSONField{
 					Key:     fixedKey,
 					Name:    "id",
 					Scale:   1,
@@ -697,7 +697,7 @@ var _ = Describe("JSONEncoder", func() {
 			Skip("uuid.NewV4 allocates under the race detector")
 		}
 		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
-			{Variant: icd.UuidJSONField{
+			{Variant: icd.UUIDJSONField{
 				Key:     uuid.New(),
 				Name:    "id",
 				Scale:   1,
@@ -749,7 +749,7 @@ var _ = Describe("CheckDefault", func() {
 			"type is required: validation error",
 		),
 		Entry("a UUID default with no type",
-			icd.UuidJSONField{Default: &icd.UUIDDefault{}},
+			icd.UUIDJSONField{Default: &icd.UUIDDefault{}},
 			"type is required: validation error",
 		),
 	)

@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	deviceType = resource.ID{Type: resource.TypeNiDevice}
+	deviceType = resource.ID{Type: resource.TypeNIDevice}
 	statusType = resource.ID{Type: resource.TypeStatus}
 	allWrites  = []access.Action{
 		access.ActionCreate,

@@ -33,7 +33,7 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseReadChannel.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Pdo)
+		w.String(v.PDO)
 	default:
 		return errors.Newf("ReadChannel: nil or unknown variant %T", rc.Variant)
 	}
@@ -71,7 +71,7 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.BaseReadChannel.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.Pdo, err = r.String(); err != nil {
+		if v.PDO, err = r.String(); err != nil {
 			return err
 		}
 		rc.Variant = v
@@ -163,7 +163,7 @@ func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Pdo)
+		w.String(v.PDO)
 	default:
 		return errors.Newf("WriteChannel: nil or unknown variant %T", wc.Variant)
 	}
@@ -201,7 +201,7 @@ func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
 		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.Pdo, err = r.String(); err != nil {
+		if v.PDO, err = r.String(); err != nil {
 			return err
 		}
 		wc.Variant = v

@@ -29,7 +29,7 @@ var _ = Describe("Chassis", func() {
 		c := v0.Chassis{Key: key}
 		Expect(c.GorpKey()).To(Equal(key))
 		Expect(c.ResourceID()).To(Equal(resource.ID{
-			Type: resource.TypeNiChassis,
+			Type: resource.TypeNIChassis,
 			Key:  key.String(),
 		}))
 	})

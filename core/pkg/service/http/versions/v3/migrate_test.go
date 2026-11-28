@@ -59,7 +59,7 @@ var _ = Describe("Migration", func() {
 			Expect(got.Device).To(Equal(stored.Device))
 			Expect(got.Rate).To(Equal(stored.Rate))
 			Expect(got.Endpoints).To(Equal(stored.Endpoints))
-			Expect(got.NanFillEnabled).To(BeFalse())
+			Expect(got.NaNFillEnabled).To(BeFalse())
 		},
 	)
 })

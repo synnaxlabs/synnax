@@ -336,10 +336,10 @@ func (m *monitor) handleChange(
 			resource.TypeProject, resource.TypeRange, resource.TypeRangeAlias,
 			resource.TypeRole, resource.TypeSchematic, resource.TypeSchematicSymbol,
 			resource.TypeStatus, resource.TypeTable, resource.TypeUser,
-			resource.TypeView, resource.TypeEthercatMaster, resource.TypeEthercatSlave,
+			resource.TypeView, resource.TypeEtherCATMaster, resource.TypeEtherCATSlave,
 			resource.TypeHTTPServer, resource.TypeLabjackDevice,
-			resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
-			resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
+			resource.TypeModbusServer, resource.TypeNIChassis, resource.TypeNIDevice,
+			resource.TypeOPCUAServer, resource.TypeArcDirectory, resource.TypeSecret,
 			resource.TypeCertificate, resource.TypeColor, resource.TypeICD,
 			resource.TypeEnumeration:
 		}

@@ -170,8 +170,8 @@ func withValue(f icd.JSONField, v icd.WriteValue) (icd.JSONField, bool) {
 		})
 	case icd.JSONWriteValue:
 		return withDefault(f, func(fv *icd.JSONJSONField) { fv.Default = &x.Value })
-	case icd.UuidWriteValue:
-		return withDefault(f, func(fv *icd.UuidJSONField) {
+	case icd.UUIDWriteValue:
+		return withDefault(f, func(fv *icd.UUIDJSONField) {
 			fv.Default = &icd.UUIDDefault{Variant: icd.ConstantUUIDDefault(x)}
 		})
 	case icd.BytesWriteValue:

@@ -437,7 +437,7 @@ func enumConstName(enumType resolution.Type, value string) string {
 	form := resolution.MustForm[resolution.EnumForm](enumType)
 	for _, m := range form.Values {
 		if m.StringValue() == value {
-			return naming.GetGoName(enumType) + naming.ToPascalCase(m.Name)
+			return naming.GetGoName(enumType) + naming.GetEnumValueName(m)
 		}
 	}
 	panic(fmt.Sprintf("enum %s has no member with value %q", enumType.Name, value))

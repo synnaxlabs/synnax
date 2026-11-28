@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	serverType = resource.ID{Type: resource.TypeOpcuaServer}
+	serverType = resource.ID{Type: resource.TypeOPCUAServer}
 	statusType = resource.ID{Type: resource.TypeStatus}
 	// channelType lets a user bind any channel, which a write needs to use it.
 	channelType = resource.ID{Type: resource.TypeChannel}

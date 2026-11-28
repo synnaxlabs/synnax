@@ -569,10 +569,45 @@ var _ = Describe("Go Types Plugin", func() {
 					Expect(
 						content,
 					).To(ContainSubstring(`RTDTypePt3750 RTDType = "Pt3750"`))
-					Expect(content).To(ContainSubstring(`RtdType RTDType`))
+					Expect(content).To(ContainSubstring(`RTDType RTDType`))
 					Expect(content).ToNot(ContainSubstring(`RtdTypePt3750`))
 				},
 			)
+
+			It("Should name every use of an enum member by its @go name", func() {
+				source := `
+				@go output "core/ranger"
+
+				Stage enum {
+					to_do = "to_do" {
+						@go name "ToDo"
+					}
+					done = "done"
+				}
+
+				Step union on stage Stage {
+					to_do {
+						note string
+					}
+					done {
+						note string
+					}
+				}
+
+				Range struct {
+					stage Stage = to_do
+					step  Step
+				}
+			`
+				resp := MustGenerate(source, "ranger", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(
+						`StageToDo Stage = "to_do"`,
+						"r.Stage = StageToDo",
+						"case StageToDo:",
+					).
+					ToNotContain("StageToDO")
+			})
 
 			It(
 				"Should generate int enum type and constants with their values",

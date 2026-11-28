@@ -63,7 +63,7 @@ func failLookup(context.Context, gorp.Snapshot, []string) (map[string]v2.Slave, 
 func unresolvedRead(device, pdo string) v2.ReadChannel {
 	return v2.ReadChannel{Variant: v2.UnresolvedReadChannel{
 		BaseReadChannel: v1.BaseReadChannel{Key: pdo, Device: device, Channel: 12},
-		Pdo:             pdo,
+		PDO:             pdo,
 	}}
 }
 
@@ -73,14 +73,14 @@ func unresolvedWrite(device, pdo string) v2.WriteChannel {
 		Device:       device,
 		CmdChannel:   3,
 		StateChannel: 4,
-		Pdo:          pdo,
+		PDO:          pdo,
 	}}
 }
 
 func automaticRead(device, pdo string) v1.ReadChannel {
 	return v1.ReadChannel{Variant: v1.AutomaticReadChannel{
 		BaseReadChannel: v1.BaseReadChannel{Key: pdo, Device: device, Channel: 12},
-		Pdo:             pdo,
+		PDO:             pdo,
 	}}
 }
 
@@ -90,7 +90,7 @@ func automaticWrite(device, pdo string) v1.WriteChannel {
 		Device:       device,
 		CmdChannel:   3,
 		StateChannel: 4,
-		Pdo:          pdo,
+		PDO:          pdo,
 	}}
 }
 

@@ -127,7 +127,7 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "endpoints":
 		return patch.List(&rc.Endpoints, c.Next())
 	case "nan_fill_enabled":
-		return patch.Value(&rc.NanFillEnabled, c.Next())
+		return patch.Value(&rc.NaNFillEnabled, c.Next())
 	case "inline":
 		if c = c.Next(); c.Done() || rc.Inline == nil {
 			return patch.OptionalValue(&rc.Inline, c)
@@ -153,7 +153,7 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	for i0 := range rc.Endpoints {
 		rc.Endpoints[i0].HashContent(h)
 	}
-	h.Bool(rc.NanFillEnabled)
+	h.Bool(rc.NaNFillEnabled)
 	if rc.Inline == nil {
 		h.Bool(false)
 	} else {

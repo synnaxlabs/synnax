@@ -40,14 +40,14 @@ type IdentifierVariant = v1.IdentifierVariant
 type IdentifierType = v1.IdentifierType
 
 const (
-	// CanIdentifierType matches a CAN frame by arbitration identifier.
-	CanIdentifierType IdentifierType = v1.CanIdentifierType
+	// CANIdentifierType matches a CAN frame by arbitration identifier.
+	CANIdentifierType IdentifierType = v1.CANIdentifierType
 	// FieldIdentifierType matches a binary frame by the raw value of one of its fields.
 	FieldIdentifierType IdentifierType = v1.FieldIdentifierType
 )
 
-// CanIdentifier matches a CAN frame by arbitration identifier.
-type CanIdentifier = v1.CanIdentifier
+// CANIdentifier matches a CAN frame by arbitration identifier.
+type CANIdentifier = v1.CANIdentifier
 
 // FieldIdentifier matches a binary frame by the raw value of one of its fields.
 type FieldIdentifier = v1.FieldIdentifier
@@ -184,8 +184,8 @@ type TimestampJSONField = v1.TimestampJSONField
 // JSONJSONField is any JSON value.
 type JSONJSONField = v1.JSONJSONField
 
-// UuidJSONField is a UUID held in a JSON string.
-type UuidJSONField = v1.UuidJSONField
+// UUIDJSONField is a UUID held in a JSON string.
+type UUIDJSONField = v1.UUIDJSONField
 
 // BytesJSONField is base64 text held in a JSON string.
 type BytesJSONField = v1.BytesJSONField
@@ -367,8 +367,8 @@ type TimestampWriteValue = v1.TimestampWriteValue
 // JSONWriteValue is a fixed JSON value.
 type JSONWriteValue = v1.JSONWriteValue
 
-// UuidWriteValue is a fixed UUID.
-type UuidWriteValue = v1.UuidWriteValue
+// UUIDWriteValue is a fixed UUID.
+type UUIDWriteValue = v1.UUIDWriteValue
 
 // BytesWriteValue is fixed bytes.
 type BytesWriteValue = v1.BytesWriteValue

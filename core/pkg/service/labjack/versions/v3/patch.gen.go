@@ -274,15 +274,15 @@ func (trc *ThermocoupleReadChannel) Patch(c patch.Cursor) error {
 	case "neg_chan":
 		return patch.OptionalValue(&trc.NegChan, c.Next())
 	case "cjc_source":
-		return patch.Defaulted(&trc.CjcSource, c.Next(), func(def *ThermocoupleReadChannel) {
-			trc.CjcSource = def.CjcSource
+		return patch.Defaulted(&trc.CJCSource, c.Next(), func(def *ThermocoupleReadChannel) {
+			trc.CJCSource = def.CJCSource
 		})
 	case "cjc_slope":
-		return patch.Defaulted(&trc.CjcSlope, c.Next(), func(def *ThermocoupleReadChannel) {
-			trc.CjcSlope = def.CjcSlope
+		return patch.Defaulted(&trc.CJCSlope, c.Next(), func(def *ThermocoupleReadChannel) {
+			trc.CJCSlope = def.CJCSlope
 		})
 	case "cjc_offset":
-		return patch.Value(&trc.CjcOffset, c.Next())
+		return patch.Value(&trc.CJCOffset, c.Next())
 	case "units":
 		return patch.Defaulted(&trc.Units, c.Next(), func(def *ThermocoupleReadChannel) {
 			trc.Units = def.Units
@@ -312,9 +312,9 @@ func (trc *ThermocoupleReadChannel) HashContent(h *content.Hash) {
 		h.Bool(true)
 		h.Uint(uint64(*trc.NegChan))
 	}
-	h.String(trc.CjcSource)
-	h.Float(trc.CjcSlope)
-	h.Float(trc.CjcOffset)
+	h.String(trc.CJCSource)
+	h.Float(trc.CJCSlope)
+	h.Float(trc.CJCOffset)
 	h.String(string(trc.Units))
 	trc.Scale.HashContent(h)
 }

@@ -77,7 +77,7 @@ icd::Identifier
 can(const std::uint32_t id,
     const bool extended = false,
     const std::optional<std::uint32_t> mask = std::nullopt) {
-    icd::CanIdentifier c;
+    icd::CANIdentifier c;
     c.id = id;
     c.extended = extended;
     c.mask = mask;

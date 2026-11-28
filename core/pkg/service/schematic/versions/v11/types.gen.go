@@ -208,10 +208,10 @@ const (
 	FlowStraightenerNodeConfigType NodeConfigType = v10.FlowStraightenerNodeConfigType
 	// HeaterElementNodeConfigType is the configuration for heater element symbols.
 	HeaterElementNodeConfigType NodeConfigType = v10.HeaterElementNodeConfigType
-	// IsoCapNodeConfigType is the configuration for ISO cap symbols.
-	IsoCapNodeConfigType NodeConfigType = v10.IsoCapNodeConfigType
-	// IsoFilterNodeConfigType is the configuration for ISO filter symbols.
-	IsoFilterNodeConfigType NodeConfigType = v10.IsoFilterNodeConfigType
+	// ISOCapNodeConfigType is the configuration for ISO cap symbols.
+	ISOCapNodeConfigType NodeConfigType = v10.ISOCapNodeConfigType
+	// ISOFilterNodeConfigType is the configuration for ISO filter symbols.
+	ISOFilterNodeConfigType NodeConfigType = v10.ISOFilterNodeConfigType
 	// NozzleNodeConfigType is the configuration for nozzle symbols.
 	NozzleNodeConfigType NodeConfigType = v10.NozzleNodeConfigType
 	// OrificeNodeConfigType is the configuration for orifice symbols.
@@ -370,8 +370,8 @@ const (
 	// FlameArrestorFireResDetonationNodeConfigType is the configuration for fire
 	// resistant and detonation-proof flame arrestor symbols.
 	FlameArrestorFireResDetonationNodeConfigType NodeConfigType = v10.FlameArrestorFireResDetonationNodeConfigType
-	// IsoBurstDiscNodeConfigType is the configuration for ISO burst disc symbols.
-	IsoBurstDiscNodeConfigType NodeConfigType = v10.IsoBurstDiscNodeConfigType
+	// ISOBurstDiscNodeConfigType is the configuration for ISO burst disc symbols.
+	ISOBurstDiscNodeConfigType NodeConfigType = v10.ISOBurstDiscNodeConfigType
 	// AngledValveNodeConfigType is the configuration for angled valve symbols.
 	AngledValveNodeConfigType NodeConfigType = v10.AngledValveNodeConfigType
 	// AngledReliefValveNodeConfigType is the configuration for angled relief valve
@@ -405,8 +405,8 @@ const (
 	FourWayValveNodeConfigType NodeConfigType = v10.FourWayValveNodeConfigType
 	// GateValveNodeConfigType is the configuration for gate valve symbols.
 	GateValveNodeConfigType NodeConfigType = v10.GateValveNodeConfigType
-	// IsoCheckValveNodeConfigType is the configuration for ISO check valve symbols.
-	IsoCheckValveNodeConfigType NodeConfigType = v10.IsoCheckValveNodeConfigType
+	// ISOCheckValveNodeConfigType is the configuration for ISO check valve symbols.
+	ISOCheckValveNodeConfigType NodeConfigType = v10.ISOCheckValveNodeConfigType
 	// ManualValveNodeConfigType is the configuration for manual valve symbols.
 	ManualValveNodeConfigType NodeConfigType = v10.ManualValveNodeConfigType
 	// NeedleValveNodeConfigType is the configuration for needle valve symbols.
@@ -459,11 +459,11 @@ type FlowStraightenerNodeConfig = v10.FlowStraightenerNodeConfig
 // HeaterElementNodeConfig is the configuration for heater element symbols.
 type HeaterElementNodeConfig = v10.HeaterElementNodeConfig
 
-// IsoCapNodeConfig is the configuration for ISO cap symbols.
-type IsoCapNodeConfig = v10.IsoCapNodeConfig
+// ISOCapNodeConfig is the configuration for ISO cap symbols.
+type ISOCapNodeConfig = v10.ISOCapNodeConfig
 
-// IsoFilterNodeConfig is the configuration for ISO filter symbols.
-type IsoFilterNodeConfig = v10.IsoFilterNodeConfig
+// ISOFilterNodeConfig is the configuration for ISO filter symbols.
+type ISOFilterNodeConfig = v10.ISOFilterNodeConfig
 
 // NozzleNodeConfig is the configuration for nozzle symbols.
 type NozzleNodeConfig = v10.NozzleNodeConfig
@@ -676,8 +676,8 @@ type FlameArrestorFireResNodeConfig = v10.FlameArrestorFireResNodeConfig
 // detonation-proof flame arrestor symbols.
 type FlameArrestorFireResDetonationNodeConfig = v10.FlameArrestorFireResDetonationNodeConfig
 
-// IsoBurstDiscNodeConfig is the configuration for ISO burst disc symbols.
-type IsoBurstDiscNodeConfig = v10.IsoBurstDiscNodeConfig
+// ISOBurstDiscNodeConfig is the configuration for ISO burst disc symbols.
+type ISOBurstDiscNodeConfig = v10.ISOBurstDiscNodeConfig
 
 // AngledValveNodeConfig is the configuration for angled valve symbols.
 type AngledValveNodeConfig = v10.AngledValveNodeConfig
@@ -721,8 +721,8 @@ type FourWayValveNodeConfig = v10.FourWayValveNodeConfig
 // GateValveNodeConfig is the configuration for gate valve symbols.
 type GateValveNodeConfig = v10.GateValveNodeConfig
 
-// IsoCheckValveNodeConfig is the configuration for ISO check valve symbols.
-type IsoCheckValveNodeConfig = v10.IsoCheckValveNodeConfig
+// ISOCheckValveNodeConfig is the configuration for ISO check valve symbols.
+type ISOCheckValveNodeConfig = v10.ISOCheckValveNodeConfig
 
 // ManualValveNodeConfig is the configuration for manual valve symbols.
 type ManualValveNodeConfig = v10.ManualValveNodeConfig
@@ -797,10 +797,10 @@ const (
 	FlowStraightenerElementConfigType ElementConfigType = v10.FlowStraightenerElementConfigType
 	// HeaterElementElementConfigType is the configuration for heater element symbols.
 	HeaterElementElementConfigType ElementConfigType = v10.HeaterElementElementConfigType
-	// IsoCapElementConfigType is the configuration for ISO cap symbols.
-	IsoCapElementConfigType ElementConfigType = v10.IsoCapElementConfigType
-	// IsoFilterElementConfigType is the configuration for ISO filter symbols.
-	IsoFilterElementConfigType ElementConfigType = v10.IsoFilterElementConfigType
+	// ISOCapElementConfigType is the configuration for ISO cap symbols.
+	ISOCapElementConfigType ElementConfigType = v10.ISOCapElementConfigType
+	// ISOFilterElementConfigType is the configuration for ISO filter symbols.
+	ISOFilterElementConfigType ElementConfigType = v10.ISOFilterElementConfigType
 	// NozzleElementConfigType is the configuration for nozzle symbols.
 	NozzleElementConfigType ElementConfigType = v10.NozzleElementConfigType
 	// OrificeElementConfigType is the configuration for orifice symbols.
@@ -963,8 +963,8 @@ const (
 	// FlameArrestorFireResDetonationElementConfigType is the configuration for fire
 	// resistant and detonation-proof flame arrestor symbols.
 	FlameArrestorFireResDetonationElementConfigType ElementConfigType = v10.FlameArrestorFireResDetonationElementConfigType
-	// IsoBurstDiscElementConfigType is the configuration for ISO burst disc symbols.
-	IsoBurstDiscElementConfigType ElementConfigType = v10.IsoBurstDiscElementConfigType
+	// ISOBurstDiscElementConfigType is the configuration for ISO burst disc symbols.
+	ISOBurstDiscElementConfigType ElementConfigType = v10.ISOBurstDiscElementConfigType
 	// AngledValveElementConfigType is the configuration for angled valve symbols.
 	AngledValveElementConfigType ElementConfigType = v10.AngledValveElementConfigType
 	// AngledReliefValveElementConfigType is the configuration for angled relief valve
@@ -998,8 +998,8 @@ const (
 	FourWayValveElementConfigType ElementConfigType = v10.FourWayValveElementConfigType
 	// GateValveElementConfigType is the configuration for gate valve symbols.
 	GateValveElementConfigType ElementConfigType = v10.GateValveElementConfigType
-	// IsoCheckValveElementConfigType is the configuration for ISO check valve symbols.
-	IsoCheckValveElementConfigType ElementConfigType = v10.IsoCheckValveElementConfigType
+	// ISOCheckValveElementConfigType is the configuration for ISO check valve symbols.
+	ISOCheckValveElementConfigType ElementConfigType = v10.ISOCheckValveElementConfigType
 	// ManualValveElementConfigType is the configuration for manual valve symbols.
 	ManualValveElementConfigType ElementConfigType = v10.ManualValveElementConfigType
 	// NeedleValveElementConfigType is the configuration for needle valve symbols.
@@ -1068,11 +1068,11 @@ type FlowStraightenerElementConfig = v10.FlowStraightenerElementConfig
 // HeaterElementElementConfig is the configuration for heater element symbols.
 type HeaterElementElementConfig = v10.HeaterElementElementConfig
 
-// IsoCapElementConfig is the configuration for ISO cap symbols.
-type IsoCapElementConfig = v10.IsoCapElementConfig
+// ISOCapElementConfig is the configuration for ISO cap symbols.
+type ISOCapElementConfig = v10.ISOCapElementConfig
 
-// IsoFilterElementConfig is the configuration for ISO filter symbols.
-type IsoFilterElementConfig = v10.IsoFilterElementConfig
+// ISOFilterElementConfig is the configuration for ISO filter symbols.
+type ISOFilterElementConfig = v10.ISOFilterElementConfig
 
 // NozzleElementConfig is the configuration for nozzle symbols.
 type NozzleElementConfig = v10.NozzleElementConfig
@@ -1286,8 +1286,8 @@ type FlameArrestorFireResElementConfig = v10.FlameArrestorFireResElementConfig
 // and detonation-proof flame arrestor symbols.
 type FlameArrestorFireResDetonationElementConfig = v10.FlameArrestorFireResDetonationElementConfig
 
-// IsoBurstDiscElementConfig is the configuration for ISO burst disc symbols.
-type IsoBurstDiscElementConfig = v10.IsoBurstDiscElementConfig
+// ISOBurstDiscElementConfig is the configuration for ISO burst disc symbols.
+type ISOBurstDiscElementConfig = v10.ISOBurstDiscElementConfig
 
 // AngledValveElementConfig is the configuration for angled valve symbols.
 type AngledValveElementConfig = v10.AngledValveElementConfig
@@ -1333,8 +1333,8 @@ type FourWayValveElementConfig = v10.FourWayValveElementConfig
 // GateValveElementConfig is the configuration for gate valve symbols.
 type GateValveElementConfig = v10.GateValveElementConfig
 
-// IsoCheckValveElementConfig is the configuration for ISO check valve symbols.
-type IsoCheckValveElementConfig = v10.IsoCheckValveElementConfig
+// ISOCheckValveElementConfig is the configuration for ISO check valve symbols.
+type ISOCheckValveElementConfig = v10.ISOCheckValveElementConfig
 
 // ManualValveElementConfig is the configuration for manual valve symbols.
 type ManualValveElementConfig = v10.ManualValveElementConfig

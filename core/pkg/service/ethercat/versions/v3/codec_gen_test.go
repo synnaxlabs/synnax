@@ -67,7 +67,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("unresolved variant", v3.ReadChannel{Variant: v3.UnresolvedReadChannel{
 				BaseReadChannel: fullyPopulatedBaseReadChannel,
-				Pdo:             "test_1",
+				PDO:             "test_1",
 			}}),
 		)
 	})
@@ -207,7 +207,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("unresolved variant", v3.WriteChannel{Variant: v3.UnresolvedWriteChannel{
 				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-				Pdo:              "test_1",
+				PDO:              "test_1",
 			}}),
 		)
 	})
@@ -454,7 +454,7 @@ func FuzzDecodeReadChannel(f *testing.F) {
 	{
 		seed := v3.ReadChannel{Variant: v3.UnresolvedReadChannel{
 			BaseReadChannel: fullyPopulatedBaseReadChannel,
-			Pdo:             "test_1",
+			PDO:             "test_1",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -704,7 +704,7 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 	{
 		seed := v3.WriteChannel{Variant: v3.UnresolvedWriteChannel{
 			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
-			Pdo:              "test_1",
+			PDO:              "test_1",
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

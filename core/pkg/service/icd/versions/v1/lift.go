@@ -265,7 +265,7 @@ func liftWriteField(
 	case GeneratedInlineField:
 		base := writeBase(taken, v.Pointer)
 		if v.Generator != payload.GeneratorTypeTimestamp {
-			return JSONField{Variant: UuidJSONField{
+			return JSONField{Variant: UUIDJSONField{
 				JSONBaseField: base,
 				Default:       &UUIDDefault{Variant: RandomUUIDDefault{}},
 			}}, nil, nil

@@ -1613,8 +1613,8 @@ inline x::json::json AIPressureBridgePolynomialChannel::to_json() const {
     return j;
 }
 
-inline AIThermistorIexChannel AIThermistorIexChannel::parse(x::json::Parser parser) {
-    AIThermistorIexChannel result;
+inline AIThermistorIExChannel AIThermistorIExChannel::parse(x::json::Parser parser) {
+    AIThermistorIExChannel result;
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Resistance &>(result) = Resistance::parse(parser);
@@ -1627,7 +1627,7 @@ inline AIThermistorIexChannel AIThermistorIexChannel::parse(x::json::Parser pars
     return result;
 }
 
-inline x::json::json AIThermistorIexChannel::to_json() const {
+inline x::json::json AIThermistorIExChannel::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
         j.update(parent);
@@ -1643,8 +1643,8 @@ inline x::json::json AIThermistorIexChannel::to_json() const {
     return j;
 }
 
-inline AIThermistorVexChannel AIThermistorVexChannel::parse(x::json::Parser parser) {
-    AIThermistorVexChannel result;
+inline AIThermistorVExChannel AIThermistorVExChannel::parse(x::json::Parser parser) {
+    AIThermistorVExChannel result;
     static_cast<BaseAIChannel &>(result) = BaseAIChannel::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
     static_cast<Resistance &>(result) = Resistance::parse(parser);
@@ -1658,7 +1658,7 @@ inline AIThermistorVexChannel AIThermistorVexChannel::parse(x::json::Parser pars
     return result;
 }
 
-inline x::json::json AIThermistorVexChannel::to_json() const {
+inline x::json::json AIThermistorVExChannel::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
         j.update(parent);
@@ -2250,9 +2250,9 @@ inline AIChannel parse_ai_channel(x::json::Parser parser) {
     if (discriminator == "ai_pressure_bridge_polynomial")
         return AIPressureBridgePolynomialChannel::parse(parser);
     if (discriminator == "ai_thermistor_iex")
-        return AIThermistorIexChannel::parse(parser);
+        return AIThermistorIExChannel::parse(parser);
     if (discriminator == "ai_thermistor_vex")
-        return AIThermistorVexChannel::parse(parser);
+        return AIThermistorVExChannel::parse(parser);
     if (discriminator == "ai_torque_bridge_polynomial")
         return AITorqueBridgePolynomialChannel::parse(parser);
     if (discriminator == "ai_voltage_rms") return AIVoltageRMSChannel::parse(parser);

@@ -65,14 +65,14 @@ const (
 	TypeUser Type = v0.TypeUser
 	// TypeView identifies a view.
 	TypeView           Type = v0.TypeView
-	TypeEthercatMaster Type = v0.TypeEthercatMaster
-	TypeEthercatSlave  Type = v0.TypeEthercatSlave
+	TypeEtherCATMaster Type = v0.TypeEtherCATMaster
+	TypeEtherCATSlave  Type = v0.TypeEtherCATSlave
 	TypeHTTPServer     Type = v0.TypeHTTPServer
 	TypeLabjackDevice  Type = v0.TypeLabjackDevice
 	TypeModbusServer   Type = v0.TypeModbusServer
-	TypeNiChassis      Type = v0.TypeNiChassis
-	TypeNiDevice       Type = v0.TypeNiDevice
-	TypeOpcuaServer    Type = v0.TypeOpcuaServer
+	TypeNIChassis      Type = v0.TypeNIChassis
+	TypeNIDevice       Type = v0.TypeNIDevice
+	TypeOPCUAServer    Type = v0.TypeOPCUAServer
 	TypeArcDirectory   Type = v0.TypeArcDirectory
 	// TypeSecret identifies a secret.
 	TypeSecret Type = v0.TypeSecret

@@ -1168,8 +1168,8 @@ export interface AIPressureBridgePolynomialChannel extends z.infer<
   typeof aiPressureBridgePolynomialChannelZ
 > {}
 
-/** AIThermistorIexChannel reads temperature from a current-excited thermistor. */
-export const aiThermistorIexChannelZ = baseAIChannelZ
+/** AIThermistorIExChannel reads temperature from a current-excited thermistor. */
+export const aiThermistorIExChannelZ = baseAIChannelZ
   .extend(minMaxValZ.shape)
   .extend(resistanceZ.shape)
   .extend(currentExcitationZ.shape)
@@ -1184,12 +1184,12 @@ export const aiThermistorIexChannelZ = baseAIChannelZ
     /** c is the third Steinhart-Hart coefficient. */
     c: z.number().default(0),
   });
-export interface AIThermistorIexChannel extends z.infer<
-  typeof aiThermistorIexChannelZ
+export interface AIThermistorIExChannel extends z.infer<
+  typeof aiThermistorIExChannelZ
 > {}
 
-/** AIThermistorVexChannel reads temperature from a voltage-excited thermistor. */
-export const aiThermistorVexChannelZ = baseAIChannelZ
+/** AIThermistorVExChannel reads temperature from a voltage-excited thermistor. */
+export const aiThermistorVExChannelZ = baseAIChannelZ
   .extend(minMaxValZ.shape)
   .extend(resistanceZ.shape)
   .extend(voltageExcitationZ.shape)
@@ -1206,8 +1206,8 @@ export const aiThermistorVexChannelZ = baseAIChannelZ
     /** r1 is the reference resistor value, in Ohms. */
     r1: z.number().default(0),
   });
-export interface AIThermistorVexChannel extends z.infer<
-  typeof aiThermistorVexChannelZ
+export interface AIThermistorVExChannel extends z.infer<
+  typeof aiThermistorVExChannelZ
 > {}
 
 /**
@@ -1326,8 +1326,8 @@ export const aiChannelZ = z.discriminatedUnion("type", [
   z.lazy(() => aiForceBridgePolynomialChannelZ),
   z.lazy(() => aiFreqVoltageChannelZ),
   z.lazy(() => aiPressureBridgePolynomialChannelZ),
-  z.lazy(() => aiThermistorIexChannelZ),
-  z.lazy(() => aiThermistorVexChannelZ),
+  z.lazy(() => aiThermistorIExChannelZ),
+  z.lazy(() => aiThermistorVExChannelZ),
   z.lazy(() => aiTorqueBridgePolynomialChannelZ),
   z.lazy(() => aiVoltageRMSChannelZ),
   z.lazy(() => aiVoltageWithExcitChannelZ),
@@ -1358,8 +1358,8 @@ export type AIChannel =
   | AIForceBridgePolynomialChannel
   | AIFreqVoltageChannel
   | AIPressureBridgePolynomialChannel
-  | AIThermistorIexChannel
-  | AIThermistorVexChannel
+  | AIThermistorIExChannel
+  | AIThermistorVExChannel
   | AITorqueBridgePolynomialChannel
   | AIVoltageRMSChannel
   | AIVoltageWithExcitChannel;
@@ -1392,8 +1392,8 @@ export const AI_CHANNEL_SCHEMAS: {
   ai_force_bridge_polynomial: aiForceBridgePolynomialChannelZ,
   ai_freq_voltage: aiFreqVoltageChannelZ,
   ai_pressure_bridge_polynomial: aiPressureBridgePolynomialChannelZ,
-  ai_thermistor_iex: aiThermistorIexChannelZ,
-  ai_thermistor_vex: aiThermistorVexChannelZ,
+  ai_thermistor_iex: aiThermistorIExChannelZ,
+  ai_thermistor_vex: aiThermistorVExChannelZ,
   ai_torque_bridge_polynomial: aiTorqueBridgePolynomialChannelZ,
   ai_voltage_rms: aiVoltageRMSChannelZ,
   ai_voltage_with_excit: aiVoltageWithExcitChannelZ,

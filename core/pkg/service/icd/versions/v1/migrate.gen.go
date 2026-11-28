@@ -184,8 +184,8 @@ func autoMigrateJSONField(_ context.Context, old v0.JSONField) (JSONField, error
 		return JSONField{Variant: JSONJSONField{
 			JSONBaseField: variant.JSONBaseField,
 		}}, nil
-	case v0.UuidJSONField:
-		return JSONField{Variant: UuidJSONField{
+	case v0.UUIDJSONField:
+		return JSONField{Variant: UUIDJSONField{
 			JSONBaseField: variant.JSONBaseField,
 		}}, nil
 	case v0.BytesJSONField:

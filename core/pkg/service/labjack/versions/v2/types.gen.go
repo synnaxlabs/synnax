@@ -166,15 +166,15 @@ type ThermocoupleReadChannel struct {
 	// NegChan is the AIN port of the thermocouple's negative lead on T7 devices. 199
 	// selects single-ended.
 	NegChan int32 `json:"neg_chan" msgpack:"neg_chan"`
-	// CjcSource selects the cold-junction-compensation source: the device sensor
+	// CJCSource selects the cold-junction-compensation source: the device sensor
 	// ('TEMPERATURE_DEVICE_K', which on a T8 is the sensor at the thermocouple's own
 	// terminal), ambient air ('TEMPERATURE_AIR_K', not on a T8), or an AIN port (e.g.
 	// 'AIN2').
-	CjcSource string `json:"cjc_source" msgpack:"cjc_source"`
-	// CjcSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
-	CjcSlope float64 `json:"cjc_slope" msgpack:"cjc_slope"`
-	// CjcOffset is the CJC temperature offset, in Kelvins.
-	CjcOffset float64 `json:"cjc_offset" msgpack:"cjc_offset"`
+	CJCSource string `json:"cjc_source" msgpack:"cjc_source"`
+	// CJCSlope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
+	CJCSlope float64 `json:"cjc_slope" msgpack:"cjc_slope"`
+	// CJCOffset is the CJC temperature offset, in Kelvins.
+	CJCOffset float64 `json:"cjc_offset" msgpack:"cjc_offset"`
 	// Units are the units of the temperature measurement.
 	Units TemperatureUnits `json:"units" msgpack:"units"`
 	// Scale is the scale applied to raw samples after acquisition.
@@ -188,8 +188,8 @@ func (t *ThermocoupleReadChannel) SetDefaults() {
 	t.Port = "AIN0"
 	t.ThermocoupleType = ThermocoupleTypeK
 	t.NegChan = 199
-	t.CjcSource = "TEMPERATURE_DEVICE_K"
-	t.CjcSlope = 1
+	t.CJCSource = "TEMPERATURE_DEVICE_K"
+	t.CJCSlope = 1
 	t.Units = TemperatureUnitsKelvin
 	t.Scale.Variant = task.NoneScale{}
 }

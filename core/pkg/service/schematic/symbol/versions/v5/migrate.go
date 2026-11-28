@@ -192,7 +192,7 @@ func migrateSpec(ctx context.Context, old v4.Spec) (*specMigration, error) {
 			m.addLook(parts.part(&m.spec, r), float64(i), r)
 		}
 	}
-	m.spec.Drawing = Drawing{Variant: SvgDrawing{Markup: parts.markup(old.SVG)}}
+	m.spec.Drawing = Drawing{Variant: SVGDrawing{Markup: parts.markup(old.SVG)}}
 	m.dropped = parts.dropped
 	m.actuator = old.Variant == actuatorVariant
 	return m, nil

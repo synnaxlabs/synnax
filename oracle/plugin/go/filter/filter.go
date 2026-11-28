@@ -399,7 +399,7 @@ func bareLine(
 	ld.Operators = lo.FilterMap(
 		opForm.Fields,
 		func(f resolution.Field, _ int) (string, bool) {
-			return naming.ToPascalCase(f.Name), f.Optional
+			return naming.GetFieldName(f), f.Optional
 		},
 	)
 	if err := checkMembers(where, line, op, ld.Members); err != nil {

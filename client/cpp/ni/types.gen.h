@@ -1161,8 +1161,8 @@ struct AIPressureBridgePolynomialChannel : public BaseAIChannel,
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief AIThermistorIexChannel reads temperature from a current-excited thermistor.
-struct AIThermistorIexChannel : public BaseAIChannel,
+/// @brief AIThermistorIExChannel reads temperature from a current-excited thermistor.
+struct AIThermistorIExChannel : public BaseAIChannel,
                                 public MinMaxVal,
                                 public Resistance,
                                 public CurrentExcitation {
@@ -1176,12 +1176,12 @@ struct AIThermistorIexChannel : public BaseAIChannel,
     /// @brief c is the third Steinhart-Hart coefficient.
     double c = 0;
 
-    static AIThermistorIexChannel parse(x::json::Parser parser);
+    static AIThermistorIExChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief AIThermistorVexChannel reads temperature from a voltage-excited thermistor.
-struct AIThermistorVexChannel : public BaseAIChannel,
+/// @brief AIThermistorVExChannel reads temperature from a voltage-excited thermistor.
+struct AIThermistorVExChannel : public BaseAIChannel,
                                 public MinMaxVal,
                                 public Resistance,
                                 public VoltageExcitation {
@@ -1197,7 +1197,7 @@ struct AIThermistorVexChannel : public BaseAIChannel,
     /// @brief r1 is the reference resistor value, in Ohms.
     double r1 = 0;
 
-    static AIThermistorVexChannel parse(x::json::Parser parser);
+    static AIThermistorVExChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -1275,8 +1275,8 @@ using AIChannel = std::variant<
     AIForceBridgePolynomialChannel,
     AIFreqVoltageChannel,
     AIPressureBridgePolynomialChannel,
-    AIThermistorIexChannel,
-    AIThermistorVexChannel,
+    AIThermistorIExChannel,
+    AIThermistorVExChannel,
     AITorqueBridgePolynomialChannel,
     AIVoltageRMSChannel,
     AIVoltageWithExcitChannel>;

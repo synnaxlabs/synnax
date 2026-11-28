@@ -119,7 +119,7 @@ var decodeKinds = []benchKind{
 		sample:   telem.MarshalVariableSample([]byte(`{"a":1,"b":[true,null]}`)),
 	},
 	{
-		name: "uuid", variant: icd.UuidJSONField{}, dataType: telem.UUIDT,
+		name: "uuid", variant: icd.UUIDJSONField{}, dataType: telem.UUIDT,
 		text: `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"`, sample: benchUUID[:],
 	},
 	{
@@ -196,7 +196,7 @@ var encodeKinds = []benchKind{
 	},
 	{
 		name:     "uuid",
-		variant:  icd.UuidJSONField{},
+		variant:  icd.UUIDJSONField{},
 		dataType: telem.UUIDT,
 		text:     `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"`,
 		sample:   benchUUID[:],
@@ -442,7 +442,7 @@ func BenchmarkJSONEncode(b *testing.B) {
 				TimeFormat: payload.TimeFormatUnixNs,
 				Default:    &icd.TimestampDefault{Variant: icd.NowTimestampDefault{}},
 			},
-			icd.UuidJSONField{
+			icd.UUIDJSONField{
 				Default: &icd.UUIDDefault{Variant: icd.RandomUUIDDefault{}},
 			},
 			icd.FloatJSONField{Default: new(payload.Float(math.Pi))},

@@ -187,7 +187,7 @@ and **Enum mapping** settings.
 | Boolean                                        | `BooleanJSONField`   | `uint8`     | `true` or `false`, as 1 or 0. Not a number.                         |
 | String                                         | `StringJSONField`    | `string`    | A string. A number, Boolean, object, or array writes its JSON text. |
 | JSON                                           | `JSONJSONField`      | `json`      | Any JSON value.                                                     |
-| UUID                                           | `UuidJSONField`      | `uuid`      | A UUID in a string.                                                 |
+| UUID                                           | `UUIDJSONField`      | `uuid`      | A UUID in a string.                                                 |
 | Bytes (base64)                                 | `BytesJSONField`     | `bytes`     | Base64 text in a string. Needs a pointer.                           |
 | Timestamp (ISO 8601), (s), (ms), (µs), or (ns) | `TimestampJSONField` | `timestamp` | ISO 8601 text, or Unix time in s, ms, µs, or ns.                    |
 
@@ -359,7 +359,7 @@ A binary message reads the bytes of one frame, such as a CAN frame.
 
 </Field.List>
 
-A **CAN** identifier has these properties. In Python, the class is `CanIdentifier`.
+A **CAN** identifier has these properties. In Python, the class is `CANIdentifier`.
 
 <Field.List>
 

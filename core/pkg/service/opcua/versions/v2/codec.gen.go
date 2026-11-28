@@ -93,7 +93,7 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(rc.NanFillEnabled)
+	w.Bool(rc.NaNFillEnabled)
 	return nil
 }
 
@@ -147,7 +147,7 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	if rc.NanFillEnabled, err = r.Bool(); err != nil {
+	if rc.NaNFillEnabled, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

@@ -564,7 +564,7 @@ func (c *checker) checkIdentifier(
 	}
 	idPath := pathOf(path, "identifier")
 	switch id := p.Identifier.Variant.(type) {
-	case CanIdentifier:
+	case CANIdentifier:
 		limit := uint32(maxStandardCANID)
 		if id.Extended {
 			limit = maxExtendedCANID
@@ -631,7 +631,7 @@ func (c *checker) checkBinaryField(path []string, p BinaryPayload, f BinaryField
 	if p.Identifier == nil {
 		return
 	}
-	if id, ok := p.Identifier.Variant.(CanIdentifier); ok &&
+	if id, ok := p.Identifier.Variant.(CANIdentifier); ok &&
 		lastByte(base) >= int(canLength(id)) {
 		c.addf(
 			pathOf(path, "start_bit"),
@@ -780,7 +780,7 @@ func coveredBits(f BinaryBaseField) []int {
 func validBitLength(n uint8) bool { return n >= 1 && n <= maxBitLength }
 
 // canLength returns the most bytes a frame with the given identifier carries.
-func canLength(id CanIdentifier) uint16 {
+func canLength(id CANIdentifier) uint16 {
 	if id.Fd {
 		return maxCANFDLength
 	}

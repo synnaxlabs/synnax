@@ -78,6 +78,38 @@ var _ = Describe("Go Group Plugin", func() {
 		Expect(resp.Files).To(BeEmpty())
 	})
 
+	It("Should name a resource type by its @go name", func() {
+		loader.Add("schemas/resource", `
+			@go output "core/pkg/service/resource"
+
+			Type enum {
+				group = "group"
+				rack  = "rack" {
+					@go name "Shelf"
+				}
+			}
+		`)
+		resp := MustGenerate(`
+			import "schemas/group"
+
+			@go output "core/pkg/service/rack"
+
+			Rack struct {
+				key   uint32 {
+					@key
+				}
+				group group.Key? {
+					@group scope rack
+				}
+
+				@resource type "rack"
+			}
+		`, "rack", loader, p)
+		ExpectContent(resp, "members.gen.go").
+			ToContain("resource.TypeShelf: {scope: resource.TypeShelf},").
+			ToNotContain("TypeRack")
+	})
+
 	It("Should emit the rule of each member next to the group", func() {
 		resp := MustGenerate(`
 			import "schemas/group"

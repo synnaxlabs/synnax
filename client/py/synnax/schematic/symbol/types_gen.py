@@ -109,7 +109,7 @@ class Order(BaseModel):
     descending: bool = False
 
 
-class SvgDrawing(BaseModel):
+class SVGDrawing(BaseModel):
     """Is a drawing stored as SVG markup."""
 
     type: Literal["svg"] = "svg"
@@ -118,7 +118,7 @@ class SvgDrawing(BaseModel):
 
 # Is the picture of a symbol.
 Drawing = Annotated[
-    SvgDrawing,
+    SVGDrawing,
     Field(discriminator="type"),
 ]
 

@@ -33,7 +33,7 @@ var _ = Describe("JSON", func() {
 			}},
 			{Variant: v2.UnresolvedReadChannel{
 				BaseReadChannel: v2.BaseReadChannel{Key: "b", Channel: 6, Device: "d"},
-				Pdo:             "Input",
+				PDO:             "Input",
 			}},
 		}
 		encoded := `[
@@ -94,7 +94,7 @@ var _ = Describe("JSON", func() {
 					CmdChannel: 7,
 					Device:     "d",
 				},
-				Pdo: "Output",
+				PDO: "Output",
 			}},
 		}
 		encoded := `[

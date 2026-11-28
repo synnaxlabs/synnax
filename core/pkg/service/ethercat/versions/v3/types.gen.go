@@ -106,8 +106,8 @@ func (e EntryReadChannel) Validate() error {
 // its slave. It must be given an entry before the task runs.
 type UnresolvedReadChannel struct {
 	BaseReadChannel
-	// Pdo is the entry name that matched no single entry on the slave.
-	Pdo string `json:"pdo" msgpack:"pdo"`
+	// PDO is the entry name that matched no single entry on the slave.
+	PDO string `json:"pdo" msgpack:"pdo"`
 }
 
 func (UnresolvedReadChannel) isReadChannelVariant() {}
@@ -274,8 +274,8 @@ func (EntryWriteChannel) isWriteChannelVariant() {}
 // its slave. It must be given an entry before the task runs.
 type UnresolvedWriteChannel struct {
 	BaseWriteChannel
-	// Pdo is the entry name that matched no single entry on the slave.
-	Pdo string `json:"pdo" msgpack:"pdo"`
+	// PDO is the entry name that matched no single entry on the slave.
+	PDO string `json:"pdo" msgpack:"pdo"`
 }
 
 func (UnresolvedWriteChannel) isWriteChannelVariant() {}

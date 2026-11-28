@@ -30,7 +30,7 @@ func (s *Service) Resources() *resource.TableProvider[Key, Server] {
 
 // ResourceID returns the resource ID of the server under key.
 func ResourceID(key Key) resource.ID {
-	return resource.ID{Type: resource.TypeOpcuaServer, Key: key.String()}
+	return resource.ID{Type: resource.TypeOPCUAServer, Key: key.String()}
 }
 
 func keyFromResourceID(id resource.ID) (Key, error) {

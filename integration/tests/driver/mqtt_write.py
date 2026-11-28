@@ -51,7 +51,7 @@ class MQTTWriteValve(MQTTWriteTaskCase):
                     sy.icd.StringJSONField(
                         name="source", pointer="/source", default="synnax"
                     ),
-                    sy.icd.UuidJSONField(
+                    sy.icd.UUIDJSONField(
                         name="id", pointer="/id", default=sy.icd.RandomUUIDDefault()
                     ),
                 ],

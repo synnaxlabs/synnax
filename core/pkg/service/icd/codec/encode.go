@@ -349,7 +349,7 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 func sampleField(jf icd.JSONField, dt telem.DataType) xjson.Field {
 	f := xjson.Field{DataType: dt, Enums: enumsOf(jf), Type: xjson.Number}
 	switch v := jf.Variant.(type) {
-	case icd.StringJSONField, icd.UuidJSONField, icd.BytesJSONField:
+	case icd.StringJSONField, icd.UUIDJSONField, icd.BytesJSONField:
 		f.Type = xjson.String
 	case icd.BooleanJSONField:
 		f.Type = xjson.Boolean
@@ -450,7 +450,7 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 		if v.Default != nil {
 			d.literal, d.generate, err = timestampDefault(v)
 		}
-	case icd.UuidJSONField:
+	case icd.UUIDJSONField:
 		if v.Default != nil {
 			d.literal, d.generate, err = uuidDefault(*v.Default)
 		}

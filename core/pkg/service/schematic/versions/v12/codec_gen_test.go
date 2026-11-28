@@ -252,8 +252,8 @@ var _ = Describe("Codec", func() {
 			Entry("heater_element variant", v12.ElementConfig{Variant: v12.HeaterElementElementConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("iso_cap variant", v12.ElementConfig{Variant: v12.IsoCapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("iso_filter variant", v12.ElementConfig{Variant: v12.IsoFilterElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("iso_cap variant", v12.ElementConfig{Variant: v12.ISOCapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("iso_filter variant", v12.ElementConfig{Variant: v12.ISOFilterElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("nozzle variant", v12.ElementConfig{Variant: v12.NozzleElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("orifice variant", v12.ElementConfig{Variant: v12.OrificeElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("orifice_plate variant", v12.ElementConfig{Variant: v12.OrificePlateElementConfig{
@@ -715,7 +715,7 @@ var _ = Describe("Codec", func() {
 			Entry("flame_arrestor_fire_res_detonation variant", v12.ElementConfig{Variant: v12.FlameArrestorFireResDetonationElementConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("iso_burst_disc variant", v12.ElementConfig{Variant: v12.IsoBurstDiscElementConfig{
+			Entry("iso_burst_disc variant", v12.ElementConfig{Variant: v12.ISOBurstDiscElementConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("angled_valve variant", v12.ElementConfig{Variant: v12.AngledValveElementConfig{
@@ -753,7 +753,7 @@ var _ = Describe("Codec", func() {
 				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("gate_valve variant", v12.ElementConfig{Variant: v12.GateValveElementConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("iso_check_valve variant", v12.ElementConfig{Variant: v12.IsoCheckValveElementConfig{
+			Entry("iso_check_valve variant", v12.ElementConfig{Variant: v12.ISOCheckValveElementConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("manual_valve variant", v12.ElementConfig{Variant: v12.ManualValveElementConfig{
@@ -948,8 +948,8 @@ var _ = Describe("Codec", func() {
 			Entry("heater_element variant", v12.NodeConfig{Variant: v12.HeaterElementNodeConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("iso_cap variant", v12.NodeConfig{Variant: v12.IsoCapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
-			Entry("iso_filter variant", v12.NodeConfig{Variant: v12.IsoFilterNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("iso_cap variant", v12.NodeConfig{Variant: v12.ISOCapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("iso_filter variant", v12.NodeConfig{Variant: v12.ISOFilterNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("nozzle variant", v12.NodeConfig{Variant: v12.NozzleNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("orifice variant", v12.NodeConfig{Variant: v12.OrificeNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("orifice_plate variant", v12.NodeConfig{Variant: v12.OrificePlateNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
@@ -1393,7 +1393,7 @@ var _ = Describe("Codec", func() {
 			Entry("flame_arrestor_fire_res_detonation variant", v12.NodeConfig{Variant: v12.FlameArrestorFireResDetonationNodeConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("iso_burst_disc variant", v12.NodeConfig{Variant: v12.IsoBurstDiscNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("iso_burst_disc variant", v12.NodeConfig{Variant: v12.ISOBurstDiscNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("angled_valve variant", v12.NodeConfig{Variant: v12.AngledValveNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
 			Entry("angled_relief_valve variant", v12.NodeConfig{Variant: v12.AngledReliefValveNodeConfig{
 				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
@@ -1423,7 +1423,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("four_way_valve variant", v12.NodeConfig{Variant: v12.FourWayValveNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
 			Entry("gate_valve variant", v12.NodeConfig{Variant: v12.GateValveNodeConfig{ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig}}),
-			Entry("iso_check_valve variant", v12.NodeConfig{Variant: v12.IsoCheckValveNodeConfig{
+			Entry("iso_check_valve variant", v12.NodeConfig{Variant: v12.ISOCheckValveNodeConfig{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("manual_valve variant", v12.NodeConfig{Variant: v12.ManualValveNodeConfig{
@@ -1928,7 +1928,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v12.ElementConfig{Variant: v12.IsoCapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		seed := v12.ElementConfig{Variant: v12.ISOCapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1936,7 +1936,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v12.ElementConfig{Variant: v12.IsoFilterElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		seed := v12.ElementConfig{Variant: v12.ISOFilterElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2867,7 +2867,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v12.ElementConfig{Variant: v12.IsoBurstDiscElementConfig{
+		seed := v12.ElementConfig{Variant: v12.ISOBurstDiscElementConfig{
 			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
@@ -3003,7 +3003,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v12.ElementConfig{Variant: v12.IsoCheckValveElementConfig{
+		seed := v12.ElementConfig{Variant: v12.ISOCheckValveElementConfig{
 			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
@@ -3411,7 +3411,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v12.NodeConfig{Variant: v12.IsoCapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		seed := v12.NodeConfig{Variant: v12.ISOCapNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3419,7 +3419,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v12.NodeConfig{Variant: v12.IsoFilterNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		seed := v12.NodeConfig{Variant: v12.ISOFilterNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4332,7 +4332,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v12.NodeConfig{Variant: v12.IsoBurstDiscNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		seed := v12.NodeConfig{Variant: v12.ISOBurstDiscNodeConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4460,7 +4460,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v12.NodeConfig{Variant: v12.IsoCheckValveNodeConfig{
+		seed := v12.NodeConfig{Variant: v12.ISOCheckValveNodeConfig{
 			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)

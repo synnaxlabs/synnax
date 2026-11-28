@@ -253,12 +253,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-	case IsoCapElementConfig:
+	case ISOCapElementConfig:
 		w.String("iso_cap")
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-	case IsoFilterElementConfig:
+	case ISOFilterElementConfig:
 		w.String("iso_filter")
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
@@ -1023,7 +1023,7 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-	case IsoBurstDiscElementConfig:
+	case ISOBurstDiscElementConfig:
 		w.String("iso_burst_disc")
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
@@ -1093,7 +1093,7 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-	case IsoCheckValveElementConfig:
+	case ISOCheckValveElementConfig:
 		w.String("iso_check_valve")
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
@@ -1401,13 +1401,13 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		}
 		ec.Variant = v
 	case "iso_cap":
-		var v IsoCapElementConfig
+		var v ISOCapElementConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}
 		ec.Variant = v
 	case "iso_filter":
-		var v IsoFilterElementConfig
+		var v ISOFilterElementConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -2664,7 +2664,7 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		}
 		ec.Variant = v
 	case "iso_burst_disc":
-		var v IsoBurstDiscElementConfig
+		var v ISOBurstDiscElementConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -2748,7 +2748,7 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		}
 		ec.Variant = v
 	case "iso_check_valve":
-		var v IsoCheckValveElementConfig
+		var v ISOCheckValveElementConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -3292,12 +3292,12 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-	case IsoCapNodeConfig:
+	case ISOCapNodeConfig:
 		w.String("iso_cap")
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-	case IsoFilterNodeConfig:
+	case ISOFilterNodeConfig:
 		w.String("iso_filter")
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
@@ -4062,7 +4062,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-	case IsoBurstDiscNodeConfig:
+	case ISOBurstDiscNodeConfig:
 		w.String("iso_burst_disc")
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
@@ -4132,7 +4132,7 @@ func (nc NodeConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-	case IsoCheckValveNodeConfig:
+	case ISOCheckValveNodeConfig:
 		w.String("iso_check_valve")
 		if err := v.StaticSymbolConfig.EncodeOrc(w); err != nil {
 			return err
@@ -4405,13 +4405,13 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		}
 		nc.Variant = v
 	case "iso_cap":
-		var v IsoCapNodeConfig
+		var v ISOCapNodeConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}
 		nc.Variant = v
 	case "iso_filter":
-		var v IsoFilterNodeConfig
+		var v ISOFilterNodeConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -5668,7 +5668,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		}
 		nc.Variant = v
 	case "iso_burst_disc":
-		var v IsoBurstDiscNodeConfig
+		var v ISOBurstDiscNodeConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -5752,7 +5752,7 @@ func (nc *NodeConfig) DecodeOrc(r *orc.Reader) error {
 		}
 		nc.Variant = v
 	case "iso_check_valve":
-		var v IsoCheckValveNodeConfig
+		var v ISOCheckValveNodeConfig
 		if err := v.StaticSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}

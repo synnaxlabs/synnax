@@ -28,11 +28,11 @@ type DrawingVariant = v5.DrawingVariant
 // DrawingType is the "type" value that selects a variant of Drawing.
 type DrawingType = v5.DrawingType
 
-// SvgDrawingType is a drawing stored as SVG markup.
-const SvgDrawingType DrawingType = v5.SvgDrawingType
+// SVGDrawingType is a drawing stored as SVG markup.
+const SVGDrawingType DrawingType = v5.SVGDrawingType
 
-// SvgDrawing is a drawing stored as SVG markup.
-type SvgDrawing = v5.SvgDrawing
+// SVGDrawing is a drawing stored as SVG markup.
+type SVGDrawing = v5.SVGDrawing
 
 // Part is a named set of shapes in the drawing that looks can change.
 type Part = v5.Part

@@ -303,7 +303,7 @@ var _ = Describe("Resolver", func() {
 				),
 			),
 			Entry("the default of its field's kind",
-				jsonField("id", icd.UuidJSONField{}),
+				jsonField("id", icd.UUIDJSONField{}),
 				nil,
 				Succeed(),
 			),

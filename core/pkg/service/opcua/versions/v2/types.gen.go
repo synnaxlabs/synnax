@@ -215,9 +215,9 @@ type ReadConfig struct {
 	Sampling Sampling `json:"sampling" msgpack:"sampling"`
 	// Channels are the OPC UA nodes the task acquires.
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
-	// NanFillEnabled is true when a bad value of a float channel is written as NaN.
+	// NaNFillEnabled is true when a bad value of a float channel is written as NaN.
 	// When false, a bad value skips the read for every channel that shares its index.
-	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
+	NaNFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
