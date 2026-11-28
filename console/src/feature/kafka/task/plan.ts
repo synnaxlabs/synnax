@@ -16,6 +16,7 @@ import {
   createAdditions,
   createExtensions,
   type Extension,
+  type FieldDefaults,
   type KindMessage,
   type MessagesOf,
   type Picks,
@@ -30,9 +31,13 @@ export interface TopicPick {
   topic: string;
   shapes: json.Shape[];
   picks: Picks;
+  /** The text of the Default input of each picked field. Absent, none has one. */
+  defaults?: FieldDefaults;
   /** The ICD that the new records of the topic read. Absent for no fit or a tie. */
   reading?: ICD.Reuse.Reading;
 }
+
+const NO_DEFAULTS: FieldDefaults = new Map();
 
 /** The additions of a topic, and the ICD that its new records read. */
 export interface TopicAdditions {
@@ -105,10 +110,11 @@ export const planAdd = ({
   const plan: Plan = { extensions: [], kinds: [], additions: new Map() };
   const held = topics.map(({ topic }) => readsOf(recordsOf(topic), messagesOf));
   const nameIn = (topic: string) => (recordKey: string) => nameOf(topic, recordKey);
-  for (const { topic, shapes, picks } of topics) {
+  for (const { topic, shapes, picks, defaults = NO_DEFAULTS } of topics) {
     const { extensions, kinds } = createExtensions(
       shapes,
       picks,
+      defaults,
       recordsOf(topic),
       draftOf,
       nameIn(topic),
@@ -124,11 +130,13 @@ export const planAdd = ({
     plan.kinds.push(...kinds);
   }
   const appends: Appends = new Map();
-  for (const [i, { topic, shapes, picks, reading }] of topics.entries()) {
+  for (const [i, pick] of topics.entries()) {
+    const { topic, shapes, picks, defaults = NO_DEFAULTS, reading } = pick;
     const target = reading?.icd ?? home;
     const added = createAdditions(
       shapes,
       picks,
+      defaults,
       held[i],
       takenIn(target),
       nameIn(topic),

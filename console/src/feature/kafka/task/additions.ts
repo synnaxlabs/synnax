@@ -16,6 +16,25 @@ import { ICD } from "@/platform/icd";
 /** The pointers of the fields picked from each shape of a sample, by shape key. */
 export type Picks = Map<string, Set<string>>;
 
+/** The text of the Default input of each picked field, by shape key, then pointer. */
+export type FieldDefaults = Map<string, Map<string, string>>;
+
+/** @returns the text that defaults give the field at pointer of shape, or "". */
+const textOf = (defaults: FieldDefaults, shape: json.Shape, pointer: string): string =>
+  defaults.get(json.shapeKey(shape))?.get(pointer) ?? "";
+
+/**
+ * @returns a read field of f named name, with the default that defaults give f in
+ * shape.
+ */
+const createField = (
+  f: json.InferredField,
+  name: string,
+  shape: json.Shape,
+  defaults: FieldDefaults,
+): icd.JSONField =>
+  ICD.parseDefault(ICD.createReadField(f, name), textOf(defaults, shape, f.pointer));
+
 /** A message that new records read, and those records. */
 export interface Addition {
   message: icd.Message;
@@ -217,6 +236,7 @@ const reuse = (
   carried: Map<string, icd.JSONField>,
   recordKeys: string[],
   appends: Appends,
+  defaults: FieldDefaults,
 ): Addition => {
   const gained = map.getOrInsert(appends, message.key, () => []);
   const stamp = shape.index == null ? undefined : shape.fields[shape.index];
@@ -237,7 +257,7 @@ const reuse = (
   const appended = lacking.map((f, i) => {
     const field = carried.get(f.pointer);
     return field == null
-      ? ICD.createReadField(f, names[i])
+      ? createField(f, names[i], shape, defaults)
       : { ...field, key: uuid.create() };
   });
   gained.push(...appended);
@@ -280,6 +300,7 @@ export const uniqueName = (base: string, taken: icd.Message[]): string => {
 export const createAdditions = (
   shapes: json.Shape[],
   picks: Picks,
+  defaults: FieldDefaults,
   reads: Reads,
   held: icd.Message[],
   nameOf: (recordKey: string) => string,
@@ -300,7 +321,15 @@ export const createAdditions = (
       const gained = appends.get(message.key) ?? [];
       if (isReusable(shape, [...ICD.jsonFields(message), ...gained]))
         return [
-          reuse(shape, { ...fit, message }, pointers, carried, recordKeys, appends),
+          reuse(
+            shape,
+            { ...fit, message },
+            pointers,
+            carried,
+            recordKeys,
+            appends,
+            defaults,
+          ),
         ];
     }
     const indexField = shape.index == null ? undefined : shape.fields[shape.index];
@@ -311,7 +340,9 @@ export const createAdditions = (
       picked.map(({ pointer }) => pointer),
       [...carried.values()].map(({ name }) => name),
     );
-    const named = new Map(picked.map((f, i) => [f, ICD.createReadField(f, names[i])]));
+    const named = new Map(
+      picked.map((f, i) => [f, createField(f, names[i], shape, defaults)]),
+    );
     const fields = shape.fields.flatMap((f): icd.JSONField[] => {
       const field = carried.get(f.pointer);
       if (field != null) return [{ ...field, key: uuid.create() }];
@@ -371,8 +402,11 @@ export interface Extension {
 
 /** An extension while it collects the picks of each shape. */
 interface Draft extends Omit<Extension, "fields"> {
-  /** Each field that the message gains, with the inferred fields that pick it. */
-  added: { field: icd.JSONField; picks: json.InferredField[] }[];
+  /**
+   * Each field that the message gains, with the inferred fields that pick it and the
+   * first text that their Default inputs give it.
+   */
+  added: { field: icd.JSONField; picks: json.InferredField[]; text: string }[];
 }
 
 /** A message for a kind of document that records of the task read no message of. */
@@ -396,6 +430,7 @@ export interface KindMessage {
 export const createExtensions = (
   shapes: json.Shape[],
   picks: Picks,
+  defaults: FieldDefaults,
   records: ReadRecord[],
   messagesOf: MessagesOf,
   nameOf: (recordKey: string) => string,
@@ -427,7 +462,7 @@ export const createExtensions = (
           () => {
             const made = [...kinds.values()].filter(({ icd }) => icd === record.icd);
             const taken = [...held, ...made.map(({ message }) => message)];
-            return createKindMessage(shape, picked, record, taken, nameOf);
+            return createKindMessage(shape, picked, record, taken, nameOf, defaults);
           },
         );
         kind.records.push(record.key);
@@ -441,8 +476,12 @@ export const createExtensions = (
         added: [],
         bindings: [],
       }));
-      for (const a of draft.added)
-        a.picks.push(...picked.filter(({ pointer }) => pointer === a.field.pointer));
+      for (const a of draft.added) {
+        const more = picked.filter(({ pointer }) => pointer === a.field.pointer);
+        a.picks.push(...more);
+        if (a.text === "" && more.length > 0)
+          a.text = textOf(defaults, shape, a.field.pointer);
+      }
       const holds = [
         ...ICD.jsonFields(held.find(({ key }) => key === message)),
         ...draft.added.map(({ field }) => field),
@@ -452,8 +491,14 @@ export const createExtensions = (
         missing.map(({ pointer }) => pointer),
         holds.map(({ name }) => name),
       );
-      const added = missing.map((f, i) => ICD.createReadField(f, names[i]));
-      draft.added.push(...added.map((field, i) => ({ field, picks: [missing[i]] })));
+      const added = missing.map((f, i) => createField(f, names[i], shape, defaults));
+      draft.added.push(
+        ...added.map((field, i) => ({
+          field,
+          picks: [missing[i]],
+          text: textOf(defaults, shape, missing[i].pointer),
+        })),
+      );
       const existing = holds.filter((h) => picked.some((f) => f.pointer === h.pointer));
       draft.bindings.push({
         record: record.key,
@@ -464,9 +509,12 @@ export const createExtensions = (
   }
   const extensions = [...drafts.values()].map(({ added, ...rest }) => ({
     ...rest,
-    fields: added.map(({ field, picks }) => {
+    fields: added.map(({ field, picks, text }) => {
       const [merged] = ICD.mergeFields(picks);
-      return { ...ICD.createReadField(merged, field.name), key: field.key };
+      return ICD.parseDefault(
+        { ...ICD.createReadField(merged, field.name), key: field.key },
+        text,
+      );
     }),
   }));
   return { extensions, kinds: [...kinds.values()] };
@@ -479,11 +527,12 @@ const createKindMessage = (
   record: ReadRecord,
   taken: icd.Message[],
   nameOf: (recordKey: string) => string,
+  defaults: FieldDefaults,
 ): KindMessage => {
   const indexField = shape.index == null ? undefined : shape.fields[shape.index];
   const kept = shape.fields.filter((f) => f === indexField || picked.includes(f));
   const names = ICD.fieldNames(kept.map(({ pointer }) => pointer));
-  const fields = kept.map((f, i) => ICD.createReadField(f, names[i]));
+  const fields = kept.map((f, i) => createField(f, names[i], shape, defaults));
   const message: icd.Message = {
     key: uuid.create(),
     name: uniqueName(
