@@ -29,39 +29,42 @@ import (
 )
 
 var _ = Describe("Names", func() {
-	It("Should find a channel by the decomposed form of its stored name", func(
-		ctx SpecContext,
-	) {
-		u := MustSucceed(rbactestutil.CreateUser(
-			ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
-		))
-		grantOn(
-			ctx,
-			u.ResourceID(),
-			[]access.Action{access.ActionRetrieve},
-			resource.ID{Type: resource.TypeChannel},
-		)
-		name := UniqueChannelName()
-		ch := channel.Channel{Name: name, DataType: telem.Float32T, Virtual: true}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).Create(ctx, &ch)
-		})).To(Succeed())
-		// A Core with name validation off stored a name in NFC outside the rule.
-		stored := ch
-		stored.Name = name + "_\u00E9"
-		Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, stored)).
-			To(Succeed())
-		decomposed := name + "_e\u0301"
-		for _, where := range []channel.Where{
-			{Name: &filter.String{Eq: &decomposed}},
-			{Or: []channel.Where{{Name: &filter.String{In: []string{decomposed}}}}},
-		} {
+	DescribeTable("Should find a channel by the decomposed form of its stored name",
+		func(ctx SpecContext, match func(name string) channel.Where) {
+			u := MustSucceed(rbactestutil.CreateUser(
+				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
+			))
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionRetrieve},
+				resource.ID{Type: resource.TypeChannel},
+			)
+			name := UniqueChannelName()
+			ch := channel.Channel{Name: name, DataType: telem.Float32T, Virtual: true}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			// A Core with name validation off stored a name in NFC outside the rule.
+			stored := ch
+			stored.Name = name + "_\u00E9"
+			Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, stored)).
+				To(Succeed())
+			where := match(name + "_e\u0301")
 			res := MustSucceed(retrieveChannels(
 				AuthedCtx(ctx, u),
 				apichannel.RetrieveRequest{Where: &where},
 			))
 			Expect(res.Channels).To(HaveLen(1))
 			Expect(res.Channels[0].Key).To(Equal(ch.Key()))
-		}
-	})
+		},
+		Entry("an equal match", func(name string) channel.Where {
+			return channel.Where{Name: &filter.String{Eq: &name}}
+		}),
+		Entry("a match in a branch of an or", func(name string) channel.Where {
+			return channel.Where{
+				Or: []channel.Where{{Name: &filter.String{In: []string{name}}}},
+			}
+		}),
+	)
 })

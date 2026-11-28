@@ -134,8 +134,7 @@ var _ = Describe("Name rule", Ordered, func() {
 		Expect(
 			err,
 		).To(MatchError(ContainSubstring("cannot hold a '.' or invalid UTF-8")))
-		pathErr, ok := errors.AsType[validate.PathError](err)
-		Expect(ok).To(BeTrue())
+		pathErr := MustBeOk(errors.AsType[validate.PathError](err))
 		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
 	})
 

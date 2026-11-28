@@ -49,6 +49,24 @@ var _ = Describe("Names", func() {
 		Entry("an empty name", "", ""),
 	)
 
+	DescribeTable("NormalizeName",
+		func(s, expected string) {
+			Expect(v0.NormalizeName(s)).To(Equal(expected))
+		},
+		Entry("a decomposed name", "e\u0301", "\u00E9"),
+		Entry("a name in NFC", "\u00E9", "\u00E9"),
+		Entry("an ASCII name", "pt_01", "pt_01"),
+	)
+
+	DescribeTable("InNFC",
+		func(s string, expected bool) {
+			Expect(v0.InNFC(s)).To(Equal(expected))
+		},
+		Entry("an ASCII name", "pt_01", true),
+		Entry("a composed name", "\u00E9", true),
+		Entry("a decomposed name", "e\u0301", false),
+	)
+
 	It("Should return a name that needs no rename and that a second sanitize keeps",
 		func() {
 			pool := []rune{'a', 'Z', '.', ' ', '\u0301', '\u200B', '\u00A0', '\uFFFD'}

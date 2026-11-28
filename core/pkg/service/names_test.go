@@ -291,6 +291,29 @@ var _ = Describe("Name upgrade", func() {
 				)))
 		})
 
+	It("Should fail on a staged rename of a channel that names no record",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			storeV062(ctx, n, nil, func([]channelv1.Channel) {})
+			id := resource.ID{Type: resource.TypeChannel, Key: "99999"}
+			Expect(
+				resourcev0.StageRename(
+					ctx,
+					n.DB,
+					id,
+					"pt.1",
+					resourcev0.ReasonSeparator,
+				),
+			).
+				To(Succeed())
+			Expect(
+				svctestutil.OpenLayer(ctx, n),
+			).Error().
+				To(MatchError(ContainSubstring(
+					"staged rename of channel:99999 names no record",
+				)))
+		})
+
 	It("Should rename the storage of a renamed channel", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)
 		storeV062(ctx, n, nil, func([]channelv1.Channel) {})

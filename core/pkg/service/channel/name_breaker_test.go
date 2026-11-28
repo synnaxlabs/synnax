@@ -164,12 +164,9 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 				return bsvc.NewWriter(tx).CreateMany(ctx, &chs)
 			})
 			Expect(err).To(MatchError(validate.ErrValidation))
-			pathErr, ok := errors.AsType[validate.PathError](err)
-			Expect(ok).To(BeTrue())
+			pathErr := MustBeOk(errors.AsType[validate.PathError](err))
 			Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
 		})
-
-	// The cases below pass. They pin what the breaker checked.
 
 	It("Should refuse two names in one request that are equal after NFC",
 		func(ctx SpecContext) {
