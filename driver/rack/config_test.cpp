@@ -343,14 +343,14 @@ TEST_F(RackConfigTest, LoginSkipsSavedKeyWithCACert) {
     ASSERT_NE(second.rack.key, first.rack.key);
 }
 
-/// @brief it should keep the saved rack when SYNNAX_CA_CERT is set and both the saved
-/// and the new connection set secure.
+/// @brief it should keep the saved rack when SYNNAX_CLIENT_CA_CERT is set and both the
+/// saved and the new connection set secure.
 TEST_F(RackConfigTest, LoginIgnoresClientCACertWhenSecureIsSet) {
     auto conn = test_client_config();
     conn.secure = false;
     const auto first = ASSERT_NIL_P(Config::login(args, conn));
-    x::env::set("SYNNAX_CA_CERT", "/etc/synnax/ca.pem");
-    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CA_CERT"); });
+    x::env::set("SYNNAX_CLIENT_CA_CERT", "/etc/synnax/ca.pem");
+    x::defer::defer unset_env([] { x::env::unset("SYNNAX_CLIENT_CA_CERT"); });
     const auto second = ASSERT_NIL_P(Config::login(args, conn));
     ASSERT_EQ(second.rack.key, first.rack.key);
 }

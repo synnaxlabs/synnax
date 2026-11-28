@@ -14,7 +14,6 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/connection/checker.h"
-#include "x/cpp/env/env.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/os/os.h"
 
@@ -130,12 +129,11 @@ Config::login(x::args::Parser &args, const synnax::Config &conn) {
     if (auto err = cfg.load_persisted_state(args)) return {cfg, err};
     const auto &saved = cfg.connection;
     if (!saved.api_key.empty()) {
-        // Each client applies SYNNAX_CA_CERT, so the comparison does too.
-        x::env::Parser env("SYNNAX");
+        // Each client applies SYNNAX_CLIENT_CA_CERT, so the comparison does too.
         auto conn_pair = conn;
-        conn_pair.override_tls_default(env);
+        conn_pair.override_tls_default();
         auto saved_pair = saved;
-        saved_pair.override_tls_default(env);
+        saved_pair.override_tls_default();
         const auto [conn_tls, conn_err] = conn_pair.tls();
         if (conn_err) return {cfg, conn_err};
         const auto [saved_tls, saved_err] = saved_pair.tls();

@@ -51,6 +51,21 @@ inline void check_little_endian() {
 }
 }
 
+/// @brief reads the CA certificate path from SYNNAX_CLIENT_CA_CERT. Only when it is
+/// unset, reads the deprecated SYNNAX_CA_CERT and logs a warning. A Core also reads
+/// SYNNAX_CA_CERT as its --ca-cert.
+/// @returns the path, or an empty string when neither variable is set.
+inline std::string env_ca_cert() {
+    x::env::Parser client_env("SYNNAX_CLIENT");
+    if (auto ca_cert = client_env.field("ca_cert", std::string()); !ca_cert.empty())
+        return ca_cert;
+    x::env::Parser deprecated_env("SYNNAX");
+    auto deprecated = deprecated_env.field("ca_cert", std::string());
+    if (!deprecated.empty())
+        LOG(WARNING) << "SYNNAX_CA_CERT is deprecated. Use SYNNAX_CLIENT_CA_CERT";
+    return deprecated;
+}
+
 /// @brief how a client secures its connection to a Core.
 struct TLS {
     /// @brief whether the client connects with TLS.
@@ -76,7 +91,7 @@ struct Config {
     std::optional<bool> secure;
     /// @brief the path to a PEM file of CA certificates that sign the Core's
     /// certificate. When both it and secure are unset, the Synnax constructor reads
-    /// SYNNAX_CA_CERT. See tls.
+    /// SYNNAX_CLIENT_CA_CERT. See tls.
     std::string ca_cert;
     /// @brief sets the clock skew threshold at which a warning will be logged.
     x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
@@ -131,11 +146,11 @@ struct Config {
         return this->host + ":" + std::to_string(this->port);
     }
 
-    /// @brief applies the ca_cert field of env as the lowest source of the secure and
-    /// ca_cert pair: it sets ca_cert only when neither field is set.
-    void override_tls_default(x::env::Parser &env) {
+    /// @brief applies env_ca_cert as the lowest source of the secure and ca_cert pair:
+    /// it reads the environment only when neither field is set.
+    void override_tls_default() {
         if (this->secure.has_value() || !this->ca_cert.empty()) return;
-        this->ca_cert = env.field("ca_cert", std::string());
+        this->ca_cert = env_ca_cert();
     }
 
     /// @brief resolves how the client secures its connection. A CA certificate turns
@@ -174,12 +189,11 @@ struct Config {
 };
 
 namespace details {
-/// @brief returns the connection pool for cfg, with SYNNAX_CA_CERT applied as the
-/// lowest source of the TLS pair. A pool for an invalid TLS configuration fails every
-/// call with the reason.
+/// @brief returns the connection pool for cfg, with SYNNAX_CLIENT_CA_CERT applied as
+/// the lowest source of the TLS pair. A pool for an invalid TLS configuration fails
+/// every call with the reason.
 inline std::shared_ptr<freighter::grpc::Pool> new_pool(Config cfg) {
-    x::env::Parser env("SYNNAX");
-    cfg.override_tls_default(env);
+    cfg.override_tls_default();
     const auto [tls, tls_err] = cfg.tls();
     if (tls_err) return std::make_shared<freighter::grpc::Pool>(tls_err);
     if (!tls.enabled) return std::make_shared<freighter::grpc::Pool>();
@@ -228,7 +242,7 @@ public:
 
     /// @brief constructs the Synnax client from the provided configuration. When cfg
     /// sets neither secure nor ca_cert, the client reads the CA certificate from
-    /// SYNNAX_CA_CERT.
+    /// SYNNAX_CLIENT_CA_CERT.
     explicit Synnax(const Config &cfg):
         t(cfg.port, cfg.host, details::new_pool(cfg)),
         channels(this->t.chan_retrieve, this->t.chan_create),
