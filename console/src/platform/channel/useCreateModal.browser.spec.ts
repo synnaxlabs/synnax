@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, NotFoundError } from "@synnaxlabs/client";
+import { DataType, group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import type { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
@@ -23,17 +26,32 @@ import {
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { pickOption } from "@/testutil";
+import { CaptureStatuses, pickOption } from "@/testutil";
 
 const client = createTestClient();
 
-const openModal = async (
-  analytics?: Analytics.Sink,
-): Promise<ModalOpenerHandle<void>> => {
-  const handle = await renderModalOpener(Channel.useCreateModal, [], {
-    client,
-    analytics,
-  });
+interface OpenModalOptions {
+  analytics?: Analytics.Sink;
+  params?: Channel.CreateParams;
+  /** Receives the status notifications on each change. */
+  onStatuses?: (statuses: Status.NotificationSpec[]) => void;
+}
+
+const openModal = async ({
+  analytics,
+  params,
+  onStatuses,
+}: OpenModalOptions = {}): Promise<ModalOpenerHandle<void>> => {
+  const handle = await renderModalOpener(
+    Channel.useCreateModal,
+    params == null ? [] : [params],
+    {
+      client,
+      analytics,
+      extra:
+        onStatuses == null ? undefined : createElement(CaptureStatuses, { onStatuses }),
+    },
+  );
   await screen.findByPlaceholderText("Channel name");
   return handle;
 };
@@ -138,7 +156,7 @@ describe("useCreateModal", () => {
 
     it("should report the channel it created", async () => {
       const analytics = createTestSink();
-      await openModal(analytics);
+      await openModal({ analytics });
       setName(uniqueName("virt"));
       selectKind("Virtual");
       await clickCreate();
@@ -166,6 +184,206 @@ describe("useCreateModal", () => {
         ).toBe("");
       });
       expect(getKind("Data").getAttribute("aria-pressed")).toBe("true");
+    });
+  });
+
+  describe("keys", () => {
+    const press = (target: Element, key: string): void => {
+      fireEvent.keyDown(target, { key, code: key });
+      fireEvent.keyUp(target, { key, code: key });
+    };
+
+    it("should keep the kind when the arrow keys and Enter pick an index", async () => {
+      const index = await createTestIndexChannel(client);
+      await openModal();
+      fireEvent.click(screen.getByText("Select channel"));
+      const search = await screen.findByPlaceholderText("Search channels...");
+      fireEvent.change(search, { target: { value: index.name } });
+      const holder = search.closest<HTMLElement>('[role="dialog"]');
+      if (holder == null) throw new Error("no dialog holds the search");
+      // Until the search answers, the list shows its first page.
+      await waitFor(() => {
+        const options = within(within(holder).getByRole("listbox")).getAllByRole(
+          "option",
+        );
+        expect(options).toHaveLength(1);
+        expect(options[0].textContent).toContain(index.name);
+      });
+      press(search, "ArrowDown");
+      press(search, "Enter");
+      await waitFor(() => expect(screen.queryByText("Select channel")).toBeNull());
+      expect(getKind("Data").getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByText(index.name)).toBeTruthy();
+    });
+
+    it("should pick a kind once with Enter on its focused button", async () => {
+      await openModal();
+      selectKind("Data");
+      const index = getKind("Index");
+      index.focus();
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() => expect(index.getAttribute("aria-pressed")).toBe("true"));
+      expect(getKind("Data").getAttribute("aria-pressed")).toBe("false");
+      expect(screen.queryByText("Select channel")).toBeNull();
+    });
+
+    it("should keep the index when Enter lands on the kind that is already picked", async () => {
+      const index = await createTestIndexChannel(client);
+      await openModal();
+      fireEvent.click(screen.getByText("Select channel"));
+      await pickOption(index.name, "Search channels...");
+      const data = getKind("Data");
+      data.focus();
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await waitFor(() => expect(data.getAttribute("aria-pressed")).toBe("true"));
+      expect(screen.getByText(index.name)).toBeTruthy();
+    });
+  });
+
+  describe("folders", () => {
+    const createFolder = async (): Promise<group.Group> =>
+      await client.groups.create({ name: uniqueName("folder"), scope: "channel" });
+
+    const createVirtual = (name: string): void => {
+      setName(name);
+      selectKind("Virtual");
+    };
+
+    it("should create the channel in the folder that opens the modal", async () => {
+      const folder = await createFolder();
+      await openModal({ params: { group: folder.key } });
+      expect(await screen.findByText(folder.name)).toBeTruthy();
+      const name = uniqueName("virt");
+      createVirtual(name);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(name)).group).toEqual(folder.key),
+      );
+    });
+
+    it("should create the channel in the folder picked in the modal", async () => {
+      const folder = await createFolder();
+      await openModal();
+      fireEvent.click(screen.getByText("Select folder"));
+      await pickOption(folder.name, "Search folders...");
+      const name = uniqueName("virt");
+      createVirtual(name);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(name)).group).toEqual(folder.key),
+      );
+    });
+
+    it("should create a channel at the top when no folder is picked", async () => {
+      await openModal();
+      const name = uniqueName("virt");
+      createVirtual(name);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(name)).group).toBeUndefined(),
+      );
+    });
+
+    it("should keep the folder for the next channel when create more is enabled", async () => {
+      const folder = await createFolder();
+      await openModal({ params: { group: folder.key } });
+      fireEvent.click(getSwitch("Create more"));
+      const first = uniqueName("virt");
+      createVirtual(first);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(first)).group).toEqual(folder.key),
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByPlaceholderText<HTMLInputElement>("Channel name").value,
+        ).toBe(""),
+      );
+      const second = uniqueName("virt");
+      createVirtual(second);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(second)).group).toEqual(folder.key),
+      );
+    });
+
+    it("should refuse a name that a channel in the folder holds and create nothing", async () => {
+      const folder = await createFolder();
+      const taken = await client.channels.create({
+        name: uniqueName("taken"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        group: folder.key,
+      });
+      let statuses: Status.NotificationSpec[] = [];
+      await openModal({
+        params: { group: folder.key },
+        onStatuses: (next) => (statuses = next),
+      });
+      createVirtual(taken.name);
+      await clickCreate();
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            name: taken.name,
+            message: "Failed to create channel",
+            description: `A channel named "${taken.name}" already exists in folder "${folder.name}". Pick another name.`,
+          }),
+        ),
+      );
+      expect(screen.getByPlaceholderText("Channel name")).toBeTruthy();
+      const named = await client.channels.retrieve({
+        where: { name: { eq: taken.name } },
+      });
+      expect(named.map(({ key }) => key)).toEqual([taken.key]);
+    });
+
+    it("should say where a channel of the taken name sits when it is at the top", async () => {
+      const folder = await createFolder();
+      const taken = await client.channels.create({
+        name: uniqueName("taken"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      let statuses: Status.NotificationSpec[] = [];
+      await openModal({
+        params: { group: folder.key },
+        onStatuses: (next) => (statuses = next),
+      });
+      createVirtual(taken.name);
+      await clickCreate();
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to create channel",
+            description: `A channel named "${taken.name}" already exists at the top. Pick another name.`,
+          }),
+        ),
+      );
+    });
+
+    it("should name the folder that holds a folder of the taken name", async () => {
+      const folder = await createFolder();
+      const sibling = await client.groups.create({
+        name: uniqueName("sibling"),
+        parent: group.resourceID(folder.key),
+      });
+      let statuses: Status.NotificationSpec[] = [];
+      await openModal({
+        params: { group: folder.key },
+        onStatuses: (next) => (statuses = next),
+      });
+      createVirtual(sibling.name);
+      await clickCreate();
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to create channel",
+            description: `A folder named "${sibling.name}" already exists in folder "${folder.name}". Pick another name.`,
+          }),
+        ),
+      );
     });
   });
 

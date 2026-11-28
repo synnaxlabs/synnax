@@ -58,6 +58,7 @@ export {
   SessionEndedError,
   UnauthorizedError,
   UnexpectedError,
+  UniqueViolationError,
   UnsupportedError,
   ValidationError,
 } from "@/errors";

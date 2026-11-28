@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { group, type resource, type Synnax } from "@synnaxlabs/client";
+import type { FC } from "react";
 
 import type { Tree } from "@/platform/tree";
 
@@ -18,8 +19,15 @@ const SCOPES = new Set<resource.Type>(
 /** Returns whether a tree holds groups. A tree root names its scope by type. */
 export const isScope = (type: resource.Type): boolean => SCOPES.has(type);
 
+export interface CreateItemProps {
+  /** The group that the new record sits in. */
+  group: group.Key;
+}
+
 /** Lists the records of one type that sit in a group. */
 export interface Member {
   type: group.MemberType;
   children: (client: Synnax, group: group.Key) => Tree.Source;
+  /** The item of a group's menu that creates a record of the type in the group. */
+  CreateItem?: FC<CreateItemProps>;
 }

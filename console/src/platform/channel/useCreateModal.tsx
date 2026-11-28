@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType } from "@synnaxlabs/client";
+import { DataType, type group } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -17,7 +17,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Channel, Telem } from "@synnaxlabs/pluto";
+import { Channel, Group, Telem } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { Analytics } from "@/platform/analytics";
@@ -28,16 +28,28 @@ const path = Channel.formPath;
 
 const INDEX_QUERY: Channel.ListQuery = { where: { isIndex: { eq: true } } };
 
+const FOLDER_QUERY: group.RetrieveMultipleParams = {
+  where: { scope: { eq: "channel" } },
+};
+
 type Kind = "data" | "index" | "virtual";
 
-const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
+export interface CreateParams {
+  /** The folder that the new channel sits in. Absent, it sits at the top. */
+  group?: group.Key;
+}
+
+const Create = ({ close, group }: Modals.ContentProps<CreateParams, void>) => {
   const [createMore, setCreateMore] = useState(false);
   const { capture } = Analytics.use();
   const { form, variant, save } = Channel.useForm({
     query: null,
-    afterSave: ({ reset }) => {
+    initialValues: { ...Channel.ZERO_FORM_VALUES, group },
+    afterSave: ({ reset, get }) => {
       capture("channel_created", { calculated: false });
-      if (createMore) reset(Channel.ZERO_FORM_VALUES);
+      // The next channel goes into the same folder.
+      if (createMore)
+        reset({ ...Channel.ZERO_FORM_VALUES, group: get(path.group).value });
       else close();
     },
   });
@@ -45,6 +57,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const isIndex = Form.useFieldValue(path.isIndex, { ctx: form });
   const isVirtual = Form.useFieldValue(path.virtual, { ctx: form });
   const kind: Kind = isIndex ? "index" : isVirtual ? "virtual" : "data";
+
   const handleKindChange = (next: Kind) => {
     form.set(path.isIndex, next === "index");
     form.set(path.virtual, next === "virtual");
@@ -71,7 +84,13 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
           </Form.Field>
           <Flex.Box x gap="large">
             <Input.Item label="Kind">
-              <Select.Buttons<Kind> value={kind} onChange={handleKindChange}>
+              {/* Tab reaches each kind and Enter picks it, so the row takes no keys of
+                  its own, and the keys of an open picker stay with the picker. */}
+              <Select.Buttons<Kind>
+                value={kind}
+                onChange={handleKindChange}
+                enableTriggers={false}
+              >
                 <Select.Item itemKey="data">
                   <Icon.Channel />
                   Data
@@ -90,6 +109,18 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
               {(p) => <Telem.SelectDataType {...p} disabled={isIndex} full="x" />}
             </Form.Field>
           </Flex.Box>
+          <Form.Field path={path.group} label="Folder">
+            {({ value, onChange }) => (
+              <Group.SelectSingle
+                resourceName="folder"
+                value={value}
+                onChange={(next: group.Key | null) => onChange(next ?? undefined)}
+                query={FOLDER_QUERY}
+                allowNone
+                full="x"
+              />
+            )}
+          </Form.Field>
           <Form.Field path={path.index} label="Index" visible={kind === "data"}>
             {({ value, onChange }) => (
               <Channel.SelectSingle

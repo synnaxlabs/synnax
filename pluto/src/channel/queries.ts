@@ -7,8 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { actions, channel, DataType, query } from "@synnaxlabs/client";
-import { control, deep, primitive, scheduler, TimeSpan, verbs } from "@synnaxlabs/x";
+import {
+  actions,
+  channel,
+  DataType,
+  type group,
+  query,
+  type Synnax as Client,
+  UniqueViolationError,
+  ValidationError,
+} from "@synnaxlabs/client";
+import {
+  control,
+  deep,
+  errors,
+  primitive,
+  scheduler,
+  TimeSpan,
+  verbs,
+} from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -173,6 +190,26 @@ const getCachedFormValues = ({
   return query.isLive(cached) ? channelToFormValues(cached) : undefined;
 };
 
+/**
+ * @returns a sentence that says what holds the name that a new channel was refused, and
+ * where it sits. The Core refuses a name that a channel holds, or that a folder beside
+ * the new channel holds.
+ */
+const describeTakenName = async (
+  client: Client,
+  { name, group: folder }: Pick<channel.Payload, "name" | "group">,
+): Promise<string> => {
+  const where = async (g?: group.Key): Promise<string> =>
+    g == null
+      ? "at the top"
+      : `in folder "${(await client.groups.retrieve({ key: g })).name}"`;
+  const named = await client.channels.retrieve({ where: { name: { eq: name } } });
+  const holder = named.find((ch) => ch.group === folder) ?? named.at(0);
+  const kind = holder == null ? "folder" : "channel";
+  const at = await where(holder == null ? folder : holder.group);
+  return `A ${kind} named "${name}" already exists ${at}. Pick another name.`;
+};
+
 const updateForm = async ({
   client,
   set,
@@ -182,8 +219,13 @@ const updateForm = async ({
   const values = value();
   if (values.requires != null) delete values.requires;
   if (primitive.isZero(values.key)) {
-    const ch = await client.channels.create(values);
-    set(formPath.key, ch.key);
+    try {
+      const ch = await client.channels.create(values);
+      set(formPath.key, ch.key);
+    } catch (exc) {
+      if (!UniqueViolationError.matches(exc)) throw errors.fromUnknown(exc);
+      throw new ValidationError(await describeTakenName(client, values));
+    }
     return;
   }
   const edits: channel.Action[] = actions.diffFields(channel.payloadZ, stored, values, [
@@ -209,6 +251,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
+  statusName: ({ name }) => name,
   retrieve: retrieveInitialFormValues,
   getCached: getCachedFormValues,
   update: updateForm,

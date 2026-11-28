@@ -107,6 +107,27 @@ describe("group tree item", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
+  it("should offer to create a channel in a channel folder", async () => {
+    const g = await createGroup();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [groupResource(g)],
+    });
+    expect(await screen.findByText("Create channel")).toBeTruthy();
+  });
+
+  it("should not offer to create a channel to a user who cannot create one", async () => {
+    const g = await createGroup();
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client: await roles.get("Viewer"),
+      resources: [groupResource(g)],
+    });
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Create channel")).toBeNull();
+  });
+
   it("should offer rename and ungroup for a closed top-level group", async () => {
     const g = await createGroup();
     assertDefined(Item.ContextMenu);

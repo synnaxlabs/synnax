@@ -82,6 +82,8 @@ export interface CreateFormParams<
    */
   getCached?: (params: Suspend.RetrieveParams<Query>) => z.infer<Schema> | undefined;
   update: (params: FormUpdateParams<Schema>) => Promise<void>;
+  /** Names the record in the status of a failed save, such as by its name field. */
+  statusName?: (values: z.infer<Schema>) => string;
   mountListeners?: (
     params: FormMountListenersParams<Query, Schema>,
   ) => destructor.Destructor | destructor.Destructor[];
@@ -234,7 +236,7 @@ interface PersistParams<
 >
   extends
     Pick<UseFormParams<Query, Schema>, "beforeValidate" | "beforeSave" | "afterSave">,
-    Pick<CreateFormParams<Query, Schema>, "name" | "update"> {
+    Pick<CreateFormParams<Query, Schema>, "name" | "update" | "statusName"> {
   params: FormBeforeSaveParams<Query, Schema>;
   stored: RefObject<z.infer<Schema> | undefined>;
   setResult: Dispatch<SetStateAction<Result<undefined>>>;
@@ -257,6 +259,7 @@ const persist = async <
   params,
   stored,
   update,
+  statusName,
   beforeValidate,
   beforeSave,
   afterSave,
@@ -297,7 +300,15 @@ const persist = async <
     return { written, read };
   } catch (error) {
     if (signal?.aborted === true) return undefined;
-    const res = errorResult(`update ${name}`, error);
+    // A form with no stored record creates one.
+    const verb = stored.current == null ? "create" : "update";
+    const res = errorResult(
+      {
+        message: `Failed to ${verb} ${name}`,
+        name: statusName?.(params.value()) ?? "",
+      },
+      error,
+    );
     addStatus(res.status);
     setResult(res);
     return undefined;
@@ -322,6 +333,7 @@ export const createForm = <
   getCached,
   mountListeners,
   update,
+  statusName,
   initialValues: baseInitialValues,
   normalizeQuery,
 }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> => {
@@ -464,6 +476,7 @@ export const createForm = <
         },
         stored,
         update,
+        statusName,
         beforeValidate,
         beforeSave,
         afterSave,

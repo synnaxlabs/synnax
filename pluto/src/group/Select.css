@@ -1,0 +1,30 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The groups above follow the name and fade first when the row is narrow, so the name
+   fades last. */
+.pluto-group__name {
+    min-width: 0;
+}
+
+.pluto-group__parents {
+    min-width: 0;
+    flex-shrink: 1000;
+}
+
+/* The groups above in a trigger take only the room that the name leaves, so a long
+   chain never widens the trigger. */
+.pluto-group__trigger .lyra-select-single-trigger__end {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    contain: inline-size;
+}

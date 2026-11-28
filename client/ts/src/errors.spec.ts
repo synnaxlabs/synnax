@@ -33,6 +33,7 @@ import {
   RouteError,
   UnauthorizedError,
   UnexpectedError,
+  UniqueViolationError,
   ValidationError,
 } from "@/index";
 import { status } from "@/status";
@@ -98,6 +99,16 @@ describe("error", () => {
     test("round trips a synnax error through the registry", () => {
       const decoded = errors.decode(errors.encode(new NotFoundError("nope")));
       expect(NotFoundError.matches(decoded)).toBe(true);
+    });
+
+    test("decodes a unique violation of the Core as its own query error", () => {
+      const decoded = errors.decode({
+        type: "sy.query.unique_violation",
+        data: "0.name: channel with name 'pt' already exists",
+      });
+      expect(UniqueViolationError.matches(decoded)).toBe(true);
+      expect(QueryError.matches(decoded)).toBe(true);
+      expect(NotFoundError.matches(decoded)).toBe(false);
     });
 
     test("round trips an API key that cannot load through the registry", () => {

@@ -24,6 +24,7 @@ import {
   Schematic as PSchematic,
 } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 
 import { Open } from "@/feature/channel/open";
 import { Channel } from "@/platform/channel";
@@ -191,11 +192,24 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
 const toResource = (ch: channel.Channel): Tree.Resource =>
   Tree.toResource("channel")(ch.payload);
 
-/** Lists the channels that sit in a group. */
+const CreateItem = ({ group }: Group.CreateItemProps): ReactElement | null => {
+  const granted = Access.useCreateGranted(channel.TYPE_RESOURCE_ID);
+  const create = Channel.useCreateModal();
+  if (!granted) return null;
+  return (
+    <Menu.Item itemKey="createChannel" onClick={() => create({ group })}>
+      <PChannel.CreateIcon />
+      Create channel
+    </Menu.Item>
+  );
+};
+
+/** Lists the channels that sit in a group, and creates one in it. */
 export const GROUP_MEMBER: Group.Member = {
   type: "channel",
   children: (client, key) =>
     Tree.createSource(client.channels, { where: { groups: [key] } }, toResource),
+  CreateItem,
 };
 
 /** Lists the top level of the channel tree: its groups and the channels in no group. */

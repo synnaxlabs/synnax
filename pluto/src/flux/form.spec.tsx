@@ -437,7 +437,7 @@ describe("useForm", () => {
       expect(await result.current.saveAsync()).toBe(false);
       await waitFor(() =>
         expect(result.current.notifications).toMatchObject([
-          { message: "Failed to update test", description: "Age must be positive" },
+          { message: "Failed to create test", description: "Age must be positive" },
         ]),
       );
     });

@@ -160,10 +160,16 @@ export const successResult = (<
   data,
 })) as SuccessResultCreator;
 
-/** Builds an {@link ErrorResult} from a thrown value, keeping its cause chain. */
-export const errorResult = (op: string, error: unknown): ErrorResult => ({
+/**
+ * Builds an {@link ErrorResult} from a thrown value, keeping its cause chain. A string
+ * op reads "Failed to <op>", and a heading sets the status's message and name.
+ */
+export const errorResult = (
+  op: string | { message: string; name: string },
+  error: unknown,
+): ErrorResult => ({
   variant: "error",
-  status: status.fromException(error, `Failed to ${op}`),
+  status: status.fromException(error, typeof op === "string" ? `Failed to ${op}` : op),
   data: undefined,
 });
 
