@@ -1420,6 +1420,15 @@ class TestFrameTime:
         ):
             fr.time(3)
 
+    def test_no_time_for_a_virtual_channel(self) -> None:
+        """Should say that a virtual channel has no time."""
+        fr = _read([4], sy.Frame([4], [_values([1.0], 0, 0)]))
+        with pytest.raises(
+            sy.NotFoundError,
+            match=r"^The frame holds no time for calc, which has no index$",
+        ):
+            fr.time(4)
+
     def test_no_time_for_alignments(self) -> None:
         """Should fail for a series at alignments that no time series holds."""
         fr = _read([3], sy.Frame([3, 1], [_values([1.0], 7, 1), _stamps([5], 0, 1)]))

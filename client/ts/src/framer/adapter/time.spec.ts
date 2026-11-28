@@ -178,6 +178,13 @@ describe("Frame.time", () => {
     );
   });
 
+  it("should say that a virtual channel has no time", async () => {
+    const fr = await read([4], new Frame([4], [values([1], 0n, 0)]));
+    expect(() => fr.time(4)).toThrow(
+      "The frame holds no time for 4, which has no index",
+    );
+  });
+
   it("should hold a requested index as its channel and as time", async () => {
     const fr = await read(
       [1, 3],
@@ -246,6 +253,14 @@ describe("WriteAdapter time", () => {
       ),
     ];
     for (const fr of frames) expect(fr.columns).toEqual([DATA.key, INDEX.key]);
+  });
+
+  it('should convert a float "time" as an index write converts it', async () => {
+    const adapter = await open(["d"]);
+    const fr = await adapter.adapt({ time: [1.5, 2.5], d: [1, 2] });
+    const expected = new Series({ data: [1.5, 2.5], dataType: DataType.TIMESTAMP });
+    expect(fr.get(INDEX.key).series[0].dataType).toEqual(DataType.TIMESTAMP);
+    expect(Array.from(fr.get(INDEX.key))).toEqual(Array.from(expected));
   });
 
   it("should write a channel named time by its key", async () => {
