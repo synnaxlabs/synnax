@@ -18,6 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { ValidationError } from "@/errors";
 import type { label } from "@/label";
 import type { resource } from "@/resource";
 import type { Status, Variant } from "@/status/types.gen";
@@ -337,12 +338,25 @@ export const worst = <S extends { variant: Variant }>(
 /** Options for {@link toString}. */
 export interface ToStringOptions {
   includeTimestamp?: boolean;
+  /** Whether the header leaves out the name of the status. */
+  nameHidden?: boolean;
+  /** @deprecated Use nameHidden, its inverse. Removed in 0.64. */
   includeName?: boolean;
 }
 
-const DEFAULT_TO_STRING_OPTIONS: ToStringOptions = {
-  includeTimestamp: false,
-  includeName: true,
+const resolveNameHidden = ({
+  nameHidden,
+  includeName,
+}: {
+  nameHidden?: boolean;
+  includeName?: boolean;
+}): boolean => {
+  if (includeName == null) return nameHidden ?? false;
+  if (nameHidden != null)
+    throw new ValidationError(
+      "Give nameHidden or the deprecated includeName, not both",
+    );
+  return !includeName;
 };
 
 const renderDescription = (description: string): string => {
@@ -355,17 +369,21 @@ const renderDescription = (description: string): string => {
   }
 };
 
-/** Renders a status as readable text, pretty-printing a JSON description. */
+/**
+ * Renders a status as readable text, pretty-printing a JSON description.
+ * @throws {ValidationError} if options give both nameHidden and includeName.
+ */
 export const toString = <Details extends z.ZodType = z.ZodNever>(
   stat: Status<Details>,
   options: ToStringOptions = {},
 ): string => {
-  const opts = { ...DEFAULT_TO_STRING_OPTIONS, ...options };
+  const nameHidden = resolveNameHidden(options);
   const parts: string[] = [];
   let header = stat.variant.toUpperCase();
-  if (opts.includeName && primitive.isNonZero(stat.name)) header += ` [${stat.name}]`;
+  if (!nameHidden && primitive.isNonZero(stat.name)) header += ` [${stat.name}]`;
   header += `: ${stat.message}`;
-  if (opts.includeTimestamp) header += ` (${stat.time.toString("dateTime", "local")})`;
+  if (options.includeTimestamp === true)
+    header += ` (${stat.time.toString("dateTime", "local")})`;
   parts.push(header);
   if (primitive.isNonZero(stat.description))
     parts.push(renderDescription(stat.description));

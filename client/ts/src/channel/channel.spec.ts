@@ -565,7 +565,7 @@ describe("Channel", () => {
 
     it("should cache the channel as the Core holds it before it resolves", async () => {
       // A client with no change stream gets no echo of the dispatch.
-      const unstreamed = createTestClient({ cache: false });
+      const unstreamed = createTestClient({ uncached: true });
       const ch = await unstreamed.channels.create({
         name: id.create(),
         dataType: DataType.INT64,

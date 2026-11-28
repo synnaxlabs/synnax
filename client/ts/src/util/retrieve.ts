@@ -48,7 +48,7 @@ export type ParamAnalysisResult<
 > = SingleParamAnalysisResult<T, K> | MultiParamAnalysisResult<T, K>;
 
 export interface AnalyzeParamsOptions {
-  convertNumericStrings?: boolean;
+  numericStringsPreserved?: boolean;
 }
 
 export const analyzeParams = <
@@ -57,14 +57,14 @@ export const analyzeParams = <
 >(
   args: T extends unknown ? T | T[] : never,
   variantMap: K,
-  { convertNumericStrings = true }: AnalyzeParamsOptions = {},
+  { numericStringsPreserved = false }: AnalyzeParamsOptions = {},
 ): ParamAnalysisResult<T, K> => {
   const isSingle = !Array.isArray(args);
   let normal = array.toArray(args);
   const first = normal[0];
   const t = typeof first;
   let variant: K[TypeName<T>];
-  if (t === "string" && convertNumericStrings)
+  if (t === "string" && !numericStringsPreserved)
     if (!isNaN(parseInt(first as string, 10)) && "number" in variantMap) {
       variant = variantMap.number as K[TypeName<T>];
       normal = normal.map((n) => parseInt(n as string, 10));

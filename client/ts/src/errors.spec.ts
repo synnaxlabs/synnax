@@ -131,7 +131,7 @@ describe("unreachable Core", () => {
       return await next(ctx);
     };
     const client = createTestClient({
-      cache: false,
+      uncached: true,
       middleware: [unreachable],
       retry: { baseInterval: TimeSpan.milliseconds(5), scale: 1, maxRetries: 0 },
     });

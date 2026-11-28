@@ -32,7 +32,7 @@ export interface CacheParams {
   /**
    * Opens the raw frame streamer used to receive change signals; reconnect hardening is
    * applied internally. Null constructs a detached cache: purely local tables and no
-   * change stream. Used for clients constructed with `cache: false`.
+   * change stream. Used for clients constructed with `uncached: true`.
    */
   openStreamer: framer.StreamOpener | null;
   /** Retry behavior for change-stream reconnect attempts. */

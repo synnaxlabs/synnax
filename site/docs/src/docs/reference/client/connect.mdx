@@ -832,8 +832,10 @@ A Node.js script does not exit until you close the client.
   `maxInterval`, `maxRetries` (5), `scale` (1), and `jitter` (0).
 </Field.Item>
 
-<Field.Item name="cache" id="typescript-cache" type="boolean" default="true">
-  Keep retrieved resources in memory and update them as they change on the Core.
+<Field.Item name="uncached" id="typescript-uncached" type="boolean" default="false">
+  Keep no retrieved resources in memory, and send each retrieve to the Core. By default,
+  the client keeps them and updates them as they change on the Core. `cache`, the
+  deprecated inverse, works until 0.64.
 </Field.Item>
 
 <Field.Item name="onRetry" id="typescript-on-retry" type="function">

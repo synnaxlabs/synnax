@@ -535,7 +535,7 @@ describe("connect", () => {
   });
 
   it("should reject bad credentials without a change stream", async () => {
-    const client = createTestClient({ password: "definitely-wrong", cache: false });
+    const client = createTestClient({ password: "definitely-wrong", uncached: true });
     await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
     expect(reasonOf(client.connection.status)).toEqual("auth");
     await client.close();
@@ -559,6 +559,59 @@ describe("connect", () => {
     await client.connect();
     await client.close();
     expect(client.connection.status.variant).toEqual("disabled");
+  });
+});
+
+describe("uncached", () => {
+  const openStreamerOf = (client: Synnax) => vi.spyOn(client, "openStreamer");
+
+  it("should keep the deprecated cache in params as the inverse of uncached", async () => {
+    // A plain type for the deprecated field keeps lint from flagging each read.
+    const cacheOf = ({ params }: { params: { cache: boolean } }): boolean =>
+      params.cache;
+    const cached = createTestClient();
+    const uncached = createTestClient({ uncached: true });
+    expect(cached.params.uncached).toBe(false);
+    expect(cacheOf(cached)).toBe(true);
+    expect(uncached.params.uncached).toBe(true);
+    expect(cacheOf(uncached)).toBe(false);
+    await cached.close();
+    await uncached.close();
+  });
+
+  it("should open the change stream by default", async () => {
+    const client = createTestClient();
+    const openStreamer = openStreamerOf(client);
+    await client.connect();
+    expect(openStreamer).toHaveBeenCalled();
+    await client.close();
+  });
+
+  it("should open no change stream when uncached is true", async () => {
+    const client = createTestClient({ uncached: true });
+    const openStreamer = openStreamerOf(client);
+    await client.connect();
+    expect(openStreamer).not.toHaveBeenCalled();
+    await client.close();
+  });
+
+  it("should map the deprecated cache to its inverse with a warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = createTestClient({ cache: false });
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      "cache is deprecated. Use uncached, its inverse.",
+    );
+    warn.mockRestore();
+    const openStreamer = openStreamerOf(client);
+    await client.connect();
+    expect(openStreamer).not.toHaveBeenCalled();
+    await client.close();
+  });
+
+  it("should throw when both uncached and cache are given", () => {
+    expect(
+      () => new Synnax({ host: "localhost", port: 9090, uncached: false, cache: true }),
+    ).toThrow("Give uncached or the deprecated cache, not both");
   });
 });
 

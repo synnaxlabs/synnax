@@ -42,6 +42,23 @@ describe("retrieve utils", () => {
         expect(util.analyzeParams(args, variantMap)).toEqual(expected);
       });
     });
+
+    const variantMap = { string: "name", number: "key" } as const;
+
+    it("should convert numeric strings to numbers by default", () => {
+      expect(util.analyzeParams("12", variantMap)).toEqual({
+        single: true,
+        variant: "key",
+        normalized: [12],
+        actual: "12",
+      });
+    });
+
+    it("should keep numeric strings when numericStringsPreserved is true", () => {
+      expect(
+        util.analyzeParams("12", variantMap, { numericStringsPreserved: true }),
+      ).toEqual({ single: true, variant: "name", normalized: ["12"], actual: "12" });
+    });
   });
 
   describe("check for multiple or no results", () => {

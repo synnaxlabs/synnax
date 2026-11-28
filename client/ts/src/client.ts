@@ -101,7 +101,13 @@ export const synnaxParamsZ = z.object({
     .optional(),
   name: z.string().optional(),
   retry: breaker.configZ.optional(),
-  cache: z.boolean().default(true),
+  /**
+   * Whether the client keeps no cache: retrieves go to the Core, and nothing stays
+   * current. Defaults to false.
+   */
+  uncached: z.boolean().optional(),
+  // SynnaxParams marks it deprecated, since a tag here flags the schema's own reads.
+  cache: z.boolean().optional(),
   /**
    * Receives cache errors that have no caller to throw to (listener fan-out, streamer
    * frame handling, background reconciliation). Defaults to console logging.
@@ -132,6 +138,17 @@ export const synnaxParamsZ = z.object({
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
 const constructorParamsZ = synnaxParamsZ
+  .refine((p) => p.cache == null || p.uncached == null, {
+    message: "Give uncached or the deprecated cache, not both",
+    path: ["cache"],
+  })
+  // uncached has no schema default, so a caller that parses synnaxParamsZ first and
+  // passes cache does not give both.
+  .transform(({ cache, uncached, ...p }) => {
+    if (cache == null) return { ...p, uncached: uncached ?? false };
+    console.warn("cache is deprecated. Use uncached, its inverse.");
+    return { ...p, uncached: !cache };
+  })
   .refine(
     (p) =>
       [
@@ -150,8 +167,19 @@ const constructorParamsZ = synnaxParamsZ
     path: ["secure"],
   });
 
-export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
-export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
+export interface SynnaxParams extends Omit<z.input<typeof synnaxParamsZ>, "cache"> {
+  /** @deprecated Use uncached, its inverse. Removed in 0.64. */
+  cache?: boolean;
+}
+export interface ParsedSynnaxParams extends z.output<typeof constructorParamsZ> {}
+
+interface ClientParams extends Omit<
+  ParsedSynnaxParams,
+  "password" | "apiKey" | "token" | "oidc"
+> {
+  /** @deprecated Use uncached, its inverse. Removed in 0.64. */
+  readonly cache: boolean;
+}
 
 /**
  * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
@@ -258,7 +286,7 @@ export default class Synnax extends framer.Client {
   readonly key: string;
   readonly createdAt: TimeStamp;
   /** The parameters the client connects with. Credentials stay in auth. */
-  readonly params: Omit<ParsedSynnaxParams, "password" | "apiKey" | "token" | "oidc">;
+  readonly params: ClientParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client;
@@ -386,9 +414,9 @@ export default class Synnax extends framer.Client {
       node: () => this.conn.status.details.nodeKey,
     });
     const cache = new query.Cache({
-      openStreamer: parsedParams.cache
-        ? async (config) => await this.openStreamer(config)
-        : null,
+      openStreamer: parsedParams.uncached
+        ? null
+        : async (config) => await this.openStreamer(config),
       breaker: retry,
       onStreamLive: () => this.conn.notify({ type: "stream.live" }),
       onStreamDrop: (error) => this.conn.notify({ type: "stream.drop", error }),
@@ -404,7 +432,7 @@ export default class Synnax extends framer.Client {
       address: `${host}:${Number(port)}`,
       name: parsedParams.name,
       clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),
-      requiresStream: parsedParams.cache,
+      requiresStream: !parsedParams.uncached,
       retry,
       heartbeatInterval: connectivityPollFrequency,
       stream: {
@@ -436,7 +464,12 @@ export default class Synnax extends framer.Client {
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();
-    this.params = record.omit(parsedParams, "password", "apiKey", "token", "oidc");
+    // Built apart from the field so the deprecated key does not flag the build.
+    const clientParams = {
+      ...record.omit(parsedParams, "password", "apiKey", "token", "oidc"),
+      cache: !parsedParams.uncached,
+    };
+    this.params = clientParams;
     this.transport = transport;
     const unary = this.transport.unary;
     this.batch = new batch.Client(unary);

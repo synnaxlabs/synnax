@@ -1533,14 +1533,14 @@ describe("Task", async () => {
     });
 
     describe.each([
-      { replies: "the change stream", cache: true, streamers: 0 },
-      { replies: "a streamer of its own", cache: false, streamers: 1 },
-    ])("with the replies on $replies", ({ cache, streamers }) => {
-      const sender = createTestClient({ cache });
+      { replies: "the change stream", uncached: false, streamers: 0 },
+      { replies: "a streamer of its own", uncached: true, streamers: 1 },
+    ])("with the replies on $replies", ({ uncached, streamers }) => {
+      const sender = createTestClient({ uncached });
 
       beforeAll(async () => {
         await sender.connect();
-        if (cache) await waitForStreamLive(sender.connection);
+        if (!uncached) await waitForStreamLive(sender.connection);
       });
 
       const createWait = async (timeout: TimeSpan = TimeSpan.minutes(1)) => {
