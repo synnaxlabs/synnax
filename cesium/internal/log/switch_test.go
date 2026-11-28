@@ -62,12 +62,8 @@ var _ = Describe("Switch", func() {
 			// open starts log 3 of logSize bytes, and answers each Prepare with answer.
 			open := func(answer func(next uint64)) {
 				GinkgoHelper()
-				fs, hook, calls = opfs.New(
-					makeFS(),
-					"write",
-					"sync",
-					"syncdir",
-				), &durables{}, &switches{}
+				fs = opfs.New(makeFS(), "write", "sync", "syncdir")
+				hook, calls = &durables{}, &switches{}
 				Expect(log.Prepare(fs, generation, logSize)).To(Succeed())
 				l = MustSucceed(log.Start(log.Config{
 					FS:        fs,
@@ -122,8 +118,8 @@ var _ = Describe("Switch", func() {
 					}
 					fs.Free()
 					seq := MustSucceed(first.Wait()) + 1
-					for _, a := range later {
-						Expect(a.Wait()).Error().ToNot(HaveOccurred())
+					for i, a := range later {
+						Expect(a.Wait()).To(Equal(seq + uint64(i)))
 					}
 					frames := walkLog(logBytes(fs, generation), generation)
 					Expect(frames).To(ContainElement(SatisfyAll(
@@ -164,8 +160,8 @@ var _ = Describe("Switch", func() {
 			)
 
 			It(
-				"Should go on in the live log past three quarters until the next file "+
-					"is ready, then switch",
+				"Should go on in the live log past three quarters "+
+					"until the next file is ready, then switch",
 				func() {
 					asked := make(chan uint64, 4)
 					open(func(next uint64) { asked <- next })

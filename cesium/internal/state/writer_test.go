@@ -357,8 +357,8 @@ var _ = Describe("Writer", func() {
 				durable(&log.Seal{Segment: clk})
 			})
 
-		It("Should take a commit over the samples that a take back cut, and refuse "+
-			"one over the durable data that it kept", func() {
+		It("Should take a commit over the samples that a take back cut, "+
+			"and refuse one over the durable data that it kept", func() {
 			Expect(w.Commit(first())).To(Succeed())
 			durable(create(clk, 5, 5), create(data, 6, 5), first())
 			Expect(w.Commit(commit(1, number, 2, 120, 120, slot(clk, 24),
@@ -468,8 +468,8 @@ var _ = Describe("Writer", func() {
 				))
 		})
 
-		It("Should open a bounded writer before every claim, and refuse its commit "+
-			"that reaches one", func() {
+		It("Should open a bounded writer before every claim, "+
+			"and refuse its commit that reaches one", func() {
 			open(clockWriter(100, false, 5))
 			b := open(clockWriter(50, true, 5))
 			id := MustSucceed(b.NewSegment(5))
@@ -481,8 +481,8 @@ var _ = Describe("Writer", func() {
 				)))
 		})
 
-		It("Should open a live writer over a bounded claim, and refuse the commit "+
-			"that reaches it", func() {
+		It("Should open a live writer over a bounded claim, "+
+			"and refuse the commit that reaches it", func() {
 			open(clockWriter(50, true, 5))
 			w := open(clockWriter(40, false, 5))
 			id := MustSucceed(w.NewSegment(5))
