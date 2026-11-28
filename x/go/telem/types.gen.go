@@ -107,6 +107,45 @@ const (
 // single value for efficient multi-dimensional data access.
 type Alignment uint64
 
+// DataTypeCode is the one-byte code of a data type in the frame codec and in Cesium
+// segments. A code never changes once a stable release ships it. Code 255 is reserved
+// for a wider code.
+type DataTypeCode uint8
+
+//go:generate go tool stringer -type=DataTypeCode
+
+const (
+	// DataTypeCodeUnknown is no data type. Every codec refuses it on the wire.
+	DataTypeCodeUnknown   DataTypeCode = 0
+	DataTypeCodeUint8     DataTypeCode = 1
+	DataTypeCodeUint16    DataTypeCode = 2
+	DataTypeCodeUint32    DataTypeCode = 3
+	DataTypeCodeUint64    DataTypeCode = 4
+	DataTypeCodeInt8      DataTypeCode = 5
+	DataTypeCodeInt16     DataTypeCode = 6
+	DataTypeCodeInt32     DataTypeCode = 7
+	DataTypeCodeInt64     DataTypeCode = 8
+	DataTypeCodeFloat32   DataTypeCode = 9
+	DataTypeCodeFloat64   DataTypeCode = 10
+	DataTypeCodeTimestamp DataTypeCode = 11
+	DataTypeCodeUUID      DataTypeCode = 12
+	DataTypeCodeString    DataTypeCode = 13
+	DataTypeCodeBytes     DataTypeCode = 14
+	DataTypeCodeJSON      DataTypeCode = 15
+	DataTypeCodeBoolean   DataTypeCode = 16
+)
+
+// IsValid reports whether d is one of the defined DataTypeCode
+// values.
+func (d DataTypeCode) IsValid() bool {
+	switch d {
+	case DataTypeCodeUnknown, DataTypeCodeUint8, DataTypeCodeUint16, DataTypeCodeUint32, DataTypeCodeUint64, DataTypeCodeInt8, DataTypeCodeInt16, DataTypeCodeInt32, DataTypeCodeInt64, DataTypeCodeFloat32, DataTypeCodeFloat64, DataTypeCodeTimestamp, DataTypeCodeUUID, DataTypeCodeString, DataTypeCodeBytes, DataTypeCodeJSON, DataTypeCodeBoolean:
+		return true
+	default:
+		return false
+	}
+}
+
 // Aggregation selects how a limited read collapses each group of samples into points.
 // min_max keeps the lowest and highest sample of each group in the order they occurred,
 // average keeps the mean of each group, and decimate keeps the first sample of each

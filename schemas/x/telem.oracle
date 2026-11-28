@@ -164,6 +164,35 @@ DataType string {
     @ts hand
 }
 
+DataTypeCode enum {
+    unknown   = 0 {
+        @doc value "is no data type. Every codec refuses it on the wire."
+    }
+    uint8     = 1
+    uint16    = 2
+    uint32    = 3
+    uint64    = 4
+    int8      = 5
+    int16     = 6
+    int32     = 7
+    int64     = 8
+    float32   = 9
+    float64   = 10
+    timestamp = 11
+    uuid      = 12
+    string    = 13
+    bytes     = 14
+    json      = 15
+    boolean   = 16
+
+    @doc value """
+        is the one-byte code of a data type in the frame codec and in Cesium segments. A
+        code never changes once a stable release ships it. Code 255 is reserved for a
+        wider code.
+    """
+    @pb omit
+}
+
 Aggregation enum {
     min_max  = "min_max" {
         @doc value """
