@@ -215,6 +215,21 @@ describe("UsedBy.List", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
+  it("should run onSelect before a tree item opens a use", async () => {
+    const order: string[] = [];
+    const ch = await createChannel();
+    await renderList(
+      { kind: "range", uses: [read(ch)], onSelect: () => order.push("select") },
+      {
+        items: {
+          channel: Tree.createItem({ useOnSelect: () => () => order.push("open") }),
+        },
+      },
+    );
+    fireEvent.click(await screen.findByText(ch.name));
+    expect(order).toEqual(["select", "open"]);
+  });
+
   it("should say why the read of the uses failed", async () => {
     const r = await createRange();
     const onCaughtError = vi.fn();

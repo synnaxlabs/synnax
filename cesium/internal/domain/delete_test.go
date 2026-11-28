@@ -84,12 +84,12 @@ var _ = Describe("Delete", Ordered, func() {
 				DescribeTable(
 					"Delete Entire Pointer",
 					func(ctx SpecContext, startOffset, endOffset int, timeRange telem.TimeRange) {
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							timeRange,
 							fixedOffset(density.Size(int64(startOffset))),
 							fixedOffset(density.Size(int64(endOffset))),
-						)).To(Succeed())
+						))
 						b := MustSucceed(
 							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
 						)
@@ -118,12 +118,12 @@ var _ = Describe("Delete", Ordered, func() {
 				DescribeTable(
 					"Should not delete anything under various offset conditions",
 					func(ctx SpecContext, startOffset, endOffset int, timeRange telem.TimeRange) {
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							timeRange,
 							fixedOffset(density.Size(int64(endOffset))),
 							fixedOffset(density.Size(int64(startOffset))),
-						)).To(Succeed())
+						))
 						b := MustSucceed(
 							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
 						)
@@ -154,12 +154,12 @@ var _ = Describe("Delete", Ordered, func() {
 				It(
 					"Should correctly modify the time range of a domain when a new start is provided",
 					func(ctx SpecContext) {
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							(10 * telem.SecondTS).Range(12*telem.SecondTS),
 							fixedOffsetAndTimeStamp(0, 200*telem.SecondTS),
 							fixedOffset(1),
-						)).To(Succeed())
+						))
 						b := MustSucceed(
 							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
 						)
@@ -209,12 +209,12 @@ var _ = Describe("Delete", Ordered, func() {
 					func(ctx SpecContext,
 						cfg MultiPointerSpec,
 					) {
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							cfg.TimeRange,
 							fixedOffset(density.Size(cfg.StartOffset)),
 							fixedOffset(density.Size(cfg.EndOffset)),
-						)).To(Succeed())
+						))
 						iter := db.OpenIterator(
 							domain.IteratorConfig{Bounds: telem.TimeRangeMax},
 						)
@@ -370,12 +370,12 @@ var _ = Describe("Delete", Ordered, func() {
 				)
 
 				It("Should delete with the end being end of db", func(ctx SpecContext) {
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(12 * telem.SecondTS).Range(40*telem.SecondTS),
 						fixedOffset(2),
 						fixedOffset(10),
-					)).To(Succeed())
+					))
 					iter := db.OpenIterator(
 						domain.IteratorConfig{Bounds: telem.TimeRangeMax},
 					)
@@ -394,12 +394,12 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should delete nothing", func(ctx SpecContext) {
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(24 * telem.SecondTS).Range(24*telem.SecondTS),
 						fixedOffset(4),
 						fixedOffset(4),
-					)).To(Succeed())
+					))
 					iter := db.OpenIterator(
 						domain.IteratorConfig{Bounds: telem.TimeRangeMax},
 					)
@@ -426,12 +426,12 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should delete the entire db", func(ctx SpecContext) {
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(10 * telem.SecondTS).Range(40*telem.SecondTS),
 						fixedOffset(0),
 						fixedOffset(10),
-					)).To(Succeed())
+					))
 					iter := db.OpenIterator(
 						domain.IteratorConfig{Bounds: telem.TimeRangeMax},
 					)
@@ -440,27 +440,27 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should delete multiple pointers", func(ctx SpecContext) {
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(12 * telem.SecondTS).Range(13*telem.SecondTS),
 						fixedOffset(2),
 						fixedOffset(3),
-					)).To(Succeed())
+					))
 					// at this point, pointer 0 splits into two:
 					// 10, 11 / 13, 14, 15, 16, ..., 19
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(11 * telem.SecondTS).Range(15*telem.SecondTS),
 						fixedOffset(1),
 						fixedOffset(2),
-					)).To(Succeed())
+					))
 					// 10 / 15, 16, ..., 19
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(17 * telem.SecondTS).Range(19*telem.SecondTS),
 						fixedOffset(2),
 						fixedOffset(4),
-					)).To(Succeed())
+					))
 					// 10 / 15, 16 / 19
 					iter := db.OpenIterator(
 						domain.IteratorConfig{Bounds: telem.TimeRangeMax},
@@ -513,48 +513,48 @@ var _ = Describe("Delete", Ordered, func() {
 				It(
 					"Should delete multiple pointers that add up to the whole db",
 					func(ctx SpecContext) {
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							(12 * telem.SecondTS).Range(23*telem.SecondTS),
 							fixedOffset(2),
 							fixedOffset(3),
-						)).To(Succeed())
-						Expect(db.Delete(
+						))
+						MustSucceed(db.Delete(
 							ctx,
 							(26 * telem.SecondTS).Range(28*telem.SecondTS),
 							fixedOffset(3),
 							fixedOffset(5),
-						)).To(Succeed())
-						Expect(db.Delete(
+						))
+						MustSucceed(db.Delete(
 							ctx,
 							(30 * telem.SecondTS).Range(35*telem.SecondTS),
 							fixedOffset(0),
 							fixedOffset(5),
-						)).To(Succeed())
-						Expect(db.Delete(
+						))
+						MustSucceed(db.Delete(
 							ctx,
 							(28 * telem.SecondTS).Range(30*telem.SecondTS),
 							fixedOffset(0),
 							fixedOffset(0),
-						)).To(Succeed())
-						Expect(db.Delete(
+						))
+						MustSucceed(db.Delete(
 							ctx,
 							(23 * telem.SecondTS).Range(30*telem.SecondTS),
 							fixedOffset(0),
 							fixedOffset(0),
-						)).To(Succeed())
-						Expect(db.Delete(
+						))
+						MustSucceed(db.Delete(
 							ctx,
 							(35 * telem.SecondTS).Range(40*telem.SecondTS),
 							fixedOffset(0),
 							fixedOffset(0),
-						)).To(Succeed())
-						Expect(db.Delete(
+						))
+						MustSucceed(db.Delete(
 							ctx,
 							(10 * telem.SecondTS).Range(12*telem.SecondTS),
 							fixedOffset(0),
 							fixedOffset(0),
-						)).To(Succeed())
+						))
 						iter := db.OpenIterator(
 							domain.IteratorConfig{Bounds: telem.TimeRangeMax},
 						)
@@ -569,12 +569,12 @@ var _ = Describe("Delete", Ordered, func() {
 					func(ctx SpecContext) {
 						iter := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(iter.SeekFirst(ctx)).To(BeTrue())
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							(10 * telem.SecondTS).Range(12*telem.SecondTS),
 							fixedOffsetAndTimeStamp(0, 200*telem.SecondTS),
 							fixedOffset(1),
-						)).To(Succeed())
+						))
 						Expect(iter.Next()).To(BeTrue())
 						Expect(iter.TimeRange()).
 							To(Equal((22 * telem.SecondTS).SpanRange(8 * telem.Second)))
@@ -615,7 +615,7 @@ var _ = Describe("Delete", Ordered, func() {
 					It(
 						"Should not return an error when the start pointer is 1 greater than the end pointer and the offsets are 0 and full, respectively",
 						func(ctx SpecContext) {
-							Expect(db.Delete(
+							MustSucceed(db.Delete(
 								ctx,
 								telem.TimeRange{
 									Start: 40 * telem.SecondTS,
@@ -623,7 +623,7 @@ var _ = Describe("Delete", Ordered, func() {
 								},
 								fixedOffset(0),
 								fixedOffset(10),
-							)).To(Succeed())
+							))
 						},
 					)
 
@@ -638,7 +638,7 @@ var _ = Describe("Delete", Ordered, func() {
 								},
 								fixedOffset(7),
 								fixedOffset(5),
-							)).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
+							)).Error().To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
 						},
 					)
 
@@ -659,19 +659,19 @@ var _ = Describe("Delete", Ordered, func() {
 								telem.TimeRangeMin,
 								fixedOffset(0),
 								fixedOffset(0),
-							)).To(MatchError(domain.ErrDBClosed))
+							)).Error().To(MatchError(domain.ErrDBClosed))
 						},
 					)
 				})
 
 				Context("Without Data", func() {
 					It("Should not delete anything", func(ctx SpecContext) {
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							telem.TimeRangeMax,
 							fixedOffset(0),
 							fixedOffset(0),
-						)).To(Succeed())
+						))
 						iter := db.OpenIterator(
 							domain.IteratorConfig{Bounds: telem.TimeRangeMax},
 						)
