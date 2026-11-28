@@ -22,7 +22,7 @@ import {
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
-import { scheduler } from "@synnaxlabs/x";
+import { scheduler, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -513,9 +513,9 @@ describe("MQTT Write form", () => {
       fireEvent.click(item);
       // The message format field shows the name of the message.
       await screen.findByRole("button", { name: /Command/ });
-      // A write task takes only JSON messages, even where a read task takes text.
-      await screen.findByText("Message is not JSON");
-      within(item).getByRole("img", { name: "Message is not JSON" });
+      await screen.findByText("Message has no fields");
+      within(item).getByRole("img", { name: "Message has no fields" });
+      expect(screen.queryByText("Message is not JSON")).toBeNull();
     });
 
     it("should list a tag by its edge node, with its command channel in its pane", async () => {
@@ -611,6 +611,117 @@ describe("MQTT Write form", () => {
       );
       const modeGroup = await fieldGroup(mode.name);
       expect(modeGroup.getByText('Sends its default, "auto".')).toBeTruthy();
+    });
+
+    /** Renders a target whose message has the payload, and waits for its tree item. */
+    const renderPayload = async (value: icd.Message["payload"]) => {
+      const target = await createPlainTarget("t1", "plant/valve/set");
+      const rendered = await renderWrite([target]);
+      await screen.findByRole("treeitem", { name: /JSON.*plant\/valve\/set/ });
+      await client.icds.dispatch(
+        target.icd,
+        icd.set({ path: ["messages", target.message.message, "payload"], value }),
+      );
+      return rendered;
+    };
+
+    it("should send each field of a binary message but its identifier from a channel", async () => {
+      const id = icd.binaryFieldZ.parse({
+        key: uuid.create(),
+        name: "id",
+        kind: "unsigned",
+        startBit: 0,
+        bitLength: 8,
+      });
+      const valve = icd.binaryFieldZ.parse({
+        key: uuid.create(),
+        name: "valve",
+        kind: "unsigned",
+        startBit: 8,
+        bitLength: 8,
+      });
+      const { draft } = await renderPayload({
+        format: "binary",
+        identifier: { type: "field", field: id.key, value: 4 },
+        fields: [id, valve],
+      });
+      await fieldGroup(valve.name);
+      expect(screen.getByLabelText("Start bit")).toBeTruthy();
+      expect(screen.queryByRole("treeitem", { name: /^id/ })).toBeNull();
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: { bindings: [{ type: "channel", field: valve.key, channel: 0 }] },
+        }),
+      );
+    });
+
+    it("should send a fixed float value for a text field set to Value", async () => {
+      const [level, flow] = [1, 2].map((position) =>
+        icd.textFieldZ.parse({
+          key: uuid.create(),
+          name: position === 1 ? "level" : "flow",
+          encoding: "delimited",
+          position,
+        }),
+      );
+      const { draft } = await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [level, flow],
+      });
+      const flowGroup = await fieldGroup(flow.name);
+      fireEvent.click(flowGroup.getByRole("button", { name: "Value" }));
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: {
+            bindings: [
+              { type: "channel", field: level.key, channel: 0 },
+              { type: "value", field: flow.key, value: { type: "float", value: 0 } },
+            ],
+          },
+        }),
+      );
+    });
+
+    it("should add a binary field after the last bit from the menu of a target", async () => {
+      const count = icd.binaryFieldZ.parse({
+        key: uuid.create(),
+        name: "count",
+        kind: "unsigned",
+        startBit: 0,
+        bitLength: 8,
+      });
+      const { draft } = await renderPayload({ format: "binary", fields: [count] });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /BINARY.*plant\/valve\/set/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Add field" }));
+      await screen.findByRole("treeitem", { name: /^Field 2/ });
+      expect(screen.getByLabelText("Start bit")).toHaveProperty("value", "8");
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: { bindings: [{ field: count.key }, { type: "channel" }] },
+        }),
+      );
+    });
+
+    it("should offer no Duplicate on a text field", async () => {
+      const level = icd.textFieldZ.parse({
+        key: uuid.create(),
+        name: "level",
+        encoding: "delimited",
+        position: 1,
+      });
+      await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [level],
+      });
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^level/ }));
+      expect(await screen.findByText("Remove")).toBeTruthy();
+      expect(screen.queryByText("Duplicate")).toBeNull();
     });
 
     it("should send a fixed value for a field set to Value", async () => {

@@ -317,8 +317,6 @@ export interface MessageWarningProps {
   message: icd.Message | null;
   /** Says why the ICD has no such message, and what to do now. */
   missingDescription: string;
-  /** The task takes only JSON messages, as a write task does. */
-  jsonOnly?: boolean;
 }
 
 interface MessageStatusProps extends MessageWarningProps {
@@ -347,12 +345,11 @@ const NO_FIELDS: Problem = {
 const problemOf = ({
   message,
   missingDescription,
-  jsonOnly = false,
 }: MessageWarningProps): Problem | null => {
   if (message == null)
     return { message: "Message not found", description: missingDescription };
   const { format } = message.payload;
-  if (jsonOnly ? format !== "json" : !isTaskFormat(format)) return NOT_JSON;
+  if (!isTaskFormat(format)) return NOT_JSON;
   return message.payload.fields.length > 0 ? null : NO_FIELDS;
 };
 
@@ -370,7 +367,7 @@ const warningOf = (props: MessageWarningProps): ReactElement | null => {
 export const MessageWarning = (props: MessageWarningProps): ReactElement | null =>
   warningOf(props);
 
-export interface MessageMarkProps extends Pick<MessageWarningProps, "jsonOnly"> {
+export interface MessageMarkProps {
   icdKey: icd.Key;
   /** The messages of the item. The mark shows the problem of the first bad one. */
   messages: icd.MessageKey[];
@@ -386,7 +383,6 @@ export const MessageMark = ({
   icdKey,
   messages,
   missingDescription,
-  jsonOnly,
 }: MessageMarkProps): ReactElement | null => {
   const held = PForm.useFieldValue(PICD.formPath.messages, {
     optional: true,
@@ -398,7 +394,6 @@ export const MessageMark = ({
         problemOf({
           message: held?.find((m) => m.key === key) ?? null,
           missingDescription: missingDescription(i),
-          jsonOnly,
         }),
       )
       .find((p) => p != null) ?? null;

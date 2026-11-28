@@ -36,8 +36,8 @@ const isScaled = ({
   offset,
 }: Pick<icd.BaseField, "scale" | "offset">): boolean => scale !== 1 || offset !== 0;
 
-/** @returns the kind of the values that a read takes from field. Text reads floats. */
-const kindOf = (field: Field): payload.Kind => {
+/** @returns the kind of the values of field. A text field holds floats. */
+export const valueKind = (field: Field): payload.Kind => {
   if ("type" in field) return field.type;
   if ("kind" in field) return field.kind;
   return "float";
@@ -77,7 +77,7 @@ const holds = (field: icd.BinaryField, to: payload.Kind, dataType: string): bool
 export const converts = (field: Field, dataType: string): boolean => {
   const to = payload.kindOf(dataType);
   if (to == null || (isScaled(field) && to !== "float")) return false;
-  const kind = kindOf(field);
+  const kind = valueKind(field);
   if (to !== kind && !widens(kind, to)) return false;
   return !("bitLength" in field) || holds(field, to, dataType);
 };
@@ -94,13 +94,11 @@ const NUMERIC: ReadonlySet<payload.Kind> = new Set([
  * A sample writes to a field of its kind, and a number or a boolean to any number or
  * boolean field. A scaled field takes only a float.
  */
-export const encodes = (
-  field: Pick<icd.JSONField, "type" | "scale" | "offset">,
-  dataType: string,
-): boolean => {
+export const encodes = (field: Field, dataType: string): boolean => {
   const from = payload.kindOf(dataType);
   if (from == null || (isScaled(field) && from !== "float")) return false;
-  return from === field.type || (NUMERIC.has(from) && NUMERIC.has(field.type));
+  const kind = valueKind(field);
+  return from === kind || (NUMERIC.has(from) && NUMERIC.has(kind));
 };
 
 /**
@@ -130,7 +128,7 @@ export const unbind = <
  * takes float64, because the Core scales only float channels.
  */
 export const defaultDataType = (field: Field): string =>
-  isScaled(field) ? DataType.FLOAT64.toString() : DEFAULT_DATA_TYPES[kindOf(field)];
+  isScaled(field) ? DataType.FLOAT64.toString() : DEFAULT_DATA_TYPES[valueKind(field)];
 
 /**
  * @returns the data type of the channel that deploying creates for a binding of field.

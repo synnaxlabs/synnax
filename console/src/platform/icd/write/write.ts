@@ -11,10 +11,15 @@ import { channel, type icd, type Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { DataType } from "@synnaxlabs/x";
 
-import { bindingDataType, encodes } from "@/platform/icd/dataType";
+import { bindingDataType, encodes, valueKind } from "@/platform/icd/dataType";
 import { formatOf, type Formats, useMessages } from "@/platform/icd/Formats";
 import { createMessage } from "@/platform/icd/inferred";
-import { jsonFields, mostRead, retrieveMessages } from "@/platform/icd/read";
+import {
+  type Field,
+  isTaskFormat,
+  mostRead,
+  retrieveMessages,
+} from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
 const channelBinding = (field: icd.FieldKey): icd.ChannelWriteBinding => ({
@@ -24,10 +29,8 @@ const channelBinding = (field: icd.FieldKey): icd.ChannelWriteBinding => ({
 });
 
 /** @returns the name that deploying gives the command channel of field after prefix. */
-export const commandName = (
-  prefix: string,
-  { name }: Pick<icd.JSONField, "name">,
-): string => `${prefix}_${channel.escapeInvalidName(name)}_cmd`;
+export const commandName = (prefix: string, { name }: Pick<Field, "name">): string =>
+  `${prefix}_${channel.escapeInvalidName(name)}_cmd`;
 
 /** Tells the user what to do when the ICD no longer has the message of a write. */
 export const MISSING_DESCRIPTION =
@@ -45,6 +48,19 @@ export const unbind = (message: icd.WriteMessage): icd.WriteMessage => ({
 });
 
 /**
+ * @returns the fields of message that a write binds, or null when a task does not take
+ * its format. The identifier field of a binary message takes no binding.
+ */
+export const bindable = (message?: icd.Message | null): Field[] | null => {
+  if (message == null || !isTaskFormat(message.payload.format)) return null;
+  const { payload } = message;
+  if (payload.format !== "binary" || payload.identifier?.type !== "field")
+    return payload.fields;
+  const { field } = payload.identifier;
+  return payload.fields.filter(({ key }) => key !== field);
+};
+
+/**
  * @returns bindings, changed to suit fields: no binding of a field that is gone, no
  * fixed value of another kind, and no data type that its field does not take. Each
  * field with no default and no binding takes a channel. When no field takes one, the
@@ -52,13 +68,13 @@ export const unbind = (message: icd.WriteMessage): icd.WriteMessage => ({
  */
 export const suit = (
   bindings: icd.WriteBinding[],
-  fields: icd.JSONField[],
+  fields: Field[],
 ): icd.WriteBinding[] => {
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const kept = bindings.flatMap((b): icd.WriteBinding[] => {
     const field = byKey.get(b.field);
     if (field == null) return [];
-    if (b.type === "value") return b.value.type === field.type ? [b] : [];
+    if (b.type === "value") return b.value.type === valueKind(field) ? [b] : [];
     if (b.dataType == null || encodes(field, b.dataType)) return [b];
     return [{ type: "channel", field: b.field, channel: b.channel }];
   });
@@ -77,7 +93,7 @@ export const suit = (
 /** @returns the write of message, with the bindings that a new pick starts with. */
 export const create = (message: icd.Message): icd.WriteMessage => ({
   message: message.key,
-  bindings: suit([], jsonFields(message)),
+  bindings: suit([], bindable(message) ?? []),
 });
 
 export interface AddMessagesParams {
@@ -151,9 +167,9 @@ export const addMessages = async ({
 /** Keys and names the command channel of each field of a write. */
 export interface ChannelNaming {
   /** @returns the key of the field's channel in the write record of the device. */
-  key: (field: Pick<icd.JSONField, "key">) => string;
+  key: (field: Pick<Field, "key">) => string;
   /** @returns the name of a new command channel for the field. */
-  name: (field: Pick<icd.JSONField, "name">) => string;
+  name: (field: Pick<Field, "name">) => string;
 }
 
 /**
@@ -163,7 +179,7 @@ export interface ChannelNaming {
  * takes.
  */
 const commandChannels = (
-  fields: icd.JSONField[],
+  fields: Field[],
   write: icd.WriteMessage,
   naming: ChannelNaming,
 ): [icd.ChannelWriteBinding, Task.CommandChannelSpec][] =>
@@ -203,7 +219,7 @@ export const useCommandChannels = (): ((
   const messages = useMessages();
   return ({ icd: key, message }, naming) =>
     commandChannels(
-      jsonFields(messages.get(key)?.find((m) => m.key === message.message)),
+      bindable(messages.get(key)?.find((m) => m.key === message.message)) ?? [],
       message,
       naming,
     ).map(([, spec]) => spec);
@@ -222,9 +238,10 @@ export const configureChannels = async (
 ): Promise<void> => {
   if (!write.message.bindings.some(({ type }) => type === "channel")) return;
   const messages = await retrieveMessages(client, [write.icd]);
-  const fields = jsonFields(
-    messages.get(write.icd)?.find(({ key }) => key === write.message.message),
-  );
+  const fields =
+    bindable(
+      messages.get(write.icd)?.find(({ key }) => key === write.message.message),
+    ) ?? [];
   for (const [binding, spec] of commandChannels(fields, write.message, naming))
     binding.channel = await Task.configureCommandChannel(client, record, spec);
 };

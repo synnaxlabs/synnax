@@ -15,7 +15,7 @@ import type { FC } from "react";
 import { encodes, unbind } from "@/platform/icd/dataType";
 import { useMessage } from "@/platform/icd/Formats";
 import { useSuit } from "@/platform/icd/useSuit";
-import { suit } from "@/platform/icd/write/write";
+import { bindable, suit } from "@/platform/icd/write/write";
 
 export interface SuitProps {
   /** The ICD of the message, which an enclosing WithFormats opens. */
@@ -32,7 +32,7 @@ export const Suit: FC<SuitProps> = ({ icdKey, path }) => {
   useSuit({
     path: path.bindings,
     message,
-    fieldsOf: ({ payload }) => (payload.format === "json" ? payload.fields : null),
+    fieldsOf: bindable,
     suit,
     bound: (bindings) =>
       bindings.flatMap((b) => (b.type === "channel" ? [b.channel] : [])),

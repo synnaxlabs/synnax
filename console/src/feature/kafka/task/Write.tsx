@@ -136,7 +136,6 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
         icdKey={icdKey}
         messages={[message]}
         missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
-        jsonOnly
       />
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
@@ -181,7 +180,7 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
           actions={
             <ICD.AddField
               onClick={onAddField}
-              disabled={message?.payload.format !== "json"}
+              disabled={ICD.Write.bindable(message) == null}
             />
           }
         >
@@ -194,7 +193,6 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
           <ICD.MessageWarning
             message={message}
             missingDescription={ICD.Write.MISSING_DESCRIPTION}
-            jsonOnly
           />
         </PForm.Section>
       </PForm.Sections>

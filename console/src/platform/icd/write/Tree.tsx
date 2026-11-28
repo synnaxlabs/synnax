@@ -23,12 +23,12 @@ import {
 } from "react";
 
 import { copyName, copyPointer } from "@/platform/icd/fieldNames";
-import { createJSONField } from "@/platform/icd/Fields";
+import { createMessageField } from "@/platform/icd/Fields";
 import { formatOf, heldMessage, useFormats } from "@/platform/icd/Formats";
-import { fieldsPath, jsonFields } from "@/platform/icd/read";
+import { type Field, fieldsPath, jsonFields } from "@/platform/icd/read";
 import { Tree as ICDTree } from "@/platform/icd/tree";
 import { FieldDetails } from "@/platform/icd/write/Details";
-import type { ChannelNaming } from "@/platform/icd/write/write";
+import { bindable, type ChannelNaming } from "@/platform/icd/write/write";
 import { Task } from "@/platform/task";
 
 /** A target of a write task, in the task's form. */
@@ -54,13 +54,16 @@ export interface Pane {
   details: ReactNode;
 }
 
-/** What the tree shows of a field. Its pointer tells whether a copy can take one. */
-type TreeField = Pick<icd.JSONField, "key" | "name" | "pointer">;
+/** What the tree shows of a field, and whether a copy can take a place of its own. */
+interface TreeField extends Pick<Field, "key" | "name"> {
+  copyable: boolean;
+}
 
-const treeFieldOf = ({ key, name, pointer }: icd.JSONField): TreeField => ({
-  key,
-  name,
-  pointer,
+// Only a JSON field copies, and one at the whole document leaves no pointer free.
+const treeFieldOf = (field: Field): TreeField => ({
+  key: field.key,
+  name: field.name,
+  copyable: "pointer" in field && field.pointer !== "",
 });
 
 /** A node of the tree that is not a group. */
@@ -222,7 +225,9 @@ export const useTree = <T extends Target>({
           ? null
           : [
               sent.message,
-              jsonFields(heldMessage(formats, sent.icd, sent.message)).map(treeFieldOf),
+              (bindable(heldMessage(formats, sent.icd, sent.message)) ?? []).map(
+                treeFieldOf,
+              ),
             ],
       ];
     }),
@@ -300,29 +305,26 @@ export const useTree = <T extends Target>({
     if (sent == null) throw new Error(`Target ${target} sends no message`);
     return sent;
   };
-  const sendsJSON = (target: string): boolean => {
+  const takesFields = (target: string): boolean => {
     const sent = sentBy(target);
-    if (sent == null) return false;
     return (
-      formats
-        .get(sent.icd)
-        ?.value()
-        .messages.find(({ key }) => key === sent.message)?.payload.format === "json"
+      sent != null && bindable(heldMessage(formats, sent.icd, sent.message)) != null
     );
   };
 
   /**
-   * Adds a field to the JSON message of a target and to its ICD, and selects it. The
-   * Suit of the target binds it.
+   * Adds a field to the message of a target and to its ICD, and selects it. The Suit of
+   * the target binds it.
    */
   const addField = (target: string) => {
     const sent = sending(target);
-    const fields = jsonFields(heldMessage(formats, sent.icd, sent.message));
-    const field = createJSONField(fields);
+    const held = heldMessage(formats, sent.icd, sent.message);
+    if (held == null) throw new Error(`ICD ${sent.icd} has no message ${sent.message}`);
+    const field = createMessageField(held.payload);
     formatOf(formats, sent.icd).insert(
       fieldsPath(sent.message),
       field,
-      fields.at(-1)?.key,
+      held.payload.fields.at(-1)?.key,
     );
     setAdded(field.key);
     setCreated((prev) => [...prev, field.key]);
@@ -449,8 +451,7 @@ export const useTree = <T extends Target>({
     });
     if (fields.length > 0) {
       const onlyFields = fields.length === keys.length;
-      // A field at the whole document leaves no pointer free for a copy.
-      const copyable = onlyFields && fields.every(({ field }) => field.pointer !== "");
+      const copyable = onlyFields && fields.every(({ field }) => field.copyable);
       return (
         <Task.Views.ContextMenu
           keys={keys}
@@ -463,7 +464,7 @@ export const useTree = <T extends Target>({
     const off = chosen.filter((key) => ctx.get(disabledPath(key)).value);
     const [only] = keys;
     const addable =
-      keys.length === 1 && byKey.get(only)?.kind === "target" && sendsJSON(only);
+      keys.length === 1 && byKey.get(only)?.kind === "target" && takesFields(only);
     return (
       <Task.Views.ContextMenu
         keys={chosen}

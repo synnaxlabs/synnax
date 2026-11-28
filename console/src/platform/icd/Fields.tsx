@@ -844,11 +844,9 @@ export const JSONField = ({
   );
 };
 
-export interface TextFieldProps {
+export interface TextFieldProps extends Pick<JSONFieldProps, "actions" | "commanded"> {
   /** The form path of the field. */
   path: deep.Path<icd.TextField>;
-  /** Actions in the header of the field's section. */
-  actions?: ReactNode;
 }
 
 /** A text field read the other way keeps its name, conversion, and limits. */
@@ -864,7 +862,11 @@ const withTextEncoding = (
 };
 
 /** Edits one field of a text message: its name, where it sits, and its conversion. */
-export const TextField = ({ path, actions }: TextFieldProps): ReactElement => {
+export const TextField = ({
+  path,
+  actions,
+  commanded = false,
+}: TextFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const encoding = Form.useFieldValue(path.encoding);
   const handleEncoding = (next: icd.TextFieldType) => {
@@ -896,20 +898,25 @@ export const TextField = ({ path, actions }: TextFieldProps): ReactElement => {
           padHelpText={false}
         />
       )}
-      <Conversion path={path} />
+      <Conversion path={path} commanded={commanded} />
     </Form.Section>
   );
 };
 
-export interface BinaryFieldProps {
+export interface BinaryFieldProps extends Pick<
+  JSONFieldProps,
+  "actions" | "commanded"
+> {
   /** The form path of the field. */
   path: deep.Path<icd.BinaryField>;
-  /** Actions in the header of the field's section. */
-  actions?: ReactNode;
 }
 
 /** Edits one field of a binary message: its name, bits, type, and conversion. */
-export const BinaryField = ({ path, actions }: BinaryFieldProps): ReactElement => {
+export const BinaryField = ({
+  path,
+  actions,
+  commanded = false,
+}: BinaryFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const kind = Form.useFieldValue(path.kind);
   const handleKind = (next: NumberKind) => {
@@ -938,7 +945,7 @@ export const BinaryField = ({ path, actions }: BinaryFieldProps): ReactElement =
           preview={mode === "preview"}
         />
       </Input.Item>
-      <Conversion path={path} />
+      <Conversion path={path} commanded={commanded} />
     </Form.Section>
   );
 };

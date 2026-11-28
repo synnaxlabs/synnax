@@ -9,10 +9,41 @@
 
 import { icd } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { ICD } from "@/platform/icd";
+
+const flags = vi.hoisted((): { textMessages: boolean } => ({ textMessages: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
+  return {
+    FLAGS: {
+      ...FLAGS,
+      get textMessages() {
+        return flags.textMessages;
+      },
+    },
+  };
+});
+
+const createBinaryField = (
+  name: string,
+  kind: icd.BinaryField["kind"],
+  startBit: number,
+): icd.BinaryField =>
+  icd.binaryFieldZ.parse({ key: uuid.create(), name, kind, startBit, bitLength: 8 });
+
+const createTextField = (name: string, position: number): icd.TextField =>
+  icd.textFieldZ.parse({ key: uuid.create(), name, encoding: "delimited", position });
+
+const createMessage = (payload: icd.Message["payload"]): icd.Message => ({
+  key: uuid.create(),
+  name: "command",
+  payload,
+});
 
 const createField = (
   name: string,
@@ -20,7 +51,10 @@ const createField = (
   rest: Partial<icd.JSONField> = {},
 ): icd.JSONField => icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type, ...rest });
 
-const onChannel = (field: icd.JSONField, channel = 0): icd.ChannelWriteBinding => ({
+const onChannel = (
+  field: { key: icd.FieldKey },
+  channel = 0,
+): icd.ChannelWriteBinding => ({
   type: "channel",
   field: field.key,
   channel,
@@ -81,6 +115,80 @@ describe("ICD.Write.suit", () => {
     expect(
       ICD.Write.suit([{ ...onChannel(count, 12), dataType: "int64" }], [count]),
     ).toEqual([onChannel(count, 12)]);
+  });
+});
+
+describe("ICD.Write.suit of text and binary fields", () => {
+  it("should keep a fixed value of the kind of a binary field", () => {
+    const valve = createBinaryField("valve", "unsigned", 0);
+    const fixed: icd.WriteBinding = {
+      type: "value",
+      field: valve.key,
+      value: { type: "unsigned", value: "1" },
+    };
+    const setpoint = createBinaryField("setpoint", "float", 8);
+    expect(ICD.Write.suit([fixed], [valve, setpoint])).toEqual([
+      fixed,
+      onChannel(setpoint),
+    ]);
+  });
+
+  it("should put a text field on a channel when its fixed value is not a float", () => {
+    const level = createTextField("level", 1);
+    const bindings: icd.WriteBinding[] = [
+      { type: "value", field: level.key, value: { type: "integer", value: "3" } },
+    ];
+    expect(ICD.Write.suit(bindings, [level])).toEqual([onChannel(level)]);
+  });
+
+  it("should keep a numeric data type of a binary field and drop any other", () => {
+    const count = createBinaryField("count", "unsigned", 0);
+    const gear = createBinaryField("gear", "unsigned", 8);
+    const kept: icd.WriteBinding = { ...onChannel(count, 12), dataType: "uint8" };
+    expect(
+      ICD.Write.suit(
+        [kept, { ...onChannel(gear, 13), dataType: "string" }],
+        [count, gear],
+      ),
+    ).toEqual([kept, onChannel(gear, 13)]);
+  });
+});
+
+describe("ICD.Write.bindable", () => {
+  it("should give each field of a text message", () => {
+    const fields = [createTextField("level", 1), createTextField("flow", 2)];
+    expect(
+      ICD.Write.bindable(
+        createMessage({ format: "text", delimiter: ",", prefix: "", fields }),
+      ),
+    ).toEqual(fields);
+  });
+
+  it("should leave out the identifier field of a binary message", () => {
+    const id = createBinaryField("id", "unsigned", 0);
+    const valve = createBinaryField("valve", "unsigned", 8);
+    expect(
+      ICD.Write.bindable(
+        createMessage({
+          format: "binary",
+          identifier: { type: "field", field: id.key, value: 4 },
+          fields: [id, valve],
+        }),
+      ),
+    ).toEqual([valve]);
+  });
+
+  it("should give no fields of a text message while tasks take only JSON", () => {
+    flags.textMessages = false;
+    onTestFinished(() => {
+      flags.textMessages = true;
+    });
+    const fields = [createTextField("level", 1)];
+    expect(
+      ICD.Write.bindable(
+        createMessage({ format: "text", delimiter: ",", prefix: "", fields }),
+      ),
+    ).toBeNull();
   });
 });
 

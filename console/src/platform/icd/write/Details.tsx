@@ -17,25 +17,29 @@ import {
   bounds,
   DataType,
   deep,
+  type payload,
   primitive,
   TimeSpan,
   TimeStamp,
   uuid,
 } from "@synnaxlabs/x";
-import type { FC } from "react";
+import type { FC, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
-import { defaultDataType, encodes } from "@/platform/icd/dataType";
-import { JSONField, renamedPointer } from "@/platform/icd/Fields";
+import { defaultDataType, encodes, valueKind } from "@/platform/icd/dataType";
+import {
+  BinaryField,
+  JSONField,
+  renamedPointer,
+  TextField,
+} from "@/platform/icd/Fields";
 import { formatOf, heldMessage, useFormats } from "@/platform/icd/Formats";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { formatDefault } from "@/platform/icd/Options";
 import { rawBounds } from "@/platform/icd/range";
-import { jsonFields } from "@/platform/icd/read";
+import { type Field, fieldsPath, jsonFields } from "@/platform/icd/read";
 import { ValueField } from "@/platform/icd/ValueField";
 import { Task } from "@/platform/task";
-
-type Kind = icd.JSONField["type"];
 
 /** What fills a field: a command channel, a fixed value, or the field's default. */
 type Mode = icd.WriteBindingType | "default";
@@ -52,7 +56,7 @@ const whole = ({ lower, upper }: bounds.Bounds, floor = -Infinity): bounds.Bound
 
 /** The fixed value that a field starts with, one the Core accepts when one fits. */
 const INITIAL_VALUES: {
-  [K in Kind]: (field: icd.JSONField) => Extract<icd.WriteValue, { type: K }>;
+  [K in payload.Kind]: (field: Field) => Extract<icd.WriteValue, { type: K }>;
 } = {
   float: (f) => ({ type: "float", value: nearZero(rawBounds(f)) }),
   integer: (f) => ({ type: "integer", value: String(nearZero(whole(rawBounds(f)))) }),
@@ -71,8 +75,40 @@ const INITIAL_VALUES: {
   bytes: () => ({ type: "bytes", value: "" }),
 };
 
-const hiddenDataTypes = (field: icd.JSONField): DataType[] =>
+const hiddenDataTypes = (field: Field): DataType[] =>
   DataType.ALL.filter((dt) => !encodes(field, dt.toString()));
+
+interface FieldSectionProps {
+  payload: deep.Path<icd.Message["payload"]>;
+  field: icd.FieldKey;
+  commanded: boolean;
+  autoFocus: boolean;
+  onNameChange?: (name: string) => void;
+  actions: ReactNode;
+}
+
+const FIELD_SECTIONS: Record<
+  payload.Format,
+  (props: FieldSectionProps) => ReactElement
+> = {
+  json: ({ payload, field, ...rest }) => (
+    <JSONField path={deep.variant(payload, "format", "json").fields[field]} {...rest} />
+  ),
+  text: ({ payload, field, commanded, actions }) => (
+    <TextField
+      path={deep.variant(payload, "format", "text").fields[field]}
+      commanded={commanded}
+      actions={actions}
+    />
+  ),
+  binary: ({ payload, field, commanded, actions }) => (
+    <BinaryField
+      path={deep.variant(payload, "format", "binary").fields[field]}
+      commanded={commanded}
+      actions={actions}
+    />
+  ),
+};
 
 const ONLY_CHANNEL_HELP = "A message needs at least one field on a channel.";
 
@@ -117,12 +153,9 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   const isPreview = Task.useIsPreview();
   const formats = useFormats();
   const format = formatOf(formats, icdKey);
-  const fieldPath = deep.variant(
-    PICD.formPath.messages[message].payload,
-    "format",
-    "json",
-  ).fields[key];
-  const field = PForm.useFieldValue(fieldPath, { ctx: format });
+  const payloadPath = PICD.formPath.messages[message].payload;
+  const field = PForm.useFieldValue(fieldsPath(message)[key], { ctx: format });
+  const json = "pointer" in field ? field : null;
   const bindings = PForm.useFieldValue(path);
   const i = bindings.findIndex((b) => b.field === key);
   const binding = i >= 0 ? bindings[i] : undefined;
@@ -144,17 +177,22 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
     const next: icd.WriteBinding =
       mode === "channel"
         ? { type: "channel", field: key, channel: 0 }
-        : { type: "value", field: key, value: INITIAL_VALUES[field.type](field) };
+        : { type: "value", field: key, value: INITIAL_VALUES[valueKind(field)](field) };
     set(path, bound ? bindings.with(i, next) : [...bindings, next]);
   };
-  const handleRename = (name: string) => {
+  const rename = (renamed: icd.JSONField, name: string) => {
     const pointer = renamedPointer(
-      field,
+      renamed,
       name,
       jsonFields(heldMessage(formats, icdKey, message)),
     );
-    if (pointer != null) format.set(fieldPath.pointer, pointer);
+    if (pointer != null)
+      format.set(
+        deep.variant(payloadPath, "format", "json").fields[key].pointer,
+        pointer,
+      );
   };
+  const messageFormat = PForm.useFieldValue(payloadPath.format, { ctx: format });
   const modes = (
     <Select.Buttons<Mode>
       value={bound ? binding.type : "default"}
@@ -177,15 +215,17 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
         <PForm.Form<typeof PICD.formSchema> {...format}>
-          <JSONField
-            path={fieldPath}
-            commanded={binding?.type === "channel"}
-            autoFocus={autoFocus}
-            onNameChange={created ? handleRename : undefined}
-            actions={
+          {FIELD_SECTIONS[messageFormat]({
+            payload: payloadPath,
+            field: key,
+            commanded: binding?.type === "channel",
+            autoFocus,
+            onNameChange:
+              created && json != null ? (name) => rename(json, name) : undefined,
+            actions: (
               <OpenInEditor icdKey={icdKey} message={message} field={field.key} />
-            }
-          />
+            ),
+          })}
         </PForm.Form>
         <PForm.Section title="Source" actions={modes} role="group" aria-label="Source">
           {only && (
@@ -210,12 +250,15 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
           )}
           {bound && binding.type === "value" && (
             <ValueField
-              type={field.type}
+              type={valueKind(field)}
               path={deep.variant(path[i], "type", "value").value.value}
             />
           )}
           {!bound && (
-            <Text.Text color={9}>Sends its default, {formatDefault(field)}.</Text.Text>
+            <Text.Text color={9}>
+              Sends its default,{" "}
+              {"pointer" in field ? formatDefault(field) : String(field.default)}.
+            </Text.Text>
           )}
         </PForm.Section>
       </PForm.Sections>

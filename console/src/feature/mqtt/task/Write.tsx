@@ -198,7 +198,7 @@ const PlainTargetPane = ({
         actions={
           <ICD.AddField
             onClick={onAddField}
-            disabled={message?.payload.format !== "json"}
+            disabled={ICD.Write.bindable(message) == null}
           />
         }
       >
@@ -211,7 +211,6 @@ const PlainTargetPane = ({
         <ICD.MessageWarning
           message={message}
           missingDescription={ICD.Write.MISSING_DESCRIPTION}
-          jsonOnly
         />
       </PForm.Section>
     </PForm.Sections>
