@@ -17,8 +17,7 @@ import (
 )
 
 // NameRules returns the name rule of each scope that has one, as the service layer
-// gives
-// them to the group service.
+// gives them to the group service.
 func NameRules() map[resource.Type]group.NameRule {
 	return map[resource.Type]group.NameRule{
 		resource.TypeChannel: channel.CheckFolderName,
