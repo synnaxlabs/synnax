@@ -1,0 +1,24 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+Address struct {
+    host string  {
+        @doc value           "is the hostname or IP address."
+        @go validate         pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
+        @validate max_length 253
+        @validate required
+    }
+    port uint16? {
+        @doc value    "is the TCP port. Absent takes the default port of the owner."
+        @validate min 1
+    }
+
+    @doc value  "is a host and an optional TCP port that a client connects to."
+    @go marshal
+}
