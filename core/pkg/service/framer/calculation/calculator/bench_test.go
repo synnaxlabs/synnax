@@ -154,6 +154,41 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
 }
 
+// BenchmarkCalculator_TypeChange runs a float64 calculation on an input whose series
+// come in int32, as after a type change, so each step converts its series.
+func BenchmarkCalculator_TypeChange(b *testing.B) {
+	env := newBenchEnv(b)
+	defer env.close(b)
+
+	base := []channel.Channel{{Name: "input", DataType: telem.Float64T, Virtual: true}}
+	calc := calctestutil.Calculation{
+		Name:       "output",
+		DataType:   telem.Float64T,
+		Expression: "return input",
+	}
+
+	c := env.openCalculator(b, base, calc)
+	defer func() {
+		if err := c.Close(); err != nil {
+			b.Errorf("failed to close calculator: %v", err)
+		}
+	}()
+
+	inputFrame := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int32](10, 20, 30))
+	outputFrame := frame.Frame{}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		advanceAlignment(inputFrame)
+		if _, _, err := c.Next(env.ctx, inputFrame, outputFrame); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
+}
+
 func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 	env := newBenchEnv(b)
 	defer env.close(b)

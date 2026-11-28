@@ -9,7 +9,6 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  type DataType,
   math,
   MultiSeries,
   Series,
@@ -87,8 +86,8 @@ const shouldCompact = (buffer: Series): boolean => {
 
 /**
  * Grows written series in one leading buffer, and flushes it when a series does not fit
- * or does not continue it. The buffer takes its data type from the first series
- * written, so it needs no channel metadata.
+ * or does not continue it, or holds another data type. The buffer takes its data type
+ * from the series written, so it needs no channel metadata.
  */
 export class Dynamic {
   private readonly props: Required<Omit<Props, "now">>;
@@ -135,11 +134,6 @@ export class Dynamic {
    */
   get leadingBuffer(): Series | null {
     return this.curr;
-  }
-
-  /** Discards the leading buffer when it holds a data type other than dt. */
-  retainDataType(dt: DataType): void {
-    if (this.curr != null && !this.curr.dataType.equals(dt)) this.curr = null;
   }
 
   /**
@@ -253,14 +247,11 @@ export class Dynamic {
   private _write(series: Series, res: WriteResponse): void {
     const { instrumentation: ins } = this.props;
     if (this.curr != null)
-      if (!this.curr.dataType.equals(series.dataType)) {
-        // The channel's data type changed (e.g. a calculated channel was reconfigured).
-        ins.L.warn("buffer data type changed, resetting", {
-          prev: this.curr.dataType.toString(),
-          next: series.dataType.toString(),
-        });
+      if (
+        !this.curr.dataType.equals(series.dataType) ||
+        series.clock !== this.curr.clock
+      )
         this.flushCurr(res);
-      } else if (series.clock !== this.curr.clock) this.flushCurr(res);
       else if (series.alignment < this.curr.alignment) {
         // The alignment counter rewound (e.g. the Core restarted and reset its
         // in-memory counter).

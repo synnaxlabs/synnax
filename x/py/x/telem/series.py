@@ -659,16 +659,10 @@ class MultiSeries[T: SampleValue = SampleValue](ArrayOperators):
     _series: tuple[Series[T], ...]
 
     def __init__(self, series: Sequence[Series[T]]):
+        """:param series: The series to hold, of any data types. A read of one series
+        keeps its exact type, and a read of the whole MultiSeries widens to its
+        data_type."""
         self._series = tuple(series)
-        if len(series) > 0:
-            first_dt = series[0].data_type
-            same_dt = all(s.data_type == first_dt for s in series)
-            if not same_dt:
-                data_types = {s.data_type for s in series}
-                raise ValueError(f"""
-                    [MultiSeries] - All series must have the same data type. Received
-                    {first_dt} and {data_types}.
-                    """)
 
     @property
     def series(self) -> tuple[Series[T], ...]:
@@ -696,7 +690,7 @@ class MultiSeries[T: SampleValue = SampleValue](ArrayOperators):
             return np.empty((0,), dtype=target_dtype)
         if len(self.series) == 1:
             return self.series[0].__array__(dtype=dtype, copy=copy)
-        target_dtype = dtype if dtype is not None else self.series[0].data_type.np
+        target_dtype = dtype if dtype is not None else self.data_type.np
         pre_alloc = np.empty((len(self),), dtype=target_dtype)
         start = 0
         for s in self.series:
@@ -749,9 +743,15 @@ class MultiSeries[T: SampleValue = SampleValue](ArrayOperators):
 
     @property
     def data_type(self) -> DataType:
+        """:returns: the one data type that holds every series, widened by
+        DataType.widen, or DataType.UNKNOWN when there are no series.
+        :raises TypeError: When no data type holds every series."""
         if len(self.series) == 0:
             return DataType.UNKNOWN
-        return self.series[0].data_type
+        dt = self.series[0].data_type
+        for s in self.series[1:]:
+            dt = dt.widen(s.data_type)
+        return dt
 
     def __len__(self) -> int:
         return sum(len(s) for s in self.series)

@@ -268,16 +268,7 @@ export class Points {
     const tiles = this.select(targets, home);
     const { raw, tail, filling } = this.rawEdge(home, fillingBlocks);
     this.prune(targets, tiles, next, home, extremesKept);
-    let series = [...tiles.flatMap((t) => t.series.series), ...raw, ...tail];
-    const dataType = this.props.store.dataType(this.key);
-    const retyped =
-      dataType != null && series.some((s) => !s.dataType.equals(dataType));
-    if (retyped) {
-      // Series of two data types cannot share a snapshot.
-      this.restart();
-      series = series.filter((s) => s.dataType.equals(dataType));
-      this.raw = this.raw.filter((s) => s.dataType.equals(dataType));
-    }
+    const series = [...tiles.flatMap((t) => t.series.series), ...raw, ...tail];
     this.pin(home);
     const loaded = targets.every((spec) => this.held.has(cacheTile.requestKey(spec)));
     if (this.loading && !filling && loaded) this.loading = false;
@@ -287,14 +278,11 @@ export class Points {
       time: this.time(tail),
       streaming: this.streaming,
     };
-    // A restart reads every tile again, so the next value rebuilds.
-    this.memo = retyped
-      ? null
-      : {
-          snapshot,
-          epoch: this.props.store.epoch(this.key),
-          validUntil: this.edgeAfter(now, home),
-        };
+    this.memo = {
+      snapshot,
+      epoch: this.props.store.epoch(this.key),
+      validUntil: this.edgeAfter(now, home),
+    };
     return snapshot;
   }
 
@@ -688,7 +676,7 @@ export class Points {
     const { tiles, store } = this.props;
     this.pending.add(key);
     tiles
-      .read(spec, store.dataType(this.key))
+      .read(spec)
       .then((series) => {
         if (generation !== this.generation) return;
         this.pending.delete(key);
@@ -912,23 +900,6 @@ export class Points {
   private fail(e: unknown): void {
     this.readFailure = status.fromException(e, READ_FAILED);
     this.loading = false;
-    this.changed();
-  }
-
-  // Drops every tile and raw sample the channel holds, as when its data type changes.
-  private restart(): void {
-    this.generation++;
-    this.abort.abort();
-    this.abort = new AbortController();
-    this.notifier.notify();
-    this.held.clear();
-    this.pending.clear();
-    this.retrying.clear();
-    this.rejected.clear();
-    this.rejection = null;
-    this.rawRead = "idle";
-    this.loading = true;
-    if (this.index != null) this.moveBoundary();
     this.changed();
   }
 }

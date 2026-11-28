@@ -510,6 +510,57 @@ describe("reduce.Reducer", () => {
       },
     );
 
+    it.each<Aggregation>(["min_max", "average", "decimate"])(
+      "should reduce %s ops of two y data types apart",
+      (aggregation) => {
+        const [a, b] = cut([10]);
+        const u8 = op(
+          a.x,
+          new Series({
+            data: new Uint8Array(YS.slice(0, 10)),
+            dataType: DataType.UINT8,
+            alignment: 0n,
+          }),
+        );
+        const parts = new reduce.Reducer().reduce([u8, b], aggregation, 8);
+        const runs = [
+          ...new reduce.Reducer().reduce([u8], aggregation, 8),
+          ...new reduce.Reducer().reduce([b], aggregation, 8),
+        ];
+        expect(values(parts, "y")).toEqual(values(runs, "y"));
+        expect(values(parts, "x")).toEqual(values(runs, "x"));
+        expect(parts.map((o) => o.y.dataType)).toEqual(runs.map((o) => o.y.dataType));
+        expect(parts[0].y.dataType).toEqual(DataType.UINT8);
+      },
+    );
+
+    it("should average float x samples that follow integer x samples unrounded", () => {
+      const [a, b] = cut([10]);
+      const i32 = op(
+        new Series({
+          data: new Int32Array(XS.slice(0, 10)),
+          dataType: DataType.INT32,
+          alignment: 0n,
+        }),
+        a.y,
+      );
+      const half = op(
+        new Series({
+          data: new Float32Array(XS.slice(10).map((v) => v + 0.5)),
+          alignment: 10n,
+        }),
+        b.y,
+      );
+      const parts = new reduce.Reducer().reduce([i32, half], "average", 8);
+      const runs = [
+        ...new reduce.Reducer().reduce([i32], "average", 8),
+        ...new reduce.Reducer().reduce([half], "average", 8),
+      ];
+      // Either the x type change splits the run, as a y type change does, or the
+      // group across it averages 8, 9, 10.5, ..., 15.5 to 11.875.
+      expect([values(runs, "x"), [3, 11.875, 18]]).toContainEqual(values(parts, "x"));
+    });
+
     it("should reduce a group that spans three or more ops", () => {
       const parts = new reduce.Reducer().reduce(
         cut([3, 6, 9, 12, 15, 18]),

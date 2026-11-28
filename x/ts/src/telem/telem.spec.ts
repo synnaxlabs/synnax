@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { readFileSync } from "node:fs";
+
 import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 import { z } from "zod";
 
@@ -2396,6 +2398,34 @@ describe("Density", () => {
 });
 
 describe("DataType", () => {
+  describe("isInt64Like", () => {
+    it("should hold only int64 and timestamp", () => {
+      expect(DataType.INT64.isInt64Like).toBe(true);
+      expect(DataType.TIMESTAMP.isInt64Like).toBe(true);
+      expect(DataType.UINT64.isInt64Like).toBe(false);
+      expect(DataType.FLOAT64.isInt64Like).toBe(false);
+    });
+  });
+
+  describe("widen", () => {
+    // The vectors are shared with the Python implementation.
+    const VECTORS_URL = new URL("../../../testdata/telem/widen.json", import.meta.url);
+    const { cases } = JSON.parse(readFileSync(VECTORS_URL, "utf-8")) as {
+      cases: Array<{ a: string; b: string; widened?: string; error?: boolean }>;
+    };
+    it("should hold every pair of data types", () => expect(cases).toHaveLength(256));
+    cases.forEach(({ a, b, widened, error }) =>
+      it(`should widen ${a} and ${b}`, () => {
+        const [da, db] = [new DataType(a), new DataType(b)];
+        if (error === true)
+          expect(() => da.widen(db)).toThrow(
+            `cannot widen ${a} and ${b} into one data type`,
+          );
+        else expect(da.widen(db).toString()).toEqual(widened);
+      }),
+    );
+  });
+
   describe("code", () => {
     const CODES: Array<[DataType, number]> = [
       [DataType.UINT8, 1],
