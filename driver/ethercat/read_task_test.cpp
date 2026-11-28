@@ -886,7 +886,7 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheCalibrationCannotBeRead) {
     const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Failed to read the calibration of channel " + data_ch.name +
             ": failed to read 0x8040:15: Object does not exist in the object "
             "dictionary."
@@ -1128,6 +1128,11 @@ public:
     x::errors::Error resend_statuses() override { return x::errors::NIL; }
 
     bool statuses_stale() override { return false; }
+
+    std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &) override {
+        return std::nullopt;
+    }
 
     void release() {
         {
@@ -1746,7 +1751,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     auto source = ReadTaskSource(mismatched_engine, std::move(task_cfg));
     const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Test Module (serial 12345) is not on the bus.");
+    EXPECT_EQ(err.data(), "Test Module (serial 12345) is not on the bus.");
 }
 
 }

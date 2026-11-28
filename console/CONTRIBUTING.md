@@ -4,7 +4,7 @@
 
 To get started contributing to Console, read the development environment setup guide for
 [macOS](../docs/tech/setup-macos.md) or [windows](../docs/tech/setup-windows.md).
-Console requires both a nodejs and a rust development environment.
+Console requires both a Node.js and a Rust development environment.
 
 ## Running the development server
 

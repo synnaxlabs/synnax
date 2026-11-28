@@ -46,7 +46,7 @@ func capture() (*os.File, func() string) {
 	}
 }
 
-// run executes oracle with args and returns what it printed to stdout and stderr and
+// run executes Oracle with args and returns what it printed to stdout and stderr and
 // its exit code.
 func run(args ...string) (string, string, int) {
 	GinkgoHelper()
@@ -59,7 +59,7 @@ func run(args ...string) (string, string, int) {
 	return readStdout(), readStderr(), code
 }
 
-// succeed runs oracle with args, expects exit code 0, and returns what it printed to
+// succeed runs Oracle with args, expects exit code 0, and returns what it printed to
 // stdout.
 func succeed(args ...string) string {
 	GinkgoHelper()
@@ -68,7 +68,7 @@ func succeed(args ...string) string {
 	return stdout
 }
 
-// fail runs oracle with args, expects exit code 1, and returns what it printed to
+// fail runs Oracle with args, expects exit code 1, and returns what it printed to
 // stderr.
 func fail(args ...string) string {
 	GinkgoHelper()
@@ -77,7 +77,7 @@ func fail(args ...string) string {
 	return stderr
 }
 
-// failGate runs oracle check with args, expects the gate failure code, expects
+// failGate runs `oracle check` with args, expects the gate failure code, expects
 // nothing on stderr, and returns the report printed to stdout.
 func failGate(code int, args ...string) string {
 	GinkgoHelper()
@@ -116,7 +116,7 @@ func releaseMiniRepo(repoDir string) {
 	}
 }
 
-// setupMiniRepo creates a temp directory that looks like a minimal oracle repo:
+// setupMiniRepo creates a temp directory that looks like a minimal Oracle repo:
 //   - .git/ directory (so paths.RepoRoot finds it)
 //   - schemas/*.oracle files
 //

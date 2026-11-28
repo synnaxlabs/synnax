@@ -285,7 +285,6 @@ var _ = Describe("Graph", func() {
 					}
 				}
 				calcs := MustSucceed(creator.CreateMany(ctx, calculations))
-				calcs = append(calcs, MustSucceed(creator.Indexes(ctx, calcs))...)
 				for _, calc := range calcs {
 					Expect(g.Add(ctx, calc)).To(Succeed())
 				}
@@ -331,7 +330,6 @@ var _ = Describe("Graph", func() {
 						Expression: "return base_nested_order + 2",
 					},
 				}))
-				calcs = append(calcs, MustSucceed(creator.Indexes(ctx, calcs))...)
 				for _, calc := range calcs {
 					Expect(g.Add(ctx, calc)).To(Succeed())
 				}

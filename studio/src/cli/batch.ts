@@ -167,7 +167,7 @@ interface Result {
 
 /**
  * runChild produces one entry in a child process. Each capture points its
- * fixtures at its core through a process-wide environment variable, so workers
+ * fixtures at its Core through a process-wide environment variable, so workers
  * must not share a process.
  */
 const runChild = async (id: string, port: number, opts: Options): Promise<Result> => {

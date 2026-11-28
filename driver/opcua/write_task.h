@@ -81,7 +81,10 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             keys.push_back(key);
         auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
+            parser.field_err(
+                "channels",
+                "failed to retrieve channels: " + ch_err.data()
+            );
             return;
         }
         for (const auto &sy_ch: sy_channels) {
@@ -240,7 +243,7 @@ private:
                     s,
                     target == this->targets.end() ? nullptr : target->second
                 )) {
-                problems.push_back(ch.ch.name + ": " + err.data + ".");
+                problems.push_back(ch.ch.name + ": " + err.data() + ".");
                 continue;
             }
             this->written_keys.push_back(key);

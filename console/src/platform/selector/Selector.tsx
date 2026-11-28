@@ -233,28 +233,35 @@ const Body = ({
         <div key={section.key} className={sectionClass(section)}>
           {heading(section)}
           <div className={CSS.BE("layout-selector", "groups")}>
-            {section.groups?.map((group) => (
-              <div
-                key={group.key}
-                className={CSS.cls(
-                  CSS.BE("layout-selector", "group"),
-                  dimmed(group.selectables) && CSS.M("dimmed"),
-                )}
-              >
-                <Text.Text
-                  level="p"
-                  color={10}
-                  className={CSS.BE("layout-selector", "group-name")}
-                  overflow="fade"
+            {section.groups?.map((group) => {
+              const groupDimmed = dimmed(group.selectables);
+              return (
+                <div
+                  key={group.key}
+                  className={CSS.cls(
+                    CSS.BE("layout-selector", "group"),
+                    groupDimmed && CSS.M("dimmed"),
+                  )}
                 >
-                  {group.icon}
-                  {group.title}
-                </Text.Text>
-                <div className={CSS.BE("layout-selector", "actions")}>
-                  {group.selectables.map((s) => item(s, "action"))}
+                  <Text.Text
+                    level="p"
+                    color={10}
+                    className={CSS.BE("layout-selector", "group-name")}
+                    overflow="fade"
+                  >
+                    {groupDimmed ? (
+                      group.icon
+                    ) : (
+                      <Icon.Colored>{group.icon}</Icon.Colored>
+                    )}
+                    {group.title}
+                  </Text.Text>
+                  <div className={CSS.BE("layout-selector", "actions")}>
+                    {group.selectables.map((s) => item(s, "action"))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}

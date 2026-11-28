@@ -147,7 +147,7 @@ func pushDownDevice(config msgpack.EncodedJSON) {
 }
 
 // strainConfigs maps the kebab-case bridge names Consoles 0.36 through 0.44 wrote to
-// the DAQmx names. Console 0.44.6 flipped the constants in place with no migration,
+// the NI-DAQmx names. Console 0.44.6 flipped the constants in place with no migration,
 // so stored rows keep the kebab spelling until redeployed.
 var strainConfigs = map[string]string{
 	"full-bridge-I":     "FullBridgeI",
@@ -160,7 +160,7 @@ var strainConfigs = map[string]string{
 }
 
 // rewriteStrainValues replaces a strain gauge channel's kebab-case bridge names with
-// the DAQmx spellings.
+// the NI-DAQmx spellings.
 func rewriteStrainValues(ch msgpack.EncodedJSON) {
 	if ch["type"] != "ai_strain_gauge" {
 		return
@@ -168,9 +168,9 @@ func rewriteStrainValues(ch msgpack.EncodedJSON) {
 	legacy.RemapValue(ch, "strain_config", strainConfigs)
 }
 
-// rewriteChargeUnits replaces a charge channel's released unit strings with the DAQmx
-// names. "C" resolved to Celsius in the Driver's unit table, so a released charge
-// channel measured temperature; "uC" resolved to nothing and DAQmx has no
+// rewriteChargeUnits replaces a charge channel's released unit strings with the
+// NI-DAQmx names. "C" resolved to Celsius in the Driver's unit table, so a released
+// charge channel measured temperature; "uC" resolved to nothing and NI-DAQmx has no
 // micro-coulomb unit, so PicoCoulombs is the nearest real one.
 func rewriteChargeUnits(ch msgpack.EncodedJSON) {
 	if ch["type"] != "ai_charge" {

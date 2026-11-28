@@ -18,7 +18,7 @@ export const NETWORK: Device.Network = {
   key: INTEGRATION_KEY,
   name: "HTTP",
   title: "HTTP server",
-  description: "Poll and send JSON to an HTTP API.",
+  description: "Poll and send messages to an HTTP API.",
   icon: <Icon.Logo.HTTP />,
   make: MAKE,
   scanType: SCAN_TYPE,

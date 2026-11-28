@@ -391,7 +391,7 @@ TEST_F(SOEMMasterTest, ScanInitFails) {
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
     EXPECT_FALSE(err.matches(errors::NO_SLAVES_FOUND));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Cannot open eth0 for raw Ethernet access. Run the Driver as root (or with "
         "CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
@@ -406,7 +406,7 @@ TEST_F(SOEMMasterTest, ScanReportsAnInterfaceWithNoSlaves) {
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
     EXPECT_FALSE(err.matches(errors::REPLIES_BLOCKED));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "No EtherCAT modules found on eth0. Check the cable and the power of the first "
         "module."
     );
@@ -423,7 +423,7 @@ TEST_F(SOEMMasterTest, ScanNamesTheDewesoftFilterOnAnInterfaceWithNoSlaves) {
     const auto err = this->master->scan().second;
     ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "No EtherCAT modules found on Ethernet 2. The DewesoftX network filter on this "
         "adapter blocks EtherCAT replies, even with DewesoftX closed. To turn it off, "
         "click Turn off DewesoftX filter under Connect device > EtherCAT network."
@@ -439,7 +439,7 @@ TEST_F(SOEMMasterTest, ScanNamesTheInterfaceWhenTheFilteredAdapterHasNoName) {
     const auto err = this->master->scan().second;
     ASSERT_OCCURRED_AS(err, errors::REPLIES_BLOCKED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "No EtherCAT modules found on eth0. The DewesoftX network filter on this "
         "adapter blocks EtherCAT replies, even with DewesoftX closed. To turn it off, "
         "click Turn off DewesoftX filter under Connect device > EtherCAT network."
@@ -463,7 +463,7 @@ TEST_F(SOEMMasterTest, ScanInitFailureNamesTheWindowsAdapter) {
     const auto err = this->master->scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Cannot open Ethernet 2 for raw Ethernet access. Run the Driver as root (or "
         "with CAP_NET_RAW on Linux), and install Npcap on Windows."
     );
@@ -1335,7 +1335,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to reach SAFE-OP: module 1 (TestSlave) is in PRE-OP: Invalid output "
         "configuration"
     );
@@ -1376,7 +1376,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpTimeoutIsNotARefusal) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
-    EXPECT_EQ(err.data, "failed to reach SAFE-OP: module 1 (TestSlave) is in PRE-OP");
+    EXPECT_EQ(err.data(), "failed to reach SAFE-OP: module 1 (TestSlave) is in PRE-OP");
 }
 
 /// @brief it should name only the slave that refused SAFE-OP, from one read of the
@@ -1387,7 +1387,7 @@ TEST_F(SOEMMasterTest, ActivateNamesOnlyTheRefusingSlave) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to reach SAFE-OP: module 2 (RefusingSlave) is in PRE-OP: Inconsistent "
         "settings"
     );
@@ -1423,7 +1423,7 @@ TEST_F(SOEMMasterTest, ActivateRefusesAUsedSlaveWithNoIdentity) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (? M:00000000 I:00000000) gave no identity when the Driver read its "
         "EEPROM"
     );
@@ -1451,7 +1451,7 @@ TEST_F(SOEMMasterTest, ActivateRefusesTheOnlySlaveWithIOWhenItHasNoIdentity) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (? M:00000000 I:00000000) gave no identity when the Driver read its "
         "EEPROM"
     );
@@ -1520,7 +1520,7 @@ TEST_F(SOEMMasterTest, ActivateRecordsASlaveThatRefusesOp) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to reach OP: module 2 (RefusingSlave) is in SAFE-OP: Inconsistent "
         "settings"
     );
@@ -1568,7 +1568,7 @@ TEST_F(SOEMMasterTest, ActivateReportsADCSyncRefusal) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to reach SAFE-OP: module 1 (FirstSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration; module 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration"
@@ -1589,7 +1589,7 @@ TEST_F(SOEMMasterTest, ActivateOpRefusalReturnsAtOnce) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to reach OP: module 1 (TestSlave) is in SAFE-OP: Invalid output mapping"
     );
     // One read each for SAFE-OP and OP.
@@ -1610,7 +1610,7 @@ TEST_F(SOEMMasterTest, ActivateOpTimingFaultIsNotARefusal) {
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to reach OP: module 1 (TestSlave) is in SAFE-OP: Sync manager watchdog"
     );
     EXPECT_EQ(this->mock->readstate_count, 2);
@@ -1629,7 +1629,7 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRestartRequestIsNotARefusal) {
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_FALSE(err.matches(errors::STATE_CHANGE_REFUSED));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to reach SAFE-OP: module 1 (TestSlave) is in PRE-OP: Slave needs PREOP"
     );
 }
@@ -1642,7 +1642,7 @@ TEST_F(SOEMMasterTest, ActivateOpTransitionFails) {
     this->mock->statecheck_overrides[EC_STATE_OPERATIONAL] = EC_STATE_SAFE_OP;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
-    EXPECT_EQ(err.data, "failed to reach OP: module 1 (TestSlave) is in SAFE-OP");
+    EXPECT_EQ(err.data(), "failed to reach OP: module 1 (TestSlave) is in SAFE-OP");
 }
 
 /// @brief it should start the bus cycle once send() works and before it requests SAFE-
@@ -1690,7 +1690,10 @@ TEST_F(SOEMMasterTest, ReceiveBeforeSAFEOPReportsAShortfall) {
         receives = this->mock->receive_count;
     }));
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "no process data passes the modules until they reach SAFE-OP");
+    EXPECT_EQ(
+        err.data(),
+        "no process data passes the modules until they reach SAFE-OP"
+    );
     EXPECT_EQ(receives, 0);
 }
 
@@ -1709,9 +1712,9 @@ TEST_F(SOEMMasterTest, SendAndReceiveFailWhenTheReferenceClockFrameIsLost) {
         receive_err = this->master->receive();
     }));
     ASSERT_OCCURRED_AS(send_err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(send_err.data, "reference clock frame failed");
+    EXPECT_EQ(send_err.data(), "reference clock frame failed");
     ASSERT_OCCURRED_AS(receive_err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(receive_err.data, "reference clock frame failed");
+    EXPECT_EQ(receive_err.data(), "reference clock frame failed");
 }
 
 /// @brief it should map the slaves with no SAFE-OP request from SOEM, so the slaves
@@ -1733,7 +1736,7 @@ TEST_F(SOEMMasterTest, ActivateRequestsOPOnlyAfterAFramePassesInSAFEOP) {
     const auto err = this->master->activate({.period = PERIOD}, no_cycle).err;
     ASSERT_OCCURRED_AS(err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to reach OP: no process data passed the modules in SAFE-OP"
     );
     EXPECT_EQ(
@@ -1821,7 +1824,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenDCActivationCannotBeCleared) {
     this->mock->write_register_return = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "module 1 (EL3104) refused a write to DC register 0x0980");
+    EXPECT_EQ(err.data(), "module 1 (EL3104) refused a write to DC register 0x0980");
     EXPECT_EQ(this->mock->mapped_group, std::nullopt);
 }
 
@@ -1838,7 +1841,7 @@ TEST_F(SOEMMasterTest, ActivateReportsADCWriteThatGotNoReply) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (EL3104) did not reply to a write to DC register 0x0980"
     );
 }
@@ -1976,10 +1979,10 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenTheDCModeCannotRunAtThePeriod) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (16xAO) cannot run its DC mode at a bus cycle of " +
             this->period.to_string() + ": " +
-            dc::resolve(DC_ONLY, this->period).second.data
+            dc::resolve(DC_ONLY, this->period).second.data()
     );
     EXPECT_EQ(this->mock->mapped_group, std::nullopt);
 }
@@ -2002,7 +2005,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSYNC0EventsDoNotLineUpWithTheBusCycle) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "SYNC0 events do not line up with the bus cycle of 1ms: module 1 (16xAO) every "
         "150us, module 2 (16xLV) every 150us. Change the bus rate or the SYNC0 cycles "
         "so that a span of 100us or more divides the bus cycle and each SYNC0 cycle."
@@ -2037,7 +2040,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenTheSlaveDoesNotListItsChosenMode) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (16xAO) cannot use its chosen mode: the module does not list mode 2 "
         "with AssignActivate 0x0700. It lists 0 \"SM-Synchron\" (AssignActivate "
         "0x0000), 1 \"DC\" (AssignActivate 0x0700)."
@@ -2082,7 +2085,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "the clock of module 1 (16xAO) is " + x::telem::TimeSpan(20'000).to_string() +
             " off the reference clock after " +
             (x::telem::MILLISECOND * 50).to_string() + ". It must be within " +
@@ -2100,7 +2103,7 @@ TEST_F(SOEMMasterTest, ActivateReadsTheClockDifferenceOnlyAfterAFrame) {
     const auto err = this->master->activate({.period = PERIOD}, no_cycle).err;
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "no frame carried the reference clock to the modules within " +
             (x::telem::MILLISECOND * 50).to_string()
     );
@@ -2123,7 +2126,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockCannotBeRead) {
     this->mock->read_register_return = 0;
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "module 1 (16xAO) refused a read of DC register 0x092C");
+    EXPECT_EQ(err.data(), "module 1 (16xAO) refused a read of DC register 0x092C");
 }
 
 /// @brief it should turn DC sync off when it stops the bus.
@@ -2237,7 +2240,7 @@ TEST_F(SOEMMasterTest, ReceiveFailsWithNoSendInFlight) {
     this->activate_master();
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(err.data(), "process data receive failed");
 }
 
 /// @brief it should keep a frame that has not come back in flight, and take it at a
@@ -2293,7 +2296,7 @@ TEST_F(SOEMMasterTest, ReceiveDropsAFrameOnceItIsTheMaxFrameAge) {
     this->skip(x::telem::MICROSECOND);
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(err.data(), "process data receive failed");
     EXPECT_EQ(this->mock->drop_count, 1);
 }
 
@@ -2331,7 +2334,7 @@ TEST_F(SOEMMasterTest, ReceiveDropsTheOldestFrameWhenTooManyAreInFlight) {
     ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(err.data(), "process data receive failed");
     EXPECT_EQ(this->mock->drop_count, 1);
     EXPECT_TRUE(this->mock->processdata_in_flight.empty());
 }
@@ -2432,7 +2435,7 @@ TEST_F(SOEMMasterTest, ReceiveKeepsAFailedSendBehindTheFrameInFlight) {
     const auto receives = this->mock->receive_count;
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "process data receive failed");
+    EXPECT_EQ(err.data(), "process data receive failed");
     EXPECT_EQ(this->mock->receive_count, receives);
 }
 
@@ -2456,7 +2459,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     const auto late = this->master->receive();
     ASSERT_OCCURRED_AS(late, errors::CYCLIC_ERROR);
     EXPECT_EQ(
-        late.data,
+        late.data(),
         "process data receive failed. Ethernet 2 is a USB adapter, which can hold "
         "frames back. Use a PCIe or onboard Ethernet adapter, or lower the rate of the "
         "fastest task on the network"
@@ -2466,7 +2469,7 @@ TEST_F(SOEMMasterTest, ReceiveBlamesAUSBAdapterOnlyWhileFramesComeBack) {
     ASSERT_OCCURRED_AS(this->master->send(), errors::CYCLIC_ERROR);
     const auto dead = this->master->receive();
     ASSERT_OCCURRED_AS(dead, errors::CYCLIC_ERROR);
-    EXPECT_EQ(dead.data, "process data receive failed");
+    EXPECT_EQ(dead.data(), "process data receive failed");
 }
 
 /// @brief it should fail a receive whose working counter is not the expected count.
@@ -2477,7 +2480,7 @@ TEST_F(SOEMMasterTest, ReceiveWkcMismatch) {
     ASSERT_NIL(this->master->send());
     const auto err = this->master->receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "working counter mismatch: expected 3, got 1");
+    EXPECT_EQ(err.data(), "working counter mismatch: expected 3, got 1");
     EXPECT_EQ(this->master->shortfall(), 2U);
 }
 
@@ -2489,7 +2492,7 @@ TEST_F(SOEMMasterTest, ReceiveGivesTheLatestMismatchedCount) {
         this->mock->receive_return = wkc;
         ASSERT_NIL(this->master->send());
         EXPECT_EQ(
-            this->master->receive().data,
+            this->master->receive().data(),
             "working counter mismatch: expected 3, got " + std::to_string(wkc)
         );
     }
@@ -3618,7 +3621,7 @@ TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
                          .second;
     ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Module 1 (TestSlave) maps 16 input and 0 output bits, but its discovered PDO "
         "entries hold 24 and 0."
     );
@@ -3757,7 +3760,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
         "parameter written too high"
     );
@@ -3774,7 +3777,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) failed to write startup parameter 0x8000:19: no response"
     );
 }
@@ -3817,7 +3820,7 @@ TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
     const auto err = this->activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) failed to write startup parameter 0x8000:19: no response"
     );
 }
@@ -3949,7 +3952,7 @@ TEST_F(SOEMMasterTest, WriteReturnsTheRejectionWithoutFaultingTheSlave) {
     const auto err = this->master->write(1, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Module 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
         "parameter written too high."
     );
@@ -3974,7 +3977,7 @@ TEST_F(SOEMMasterTest, ReadReturnsTheAbortOfAMissingObject) {
     const auto [value, err] = this->master->read(1, 0x8040, 0x15);
     ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read 0x8040:15: Object does not exist in the object dictionary"
     );
 }
@@ -3985,7 +3988,7 @@ TEST_F(SOEMMasterTest, ReadReportsAReadThatGotNoReply) {
     this->mock->slave_infos[0].sdo_read_aborts[{0x8040, 0x15}] = 0;
     const auto [value, err] = this->master->read(1, 0x8040, 0x15);
     ASSERT_OCCURRED_AS(err, coe::NO_REPLY);
-    EXPECT_EQ(err.data, "failed to read 0x8040:15: no response");
+    EXPECT_EQ(err.data(), "failed to read 0x8040:15: no response");
 }
 
 /// @brief it should report a reply that is not the SDO response as an unexpected
@@ -3997,7 +4000,7 @@ TEST_F(SOEMMasterTest, ReadReportsAnUnexpectedReply) {
     ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
     EXPECT_FALSE(err.matches(coe::NO_REPLY));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read 0x8040:15: the module sent an unexpected reply"
     );
 }
@@ -4009,7 +4012,7 @@ TEST_F(SOEMMasterTest, ReadReportsAReplyLargerThanTheRead) {
     const auto [value, err] = this->master->read(1, 0x8040, 0x15);
     ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read 0x8040:15: the reply is larger than the read allows"
     );
 }
@@ -4023,7 +4026,7 @@ TEST_F(SOEMMasterTest, ReadReportsAMailboxError) {
     ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
     EXPECT_FALSE(err.matches(coe::NO_REPLY));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read 0x8040:15: the module refused the mailbox request"
     );
 }
@@ -4058,7 +4061,7 @@ TEST_F(SOEMMasterTest, ActivateRetriesAStartupParameterWithAnUnexpectedReply) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) failed to write startup parameter 0x8000:19: the module "
         "sent an unexpected reply"
     );

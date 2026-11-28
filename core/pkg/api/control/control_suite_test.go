@@ -115,7 +115,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// authedCtx returns a freighter context carrying u as the authenticated subject.
+// authedCtx returns a Freighter context carrying u as the authenticated subject.
 func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", u.ResourceID())

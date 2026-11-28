@@ -40,6 +40,11 @@ export interface TagsProps extends Button.ButtonProps<"div"> {
    * beside it names the total, such as "3 labels". Without it, the count reads "+3".
    */
   noun?: { one: string; other: string };
+  /**
+   * Whether tags that do not fit at full width fold into the count at once. By default
+   * they overlap first, then the last ones fold.
+   */
+  unstacked?: boolean;
 }
 
 interface Hidden {
@@ -71,11 +76,13 @@ const HiddenList = ({ groupRef }: GroupProps): ReactElement => {
     );
     setHidden(tags.map(describe));
   }, [groupRef]);
+  // When any tag has a dot, a tag with none keeps its room, so the names line up.
+  const dotted = hidden.some(({ color }) => color != null);
   return (
     <div className={CSS.BE("tags", "hidden")}>
       {hidden.map(({ name, color }) => (
         <Text.Text key={name} level="small" gap="small">
-          {color != null && <Icon.Circle color={color} />}
+          {dotted && <Icon.Circle color={color ?? "transparent"} />}
           {name}
         </Text.Text>
       ))}
@@ -142,6 +149,7 @@ export const Tags = ({
   className,
   onCountClick,
   noun,
+  unstacked = false,
   ...rest
 }: TagsProps) => {
   const shared = useContext(StepContext);
@@ -167,6 +175,7 @@ export const Tags = ({
         CSS.B("tags"),
         shared != null && CSS.BM("tags", "stepped"),
         onCountClick != null && CSS.BM("tags", "parts"),
+        unstacked && CSS.BM("tags", "unstacked"),
         className,
       )}
       el="div"

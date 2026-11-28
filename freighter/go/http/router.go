@@ -96,12 +96,12 @@ func NewRouter(life context.Context, configs ...RouterConfig) (*Router, error) {
 }
 
 // Router collects unary and stream servers and binds them to a fiber.App as a single
-// BindableTransport. It also owns the lifecycle of any websocket streams: BindTo
+// BindableTransport. It also owns the lifecycle of any WebSocket streams: BindTo
 // installs a post-shutdown hook that cancels in-flight streams and waits for them to
 // drain.
 type Router struct {
 	cfg RouterConfig
-	// fiber doesn't manage the lifecycle of websocket connections (streams), so the
+	// fiber doesn't manage the lifecycle of WebSocket connections (streams), so the
 	// router cancels streamCtx when its lifetime ends or the app shuts down, and waits
 	// for streams to close on streamWg.
 	streamCtx context.Context
@@ -169,9 +169,9 @@ func (r *Router) register(
 	})
 }
 
-// NewStreamServer registers a streaming (websocket) server at the given path on the
+// NewStreamServer registers a streaming (WebSocket) server at the given path on the
 // router and returns a freighter.StreamServer the caller can attach a handler to via
-// BindHandler. The route is bound on the GET method to support the websocket upgrade
+// BindHandler. The route is bound on the GET method to support the WebSocket upgrade
 // handshake.
 func (r *Router) NewStreamServer[RQ, RS freighter.Payload](
 	path string,

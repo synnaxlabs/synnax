@@ -17,6 +17,7 @@ import (
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -150,6 +151,7 @@ type Factory struct {
 	reporter driver.ConfigReporter
 	cfg      FactoryConfig
 	reads    read.Resolver
+	writes   write.Resolver
 	// edited holds the keys of the broker devices that changed since the last
 	// reconfigure.
 	edited struct {
@@ -171,9 +173,11 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 	if err != nil {
 		return nil, err
 	}
+	channels := icd.ReadChannels(cfg.Channel)
 	f := &Factory{
-		cfg:   cfg,
-		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
+		cfg:    cfg,
+		reads:  read.NewResolver(cfg.ICD, channels),
+		writes: write.NewResolver(cfg.ICD, channels),
 		pool: newPool(
 			cfg.Instrumentation,
 			cfg.DB,
@@ -418,33 +422,6 @@ func (f *Factory) openRead(
 	return rt, nil
 }
 
-// retrieveICDs returns the ICDs of keys, by key. It returns a validation error for the
-// first key that has no ICD.
-func (f *Factory) retrieveICDs(
-	ctx context.Context,
-	keys []icd.Key,
-) (map[icd.Key]icd.ICD, error) {
-	var icds map[icd.Key]icd.ICD
-	if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		var err error
-		icds, err = f.cfg.ICD.NewRetrieve().
-			Where(icd.MatchKeys(keys...)).
-			SkipMissingKeys().
-			ByKey(ctx, snap)
-		return err
-	}); err != nil {
-		return nil, err
-	}
-	for _, key := range keys {
-		if _, ok := icds[key]; !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "icd: ICD %s does not exist", key,
-			)
-		}
-	}
-	return icds, nil
-}
-
 // writers holds the channels that the messages and tags of a read task write to.
 type writers struct {
 	keys    channel.Keys
@@ -547,24 +524,29 @@ func (f *Factory) configureWrite(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	enabled, keys, icdKeys, err := enabledTargets(cfg.Targets)
+	enabled, keys, err := enabledTargets(cfg.Targets)
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	channels, err := f.retrieveChannels(ctx, keys)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	icds, err := f.retrieveICDs(ctx, icdKeys)
-	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
+	tags := lo.FilterMap(
+		enabled,
+		func(v WriteTargetVariant, _ int) (channel.Key, bool) {
+			target, ok := v.(SparkplugWriteTarget)
+			return target.Channel, ok
+		},
+	)
 	sink := &writeSink{
 		pool:      f.pool,
 		broker:    dev.Key,
 		byChannel: make(map[channel.Key][]int),
 	}
-	if err = sink.addTargets(enabled, icds, channels); err != nil {
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := f.writes.NewChecker(ctx, snap, writesOf(&cfg), tags, nil)
+		if err != nil {
+			return err
+		}
+		return sink.addTargets(enabled, c)
+	}); err != nil {
 		return nil, cfg.AutoStart, err
 	}
 	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
@@ -582,15 +564,11 @@ func (f *Factory) configureWrite(
 	return wt, cfg.AutoStart, nil
 }
 
-// enabledTargets returns the enabled targets, their command channels, and the ICDs that
-// their messages belong to.
-func enabledTargets(
-	targets []WriteTarget,
-) ([]WriteTargetVariant, channel.Keys, []icd.Key, error) {
+// enabledTargets returns the enabled targets and their command channels.
+func enabledTargets(targets []WriteTarget) ([]WriteTargetVariant, channel.Keys, error) {
 	var (
 		enabled []WriteTargetVariant
 		keys    channel.Keys
-		icds    []icd.Key
 	)
 	for _, tg := range targets {
 		switch target := tg.Variant.(type) {
@@ -598,7 +576,6 @@ func enabledTargets(
 			if target.Disabled {
 				continue
 			}
-			icds = append(icds, target.ICD)
 			for _, b := range write.ChannelBindings(target.Message) {
 				keys = append(keys, b.Channel)
 			}
@@ -608,7 +585,7 @@ func enabledTargets(
 			}
 			keys = append(keys, target.Channel)
 		case nil:
-			return nil, nil, nil, errors.Wrap(
+			return nil, nil, errors.Wrap(
 				validate.ErrValidation, "targets: a target is null",
 			)
 		default:
@@ -617,28 +594,29 @@ func enabledTargets(
 		enabled = append(enabled, tg.Variant)
 	}
 	if len(enabled) == 0 {
-		return nil, nil, nil, errors.Wrap(
+		return nil, nil, errors.Wrap(
 			validate.ErrValidation, "targets: the task has no enabled targets",
 		)
 	}
-	return enabled, keys, icds, nil
+	return enabled, keys, nil
 }
 
-// addTargets adds the targets of enabled to s. icds holds the ICD of each plain target,
-// and channels holds the command channels.
-func (s *writeSink) addTargets(
-	enabled []WriteTargetVariant,
-	icds map[icd.Key]icd.ICD,
-	channels map[channel.Key]channel.Channel,
-) error {
+// addTargets adds the targets of enabled to s, built from the ICDs and the command
+// channels that c holds.
+func (s *writeSink) addTargets(enabled []WriteTargetVariant, c write.Checker) error {
+	channels := c.Channels()
 	for _, variant := range enabled {
 		switch target := variant.(type) {
 		case PlainWriteTarget:
-			built, err := newMessageTarget(target, icds[target.ICD], channels)
+			ic, err := c.ICD(target.ICD)
 			if err != nil {
 				return err
 			}
-			s.add(built, built.docs.Channels()...)
+			built, err := newMessageTarget(target, ic, channels)
+			if err != nil {
+				return err
+			}
+			s.add(built, built.payloads.Channels()...)
 		case SparkplugWriteTarget:
 			ch, ok := channels[target.Channel]
 			if !ok {

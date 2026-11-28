@@ -68,13 +68,12 @@ runs:
         if [ "$RUNNER_OS" = Linux ]; then args=(--with-deps); fi
         pnpm "install-browsers:$PACKAGE" "${args[@]}"
 
-    # Main saves each new key. Elsewhere a save helps only reruns of that branch, so it
-    # happens only when main has no cache, and never in a merge group.
+    # Only main saves. A save on any other branch helps only reruns of that branch, and
+    # each copy holds 540 MB.
     - name: Collect the packages for the cache
       if:
-        runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' && (github.ref
-        == 'refs/heads/main' || (github.event_name != 'merge_group' &&
-        steps.cache.outputs.cache-matched-key == ''))
+        runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' && github.ref ==
+        'refs/heads/main'
       shell: bash
       run: |
         sudo apt-get autoclean -y
@@ -85,9 +84,8 @@ runs:
 
     - name: Save the browser cache
       if:
-        runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' && (github.ref
-        == 'refs/heads/main' || (github.event_name != 'merge_group' &&
-        steps.cache.outputs.cache-matched-key == ''))
+        runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' && github.ref ==
+        'refs/heads/main'
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: |
