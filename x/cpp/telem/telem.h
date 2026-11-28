@@ -9,21 +9,30 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <chrono>
 #include <cmath>
+#include <compare>
+#include <concepts>
 #include <cstdint>
 #include <cstdio>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <string>
+#include <string_view>
 #include <typeindex>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 #include <vector>
 
 #include <google/protobuf/struct.pb.h>
 
 #include "x/cpp/date/date.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/strings/strings.h"
 
@@ -769,6 +778,306 @@ inline const TimeSpan MINUTE = SECOND * 60;
 inline const TimeSpan HOUR = MINUTE * 60;
 /// @brief a single day.
 inline const TimeSpan DAY = HOUR * 24;
+
+/// @brief a byte count, such as a storage capacity or a data volume. Size strings such
+/// as "256MB" are for Driver config files only: TypeScript's Size.z reads numbers.
+class Size {
+    std::int64_t value = 0;
+
+public:
+    constexpr Size() = default;
+
+    /// @brief constructs a size from the given number of bytes.
+    constexpr explicit Size(const std::int64_t bytes): value(bytes) {}
+
+    /// @brief returns the number of bytes in the size.
+    [[nodiscard]] constexpr std::int64_t bytes() const { return this->value; }
+
+    /// @brief returns the number of kilobytes in the size.
+    [[nodiscard]] double kilobytes() const;
+
+    /// @brief returns the number of megabytes in the size.
+    [[nodiscard]] double megabytes() const;
+
+    /// @brief returns the number of gigabytes in the size.
+    [[nodiscard]] double gigabytes() const;
+
+    /// @brief returns the number of terabytes in the size.
+    [[nodiscard]] double terabytes() const;
+
+    /// @brief a zero byte size.
+    static constexpr Size ZERO() { return Size(); }
+
+    constexpr auto operator<=>(const Size &other) const = default;
+
+    constexpr Size operator+(const Size &other) const {
+        return Size(value + other.value);
+    }
+
+    constexpr Size operator-(const Size &other) const {
+        return Size(value - other.value);
+    }
+
+    constexpr Size &operator+=(const Size &other) {
+        this->value += other.value;
+        return *this;
+    }
+
+    constexpr Size &operator-=(const Size &other) {
+        this->value -= other.value;
+        return *this;
+    }
+
+    template<std::integral T>
+    constexpr Size operator*(const T other) const {
+        return Size(value * static_cast<std::int64_t>(other));
+    }
+
+    template<std::integral T>
+    friend constexpr Size operator*(const T lhs, const Size &rhs) {
+        return rhs * lhs;
+    }
+
+    /// @brief scales the size, rounding to the nearest byte. A result outside the int64
+    /// range, infinity included, saturates to the nearest bound. A NaN result is zero.
+    Size operator*(const double other) const {
+        const double scaled = static_cast<double>(value) * other;
+        constexpr double bound = 0x1p63;
+        if (std::isnan(scaled)) return Size();
+        if (scaled >= bound) return Size(std::numeric_limits<std::int64_t>::max());
+        if (scaled < -bound) return Size(std::numeric_limits<std::int64_t>::min());
+        return Size(std::llround(scaled));
+    }
+
+    friend Size operator*(const double lhs, const Size &rhs) { return rhs * lhs; }
+
+    constexpr Size operator/(const std::int64_t &other) const {
+        return Size(value / other);
+    }
+
+    /// @brief returns how many whole times other fits in the size.
+    constexpr std::int64_t operator/(const Size &other) const {
+        return value / other.value;
+    }
+
+    constexpr Size operator%(const Size &other) const {
+        return Size(value % other.value);
+    }
+
+    /// @brief returns the size as whole units from terabytes down to bytes, such as
+    /// "1GB 500MB 3B". Zero is "0B". The output matches TypeScript's Size.toString.
+    [[nodiscard]] std::string to_string() const;
+
+    friend std::ostream &operator<<(std::ostream &os, const Size &s) {
+        return os << s.to_string();
+    }
+
+    /// @brief parses a size from text: a plain number of bytes such as "1024", or
+    /// whole numbers with units in descending order, such as "256MB", "4 MB", or
+    /// "1GB 500MB". Units are B, KB, MB, GB, and TB in any case, and are decimal.
+    /// @returns a x::errors::VALIDATION error if the text is malformed or the size
+    /// overflows an int64.
+    static std::pair<Size, errors::Error> parse(const std::string &text);
+
+    /// @brief parses a size from a JSON number of bytes or a string accepted by
+    /// parse(const std::string &). Binds an error to the parser for a negative or
+    /// fractional number or a malformed string.
+    /// @param parser the parser at the size value.
+    static Size parse(x::json::Parser parser);
+
+    /// @brief returns the size as a JSON number of bytes.
+    [[nodiscard]] x::json::json to_json() const { return this->value; }
+};
+
+/// @brief a single byte.
+inline constexpr Size BYTE = Size(1);
+/// @brief 1,000 bytes.
+inline constexpr Size KILOBYTE = BYTE * 1000;
+/// @brief 1,000 kilobytes.
+inline constexpr Size MEGABYTE = KILOBYTE * 1000;
+/// @brief 1,000 megabytes.
+inline constexpr Size GIGABYTE = MEGABYTE * 1000;
+/// @brief 1,000 gigabytes.
+inline constexpr Size TERABYTE = GIGABYTE * 1000;
+
+namespace details {
+struct SizeUnit {
+    std::string_view name;
+    Size size;
+};
+
+/// @brief the units of a size string, largest first.
+inline constexpr std::array<SizeUnit, 5> SIZE_UNITS{{
+    {"TB", TERABYTE},
+    {"GB", GIGABYTE},
+    {"MB", MEGABYTE},
+    {"KB", KILOBYTE},
+    {"B", BYTE},
+}};
+
+/// @brief returns the length of the valid UTF-8 character at text[i], or 0 if the bytes
+/// there are not one.
+inline std::size_t utf8_char_size(const std::string &text, const std::size_t i) {
+    const auto at = [&](const std::size_t j) {
+        return j < text.size() ? static_cast<unsigned char>(text[j]) : 0;
+    };
+    const auto lead = at(i);
+    if (lead < 0x80) return 1;
+    std::size_t size = 0;
+    unsigned char lo = 0x80, hi = 0xBF;
+    if (lead >= 0xC2 && lead <= 0xDF)
+        size = 2;
+    else if (lead >= 0xE0 && lead <= 0xEF) {
+        size = 3;
+        if (lead == 0xE0) lo = 0xA0;
+        if (lead == 0xED) hi = 0x9F;
+    } else if (lead >= 0xF0 && lead <= 0xF4) {
+        size = 4;
+        if (lead == 0xF0) lo = 0x90;
+        if (lead == 0xF4) hi = 0x8F;
+    } else
+        return 0;
+    if (at(i + 1) < lo || at(i + 1) > hi) return 0;
+    for (std::size_t j = 2; j < size; ++j)
+        if ((at(i + j) & 0xC0) != 0x80) return 0;
+    return size;
+}
+
+/// @brief returns text as valid UTF-8 for an error message, with each invalid byte as
+/// '?' and anything past max_bytes cut on a character boundary and marked "...".
+inline std::string utf8_echo(const std::string &text, const std::size_t max_bytes) {
+    std::string out;
+    for (std::size_t i = 0; i < text.size();) {
+        const auto size = utf8_char_size(text, i);
+        if (out.size() + std::max<std::size_t>(size, 1) > max_bytes) return out + "...";
+        if (size == 0) {
+            out += '?';
+            ++i;
+        } else {
+            out.append(text, i, size);
+            i += size;
+        }
+    }
+    return out;
+}
+}
+
+inline double Size::kilobytes() const {
+    return static_cast<double>(value) / static_cast<double>(KILOBYTE.value);
+}
+
+inline double Size::megabytes() const {
+    return static_cast<double>(value) / static_cast<double>(MEGABYTE.value);
+}
+
+inline double Size::gigabytes() const {
+    return static_cast<double>(value) / static_cast<double>(GIGABYTE.value);
+}
+
+inline double Size::terabytes() const {
+    return static_cast<double>(value) / static_cast<double>(TERABYTE.value);
+}
+
+inline std::string Size::to_string() const {
+    std::string out;
+    std::int64_t rest = this->value;
+    for (const auto &[name, unit]: details::SIZE_UNITS) {
+        const auto count = rest / unit.value;
+        rest %= unit.value;
+        if (count != 0) out += std::to_string(count) + std::string(name) + " ";
+    }
+    if (out.empty()) return "0B";
+    out.pop_back();
+    return out;
+}
+
+inline std::pair<Size, errors::Error> Size::parse(const std::string &text) {
+    const auto invalid = [&text](const std::string &reason) {
+        const auto echo = details::utf8_echo(text, 64);
+        return std::pair{
+            Size(),
+            errors::Error(errors::VALIDATION, "invalid size '" + echo + "': " + reason)
+        };
+    };
+    constexpr auto max = std::numeric_limits<std::int64_t>::max();
+    const auto is_space = [](const char c) {
+        return std::isspace(static_cast<unsigned char>(c)) != 0;
+    };
+    const auto is_digit = [](const char c) { return c >= '0' && c <= '9'; };
+    const auto is_lower = [](const char c) { return c >= 'a' && c <= 'z'; };
+    const auto is_alpha = [&](const char c) {
+        return is_lower(c) || (c >= 'A' && c <= 'Z');
+    };
+    std::int64_t total = 0;
+    std::size_t terms = 0;
+    std::size_t next_unit = 0;
+    std::size_t i = 0;
+    while (true) {
+        while (i < text.size() && is_space(text[i]))
+            ++i;
+        if (i == text.size()) break;
+        if (text[i] == '-') return invalid("sizes cannot be negative");
+        if (!is_digit(text[i]))
+            return invalid("expected a number followed by a unit (B, KB, MB, GB, TB)");
+        std::int64_t count = 0;
+        for (; i < text.size() && is_digit(text[i]); ++i) {
+            const auto digit = text[i] - '0';
+            if (count > (max - digit) / 10) return invalid("exceeds the maximum size");
+            count = count * 10 + digit;
+        }
+        if (i < text.size() && text[i] == '.')
+            return invalid("fractional numbers are not allowed");
+        while (i < text.size() && is_space(text[i]))
+            ++i;
+        std::string name;
+        for (; i < text.size() && is_alpha(text[i]); ++i)
+            name += is_lower(text[i]) ? static_cast<char>(text[i] - 'a' + 'A')
+                                      : text[i];
+        ++terms;
+        if (name.empty()) {
+            if (i == text.size() && terms == 1) return {Size(count), errors::NIL};
+            return invalid("expected a unit (B, KB, MB, GB, TB) after each number");
+        }
+        std::size_t u = 0;
+        while (u < details::SIZE_UNITS.size() && details::SIZE_UNITS[u].name != name)
+            ++u;
+        if (u == details::SIZE_UNITS.size())
+            return invalid(
+                "unknown unit '" + name + "', expected B, KB, MB, GB, or TB"
+            );
+        if (u < next_unit)
+            return invalid("each unit may appear at most once, largest first");
+        if (i < text.size() && !is_space(text[i]))
+            return invalid("expected a space after each unit");
+        next_unit = u + 1;
+        const auto unit = details::SIZE_UNITS[u].size.value;
+        if (count > max / unit || count * unit > max - total)
+            return invalid("exceeds the maximum size");
+        total += count * unit;
+    }
+    if (terms == 0)
+        return invalid("expected a number followed by a unit (B, KB, MB, GB, TB)");
+    return {Size(total), errors::NIL};
+}
+
+inline Size Size::parse(x::json::Parser parser) {
+    const auto j = parser.get_json();
+    if (!j.is_string()) {
+        if (j.is_number_float() && std::trunc(j.get<double>()) != j.get<double>()) {
+            parser.field_err("", "fractional numbers are not allowed");
+            return Size();
+        }
+        const auto bytes = parser.field<std::int64_t>();
+        if (bytes < 0) {
+            parser.field_err("", "must be greater than or equal to 0");
+            return Size();
+        }
+        return Size(bytes);
+    }
+    auto [size, err] = parse(parser.field<std::string>());
+    if (err) parser.field_err("", err);
+    return size;
+}
 /// @brief the maximum representable timestamp, marking an open/unbounded end.
 inline constexpr TimeStamp TIME_STAMP_MAX = TimeStamp::max();
 /// @brief the minimum representable timestamp.

@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <limits>
+#include <sstream>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -1339,4 +1343,286 @@ TEST(TimeStampInt64Tests, testGreaterThanEqual) {
     ASSERT_FALSE(ts >= std::int64_t{6});
 }
 
+/// @brief it should use decimal units.
+TEST(SizeTests, testUnits) {
+    ASSERT_EQ(BYTE.bytes(), 1);
+    ASSERT_EQ(KILOBYTE.bytes(), 1'000);
+    ASSERT_EQ(MEGABYTE.bytes(), 1'000'000);
+    ASSERT_EQ(GIGABYTE.bytes(), 1'000'000'000);
+    ASSERT_EQ(TERABYTE.bytes(), 1'000'000'000'000);
+}
+
+/// @brief it should convert to fractional units.
+TEST(SizeTests, testUnitConversions) {
+    const auto s = 1500 * MEGABYTE;
+    ASSERT_DOUBLE_EQ(s.gigabytes(), 1.5);
+    ASSERT_DOUBLE_EQ(s.megabytes(), 1500);
+    ASSERT_DOUBLE_EQ(s.kilobytes(), 1'500'000);
+    ASSERT_DOUBLE_EQ((2500 * GIGABYTE).terabytes(), 2.5);
+}
+
+/// @brief it should have a zero size.
+TEST(SizeTests, testZero) {
+    ASSERT_EQ(Size::ZERO(), Size(0));
+}
+
+/// @brief it should scale a size by a fraction, rounding to the nearest byte.
+TEST(SizeTests, testMultiplyByDouble) {
+    ASSERT_EQ(1.9 * KILOBYTE, Size(1900));
+    ASSERT_EQ(KILOBYTE * 0.5, Size(500));
+    ASSERT_EQ(BYTE * 0.6, Size(1));
+    ASSERT_EQ(MEGABYTE * 1.5f, Size(1'500'000));
+}
+
+/// @brief it should saturate a scaled size to the int64 range on every platform.
+TEST(SizeTests, testMultiplyByDoubleSaturates) {
+    constexpr auto max = std::numeric_limits<std::int64_t>::max();
+    constexpr auto min = std::numeric_limits<std::int64_t>::min();
+    constexpr auto inf = std::numeric_limits<double>::infinity();
+    ASSERT_EQ(TERABYTE * 1e10, Size(max));
+    ASSERT_EQ(TERABYTE * -1e10, Size(min));
+    ASSERT_EQ(BYTE * inf, Size(max));
+    ASSERT_EQ(BYTE * -inf, Size(min));
+    ASSERT_EQ(Size(max) * 1.0, Size(max));
+    ASSERT_EQ(Size(min) * 1.0, Size(min));
+}
+
+/// @brief it should give zero for a NaN scale.
+TEST(SizeTests, testMultiplyByNaN) {
+    ASSERT_EQ(KILOBYTE * std::numeric_limits<double>::quiet_NaN(), Size());
+    ASSERT_EQ(Size() * std::numeric_limits<double>::infinity(), Size());
+}
+
+/// @brief it should add, subtract, scale, and divide sizes.
+TEST(SizeTests, testArithmetic) {
+    auto s = 2 * MEGABYTE;
+    ASSERT_EQ(s + KILOBYTE, Size(2'001'000));
+    ASSERT_EQ(s - KILOBYTE, Size(1'999'000));
+    ASSERT_EQ(s * 3, 6 * MEGABYTE);
+    ASSERT_EQ(s / 2, MEGABYTE);
+    ASSERT_EQ(s / KILOBYTE, 2'000);
+    ASSERT_EQ((s + BYTE) % KILOBYTE, BYTE);
+    s += MEGABYTE;
+    ASSERT_EQ(s, 3 * MEGABYTE);
+    s -= 2 * MEGABYTE;
+    ASSERT_EQ(s, MEGABYTE);
+}
+
+/// @brief it should compare sizes.
+TEST(SizeTests, testComparison) {
+    ASSERT_LT(KILOBYTE, MEGABYTE);
+    ASSERT_GT(GIGABYTE, MEGABYTE);
+    ASSERT_LE(KILOBYTE, KILOBYTE);
+    ASSERT_GE(KILOBYTE, KILOBYTE);
+    ASSERT_NE(KILOBYTE, MEGABYTE);
+    ASSERT_EQ(Size(), Size(0));
+}
+
+/// @brief it should format a size as TypeScript's Size.toString does.
+TEST(SizeTests, testToString) {
+    ASSERT_EQ(Size().to_string(), "0B");
+    ASSERT_EQ(BYTE.to_string(), "1B");
+    ASSERT_EQ(KILOBYTE.to_string(), "1KB");
+    ASSERT_EQ((256 * MEGABYTE).to_string(), "256MB");
+    ASSERT_EQ((GIGABYTE + 500 * MEGABYTE + 3 * BYTE).to_string(), "1GB 500MB 3B");
+    ASSERT_EQ((2 * TERABYTE + KILOBYTE).to_string(), "2TB 1KB");
+    ASSERT_EQ((5000 * TERABYTE).to_string(), "5000TB");
+    std::stringstream ss;
+    ss << 4 * MEGABYTE;
+    ASSERT_EQ(ss.str(), "4MB");
+}
+
+/// @brief it should parse a plain number of bytes.
+TEST(SizeTests, testParsePlainBytes) {
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("1024")), Size(1024));
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse(" 0 ")), Size());
+}
+
+/// @brief it should parse numbers with units.
+TEST(SizeTests, testParseUnits) {
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("256MB")), 256 * MEGABYTE);
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("4 MB")), 4 * MEGABYTE);
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("1GB")), GIGABYTE);
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("10kb")), 10 * KILOBYTE);
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("7 B")), 7 * BYTE);
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("3tb")), 3 * TERABYTE);
+    ASSERT_EQ(
+        ASSERT_NIL_P(Size::parse("1GB 500MB 3B")),
+        GIGABYTE + 500 * MEGABYTE + 3 * BYTE
+    );
+}
+
+/// @brief it should parse back every string it formats.
+TEST(SizeTests, testRoundTrip) {
+    for (const auto s:
+         {Size(),
+          BYTE,
+          999 * BYTE,
+          KILOBYTE,
+          256 * MEGABYTE,
+          GIGABYTE + 500 * MEGABYTE + 3 * BYTE,
+          2 * TERABYTE + KILOBYTE,
+          Size(std::numeric_limits<std::int64_t>::max())})
+        ASSERT_EQ(ASSERT_NIL_P(Size::parse(s.to_string())), s);
+}
+
+/// @brief it should reject malformed size strings.
+TEST(SizeTests, testParseInvalid) {
+    for (const auto *text:
+         {"",
+          "   ",
+          "MB",
+          "-1MB",
+          "1.5GB",
+          "4 XB",
+          "4 MBs",
+          "1 2",
+          "1MB 2",
+          "1MB 1GB",
+          "1MB 1MB",
+          "1MB,2KB",
+          "1KB1B",
+          "256\xc2\xa0MB",
+          "4 \xd0\x9c\xd0\x91"}) {
+        SCOPED_TRACE(text);
+        ASSERT_OCCURRED_AS_P(Size::parse(text), errors::VALIDATION);
+    }
+}
+
+/// @brief it should accept any whitespace around and between unit groups.
+TEST(SizeTests, testParseWhitespace) {
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("\t1GB\n500MB\r\n")), GIGABYTE + 500 * MEGABYTE);
+}
+
+/// @brief it should name the problem in each parse error.
+TEST(SizeTests, testParseErrorReasons) {
+    constexpr auto
+        no_number = "expected a number followed by a unit (B, KB, MB, GB, TB)";
+    constexpr auto unit_order = "each unit may appear at most once, largest first";
+    const std::vector<std::pair<std::string, std::string>> cases = {
+        {"-5", "sizes cannot be negative"},
+        {"1.5GB", "fractional numbers are not allowed"},
+        {"1KB1B", "expected a space after each unit"},
+        {"1MB 1GB", unit_order},
+        {"1KB 1KB", unit_order},
+        {"", no_number},
+        {" \t", no_number},
+    };
+    for (const auto &[text, reason]: cases) {
+        SCOPED_TRACE(text);
+        const auto [_, err] = Size::parse(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(err.data.substr(err.data.find("': ") + 3), reason);
+    }
+}
+
+/// @brief it should cut a long input to 64 characters in a parse error.
+TEST(SizeTests, testParseErrorTruncatesInput) {
+    const std::string text = std::string(100, 'x');
+    const auto [_, err] = Size::parse(text);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(
+        err.data,
+        "invalid size '" + std::string(64, 'x') +
+            "...': expected a number followed by a unit (B, KB, MB, GB, TB)"
+    );
+}
+
+/// @brief it should not cut a UTF-8 character when it shortens the input in an error.
+TEST(SizeTests, testParseErrorTruncatesOnCharacterBoundary) {
+    const auto text = std::string(63, 'x') + "\xd0\x9c" + std::string(40, 'x');
+    json::Parser parser(json::json{{"max", text}});
+    parser.field<Size>("max");
+    const auto err = parser.error();
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_TRUE(err.data.contains("'" + std::string(63, 'x') + "...'"));
+}
+
+/// @brief it should replace invalid UTF-8 in a short input when it echoes it in an
+/// error.
+TEST(SizeTests, testParseErrorReplacesInvalidUTF8) {
+    for (const auto *text: {"1\xff", "\xc0\xaf", "4 \xed\xa0\x80", "1\xd0"}) {
+        SCOPED_TRACE(text);
+        json::Parser parser(json::json{{"m", std::string(text)}});
+        parser.field<Size>("m");
+        const auto err = parser.error();
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    }
+    const auto [_, err] = Size::parse("1\xff");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_TRUE(err.data.starts_with("invalid size '1?'"));
+}
+
+/// @brief it should keep valid multi-byte characters when it echoes an input.
+TEST(SizeTests, testParseErrorKeepsValidUTF8) {
+    const auto [_, err] = Size::parse("4 \xd0\x9c\xd0\x91");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_TRUE(err.data.starts_with("invalid size '4 \xd0\x9c\xd0\x91'"));
+}
+
+/// @brief it should reject sizes beyond an int64.
+TEST(SizeTests, testParseOverflow) {
+    ASSERT_OCCURRED_AS_P(Size::parse("9223372036854775808"), errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(Size::parse("9223373TB"), errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(Size::parse("9223372TB 36854775808B"), errors::VALIDATION);
+}
+
+/// @brief it should name the text and the problem in a parse error.
+TEST(SizeTests, testParseErrorMessage) {
+    const auto [_, err] = Size::parse("4 XB");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(
+        err.data,
+        "invalid size '4 XB': unknown unit 'XB', expected B, KB, MB, GB, or TB"
+    );
+}
+
+/// @brief it should read a config field from a number of bytes or a size string.
+TEST(SizeTests, testParseField) {
+    json::Parser parser(
+        json::json{{"number", 1024}, {"text", "256MB"}, {"spaced", "4 MB"}}
+    );
+    ASSERT_EQ(parser.field<Size>("number"), Size(1024));
+    ASSERT_EQ(parser.field<Size>("text"), 256 * MEGABYTE);
+    ASSERT_EQ(parser.field<Size>("spaced"), 4 * MEGABYTE);
+    ASSERT_EQ(parser.field<Size>("missing", GIGABYTE), GIGABYTE);
+    ASSERT_TRUE(parser.ok());
+}
+
+/// @brief it should bind an error to a malformed size field.
+TEST(SizeTests, testParseFieldInvalid) {
+    json::Parser parser(json::json{{"max", "4 XB"}});
+    ASSERT_EQ(parser.field<Size>("max"), Size());
+    ASSERT_FALSE(parser.ok());
+    const auto errs = parser.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    ASSERT_EQ(
+        errs[0]["message"],
+        "invalid size '4 XB': unknown unit 'XB', expected B, KB, MB, GB, or TB"
+    );
+}
+
+/// @brief it should bind an error to a negative or non-integer size field.
+TEST(SizeTests, testParseFieldInvalidNumber) {
+    json::Parser parser(json::json{{"negative", -1}, {"object", {{"a", 1}}}});
+    parser.field<Size>("negative");
+    parser.field<Size>("object");
+    ASSERT_EQ(parser.error_json()["errors"].size(), 2);
+}
+
+/// @brief it should reject a fractional JSON number and accept a whole one.
+TEST(SizeTests, testParseFieldFractionalNumber) {
+    json::Parser parser(json::json{{"fraction", 1.5}, {"whole", 2.0}});
+    ASSERT_EQ(parser.field<Size>("fraction"), Size());
+    ASSERT_EQ(parser.field<Size>("whole"), Size(2));
+    const auto errs = parser.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    ASSERT_EQ(errs[0]["path"], "fraction");
+    ASSERT_EQ(errs[0]["message"], "fractional numbers are not allowed");
+}
+
+/// @brief it should write a size to JSON as a number of bytes.
+TEST(SizeTests, testToJSON) {
+    ASSERT_EQ((4 * MEGABYTE).to_json(), 4'000'000);
+}
 }
