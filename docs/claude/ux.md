@@ -614,8 +614,10 @@ bound, a log precision, or the line plot X channel.
   trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
   "Disconnected" from the status `connected` flag, in the color of the status variant.
   Its tooltip shows the message and the description. A word from the variant was
-  rejected, because one variant covers both states. A device that no Driver has reached
-  has the disabled status, or none. It shows a gray "Unknown" badge with no tooltip.
+  rejected, because one variant covers both states. The Core gives a device that no
+  Driver has reached the disabled status "Device status unknown", so its badge is a gray
+  "Disconnected". Only a device with no status shows a gray "Unknown" badge, with no
+  tooltip. The disabled variant alone never means unknown: a Driver also writes it.
 
 ### Devices
 

@@ -61,13 +61,13 @@ describe("StatusBadge", () => {
     expect(c.getByText("Unknown").className).toBe("lyra-badge");
   });
 
-  it("should say unknown in gray for a device that no Driver has reached", () => {
+  it("should say disconnected in gray for a device that no Driver has reached", () => {
     const s = createStatus({
       variant: "disabled",
       message: "Device status unknown",
       connected: false,
     });
     const c = render(<Device.StatusBadge status={s} />);
-    expect(c.getByText("Unknown").className).toBe("lyra-badge");
+    expect(c.getByText("Disconnected").classList).toContain("lyra--status-disabled");
   });
 });
