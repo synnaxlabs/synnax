@@ -32,13 +32,6 @@ var _ = Describe("Resource IDs", func() {
 			Key:  key.String(),
 		}))
 	})
-
-	It("Should map keys and ICDs to resource IDs", func() {
-		a, b := uuid.New(), uuid.New()
-		ids := []resource.ID{icd.ResourceID(a), icd.ResourceID(b)}
-		Expect(icd.ResourceIDs([]icd.Key{a, b})).To(Equal(ids))
-		Expect(icd.ResourceIDsFromICDs([]icd.ICD{{Key: a}, {Key: b}})).To(Equal(ids))
-	})
 })
 
 var _ = Describe("Resources", func() {

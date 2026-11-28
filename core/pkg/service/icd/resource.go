@@ -12,7 +12,6 @@ package icd
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -41,14 +40,4 @@ func (s *Service) Uses(
 // ResourceID returns the resource ID of the ICD with the given key.
 func ResourceID(key Key) resource.ID {
 	return resource.ID{Type: resource.TypeICD, Key: key.String()}
-}
-
-// ResourceIDs returns the resource IDs of the ICDs with the given keys.
-func ResourceIDs(keys []Key) []resource.ID {
-	return lo.Map(keys, func(k Key, _ int) resource.ID { return ResourceID(k) })
-}
-
-// ResourceIDsFromICDs returns the resource IDs of the given ICDs.
-func ResourceIDsFromICDs(ics []ICD) []resource.ID {
-	return lo.Map(ics, func(ic ICD, _ int) resource.ID { return ic.ResourceID() })
 }
