@@ -438,6 +438,10 @@ bound, a log precision, or the line plot X channel.
   lists the tasks that use the ICD under "Tasks that use <ICD>", because the Core lists
   users only per ICD. The Core never refuses the save, so the confirm stays enabled when
   the task lookup fails, and shows the error. A message with no fields changes at once.
+- In a task's ICD tree, the menu of fields says "Delete from ICD", because a field
+  belongs to the ICD, so the delete reaches every task that uses it. It asks first, with
+  the same confirm. A message or a source keeps Remove, which changes only the task.
+  Fields of several ICDs get no delete.
 
 ### Pickers
 

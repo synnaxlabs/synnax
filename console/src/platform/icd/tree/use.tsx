@@ -14,9 +14,17 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep, id, map, type payload, type record, unique, uuid } from "@synnaxlabs/x";
-import type { Dispatch, FC, ReactElement, RefObject, SetStateAction } from "react";
+import type {
+  Dispatch,
+  FC,
+  ReactElement,
+  ReactNode,
+  RefObject,
+  SetStateAction,
+} from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
+import { useConfirm } from "@/platform/icd/Confirm";
 import { MessageMark } from "@/platform/icd/Details";
 import { copyName } from "@/platform/icd/fieldNames";
 import { createMessageField } from "@/platform/icd/Fields";
@@ -355,6 +363,7 @@ export const use = <
 }: UseArgs<S, G>): UseReturn => {
   const ctx = PForm.useContext();
   const formats = useFormats();
+  const confirm = useConfirm();
   const { groups: grouping } = layout;
   const lists = (): List<S>[] =>
     grouping == null
@@ -539,6 +548,35 @@ export const use = <
   };
 
   /**
+   * Asks, then deletes each chosen field from the ICD of icdKey, which holds them all.
+   */
+  const deleteFields = async (chosen: FieldNode[], icdKey: icd.Key) => {
+    const names = new Map<string, string>();
+    const messages = new Set<icd.MessageKey>();
+    for (const { source, read: r, field } of chosen) {
+      const { message } = ctx.get(pathOf(source)).value.messages[r];
+      names.set(`${message}/${field.key}`, field.name);
+      messages.add(message);
+    }
+    const { name } = formatOf(formats, icdKey).value();
+    const [message] = messages;
+    const held =
+      messages.size === 1 ? heldMessage(formats, icdKey, message) : undefined;
+    const one = names.size === 1;
+    const what = one ? [...names.values()][0] : `${names.size} fields`;
+    const confirmed = await confirm({
+      icd: { key: icdKey, name },
+      title: one ? "ICD.Delete field" : "ICD.Delete fields",
+      message: `Delete ${what} from ${held?.name ?? name}?`,
+      description: one
+        ? `This deletes it from the ICD ${name}. Tasks that bind it lose that channel.`
+        : `This deletes them from the ICD ${name}. Tasks that bind them lose those channels.`,
+      confirm: { label: "Delete" },
+    });
+    if (confirmed === true) removeFields(chosen);
+  };
+
+  /**
    * Copies each chosen field after it in its message. Each chosen source that reads the
    * field reads its copy into a new channel, as with Add field. Selects the first copy.
    */
@@ -714,9 +752,22 @@ export const use = <
     )
       onDuplicate = () => duplicateSources(sources);
     let onRemove: (() => void) | undefined;
-    if (fields.length > 0 && fields.length === chosen.length)
-      onRemove = () => removeFields(fields);
-    else if (isRemovable(chosen)) onRemove = () => removeNodes(chosen);
+    let deleteMenuItem: ReactNode;
+    if (fields.length > 0 && fields.length === chosen.length) {
+      const icds = unique.unique(
+        fields.map(({ source }) => ctx.get(pathOf(source)).value.icd),
+      );
+      if (icds.length === 1)
+        deleteMenuItem = (
+          <Menu.Item
+            itemKey="delete"
+            onClick={() => void deleteFields(fields, icds[0])}
+          >
+            <Icon.Delete />
+            Delete from ICD
+          </Menu.Item>
+        );
+    } else if (isRemovable(chosen)) onRemove = () => removeNodes(chosen);
     const tareChannels = fields.flatMap(({ source, read, field }) => {
       if (ctx.get(disabledPath(source)).value) return [];
       const binding = ctx
@@ -728,6 +779,7 @@ export const use = <
       <Task.Views.ContextMenu
         keys={keys}
         onRemove={onRemove}
+        deleteMenuItem={deleteMenuItem}
         onEnable={
           off.length > 0 && !(bindDisabled && off.some(({ kind }) => kind === "field"))
             ? () => setEnabled(switchable, true)

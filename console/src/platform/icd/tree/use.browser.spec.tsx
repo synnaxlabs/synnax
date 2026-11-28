@@ -11,7 +11,7 @@ import { DataType, icd, mqtt } from "@synnaxlabs/client";
 import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { deep, payload, uuid } from "@synnaxlabs/x";
+import { deep, payload, unique, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type FC, useRef, useState } from "react";
@@ -92,10 +92,12 @@ const Sources: FC = () => {
 const Form: FC = () => {
   // The task form renders before it loads the config of the task.
   const entries = PForm.useFieldValue(path.config.entries, { optional: true });
-  const [entry] = entries ?? [];
-  if (entry?.type !== "plain") return null;
+  const icdKeys = unique.unique(
+    (entries ?? []).flatMap((e) => (e.type === "plain" ? [e.icd] : [])),
+  );
+  if (icdKeys.length === 0) return null;
   return (
-    <ICD.WithFormats icdKeys={[entry.icd]}>
+    <ICD.WithFormats icdKeys={icdKeys}>
       <ICD.Plans plans={[]}>
         <Sources />
       </ICD.Plans>
@@ -235,6 +237,155 @@ describe("ICD.Tree.use", () => {
       expect(getIconButtons(container, "tare")[0].getAttribute("aria-disabled")).toBe(
         "true",
       );
+    });
+  });
+
+  describe("delete from ICD", () => {
+    const client = createTestClient();
+
+    const createMessage = (name: string, fields: string[]): icd.Message => ({
+      key: uuid.create(),
+      name,
+      payload: {
+        format: "json",
+        fields: fields.map((f) =>
+          icd.jsonFieldZ.parse({ name: f, pointer: `/${f}`, type: "float" }),
+        ),
+      },
+    });
+
+    const createICD = async (...messages: icd.Message[]): Promise<icd.ICD> =>
+      await client.icds.create({ name: uniqueName("icd"), messages });
+
+    // Renders a task with a source for each message, which reads it.
+    const renderSources = async (
+      ...sources: [icd.ICD, icd.Message][]
+    ): Promise<{ name: string }> => {
+      const entries = sources.map(([ic, message], i) =>
+        mqtt.plainReadEntryZ.parse({
+          type: "plain",
+          key: `s${i}`,
+          topic: `plant/oven${i}`,
+          icd: ic.key,
+          messages: [icd.readMessageZ.parse({ message: message.key })],
+        }),
+      );
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await rack.createTask({
+        name: uniqueName("tsk"),
+        type: "mqtt_read",
+        config: mqtt.readConfigZ.parse({ entries }),
+      });
+      await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
+      return tsk;
+    };
+
+    // Chooses the items and opens the menu on the last of them.
+    const openMenu = async (...items: HTMLElement[]): Promise<void> => {
+      fireEvent.click(items[0]);
+      fireEvent.keyDown(window, { code: "Control" });
+      for (const item of items.slice(1)) fireEvent.click(item);
+      fireEvent.keyUp(window, { code: "Control" });
+      fireEvent.contextMenu(items.at(-1) as HTMLElement);
+    };
+
+    const findField = async (name: string): Promise<HTMLElement[]> =>
+      await screen.findAllByRole("treeitem", { name: new RegExp(`^${name}`) });
+
+    const fieldNames = async (key: icd.Key): Promise<string[]> =>
+      (await client.icds.retrieve({ key })).messages.flatMap(({ payload }) =>
+        payload.fields.map(({ name }) => name),
+      );
+
+    const clickDelete = async (): Promise<void> => {
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Delete from ICD" }));
+    };
+
+    it("should offer Delete from ICD in place of Remove on a field", async () => {
+      const status = createMessage("Status", ["temperature", "pressure"]);
+      await renderSources([await createICD(status), status]);
+      await openMenu(...(await findField("pressure")));
+      await screen.findByRole("menuitem", { name: "Delete from ICD" });
+      expect(screen.queryByRole("menuitem", { name: "Remove" })).toBeNull();
+    });
+
+    it("should ask before it deletes a field, and keep it on cancel", async () => {
+      const status = createMessage("Status", ["temperature", "pressure"]);
+      const ic = await createICD(status);
+      await renderSources([ic, status]);
+      await openMenu(...(await findField("pressure")));
+      await clickDelete();
+      await screen.findByText("Delete pressure from Status?");
+      screen.getByText(
+        `This deletes it from the ICD ${ic.name}. Tasks that bind it lose that channel.`,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await waitFor(() =>
+        expect(screen.queryByText("Delete pressure from Status?")).toBeNull(),
+      );
+      expect(await fieldNames(ic.key)).toEqual(["temperature", "pressure"]);
+    });
+
+    it("should delete the chosen fields once the user confirms", async () => {
+      const status = createMessage("Status", ["temperature", "pressure", "flow"]);
+      const ic = await createICD(status);
+      await renderSources([ic, status]);
+      const [temperature] = await findField("temperature");
+      const [pressure] = await findField("pressure");
+      await openMenu(temperature, pressure);
+      await clickDelete();
+      await screen.findByText("Delete 2 fields from Status?");
+      screen.getByText(
+        `This deletes them from the ICD ${ic.name}. Tasks that bind them lose those channels.`,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+      await waitFor(async () => expect(await fieldNames(ic.key)).toEqual(["flow"]));
+    });
+
+    it("should list the tasks that use the ICD", async () => {
+      const status = createMessage("Status", ["temperature"]);
+      const ic = await createICD(status);
+      const tsk = await renderSources([ic, status]);
+      await openMenu(...(await findField("temperature")));
+      await clickDelete();
+      await screen.findByText(`Tasks that use ${ic.name}`);
+      await screen.findByText(tsk.name);
+    });
+
+    it("should name the ICD when the fields are in several of its messages", async () => {
+      const status = createMessage("Status", ["temperature"]);
+      const alarm = createMessage("Alarm", ["level"]);
+      const ic = await createICD(status, alarm);
+      await renderSources([ic, status], [ic, alarm]);
+      const [temperature] = await findField("temperature");
+      const [level] = await findField("level");
+      await openMenu(temperature, level);
+      await clickDelete();
+      await screen.findByText(`Delete 2 fields from ${ic.name}?`);
+    });
+
+    it("should count a field once when several sources read it", async () => {
+      const status = createMessage("Status", ["temperature", "pressure"]);
+      const ic = await createICD(status);
+      await renderSources([ic, status], [ic, status]);
+      await openMenu(...(await findField("pressure")));
+      await clickDelete();
+      await screen.findByText("Delete pressure from Status?");
+    });
+
+    it("should offer no delete for fields of several ICDs", async () => {
+      const first = createMessage("Status", ["temperature"]);
+      const second = createMessage("Status", ["pressure"]);
+      await renderSources(
+        [await createICD(first), first],
+        [await createICD(second), second],
+      );
+      const [temperature] = await findField("temperature");
+      const [pressure] = await findField("pressure");
+      await openMenu(temperature, pressure);
+      await screen.findByText("Reload Console");
+      expect(screen.queryByRole("menuitem", { name: "Delete from ICD" })).toBeNull();
+      expect(screen.queryByRole("menuitem", { name: "Remove" })).toBeNull();
     });
   });
 
