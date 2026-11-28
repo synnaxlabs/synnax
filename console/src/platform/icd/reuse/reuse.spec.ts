@@ -236,6 +236,36 @@ describe("Reuse", () => {
     });
   });
 
+  describe("fitsOf", () => {
+    const temp = sampled("/temp", "float");
+    const rpm = sampled("/rpm", "float");
+    const one = message([field("/temp", "float")], undefined, "one");
+    const both = message(
+      [field("/temp", "float"), field("/rpm", "float")],
+      undefined,
+      "both",
+    );
+    const other = message([field("/pressure", "float")], undefined, "other");
+
+    it("should list the messages that fit by fields held, most first", () => {
+      expect(
+        ICD.Reuse.fitsOf(shape([temp, rpm]), [one, other, both], new Set()),
+      ).toEqual([
+        { message: both, missing: [] },
+        { message: one, missing: ["/rpm"] },
+      ]);
+    });
+
+    it("should list a stored message before one that holds more fields", () => {
+      const fits = ICD.Reuse.fitsOf(
+        shape([temp, rpm]),
+        [both, one],
+        new Set([one.key]),
+      );
+      expect(fits.map(({ message }) => message.name)).toEqual(["one", "both"]);
+    });
+  });
+
   describe("find", () => {
     const temp = sampled("/temp", "float");
     const rpm = sampled("/rpm", "float");

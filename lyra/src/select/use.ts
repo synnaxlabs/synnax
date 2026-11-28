@@ -72,7 +72,10 @@ export type UseSingleProps<K extends record.Key> = optional.Optional<
   UseSingleInternalProps<K>,
   "allowNone"
 > &
-  CursorProps<K>;
+  CursorProps<K> & {
+    /** Called when the user picks the entry that is selected. */
+    onReselect?: (key: K) => void;
+  };
 
 /** Props for {@link useMultiple}. */
 export interface UseMultipleProps<K extends record.Key> extends CursorProps<K> {
@@ -191,6 +194,7 @@ export const useSingle = <K extends record.Key>({
   enableTriggers,
   moveX,
   autoSelectOnNone = false,
+  onReselect,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
   const { close } = Dialog.useContext();
@@ -223,6 +227,7 @@ export const useSingle = <K extends record.Key>({
   const handleSelect = (key: K): void => {
     setCursor(key);
     if (valueRef.current === key) {
+      onReselect?.(key);
       if (closeDialogOnSelect) close();
       else clear();
       return;

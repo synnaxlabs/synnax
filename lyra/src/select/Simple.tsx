@@ -73,6 +73,7 @@ export interface MultipleSimpleProps<K extends record.Key>
     Omit<MultipleFrameProps<K, undefined>, FrameOmitted | "replaceOnSingle"> {
   multiple: true;
   triggerProps?: MultipleTriggerProps<K, undefined>;
+  onReselect?: never;
 }
 
 /** Props for {@link Simple}. Set `multiple` to select any number of options. */
@@ -113,6 +114,7 @@ export const Simple = <K extends record.Key>({
   initialHover,
   enableTriggers,
   closeDialogOnSelect,
+  onReselect,
   children,
   emptyContent,
   footer,
@@ -162,7 +164,12 @@ export const Simple = <K extends record.Key>({
           {dialog}
         </Frame>
       ) : (
-        <Frame<K, undefined> value={value} onChange={onChange} {...selection}>
+        <Frame<K, undefined>
+          value={value}
+          onChange={onChange}
+          onReselect={onReselect}
+          {...selection}
+        >
           <SingleTrigger {...triggerBase} clearable={allowNone} {...triggerProps} />
           {dialog}
         </Frame>

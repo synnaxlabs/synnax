@@ -58,11 +58,12 @@ const SingleProvider = <K extends record.Key = record.Key>({
   children,
   ...rest
 }: SingleProviderProps<K>): ReactElement => {
-  const { value, allowNone, closeDialogOnSelect } = rest;
+  const { value, allowNone, closeDialogOnSelect, onReselect } = rest;
   const { keyboard, ...res } = useSingle(rest);
-  // Mirrors useSingle: a re-select closes the dialog when it closes on select, and
-  // clears the selection otherwise when allowNone is set.
-  const reselectNoop = allowNone !== true && closeDialogOnSelect !== true;
+  // Mirrors useSingle: a re-select calls onReselect, closes the dialog when it closes
+  // on select, and clears the selection otherwise when allowNone is set.
+  const reselectNoop =
+    allowNone !== true && closeDialogOnSelect !== true && onReselect == null;
   return (
     <Context<K> value={value} reselectNoop={reselectNoop} {...res}>
       <KeyboardContext value={keyboard}>{children}</KeyboardContext>

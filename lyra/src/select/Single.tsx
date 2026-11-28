@@ -77,6 +77,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
   hasMenu,
   virtual = true,
   closeDialogOnSelect = true,
+  onReselect,
   autoSelectOnNone,
   initialHover,
   enableTriggers,
@@ -101,6 +102,7 @@ export const Single = <K extends record.Key, E extends record.Keyed<K> | undefin
         virtual={virtual}
         selectedFirst
         closeDialogOnSelect={closeDialogOnSelect}
+        onReselect={onReselect}
         autoSelectOnNone={autoSelectOnNone}
         initialHover={initialHover}
         enableTriggers={enableTriggers}

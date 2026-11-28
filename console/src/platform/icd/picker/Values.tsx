@@ -19,7 +19,13 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Skeleton } from "@synnaxlabs/lyra/skeleton";
 import { Text } from "@synnaxlabs/lyra/text";
 import { strings } from "@synnaxlabs/x";
-import { Fragment, type SyntheticEvent, useEffect, useRef } from "react";
+import {
+  Fragment,
+  type ReactNode,
+  type SyntheticEvent,
+  useEffect,
+  useRef,
+} from "react";
 
 import { CSS } from "@/platform/css";
 import { useHint } from "@/platform/icd/picker/hint";
@@ -113,6 +119,8 @@ export interface ValueGroup {
   title?: string;
   /** Shows at the end of the title, such as what a pick uses the group for. */
   note?: string;
+  /** Shows after the note, such as a select of what the picks of the group read. */
+  control?: ReactNode;
   /** Fades the values, such as ones that a pick does not use. */
   dimmed?: boolean;
   values: Value[];
@@ -378,10 +386,11 @@ export const Values = ({
     >
       <Head noun={noun} defaults={defaults} />
       <DefaultContext value={defaults ? { onChange: onDefaultChange, focus } : null}>
-        {groups.map(({ title, note, dimmed, values }) => (
+        {groups.map(({ title, note, control, dimmed, values }) => (
           <Fragment key={title ?? ""}>
             {title != null && (
               <Text.Text
+                el="div"
                 level="small"
                 weight={500}
                 color={9}
@@ -396,6 +405,11 @@ export const Values = ({
                   >
                     {note}
                   </Text.Text>
+                )}
+                {control != null && (
+                  <span className={CSS.BE("icd-picker", "section-control")}>
+                    {control}
+                  </span>
                 )}
               </Text.Text>
             )}
