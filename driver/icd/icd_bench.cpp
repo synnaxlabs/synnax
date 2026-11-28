@@ -211,7 +211,7 @@ void write(
 }
 
 void register_benchmarks() {
-    for (const std::size_t fields: {1, 10, 100})
+    for (const std::size_t fields: {1, 10, 100, 1000})
         for (const std::size_t batch: {1, 100})
             benchmark::RegisterBenchmark(
                 "Read/fields/" + std::to_string(fields) + "/batch/" +

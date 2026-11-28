@@ -205,18 +205,18 @@ var _ = Describe("Index Persist", Ordered, func() {
 					).To(Succeed())
 
 					By("Deleting some data")
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(12 * telem.SecondTS).Range(15*telem.SecondTS),
 						fixedOffset(2),
 						fixedOffset(5),
-					)).To(Succeed())
-					Expect(db.Delete(
+					))
+					MustSucceed(db.Delete(
 						ctx,
 						(27 * telem.SecondTS).Range(30*telem.SecondTS),
 						fixedOffset(1),
 						fixedOffset(2),
-					)).To(Succeed())
+					))
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
@@ -571,16 +571,6 @@ var _ = Describe("Index Persist", Ordered, func() {
 				It(
 					"Should keep a delete queued behind a failed write",
 					func(ctx SpecContext) {
-						prepared := make(chan struct{}, 1)
-						Expect(db.Close()).To(Succeed())
-						db = MustOpen(domain.Open(domain.Config{
-							FS:              hooked,
-							FileSize:        telem.Megabyte,
-							Instrumentation: PanicLogger(),
-							OnHistoryChange: func(context.Context, telem.TimeRange) {
-								prepared <- struct{}{}
-							},
-						}))
 						Expect(writeSecond(ctx, 1)).To(Succeed())
 						Expect(writeSecond(ctx, 2)).To(Succeed())
 						entered, release := failFirstWrite(ctx)
@@ -588,15 +578,30 @@ var _ = Describe("Index Persist", Ordered, func() {
 						go func() { failed <- writeSecond(ctx, 4) }()
 						Eventually(entered).Should(Receive())
 						deleted := make(chan error, 1)
+						// The start resolver is the last call into the spec before the
+						// delete takes the index lock and prepares its write. Nothing
+						// that the spec holds can stop the delete after it.
+						resolved := make(chan struct{})
+						start := func(
+							ctx context.Context,
+							domainStart, ts telem.TimeStamp,
+						) (telem.Size, telem.TimeStamp, error) {
+							close(resolved)
+							return fixedOffset(0)(ctx, domainStart, ts)
+						}
 						go func() {
-							deleted <- db.Delete(
+							_, err := db.Delete(
 								ctx,
 								(2 * telem.SecondTS).Range(3*telem.SecondTS),
-								fixedOffset(0),
+								start,
 								fixedOffset(0),
 							)
+							deleted <- err
 						}()
-						Eventually(prepared).Should(Receive())
+						Eventually(resolved).Should(BeClosed())
+						// The delete waits behind the failed write until release.
+						Consistently(deleted, 200*time.Millisecond).
+							ShouldNot(Receive())
 						release()
 						Eventually(failed).Should(Receive(MatchError(ErrFault)))
 						Eventually(deleted).Should(Receive(BeNil()))
@@ -665,7 +670,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 						// second.
 						MustSucceed(w.Write([]byte{22, 23}))
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1, nil)).To(Succeed())
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							telem.TimeRange{
 								Start: 32*telem.SecondTS + 1,
@@ -673,7 +678,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 							},
 							fixedOffset(3),
 							fixedOffset(5),
-						)).To(Succeed())
+						))
 						// Failing the persist of the writer's close leaves the index
 						// that the delete wrote.
 						hooked.writeAt = func([]byte) error { return ErrFault }
@@ -700,12 +705,12 @@ var _ = Describe("Index Persist", Ordered, func() {
 							)).To(Succeed())
 						}
 
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							(20 * telem.SecondTS).Range(32*telem.SecondTS),
 							fixedOffset(0),
 							fixedOffset(2),
-						)).To(Succeed())
+						))
 
 						expectDomains(
 							ctx,
