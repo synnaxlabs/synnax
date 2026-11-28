@@ -11,7 +11,7 @@ import type { Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import type { z } from "zod";
@@ -67,7 +67,11 @@ describe("LabJack.Device.NOTIFICATIONS", () => {
       ports: { model: "t7" },
     });
     await addStatus({ unconfiguredLabJackDevice: dev.key }, client);
-    fireEvent.click(await screen.findByText("Configure"));
+    const configure = await screen.findByText("Configure");
+    // The form suspends on its retrieve, so it must mount inside an async act.
+    await act(async () => {
+      fireEvent.click(configure);
+    });
     expect(await screen.findByDisplayValue(dev.name)).toBeTruthy();
   });
 
