@@ -198,6 +198,75 @@ jobs:
           rejects Python client/py uv run python -c "$CONNECT_PY"
           rejects TypeScript client/ts node smoke/smoke.mjs
 
+      - name: Install the CA in the Linux store
+        if: runner.os == 'Linux'
+        run: |
+          sudo cp "$CA" /usr/local/share/ca-certificates/synnax-test-ca.crt
+          sudo update-ca-certificates
+
+      - name: Install the CA in the macOS Keychain
+        if: runner.os == 'macOS'
+        run: |
+          sudo security add-trusted-cert -d -r trustRoot \
+            -k /Library/Keychains/System.keychain "$CA"
+
+      - name: Install the CA in the Windows store
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Import-Certificate -FilePath $env:CA `
+            -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+
+      - name: Test the Python client with the OS store
+        working-directory: client/py
+        env:
+          SECURE: true
+        run: uv run python -c "$CONNECT_PY"
+
+      # The python.org installer adds no CA certificates to Python's OpenSSL until
+      # "Install Certificates" runs.
+      - name: Install the python.org Python
+        if: runner.os == 'macOS'
+        run: |
+          versions=$(curl -fsS https://www.python.org/ftp/python/ |
+            grep -oE 'href="3\.14\.[0-9]+/"' | grep -oE '3\.14\.[0-9]+' |
+            sort -t . -k 3 -n -r)
+          for v in $versions; do
+            if curl --fail --silent --location --output "$RUNNER_TEMP/python.pkg" \
+              "https://www.python.org/ftp/python/$v/python-$v-macos11.pkg"; then
+              break
+            fi
+          done
+          sudo installer -pkg "$RUNNER_TEMP/python.pkg" -target /
+          python=/Library/Frameworks/Python.framework/Versions/3.14/bin/python3.14
+          # The runner image ran "Install Certificates" before, so the upgrade keeps the
+          # CA file and folder it made. Remove them to test a Python with no roots.
+          unset SSL_CERT_FILE SSL_CERT_DIR
+          paths=$("$python" -c 'import ssl; p = ssl.get_default_verify_paths()
+          print(p.openssl_cafile, p.openssl_capath)')
+          read -r cafile capath <<< "$paths"
+          sudo rm -rf "$cafile" "$capath"
+          "$python" -c 'import ssl; p = ssl.get_default_verify_paths()
+          assert not p.cafile and not p.capath, p'
+          echo "PYTHON_ORG=$python" >> "$GITHUB_ENV"
+
+      - name: Test the python.org Python with the OS store
+        if: runner.os == 'macOS'
+        working-directory: client/py
+        env:
+          SECURE: true
+          UV_PYTHON_PREFERENCE: only-system
+          UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/python-org
+        run: |
+          unset SSL_CERT_FILE SSL_CERT_DIR
+          UV_PYTHON="$PYTHON_ORG" uv run python -c "$CONNECT_PY"
+
+      - name: Test the TypeScript client with the OS store
+        working-directory: client/ts
+        env:
+          SYNNAX_TEST_SECURE: true
+        run: node smoke/smoke.mjs
+
       - name: Show the Core log
         if: failure()
         run: cat "$RUNNER_TEMP/core.log"
