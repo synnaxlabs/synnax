@@ -286,6 +286,11 @@ interface BaseArgs<S extends Source> {
   /** @returns a name for a new message of a source that no message in held has. */
   messageName: (source: string, held: icd.Message[]) => string;
   /**
+   * @returns the format of a new message of a source that reads no message its ICD
+   * holds. Defaults to JSON.
+   */
+  fallbackFormat?: () => payload.Format;
+  /**
    * The key of each message that the task made. The hook adds each message it makes.
    * Keep it outside of {@link WithFormats}, as a new ICD mounts the hook again.
    */
@@ -314,9 +319,10 @@ export interface UseReturn {
   /** Adds a field to a message of a source and to its ICD, reads it, and selects it. */
   addField: (source: string, read: number) => void;
   /**
-   * Adds a message with no fields to a source and to its ICD. Its match has the type of
-   * the source's other matches. A value match tests their pointer, so the messages tell
-   * payloads apart. A present match has an empty pointer for the user to fill in.
+   * Adds a message with no fields to a source and to its ICD, in the format of the
+   * source's other messages. A JSON match has the type of the source's other matches. A
+   * value match tests their pointer, so the messages tell payloads apart. A present
+   * match has an empty pointer for the user to fill in.
    */
   addMessage: (source: string) => void;
   /**
@@ -354,6 +360,7 @@ export const use = <
   bindDisabled = false,
   tareable = false,
   messageName,
+  fallbackFormat = () => "json",
   made,
   selected,
   onSelect,
@@ -416,19 +423,20 @@ export const use = <
     const source = ctx.get(path).value;
     const form = formatOf(formats, source.icd);
     const held = form.value().messages;
-    const rule = source.messages
-      .map(({ message }) => held.find(({ key }) => key === message)?.payload)
-      .find((p) => p?.format === "json" && p.match != null);
+    const payloads = source.messages.map(
+      ({ message }) => held.find(({ key }) => key === message)?.payload,
+    );
+    const format = payloads.find((p) => p != null)?.format ?? fallbackFormat();
+    const rule = payloads.find((p) => p?.format === "json" && p.match != null);
     const match = rule?.format === "json" ? rule.match : undefined;
     const pointer = match?.type === "present" ? "" : (match?.pointer ?? "");
     const message: icd.Message = {
       key: uuid.create(),
       name: messageName(sourceKey, held),
-      payload: {
-        format: "json",
-        match: createMatch(match?.type ?? "string", pointer),
-        fields: [],
-      },
+      payload:
+        format === "json"
+          ? { format, match: createMatch(match?.type ?? "string", pointer), fields: [] }
+          : createPayload(format),
     };
     form.insert(PICD.formPath.messages, message, held.at(-1)?.key);
     made.current.add(message.key);

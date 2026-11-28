@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { icd, type Synnax } from "@synnaxlabs/client";
-import type { payload } from "@synnaxlabs/x";
+import { type payload, uuid } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { expect } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -146,3 +149,48 @@ export const titleOf = (note: HTMLElement): string =>
 /** @returns whether the field picker fades value, the name of one of its values. */
 export const isDimmed = (value: HTMLElement): boolean =>
   value.closest(".console--dimmed") != null;
+
+/** Types text into the input with label, then commits it on blur. */
+export const typeText = async (
+  label: RegExp,
+  text: string,
+): Promise<HTMLInputElement> => {
+  const input = await screen.findByLabelText<HTMLInputElement>(label);
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.blur(input);
+  return input;
+};
+
+/** Waits for input to refuse text, then checks that a hover shows error. */
+export const expectRefused = async (
+  input: HTMLInputElement,
+  text: string,
+  error: string,
+): Promise<void> => {
+  await waitFor(() => expect(input.getAttribute("aria-invalid")).toBe("true"));
+  expect(input.value).toBe(text);
+  await userEvent.hover(input);
+  await screen.findByText(error);
+};
+
+/** @returns an entry that reads each field of a new message of payload in a new ICD. */
+export const createEntry = async (
+  client: Synnax,
+  payload: icd.Payload,
+  rest: Partial<icd.ReadEntry> = {},
+): Promise<icd.ReadEntry> => {
+  const message: icd.Message = { key: uuid.create(), name: "Message 1", payload };
+  const format = await client.icds.create({
+    name: uniqueName("icd"),
+    messages: [message],
+  });
+  const bindings = payload.fields.map(({ key }) =>
+    icd.readBindingZ.parse({ field: key }),
+  );
+  return icd.readEntryZ.parse({
+    ...rest,
+    icd: format.key,
+    messages: [{ message: message.key, bindings }],
+  });
+};

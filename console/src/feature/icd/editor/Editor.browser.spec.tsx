@@ -26,7 +26,7 @@ import { userEvent } from "vitest/browser";
 import { ICD } from "@/feature/icd";
 import { client, createICD, createUsedICD, ENGINE_CSV } from "@/feature/icd/testutil";
 import { Task } from "@/feature/task";
-import { createdIn, focusedIn } from "@/platform/icd/testutil";
+import { createdIn, expectRefused, focusedIn, typeText } from "@/platform/icd/testutil";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
@@ -216,26 +216,6 @@ const SYNC: icd.SyncFraming = {
 const pick = async (select: RegExp, option: string): Promise<void> => {
   fireEvent.click(await screen.findByRole("button", { name: select }));
   fireEvent.click(await screen.findByRole("option", { name: option }));
-};
-
-const typeText = async (label: RegExp, text: string): Promise<HTMLInputElement> => {
-  const input = await screen.findByLabelText<HTMLInputElement>(label);
-  fireEvent.focus(input);
-  fireEvent.change(input, { target: { value: text } });
-  fireEvent.blur(input);
-  return input;
-};
-
-/** Waits for input to refuse text, then checks that a hover shows error. */
-const expectRefused = async (
-  input: HTMLInputElement,
-  text: string,
-  error: string,
-): Promise<void> => {
-  await waitFor(() => expect(input.getAttribute("aria-invalid")).toBe("true"));
-  expect(input.value).toBe(text);
-  await userEvent.hover(input);
-  await screen.findByText(error);
 };
 
 const retrieveJSONField = async (key: icd.Key): Promise<icd.JSONField> => {

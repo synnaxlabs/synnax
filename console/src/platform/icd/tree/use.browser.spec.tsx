@@ -460,6 +460,63 @@ describe("ICD.Tree.use", () => {
     });
   });
 
+  describe("addMessage", () => {
+    const client = createTestClient();
+
+    /** Renders a source that reads one message of payload. @returns its ICD. */
+    const renderSource = async (payload: icd.Payload): Promise<icd.Key> => {
+      const message: icd.Message = { key: uuid.create(), name: "Status", payload };
+      const ic = await client.icds.create({
+        name: uniqueName("icd"),
+        messages: [message],
+      });
+      const entry = mqtt.plainReadEntryZ.parse({
+        type: "plain",
+        key: "s0",
+        topic: "plant/oven",
+        icd: ic.key,
+        messages: [icd.readMessageZ.parse({ message: message.key })],
+      });
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await rack.createTask({
+        name: uniqueName("tsk"),
+        type: "mqtt_read",
+        config: mqtt.readConfigZ.parse({ entries: [entry] }),
+      });
+      await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
+      // The Core reads only JSON messages over MQTT, so it would undo the read of each
+      // new message. Held saves keep the reads in the form.
+      holdRequests(client, "/task/create");
+      return ic.key;
+    };
+
+    const addMessage = async () => {
+      fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /^s0/ }));
+      fireEvent.click(await screen.findByText("Add message"));
+    };
+
+    const retrieveFormats = async (key: icd.Key) =>
+      (await client.icds.retrieve({ key })).messages.map(
+        ({ payload }) => payload.format,
+      );
+
+    it("should add a text message to a source that reads a text message", async () => {
+      const key = await renderSource(icd.textPayloadZ.parse({ format: "text" }));
+      await addMessage();
+      await waitFor(async () =>
+        expect(await retrieveFormats(key)).toEqual(["text", "text"]),
+      );
+    });
+
+    it("should add a binary message to a source that reads a binary message", async () => {
+      const key = await renderSource(icd.binaryPayloadZ.parse({ format: "binary" }));
+      await addMessage();
+      await waitFor(async () =>
+        expect(await retrieveFormats(key)).toEqual(["binary", "binary"]),
+      );
+    });
+  });
+
   describe("setNewMessage", () => {
     const client = createTestClient();
 

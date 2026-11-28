@@ -33,6 +33,8 @@ export interface FormattedFieldProps<V> {
   unit?: string;
   /** Whether clearing the text removes the value. */
   optional?: boolean;
+  /** Called in place of removing the value when an optional field is cleared. */
+  onClear?: () => void;
   format: (value: V) => string;
   parse: (text: string) => Parsed<V>;
 }
@@ -49,6 +51,7 @@ export const FormattedField = <V,>({
   placeholder,
   unit,
   optional = false,
+  onClear,
   format,
   parse,
 }: FormattedFieldProps<V>): ReactElement => {
@@ -58,7 +61,8 @@ export const FormattedField = <V,>({
   const value = state?.value;
   const handleChange = (text: string) => {
     setRefused(null);
-    if (optional && text.trim() === "") return set(path, undefined);
+    if (optional && text.trim() === "")
+      return onClear == null ? set(path, undefined) : onClear();
     const parsed = parse(text);
     if ("error" in parsed) setRefused({ text, error: parsed.error });
     else set(path, parsed.value);
