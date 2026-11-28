@@ -208,8 +208,7 @@ func (r RetrieveRequest) Named() []resource.ID {
 
 // Retrieve retrieves the channels that the request selects and that the subject can
 // retrieve. A channel that the top level of Where names by exact name or path needs
-// retrieve,
-// as a named key does.
+// retrieve, as a named key does.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,

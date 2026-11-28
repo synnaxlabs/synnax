@@ -25,9 +25,9 @@ import (
 // folders from the top, then the name of the channel, joined by validate.PathSeparator,
 // in any normal form. A path that no channel is at, or that passes a folder that
 // Retrieve.AllowFolders refuses, matches nothing. Each folder and channel of a path
-// matches as storage holds it, also while a commit is in flight: each segment reads
-// the folder that holds its name, and the filter checks the folder and the name of
-// each channel that it decodes.
+// matches as storage holds it, also while a commit is in flight: each segment reads the
+// folder that holds its name, and the filter checks the folder and the name of each
+// channel that it decodes.
 func MatchPaths(paths ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return r.indexes.sibling.FilterFunc(func(ctx gorp.Context) (
@@ -53,9 +53,9 @@ func MatchPaths(paths ...string) Filter {
 	}
 }
 
-// siblingAt returns the folder of the last segment of path and that segment, as seen
-// by snap. It returns false when a folder on the path does not exist or r does not
-// allow it.
+// siblingAt returns the folder of the last segment of path and that segment, as seen by
+// snap. It returns false when a folder on the path does not exist or r does not allow
+// it.
 func (r Retrieve) siblingAt(ctx context.Context, snap gorp.Snapshot, path string) (
 	group.Sibling,
 	bool,

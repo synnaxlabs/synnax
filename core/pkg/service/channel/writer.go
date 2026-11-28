@@ -612,8 +612,8 @@ func (w Writer) resetStoredNames(
 	return reset, nil
 }
 
-// synthesizeIndexes returns a new index channel for each calculated channel without
-// an index, the positions in channels of the calculated channels that need one, and the
+// synthesizeIndexes returns a new index channel for each calculated channel without an
+// index, the positions in channels of the calculated channels that need one, and the
 // position of the calculated channel of each new index channel.
 func synthesizeIndexes(channels []Channel) ([]Channel, []int, []int, error) {
 	indexChannels := make([]Channel, 0, len(channels))

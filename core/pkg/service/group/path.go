@@ -64,8 +64,8 @@ func Paths(ctx context.Context, snap gorp.Snapshot, keys ...Key) (map[Key]Path, 
 	return paths, nil
 }
 
-// chain returns the groups with keys and every group above them, and the parent of
-// each of those groups whose parent is a group, as seen by snap. It reads one level of
+// chain returns the groups with keys and every group above them, and the parent of each
+// of those groups whose parent is a group, as seen by snap. It reads one level of
 // groups at a time.
 func chain(
 	ctx context.Context,

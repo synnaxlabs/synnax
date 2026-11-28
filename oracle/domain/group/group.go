@@ -104,8 +104,8 @@ func Extract(table *resolution.Table) (*Data, error) {
 }
 
 // checkNamespaced returns an error when the members of one scope differ on namespaced,
-// since a scope keeps the names in its groups unique for all of its members or none,
-// or when a namespaced member is pinned, since its groups then sit under its holder.
+// since a scope keeps the names in its groups unique for all of its members or none, or
+// when a namespaced member is pinned, since its groups then sit under its holder.
 func checkNamespaced(members []Member) error {
 	namespaced := make(map[string]Member)
 	for _, m := range members {
