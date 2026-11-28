@@ -25,14 +25,17 @@ import (
 
 type AltKey int32
 
-// shortWriter takes left bytes, then fails every write with io.ErrShortWrite.
-type shortWriter struct{ left int }
+// shortWriter takes left bytes, fails the write that passes them with
+// io.ErrShortWrite, and then takes every write.
+type shortWriter struct {
+	left   int
+	failed bool
+}
 
 func (w *shortWriter) Write(p []byte) (int, error) {
-	if len(p) > w.left {
-		n := w.left
-		w.left = 0
-		return n, io.ErrShortWrite
+	if !w.failed && len(p) > w.left {
+		w.failed = true
+		return w.left, io.ErrShortWrite
 	}
 	w.left -= len(p)
 	return len(p), nil
@@ -3928,7 +3931,7 @@ var _ = Describe("Frame", func() {
 			s.AlignmentMultiple, s.Clock = 2, 7
 			fr := telem.UnaryFrame[int32](1, s)
 			full := MustSucceed(msgpack.Codec.Encode(fr))
-			for n := range len(full) {
+			for n := range full {
 				enc := vmsgpack.NewEncoder(&shortWriter{left: n})
 				Expect(fr.EncodeMsgpack(enc)).To(MatchError(io.ErrShortWrite))
 			}
