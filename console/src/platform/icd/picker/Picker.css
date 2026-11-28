@@ -120,13 +120,14 @@
     }
 
     .console-icd-picker__values.console--defaults {
-        --console-values-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr) 11rem
-            18rem;
+        --console-values-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr)
+            var(--console-type-column) 18rem;
     }
 
     .console-icd-picker__values {
+        --console-type-column: minmax(11rem, calc(var(--console-type-length, 0) * 1ch));
         --console-values-columns: 3rem minmax(16rem, 1fr) minmax(14rem, 1.3fr)
-            minmax(11rem, calc(var(--console-type-length, 0) * 1ch));
+            var(--console-type-column);
 
         flex-shrink: 0;
         margin: 0 3rem;
