@@ -20,35 +20,45 @@
  */
 export const unique = <V>(values: V[] | readonly V[]): V[] => [...new Set(values)];
 
-/**
- * Removes duplicate values from an array based on a key function, preserving either the
- * first or last occurrence of each unique key. If
- * @param values - An array or readonly array of values to deduplicate.
- * @param keepFirst - An optional boolean indicating whether to keep the first instance
- * (`true`, default) or the last instance (`false`) of each unique key.
- * @returns A new array containing only unique values based on the created keys.
- *
- * @example
- * // Default behavior (keep first instance):
- * by(
- *   [{ id: 1, name: "A" }, { id: 2, name: "B" }, { id: 1, name: "C" }],
- *   (value) => value.id
- * );
- * // Result: [{ id: 1, name: "A" }, { id: 2, name: "B" }]
- * @example
- * // Keep last instance:
- * by(
- *   [{ id: 1, name: "A" }, { id: 2, name: "B" }, { id: 1, name: "C" }],
- *   (value) => value.id,
- *   false
- * );
- * // Result: [{ id: 2, name: "B" }, { id: 1, name: "C" }]
- */
-export const by = <V>(
+/** Options for {@link by}. */
+export interface ByOptions {
+  /** Which instance of each key to keep. Defaults to "first". */
+  keep?: "first" | "last";
+}
+
+interface By {
+  /**
+   * Removes duplicate values from an array based on a key function, preserving the
+   * order of the instances it keeps.
+   * @param values - An array or readonly array of values to deduplicate.
+   * @param key - Returns the key that two values must share to be duplicates.
+   * @returns A new array containing only unique values based on the created keys.
+   *
+   * @example
+   * // Keep the last instance:
+   * by(
+   *   [{ id: 1, name: "A" }, { id: 2, name: "B" }, { id: 1, name: "C" }],
+   *   (value) => value.id,
+   *   { keep: "last" },
+   * );
+   * // Result: [{ id: 2, name: "B" }, { id: 1, name: "C" }]
+   */
+  <V>(values: V[] | readonly V[], key: (value: V) => unknown, options?: ByOptions): V[];
+  /** @deprecated Pass `{ keep: "last" }` in place of false. Removed in 0.64. */
+  <V>(
+    values: V[] | readonly V[],
+    key: (value: V) => unknown,
+    keepFirst: boolean | undefined,
+  ): V[];
+}
+
+export const by: By = <V>(
   values: V[] | readonly V[],
   key: (value: V) => unknown,
-  keepFirst: boolean = true,
+  options: ByOptions | boolean = {},
 ): V[] => {
+  const keepFirst =
+    typeof options === "boolean" ? options : (options.keep ?? "first") === "first";
   const map = new Map<unknown, V>();
   values.forEach((v) => {
     const k = key(v);

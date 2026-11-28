@@ -146,18 +146,29 @@ export const resize: Resize = (
   return construct(b_.one, dims, undefined, undefined, b_.root);
 };
 
-/**
- * @returns true if container holds the given point or box. `inclusive` decides whether
- * the container's edges count.
- */
-export const contains = (
+/** Options for {@link contains}. */
+export interface ContainsOptions {
+  /** Whether the container's edges fall outside it. */
+  exclusive?: boolean;
+}
+
+interface Contains {
+  /** @returns true if container holds the given point or box. */
+  (container: Crude, value: Box | xy.XY, options?: ContainsOptions): boolean;
+  /** @deprecated Pass `{ exclusive: !inclusive }`. Removed in 0.64. */
+  (container: Crude, value: Box | xy.XY, inclusive: boolean | undefined): boolean;
+}
+
+export const contains: Contains = (
   container: Crude,
   value: Box | xy.XY,
-  inclusive: boolean = true,
+  options: ContainsOptions | boolean = {},
 ): boolean => {
+  const exclusive =
+    typeof options === "boolean" ? !options : (options.exclusive ?? false);
   const b_ = construct(container);
-  let comp = (a: number, b: number) => a < b;
-  if (inclusive) comp = (a: number, b: number) => a <= b;
+  let comp = (a: number, b: number) => a <= b;
+  if (exclusive) comp = (a: number, b: number) => a < b;
   if ("one" in value)
     return (
       comp(left(b_), left(value)) &&
