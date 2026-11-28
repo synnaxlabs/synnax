@@ -914,8 +914,7 @@ var _ = Describe("TDMS", func() {
 			)
 
 			It(
-				"Should export two channels of one type whose names differ by a type "+
-					"suffix",
+				"Should give its key to a channel named as another channel and a type",
 				func(ctx SpecContext) {
 					index, channels := createIndexed(
 						ctx,
@@ -931,8 +930,18 @@ var _ = Describe("TDMS", func() {
 						telem.NewSeriesV[float32](3, 4),
 					)
 					channels[1].Name = channels[0].Name + " (int16)"
-					res := read(ctx, index, channels...)
-					Expect(framer.NewTDMSEncoder(ctx).Encode(res)).Error().To(Succeed())
+					segments := parseTDMS(MustSucceed(framer.NewTDMSEncoder(ctx).Encode(
+						read(ctx, index, channels...),
+					)))
+					keyed := fmt.Sprintf("%s (%s)", channels[1].Name, channels[1].Key())
+					var paths []string
+					for _, o := range segments[0].objects {
+						paths = append(paths, o.path)
+					}
+					Expect(paths).To(ContainElements(
+						tdmsPath(index.Name, channels[0].Name),
+						tdmsPath(index.Name, keyed),
+					))
 				},
 			)
 
