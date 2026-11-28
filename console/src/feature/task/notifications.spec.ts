@@ -21,7 +21,7 @@ import { createTaskStatus } from "@/platform/task/testutil";
 const client = createTestClient();
 
 // The Core creates only the task types it knows.
-const SCANNER: Task.Scanner = { make: "ethercat", scanType: "ethercat_scan" };
+const SCANNER = { make: "ethercat", scanType: "ethercat_scan" } satisfies Task.Scanner;
 const OTHER_SCAN_TYPE = "opc_scan";
 
 const IN_PLACE_TYPE = "file_browser";
