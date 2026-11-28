@@ -9,6 +9,8 @@
 
 #pragma once
 #include "driver/arc/arc.h"
+#include "driver/rack/key/key.h"
+#include "driver/rack/status/status.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -42,8 +44,6 @@
 #include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/opcua/opcua.h"
-#include "driver/rack/key/key.h"
-#include "driver/rack/status/status.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
