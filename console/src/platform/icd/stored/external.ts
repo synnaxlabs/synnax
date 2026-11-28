@@ -9,3 +9,4 @@
 
 export * from "@/platform/icd/stored/channels";
 export * from "@/platform/icd/stored/useDataTypes";
+export * from "@/platform/icd/stored/useHolders";

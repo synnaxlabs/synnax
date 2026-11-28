@@ -864,6 +864,8 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const topics = PForm.useFieldValue(root.config.topics);
   const records = topics.flatMap((t) => t.records);
+  // Add data ranks the messages that stored channels name, so their ICDs open too.
+  const holders = ICD.Stored.useHolders(device.properties.read);
   // The tree selects its first item, a topic, when nothing is selected.
   const [selected, setSelected] = useState<string[]>(() =>
     records.length === 0 ? [] : [records[0].key],
@@ -896,7 +898,11 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
       )}
     </Plans>
   );
-  return <ICD.WithFormats icdKeys={records.map((r) => r.icd)}>{body}</ICD.WithFormats>;
+  return (
+    <ICD.WithFormats icdKeys={[...records.map((r) => r.icd), ...holders]}>
+      {body}
+    </ICD.WithFormats>
+  );
 };
 
 const Form = PlatformDevice.wrapTaskForm({
