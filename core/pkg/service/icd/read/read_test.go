@@ -360,11 +360,25 @@ var _ = Describe("Read", func() {
 					same  = field("same", 2, new(mode.Base().Key), 2, 0)
 					b     = field("b", 3, new(mode.Base().Key), 1)
 					plain = field("plain", 4, nil)
+					// fallback has a default, so each payload holds it.
+					fallback = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+						BinaryBaseField: field(
+							"fallback", 5, new(mode.Base().Key), 1,
+						).Base(),
+						Default: new(payload.Unsigned(3)),
+					}}
 					muxed = icd.Message{
 						Key:  uuid.New(),
 						Name: "Muxed",
 						Payload: icd.Payload{Variant: icd.BinaryPayload{
-							Fields: []icd.BinaryField{mode, a, same, b, plain},
+							Fields: []icd.BinaryField{
+								mode,
+								a,
+								same,
+								b,
+								plain,
+								fallback,
+							},
 						}},
 					}
 					panel = icd.ICD{
@@ -400,6 +414,11 @@ var _ = Describe("Read", func() {
 				It("Should accept fields that different multiplexor values select on "+
 					"two index channels", func(ctx SpecContext) {
 					Expect(checkMuxed(ctx, a, b, pressureKey)).To(Succeed())
+				})
+
+				It("Should accept a multiplexed field with a default and a field that "+
+					"each payload holds on one index channel", func(ctx SpecContext) {
+					Expect(checkMuxed(ctx, plain, fallback, levelKey)).To(Succeed())
 				})
 
 				DescribeTable("Should reject two fields on one index channel that "+
