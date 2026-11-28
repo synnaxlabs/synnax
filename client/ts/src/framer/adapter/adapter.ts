@@ -12,7 +12,7 @@ import { type CrudeSeries, DataType, Series } from "@synnaxlabs/x";
 import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
-import { type CrudeFrame, Frame } from "@/framer/frame";
+import { addTime, type CrudeFrame, Frame } from "@/framer/frame";
 import { util } from "@/util";
 
 /** Fetches channel payloads. Missing channels are omitted, not thrown. */
@@ -100,7 +100,7 @@ export class ReadAdapter {
     if (named == null) return out;
     const clocks = named;
     frm.forEach((k, s) => {
-      if (s.clock === k && clocks.includes(s.clock)) out.pushTime(s);
+      if (s.clock === k && clocks.includes(s.clock)) addTime(out, s);
     });
     return out;
   }

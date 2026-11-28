@@ -100,11 +100,27 @@ const TIME_IS_NOT_A_CHANNEL =
   '"time" is not a channel. Writes take time under "time", and ' +
   "frame.time(channel) gives a channel's time";
 
+/**
+ * Adds series to the time of its clock in frame. A read adds the time of the channels
+ * it reads, and a time series is never a channel of the frame. The framer does not
+ * export it.
+ */
+export let addTime: (frame: Frame, series: Series) => void;
+
 export class Frame {
   readonly columns: channel.Key[] | channel.Name[] = [];
   readonly series: Series[] = [];
-  // times holds the time series of each clock, by clock key, once the frame holds one.
-  private times: Map<number, Series[]> | undefined;
+  // #times holds the time series of each clock, by clock key, once the frame holds one.
+  #times: Map<number, Series[]> | undefined;
+
+  static {
+    addTime = (frame, series) => {
+      frame.#times ??= new Map();
+      const held = frame.#times.get(series.clock);
+      if (held == null) frame.#times.set(series.clock, [series]);
+      else held.push(series);
+    };
+  }
 
   constructor(
     columnsOrData: channel.PrimitiveParams | CrudeFrame = [],
@@ -113,7 +129,7 @@ export class Frame {
     if (columnsOrData instanceof Frame) {
       this.columns = columnsOrData.columns;
       this.series = columnsOrData.series;
-      this.times = columnsOrData.times;
+      this.#times = columnsOrData.#times;
       return;
     }
 
@@ -318,29 +334,18 @@ export class Frame {
     );
   }
 
-  /**
-   * Adds a time series to the frame under its clock. A read adds the time of the
-   * channels it reads. A time series is never a channel of the frame.
-   */
-  pushTime(series: Series): void {
-    this.times ??= new Map();
-    const held = this.times.get(series.clock);
-    if (held == null) this.times.set(series.clock, [series]);
-    else held.push(series);
-  }
-
   // Adds the time series that other holds to the frame's own.
   private keepTimes(other: Frame): void {
-    other.times?.forEach((series, clock) => {
-      this.times ??= new Map();
-      const held = this.times.get(clock);
-      if (held == null) this.times.set(clock, [...series]);
+    other.#times?.forEach((series, clock) => {
+      this.#times ??= new Map();
+      const held = this.#times.get(clock);
+      if (held == null) this.#times.set(clock, [...series]);
       else held.push(...series.filter((s) => !held.includes(s)));
     });
   }
 
   private timeOf(series: Series, name: string): Series {
-    for (const time of this.times?.get(series.clock) ?? []) {
+    for (const time of this.#times?.get(series.clock) ?? []) {
       const step = time.alignmentMultiple;
       const start = series.alignment - time.alignment;
       if (step !== series.alignmentMultiple || start < 0n || start % step !== 0n)
