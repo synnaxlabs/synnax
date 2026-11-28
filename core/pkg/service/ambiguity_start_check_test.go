@@ -19,9 +19,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// A v0.62 Core with name validation off can hold a user channel that shares the name
-// of a channel the Core creates at each start, in another folder. D-448 keeps both
-// names, so every start after the upgrade must still open.
+// A v0.62 Core with name validation off can hold a user channel that shares the name of
+// a channel the Core creates at each start, in another folder. The upgrade keeps a
+// stored name that repeats a name only in another folder, so every start after the
+// upgrade must still open.
 var _ = Describe("Core channels at start (check)", func() {
 	DescribeTable(
 		"Should open a v0.62 store whose user channel in a folder shares the name of a "+
