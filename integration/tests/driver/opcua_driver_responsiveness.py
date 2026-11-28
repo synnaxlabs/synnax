@@ -10,7 +10,7 @@
 """
 OPC UA connection pool behavior with an unresponsive server.
 
-Verifies that the driver remains responsive to non-OPC-UA tasks when an OPC UA
+Verifies that the Driver remains responsive to non-OPC UA tasks when an OPC UA
 server becomes unresponsive. Uses a Modbus read task as the health probe —
 if the driver can start, stream, and stop a Modbus task while OPC UA connections
 are hung, the driver is responsive.
@@ -129,7 +129,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
 
         hold(DEADLOCK_DURATION, reason="keeps the simulator frozen")
 
-        # Step 5: Health probe — can the driver still run a Modbus task?
+        # Step 5: Health probe — can the Driver still run a Modbus task?
         self._check_driver_responsive()
 
     def _prime_pool(self, tasks: list[sy.opcua.ReadTask]) -> bool:

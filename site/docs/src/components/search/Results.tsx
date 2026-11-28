@@ -71,7 +71,7 @@ const Item = (props: List.ItemRenderProps<string>) => {
         {...props}
       >
         <span className="search-result__icon">
-          {icon == null ? <Icon.Reference /> : ICONS[icon]}
+          <Icon.Colored>{icon == null ? <Icon.Reference /> : ICONS[icon]}</Icon.Colored>
         </span>
         <span
           className="search-result__title"

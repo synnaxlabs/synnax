@@ -128,7 +128,7 @@ class DriverNIStateWake(DriverStateWake):
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
-            self.skip("Windows DAQmx drivers required")
+            self.skip("Windows NI-DAQmx drivers required")
         super().setup()
 
     def create_task(

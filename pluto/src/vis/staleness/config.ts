@@ -16,7 +16,7 @@ import { staleness } from "@/vis/staleness/aether";
  * writes. It is optional, because an older symbol does not carry it.
  */
 export const configZ = z.object({
-  // Positive matches the aether schema, so the form rejects a timeout the worker would
+  // Positive matches the Aether schema, so the form rejects a timeout the worker would
   // rather than pushing it across and failing there.
   stalenessTimeout: z.number().positive().optional(),
 });

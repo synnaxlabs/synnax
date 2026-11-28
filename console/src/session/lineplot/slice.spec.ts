@@ -406,6 +406,17 @@ describe("LinePlot Slice", () => {
     });
   });
 
+  describe("setOfTasks", () => {
+    it("should keep the line plot of each set of tasks", () => {
+      store.dispatch(LinePlot.setOfTasks({ tasks: "a,b", key: KEY }));
+      store.dispatch(LinePlot.setOfTasks({ tasks: "a", key: "plot-2" }));
+      expect(store.getState()[LinePlot.SLICE_NAME].tasks).toEqual({
+        "a,b": KEY,
+        a: "plot-2",
+      });
+    });
+  });
+
   it("should apply defaults to every nested object", () => {
     const zero = LinePlot.ZERO_STATE;
     expect(zero.control.hold).toBe(false);
@@ -423,6 +434,7 @@ describe("persistence", () => {
     const slice: LinePlot.SliceState = {
       version: 0,
       windows: inWindow({ [KEY]: { ...LinePlot.ZERO_STATE, ...doc } }),
+      tasks: {},
     };
     let state = deep.copy(storeWith(slice).getState());
     LinePlot.PERSIST_EXCLUDE.forEach((exclude) => (state = exclude(state)));
@@ -433,6 +445,10 @@ describe("persistence", () => {
   // session that made it.
   it("should clear the selection on the way to disk", () => {
     expect(purge({ selectedRules: ["r1", "r2"] })?.selectedRules).toEqual([]);
+  });
+
+  it("should parse a stored slice that has no plots of tasks", () => {
+    expect(LinePlot.sliceStateZ.parse({ version: 0, windows: {} }).tasks).toEqual({});
   });
 
   it("should leave the rest of the document alone", () => {

@@ -395,7 +395,7 @@ var _ = Describe("Read task", func() {
 			Entry("a repeated member at a field", telem.Float64T, `{"v":1,"v":2}`,
 				"duplicate value at /v"),
 			Entry("a payload that is not UTF-8", telem.StringT, "\xff",
-				"invalid UTF-8"),
+				`invalid character '\xff' at start of value`),
 			Entry("text that is not base64 into a bytes channel", telem.BytesT,
 				`{"v":"a*b="}`, "field v: not canonical base64"),
 		)

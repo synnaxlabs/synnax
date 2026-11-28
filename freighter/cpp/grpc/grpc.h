@@ -29,7 +29,7 @@ const std::string ERROR_KEY = "error";
 const std::string ROOTS_FILE_ENV = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH";
 
 /// @brief converts a ::grpc::Status to a x::errors::Error. A type---data message from
-/// the Core keeps its type. Any other message becomes the data of the freighter error
+/// the Core keeps its type. Any other message becomes the data of the Freighter error
 /// for the status code.
 inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;
@@ -104,7 +104,7 @@ class Pool {
     std::mutex mu;
     /// @brief A map of channels to targets.
     std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels;
-    /// @brief GRPC credentials to provide when connecting to a target.
+    /// @brief gRPC credentials to provide when connecting to a target.
     std::shared_ptr<::grpc::ChannelCredentials> credentials;
     /// @brief the error that every call fails with, when the pool has no credentials.
     x::errors::Error err;

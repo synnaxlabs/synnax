@@ -23,7 +23,7 @@ describe("Staleness.configZ", () => {
     );
   });
 
-  // The symbol schema and the aether schema must agree, so the form rejects a timeout
+  // The symbol schema and the Aether schema must agree, so the form rejects a timeout
   // the worker would rather than pushing it across and failing there.
   it.each([0, -1])("should reject a non-positive timeout of %s", (t) => {
     expect(() => Staleness.configZ.parse({ stalenessTimeout: t })).toThrow();

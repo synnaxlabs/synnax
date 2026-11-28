@@ -358,7 +358,7 @@ private:
     /// then a sentence for each slave in left_out. The error ends with each distinct
     /// advice of the refusals in refused and left_out.
     static x::errors::Error start_error(
-        x::errors::Error err,
+        const x::errors::Error &err,
         const std::map<uint16_t, slave::Refusal> &refused,
         const std::map<uint16_t, LeftOut> &left_out
     );

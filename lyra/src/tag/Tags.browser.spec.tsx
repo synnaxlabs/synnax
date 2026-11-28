@@ -276,6 +276,36 @@ describe("Tags", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
+  it("should fold the tags of an unstacked group without stacking them", async () => {
+    const group = (unstacked: boolean): ReactElement => (
+      <div data-testid="frame" style={{ display: "flex", width: "330px" }}>
+        <Tag.Tags unstacked={unstacked}>
+          {LABELS.map((label) => (
+            <Tag.Tag key={label} color="#3774d0">
+              {label}
+            </Tag.Tag>
+          ))}
+        </Tag.Tags>
+      </div>
+    );
+    const { container } = await renderThemed(
+      <>
+        {group(false)}
+        {group(true)}
+      </>,
+    );
+    const [stacking, folding] = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-testid=frame]"),
+    );
+    await expect.poll(() => stacked(stacking)).toBe(true);
+    await expect.poll(() => count(folding)).not.toBeNull();
+    expect(stacked(folding)).toBe(false);
+    const step = named(folding);
+    expect(step).toEqual(LABELS.slice(0, step.length));
+    expect(step.length).toBeLessThan(named(stacking).length);
+    expect(overflows(folding)).toBe(false);
+  });
+
   it("should give a stacked tag the hover of a full tag", async () => {
     const group = (width: number): ReactElement => (
       <div data-testid="frame" style={{ display: "flex", width: `${width}px` }}>

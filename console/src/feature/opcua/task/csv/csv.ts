@@ -16,9 +16,7 @@ const COLUMNS = ["name", "node_name", "node_id", "field", "data_type", "enabled"
 
 const INDEX_COLUMN = "index";
 
-const DATA_TYPES = new Set(
-  DataType.ALL.filter((dt) => !dt.equals(DataType.UNKNOWN)).map((dt) => dt.toString()),
-);
+const DATA_TYPES = new Set(DataType.ALL.map((dt) => dt.toString()));
 
 // The text after the identifier type, such as Motor in ns=2;s=Motor.
 const NODE_ID_IDENTIFIER = /^(?:nsu?=[^;]*;)?[isgb]=(.+)$/su;

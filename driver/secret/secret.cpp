@@ -53,7 +53,10 @@ Reader::read_file(const std::string &item, const std::string &name) const {
         };
     auto [data, err] = x::fs::read_file((this->cfg.secrets_dir / name).string());
     if (err)
-        return {"", x::errors::Error(err, "Failed to read " + item + ": " + err.data)};
+        return {
+            "",
+            x::errors::Error(err, "Failed to read " + item + ": " + err.data())
+        };
     return {std::move(data), x::errors::NIL};
 }
 
@@ -210,7 +213,7 @@ std::pair<std::string, x::errors::Error> Reader::read_file_chain(
             "",
             x::errors::Error(
                 read_err,
-                "Failed to read certificate \"" + file.name + "\": " + read_err.data
+                "Failed to read certificate \"" + file.name + "\": " + read_err.data()
             )
         };
     auto [cert, parse_err] = x::x509::Certificate::parse(data);
@@ -219,7 +222,7 @@ std::pair<std::string, x::errors::Error> Reader::read_file_chain(
             "",
             x::errors::Error(
                 parse_err,
-                "Failed to read certificate \"" + file.name + "\": " + parse_err.data
+                "Failed to read certificate \"" + file.name + "\": " + parse_err.data()
             )
         };
     std::string pem;

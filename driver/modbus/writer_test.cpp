@@ -219,7 +219,7 @@ TEST(RegisterWriter, IllegalAddressNamesChannel) {
     fr.emplace(1, x::telem::Series(static_cast<uint16_t>(1)));
     const auto err = writer.write(dev, fr);
     ASSERT_OCCURRED_AS(err, device::CRITICAL_ERROR);
-    EXPECT_EQ(err.data, "setpoint (holding registers 500): Illegal data address");
+    EXPECT_EQ(err.data(), "setpoint (holding registers 500): Illegal data address");
     slave.stop();
 }
 
@@ -306,7 +306,7 @@ TEST(RegisterBitWriter, IllegalAddressNamesChannel) {
     fr.emplace(1, x::telem::Series(static_cast<uint8_t>(1)));
     const auto err = writer.write(dev, fr);
     ASSERT_OCCURRED_AS(err, device::CRITICAL_ERROR);
-    EXPECT_EQ(err.data, "alarm (holding registers 500): Illegal data address");
+    EXPECT_EQ(err.data(), "alarm (holding registers 500): Illegal data address");
     slave.stop();
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -26,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -69,6 +69,10 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 5 seconds.
 	FetchMaxWait telem.TimeSpan
+	// SkipHold is how long a read task warns after it last skips a record.
+	//
+	// [OPTIONAL] - Defaults to driver.SkipHold.
+	SkipHold telem.TimeSpan
 	alamos.Instrumentation
 }
 
@@ -77,6 +81,7 @@ var (
 	DefaultFactoryConfig                              = FactoryConfig{
 		PingTimeout:  10 * telem.Second,
 		FetchMaxWait: 5 * telem.Second,
+		SkipHold:     telem.TimeSpan(driver.SkipHold),
 	}
 )
 
@@ -91,6 +96,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.ICD = override.Nil(c.ICD, other.ICD)
 	c.PingTimeout = override.Numeric(c.PingTimeout, other.PingTimeout)
 	c.FetchMaxWait = override.Numeric(c.FetchMaxWait, other.FetchMaxWait)
+	c.SkipHold = override.Numeric(c.SkipHold, other.SkipHold)
 	return c
 }
 
@@ -105,23 +111,18 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("icd", c.ICD)
 	v.Positive("ping_timeout", c.PingTimeout)
 	v.Positive("fetch_max_wait", c.FetchMaxWait)
+	v.Positive("skip_hold", c.SkipHold)
 	return v.Error()
 }
 
 type factory struct {
-	cfg   FactoryConfig
-	reads read.Resolver
+	cfg      FactoryConfig
+	reads    read.Resolver
+	writes   write.Resolver
+	reporter driver.ConfigReporter
 }
 
 var _ driver.Factory = (*factory)(nil)
-
-func (f *factory) reporter() driver.ConfigReporter {
-	return driver.ConfigReporter{
-		DB:              f.cfg.DB,
-		Status:          f.cfg.Status,
-		Instrumentation: f.cfg.Instrumentation,
-	}
-}
 
 // NewFactory creates a driver.Factory for the Kafka scan, read, and write task types.
 func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
@@ -129,9 +130,16 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
+	channels := icd.ReadChannels(cfg.Channel)
 	return &factory{
-		cfg:   cfg,
-		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
+		cfg:    cfg,
+		reads:  read.NewResolver(cfg.ICD, channels),
+		writes: write.NewResolver(cfg.ICD, channels),
+		reporter: driver.ConfigReporter{
+			DB:              cfg.DB,
+			Status:          cfg.Status,
+			Instrumentation: cfg.Instrumentation,
+		},
 	}, nil
 }
 
@@ -147,59 +155,45 @@ func (f *factory) InitialTasks() []task.Task {
 	}}
 }
 
+// autoStarter is a task that the factory starts when its config asks for it.
+type autoStarter interface {
+	driver.Task
+	Start(ctx context.Context, cmdKey string) error
+}
+
 // ConfigureTask implements driver.Factory.
 func (f *factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
 ) (driver.Task, error) {
+	var (
+		configured autoStarter
+		autoStart  bool
+		err        error
+	)
 	switch t.Type {
 	case ScanTaskType:
-		st, autoStart, err := f.configureScan(t)
-		if err != nil {
-			f.reporter().Report(ctx, t, cmdKey, err)
-			return nil, err
-		}
-		// Start writes its own status when it fails.
-		if autoStart && cmdKey == driver.NoCommand {
-			if err := st.Start(ctx, cmdKey); err != nil {
-				return nil, err
-			}
-		}
-		return st, nil
+		configured, autoStart, err = f.configureScan(t)
 	case ReadTaskType:
-		rt, err := f.configureRead(ctx, t)
-		if err != nil {
-			f.reporter().Report(ctx, t, cmdKey, err)
-			return nil, err
-		}
-		// A successful configure writes no status, so a start answers the command.
-		if rt.cfg.AutoStart && cmdKey == driver.NoCommand {
-			if err := errors.Combine(rt.start(ctx, cmdKey)); err != nil {
-				return nil, err
-			}
-		}
-		return rt, nil
+		configured, autoStart, err = f.configureRead(ctx, t)
 	case WriteTaskType:
-		var cfg WriteConfig
-		if err := t.Config.Unmarshal(&cfg); err != nil {
-			f.reporter().Report(ctx, t, cmdKey, err)
-			return nil, err
-		}
-		wt, err := f.configureTargets(ctx, t, cfg)
-		if err != nil {
-			f.reporter().Report(ctx, t, cmdKey, err)
-			return nil, err
-		}
-		if cfg.AutoStart && cmdKey == driver.NoCommand {
-			if err = wt.Start(ctx, cmdKey); err != nil {
-				return nil, err
-			}
-		}
-		return wt, nil
+		configured, autoStart, err = f.configureWrite(ctx, t)
 	default:
 		return nil, driver.ErrTaskNotHandled
 	}
+	if err != nil {
+		f.reporter.Report(ctx, t, cmdKey, err)
+		return nil, err
+	}
+	// A successful configure writes no status: the start that follows it answers the
+	// command, and a "configured" status would answer it first with running false.
+	if autoStart && cmdKey == driver.NoCommand {
+		if err = configured.Start(ctx, cmdKey); err != nil {
+			return nil, err
+		}
+	}
+	return configured, nil
 }
 
 // resolveProperties retrieves the Kafka cluster device key and decodes its connection
@@ -220,56 +214,4 @@ func resolveProperties(
 		return Properties{}, errors.Wrapf(err, "retrieving device %s", key)
 	}
 	return decodeProperties(dev)
-}
-
-// retrieveChannels resolves keys to their channel records. A key with no channel is
-// absent from the result.
-func retrieveChannels(
-	ctx context.Context,
-	db *gorp.DB,
-	svc *channel.Service,
-	keys channel.Keys,
-) (map[channel.Key]channel.Channel, error) {
-	var channels []channel.Channel
-	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return svc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			SkipMissingKeys().
-			Entries(&channels).
-			Exec(ctx, snap)
-	}); err != nil {
-		return nil, err
-	}
-	byKey := make(map[channel.Key]channel.Channel, len(channels))
-	for _, ch := range channels {
-		byKey[ch.Key()] = ch
-	}
-	return byKey, nil
-}
-
-// retrieveICDs resolves keys to their ICDs. It returns an error wrapping
-// validate.ErrValidation when a key does not exist.
-func retrieveICDs(
-	ctx context.Context,
-	db *gorp.DB,
-	svc *icd.Service,
-	keys []icd.Key,
-) (map[icd.Key]icd.ICD, error) {
-	var icds []icd.ICD
-	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return svc.NewRetrieve().
-			Where(icd.MatchKeys(keys...)).
-			Entries(&icds).
-			Exec(ctx, snap)
-	}); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return nil, errors.Wrap(validate.ErrValidation, err.Error())
-		}
-		return nil, err
-	}
-	byKey := make(map[icd.Key]icd.ICD, len(icds))
-	for _, ic := range icds {
-		byKey[ic.Key] = ic
-	}
-	return byKey, nil
 }
