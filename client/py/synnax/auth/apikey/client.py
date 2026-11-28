@@ -13,11 +13,13 @@ from freighter import Empty, UnaryClient
 from synnax import resource
 from synnax.auth.apikey.types_gen import APIKey, Key
 from synnax.util.send_required import send_required
+from x.telem import CrudeTimeStamp, TimeStamp
 
 
 class _CreateRequest(BaseModel):
     subject: resource.ID | None = None
     name: str
+    expires: TimeStamp
 
 
 class _CreateResponse(BaseModel):
@@ -51,18 +53,28 @@ class Client:
         self._client = transport
 
     def create(
-        self, name: str, subject: resource.ID | None = None
+        self,
+        name: str,
+        subject: resource.ID | None = None,
+        expires: CrudeTimeStamp = TimeStamp.MAX,
     ) -> tuple[str, APIKey]:
         """Creates an API key for the subject, or for the caller when none is given.
 
+        :param expires: when the key stops logging in. Defaults to TimeStamp.MAX,
+            which never expires.
         :returns: the token to log in with, the only copy of its secret, and the key.
         :raises AccessDenied: if the caller may not create a key for the subject.
         :raises NotFoundError: if the subject does not exist.
+        :raises ValidationError: if expires is not in the future.
         """
         res = send_required(
             self._client,
             _CREATE_ENDPOINT,
-            _CreateRequest(subject=subject, name=name),
+            _CreateRequest(
+                subject=subject,
+                name=name,
+                expires=TimeStamp(expires),
+            ),
             _CreateResponse,
         )
         return res.token, res.key

@@ -433,6 +433,29 @@ class TestAPIKeys:
         keyed.close()
         admin.close()
 
+    def test_key_expiry(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should store a key's expiry and fail requests once it passes."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        _, never = admin.auth.api_keys.create("never")
+        assert never.expires == sy.TimeStamp.MAX
+        expires = sy.TimeStamp.now() + sy.TimeSpan.SECOND
+        token, key = admin.auth.api_keys.create("short", expires=expires)
+        assert key.expires == expires
+        keyed = sy.Synnax(host=host, port=port, api_key=token, secure=False)
+        time.sleep(1.5)
+        with pytest.raises(sy.AuthError):
+            keyed.auth.sessions.retrieve()
+        with pytest.raises(sy.ValidationError):
+            admin.auth.api_keys.create(
+                "past", expires=sy.TimeStamp.now() - sy.TimeSpan.SECOND
+            )
+        admin.auth.api_keys.delete(never.key, key.key)
+        keyed.close()
+        admin.close()
+
     def test_wrong_key(self, login_info: tuple[str, int, str, str]) -> None:
         """Should reject a key the Core never issued."""
         host, port, _, _ = login_info

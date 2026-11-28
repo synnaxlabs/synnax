@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { binary, uuid } from "@synnaxlabs/x";
+import { binary, type CrudeTimeStamp, TimeStamp, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type APIKey, apiKeyZ, type Key, keyZ } from "@/auth/apikey/types.gen";
@@ -42,9 +42,15 @@ export interface New {
   subject?: resource.ID;
   /** A label that tells the subject's keys apart. */
   name: string;
+  /** When the key stops logging in. Defaults to TimeStamp.MAX, which never expires. */
+  expires?: CrudeTimeStamp;
 }
 
-const createReqZ = z.object({ subject: resource.idZ.optional(), name: z.string() });
+const createReqZ = z.object({
+  subject: resource.idZ.optional(),
+  name: z.string(),
+  expires: TimeStamp.z.default(TimeStamp.MAX),
+});
 const createResZ = z.object({ token: z.string(), key: apiKeyZ });
 const retrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });
 const retrieveResZ = z.object({ keys: apiKeyZ.array() });
@@ -66,6 +72,7 @@ export class Client {
    * Creates an API key. The returned token is the only copy of the key's secret.
    * @throws {AccessDeniedError} when the caller may not create a key for the subject.
    * @throws {NotFoundError} when the subject does not exist.
+   * @throws {PathError} when the expiry is not in the future.
    */
   async create(key: New): Promise<{ token: string; key: APIKey }> {
     return await this.client.send(CREATE_ENDPOINT, key, createReqZ, createResZ);
