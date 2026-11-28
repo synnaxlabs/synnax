@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -278,7 +279,7 @@ func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
 	}
 	var (
 		names  = make(map[channel.Key]string, len(counts))
-		shared = make(map[string]bool, len(counts))
+		shared = make(set.Set[string], len(counts))
 	)
 	for _, group := range groups {
 		for _, ch := range group {
@@ -286,14 +287,15 @@ func tdmsNames(groups [][]channel.Channel) (map[channel.Key]string, error) {
 			if counts[name] > 1 {
 				name = fmt.Sprintf("%s (%s)", name, ch.Key())
 			}
-			names[ch.Key()], shared[name] = name, true
+			names[ch.Key()] = name
+			shared.Add(name)
 		}
 	}
 	taken := make(map[string]channel.Key, len(names))
 	for _, group := range groups {
 		for _, ch := range group {
 			name := names[ch.Key()]
-			if prefix, ok := typedPrefix(name); ok && shared[prefix] {
+			if prefix, ok := typedPrefix(name); ok && shared.Contains(prefix) {
 				name = fmt.Sprintf("%s (%s)", name, ch.Key())
 			}
 			if other, ok := taken[name]; ok {
@@ -322,14 +324,14 @@ func typedPrefix(name string) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	i := strings.LastIndex(rest, " (")
-	if i < 0 {
+	prefix, dt, ok := strings.CutLast(rest, " (")
+	if !ok {
 		return "", false
 	}
-	if _, err := newTDMSDataType(telem.DataType(rest[i+2:])); err != nil {
+	if _, err := newTDMSDataType(telem.DataType(dt)); err != nil {
 		return "", false
 	}
-	return rest[:i], true
+	return prefix, true
 }
 
 func nameClashError(a, b channel.Key, name string) error {
