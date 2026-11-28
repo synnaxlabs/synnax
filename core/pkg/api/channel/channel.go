@@ -508,6 +508,7 @@ func (s *Service) Delete(
 		s.access,
 		s.internal,
 		access.ActionDelete,
+		resource.TypeChannel,
 		req.Names,
 	)
 	if err != nil {
@@ -518,15 +519,18 @@ func (s *Service) Delete(
 }
 
 // LookUpToAct returns the key of the channel at each of paths
-// (channel.Service.KeysByPaths), as the subject of ctx sees tx to take action on them:
-// a channel or folder counts when the subject can retrieve it or take action on it.
-// It returns no keys for no paths.
+// (channel.Service.KeysByPaths), as the subject of ctx sees tx to take action on the
+// resources of type object that have the keys of the channels. A channel counts when
+// the subject can retrieve it or take action on its resource of type object. A folder
+// counts when the subject can retrieve it or take action on it. It returns no keys for
+// no paths.
 func LookUpToAct(
 	ctx context.Context,
 	tx gorp.Tx,
 	rbacSvc *rbac.Service,
 	channels *channel.Service,
 	action access.Action,
+	object resource.Type,
 	paths []string,
 ) (channel.Keys, error) {
 	if len(paths) == 0 {
@@ -540,7 +544,13 @@ func LookUpToAct(
 	retrieve := rbac.Allows(subject, policies, access.ActionRetrieve)
 	act := rbac.Allows(subject, policies, action)
 	return channels.KeysByPaths(ctx, tx, func(id resource.ID) bool {
-		return retrieve(id) || act(id)
+		if retrieve(id) {
+			return true
+		}
+		if id.Type == resource.TypeChannel {
+			id.Type = object
+		}
+		return act(id)
 	}, paths)
 }
 

@@ -153,6 +153,7 @@ func (s *Service) Delete(
 		s.access,
 		s.channel,
 		access.ActionDelete,
+		resource.TypeFramer,
 		req.Names,
 	)
 	if err != nil {
