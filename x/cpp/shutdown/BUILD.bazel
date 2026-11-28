@@ -22,6 +22,16 @@ cc_library(
 )
 
 cc_test(
+    name = "shutdown_test",
+    size = "small",
+    srcs = ["shutdown_test.cpp"],
+    deps = [
+        ":shutdown",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "windows_test",
     size = "small",
     srcs = ["windows_test.cpp"],

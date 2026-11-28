@@ -22,11 +22,12 @@ int start(x::args::Parser &args) {
     LOG(INFO) << x::log::BLUE() << "starting Synnax Driver " << version()
               << x::log::RESET();
 
-    const bool stdin_stop_enabled = !args.flag("--disable-stdin-stop");
-    VLOG(1) << "stdin stop " << (stdin_stop_enabled ? "enabled" : "disabled");
-
-    const bool sig_stop_enabled = !args.flag("--disable-sig-stop");
-    VLOG(1) << "sig stop " << (sig_stop_enabled ? "enabled" : "disabled");
+    const x::shutdown::ListenOptions listen_options{
+        .signals_ignored = args.flag("--disable-sig-stop"),
+        .stdin_ignored = args.flag("--disable-stdin-stop"),
+    };
+    VLOG(1) << "stdin stop " << (listen_options.stdin_ignored ? "disabled" : "enabled");
+    VLOG(1) << "sig stop " << (listen_options.signals_ignored ? "disabled" : "enabled");
 
     if (args.error()) {
         LOG(ERROR) << "invalid arguments: " << args.error();
@@ -36,7 +37,7 @@ int start(x::args::Parser &args) {
     rack::Rack r;
     // Wakes the main thread when the rack stops by itself.
     r.start(args, x::shutdown::signal_shutdown);
-    x::shutdown::listen(sig_stop_enabled, stdin_stop_enabled);
+    x::shutdown::listen(listen_options);
     LOG(INFO) << x::log::BLUE()
               << "stopping driver. This can take up to 5 seconds. Please be patient"
               << x::log::RESET();
