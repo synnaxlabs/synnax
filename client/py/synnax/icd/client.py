@@ -16,6 +16,7 @@ from pydantic import BaseModel, field_serializer
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import PathError, UnexpectedError
+from synnax.icd import actions_gen
 from synnax.icd.types_gen import (
     ICD,
     Cursor,
@@ -52,20 +53,10 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _SetPayload(BaseModel):
-    path: list[str]
-    value: str
-
-
-class _SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: _SetPayload
-
-
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[_SetAction]
+    actions: list[actions_gen.Action]
 
 
 class _ImportRequest(BaseModel):
@@ -178,7 +169,9 @@ class Client:
         """
         req = _DispatchRequest(
             key=key,
-            actions=[_SetAction(set=_SetPayload(path=["name"], value=name))],
+            actions=[
+                actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+            ],
         )
         self._client.send("/icd/dispatch", req, Empty)
 
