@@ -22,6 +22,8 @@
 #include <variant>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
@@ -121,9 +123,7 @@ read_variant(const icd::JSONField &jf, const x::telem::DataType &dt) {
                     out.fallback = *v.default_ ? "true" : "false";
             } else if constexpr (std::is_same_v<F, icd::TimestampJSONField>) {
                 out.kind = payload::KIND_TIMESTAMP;
-                auto [format, err] = x::json::parse_time_format(v.time_format);
-                if (err) return {{}, err};
-                out.sample.time_format = format;
+                out.sample.time_format = v.time_format;
                 if (v.default_.has_value())
                     std::visit(
                         [&]<typename D>(const D &d) {
@@ -325,14 +325,26 @@ JSON::create(const std::vector<JSONMessage> &messages) {
         msg.failures.reserve(msg.fields.size());
         j.messages.push_back(std::move(msg));
     }
+    j.bare = std::ranges::any_of(pointers, [](const auto &p) {
+        return p.tokens.empty();
+    });
     j.extractor = x::json::Extractor(std::move(pointers));
     return {std::move(j), x::errors::NIL};
 }
 
+x::errors::Error JSON::extract(const std::string_view doc) {
+    auto err = this->extractor.extract(doc, this->values);
+    if (!err || !this->bare || nlohmann::json::accept(doc.begin(), doc.end()))
+        return err;
+    this->quoted.clear();
+    if (const auto quote_err = x::json::append_quoted(doc, this->quoted))
+        return quote_err;
+    return this->extractor.extract(this->quoted, this->values);
+}
+
 std::pair<std::optional<std::size_t>, x::errors::Error>
 JSON::decode(const std::string_view doc) {
-    if (const auto err = this->extractor.extract(doc, this->values))
-        return {std::nullopt, err};
+    if (const auto err = this->extract(doc)) return {std::nullopt, err};
     auto [message, err] = this->router.find(this->values);
     if (err || !message.has_value()) return {message, err};
     auto &m = this->messages[*message];
@@ -486,15 +498,23 @@ JSONEncoder::Default::create(const icd::JSONField &f) {
             } else if constexpr (std::is_same_v<F, icd::BooleanJSONField>)
                 text = v.default_.value() ? "true" : "false";
             else if constexpr (std::is_same_v<F, icd::TimestampJSONField>) {
-                auto [format, err] = x::json::parse_time_format(v.time_format);
+                auto [now, err] = x::json::Encoder::create({
+                    .data_type = x::telem::TIMESTAMP_T,
+                    .time_format = v.time_format,
+                });
                 if (err) return err;
                 if (const auto *c = std::get_if<icd::ConstantTimestampDefault>(
                         &v.default_.value()
-                    ))
-                    x::json::append_timestamp(c->value, format, text);
-                else {
+                    )) {
+                    const auto append_err = now.append(
+                        x::telem::Series(c->value),
+                        0,
+                        text
+                    );
+                    if (append_err) return append_err;
+                } else {
                     d.generator = Generator::NOW;
-                    d.time_format = format;
+                    d.now = std::move(now);
                     return x::errors::NIL;
                 }
             } else if constexpr (std::is_same_v<F, icd::JSONJSONField>) {
@@ -526,15 +546,11 @@ JSONEncoder::Default::create(const icd::JSONField &f) {
     return {std::move(d), x::errors::NIL};
 }
 
-x::errors::Error JSONEncoder::Default::append(std::string &out) const {
+x::errors::Error JSONEncoder::Default::append(std::string &out) {
     switch (this->generator) {
         case Generator::NOW:
-            x::json::append_timestamp(
-                x::telem::TimeStamp::now(),
-                this->time_format,
-                out
-            );
-            return x::errors::NIL;
+            this->sample.set(0, x::telem::TimeStamp::now());
+            return this->now.append(this->sample, 0, out);
         case Generator::UUID:
             out += '"';
             out += x::uuid::create().to_string();
@@ -752,9 +768,9 @@ x::errors::Error JSONEncoder::encode(
     const auto err = this->document.append(
         this->text,
         [this, &samples](const std::size_t slot, std::string &out) -> x::errors::Error {
-            const auto &s = this->slots[slot];
+            auto &s = this->slots[slot];
             if (!s.binding.has_value()) return s.fallback.append(out);
-            const auto &f = this->fields[*s.binding];
+            auto &f = this->fields[*s.binding];
             const auto &sample = samples[*s.binding];
             if (!f.sample.empty() && !sample.empty() &&
                 f.bytes(sample, 0) == f.sample) {

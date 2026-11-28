@@ -27,6 +27,8 @@ export interface ContextMenuProps {
   onDisable?: () => void;
   /** Items that follow the add field item, such as an add item of the form's own. */
   extraMenuItems?: ReactNode;
+  /** An item that deletes the items from what defines them, such as an ICD. */
+  deleteMenuItem?: ReactNode;
   /** The channels that the Tare item tares. Undefined drops the item. */
   tareChannels?: channel.Key[];
 }
@@ -41,6 +43,7 @@ export const ContextMenu = ({
   onEnable,
   onDisable,
   extraMenuItems,
+  deleteMenuItem,
   tareChannels,
 }: ContextMenuProps) => {
   const isPreview = useIsPreview();
@@ -84,9 +87,10 @@ export const ContextMenu = ({
       {!isPreview && canAct && (
         <>
           <Menu.Divider />
-          {onRemove != null && (
+          {(onRemove != null || deleteMenuItem != null) && (
             <>
-              <Base.RemoveItem onClick={() => onRemove(keys)} />
+              {onRemove != null && <Base.RemoveItem onClick={() => onRemove(keys)} />}
+              {deleteMenuItem}
               <Menu.Divider />
             </>
           )}

@@ -20,7 +20,7 @@ REPO = "acme/widgets"
 MAIN = "refs/heads/main"
 PULL = "refs/pull/7/merge"
 SHA = "a" * 40
-PARENT = "b" * 40
+FORK = "b" * 40
 SCANNED = "c" * 40
 FIX = "d" * 40
 OLD = "e" * 40
@@ -68,7 +68,8 @@ def analysis(category: str, commit: str) -> Raw:
 # The merge ref has an analysis of SHA in each category. Python is an empty analysis of
 # a language the pull request leaves alone, so it opens no alert.
 ANALYSES = [analysis(GO, SHA), analysis(PYTHON, SHA)]
-# The newest analyses of main are of a commit that contains PARENT.
+# The newest analyses of main are of a commit that contains FORK, the merge base of SHA
+# and main.
 MAIN_ANALYSES = [analysis(GO, SCANNED), analysis(PYTHON, SCANNED)]
 # Main has alert 1 open, alert 2 fixed in FIX, alert 3 dismissed, and an open Python
 # alert 4 that the merge ref does not carry.
@@ -107,7 +108,7 @@ class FakeAPI:
         self.alerts = {PULL: pull, MAIN: MAIN_ALERTS}
         self.analyses = analyses or [ANALYSES]
         self.main = main or [MAIN_ANALYSES]
-        self.compare = {f"{PARENT}...{SCANNED}": "ahead", **(compare or {})}
+        self.compare = {f"{FORK}...{SCANNED}": "ahead", **(compare or {})}
         self.calls: list[tuple[str, ...]] = []
 
     def __call__(self, *args: str) -> str:
@@ -116,8 +117,8 @@ class FakeAPI:
         if "/code-scanning/analyses?" in path:
             polls = self.main if f"ref={MAIN}&" in path else self.analyses
             return json.dumps(polls.pop(0) if len(polls) > 1 else polls[0])
-        if "/commits/" in path:
-            return PARENT + "\n"
+        if ".merge_base_commit.sha" in args:
+            return FORK + "\n"
         if "/compare/" in path:
             return self.compare[path.split("/compare/")[1]] + "\n"
         ref = path.split("ref=")[1].split("&")[0]
@@ -265,16 +266,16 @@ class TestCheck:
         lagging = [analysis(GO, OLD), analysis(PYTHON, SCANNED)]
         api = FakeAPI(
             [[raw(5)]],
-            compare={f"{PARENT}...{OLD}": "behind"},
+            compare={f"{FORK}...{OLD}": "behind"},
             main=[lagging, MAIN_ANALYSES],
         )
         clock = Clock()
         assert run(api, clock)[0] == 1
         assert clock.sleeps == [POLL]
         assert api.calls[0] == (
-            f"repos/{REPO}/commits/{SHA}",
+            f"repos/{REPO}/compare/{MAIN}...{SHA}",
             "--jq",
-            ".parents[0].sha",
+            ".merge_base_commit.sha",
         )
 
     def test_should_not_wait_for_the_base_without_a_new_alert(self) -> None:
@@ -286,9 +287,7 @@ class TestCheck:
 
     def test_should_fail_when_the_base_does_not_analyze_in_time(self) -> None:
         lagging = [analysis(GO, OLD), analysis(PYTHON, SCANNED)]
-        api = FakeAPI(
-            [[raw(5)]], compare={f"{PARENT}...{OLD}": "behind"}, main=[lagging]
-        )
+        api = FakeAPI([[raw(5)]], compare={f"{FORK}...{OLD}": "behind"}, main=[lagging])
         assert run(api) == (
             1,
             f"No CodeQL analysis of {SHA} or its base after 3600 s for {GO} on "

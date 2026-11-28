@@ -102,13 +102,13 @@ type encodeField struct {
 	cached       bool
 }
 
-// atLimit returns the limit of f that v equals at the precision of the samples of f,
-// or else v.
-func (f *encodeField) atLimit(v float64) float64 {
-	if !f.narrow {
+// atLimit returns the limit of b that v equals at float32 precision when narrow is
+// true, or else v.
+func atLimit(b icd.BaseField, narrow bool, v float64) float64 {
+	if !narrow {
 		return v
 	}
-	for _, limit := range [...]*float64{f.base.Min, f.base.Max} {
+	for _, limit := range [...]*float64{b.Min, b.Max} {
 		if limit != nil && float32(v) == float32(*limit) {
 			return *limit
 		}
@@ -143,7 +143,7 @@ func NewJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 }
 
 func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
-	bound, err := bindingIndexes(m)
+	bound, err := bindingIndexes(m.Payload.Fields, jsonBase, m.Bindings)
 	if err != nil {
 		return nil, err
 	}
@@ -188,25 +188,33 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 	return e, nil
 }
 
-// bindingIndexes returns the index of the binding of each bound field in m. It fails
-// when a binding names a field that m does not have, or a field has two bindings.
-func bindingIndexes(m JSONMessage) (map[icd.FieldKey]int, error) {
-	fields, err := boundFields(m.Payload.Fields, jsonKey, m.Bindings)
+// bindingIndexes returns the index of the binding of each bound field of fields. base
+// returns the base of a field. It fails when a binding names no field of fields, or a
+// field has two bindings.
+func bindingIndexes[F any](
+	fields []F,
+	base func(F) icd.BaseField,
+	bindings []Binding,
+) (map[icd.FieldKey]int, error) {
+	key := func(f F) icd.FieldKey { return base(f).Key }
+	bound, err := boundFields(fields, key, bindings)
 	if err != nil {
 		return nil, err
 	}
-	bound := make(map[icd.FieldKey]int, len(fields))
-	for i, f := range fields {
-		b := f.Base()
-		if _, ok := bound[b.Key]; ok {
+	indexes := make(map[icd.FieldKey]int, len(bound))
+	for i, f := range bound {
+		b := base(f)
+		if _, ok := indexes[b.Key]; ok {
 			return nil, errors.Wrapf(
 				validate.ErrValidation, "field %s has more than one binding", b.Name,
 			)
 		}
-		bound[b.Key] = i
+		indexes[b.Key] = i
 	}
-	return bound, nil
+	return indexes, nil
 }
+
+func jsonBase(f icd.JSONField) icd.BaseField { return f.Base().BaseField }
 
 // templateField returns the template field of f and its binding in m, or -1 when f
 // takes its default. It returns the generator of a default that takes a new value at
@@ -319,11 +327,9 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 		narrow: dt == telem.Float32T,
 	}
 	kind := jf.Type()
-	sample, err := sampleField(jf, dt)
+	sample := sampleField(jf, dt)
+	err := CheckWrite(kind, f.scaled, dt)
 	if err != nil {
-		return encodeField{}, err
-	}
-	if err = CheckWrite(kind, f.scaled, dt); err != nil {
 		return encodeField{}, err
 	}
 	bounded := b.Min != nil || b.Max != nil
@@ -340,7 +346,7 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 }
 
 // sampleField returns the xjson field that writes a sample of dt as a value of jf.
-func sampleField(jf icd.JSONField, dt telem.DataType) (xjson.Field, error) {
+func sampleField(jf icd.JSONField, dt telem.DataType) xjson.Field {
 	f := xjson.Field{DataType: dt, Enums: enumsOf(jf), Type: xjson.Number}
 	switch v := jf.Variant.(type) {
 	case icd.StringJSONField, icd.UuidJSONField, icd.BytesJSONField:
@@ -348,13 +354,9 @@ func sampleField(jf icd.JSONField, dt telem.DataType) (xjson.Field, error) {
 	case icd.BooleanJSONField:
 		f.Type = xjson.Boolean
 	case icd.TimestampJSONField:
-		format, err := xjson.ParseTimeFormat(string(v.TimeFormat))
-		if err != nil {
-			return xjson.Field{}, err
-		}
-		f.TimeFormat = format
+		f.TimeFormat = v.TimeFormat
 	}
-	return f, nil
+	return f
 }
 
 // converted reports whether a field of kind k changes or checks the number that an
@@ -496,16 +498,21 @@ func defaultText(jf icd.JSONField) ([]byte, error) {
 }
 
 func timestampDefault(f icd.TimestampJSONField) ([]byte, generator, error) {
-	format, err := xjson.ParseTimeFormat(string(f.TimeFormat))
+	enc, err := xjson.NewEncoder(
+		xjson.Field{DataType: telem.TimestampT, TimeFormat: f.TimeFormat},
+	)
 	if err != nil {
 		return nil, nil, err
 	}
 	switch d := f.Default.Variant.(type) {
 	case icd.ConstantTimestampDefault:
-		return xjson.AppendTimeStamp(nil, d.Value, format), nil, nil
+		literal, err := enc.Append(nil, telem.NewSeriesV(d.Value).Data)
+		return literal, nil, err
 	case icd.NowTimestampDefault:
 		return nil, func(dst []byte) ([]byte, error) {
-			return xjson.AppendTimeStamp(dst, telem.Now(), format), nil
+			var sample [8]byte
+			telem.ByteOrder.PutUint64(sample[:], uint64(telem.Now()))
+			return enc.Append(dst, sample[:])
 		}, nil
 	case nil:
 	}
@@ -627,7 +634,7 @@ func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 		return f.appendInteger(dst, n)
 	}
 	v := n.Float64()
-	if err = icd.CheckRange(f.base, f.atLimit(v)); err != nil {
+	if err = icd.CheckRange(f.base, atLimit(f.base, f.narrow, v)); err != nil {
 		return nil, err
 	}
 	switch f.kind {

@@ -19,6 +19,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -134,8 +135,9 @@ func encodeEnum(en Enum, dt telem.DataType) ([]byte, error) {
 type Field struct {
 	// DataType is the data type of the samples.
 	DataType telem.DataType
-	// TimeFormat encodes timestamp samples.
-	TimeFormat TimeFormat
+	// TimeFormat encodes timestamp samples. A Decoder and an Encoder of a timestamp
+	// data type need one.
+	TimeFormat payload.TimeFormat
 	// Type is the JSON type an Encoder writes a sample as. Timestamp samples take
 	// TimeFormat instead.
 	Type Type
@@ -162,15 +164,17 @@ var rejectDuplicateNames = []jsontext.Options{jsontext.AllowDuplicateNames(false
 // Decoder converts the JSON values of a Field into samples without allocating. It is
 // not safe for concurrent use.
 type Decoder struct {
-	field Field
-	enums []Enum
+	field      Field
+	timeFormat timeFormat
+	enums      []Enum
 	// text is scratch space for a string that is not stored as text.
 	text []byte
 }
 
 // NewDecoder returns a Decoder for f. It returns an error wrapping
 // validate.ErrValidation when no JSON value converts to f.DataType, an enum value does
-// not convert to it, or f.Range is not an integer data type.
+// not convert to it, f.Range is not an integer data type, or a timestamp f has no
+// valid TimeFormat.
 func NewDecoder(f Field) (*Decoder, error) {
 	switch dt := f.DataType; {
 	case dt == telem.TimestampT, dt == telem.StringT, dt == telem.JSONT,
@@ -185,11 +189,15 @@ func NewDecoder(f Field) (*Decoder, error) {
 			validate.ErrValidation, "range %s is not an integer data type", f.Range,
 		)
 	}
+	format, err := timeFormatOfField(f)
+	if err != nil {
+		return nil, err
+	}
 	enums, err := encodeEnums(f.Enums, f.DataType)
 	if err != nil {
 		return nil, err
 	}
-	return &Decoder{field: f, enums: enums}, nil
+	return &Decoder{field: f, timeFormat: format, enums: enums}, nil
 }
 
 // Append appends the sample of raw, one JSON value, to dst. A variable-density sample
@@ -418,7 +426,7 @@ func (d *Decoder) enum() ([]byte, bool) {
 }
 
 func (d *Decoder) timeStamp(raw jsontext.Value) (telem.TimeStamp, error) {
-	format := d.field.TimeFormat
+	format := d.timeFormat
 	if format == iso8601 {
 		if raw.Kind() != '"' {
 			return 0, errors.Wrapf(
@@ -475,14 +483,15 @@ func kindName(raw jsontext.Value) string {
 // Encoder converts the samples of a Field into JSON values without allocating. It is
 // safe for concurrent use.
 type Encoder struct {
-	field Field
+	field      Field
+	timeFormat timeFormat
 	// enums hold each label as a JSON string.
 	enums []Enum
 }
 
 // NewEncoder returns an Encoder for f. It returns an error wrapping
-// validate.ErrValidation when f.Type cannot hold a sample of f.DataType, or an enum
-// value does not convert to f.DataType.
+// validate.ErrValidation when f.Type cannot hold a sample of f.DataType, an enum value
+// does not convert to f.DataType, or a timestamp f has no valid TimeFormat.
 func NewEncoder(f Field) (*Encoder, error) {
 	dt := f.DataType
 	if dt != telem.TimestampT && !numeric(dt) && f.Type != String {
@@ -502,7 +511,11 @@ func NewEncoder(f Field) (*Encoder, error) {
 		}
 		enums[i].label = string(quoted)
 	}
-	return &Encoder{field: f, enums: enums}, nil
+	format, err := timeFormatOfField(f)
+	if err != nil {
+		return nil, err
+	}
+	return &Encoder{field: f, timeFormat: format, enums: enums}, nil
 }
 
 // Append appends the JSON value of sample to dst. A variable-density sample is its data
@@ -520,7 +533,7 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	switch {
 	case dt == telem.TimestampT:
 		ts := telem.TimeStamp(telem.ByteOrder.Uint64(sample))
-		return AppendTimeStamp(dst, ts, e.field.TimeFormat), nil
+		return appendTimeStamp(dst, ts, e.timeFormat), nil
 	case dt == telem.UUIDT:
 		dst = append(dst, '"')
 		var err error
