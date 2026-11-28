@@ -85,10 +85,7 @@ var _ = Describe("Folder rule breaker", func() {
 
 	It("Should refuse a config with no name rule for the channel scope",
 		func(ctx SpecContext) {
-			svc, err := group.OpenService(ctx, group.ServiceConfig{DB: db})
-			if err == nil {
-				DeferClose(svc)
-			}
-			Expect(err).To(MatchError(ContainSubstring("channel")))
+			Expect(group.OpenService(ctx, group.ServiceConfig{DB: db})).Error().
+				To(MatchError(ContainSubstring("name_rules.channel")))
 		})
 })
