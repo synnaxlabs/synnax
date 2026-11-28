@@ -17,8 +17,6 @@ export * from "@/feature/icd/commands";
 export * from "@/feature/icd/link";
 export * from "@/feature/icd/search";
 export * from "@/feature/icd/Settings";
-export * from "@/feature/icd/useCreate";
-export * from "@/feature/icd/useImport";
 
 const TAB = {
   Content: Panel.lazyComponent(() => import("@/feature/icd/editor/Editor"), "Editor"),
