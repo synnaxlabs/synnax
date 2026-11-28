@@ -30,6 +30,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Make is the make of a device that the Driver reaches on a serial port.
+const Make = "serial"
+
 const (
 	// readTaskType is the type of the task that reads ICD messages from a serial port.
 	readTaskType = "serial_read"

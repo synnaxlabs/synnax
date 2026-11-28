@@ -36,7 +36,7 @@ export const isStringer = (value: unknown): value is Stringer =>
  * canonical string representation of themselves. Implementers commit to: (1) the
  * returned string uniquely identifies the value's logical content, and (2) two
  * instances representing the same logical value return equal strings. Used by cache-key
- * derivation paths (e.g. flux queryCache) so non-primitive query fields hash to a
+ * derivation paths (e.g. Flux queryCache) so non-primitive query fields hash to a
  * stable identifier rather than relying on enumerable own-property iteration, which is
  * fragile for class instances.
  */

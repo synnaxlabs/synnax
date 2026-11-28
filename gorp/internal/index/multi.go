@@ -179,10 +179,8 @@ func (m *Multi[S, K, V]) CommittingHolding(holding bool) []K {
 	m.overlay.mu.RLock()
 	defer m.overlay.mu.RUnlock()
 	keys := make(set.Set[K])
-	for scope, d := range m.overlay.deltas {
-		if scope.Committing() {
-			d.applyHolding(keys, holding)
-		}
+	if d, ok := m.overlay.committing(); ok {
+		d.applyHolding(keys, holding)
 	}
 	return keys.Slice()
 }

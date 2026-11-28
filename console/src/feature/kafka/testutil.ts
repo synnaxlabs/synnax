@@ -87,4 +87,5 @@ export const createInferredField = (
   type,
   timeFormat,
   enum: [],
+  optional: false,
 });

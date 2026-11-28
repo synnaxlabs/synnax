@@ -68,7 +68,8 @@ class Binary {
         append(std::uint64_t raw, x::telem::Series &dst) const;
         [[nodiscard]] x::errors::Error
         append_float(double v, x::telem::Series &dst) const;
-        /// @brief appends the sample of the field in payload, or its default, to dst.
+        /// @brief appends the sample of the field in payload, which holds the field, to
+        /// dst.
         [[nodiscard]] x::errors::Error
         decode(std::span<const std::uint8_t> payload, x::telem::Series &dst) const;
     };
@@ -80,8 +81,11 @@ class Binary {
         /// @brief raw holds the raw value of each multiplexor in the last decode.
         std::vector<std::int64_t> raw;
         std::vector<x::telem::Series> samples;
+        std::vector<Failure> failures;
 
-        /// @brief decodes the value of each field in payload into samples.
+        /// @brief decodes the value of each field in payload into samples, and each
+        /// field that it cannot decode into failures.
+        /// @returns VALIDATION when payload is too short for the multiplexors.
         x::errors::Error decode(std::span<const std::uint8_t> payload);
     };
 
@@ -134,14 +138,16 @@ public:
 
     /// @brief finds the message that payload, a frame from a byte stream or a datagram,
     /// belongs to by its field identifiers, and decodes its bindings into its samples.
-    /// A message with a CAN identifier never matches.
+    /// A message with a CAN identifier never matches. A field with no default that
+    /// payload is too short for, or with a value that does not fit its channel, gets no
+    /// sample and goes into its failures.
     /// @returns the index of the message in create order, or nothing when payload
     /// belongs to no message. When payload meets the identifiers of two messages, the
     /// first of them.
     /// @returns VALIDATION, with the message, when payload meets the identifiers of two
-    /// messages, it is too short for its multiplexors or for a field with no default,
-    /// or a value does not fit its channel. A decode error names the field, and also
-    /// the message when the decoder holds more than one.
+    /// messages, or it is too short for its multiplexors. A short payload's error names
+    /// the first multiplexor that does not fit, and also the message when the decoder
+    /// holds more than one.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::span<const std::uint8_t> payload);
 
@@ -154,12 +160,21 @@ public:
     decode(std::uint32_t id, bool extended, std::span<const std::uint8_t> payload);
 
     /// @brief returns the samples of the last decode of message: one series for each
-    /// binding, in binding order. Each holds one sample, or none for a field that the
-    /// multiplexors of the frame do not select and that has no default. They are
-    /// unspecified after a decode that does not return message, or returns an error.
+    /// binding, in binding order. Each holds one sample, or none for a field in its
+    /// failures, or that the multiplexors of the frame do not select and that has no
+    /// default. They are unspecified after a decode that does not return message, or
+    /// returns an error.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
+    }
+
+    /// @brief returns the fields that the last decode of message could not decode, in
+    /// binding order. They are unspecified after a decode that does not return message,
+    /// or returns an error.
+    [[nodiscard]] const std::vector<Failure> &
+    failures(const std::size_t message) const {
+        return this->messages[message].failures;
     }
 };
 /// @brief BinaryEncoder encodes samples into the payload of one binary message. It is

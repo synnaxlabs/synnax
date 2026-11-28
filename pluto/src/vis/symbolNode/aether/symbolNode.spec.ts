@@ -16,7 +16,7 @@ import { symbolNode } from "@/vis/symbolNode/aether";
 
 const TIMEOUT = TimeSpan.seconds(1).nanoseconds;
 
-// Mounts the aether SymbolNode with an active and a level source and one sink.
+// Mounts the Aether SymbolNode with an active and a level source and one sink.
 const setup = () => {
   const active = telemTest.source<number>(NaN);
   const level = telemTest.source<number>(NaN);

@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+import synnax as sy
 from framework import drivers
 from framework.models import SynnaxConnection
 
@@ -22,11 +23,17 @@ pytestmark = pytest.mark.skipif(
 
 # Prints its arguments, then stops on a STOP line unless told to ignore it.
 FAKE_DRIVER = """#!/usr/bin/env python3
+import json
 import os
 import sys
 import time
 
 print(" ".join(sys.argv[1:]), flush=True)
+if os.environ.get("FAKE_DRIVER_API_KEY"):
+    state = sys.argv[sys.argv.index("--state-file") + 1]
+    params = json.dumps({"api_key": os.environ["FAKE_DRIVER_API_KEY"]})
+    with open(state, "w") as f:
+        json.dump({"conn_params": params}, f)
 if os.environ.get("FAKE_DRIVER_EXIT"):
     sys.exit(0)
 if os.environ.get("FAKE_DRIVER_DEAF"):
@@ -47,12 +54,18 @@ def binary(tmp_path: Path) -> Path:
     return path
 
 
-def start(binary: Path, log_path: Path, stop_timeout: float = 5.0) -> drivers.Process:
+def start(
+    binary: Path,
+    log_path: Path,
+    stop_timeout: float = 5.0,
+    integrations: list[str] | None = None,
+) -> drivers.Process:
     return drivers.Process(
         binary=binary,
         connection=SynnaxConnection(port=9300, username="admin", password="pw"),
         log_path=log_path,
         stop_timeout=stop_timeout,
+        integrations=integrations,
     )
 
 
@@ -70,6 +83,34 @@ class TestProcess:
         assert "--secure=false" in args
         assert "--state-file " in args
         assert "--disable-integrations ni" in args
+
+    def test_integrations(self, binary: Path, tmp_path: Path) -> None:
+        """Should run only the integrations it names, NI included when named."""
+        log_path = tmp_path / "driver.log"
+        process = start(binary, log_path, integrations=["serial", "tcp"])
+        process.stop()
+        args = log_path.read_text().splitlines()[0]
+        assert "--enable-integrations serial,tcp" in args
+        assert "--disable-integrations" not in args
+
+    def test_api_key(
+        self, binary: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should return the API key the Driver writes to its state file."""
+        monkeypatch.setenv("FAKE_DRIVER_API_KEY", "syk_rack")
+        process = start(binary, tmp_path / "driver.log")
+        try:
+            assert sy.poll(process.api_key, timeout=5, interval=0.05) == "syk_rack"
+        finally:
+            process.stop()
+
+    def test_no_api_key(self, binary: Path, tmp_path: Path) -> None:
+        """Should return None before the Driver writes its state file."""
+        process = start(binary, tmp_path / "driver.log")
+        try:
+            assert process.api_key() is None
+        finally:
+            process.stop()
 
     def test_config(self, binary: Path, tmp_path: Path) -> None:
         """Should pass a config file that names a secrets folder of the Driver's own,

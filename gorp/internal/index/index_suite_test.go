@@ -40,5 +40,16 @@ func (s *scope) end(committed bool) {
 	for _, fn := range s.cleanups {
 		fn(committed)
 	}
-	s.cleanups = nil
+	s.cleanups = s.cleanups[:0]
+}
+
+// allocsPerScope returns the allocations of one run of stage in txn and the abort of
+// txn, after a first run.
+func allocsPerScope(txn *scope, stage func()) float64 {
+	run := func() {
+		stage()
+		txn.end(false)
+	}
+	run()
+	return testing.AllocsPerRun(100, run)
 }

@@ -15,7 +15,7 @@ CHANNEL_NAME = "button_cmd"
 INDEX_NAME = "button_idx"
 
 # Display names of every schematic edge variant, mirroring the variant selector
-# dropdown (pluto SELECT_DATA in edge/common/segmented/Form.tsx). A name whose key
+# dropdown (Pluto SELECT_DATA in edge/common/segmented/Form.tsx). A name whose key
 # does not resolve in the edge registry crashes the schematic graph view, so this
 # list guards every option the user can pick.
 EDGE_VARIANTS = [

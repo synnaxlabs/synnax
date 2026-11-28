@@ -283,15 +283,29 @@ jobs:
           COMPLEXITY: funlen,gocognit,maintidx,nestif
           SHARD: ${{ matrix.shard }}
           SHARDS: ${{ inputs.shards }}
-        # Each shard lints every nth package in path order.
+        # Each shard lints every nth package in path order. Linters that build SSA, such
+        # as unparam and gosec, sometimes panic on a nil type in go/ssa and pass on a
+        # rerun of the same commit, so a lint that panics there runs one more time.
         run: |
+          lint() {
+            local log status=0
+            log=$(mktemp)
+            ./custom-gcl run --path-mode=abs "$@" 2>&1 | tee "$log" || status=$?
+            if ((status != 0)) && grep -q 'nil pointer dereference' "$log" &&
+              grep -q 'golang.org/x/tools[^ ]*/go/ssa/' "$log"; then
+              echo "::warning::golangci-lint panicked in go/ssa. Linting again."
+              status=0
+              ./custom-gcl run --path-mode=abs "$@" || status=$?
+            fi
+            rm -f "$log"
+            return "$status"
+          }
           ./custom-gcl config verify
           packages=$(go list -f '.{{slice .ImportPath (len .Module.Path)}}' ./... |
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
           read -ra packages <<< "${packages//$'\n'/ }"
-          ./custom-gcl run --path-mode=abs --new-from-merge-base= \
-            --disable "$COMPLEXITY" "${packages[@]}"
-          ./custom-gcl run --path-mode=abs --enable-only "$COMPLEXITY" "${packages[@]}"
+          lint --new-from-merge-base= --disable "$COMPLEXITY" "${packages[@]}"
+          lint --enable-only "$COMPLEXITY" "${packages[@]}"
 
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. The restored entries are aged, so the entries this
