@@ -20,6 +20,7 @@
 #include "driver/errors/errors.h"
 #include "driver/labjack/device/device.h"
 #include "driver/labjack/labjack.h"
+#include "driver/labjack/store.h"
 
 namespace driver::labjack {
 /// @brief configuration for an output channel on a LabJack device.
@@ -45,10 +46,13 @@ struct OutputChan {
 struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
     /// @brief configurations for the enabled channels, keyed by command channel.
     std::map<synnax::channel::Key, std::unique_ptr<OutputChan>> outputs;
+    /// @brief the serial number that the task opens the device by.
+    std::string serial;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         ::synnax::labjack::WriteConfig(std::move(other)),
-        outputs(std::move(other.outputs)) {}
+        outputs(std::move(other.outputs)),
+        serial(std::move(other.serial)) {}
 
     WriteTaskConfig(const WriteTaskConfig &) = delete;
 
@@ -80,10 +84,12 @@ struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        if (const auto err = client->devices.retrieve(this->device).second) {
-            parser.field_err("device", "failed to retrieve device: " + err.data());
+        const auto [dev, dev_err] = retrieve_task_device(*client, this->device);
+        if (dev_err) {
+            parser.field_err("device", "failed to retrieve device: " + dev_err.data());
             return;
         }
+        this->serial = std::to_string(dev.serial);
         std::vector<synnax::channel::Key> state_channels;
         state_channels.reserve(this->outputs.size());
         for (const auto &[_, ch]: this->outputs)
@@ -141,7 +147,7 @@ class WriteSink final : public common::Sink {
     /// @brief acquires the device and writes the current state of every output. A
     /// device that lost power also lost its outputs, so every connect writes them.
     x::errors::Error connect() {
-        auto [d, err] = this->devs->acquire(this->cfg.device);
+        auto [d, err] = this->devs->acquire(this->cfg.serial);
         if (err) return err;
         this->dev = std::move(d);
         if (const auto write_err = this->write_curr_state_to_dev()) {

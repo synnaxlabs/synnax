@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "client/cpp/labjack/device/types.gen.h"
 #include "x/cpp/lib/lazy.h"
 
 #include "driver/common/sample_clock.h"
@@ -22,11 +23,11 @@
 namespace driver::labjack {
 
 /// @brief T4 model name.
-const std::string T4 = "LJM_dtT4";
+const std::string T4 = synnax::labjack::device::MODEL_T_4;
 /// @brief T7 model name.
-const std::string T7 = "LJM_dtT7";
+const std::string T7 = synnax::labjack::device::MODEL_T_7;
 /// @brief T8 model name.
-const std::string T8 = "LJM_dtT8";
+const std::string T8 = synnax::labjack::device::MODEL_T_8;
 
 /// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {

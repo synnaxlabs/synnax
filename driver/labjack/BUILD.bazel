@@ -80,6 +80,18 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "testutil",
+    testonly = True,
+    hdrs = ["testutil.h"],
+    deps = [
+        "//client/cpp:synnax",
+        "//client/cpp/labjack/device",
+        "//x/cpp/testutil",
+        "@googletest//:gtest",
+    ],
+)
+
 cc_test(
     name = "labjack_test",
     srcs = [
@@ -93,6 +105,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/labjack",
         "//driver/labjack:store",
+        "//driver/labjack:testutil",
         "//driver/labjack/device:mock",
         "//x/cpp/filter",
         "//x/cpp/testutil",

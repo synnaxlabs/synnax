@@ -10,6 +10,8 @@
 #pragma once
 
 #include <algorithm>
+#include <charconv>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -58,6 +60,53 @@ identity_actions(const Device &stored, const Device &next) {
     return acts;
 }
 
+/// @brief returns the time of the last status of the device, or zero when it has none.
+inline x::telem::TimeStamp reported_at(const Device &dev) {
+    return dev.status.has_value() ? dev.status->time : x::telem::TimeStamp(0);
+}
+
+/// @brief retrieves the device that a task names by its legacy device key, which is
+/// the serial number of the device. When more than one device has the serial number,
+/// it returns the most recently reported one. Each describes the same hardware.
+/// @returns an error that matches VALIDATION when the key is not a serial number, or
+/// NOT_FOUND when no device has the serial number.
+inline std::pair<Device, x::errors::Error>
+retrieve_task_device(const synnax::Synnax &client, const std::string &key) {
+    std::uint32_t serial = 0;
+    const auto *end = key.data() + key.size();
+    if (const auto [ptr, ec] = std::from_chars(key.data(), end, serial);
+        ec != std::errc() || ptr != end)
+        return {
+            {},
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "device key " + key + " is not a LabJack serial number"
+            )
+        };
+    auto [matches, err] = client.labjack.devices.retrieve(
+        synnax::labjack::device::Where{.serial = serial},
+        synnax::labjack::device::RetrieveOptions{.include_status = true}
+    );
+    if (err) return {{}, err};
+    if (matches.empty())
+        return {
+            {},
+            x::errors::Error(
+                x::errors::NOT_FOUND,
+                "no LabJack device has serial number " + key
+            )
+        };
+    return {
+        std::move(*std::ranges::max_element(
+            matches,
+            [](const Device &a, const Device &b) {
+                return reported_at(a) < reported_at(b);
+            }
+        )),
+        x::errors::NIL
+    };
+}
+
 /// @brief stores LabJack devices in a Core. It matches found hardware to a stored
 /// device by serial number.
 class Store final : public common::Store<Device> {
@@ -97,15 +146,12 @@ public:
         if (matches.empty()) return {std::nullopt, x::errors::NIL};
         // Two Drivers that first find the same hardware in one scan window can each
         // create it. Prefer the row on this rack, then the most recently reported one.
-        const auto reported = [](const Device &d) {
-            return d.status.has_value() ? d.status->time : x::telem::TimeStamp(0);
-        };
         const auto it = std::ranges::max_element(
             matches,
             [&](const Device &a, const Device &b) {
                 if ((a.rack == found.rack) != (b.rack == found.rack))
                     return b.rack == found.rack;
-                return reported(a) < reported(b);
+                return reported_at(a) < reported_at(b);
             }
         );
         return {std::move(*it), x::errors::NIL};

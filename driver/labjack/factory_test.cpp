@@ -18,6 +18,7 @@
 
 #include "driver/labjack/device/mock.h"
 #include "driver/labjack/labjack.h"
+#include "driver/labjack/testutil.h"
 
 namespace driver::labjack {
 /// @brief the description of a configure or scan that fails because LJM does not load.
@@ -48,15 +49,7 @@ protected:
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->ctx = std::make_shared<task::MockContext>(this->client);
         const auto rack = ASSERT_NIL_P(this->client->racks.create("labjack_factory"));
-        auto dev = synnax::device::Device{
-            .key = make_unique_channel_name("labjack_factory_device"),
-            .rack = rack.key,
-            .location = "dev1",
-            .make = "labjack",
-            .model = "T7",
-            .name = "my_device",
-        };
-        ASSERT_NIL(this->client->devices.create(dev));
+        const auto dev_key = create_task_device(*this->client, rack.key);
         const auto ch = ASSERT_NIL_P(this->client->channels.create(
             make_unique_channel_name("labjack_factory"),
             x::telem::FLOAT64_T,
@@ -67,7 +60,7 @@ protected:
             .name = "my_task",
             .type = READ_TASK_TYPE,
             .config = {
-                {"device", dev.key},
+                {"device", dev_key},
                 {"sample_rate", 10},
                 {"stream_rate", 5},
                 {"data_saving_disabled", true},
