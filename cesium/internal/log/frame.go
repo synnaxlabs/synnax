@@ -102,15 +102,6 @@ func DecodeHeader(b []byte, db, generation, offset uint64) (Header, error) {
 		Size:       binary.LittleEndian.Uint64(b[40:]),
 		PrevCRC:    binary.LittleEndian.Uint32(b[48:]),
 	}
-	if h.DB != db || h.Generation != generation {
-		return Header{}, errors.Wrapf(
-			place.ErrCorrupt,
-			"log header at %d names database %d and generation %d",
-			offset,
-			h.DB,
-			h.Generation,
-		)
-	}
 	if version != headerVersion {
 		return Header{}, errors.Wrapf(ErrUnknown, "log format version %d", version)
 	}
