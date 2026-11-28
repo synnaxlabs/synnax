@@ -124,8 +124,8 @@ class TestWriter:
         with client.open_writer(start=start, channels=[data_ch.key]) as w:
             with pytest.raises(
                 sy.ValidationError,
-                match=rf"^{data_ch.name} takes its time from the stamps that its index "
-                r'already stores, so the write cannot hold "time" for it$',
+                match=rf'^{data_ch.name} cannot take "time": its index already stores '
+                r"stamps from the writer's start, or the writer may not write its index$",
             ):
                 w.write({"time": start, data_ch.key: 1.5})
             w.write({data_ch.key: 1.5})

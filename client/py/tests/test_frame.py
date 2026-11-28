@@ -1478,6 +1478,60 @@ class TestFrameTime:
         assert list(df.columns) == ["d"]
 
 
+_NAMED_TIME = ChannelPayload(
+    key=5, name="time", data_type=sy.DataType.FLOAT64, virtual=True
+)
+"""A stored channel that takes the name time."""
+
+
+def _writer_adapter(names: list[str], clocks: list[int]) -> WriteFrameAdapter:
+    """Opens a write adapter on the channels of names, whose writer lists clocks."""
+    channels = [c for c in (_A, _D, _NAMED_TIME) if c.name in names]
+    client = MockUnaryClient(responses=[RetrieveResponse(channels=channels)])
+    adapter = WriteFrameAdapter(retriever=Retriever(client=client))
+    adapter.update(names)
+    adapter.clocks = clocks
+    return adapter
+
+
+@pytest.mark.framer
+class TestWriteFrameAdapterTime:
+    def test_time_beside_a_channel_named_time(self) -> None:
+        """Should take "time" as the write's time, beside a channel named time."""
+        adapter = _writer_adapter(["d", "time"], [1])
+        frame = adapter.adapt({"time": [5], "d": [1.0]})
+        assert frame.channels == [3, 1]
+
+    def test_channel_named_time_by_key(self) -> None:
+        """Should write a channel named time by its key."""
+        adapter = _writer_adapter(["d", "time"], [1])
+        assert adapter.adapt({5: [1.5]}).channels == [5]
+
+    def test_index_beside_time(self) -> None:
+        """Should name the index channel that a write holds beside "time"."""
+        adapter = _writer_adapter(["d", "a_time"], [1])
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r'^The write holds "time" and the index channel a_time, which both '
+                r"give the time of one group$"
+            ),
+        ):
+            adapter.adapt({"time": [5], "d": [1.0], "a_time": [5]})
+
+    def test_no_clock_for_time(self) -> None:
+        """Should name both causes when a channel cannot take "time"."""
+        adapter = _writer_adapter(["d"], [])
+        with pytest.raises(
+            sy.ValidationError,
+            match=(
+                r'^d cannot take "time": its index already stores stamps from the '
+                r"writer's start, or the writer may not write its index$"
+            ),
+        ):
+            adapter.adapt({"time": [5], "d": [1.0]})
+
+
 @pytest.mark.framer
 class TestWriteFrameAdapterRepeatedKeys:
     """Adapts frames without a Core."""
