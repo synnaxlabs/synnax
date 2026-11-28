@@ -40,12 +40,14 @@ const withInput = (
   const key = json.shapeKey(shape);
   const text = defaults.get(key)?.get(f.pointer) ?? "";
   const shown = map.getOrInsert(inputs, key, () => new Map());
+  // One input can give its text to fields of both passes. The first problem stays.
   try {
     const parsed = ICD.parseDefault(field, text);
-    shown.set(f.pointer, undefined);
+    if (!shown.has(f.pointer)) shown.set(f.pointer, undefined);
     return parsed;
   } catch (e) {
-    shown.set(f.pointer, e instanceof Error ? e.message : String(e));
+    if (shown.get(f.pointer) == null)
+      shown.set(f.pointer, e instanceof Error ? e.message : String(e));
     return field;
   }
 };

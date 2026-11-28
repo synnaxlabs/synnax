@@ -2032,6 +2032,41 @@ describe("Kafka read form", () => {
         ).toHaveLength(1);
       });
 
+      it("should keep a problem that the extension of a Default input finds", async () => {
+        const { draft, dev } = await renderRead({
+          fields: [createField("temperature", "float")],
+          recordKey: "oven-1",
+        });
+        await screen.findByRole("treeitem", { name: /^temperature/ });
+        const temperature = createInferredField("/temperature", "float", "number");
+        // The record of oven-1 reads both shapes, and the extension takes the integer.
+        const door = {
+          sources: ["oven-1"],
+          fields: [
+            temperature,
+            createInferredField("/level", "integer", "number"),
+            createInferredField("/door", "string", "string"),
+          ],
+          index: -1,
+          count: 1,
+          present: -1,
+        };
+        // oven-2 has no record, so the add also makes it one with its own float.
+        const tank = {
+          sources: ["oven-1", "oven-2"],
+          fields: [temperature, optional("/level")],
+          index: -1,
+          count: 2,
+          present: -1,
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(door, tank) });
+        fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+        await typeDefault(dialog, "/level", "2.5");
+        fireEvent.click(await dialog.findByRole("button", { name: "Add 4 fields" }));
+        await expectFocused(dialog, "/level");
+        expect(await retrieveRecords(draft.key)).toHaveLength(1);
+      });
+
       it("should show no Default input for a field that every record holds", async () => {
         const { dev } = await renderRead({
           fields: [createField("temperature", "float")],
