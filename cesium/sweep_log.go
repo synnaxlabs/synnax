@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/log"
@@ -92,11 +93,12 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 	return err
 }
 
-// removeLogDir closes the read handles of the files of a dropped key whose dead
-// segments do not wait in the cover of the engine, removes them, and then removes the
-// directory once it is empty. The engine unlinks a waiting file once the log covers its
-// record and no read may use it, and a later Sweep removes the directory.
+// removeLogDir removes the files of a dropped key but its segment files, which the
+// engine unlinks, and then the directory once no segment file is left in it. It waits
+// for the unlinks of the key in flight. A segment that a read may still use keeps its
+// file and the directory, which a later Sweep removes.
 func (db *DB) removeLogDir(key ChannelKey) error {
+	db.engine.waitUnlinked(key)
 	dir := keyToDirName(key)
 	infos, err := db.fs.List(dir)
 	if errors.Is(err, os.ErrNotExist) {
@@ -105,18 +107,13 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 	if err != nil {
 		return err
 	}
-	waiting := db.engine.waiting(key)
-	if err = db.engine.closeHandles(key, waiting.Contains); err != nil {
-		return err
-	}
 	kept := false
 	for _, info := range infos {
-		name := path.Join(dir, info.Name())
-		if waiting.Contains(name) {
+		if strings.HasSuffix(info.Name(), ".seg") {
 			kept = true
 			continue
 		}
-		if err = db.fs.Remove(name); err != nil {
+		if err = db.fs.Remove(path.Join(dir, info.Name())); err != nil {
 			return err
 		}
 	}

@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 // readCount is a publish count that reads registered, with the number of them.
@@ -66,7 +65,7 @@ func (e *engine) unregister(count uint64) error {
 
 // free takes out of cover and returns each dead segment that the log covers and that no
 // read may use, as no read holds a count below that of the segment. The caller holds
-// e.cover.
+// e.cover, and passes the result to unlink.
 func (e *engine) free() []state.Dead {
 	var free []state.Dead
 	waiting := e.cover.dead[:0]
@@ -74,6 +73,7 @@ func (e *engine) free() []state.Dead {
 		if d.Sequence < e.cover.covered &&
 			(len(e.cover.reads) == 0 || e.cover.reads[0].count >= d.Count) {
 			free = append(free, d)
+			e.cover.unlinking[d.Key]++
 		} else {
 			waiting = append(waiting, d)
 		}
@@ -82,27 +82,30 @@ func (e *engine) free() []state.Dead {
 	return free
 }
 
-// waiting returns the file names of the dead segments of key that wait in cover. Reaps
-// run one at a time, so a dead segment that a reap took from the state is in cover or
-// on its way to an unlink.
-func (e *engine) waiting(key ChannelKey) set.Set[string] {
-	e.reaping.Lock()
-	defer e.reaping.Unlock()
-	e.cover.Lock()
-	defer e.cover.Unlock()
-	names := set.New[string]()
-	for _, d := range e.cover.dead {
-		if d.Key == key {
-			names.Add(segmentName(key, d.Segment))
+// waitUnlinked returns once no unlink of a segment of key is in flight. Reaps run one
+// at a time, so each dead segment of key that a reap took from the state is then in
+// cover, or its file is gone.
+func (e *engine) waitUnlinked(key ChannelKey) {
+	for {
+		e.reaping.Lock()
+		e.cover.Lock()
+		n, unlinked := e.cover.unlinking[key], e.cover.unlinked
+		e.cover.Unlock()
+		e.reaping.Unlock()
+		if n == 0 {
+			return
 		}
+		<-unlinked
 	}
-	return names
 }
 
-// unlink closes the read handles of each segment of dead and removes its file, and
-// tries every removal.
+// unlink closes the read handles of each segment of dead, which free took, and removes
+// its file. It tries every removal, and then ends the unlink of each segment.
 func (e *engine) unlink(dead []state.Dead) error {
-	errs := make([]error, 0, len(dead))
+	if len(dead) == 0 {
+		return nil
+	}
+	errs := make([]error, 0, 2*len(dead))
 	for _, d := range dead {
 		errs = append(
 			errs,
@@ -110,5 +113,14 @@ func (e *engine) unlink(dead []state.Dead) error {
 			e.fs.Remove(segmentName(d.Key, d.Segment)),
 		)
 	}
+	e.cover.Lock()
+	for _, d := range dead {
+		if e.cover.unlinking[d.Key]--; e.cover.unlinking[d.Key] == 0 {
+			delete(e.cover.unlinking, d.Key)
+		}
+	}
+	close(e.cover.unlinked)
+	e.cover.unlinked = make(chan struct{})
+	e.cover.Unlock()
 	return errors.Join(errs...)
 }

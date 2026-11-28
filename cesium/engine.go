@@ -87,6 +87,10 @@ type engine struct {
 		advanced chan struct{}
 		// reads holds the publish counts that reads registered, in rising order.
 		reads []readCount
+		// unlinking counts the segments of each key that free took and whose unlink has
+		// not ended. unlinked is closed and replaced each time an unlink ends.
+		unlinking map[ChannelKey]int
+		unlinked  chan struct{}
 	}
 	// reaping is held by each reap, from its TakeDead until its segments are in cover.
 	reaping sync.Mutex
@@ -128,6 +132,8 @@ func openEngine(o *options) (*engine, error) {
 		readsChecked: o.readsChecked,
 	}
 	e.cover.advanced = make(chan struct{})
+	e.cover.unlinking = map[ChannelKey]int{}
+	e.cover.unlinked = make(chan struct{})
 	e.handles.m = make(map[ChannelKey]map[uint64]*segmentHandles)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
@@ -449,17 +455,12 @@ func (e *engine) closeHandle(key ChannelKey, id uint64) error {
 	return hs.close()
 }
 
-// closeHandles closes the read handles of the segments of key whose files kept does not
-// hold. It waits for the reads that hold them.
-func (e *engine) closeHandles(key ChannelKey, kept func(name string) bool) error {
-	var sets []*segmentHandles
+// closeHandles closes the read handles of every segment of key. It waits for the reads
+// that hold them.
+func (e *engine) closeHandles(key ChannelKey) error {
 	e.handles.Lock()
-	for id, hs := range e.handles.m[key] {
-		if !kept(segmentName(key, id)) {
-			sets = append(sets, hs)
-			delete(e.handles.m[key], id)
-		}
-	}
+	sets := slices.Collect(maps.Values(e.handles.m[key]))
+	delete(e.handles.m, key)
 	e.handles.Unlock()
 	var err error
 	for _, hs := range sets {
@@ -551,7 +552,7 @@ func (e *engine) closeAllHandles() error {
 	e.handles.RUnlock()
 	var err error
 	for _, k := range keys {
-		err = errors.Join(err, e.closeHandles(k, func(string) bool { return false }))
+		err = errors.Join(err, e.closeHandles(k))
 	}
 	return err
 }
