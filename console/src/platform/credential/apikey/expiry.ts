@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { auth, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 const LIFETIMES = {
   "30d": TimeSpan.days(30),
@@ -18,21 +18,73 @@ const LIFETIMES = {
 /** When a new API key expires, as the user picks it. */
 export type Expiry = keyof typeof LIFETIMES | "custom" | "never";
 
+const DEFAULT_LIFETIME: keyof typeof LIFETIMES = "90d";
+
 /** The expiry a new API key gets unless the user picks another. */
-export const DEFAULT_EXPIRY: Expiry = "90d";
+const DEFAULT_EXPIRY: Expiry = DEFAULT_LIFETIME;
+
+const fits = (expiry: Expiry, maxLifetime: TimeSpan | null): boolean => {
+  if (maxLifetime == null || expiry === "custom") return true;
+  if (expiry === "never") return false;
+  return LIFETIMES[expiry].lessThanOrEqual(maxLifetime);
+};
+
+const ORDER: Expiry[] = ["30d", "90d", "1y", "custom", "never"];
 
 /**
- * @returns when a key created at now expires: the custom time for "custom", and
- * TimeStamp.MAX for "never".
+ * @returns the expiries a user may pick when no key may live longer than maxLifetime,
+ * which is null when there is no limit.
+ */
+export const choices = (maxLifetime: TimeSpan | null): Expiry[] =>
+  ORDER.filter((e) => fits(e, maxLifetime));
+
+/**
+ * @returns the expiry to preselect: {@link DEFAULT_EXPIRY} when it fits within
+ * maxLifetime, else the longest preset that fits, else "custom".
+ */
+export const preselect = (maxLifetime: TimeSpan | null): Expiry => {
+  if (fits(DEFAULT_EXPIRY, maxLifetime)) return DEFAULT_EXPIRY;
+  return choices(maxLifetime).findLast((e) => e !== "custom") ?? "custom";
+};
+
+/**
+ * @returns how far from now the latest expiry that the Core accepts with certainty
+ * lies, or null when there is no limit.
+ */
+export const reach = (now: TimeStamp, maxLifetime: TimeSpan | null): TimeSpan | null =>
+  maxLifetime == null ? null : now.span(auth.apiKey.longestExpiry(maxLifetime, now));
+
+// A preset at the limit stops short of it, like every key that asks for the longest.
+const lifetime = (
+  span: TimeSpan,
+  now: TimeStamp,
+  maxLifetime: TimeSpan | null,
+): TimeStamp => {
+  const longest = auth.apiKey.longestExpiry(maxLifetime, now);
+  const at = now.add(span);
+  return at.after(longest) ? longest : at;
+};
+
+/** @returns the custom expiry to preselect for a key created at now. */
+export const preselectCustom = (
+  now: TimeStamp,
+  maxLifetime: TimeSpan | null,
+): TimeStamp => lifetime(LIFETIMES[DEFAULT_LIFETIME], now, maxLifetime);
+
+/**
+ * @returns when a key created at now expires: the custom time for "custom",
+ * TimeStamp.MAX for "never", and for a preset its lifetime, stopped short of
+ * maxLifetime like the longest key a client asks for.
  */
 export const resolve = (
   expiry: Expiry,
   custom: TimeStamp,
   now: TimeStamp,
+  maxLifetime: TimeSpan | null,
 ): TimeStamp => {
   if (expiry === "never") return TimeStamp.MAX;
   if (expiry === "custom") return custom;
-  return now.add(LIFETIMES[expiry]);
+  return lifetime(LIFETIMES[expiry], now, maxLifetime);
 };
 
 const RELATIVE = new Intl.RelativeTimeFormat("en", { numeric: "always" });

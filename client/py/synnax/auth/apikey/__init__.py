@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.auth.apikey.client import Client
+from synnax.auth.apikey.client import Client, longest_expiry
 from synnax.auth.apikey.types_gen import APIKey, Key
 
-__all__ = ["APIKey", "Client", "Key"]
+__all__ = ["APIKey", "Client", "Key", "longest_expiry"]

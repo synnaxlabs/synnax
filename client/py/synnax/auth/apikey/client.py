@@ -13,7 +13,7 @@ from freighter import Empty, UnaryClient
 from synnax import resource
 from synnax.auth.apikey.types_gen import APIKey, Key
 from synnax.util.send_required import send_required
-from x.telem import CrudeTimeStamp, TimeStamp
+from x.telem import CrudeTimeStamp, TimeSpan, TimeStamp
 
 
 class _CreateRequest(BaseModel):
@@ -37,6 +37,25 @@ class _RetrieveResponse(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key] = []
+
+
+# A client clock that runs ahead of the Core's must not push a key past the limit.
+_EXPIRY_MARGIN = TimeSpan.HOUR
+
+
+def longest_expiry(max_lifetime: TimeSpan | None) -> TimeStamp:
+    """Returns the longest expiry to ask for: TimeStamp.MAX when max_lifetime is None,
+    else an hour short of now plus max_lifetime, or half of it short when it is under
+    two hours.
+    """
+    if max_lifetime is None:
+        return TimeStamp.MAX
+    margin = (
+        TimeSpan(max_lifetime // 2)
+        if max_lifetime < _EXPIRY_MARGIN * 2
+        else _EXPIRY_MARGIN
+    )
+    return TimeStamp.now() + max_lifetime - margin
 
 
 _CREATE_ENDPOINT = "/auth/api-key/create"

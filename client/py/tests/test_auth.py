@@ -255,6 +255,28 @@ class TestMethods:
         assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
         client.close()
 
+    def test_longest_expiry(self) -> None:
+        """Should stop an hour short of a limit, or half a limit under two hours."""
+        assert sy.auth.apikey.longest_expiry(None) == sy.TimeStamp.MAX
+        for limit, margin in [
+            (sy.TimeSpan.DAY * 30, sy.TimeSpan.HOUR),
+            (sy.TimeSpan.MINUTE * 90, sy.TimeSpan.MINUTE * 45),
+        ]:
+            before = sy.TimeStamp.now()
+            got = sy.auth.apikey.longest_expiry(limit)
+            assert before + limit - margin <= got <= sy.TimeStamp.now() + limit - margin
+
+    def test_retrieve_api_key_max_lifetime(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should return None when the Core sets no API key lifetime limit."""
+        host, port, username, password = login_info
+        client = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        assert client.auth.retrieve_api_key_max_lifetime() is None
+        client.close()
+
     def test_retrieve_methods_logged_out(
         self, login_info: tuple[str, int, str, str]
     ) -> None:

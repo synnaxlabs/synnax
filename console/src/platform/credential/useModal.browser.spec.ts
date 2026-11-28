@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, TimeSpan, TimeStamp, user } from "@synnaxlabs/client";
+import {
+  rack,
+  type resource,
+  type Synnax,
+  TimeSpan,
+  TimeStamp,
+  user,
+} from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
@@ -42,10 +49,12 @@ const type = async (placeholder: string, value: string): Promise<void> => {
   });
 };
 
-// Fills and submits the create modal over the dialog.
+// Fills and submits the create modal over the dialog. Create waits for the expiry
+// choices, which show once the Core's key lifetime limit loads.
 const createKey = async (name: string): Promise<void> => {
   fireEvent.click(await screen.findByText("Create key"));
   await type("Key name", name);
+  await screen.findByText("Custom");
   fireEvent.click(findButton("Create"));
 };
 
@@ -146,6 +155,85 @@ describe("useModal", () => {
     expect(lifetime.days).toBeLessThan(90 + TimeSpan.MINUTE.days);
     fireEvent.click(findButton("Done"));
     await screen.findByText("in 90 days");
+  });
+
+  describe("with a maximum key lifetime", () => {
+    // Opens the create dialog against a Core that reports maxLifetime.
+    const openCreate = async (maxLifetime: TimeSpan) => {
+      const client = createTestClient();
+      vi.spyOn(client.auth, "retrieveAPIKeyMaxLifetime").mockResolvedValue(maxLifetime);
+      const { key: role } = await createEmptyRole(client);
+      const subject = await client.users.create({ name: uniqueName("user"), role });
+      const id = user.resourceID(subject.key);
+      await openModal(Credential.useModal, { client, params: { subject: id } });
+      await screen.findByText("No API keys");
+      fireEvent.click(await screen.findByText("Create key"));
+      await type("Key name", uniqueName("key"));
+      // Every limit allows a custom date, so it shows once the limit loads.
+      await screen.findByText("Custom");
+      return { client, id };
+    };
+
+    // Creates the key and returns how long it lives.
+    const create = async (client: Synnax, id: resource.ID): Promise<TimeSpan> => {
+      const before = TimeStamp.now();
+      fireEvent.click(findButton("Create"));
+      await screen.findByText(/^syk_/);
+      const [created] = await client.auth.apiKeys.retrieve([id]);
+      return before.span(created.expires);
+    };
+
+    it("should hide no expiry and keep the 90 day default when it fits", async () => {
+      const { client, id } = await openCreate(TimeSpan.days(400));
+      await screen.findByText("1 year");
+      expect(screen.queryByText("No expiry")).toBeNull();
+      expect(Math.round((await create(client, id)).days)).toBe(90);
+    });
+
+    it("should preselect the longest preset that fits", async () => {
+      const { client, id } = await openCreate(TimeSpan.days(60));
+      await screen.findByText("30 days");
+      expect(screen.queryByText("90 days")).toBeNull();
+      expect(screen.queryByText("1 year")).toBeNull();
+      expect(screen.queryByText("No expiry")).toBeNull();
+      expect(Math.round((await create(client, id)).days)).toBe(30);
+    });
+
+    it("should stop a preset at the limit an hour short of it", async () => {
+      const { client, id } = await openCreate(TimeSpan.days(30));
+      const lifetime = await create(client, id);
+      expect(lifetime.lessThan(TimeSpan.days(30).sub(TimeSpan.minutes(59)))).toBe(true);
+      expect(lifetime.greaterThan(TimeSpan.days(30).sub(TimeSpan.hours(2)))).toBe(true);
+    });
+
+    it("should preselect a custom date at the limit when no preset fits", async () => {
+      const { client, id } = await openCreate(TimeSpan.days(7));
+      await screen.findByLabelText("Expiry date");
+      expect(screen.queryByText("30 days")).toBeNull();
+      expect(Math.round((await create(client, id)).days)).toBe(7);
+    });
+
+    it("should refuse a custom date past the limit", async () => {
+      await openCreate(TimeSpan.days(7));
+      await setExpiryDate(localTime(TimeStamp.now().add(TimeSpan.days(8)).date()));
+      await screen.findByText(/^Expiry must be at most 6d 23h/);
+    });
+  });
+
+  it("should show why it cannot read the key lifetime limit", async () => {
+    const client = createTestClient();
+    vi.spyOn(client.auth, "retrieveAPIKeyMaxLifetime").mockRejectedValue(
+      new Error("Core restarted"),
+    );
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: user.resourceID(subject.key) },
+    });
+    fireEvent.click(await screen.findByText("Create key"));
+    await screen.findByText("Failed to retrieve the key lifetime limit");
+    expect(screen.queryByText("Custom")).toBeNull();
   });
 
   it("should create a key with no expiry", async () => {

@@ -118,6 +118,39 @@ var _ = Describe("Disabled API key method", func() {
 	})
 })
 
+var _ = Describe("Maximum lifetime", func() {
+	const maxLifetime = 30 * telem.Day
+	var capped *apiapikey.Service
+	BeforeEach(func(ctx SpecContext) {
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
+		capped = MustSucceed(apiapikey.NewService(apiapikey.ServiceConfig{
+			Auth: authSvc,
+			APIKey: MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+				DB:          other,
+				MaxLifetime: maxLifetime,
+			})),
+		}))
+	})
+	DescribeTable(
+		"Should refuse a key that outlives the maximum lifetime before it writes",
+		func(ctx SpecContext, expires func() telem.TimeStamp) {
+			Expect(capped.Create(
+				requestCtx(ctx),
+				nil,
+				apiapikey.CreateRequest{Name: "capped", Expires: expires()},
+			)).Error().To(MatchError(ContainSubstring("expires: must be at most")))
+		},
+		Entry("no expiry", func() telem.TimeStamp { return 0 }),
+		Entry("the maximum timestamp", func() telem.TimeStamp {
+			return telem.TimeStampMax
+		}),
+		Entry("past the lifetime", func() telem.TimeStamp {
+			return telem.Now().Add(maxLifetime + telem.Hour)
+		}),
+	)
+})
+
 var _ = Describe("API keys", func() {
 	var (
 		bob, eng           user.User

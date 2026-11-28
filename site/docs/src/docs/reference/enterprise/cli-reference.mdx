@@ -221,6 +221,17 @@ Ends a login session after this long with no request from its client.
 
 </Field.Item>
 
+<Field.Item name="--api-key-max-lifetime" type="duration" default='"0s"' env="SYNNAX_API_KEY_MAX_LIFETIME">
+
+The longest time that a new API key can work. The Core refuses a new key that does not
+expire, or that expires later than this. Zero means no limit. Keys that already exist
+keep their expiry.
+
+Do not set a limit on a Core with remote Drivers. A remote Driver cannot renew its key
+yet, so it stops when its key expires.
+
+</Field.Item>
+
 <Field.Item name="--slow-consumer-timeout" type="duration" default='"2.5s"' env="SYNNAX_SLOW_CONSUMER_TIMEOUT">
 
 The time after which the Core closes a telemetry streamer that stops receiving messages.

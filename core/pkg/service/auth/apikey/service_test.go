@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	xtime "github.com/synnaxlabs/x/time"
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -235,6 +236,50 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			clock.Advance(100 * 365 * 24 * time.Hour)
 			MustSucceed(svc.Authenticate(ctx, proof(never)))
+		})
+	})
+	Describe("ValidateLifetime", func() {
+		It("Should accept any expiry when there is no maximum lifetime", func() {
+			Expect(svc.MaxLifetime()).To(Equal(telem.TimeSpan(0)))
+			Expect(svc.ValidateLifetime(0)).To(Succeed())
+			Expect(svc.ValidateLifetime(telem.TimeStampMax)).To(Succeed())
+		})
+		Describe("With a maximum lifetime", func() {
+			var (
+				capped *apikey.Service
+				limit  telem.TimeStamp
+			)
+			BeforeEach(func(ctx SpecContext) {
+				other := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(other.Run)
+				capped = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+					DB:          other,
+					Clock:       clock,
+					MaxLifetime: telem.Day,
+				}))
+				limit = telem.NewTimeStamp(clock.Now()).Add(telem.Day)
+			})
+			It("Should report the maximum lifetime", func() {
+				Expect(capped.MaxLifetime()).To(Equal(telem.Day))
+			})
+			It("Should accept an expiry at the maximum lifetime", func() {
+				Expect(capped.ValidateLifetime(limit)).To(Succeed())
+			})
+			DescribeTable(
+				"Should reject an expiry past the maximum lifetime",
+				func(expires func() telem.TimeStamp) {
+					Expect(capped.ValidateLifetime(expires())).To(MatchError(
+						ContainSubstring("expires: must be at most"),
+					))
+				},
+				Entry("no expiry", func() telem.TimeStamp { return 0 }),
+				Entry("a second past the limit", func() telem.TimeStamp {
+					return limit.Add(telem.Second)
+				}),
+				Entry("the maximum timestamp", func() telem.TimeStamp {
+					return telem.TimeStampMax
+				}),
+			)
 		})
 	})
 	Describe("Subject", func() {

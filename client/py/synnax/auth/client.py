@@ -30,6 +30,7 @@ from synnax.auth.types_gen import PasswordProof, Proof, Session
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.types_gen import User
 from synnax.util.send_required import send_required
+from x.telem import TimeSpan
 
 _API_KEY_PREFIX = "syk_"
 
@@ -53,6 +54,7 @@ def api_key_id(token: str) -> UUID:
 
 class _MethodsResponse(BaseModel):
     methods: list[str]
+    api_key_max_lifetime: TimeSpan = TimeSpan(0)
 
 
 class _SessionCreateRequest(BaseModel):
@@ -131,6 +133,15 @@ class Client:
         return send_required(
             self.client, _METHODS_ENDPOINT, Empty(), _MethodsResponse
         ).methods
+
+    def retrieve_api_key_max_lifetime(self) -> TimeSpan | None:
+        """Returns the longest lifetime of a new API key, or None when the Core sets no
+        limit. Needs no session.
+        """
+        lifetime = send_required(
+            self.client, _METHODS_ENDPOINT, Empty(), _MethodsResponse
+        ).api_key_max_lifetime
+        return None if lifetime == 0 else lifetime
 
     @property
     def subject(self) -> resource.ID | None:

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { auth, CrudeTimeStamp, resource } from "@synnaxlabs/client";
+import type { auth, CrudeTimeStamp, resource, TimeSpan } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -23,6 +23,15 @@ export const { useResult, useInvalidate, useRefresh } = Flux.createRetrieve<
   name: "API keys",
   retrieve: async ({ client, query: { subject } }) =>
     await client.auth.apiKeys.retrieve([subject]),
+});
+
+/** The longest lifetime of a new API key, or null when the Core sets no limit. */
+export const { useResult: useMaxLifetime } = Flux.createRetrieve<
+  Record<string, never>,
+  TimeSpan | null
+>({
+  name: "API key lifetime",
+  retrieve: async ({ client }) => await client.auth.retrieveAPIKeyMaxLifetime(),
 });
 
 export interface CreateParams {

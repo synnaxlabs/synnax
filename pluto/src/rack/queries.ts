@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type auth, rack } from "@synnaxlabs/client";
+import { auth, rack } from "@synnaxlabs/client";
 import { errors, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -102,19 +102,21 @@ export interface CreateResult {
 }
 
 /**
- * Creates a rack together with the API key its Driver logs in with. Deletes the rack
- * when the key cannot be created. If that delete also fails, the thrown error names
- * the rack and carries the key error as its cause.
+ * Creates a rack together with the API key its Driver logs in with, as long-lived as
+ * the Core allows. Deletes the rack when the key cannot be created. If that delete also
+ * fails, the thrown error names the rack and carries the key error as its cause.
  */
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateResult>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data: { name } }) => {
+    const maxLifetime = await client.auth.retrieveAPIKeyMaxLifetime();
     const created = await client.racks.create({ name });
     try {
       const { key, token } = await client.auth.apiKeys.create({
         subject: rack.resourceID(created.key),
         name,
+        expires: auth.apiKey.longestExpiry(maxLifetime),
       });
       return { rack: created, key, token };
     } catch (keyErr) {

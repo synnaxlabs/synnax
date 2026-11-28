@@ -14,6 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
+import { errors, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -97,15 +98,49 @@ const SideEffect = (): null => {
   return null;
 };
 
-/** Keeps an API key for the scripts on this computer saved with the Core address. */
+// setTimeout fires at once for a longer delay.
+const MAX_TIMEOUT = TimeSpan.milliseconds(2 ** 31 - 1);
+const FIRST_RETRY = TimeSpan.seconds(10);
+const MAX_RETRY_DOUBLINGS = 6;
+
+/**
+ * Keeps an API key for the scripts on this computer saved with the Core address, and
+ * saves a new one when it expires.
+ */
 const APIKeySideEffect = (): null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   useEffect(() => {
     if (client == null || !Session.Runtime.isMainWindow()) return;
-    handleError(async () => {
-      await ensure(client);
-    }, "Failed to save API key for scripts");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    let failures = 0;
+    const after = (span: TimeSpan): void => {
+      if (disposed) return;
+      const wait = span.greaterThan(MAX_TIMEOUT) ? MAX_TIMEOUT : span;
+      timer = setTimeout(keep, wait.milliseconds);
+    };
+    // A failure reports once, then retries with backoff until a save works.
+    const keep = (): void =>
+      handleError(async () => {
+        let expires: TimeStamp;
+        try {
+          ({ expires } = await ensure(client));
+        } catch (e) {
+          after(FIRST_RETRY.mult(2 ** Math.min(failures, MAX_RETRY_DOUBLINGS)));
+          failures += 1;
+          if (failures === 1) throw errors.fromUnknown(e);
+          return;
+        }
+        failures = 0;
+        if (!expires.equals(TimeStamp.MAX))
+          after(TimeStamp.now().span(expires).add(TimeSpan.SECOND));
+      }, "Failed to save API key for scripts");
+    keep();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
   }, [client, handleError]);
   return null;
 };

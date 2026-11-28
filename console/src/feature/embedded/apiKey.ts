@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { auth, InvalidTokenError, type Synnax } from "@synnaxlabs/client";
+import { auth, InvalidTokenError, type Synnax, TimeStamp } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
 
 import {
@@ -29,12 +29,23 @@ const recordKey = (token: string): auth.apiKey.Key | null => {
   }
 };
 
-const known = async (client: Synnax, token: string): Promise<boolean> => {
+/** @returns the caller's record of the key that token holds, or null if it has none. */
+const findRecord = async (
+  client: Synnax,
+  token: string,
+): Promise<auth.apiKey.APIKey | null> => {
   const key = recordKey(token);
-  if (key == null) return false;
+  if (key == null) return null;
   const keys = await client.auth.apiKeys.retrieve();
-  return keys.some((k) => k.key === key);
+  return keys.find((k) => k.key === key) ?? null;
 };
+
+/** An API key saved for the scripts on this computer. */
+export interface Saved {
+  token: string;
+  /** When the key stops working. */
+  expires: TimeStamp;
+}
 
 /**
  * @returns The saved API key, after it revokes the key that Synnax Desktop 1.1 saved in
@@ -55,8 +66,12 @@ const retrieve = async (client: Synnax): Promise<string | null> => {
 const create = async (
   client: Synnax,
   replaces: string | null,
-): Promise<string | null> => {
-  const { token, key } = await client.auth.apiKeys.create({ name: NAME });
+): Promise<Saved | null> => {
+  const maxLifetime = await client.auth.retrieveAPIKeyMaxLifetime();
+  const { token, key } = await client.auth.apiKeys.create({
+    name: NAME,
+    expires: auth.apiKey.longestExpiry(maxLifetime),
+  });
   let saved: boolean;
   try {
     saved = await saveAPIKey(token, replaces);
@@ -64,24 +79,30 @@ const create = async (
     await client.auth.apiKeys.delete(key.key).catch(console.error);
     throw errors.fromUnknown(e);
   }
-  if (saved) return token;
+  if (saved) return { token, expires: key.expires };
   await client.auth.apiKeys.delete(key.key);
   return null;
 };
 
 /**
  * Makes sure that the saved API key belongs to the caller and that the saved address is
- * that of the running Core. Creates and saves a new key when the saved one is missing
- * or the Core does not know it.
+ * that of the running Core. Creates and saves a new key when the saved one is missing,
+ * has expired, or the Core does not know it. A new key lives as long as the Core
+ * allows. Deletes an expired key that the new one replaces.
  * @returns The saved API key.
  */
-export const ensure = async (client: Synnax): Promise<string> => {
+export const ensure = async (client: Synnax): Promise<Saved> => {
   const saved = await retrieve(client);
-  if (saved != null && (await known(client, saved))) {
-    if (await saveAPIKey(saved, saved)) return saved;
+  const record = saved == null ? null : await findRecord(client, saved);
+  if (saved != null && record != null && record.expires.after(TimeStamp.now())) {
+    if (await saveAPIKey(saved, saved))
+      return { token: saved, expires: record.expires };
   } else {
-    const token = await create(client, saved);
-    if (token != null) return token;
+    const created = await create(client, saved);
+    if (created != null) {
+      if (record != null) await client.auth.apiKeys.delete(record.key);
+      return created;
+    }
   }
   // Another window changed the saved key between the read and the save.
   return await ensure(client);
@@ -97,7 +118,7 @@ export const replace = async (client: Synnax): Promise<string> => {
   // The delete comes first, so a reset that fails never leaves the old key working.
   if (old != null) await client.auth.apiKeys.delete(old);
   // Another window reset the key first, so its new key is the one to use.
-  return (await create(client, saved)) ?? (await ensure(client));
+  return ((await create(client, saved)) ?? (await ensure(client))).token;
 };
 
 /** @returns The number of the given sessions that the given API key opened. */
