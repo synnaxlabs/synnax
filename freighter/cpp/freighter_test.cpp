@@ -94,4 +94,50 @@ TEST(testFreighter, testContextAssignReplacesParams) {
     ASSERT_FALSE(target.has("stale"));
     ASSERT_TRUE(target.has("fresh"));
 }
+
+/// @brief it should call every function that a canceler holds when it cancels, and
+/// none that it released.
+TEST(testFreighter, testCancelerEndsEveryHeldRequest) {
+    Canceler canceler;
+    int first = 0;
+    int second = 0;
+    int released = 0;
+    ASSERT_TRUE(canceler.hold([&] { first++; }).has_value());
+    ASSERT_TRUE(canceler.hold([&] { second++; }).has_value());
+    const auto c = canceler.hold([&] { released++; });
+    ASSERT_TRUE(c.has_value());
+    canceler.release(c.value_or(0));
+    canceler.cancel();
+    ASSERT_EQ(first, 1);
+    ASSERT_EQ(second, 1);
+    ASSERT_EQ(released, 0);
+    ASSERT_TRUE(canceler.is_cancelled());
+    ASSERT_FALSE(canceler.hold([] {}).has_value());
+}
+
+/// @brief it should fail a send_cancellable whose canceler cancelled without sending,
+/// and send otherwise, for a client that keeps the default send_cancellable.
+TEST(testFreighter, testDefaultSendCancellable) {
+    class Client final : public UnaryClient<int, int> {
+    public:
+        int sent = 0;
+
+        void use(std::shared_ptr<Middleware>) override {}
+
+        std::pair<int, x::errors::Error> send(const std::string &, int &req) override {
+            this->sent++;
+            return {req, x::errors::NIL};
+        }
+    };
+    Client client;
+    int req = 1;
+    const auto cancelled = std::make_shared<Canceler>();
+    cancelled->cancel();
+    ASSERT_OCCURRED_AS_P(
+        client.send_cancellable("", req, cancelled),
+        x::errors::CANCELLED
+    );
+    ASSERT_EQ(client.sent, 0);
+    ASSERT_EQ(ASSERT_NIL_P(client.send_cancellable("", req, nullptr)), 1);
+}
 }

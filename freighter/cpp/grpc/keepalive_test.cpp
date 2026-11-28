@@ -200,4 +200,44 @@ TEST_F(KeepaliveTest, FailsUnaryOnLostConnection) {
     EXPECT_EQ(status, std::future_status::ready);
     ASSERT_OCCURRED_AS_P(sent.get(), UNREACHABLE);
 }
+
+/// @brief it should end a unary call to a server that does not answer once its canceler
+/// cancels.
+TEST_F(KeepaliveTest, CancelsUnaryToSilentServer) {
+    this->serve(8090, {.time = 60s, .timeout = 60s});
+    UnaryClient<test::Message, test::Message, test::UnaryMessageService> client(
+        this->pool,
+        this->target
+    );
+    test::Message msg;
+    msg.set_payload("ping");
+    ASSERT_NIL_P(client.send("", msg));
+    this->hole->drop();
+    const auto canceler = std::make_shared<Canceler>();
+    auto sent = std::async(std::launch::async, [&client, &msg, &canceler] {
+        return client.send_cancellable("", msg, canceler);
+    });
+    EXPECT_EQ(sent.wait_for(200ms), std::future_status::timeout);
+    canceler->cancel();
+    EXPECT_EQ(sent.wait_for(5s), std::future_status::ready);
+    ASSERT_OCCURRED_AS_P(sent.get(), x::errors::CANCELLED);
+}
+
+/// @brief it should fail a unary call at once when its canceler already cancelled.
+TEST_F(KeepaliveTest, FailsUnaryWithCancelledCanceler) {
+    this->serve(8091, {.time = 60s, .timeout = 60s});
+    UnaryClient<test::Message, test::Message, test::UnaryMessageService> client(
+        this->pool,
+        this->target
+    );
+    test::Message msg;
+    msg.set_payload("ping");
+    const auto canceler = std::make_shared<Canceler>();
+    canceler->cancel();
+    ASSERT_OCCURRED_AS_P(
+        client.send_cancellable("", msg, canceler),
+        x::errors::CANCELLED
+    );
+    ASSERT_NIL_P(client.send("", msg));
+}
 }

@@ -36,15 +36,29 @@ public:
 
     std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) override {
+        return this->send_cancellable(target, request, nullptr);
+    }
+
+    /// @brief runs the middleware, then fails the request with x::errors::CANCELLED
+    /// if canceler cancelled, as a transport does.
+    std::pair<RS, x::errors::Error> send_cancellable(
+        const std::string &target,
+        RQ &request,
+        const std::shared_ptr<Canceler> &canceler
+    ) override {
         requests.push_back(request);
         if (responses.empty())
             throw std::runtime_error("mock unary client has no responses left!");
-        const auto ctx = Context("mock", x::url::URL(target), TransportVariant::STREAM);
+        auto ctx = Context("mock", x::url::URL(target), TransportVariant::STREAM);
+        ctx.canceler = canceler;
         auto [res, err] = mw.exec(ctx, this, request);
         return {res, err};
     }
 
     FinalizerReturn<RS> operator()(Context outboundContext, RQ &req) override {
+        if (outboundContext.canceler != nullptr &&
+            outboundContext.canceler->is_cancelled())
+            return {outboundContext, x::errors::CANCELLED, RS()};
         auto response_error = response_errors.front();
         response_errors.erase(response_errors.begin());
         auto res = responses.front();

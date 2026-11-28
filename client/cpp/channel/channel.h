@@ -125,10 +125,14 @@ public:
     /// @brief retrieves the channels with the given keys. It takes no options, since
     /// a page or a search could hide a key that exists.
     /// @param keys the keys of the channels.
+    /// @param canceler ends the retrieve from another thread, which then returns
+    /// x::errors::CANCELLED. Null means the retrieve cannot be cancelled.
     /// @returns the channels in the order of keys, and a NOT_FOUND error that names
     /// every key without a channel.
-    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
-    retrieve(const std::vector<Key> &keys) const;
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error> retrieve(
+        const std::vector<Key> &keys,
+        const std::shared_ptr<freighter::Canceler> &canceler = nullptr
+    ) const;
 
     /// @brief retrieves the channels with the given names. Each name matches exactly,
     /// and a name with no channel is left out.
@@ -143,8 +147,13 @@ public:
     /// @param where the filter that the channels match. An empty filter matches all
     /// channels.
     /// @param options the options of the retrieve.
-    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
-    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+    /// @param canceler ends the retrieve from another thread, which then returns
+    /// x::errors::CANCELLED. Null means the retrieve cannot be cancelled.
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error> retrieve(
+        const Where &where,
+        const RetrieveOptions &options = {},
+        const std::shared_ptr<freighter::Canceler> &canceler = nullptr
+    ) const;
 
     /// @brief retrieves the one channel that where selects.
     /// @param where the filter that the channel matches.

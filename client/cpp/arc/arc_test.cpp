@@ -431,4 +431,15 @@ TEST(TestArc, testRetrieveWithCalculations) {
     for (const auto &c: calculations)
         ASSERT_FALSE(c.program.wasm.empty());
 }
+
+/// @brief it should return CANCELLED from a retrieve whose canceler already cancelled.
+TEST(TestArc, testRetrieveCancelled) {
+    const auto client = new_test_client();
+    const auto canceler = std::make_shared<freighter::Canceler>();
+    canceler->cancel();
+    ASSERT_OCCURRED_AS_P(
+        client.arcs.retrieve(x::uuid::UUID{}, RetrieveOptions{}, canceler),
+        x::errors::CANCELLED
+    );
+}
 }

@@ -12,8 +12,10 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -161,6 +163,10 @@ class Middleware final : public freighter::PassthroughMiddleware {
     grpc::auth::Proof proof;
     /// Guards token and session.
     std::mutex mu;
+    /// Guards logging_in, so that one thread logs in at a time.
+    std::mutex login_mu;
+    std::condition_variable login_cv;
+    bool logging_in = false;
 
     std::string current_token() {
         std::lock_guard lock(mu);
@@ -175,6 +181,22 @@ class Middleware final : public freighter::PassthroughMiddleware {
         this->authenticated = false;
         this->token.clear();
         this->session = Session();
+    }
+
+    x::errors::Error
+    create_session(const std::shared_ptr<freighter::Canceler> &canceler) {
+        grpc::auth::SessionCreateRequest req;
+        *req.mutable_proof() = this->proof;
+        auto [res, err] = create_client
+                              ->send_cancellable("/auth/session/create", req, canceler);
+        if (err) return err;
+        auto [session, session_err] = session_from_pb(res.session());
+        if (session_err) return session_err;
+        std::lock_guard lock(this->mu);
+        this->token = res.token();
+        this->session = session;
+        this->authenticated = true;
+        return x::errors::NIL;
     }
 
 public:
@@ -203,18 +225,34 @@ public:
 
     /// @brief opens a session with the proof provided when constructing the Synnax
     /// client.
-    x::errors::Error authenticate() {
-        std::lock_guard lock(mu);
-        grpc::auth::SessionCreateRequest req;
-        *req.mutable_proof() = this->proof;
-        auto [res, err] = create_client->send("/auth/session/create", req);
-        if (err) return err;
-        auto [session, session_err] = session_from_pb(res.session());
-        if (session_err) return session_err;
-        this->token = res.token();
-        this->session = session;
-        this->authenticated = true;
-        return x::errors::NIL;
+    /// @param canceler ends the login from another thread, which then returns
+    /// x::errors::CANCELLED. Null means the login cannot be cancelled.
+    x::errors::Error
+    authenticate(const std::shared_ptr<freighter::Canceler> &canceler = nullptr) {
+        // Guarded by login_mu. The hold comes before login_mu is locked, as cancel
+        // calls the held function under the canceler's own lock.
+        bool cancelled = false;
+        std::optional<std::uint64_t> held;
+        if (canceler != nullptr) {
+            held = canceler->hold([this, &cancelled] {
+                std::lock_guard lock(this->login_mu);
+                cancelled = true;
+                this->login_cv.notify_all();
+            });
+            if (!held.has_value()) return x::errors::CANCELLED;
+        }
+        std::unique_lock lock(this->login_mu);
+        this->login_cv.wait(lock, [&] { return !this->logging_in || cancelled; });
+        const auto was_cancelled = cancelled;
+        if (!was_cancelled) this->logging_in = true;
+        lock.unlock();
+        if (held.has_value()) canceler->release(*held);
+        if (was_cancelled) return x::errors::CANCELLED;
+        const auto err = this->create_session(canceler);
+        lock.lock();
+        this->logging_in = false;
+        this->login_cv.notify_all();
+        return err;
     }
 
     /// @brief returns the session the client holds. Only valid once authenticated.
@@ -297,8 +335,10 @@ public:
     /// Synnax Core are appropriately authenticated.
     std::pair<freighter::Context, x::errors::Error>
     operator()(freighter::Context context, freighter::Next &next) override {
+        // The login of a request that can be cancelled can be cancelled too.
         if (!this->authenticated)
-            if (const auto err = this->authenticate()) return {context, err};
+            if (const auto err = this->authenticate(context.canceler))
+                return {context, err};
         const auto sent = this->current_token();
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + sent);
         auto [res_ctx, err] = next(context);

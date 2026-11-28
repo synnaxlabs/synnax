@@ -10,9 +10,13 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
+#include <unordered_map>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/url/url.h"
@@ -43,6 +47,49 @@ const x::errors::Error UNKNOWN = {"freighter.unknown", "Unknown"};
 
 enum TransportVariant { UNARY, STREAM };
 
+/// @brief lets one thread cancel the requests that another thread sends with it. Safe
+/// for concurrent use.
+class Canceler {
+    std::mutex mu;
+    bool cancelled = false;
+    std::uint64_t next_hold = 0;
+    std::unordered_map<std::uint64_t, std::function<void()>> held;
+
+public:
+    /// @brief ends every request in flight, and makes every later request with this
+    /// canceler fail at once with x::errors::CANCELLED.
+    void cancel() {
+        std::lock_guard lock(this->mu);
+        this->cancelled = true;
+        for (const auto &[_, on_cancel]: this->held)
+            on_cancel();
+    }
+
+    /// @brief returns true once cancel has run.
+    [[nodiscard]] bool is_cancelled() {
+        std::lock_guard lock(this->mu);
+        return this->cancelled;
+    }
+
+    /// @brief adds fn, which ends one request in flight. A transport calls it before
+    /// it sends, and calls release with the key it returns once the request ends.
+    /// @returns no key if cancel already ran, and the transport must not send.
+    [[nodiscard]] std::optional<std::uint64_t> hold(std::function<void()> fn) {
+        std::lock_guard lock(this->mu);
+        if (this->cancelled) return std::nullopt;
+        const auto key = this->next_hold++;
+        this->held.emplace(key, std::move(fn));
+        return key;
+    }
+
+    /// @brief removes the function that hold added with key. Once it returns, cancel
+    /// no longer calls it.
+    void release(const std::uint64_t key) {
+        std::lock_guard lock(this->mu);
+        this->held.erase(key);
+    }
+};
+
 /// @brief A Context object that can be used to inject metadata into an outbound
 /// request or process metadata from an inbound response.
 class Context {
@@ -61,6 +108,9 @@ public:
     /// @brief The time after which the transport gives up on the request. Unset means
     /// the request waits as long as the transport allows.
     std::optional<std::chrono::system_clock::time_point> deadline;
+    /// @brief lets another thread end the request. Null means the request cannot be
+    /// cancelled.
+    std::shared_ptr<Canceler> canceler;
 
     /// @brief Constructs the context with an empty set of parameters.
     Context(std::string protocol, x::url::URL target, const TransportVariant variant):
@@ -74,7 +124,8 @@ public:
         protocol(other.protocol),
         target(other.target),
         variant(other.variant),
-        deadline(other.deadline) {
+        deadline(other.deadline),
+        canceler(other.canceler) {
         for (const auto &[k, v]: other.params)
             params[k] = v;
     }
@@ -257,6 +308,21 @@ public:
     /// @returns a pair containing the response and an error.
     virtual std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) = 0;
+
+    /// @brief sends the request as send does, and lets canceler end it. A cancelled
+    /// request returns x::errors::CANCELLED. A transport that cannot end a request in
+    /// flight fails it only when canceler cancelled before the send.
+    /// @param canceler ends the request from another thread. Null means the request
+    /// cannot be cancelled.
+    virtual std::pair<RS, x::errors::Error> send_cancellable(
+        const std::string &target,
+        RQ &request,
+        const std::shared_ptr<Canceler> &canceler
+    ) {
+        if (canceler != nullptr && canceler->is_cancelled())
+            return {RS(), x::errors::CANCELLED};
+        return this->send(target, request);
+    }
 
     virtual ~UnaryClient() = default;
 };
