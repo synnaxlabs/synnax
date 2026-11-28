@@ -92,6 +92,22 @@ describe("Frame.time across copies", () => {
 });
 
 describe("Frame.time", () => {
+  it("should keep the time of each frame that a frame pushes or joins", async () => {
+    const first = await read(
+      [3],
+      new Frame([3, 1], [values([1, 2], 0n, 1), stamps([5n, 6n], 0n, 1)]),
+    );
+    const second = await read(
+      [3],
+      new Frame([3, 1], [values([3], 2n, 1), stamps([7n], 2n, 1)]),
+    );
+    const pushed = new Frame();
+    pushed.push(first);
+    pushed.push(second);
+    expect(Array.from(pushed.time(3))).toEqual([5n, 6n, 7n]);
+    expect(Array.from(first.concat(second).time(3))).toEqual([5n, 6n, 7n]);
+  });
+
   it("should give a channel the time of its clock, which is not a channel", async () => {
     const fr = await read(
       [3],
