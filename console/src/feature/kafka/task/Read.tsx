@@ -549,29 +549,39 @@ const Records: FC<RecordsProps> = ({
   };
 
   /**
-   * Puts the new messages of each topic in the ICD that the topic reads, else in the
-   * ICD that the most records read, else in a new ICD named after the device. Then it
-   * adds the records that read them to their topics.
-   * @param additions - The additions of each topic, by topic name.
+   * Makes an ICD named after the device for the new messages of additions that read no
+   * ICD, when no record reads one.
+   * @returns the key of the new ICD, or undefined when the add needs none.
    */
-  const addRecords = async (
+  const createIcd = async (
+    additions: Map<string, TopicAdditions>,
+  ): Promise<icd.Key | undefined> => {
+    if (client == null) throw new DisconnectedError();
+    const homeless = [...additions.values()].filter(({ icd: k }) => k == null);
+    if (homeless.length === 0 || ICD.mostRead(records) != null) return undefined;
+    const messages = homeless.flatMap(({ added }) =>
+      added.filter(({ reused }) => reused !== true).map(({ message }) => message),
+    );
+    return (await client.icds.create({ name: device.name, messages })).key;
+  };
+
+  /**
+   * Puts the new messages of each topic in the ICD that the topic reads, else in the
+   * ICD that the most records read, else in created. Then it adds the records that read
+   * them to their topics.
+   * @param additions - The additions of each topic, by topic name.
+   * @param created - The ICD that createIcd made for the additions, if any.
+   */
+  const addRecords = (
     additions: Map<string, TopicAdditions>,
     holders: icd.ICD[],
+    created?: icd.Key,
   ) => {
-    if (client == null) throw new DisconnectedError();
     const home = ICD.mostRead(records);
     const addedIn = (target?: icd.Key): Addition[] =>
       [...additions.values()]
         .filter(({ icd: k }) => (k ?? home) === target)
         .flatMap(({ added }) => added);
-    const newIn = (target?: icd.Key): icd.Message[] =>
-      addedIn(target)
-        .filter(({ reused }) => reused !== true)
-        .map(({ message }) => message);
-    const created =
-      home == null
-        ? (await client.icds.create({ name: device.name, messages: newIn() })).key
-        : undefined;
     const targets = unique.unique(
       [...additions.values()].map(({ icd: k }) => k ?? home),
     );
@@ -716,11 +726,13 @@ const Records: FC<RecordsProps> = ({
         `The default of ${problem.pointer} in ${problem.topic} is invalid: ${problem.message}`,
       );
     const { extensions, kinds, additions } = planned;
-    // A dispatch runs before any form edit, so a failed one changes nothing.
+    // The dispatches are the last steps that can fail, so a failed add leaves each
+    // found ICD as it was.
+    const created = await createIcd(additions);
     await dispatchAdditions(additions, result.holders);
     extend(extensions, kinds);
     if (additions.size === 0) return;
-    await addRecords(additions, result.holders);
+    addRecords(additions, result.holders, created);
   };
 
   // Adds run one at a time, so a second click cannot make a second ICD.

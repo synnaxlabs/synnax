@@ -216,7 +216,6 @@ const show = (value: unknown): string | null => {
   return typeof value === "string" ? value : JSON.stringify(value);
 };
 
-/** @returns the ICD messages that the new records of a sampled topic read. */
 /**
  * @returns the messages that the device stores channels for at the keys of shapes, the
  * shapes of a sample of topic.
@@ -234,6 +233,7 @@ const storedAt = (
       ),
   );
 
+/** @returns the ICD messages that the new records of a sampled topic read. */
 const findReading = (
   topic: string,
   sample: kafka.SampledTopic,

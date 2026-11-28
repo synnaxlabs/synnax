@@ -2645,17 +2645,14 @@ describe("Kafka read form", () => {
     }
 
     /**
-     * Renders a task whose record reads an ICD that holds a temperature, while the
-     * device stores channels at the key oven-2 for twin, a message of another ICD.
+     * Renders a task with records, while the device stores channels at the key oven-2
+     * for twin, a message of fields of another ICD. Deletes both after the test.
      */
-    const renderStoredElsewhere = async ({
-      fields = [createField("temperature", "float")],
-      as,
-    }: StoredElsewhereParams = {}) => {
-      const rec = await createRecord({
-        fields: [createField("temperature", "float")],
-        recordKey: "oven-1",
-      });
+    const renderStored = async (
+      records: Kafka.Task.ReadRecord[],
+      fields: icd.JSONField[],
+      as?: Synnax,
+    ) => {
       const twin: icd.Message = {
         key: uuid.create(),
         name: "twin",
@@ -2672,7 +2669,7 @@ describe("Kafka read form", () => {
         messages: [{ message: twin.key }],
       });
       const rendered = await renderRead({
-        records: [rec],
+        records,
         as,
         beforeRender: async (d) =>
           await storeChannels(d.key, stored, { index: 0, channels: {} }),
@@ -2682,8 +2679,24 @@ describe("Kafka read form", () => {
         await client.tasks.delete(rendered.draft.key);
         await client.icds.delete(elsewhere.key);
       });
+      return { ...rendered, twin, elsewhere };
+    };
+
+    /**
+     * Renders a task whose record reads an ICD that holds a temperature, while the
+     * device stores channels at the key oven-2 for twin, a message of another ICD.
+     */
+    const renderStoredElsewhere = async ({
+      fields = [createField("temperature", "float")],
+      as,
+    }: StoredElsewhereParams = {}) => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+      });
+      const rendered = await renderStored([rec], fields, as);
       await screen.findByRole("treeitem", { name: /^temperature/ });
-      return { ...rendered, rec, twin, elsewhere };
+      return { ...rendered, rec };
     };
 
     /** A shape of the key oven-2 that holds a temperature and a pressure. */
@@ -2754,6 +2767,68 @@ describe("Kafka read form", () => {
       await second.answered;
       await dialog.findByText(`Reads ${home.messages[0].name} of ${home.name}`);
       expect(dialog.queryByText(`Reads twin of ${elsewhere.name}`)).toBeNull();
+    });
+
+    it("should add to a found ICD with no new ICD when the task holds no records", async () => {
+      const fresh = createTestClient();
+      onTestFinished(async () => await fresh.close());
+      const create = vi.spyOn(fresh.icds, "create");
+      const { draft, dev, twin, elsewhere } = await renderStored(
+        [],
+        [createField("temperature", "float")],
+        fresh,
+      );
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_PRESSURE_SHAPE) });
+      await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: /^Add \d+ field/ }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      expect(records[0].icd).toBe(elsewhere.key);
+      expect(records[0].messages.map(({ message }) => message)).toEqual([twin.key]);
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it("should leave a found ICD as it was when a later step of the add fails", async () => {
+      const fresh = createTestClient();
+      onTestFinished(async () => await fresh.close());
+      // With no records, the new message of plant needs a new ICD.
+      const create = vi
+        .spyOn(fresh.icds, "create")
+        .mockRejectedValue(new Error("The Core refuses the new ICD"));
+      const { dev, statuses, elsewhere } = await renderStored(
+        [],
+        [createField("temperature", "float")],
+        fresh,
+      );
+      const scan = await createScanTask(client, dev);
+      const first = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browseOf(listTopic(TOPIC), listTopic("plant")) },
+        sample: { data: sampleOf(OVEN_2_PRESSURE_SHAPE) },
+      });
+      const dialog = await clickAddData();
+      await first.answered;
+      await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+      fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+      const second = await answerCommandsUntil(client, [scan], "sample", {
+        sample: { data: sampleOfTopic("plant", OVEN_2_PRESSURE_SHAPE) },
+      });
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick plant" }));
+      await second.answered;
+      fireEvent.click(await dialog.findByRole("button", { name: "Add 4 fields" }));
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({ message: "Failed to add data" }),
+        ),
+      );
+      expect(create).toHaveBeenCalled();
+      const [twin] = (await client.icds.retrieve(elsewhere.key)).messages;
+      expect(ICD.jsonFields(twin).map(({ pointer }) => pointer)).toEqual([
+        "/temperature",
+      ]);
     });
 
     describe("searching the ICDs", () => {
