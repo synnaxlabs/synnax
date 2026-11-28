@@ -13,6 +13,9 @@ import { z } from "zod";
 import type { Entry, Store } from "@/form/store";
 import type { Status } from "@/status";
 
+/** Words each issue whose schema gives no message as a sentence about its field. */
+const PARSE_PARAMS = { error: zod.issueMessage };
+
 export interface FieldState<V = unknown> {
   value: V;
   status: Status.Crude;
@@ -399,12 +402,12 @@ export class State<Z extends z.ZodType> implements observe.Observable<void> {
   }
 
   validate(validateUntouched?: boolean, path?: string): boolean {
-    const result = this.schema?.safeParse(this.values);
+    const result = this.schema?.safeParse(this.values, PARSE_PARAMS);
     return this.processValidation(validateUntouched, result, path);
   }
 
   async validateAsync(validateUntouched?: boolean, path?: string): Promise<boolean> {
-    const result = await this.schema?.safeParseAsync(this.values);
+    const result = await this.schema?.safeParseAsync(this.values, PARSE_PARAMS);
     return this.processValidation(validateUntouched, result, path);
   }
 

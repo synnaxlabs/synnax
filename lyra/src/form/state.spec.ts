@@ -966,6 +966,18 @@ describe("State", () => {
       expect(form.get(basic.age).status.message).toBe("Age must be realistic");
     });
 
+    it("should word an issue whose schema gives no message as a sentence", () => {
+      const { form } = create({
+        values: { baudRate: 9600 },
+        schema: z.object({ baudRate: z.number().gt(0) }),
+      });
+      const { baudRate } = deep.path<{ baudRate: number }>();
+      form.set(baudRate, 0);
+      expect(form.get(baudRate).status.message).toBe(
+        "baud rate must be greater than 0",
+      );
+    });
+
     it("should return true when no schema is provided", () => {
       const { form } = create({ values: initialValues });
       expect(form.validate()).toBe(true);
@@ -989,6 +1001,18 @@ describe("State", () => {
       const fieldState = form.get(basic.email);
       expect(fieldState.status.variant).toBe("error");
       expect(fieldState.status.message).toBe("Invalid email format");
+    });
+
+    it("should word an issue whose schema gives no message as a sentence", async () => {
+      const { form } = create({
+        values: { dataBits: 9 },
+        schema: z.object({ dataBits: z.number().max(8) }),
+      });
+      await form.validateAsync();
+      const { dataBits } = deep.path<{ dataBits: number }>();
+      expect(form.get(dataBits).status.message).toBe(
+        "data bits must be less than or equal to 8",
+      );
     });
 
     it("should return true when no schema is provided", async () => {
