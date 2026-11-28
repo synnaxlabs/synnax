@@ -102,7 +102,7 @@ func (f *holdFile) Close() error {
 	return f.File.Close()
 }
 
-var _ = Describe("Round 2 check", func() {
+var _ = Describe("Close and sync check", func() {
 	It("Should finish two closes in a row and the budget syncs that wait for them, "+
 		"when the executor runs one job at a time", func() {
 		fs := opfs.New(xfs.NewMem(), "open", "close", "sync", "syncdir")

@@ -119,8 +119,9 @@ var _ = Describe("Sync check", func() {
 					func() error { return b.Sync([]*segment.Handle{h}) },
 				)
 				close(g.resume)
-				Expect(<-bErr).To(MatchError(syscall.EIO))
-				aErr := <-aDone
+				Eventually(bErr).Should(Receive(MatchError(syscall.EIO)))
+				var aErr error
+				Eventually(aDone).Should(Receive(&aErr))
 				tried = append(tried, runKey)
 				if aErr == nil {
 					if string(durableBytes(ffs, "1.seg", runKey)) != string(data) {
@@ -131,8 +132,8 @@ var _ = Describe("Sync check", func() {
 			}
 			Expect(len(tried)).To(BeNumerically(">=", 32))
 			Expect(lost).To(BeEmpty(), fmt.Sprintf(
-				"of %d run keys, Sync returned nil after a failed sync and the bytes it "+
-					"acked are not durable after a crash",
+				"of %d run keys, Sync returned nil after a failed sync and the bytes "+
+					"it acked are not durable after a crash",
 				len(tried),
 			))
 		},
@@ -164,10 +165,12 @@ var _ = Describe("Sync check", func() {
 					go func() { synced <- b.Sync([]*segment.Handle{first}) }()
 					Consistently(synced, 200*time.Millisecond).ShouldNot(Receive())
 					close(release)
-					Expect(<-synced).To(MatchError(ContainSubstring(
-						"segment file 1.seg failed, and it is never synced or written again",
-					)))
-					second := <-created
+					Eventually(synced).Should(Receive(MatchError(ContainSubstring(
+						"segment file 1.seg failed, and it is never synced or " +
+							"written again",
+					))))
+					var second *segment.Handle
+					Eventually(created).Should(Receive(&second))
 					Expect(second.Close()).To(Succeed())
 					Expect(first.Close()).To(Succeed())
 					Expect(fs.Ops()).ToNot(ContainElement("sync 1.seg"))
@@ -175,7 +178,8 @@ var _ = Describe("Sync check", func() {
 			)
 
 			It(
-				"Should run the sync before a budget close inside the width of the pool",
+				"Should run the sync before a budget close inside the width of the "+
+					"pool",
 				func() {
 					b := MustSucceed(segment.NewBudget(2, 1, goExec))
 					first := MustSucceed(b.Create(fs, "1.seg"))
@@ -195,8 +199,9 @@ var _ = Describe("Sync check", func() {
 					}
 					fs.Unhold()
 					close(release)
-					Expect(<-pooled).To(Succeed())
-					third := <-created
+					Eventually(pooled).Should(Receive(BeNil()))
+					var third *segment.Handle
+					Eventually(created).Should(Receive(&third))
 					for _, h := range []*segment.Handle{first, second, third} {
 						Expect(h.Close()).To(Succeed())
 					}
@@ -221,8 +226,9 @@ var _ = Describe("Sync check", func() {
 					}
 					fs.Unhold()
 					close(release)
-					Expect(<-done).To(Succeed())
-					Expect(<-done).To(Succeed())
+					for range 2 {
+						Eventually(done).Should(Receive(BeNil()))
+					}
 					Expect(h.Close()).To(Succeed())
 					dirSyncs := 0
 					for _, op := range fs.Ops() {

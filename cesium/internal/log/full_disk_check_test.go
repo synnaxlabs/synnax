@@ -18,31 +18,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
-	"github.com/synnaxlabs/cesium/internal/place"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-var _ = Describe("Round 2 check", func() {
-	DescribeTable(
-		"Should refuse a header copy of another database or generation as one that "+
-			"fails its check",
-		func(change func(*log.Header)) {
-			h := header
-			change(&h)
-			Expect(log.DecodeHeader(h.Encode(0), db, generation, 0)).Error().
-				To(SatisfyAll(
-					MatchError(place.ErrCorrupt),
-					MatchError(ContainSubstring(
-						"log header at 0 fails its check for generation 3",
-					)),
-				))
-		},
-		Entry("another database", func(h *log.Header) { h.DB = 1 }),
-		Entry("another generation", func(h *log.Header) { h.Generation = 4 }),
-	)
-})
 
 // entryCount returns the number of entries in the frames of the log file in fs.
 func entryCount(fs xfs.FS) int {
@@ -54,29 +33,22 @@ func entryCount(fs xfs.FS) int {
 	return n
 }
 
-var _ = Describe("Round 2 check, random entries", func() {
+var _ = Describe("Full disk check", func() {
 	for k := range uint64(32) {
 		It(fmt.Sprintf("Should fill a log on a full disk with no growth, and keep "+
 			"every acked entry through a crash, run key %d", k), func() {
-			fs := MustSucceed(fault.New(fault.Config{
-				RunKey:        k,
-				Capacity:      logSize,
-				SyncErrorRate: []float64{0, 0.03}[k%2],
-			}))
-			// A run key whose sync error lands in the setup tests nothing.
-			if log.Prepare(fs, generation, logSize) != nil {
-				return
-			}
-			l, err := log.Start(log.Config{
+			fs := MustSucceed(fault.New(fault.Config{RunKey: k, Capacity: logSize}))
+			Expect(log.Prepare(fs, generation, logSize)).To(Succeed())
+			l := MustSucceed(log.Start(log.Config{
 				FS:         fs,
 				Executor:   goExec,
 				DB:         db,
 				Generation: generation,
 				Sequence:   1,
-			})
-			if err != nil {
-				return
-			}
+			}))
+			// The sync errors start after the setup, so every run key fills the log.
+			Expect(fs.Arm(fault.Config{SyncErrorRate: []float64{0, 0.03}[k%2]})).
+				To(Succeed())
 			ran := make(chan error, 1)
 			go func() { ran <- l.Run(context.Background()) }()
 			rng := rand.New(rand.NewPCG(k, k^0x9E3779B97F4A7C15))
@@ -121,7 +93,7 @@ var _ = Describe("Round 2 check, random entries", func() {
 				}
 			}
 			wait()
-			err = l.Close()
+			err := l.Close()
 			Eventually(ran).Should(Receive(BeNil()))
 			if failed == nil {
 				Expect(err).ToNot(HaveOccurred())

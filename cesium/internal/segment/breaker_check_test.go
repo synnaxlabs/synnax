@@ -68,29 +68,31 @@ var _ = Describe("Breaker check", func() {
 					break
 				}
 			}
-			if err := w.Write(make([]byte, 8)); err == nil {
-				length, _ := w.Commit()
-				Expect(int64(length)).To(Equal(w.Len()))
-			}
+			// The last chunk does not fit, so 8 bytes still fit below 2^32.
+			Expect(w.Write(make([]byte, 8))).To(Succeed())
+			length, _ := w.Commit()
+			Expect(int64(length)).To(Equal(w.Len()))
 			Expect(h.Close()).To(Succeed())
 		})
 
-	It("Should leave the written bytes durable when Sync returns nil after a "+
-		"failed sync", func() {
+	It("Should fail every Sync after a failed sync, so that no nil Sync covers bytes "+
+		"that a crash loses", func() {
 		disk := MustSucceed(fault.New(fault.Config{SyncErrorRate: 1}))
 		budget := MustSucceed(segment.NewBudget(8, 8, goExec))
 		h := MustSucceed(budget.Create(disk, "3.seg"))
 		w := segment.NewWriter(h, cfg)
 		disk.Writeback()
-		data := pattern(100)
-		Expect(w.Write(data)).To(Succeed())
+		Expect(w.Write(pattern(100))).To(Succeed())
 		w.Commit()
 		Expect(
 			budget.Sync([]*segment.Handle{h}),
 		).To(MatchError(ContainSubstring("input/output error")))
-		if err := budget.Sync([]*segment.Handle{h}); err == nil {
-			Expect(crashBytes(disk)).To(Equal(data))
-		}
+		Expect(budget.Sync([]*segment.Handle{h})).To(SatisfyAll(
+			MatchError(ContainSubstring(
+				"segment file 3.seg failed, and it is never synced or written again",
+			)),
+			MatchError(ContainSubstring("input/output error")),
+		))
 		Expect(h.Close()).To(Succeed())
 	})
 

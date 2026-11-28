@@ -35,7 +35,7 @@ type tracked struct {
 	failed atomic.Bool
 }
 
-var _ = Describe("Round 2 check, random handles", func() {
+var _ = Describe("Handle model check", func() {
 	for k := range uint64(32) {
 		It(fmt.Sprintf("Should never ack a byte that a crash loses, nor pass a call "+
 			"after a failed sync, run key %d", k), func() {

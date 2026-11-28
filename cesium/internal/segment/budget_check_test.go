@@ -117,8 +117,9 @@ var _ = Describe("Budget check", func() {
 					return err
 				})
 				close(g.resume)
-				Expect(<-bErr).To(MatchError(syscall.EIO))
-				wErr := <-wDone
+				Eventually(bErr).Should(Receive(MatchError(syscall.EIO)))
+				var wErr error
+				Eventually(wDone).Should(Receive(&wErr))
 				tried = append(tried, runKey)
 				if wErr == nil {
 					wrote = append(wrote, runKey)
