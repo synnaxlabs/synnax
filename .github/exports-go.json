@@ -368,6 +368,12 @@
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/state",
+      "name": "NewChannel",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
       "name": "Open",
       "caller": "sy-6398-17c-pointer-log-engine"
     },
@@ -393,6 +399,20 @@
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/state",
       "name": "WriterKey",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "Channel",
+      "name": "All",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/state",
+      "receiver": "Channel",
+      "name": "Len",
       "caller": "sy-6398-17c-pointer-log-engine"
     },
     {

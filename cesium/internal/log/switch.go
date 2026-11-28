@@ -25,9 +25,8 @@ func (l *Log) Prepared(next uint64, err error) {
 	l.mu.Unlock()
 }
 
-// nextReady reports whether the file of the next log is ready. Until it is, the live
-// log goes on to its end limits; after a failed file it asks for the file again. It
-// returns the error of a failed log.
+// nextReady reports whether the file of the next log is ready, and asks for it again
+// after a failed one. It returns the error of a failed log.
 func (l *Log) nextReady() (bool, error) {
 	next := l.gen + 1
 	l.mu.Lock()
@@ -50,13 +49,12 @@ func (l *Log) nextReady() (bool, error) {
 // is ready, so a batch past three quarters goes on while it is not. It reports whether
 // it switched, and returns the error of a failed log, after a flush.
 func (l *Log) switchIfReady(flush func()) (bool, error) {
-	ready, err := l.nextReady()
-	if err == nil && !ready {
+	if ready, err := l.nextReady(); err == nil && !ready {
 		return false, nil
 	}
 	flush()
 	// The flush can fail the log, which then must not switch.
-	if err = l.failure(); err != nil {
+	if err := l.failure(); err != nil {
 		return false, err
 	}
 	return true, l.advance()

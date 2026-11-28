@@ -53,9 +53,7 @@ func extendOpen(c *log.Commit, n, i uint32) {
 }
 
 // BenchmarkCommit measures a commit that extends the open segment of a key, after a
-// history of sealed segments of that key. The replay case applies it to the durable
-// view. The writer case commits it through a Writer, which publishes the key, with an
-// executor that runs each step at once.
+// history of sealed segments of that key.
 func BenchmarkCommit(b *testing.B) {
 	for _, n := range []uint32{1, 100, 10_000} {
 		b.Run(fmt.Sprintf("replay/segments=%d", n), func(b *testing.B) {
