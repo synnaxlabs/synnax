@@ -79,7 +79,8 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 	if err != nil {
 		return err
 	}
-	err = db.engine.reap()
+	// Once Settle returns, the state has pushed the Deads of the Drop into cover.
+	err = db.engine.state.Settle()
 	for _, k := range dropped {
 		delete(db.mu.channels, k)
 		delete(db.mu.hiddenChannels, k)
@@ -87,6 +88,7 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 	if waitErr := db.engine.waitCovered(ctx, sequence); waitErr != nil {
 		return errors.Join(err, waitErr)
 	}
+	err = errors.Join(err, db.engine.release())
 	for _, k := range dropped {
 		err = errors.Join(err, db.removeLogDir(k))
 	}

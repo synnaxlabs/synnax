@@ -40,9 +40,9 @@ type Config struct {
 	// OnHead gets the durable snapshot that the head of the log of generation holds, on
 	// a step of the owner. It must return at once.
 	OnHead func(generation uint64, s *Snapshot)
-	// OnDead reports that a durable entry took a segment out of the state, so TakeDead
-	// returns it. It runs on a step of the owner and must return at once. A nil OnDead
-	// gets nothing.
+	// OnDead gets the Deads of the segments that a request or a replayed entry took out
+	// of the state, once it ends, on a step of the owner. It must return at once. A nil
+	// OnDead gets nothing.
 	OnDead func(dead []Dead)
 }
 
@@ -129,6 +129,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 // Run. It returns an error for a record that breaks a rule, or log.ErrUnknown for one
 // this binary does not apply.
 func (s *State) Replay(sequence uint64, records []log.Record) error {
+	defer s.pushDead()
 	defer s.core.count.end()
 	return s.core.apply(sequence, records)
 }
@@ -202,6 +203,7 @@ func (s *State) run() {
 		}
 		r.run(s)
 		s.core.count.end()
+		s.pushDead()
 	}
 	if err := s.Err(); err != nil {
 		s.failParked(err)
@@ -209,6 +211,19 @@ func (s *State) run() {
 		s.failParked(errClosed)
 	}
 	s.stepped <- closed
+}
+
+// pushDead hands the Deads of the request that just ended to OnDead. Only the owner
+// calls it.
+func (s *State) pushDead() {
+	if len(s.core.dead) == 0 {
+		return
+	}
+	dead := s.core.dead
+	s.core.dead = nil
+	if s.cfg.OnDead != nil {
+		s.cfg.OnDead(dead)
+	}
 }
 
 // enqueue queues r, or returns the error that refuses it.
@@ -324,15 +339,11 @@ type durableRequest struct {
 func (*durableRequest) fail(error) {}
 
 func (r *durableRequest) run(s *State) {
-	dead := len(s.core.dead)
 	if err := s.core.apply(r.sequence, r.records); err != nil {
 		s.fail(err)
 		return
 	}
 	s.sealDeleted(r.records)
-	if len(s.core.dead) > dead && s.cfg.OnDead != nil {
-		s.cfg.OnDead(nil)
-	}
 	if invariants.Enabled {
 		s.checkCommits(r.records)
 	}
@@ -451,38 +462,6 @@ type Dead struct {
 	// Count is the publish count from which no Load sees the segment: the count at the
 	// end of the request of the owner that took it out of what readers see.
 	Count uint64
-}
-
-type deadRequest struct {
-	dead []Dead
-	done chan error
-}
-
-func (r *deadRequest) fail(err error) { r.done <- err }
-
-func (r *deadRequest) run(s *State) {
-	r.dead, s.core.dead = s.core.dead, nil
-	s.core.hasDead.Store(false)
-	r.done <- nil
-}
-
-// HasDead reports whether TakeDead has segments to return. It is safe to call from any
-// goroutine.
-func (s *State) HasDead() bool { return s.core.hasDead.Load() }
-
-// TakeDead returns the segments that left the state since the last call: by a Drop, or
-// by a Tombstone, a Seal, or a Restart that left them sealed with no durable pointer or
-// with no durable byte. The database unlinks their files once the log covers the record
-// that took them out and no read may use them.
-func (s *State) TakeDead() ([]Dead, error) {
-	r := &deadRequest{done: make(chan error, 1)}
-	if err := s.enqueue(r); err != nil {
-		return nil, err
-	}
-	if err := wait(s, r.done); err != nil {
-		return nil, err
-	}
-	return r.dead, nil
 }
 
 // checkCommits runs checkViews on each key that a Commit of records names.

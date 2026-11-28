@@ -68,7 +68,7 @@ func (db *DB) deleteLog(
 			db.historyChanges.Notify(ctx, HistoryChange{Key: ch.Key, TimeRange: tr})
 		}
 	}
-	return db.engine.reap()
+	return nil
 }
 
 // deleteRange logs a durable Tombstone of tr for key, whose samples are of type dt and

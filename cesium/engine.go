@@ -78,7 +78,10 @@ type engine struct {
 	stored set.Set[ChannelKey]
 	// cover holds the dead segments whose files wait until the log covers the record
 	// that took them out of the state, so no crash cuts that record while the file is
-	// gone, and until no read may use them. Every entry below covered is covered.
+	// gone, and until no read may use them. Every entry below covered is covered. Its
+	// lock is never held while waiting on the owner of the state or across an unlink,
+	// and the push of the owner takes it only to append, so the owner never waits on a
+	// read or an unlink.
 	cover struct {
 		sync.Mutex
 		covered uint64
@@ -94,11 +97,6 @@ type engine struct {
 		unlinking map[ChannelKey]int
 		unlinked  chan struct{}
 	}
-	// reaping is held by each reap, from its TakeDead until its segments are in cover.
-	reaping sync.Mutex
-	// reaps asks Run for a reap. A reap waits for a step of the state, so it never runs
-	// on the executor that runs those steps.
-	reaps    chan struct{}
 	shutdown sync.Once
 	closeErr error
 }
@@ -126,7 +124,6 @@ func openEngine(o *options) (*engine, error) {
 		fs:       o.fs,
 		exec:     o.executor,
 		ready:    make(chan struct{}),
-		reaps:    make(chan struct{}, 1),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 		readers: sync.Pool{
 			New: func() any { return segment.NewReader() },
@@ -154,7 +151,7 @@ func openEngine(o *options) (*engine, error) {
 		Append:   e.append,
 		Executor: e.exec,
 		OnHead:   e.onHead,
-		OnDead:   func([]state.Dead) { e.askReap() },
+		OnDead:   e.pushDead,
 	}, snapshot); err != nil {
 		return nil, err
 	}
@@ -428,28 +425,12 @@ func (e *engine) run(ctx context.Context) error {
 	}
 	close(e.ready)
 	if err == nil {
-		e.serve(ctx, owners)
-	}
-	return errors.Join(err, e.close(), errors.Skip(owners.Wait(), context.Canceled))
-}
-
-// serve reaps each time covered asks, until ctx is done or an owner stops.
-func (e *engine) serve(ctx context.Context, owners signal.Context) {
-	for {
 		select {
 		case <-ctx.Done():
-			return
 		case <-owners.Done():
-			return
-		case <-e.reaps:
-			if err := e.reap(); err != nil {
-				e.ins.L.Error(
-					"failed to unlink the file of a dead segment",
-					zap.Error(err),
-				)
-			}
 		}
 	}
+	return errors.Join(err, e.close(), errors.Skip(owners.Wait(), context.Canceled))
 }
 
 // replay applies the records of one recovered entry to the state, and keeps stored

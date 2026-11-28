@@ -643,7 +643,7 @@ func (w *Writer) Seal(key uint32) (log.Seal, error) {
 // TakeBack takes the samples that no durable record covers out of the visible view of
 // every segment that w holds, seals each at its durable length, and returns their
 // Seals, which the caller logs. A segment with no durable Create leaves the state for
-// TakeDead instead. A writer calls it after a failed sync, with no entry of its own in
+// OnDead instead. A writer calls it after a failed sync, with no entry of its own in
 // the log queue.
 func (w *Writer) TakeBack() ([]log.Seal, error) {
 	r := &takeBackRequest{w: w}

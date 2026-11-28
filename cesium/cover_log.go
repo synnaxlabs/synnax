@@ -19,46 +19,40 @@ import (
 	"go.uber.org/zap"
 )
 
-// reap unlinks the file of each segment that left the state once the log covers the
-// record that took it out and no read may use it.
-func (e *engine) reap() error {
-	e.reaping.Lock()
-	dead, err := e.state.TakeDead()
-	free := e.uncover(0, dead)
-	e.reaping.Unlock()
-	return errors.Join(err, e.unlink(free))
+// pushDead takes dead, which the state's owner pushes from its step, into cover, and
+// unlinks on the executor each dead segment that the log covers and that no read may
+// use.
+func (e *engine) pushDead(dead []state.Dead) {
+	e.cover.Lock()
+	e.cover.dead = append(e.cover.dead, dead...)
+	e.cover.Unlock()
+	e.exec(func() {
+		if err := e.release(); err != nil {
+			e.ins.L.Error("failed to unlink the file of a dead segment", zap.Error(err))
+		}
+	})
+}
+
+// release unlinks each dead segment that the log covers and that no read may use.
+func (e *engine) release() error {
+	e.cover.Lock()
+	free := e.free()
+	e.cover.Unlock()
+	return e.unlink(free)
 }
 
 // covered unlinks, off the step of the log, the file of each dead segment whose record
-// the log now covers and that no read may use, and asks Run to take the segments that
-// left the state since the last reap.
+// the log now covers and that no read may use.
 func (e *engine) covered(sequence uint64) {
-	e.unlinkLater(e.uncover(sequence, nil))
-	if e.state.HasDead() {
-		e.askReap()
-	}
-}
-
-// askReap asks Run for a reap, and returns at once.
-func (e *engine) askReap() {
-	select {
-	case e.reaps <- struct{}{}:
-	default:
-	}
-}
-
-// uncover raises the covered sequence to covered, adds dead to the segments that wait,
-// and returns those whose record the log covers and that no read may use.
-func (e *engine) uncover(covered uint64, dead []state.Dead) []state.Dead {
 	e.cover.Lock()
-	defer e.cover.Unlock()
-	if covered > e.cover.covered {
-		e.cover.covered = covered
+	if sequence > e.cover.covered {
+		e.cover.covered = sequence
 		close(e.cover.advanced)
 		e.cover.advanced = make(chan struct{})
 	}
-	e.cover.dead = append(e.cover.dead, dead...)
-	return e.free()
+	free := e.free()
+	e.cover.Unlock()
+	e.unlinkLater(free)
 }
 
 // waitCovered returns once the log covers the entry of sequence, or with the error of
@@ -144,16 +138,12 @@ func (e *engine) free() []state.Dead {
 	return free
 }
 
-// waitUnlinked returns once no unlink of a segment of key is in flight. Reaps run one
-// at a time, so each dead segment of key that a reap took from the state is then in
-// cover, or its file is gone.
+// waitUnlinked returns once no unlink of a segment of key is in flight.
 func (e *engine) waitUnlinked(key ChannelKey) {
 	for {
-		e.reaping.Lock()
 		e.cover.Lock()
 		n, unlinked := e.cover.unlinking[key], e.cover.unlinked
 		e.cover.Unlock()
-		e.reaping.Unlock()
 		if n == 0 {
 			return
 		}

@@ -618,5 +618,5 @@ func (w *logWriter) close() error {
 			err = errors.Join(err, lk.h.Close())
 		}
 	}
-	return errors.Join(err, w.e.reap())
+	return err
 }

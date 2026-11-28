@@ -45,11 +45,10 @@ type core struct {
 	// keysChanged is true when a key joined or left channels since the owner last
 	// published the keys.
 	keysChanged bool
-	// dead holds the segments that left the state with a file left to unlink, and
-	// hasDead is true while it holds one.
-	dead    []Dead
-	hasDead atomic.Bool
-	keys    set.Set[uint32]
+	// dead holds the segments that the request in progress took out of the state, with
+	// a file left to unlink.
+	dead []Dead
+	keys set.Set[uint32]
 	// drops counts the Drop records applied, and dropped holds the count at the Drop of
 	// each key.
 	drops   atomic.Uint64
@@ -283,7 +282,7 @@ func (c *core) seal(r *log.Seal) error {
 }
 
 // bury takes s out of the state when it is sealed in the durable view with no durable
-// pointer, and gives it to TakeDead: its file holds no live byte. It reads only the
+// pointer, and gives it to OnDead: its file holds no live byte. It reads only the
 // durable view, so replay and the owner bury the same segments.
 func (c *core) bury(s *segState) {
 	if !s.dur.sealed || len(s.dur.pointers) > 0 {
@@ -296,13 +295,12 @@ func (c *core) bury(s *segState) {
 	ch.publish()
 }
 
-// addDead gives d to TakeDead with the publish count at the end of this request, in
-// which the caller takes the segment out of what readers see.
+// addDead gives d to OnDead with the publish count at the end of this request, in which
+// the caller takes the segment out of what readers see.
 func (c *core) addDead(d Dead) {
 	c.count.begin()
 	d.Count = c.count.n.Load() + 1
 	c.dead = append(c.dead, d)
-	c.hasDead.Store(true)
 }
 
 func (c *core) drop(key uint32) error {
