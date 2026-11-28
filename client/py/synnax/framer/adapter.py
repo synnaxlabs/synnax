@@ -121,10 +121,11 @@ class ReadFrameAdapter:
             key=lambda item: self._rank[item[0]],
         )
         named = {s.clock for _, s in items if s.clock != 0}
-        times: dict[int, list[Series]] = {}
-        for k, s in fr.items():
-            if isinstance(k, channel.Key) and s.clock == k and k in named:
-                times.setdefault(k, []).append(s)
+        times = [
+            s
+            for k, s in fr.items()
+            if isinstance(k, channel.Key) and s.clock == k and k in named
+        ]
         hidden = self._hidden(items)
         items = [(k, s) for k, s in items if not (s.clock == k and k in hidden)]
         fr.channels = [
@@ -144,7 +145,8 @@ class ReadFrameAdapter:
                     "samples do not pair with one index"
                 )
         fr.indexes.update(indexes)
-        fr.times = times
+        for time in times:
+            fr._add_time(time)
         return fr
 
     def _hidden(self, items: list[tuple[channel.Key | str, Series]]) -> set[int]:

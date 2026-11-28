@@ -56,15 +56,16 @@ class Frame:
     :ivar indexes: The key of the index channel of each channel, by channel key. An
         index channel is its own index. Frames read from the Core carry the indexes of
         the channels they read.
-    :ivar times: The time series of each clock, by clock key. Frames read from the Core
-        carry the time of the channels they read. Use time() to read them.
+    Frames read from the Core carry the time of the channels they read. Use time() to
+    read them.
     """
 
     channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
     names: dict[channel.Key, str]
     indexes: dict[channel.Key, channel.Key]
-    times: dict[int, list[Series]]
+    # _times holds the time series of each clock, by clock key.
+    _times: dict[int, list[Series]]
 
     @overload
     def __init__(
@@ -111,13 +112,13 @@ class Frame:
     ) -> None:
         self.names = {}
         self.indexes = {}
-        self.times = {}
+        self._times = {}
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
             self.names = channels.names
             self.indexes = channels.indexes
-            self.times = channels.times
+            self._times = channels._times
         elif isinstance(channels, FramePayload):
             self.channels = list(channels.keys)
             self.series = channels.series
@@ -172,8 +173,8 @@ class Frame:
             self.channels.extend(col_or_frame.channels)
             self.names.update(col_or_frame.names)
             self.indexes.update(col_or_frame.indexes)
-            for clock, times in col_or_frame.times.items():
-                self.times.setdefault(clock, []).extend(times)
+            for clock, times in col_or_frame._times.items():
+                self._times.setdefault(clock, []).extend(times)
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
@@ -253,6 +254,12 @@ class Frame:
             return default
         return self[key]
 
+    def _add_time(self, series: Series) -> None:
+        """Adds series to the time of its clock. A read adds the time of the channels it
+        reads; a time series is never a channel of the frame.
+        """
+        self._times.setdefault(series.clock, []).append(series)
+
     @overload
     def time(self, target: channel.Key | str) -> MultiSeries:
         """Gets the time of a channel: one time series for each series of the channel,
@@ -277,7 +284,7 @@ class Frame:
         return MultiSeries([self._time_of(s, name) for s in self[target].series])
 
     def _time_of(self, series: Series, name: str) -> Series:
-        for time in self.times.get(series.clock, []):
+        for time in self._times.get(series.clock, []):
             step = time.alignment_multiple
             start = int(series.alignment) - int(time.alignment)
             if step != series.alignment_multiple or start < 0 or start % step != 0:
@@ -328,7 +335,7 @@ class Frame:
         indexes: dict[channel.Key | str, channel.Key] = {}
         for k in cols:
             idx = self._index(k)
-            if idx is None or (idx not in self and idx not in self.times):
+            if idx is None or (idx not in self and idx not in self._times):
                 return DataFrame({names[k]: _column_values(self[k]) for k in cols})
             indexes[k] = idx
         index_cols = {idx: k for k, idx in indexes.items() if self._key(k) == idx}
@@ -357,7 +364,7 @@ class Frame:
     def _stamps(self, index: channel.Key) -> MultiSeries:
         if index in self:
             return self[index]
-        return MultiSeries(self.times[index])
+        return MultiSeries(self._times[index])
 
     def _key(self, key: channel.Key | str) -> channel.Key | None:
         if isinstance(key, channel.Key):
