@@ -25,7 +25,7 @@ class Logger:
     with %(key)s and %(path)s.
     """
 
-    noop: bool = True
+    noop: bool = False
     base: BaseLogger | None = None
     meta: InstrumentationMeta
     _fields: dict[str, str]
@@ -33,7 +33,7 @@ class Logger:
     def _(self) -> Noop:
         return self
 
-    def __init__(self, *, noop: bool = True, base: BaseLogger | None = None):
+    def __init__(self, *, noop: bool = False, base: BaseLogger | None = None):
         self.noop = noop
         self.base = base
         self._fields = {}
@@ -76,4 +76,4 @@ class Logger:
         return logger
 
 
-NOOP_LOGGER = Logger()
+NOOP_LOGGER = Logger(noop=True)
