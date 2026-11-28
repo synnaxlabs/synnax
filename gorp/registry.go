@@ -379,6 +379,23 @@ type deletePlan struct {
 	detaches map[Target][]detachOp
 	// size is the number of entries the plan deletes.
 	size int
+	// heldWanted is true when the delete asks for the Weak holders of its entries.
+	heldWanted bool
+	// weak holds, by text key, the Weak holders of each entry of table when heldWanted
+	// is true. It is nil until the first such holder.
+	weak map[string][]Dependent
+}
+
+// holdWeakly records that dep holds t through a Weak reference, when the delete asks
+// for Weak holders and t is in table.
+func (p *deletePlan) holdWeakly(t Target, dep Dependent) {
+	if !p.heldWanted || t.Table != p.table {
+		return
+	}
+	if p.weak == nil {
+		p.weak = make(map[string][]Dependent)
+	}
+	p.weak[t.Key] = append(p.weak[t.Key], dep)
 }
 
 // changes returns the number of entries the plan deletes or rewrites.
@@ -437,8 +454,10 @@ func (r *registry) plan(
 	table string,
 	keys []string,
 	limit int,
+	weak bool,
 ) (*deletePlan, error) {
 	w := newPlanWalk(table, keys, limit)
+	w.plan.heldWanted = weak
 	if err := r.walk(ctx, tx, w); err != nil {
 		return nil, err
 	}
@@ -481,6 +500,7 @@ func (r *registry) planned(
 	tx Tx,
 	table string,
 	effects DeleteEffects,
+	weak bool,
 ) (*deletePlan, error) {
 	// The plan saw each Restrict holder in tx, so a holder that tx has not deleted
 	// since still exists.
@@ -494,12 +514,16 @@ func (r *registry) planned(
 		}
 	}
 	p := &deletePlan{
-		table:    table,
-		cascades: make(map[string]set.Set[string], len(effects.Cascades)),
-		detaches: make(map[Target][]detachOp, len(effects.Detaches)),
+		table:      table,
+		cascades:   make(map[string]set.Set[string], len(effects.Cascades)),
+		detaches:   make(map[Target][]detachOp, len(effects.Detaches)),
+		heldWanted: weak,
 	}
 	for _, e := range effects.Cascades {
 		p.cascade(e.Holder)
+	}
+	for _, e := range effects.Weak {
+		p.holdWeakly(e.Target, e.Dependent)
 	}
 	for _, e := range effects.Detaches {
 		if deletedIn(tx, e.Holder) {
@@ -651,6 +675,7 @@ func (w *planWalk) visit(ref registeredReference, dep, target Target) error {
 		}
 	case Weak:
 		w.record(ref, dep, target)
+		w.plan.holdWeakly(target, newDeleteEffect(ref, dep, target).Dependent)
 		return nil
 	case Detach, Inline:
 		if w.plan.contains(dep) {

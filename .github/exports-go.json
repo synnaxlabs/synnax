@@ -213,6 +213,19 @@
       "package": "github.com/synnaxlabs/arc/runtime/scheduler",
       "name": "ScopeHandler",
       "caller": "sy-7012-arc-task-scope-status"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "HeldFunc",
+      "caller": "https://linear.app/synnax/issue/SY-6524"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "Delete",
+      "name": "Held",
+      "caller": "https://linear.app/synnax/issue/SY-6524"
     }
   ]
 }

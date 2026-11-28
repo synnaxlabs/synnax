@@ -267,21 +267,28 @@ func (t *Table[K, E]) detach(
 	return t.onRewrite(ctx, tx, e)
 }
 
-// delete deletes the entries with keys and applies the OnDelete of every reference
-// that points at them, from planned when it is not nil.
+// delete deletes entries and applies the OnDelete of every reference that points at
+// them, from planned when it is not nil. Before it changes anything, it calls held,
+// when not nil, with each entry that a Weak reference holds and those holders.
 func (t *Table[K, E]) delete(
 	ctx context.Context,
 	tx Tx,
-	keys []K,
+	entries []E,
 	planned *DeleteEffects,
+	held HeldFunc[K, E],
 ) error {
+	keys := make([]K, len(entries))
+	for i, e := range entries {
+		keys[i] = e.GorpKey()
+	}
 	if t.registered {
 		var (
 			plan *deletePlan
 			err  error
 		)
+		weak := held != nil
 		if planned != nil && current(*planned, tx, t.db.registry, t.name, keys) {
-			plan, err = t.db.registry.planned(tx, t.name, *planned)
+			plan, err = t.db.registry.planned(tx, t.name, *planned, weak)
 		} else {
 			formatted := make([]string, len(keys))
 			for i, k := range keys {
@@ -293,10 +300,16 @@ func (t *Table[K, E]) delete(
 				t.name,
 				formatted,
 				t.db.MaxDeleteSize,
+				weak,
 			)
 		}
 		if err != nil {
 			return err
+		}
+		if len(plan.weak) > 0 {
+			if err = t.callHeld(ctx, tx, entries, plan, held); err != nil {
+				return err
+			}
 		}
 		if err = t.db.registry.apply(ctx, tx, plan); err != nil {
 			return err
@@ -304,6 +317,66 @@ func (t *Table[K, E]) delete(
 	}
 	w := t.writer(tx, 0)
 	return w.Delete(ctx, keys...)
+}
+
+// callHeld calls held with each entry of the table that the delete of plan removes and
+// that a Weak reference of an entry the delete keeps holds, and with those holders: the
+// entries the caller asked to delete first, then, in key order, those that a cascade
+// deletes.
+func (t *Table[K, E]) callHeld(
+	ctx context.Context,
+	tx Tx,
+	entries []E,
+	plan *deletePlan,
+	held HeldFunc[K, E],
+) error {
+	removed := func(d Dependent) bool { return plan.contains(d.Holder) }
+	holders := func(text string) []Dependent {
+		deps := plan.weak[text]
+		if !slices.ContainsFunc(deps, removed) {
+			return deps
+		}
+		return slices.DeleteFunc(slices.Clone(deps), removed)
+	}
+	requested := make(set.Set[string], len(entries))
+	for _, e := range entries {
+		text := FormatKey(e.GorpKey())
+		requested.Add(text)
+		if deps := holders(text); len(deps) > 0 {
+			if err := held(ctx, tx, e, deps); err != nil {
+				return err
+			}
+		}
+	}
+	var cascaded []K
+	for text := range plan.weak {
+		if requested.Contains(text) || len(holders(text)) == 0 {
+			continue
+		}
+		k, err := key.Parse[K](text)
+		if err != nil {
+			return err
+		}
+		cascaded = append(cascaded, k)
+	}
+	if len(cascaded) == 0 {
+		return nil
+	}
+	slices.SortFunc(cascaded, key.Order[K]())
+	var more []E
+	// An entry that tx removed after the plan is not one this delete removes.
+	if err := t.NewRetrieve().
+		Where(MatchKeys[K, E](cascaded...)).
+		Entries(&more).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	for _, e := range more {
+		if err := held(ctx, tx, e, holders(FormatKey(e.GorpKey()))); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // referenceIndex implements registeredTable.
