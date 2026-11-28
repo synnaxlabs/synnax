@@ -96,28 +96,31 @@ const GLOBAL_CONNECTOR: Connector = {
       : new WebSocket(url, subprotocols(headers.Authorization)),
 };
 
-// A CA list replaces the default list in Node and Bun, so it must keep the defaults.
-const withDefaultCAs = async (ca: string): Promise<string[]> => {
+// A CA list replaces Node's defaults. Returns undefined when Node's own defaults are
+// the list to use.
+const trustedCAs = (ca?: string): string[] | undefined => {
+  if (ca != null) return [ca];
   // webpack cannot build a node: import for a browser, but it skips getBuiltinModule.
-  const { getCACertificates, rootCertificates } = process.getBuiltinModule("node:tls");
-  // Node 22.15 added getCACertificates. Before it, the defaults are the bundled roots
-  // and NODE_EXTRA_CA_CERTS.
-  if (getCACertificates != null) return [...getCACertificates("default"), ca];
-  const extra = process.env.NODE_EXTRA_CA_CERTS;
-  if (extra == null || extra === "") return [...rootCertificates, ca];
-  const { readFile } = process.getBuiltinModule("node:fs/promises");
-  // Node warns and skips an unreadable NODE_EXTRA_CA_CERTS file, so this skips it too.
-  const extraCAs = await readFile(extra, "utf8").catch(() => null);
-  return extraCAs == null
-    ? [...rootCertificates, ca]
-    : [...rootCertificates, extraCAs, ca];
+  const { getCACertificates } = process.getBuiltinModule("node:tls");
+  // Node 22.15 and 23.10 added getCACertificates. On Linux, the system certificates
+  // are the OpenSSL store. An older Node cannot read the system store, and its defaults
+  // can be the OpenSSL store, which it cannot list.
+  if (getCACertificates == null) return undefined;
+  return [...getCACertificates("default"), ...getCACertificates("system")];
 };
 
 const loadUndici = async (ca?: string) => {
   const { EnvHttpProxyAgent, fetch, WebSocket } = await import("undici");
-  // The agent uses connect for a direct connection and requestTls through a proxy.
-  const tls = ca == null ? undefined : { ca: await withDefaultCAs(ca) };
-  const dispatcher = new EnvHttpProxyAgent({ connect: tls, requestTls: tls });
+  const options = (cas?: string[]) => (cas == null ? undefined : { ca: cas });
+  // The agent uses connect for a direct connection, requestTls for the Core through a
+  // proxy, and proxyTls for an HTTPS proxy. The CA certificate signs the Core, not the
+  // proxy.
+  const tls = options(trustedCAs(ca));
+  const dispatcher = new EnvHttpProxyAgent({
+    connect: tls,
+    requestTls: tls,
+    proxyTls: ca == null ? tls : options(trustedCAs()),
+  });
   return { fetch, WebSocket, dispatcher };
 };
 
@@ -174,14 +177,13 @@ const nodeConnector = (ca?: string): Connector => {
 };
 
 const bunConnector = (ca: string): Connector => {
-  let cas: Promise<string[]> | null = null;
-  const load = async () => ({ ca: await (cas ??= withDefaultCAs(ca)) });
+  const tls = { ca: [ca] };
   return {
     fetch: async (target, init) => {
-      const req: RequestInit & { tls: object } = { ...init, tls: await load() };
+      const req: RequestInit & { tls: object } = { ...init, tls };
       return await fetch(target, req);
     },
-    dial: async (url, headers) => openWithOptions(url, { headers, tls: await load() }),
+    dial: async (url, headers) => openWithOptions(url, { headers, tls }),
   };
 };
 
@@ -204,28 +206,31 @@ const denoConnector = (deno: object, ca: string): Connector => {
   };
 };
 
-// Bun and Deno read the proxy variables themselves. Node's global fetch does not.
-const usesNodeProxy = (): boolean =>
+// Node's global fetch reads neither the proxy variables nor the system certificates.
+// Bun and Deno read the proxy variables themselves.
+const isNode = (): boolean =>
   runtime.RUNTIME === "node" &&
   typeof document === "undefined" &&
   !("Bun" in globalThis) &&
-  !("Deno" in globalThis) &&
-  proxyVariables().length > 0;
+  !("Deno" in globalThis);
 
 /**
- * Returns the connector a client uses when it is given none: the runtime's global
- * fetch and WebSocket. In Node, when HTTP_PROXY or HTTPS_PROXY is set, the connector
- * sends connections through that proxy, except to the hosts in NO_PROXY.
+ * Returns the connector a client uses when it is given none. Outside Node, the
+ * connector uses the runtime's global fetch and WebSocket. In Node, the connector
+ * trusts the operating system certificate store and Node's default certificates, and
+ * sends connections through the proxy that HTTP_PROXY or HTTPS_PROXY names, except to
+ * the hosts in NO_PROXY.
  * @throws {Error} in Node, if a proxy variable is not an http or https URL.
  */
 export const defaultConnector = (): Connector =>
-  usesNodeProxy() ? nodeConnector() : GLOBAL_CONNECTOR;
+  isNode() ? nodeConnector() : GLOBAL_CONNECTOR;
 
 /**
- * Returns a connector that trusts the CA certificate and the runtime's default
- * certificates. In Node, the connector uses the proxy that HTTP_PROXY, HTTPS_PROXY, and
- * NO_PROXY name. In Deno, the connector's dial throws, because a Deno WebSocket cannot
- * trust a CA certificate of its own.
+ * Returns a connector that trusts the CA certificate. In Node and Bun, it trusts no
+ * other certificate. In Node, the connector uses the proxy that HTTP_PROXY,
+ * HTTPS_PROXY, and NO_PROXY name. In Deno, the connector also trusts Deno's default
+ * certificates, and its dial throws, because a Deno WebSocket cannot trust a CA
+ * certificate of its own.
  * @param caCert - The PEM text of the CA certificate.
  * @throws {Error} in a browser, which trusts only the operating system or browser
  * certificate store.
