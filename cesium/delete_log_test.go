@@ -533,7 +533,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		return n
 	}
 
-	It("Should unlink a segment that a delete leaves empty once no reader pins it",
+	It("Should unlink a segment that a delete leaves empty once no read may use it",
 		func(ctx SpecContext) {
 			write(ctx, 10, 11)
 			write(ctx, 20, 21)
@@ -544,7 +544,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			}))
 			Expect(iter.SeekFirst()).To(BeTrue())
 			Expect(db.DeleteTimeRange(ctx, keys, span(0, 15))).To(Succeed())
-			Expect(segments()).To(Equal(2), "the iterator pins the empty segment")
+			Expect(segments()).To(Equal(2), "the read uses the empty segment")
 			Expect(iter.Close()).To(Succeed())
 			Expect(segments()).To(Equal(1))
 			Expect(values(ctx, data)).To(Equal([]int64{20, 21}))
@@ -556,11 +556,10 @@ var _ = Describe("Delete on the pointer log", func() {
 	) {
 		write(ctx, 10, 11)
 		write(ctx, 20, 21)
-		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+		iter := MustOpen(db.OpenIterator(cesium.IteratorConfig{
 			Bounds:   telem.TimeRangeMax,
 			Channels: []cesium.ChannelKey{data},
 		}))
-		DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, span(0, 15))).
 			To(Succeed())
@@ -577,11 +576,10 @@ var _ = Describe("Delete on the pointer log", func() {
 		"stays open", func(ctx SpecContext) {
 		write(ctx, 10, 11)
 		write(ctx, 20, 21)
-		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+		iter := MustOpen(db.OpenIterator(cesium.IteratorConfig{
 			Bounds:   telem.TimeRangeMax,
 			Channels: []cesium.ChannelKey{data},
 		}))
-		DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, span(0, 15))).
 			To(Succeed())
@@ -615,11 +613,10 @@ var _ = Describe("Delete on the pointer log", func() {
 		), nil))
 		MustSucceed2(w.Commit(ctx, nil))
 		Expect(w.Close()).To(Succeed())
-		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+		iter := MustOpen(db.OpenIterator(cesium.IteratorConfig{
 			Bounds:   telem.TimeRangeMax,
 			Channels: []cesium.ChannelKey{other},
 		}))
-		DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
 		Expect(segments()).To(Equal(1))
@@ -627,7 +624,7 @@ var _ = Describe("Delete on the pointer log", func() {
 		Expect(segments()).To(BeZero())
 	})
 
-	It("Should finish a read that pinned the segments of a key across its Drop",
+	It("Should finish a read that loaded the segments of a key before its Drop",
 		func(ctx SpecContext) {
 			write(ctx, 10, 11)
 			write(ctx, 20, 21)
