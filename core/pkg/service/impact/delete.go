@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/content"
@@ -92,6 +93,21 @@ func (s *Service) planDelete(
 		}
 	}
 	s.addEntries(&p, removed)
+	added := false
+	for _, b := range p.batches {
+		if b.deleter.Entries == nil {
+			continue
+		}
+		more, err := b.deleter.Entries(ctx, snap, b.removed, b.effects)
+		if err != nil {
+			return planned{}, err
+		}
+		p.Entries = append(p.Entries, more...)
+		added = added || len(more) > 0
+	}
+	if added {
+		slices.SortFunc(p.Entries, compareEntries)
+	}
 	return p, nil
 }
 
@@ -248,11 +264,11 @@ func compareRecords(a, b resource.ID) int {
 	)
 }
 
-// tokenOf returns the token of p, the plan of the delete of records as the caller sees
-// it: a hash of the records in sorted order, each visible entry's record and effect,
+// Token returns the token of p, the plan of a change to records as the caller sees it:
+// a hash of the records in sorted order, each visible entry's record, effect, and path,
 // and the hidden counts. The token detects a stale view, not a forged one, so it needs
 // no cryptographic hash.
-func tokenOf(records []resource.ID, p Plan) string {
+func Token(records []resource.ID, p Plan) string {
 	sorted := records
 	if !slices.IsSortedFunc(records, compareRecords) {
 		sorted = slices.SortedFunc(slices.Values(records), compareRecords)
@@ -271,6 +287,8 @@ func tokenOf(records []resource.ID, p Plan) string {
 		h.String(string(e.Record.Type))
 		h.String(e.Record.Key)
 		h.String(string(e.Effect))
+		h.Bool(e.Path != nil)
+		h.String(lo.FromPtr(e.Path))
 	}
 	for _, n := range []uint32{
 		p.Hidden.Restrict,

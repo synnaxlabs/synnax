@@ -57,6 +57,9 @@ type Entry struct {
 	Choices []Effect `json:"choices" msgpack:"choices"`
 	// Default is the pick that applies when the caller makes none.
 	Default *Effect `json:"default,omitzero" msgpack:"default,omitempty"`
+	// Path is the path of the deleted channel of a tombstone entry, with its segments
+	// joined by a dot. Absent on other entries.
+	Path *string `json:"path,omitzero" msgpack:"path,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

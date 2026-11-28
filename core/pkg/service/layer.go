@@ -525,6 +525,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if l.Tree, err = tree.OpenService(tree.ServiceConfig{
 		Channel: l.Channel,
+		Group:   l.Group,
 	}); !ok(err, nil) {
 		return nil, err
 	}
@@ -1394,7 +1395,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
 		RecordOf: taskconfig.RecordOf,
 		Deleters: map[resource.Type]impact.Deleter{
-			resource.TypeChannel: channelDeleter(l.Channel),
+			resource.TypeChannel: channelDeleter(l.Channel, l.Tree),
 			resource.TypeTask:    taskDeleter(l.Task, l.TaskStopper),
 		},
 	}); err != nil {
@@ -1404,8 +1405,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 }
 
 // channelDeleter returns the impact.Deleter of channels, which plans and deletes as
-// channel.Service.PlanDelete and channel.Writer.DeletePlanned do.
-func channelDeleter(svc *channel.Service) impact.Deleter {
+// channel.Service.PlanDelete and channel.Writer.DeletePlanned do, and lists the
+// tombstones that a delete replaces as tree.Service.ReplacedEntries does.
+func channelDeleter(svc *channel.Service, t *tree.Service) impact.Deleter {
 	return impact.Deleter{
 		Plan: func(
 			ctx context.Context,
@@ -1434,6 +1436,7 @@ func channelDeleter(svc *channel.Service) impact.Deleter {
 			}
 			return svc.NewWriter(tx).DeletePlanned(ctx, keys, effects)
 		},
+		Entries: t.ReplacedEntries,
 	}
 }
 

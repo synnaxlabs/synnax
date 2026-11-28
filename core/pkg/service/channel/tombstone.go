@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -204,4 +205,68 @@ func after(prev, next []Rewire) []Rewire {
 		n--
 	}
 	return append(slices.Clone(prev[:n]), next...)
+}
+
+// Tombstones returns the tombstones of the channels deleted from groups, as seen by
+// snap.
+func (s *Service) Tombstones(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	groups ...group.Key,
+) ([]Tombstone, error) {
+	var out []Tombstone
+	err := s.tombstones.table.NewRetrieve().
+		Where(s.tombstones.groups.Filter(groups...)).
+		Entries(&out).
+		Exec(ctx, snap)
+	return out, err
+}
+
+// Replaced returns the tombstones that the delete of keys replaces, as seen by snap:
+// each waits at the path of a deleted channel that the delete keeps a tombstone of.
+// weak holds the weak effects of the delete's plan.
+func (s *Service) Replaced(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	keys []Key,
+	weak []gorp.DeleteEffect,
+) ([]Tombstone, error) {
+	var (
+		kept     Keys
+		deleting = set.New(keys...)
+		seen     = make(set.Set[Key], len(keys))
+	)
+	for _, e := range weak {
+		if e.Target.Table != tableName || isRewire(e.Dependent) {
+			continue
+		}
+		k, err := ParseKey(e.Target.Key)
+		if err != nil {
+			return nil, err
+		}
+		if deleting.Contains(k) && !seen.Contains(k) {
+			seen.Add(k)
+			kept = append(kept, k)
+		}
+	}
+	if len(kept) == 0 {
+		return nil, nil
+	}
+	var deleted []Channel
+	if err := s.newRetrieve().
+		Where(MatchKeys(kept...)).
+		Entries(&deleted).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	paths := make([]path, len(deleted))
+	for i, c := range deleted {
+		paths[i], _ = tombstonePath(&Tombstone{Name: c.Name, Group: c.Group})
+	}
+	var out []Tombstone
+	err := s.tombstones.table.NewRetrieve().
+		Where(s.tombstones.paths.Filter(paths...)).
+		Entries(&out).
+		Exec(ctx, snap)
+	return out, err
 }

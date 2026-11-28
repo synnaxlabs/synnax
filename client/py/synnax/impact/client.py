@@ -8,11 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import UnaryClient
+from synnax import group
 from synnax.channel import types_gen as channel
 from synnax.impact.types_gen import (
     ApplyRequest,
     Change,
     DeleteChange,
+    DeleteGroupsChange,
+    DeleteGroupsResponse,
     DeleteResponse,
     Effect,
     PlanRequest,
@@ -23,6 +26,22 @@ from synnax.impact.types_gen import (
 def delete_channels(keys: list[channel.Key]) -> DeleteChange:
     """Returns the change that deletes the channels with keys."""
     return DeleteChange(records=[channel.resource_id(key) for key in keys])
+
+
+def delete_groups(keys: list[group.Key]) -> DeleteGroupsChange:
+    """Returns the change that deletes the channel folders with keys and their
+    tombstones.
+    """
+    return DeleteGroupsChange(groups=keys)
+
+
+def _response_type(
+    change: Change,
+) -> type[DeleteResponse] | type[DeleteGroupsResponse]:
+    """Returns the type of the response to change."""
+    if isinstance(change, DeleteGroupsChange):
+        return DeleteGroupsResponse
+    return DeleteResponse
 
 
 class Client:
@@ -46,7 +65,7 @@ class Client:
         records that hold it. Writes nothing.
         """
         req = PlanRequest(change=change, picks=picks or {}, hidden=hidden)
-        return self._client.send("/impact/plan", req, DeleteResponse)
+        return self._client.send("/impact/plan", req, _response_type(change))
 
     def apply(
         self,
@@ -61,4 +80,4 @@ class Client:
         write when the plan is no longer the one that the token names.
         """
         req = ApplyRequest(change=change, token=token, picks=picks or {}, hidden=hidden)
-        return self._client.send("/impact/apply", req, DeleteResponse)
+        return self._client.send("/impact/apply", req, _response_type(change))

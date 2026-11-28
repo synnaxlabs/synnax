@@ -45,6 +45,16 @@ type Deleter struct {
 	// waits for it. Service.Stop calls it outside any transaction or snapshot. Nil
 	// stops nothing.
 	Stop func(ctx context.Context, removed []resource.ID) error
+	// Entries returns the records beyond the holders of removed that the delete
+	// touches, with the effects that Plan returned for removed, such as the tombstones
+	// that a channel delete replaces. Its entries offer no choice. It reads snap only.
+	// Nil adds none.
+	Entries func(
+		ctx context.Context,
+		snap gorp.Snapshot,
+		removed []resource.ID,
+		effects gorp.DeleteEffects,
+	) ([]Entry, error)
 }
 
 // ServiceConfig is the configuration for opening an impact service.
@@ -134,7 +144,7 @@ func (s *Service) Plan(
 	if err != nil {
 		return Plan{}, err
 	}
-	r.plan.Token = tokenOf(records, r.plan)
+	r.plan.Token = Token(records, r.plan)
 	return r.plan, nil
 }
 
@@ -257,7 +267,7 @@ func (s *Service) Apply(
 		return Plan{}, err
 	}
 	if opts.Token != "" {
-		if t := tokenOf(records, r.plan); t != opts.Token {
+		if t := Token(records, r.plan); t != opts.Token {
 			r.plan.Token = t
 			return Plan{}, PlanChangedError{Plan: r.plan}
 		}
@@ -299,7 +309,7 @@ func (s *Service) Stopping(
 	if err != nil || r.cancel != nil {
 		return nil, err
 	}
-	if opts.Token != "" && tokenOf(records, r.plan) != opts.Token {
+	if opts.Token != "" && Token(records, r.plan) != opts.Token {
 		return nil, nil
 	}
 	var stopping []resource.ID
@@ -323,9 +333,9 @@ func (s *Service) Stop(ctx context.Context, ids []resource.ID) error {
 	return nil
 }
 
-// seen returns p for the delete of records, with the entries whose records visible
-// hides counted in Hidden by effect instead.
-func seen(p Plan, records []resource.ID, visible func(resource.ID) bool) Plan {
+// Seen returns p for a change to records, with the entries whose records visible hides
+// counted in Hidden by effect instead. Nil visible sees every record.
+func Seen(p Plan, records []resource.ID, visible func(resource.ID) bool) Plan {
 	p.Records = records
 	if visible == nil {
 		return p
@@ -405,7 +415,7 @@ func (s *Service) resolve(
 	if len(earlier) > 0 {
 		applied.Entries = withEarlier(r.last.Entries, earlier)
 	}
-	r.plan = seen(applied, records, chosen.visible)
+	r.plan = Seen(applied, records, chosen.visible)
 	return r, nil
 }
 

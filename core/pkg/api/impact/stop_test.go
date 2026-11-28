@@ -59,6 +59,7 @@ var _ = Describe("Running task deletes", Ordered, func() {
 		svc = MustSucceed(apiimpact.NewService(apiimpact.ServiceConfig{
 			RBAC:   layer.RBAC,
 			Impact: layer.Impact,
+			Tree:   layer.Tree,
 		}))
 		binder = MustSucceed(bind.NewService(bind.ServiceConfig{
 			DB:   db,

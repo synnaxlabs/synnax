@@ -48,6 +48,12 @@ Entry struct {
     default Effect?     {
         @doc value "is the pick that applies when the caller makes none."
     }
+    path    string?     {
+        @doc value """
+            is the path of the deleted channel of a tombstone entry, with its segments
+            joined by a dot. Absent on other entries.
+        """
+    }
 
     @doc value "is one record that a change touches."
 }

@@ -12,6 +12,7 @@
 import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { group } from "@/group";
 import { resource } from "@/resource";
 
 export const EFFECTS = [
@@ -39,6 +40,11 @@ export const entryZ = z.object({
   choices: effectZ.array().default(() => []),
   /** default is the pick that applies when the caller makes none. */
   default: effectZ.optional(),
+  /**
+   * path is the path of the deleted channel of a tombstone entry, with its segments
+   * joined by a dot. Absent on other entries.
+   */
+  path: z.string().optional(),
 });
 export interface Entry extends z.infer<typeof entryZ> {}
 
@@ -76,18 +82,30 @@ export const deleteChangeZ = z.object({
 });
 export interface DeleteChange extends z.infer<typeof deleteChangeZ> {}
 
-export const CHANGE_TYPES = ["delete"] as const;
+/** DeleteGroupsChange deletes channel folders and the tombstones in them. */
+export const deleteGroupsChangeZ = z.object({
+  type: z.literal("delete_groups"),
+  /** groups are the channel folders to delete. */
+  groups: group.keyZ.array().default(() => []),
+});
+export interface DeleteGroupsChange extends z.infer<typeof deleteGroupsChangeZ> {}
+
+export const CHANGE_TYPES = ["delete", "delete_groups"] as const;
 export const changeTypeZ = z.enum(CHANGE_TYPES);
 export type ChangeType = z.infer<typeof changeTypeZ>;
 
 /** Change is a change that a plan covers. */
-export const changeZ = z.discriminatedUnion("type", [deleteChangeZ]);
-export type Change = DeleteChange;
+export const changeZ = z.discriminatedUnion("type", [
+  deleteChangeZ,
+  deleteGroupsChangeZ,
+]);
+export type Change = DeleteChange | DeleteGroupsChange;
 
 export const CHANGE_SCHEMAS: {
   [K in ChangeType]: z.ZodType<Extract<Change, { type: K }>>;
 } = {
   delete: deleteChangeZ,
+  delete_groups: deleteGroupsChangeZ,
 };
 
 /** Plan is every record that a change touches, with the picks for each. */
@@ -146,16 +164,28 @@ export const deleteResponseZ = z.object({
 });
 export interface DeleteResponse extends z.infer<typeof deleteResponseZ> {}
 
-export const RESPONSE_TYPES = ["delete"] as const;
+/** DeleteGroupsResponse answers a delete of channel folders. */
+export const deleteGroupsResponseZ = z.object({
+  type: z.literal("delete_groups"),
+  /** plan is the plan of the delete. */
+  plan: planZ,
+});
+export interface DeleteGroupsResponse extends z.infer<typeof deleteGroupsResponseZ> {}
+
+export const RESPONSE_TYPES = ["delete", "delete_groups"] as const;
 export const responseTypeZ = z.enum(RESPONSE_TYPES);
 export type ResponseType = z.infer<typeof responseTypeZ>;
 
 /** Response is the plan of a change, under the type of the change. */
-export const responseZ = z.discriminatedUnion("type", [deleteResponseZ]);
-export type Response = DeleteResponse;
+export const responseZ = z.discriminatedUnion("type", [
+  deleteResponseZ,
+  deleteGroupsResponseZ,
+]);
+export type Response = DeleteResponse | DeleteGroupsResponse;
 
 export const RESPONSE_SCHEMAS: {
   [K in ResponseType]: z.ZodType<Extract<Response, { type: K }>>;
 } = {
   delete: deleteResponseZ,
+  delete_groups: deleteGroupsResponseZ,
 };

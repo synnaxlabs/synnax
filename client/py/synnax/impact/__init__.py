@@ -7,12 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.impact.client import Client, delete_channels
+from synnax.impact.client import Client, delete_channels, delete_groups
 from synnax.impact.errors import EXCEPTION_PROVIDER, PlanChangedError
 from synnax.impact.types_gen import (
     ApplyRequest,
     Change,
     DeleteChange,
+    DeleteGroupsChange,
+    DeleteGroupsResponse,
     DeleteResponse,
     Effect,
     Entry,
@@ -28,6 +30,8 @@ __all__ = [
     "Change",
     "Client",
     "DeleteChange",
+    "DeleteGroupsChange",
+    "DeleteGroupsResponse",
     "DeleteResponse",
     "Effect",
     "Entry",
@@ -37,4 +41,5 @@ __all__ = [
     "PlanRequest",
     "Response",
     "delete_channels",
+    "delete_groups",
 ]
