@@ -459,7 +459,7 @@ func (*refusedRequest) fail(error) {}
 func (r *refusedRequest) run(s *State) {
 	for _, rec := range r.records {
 		if seal, ok := rec.(*log.Seal); ok {
-			s.sealing.Remove(seal.Segment)
+			delete(s.sealing, seal.Segment)
 		}
 	}
 	for _, rec := range r.records {
@@ -617,10 +617,12 @@ func (r *sealRequest) run(s *State) {
 	r.w.done <- nil
 }
 
-// sealVisible seals seg in the visible view, takes it from w, and returns its Seal.
+// sealVisible seals seg in the visible view, takes it from w, and returns its Seal,
+// which w logs.
 func (s *State) sealVisible(w *Writer, seg *segState) log.Seal {
 	seg.vis.Sealed, seg.holder = true, nil
 	delete(w.held, seg.key)
+	s.sealing[seg.vis.ID] = w
 	return log.Seal{
 		Segment: seg.vis.ID,
 		Length:  seg.vis.Length,
@@ -734,7 +736,7 @@ func (r *switchRequest) run(s *State) {
 		var e log.Entry
 		for i := range seals {
 			e.Add(&seals[i])
-			s.sealing.Add(seals[i].Segment)
+			s.sealing[seals[i].Segment] = nil
 		}
 		s.cfg.Append(&e)
 	}
@@ -772,11 +774,13 @@ func (r *closeRequest) run(s *State) {
 	for _, seg := range r.w.held {
 		seg.holder = nil
 	}
+	maps.DeleteFunc(s.sealing, func(_ uint64, w *Writer) bool { return w == r.w })
 	clear(r.w.held)
 	clear(r.w.claims)
 	r.w.done <- nil
 }
 
 // Close releases the claims of w and the open segments it holds, which a later writer
-// may take over. Call it once the last entry of w is durable.
+// may take over, and forgets each Seal that w was given and did not log. Call it once
+// the last entry of w is durable.
 func (w *Writer) Close() error { return w.call(&closeRequest{w: w}) }

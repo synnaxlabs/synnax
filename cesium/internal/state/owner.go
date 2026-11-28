@@ -95,9 +95,10 @@ type State struct {
 	entry         log.Entry
 	// parked holds the requests that wait for a durable Reserve.
 	parked []request
-	// sealing holds the segments of the Seals that the owner logged and that the log
-	// has yet to make durable or refuse, so the owner logs one Seal of each.
-	sealing set.Set[uint64]
+	// sealing maps the segment of each Seal that the log has yet to make durable or
+	// refuse to the writer that logs it, or to nil for the owner, so the owner logs no
+	// second Seal of the segment.
+	sealing map[uint64]*Writer
 }
 
 // Open returns the state of the durable state head, in replay mode. It returns an error
@@ -113,7 +114,7 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 		wake:    make(chan struct{}, 1),
 		exit:    make(chan struct{}),
 		stepped: make(chan bool, 1),
-		sealing: set.Set[uint64]{},
+		sealing: map[uint64]*Writer{},
 	}
 	if err := s.core.load(head); err != nil {
 		return nil, err
@@ -340,16 +341,16 @@ func (r *durableRequest) run(s *State) {
 	}
 }
 
-// sealDeleted logs the Seal of each open segment that no writer holds or sealed in view
-// and that a Tombstone of records left with no live pointer, so its file goes once the
-// Seal is durable. The entry may use the delete reserve, since on a full disk no switch
-// comes to seal the segment. It first forgets the owner's Seals among records.
+// sealDeleted logs the Seal of each open segment that no writer holds, that a Tombstone
+// of records left with no live pointer, and whose Seal is not in flight, so its file
+// goes once the Seal is durable. The entry may use the delete reserve, since on a full
+// disk no switch comes to seal the segment. It first forgets the Seals among records.
 func (s *State) sealDeleted(records []log.Record) {
 	var e log.Entry
 	for _, rec := range records {
 		switch r := rec.(type) {
 		case *log.Seal:
-			s.sealing.Remove(r.Segment)
+			delete(s.sealing, r.Segment)
 		case *log.Tombstone:
 			ch := s.core.channels[r.Key]
 			if ch == nil {
@@ -357,13 +358,13 @@ func (s *State) sealDeleted(records []log.Record) {
 			}
 			sealed := false
 			for _, seg := range ch.segs {
-				if seg.holder != nil || seg.vis.Sealed || seg.dur.sealed ||
-					!seg.dur.created || len(seg.dur.pointers) > 0 ||
-					len(seg.vis.Pointers) > 0 || s.sealing.Contains(seg.vis.ID) {
+				_, inFlight := s.sealing[seg.vis.ID]
+				if seg.holder != nil || seg.dur.sealed || !seg.dur.created ||
+					len(seg.dur.pointers) > 0 || len(seg.vis.Pointers) > 0 || inFlight {
 					continue
 				}
 				seg.vis.Sealed, sealed = true, true
-				s.sealing.Add(seg.vis.ID)
+				s.sealing[seg.vis.ID] = nil
 				e.AddDeleteSeal(&log.Seal{
 					Segment: seg.vis.ID,
 					Length:  seg.dur.length,
