@@ -11,7 +11,6 @@ package state
 
 import (
 	"cmp"
-	"reflect"
 	"slices"
 	"sync/atomic"
 
@@ -189,9 +188,7 @@ func (c *keyEntry) checkViews() {
 		panic(errors.Newf("state: span of key %d is stale", c.key))
 	}
 	if !slices.Equal(c.open, opens) ||
-		!slices.EqualFunc(c.sealed, sealed, func(a, b Segment) bool {
-			return reflect.DeepEqual(a, b)
-		}) {
+		!slices.EqualFunc(c.sealed, sealed, sameSegment) {
 		panic(errors.Newf("state: open or sealed segments of key %d are stale", c.key))
 	}
 	for _, segs := range [][]Segment{vis, dur} {
@@ -199,6 +196,13 @@ func (c *keyEntry) checkViews() {
 			panic(err)
 		}
 	}
+}
+
+// sameSegment reports whether a and b hold the same fields and pointers.
+func sameSegment(a, b Segment) bool {
+	return a.ID == b.ID && a.Clock == b.Clock && a.Version == b.Version &&
+		a.DataType == b.DataType && a.Sealed == b.Sealed && a.Length == b.Length &&
+		a.TailCRC == b.TailCRC && slices.Equal(a.Pointers, b.Pointers)
 }
 
 // publish stores a new visible Channel of c for readers. The Channel shares the sealed

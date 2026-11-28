@@ -10,6 +10,8 @@
 package state_test
 
 import (
+	"reflect"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/state"
@@ -52,5 +54,27 @@ var _ = Describe("Channel", func() {
 		ch := state.NewChannel(5)
 		Expect(ch.Len()).To(BeZero())
 		Expect(segments(ch)).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Segment", func() {
+	// The invariant check compares segments field by field, so a new field must join
+	// that compare.
+	It("Should hold the fields that the invariant check compares", func() {
+		t := reflect.TypeFor[state.Segment]()
+		names := make([]string, t.NumField())
+		for i := range names {
+			names[i] = t.Field(i).Name
+		}
+		Expect(names).To(Equal([]string{
+			"ID",
+			"Clock",
+			"Version",
+			"DataType",
+			"Sealed",
+			"Length",
+			"TailCRC",
+			"Pointers",
+		}))
 	})
 })
