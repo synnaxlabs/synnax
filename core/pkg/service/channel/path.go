@@ -179,10 +179,10 @@ func (p Path) visible(allowed func(resource.ID) bool) bool {
 // allowed accepts sees snap, or as anyone sees it when allowed is nil. A path that
 // holds only digits is a key. Any other path is the names of the folders from the top
 // level down and the name of the channel, joined by '.', so a path with no '.' is a
-// channel at the top level. Names compare in NFC. A channel that allowed refuses, or
-// one behind a folder that it refuses, is missing. The first missing path returns a
-// query.ErrNotFound error that names the paths of the channels of its last name that
-// the subject can see.
+// channel at the top level. Names compare in NFC. A channel that allowed refuses is
+// missing, and so is a path through a folder that it refuses. A key finds a channel in
+// any folder. The first missing path returns a query.ErrNotFound error that names the
+// paths of the channels of its last name that the subject can see.
 func (s *Service) KeysByPaths(
 	ctx context.Context,
 	snap gorp.Snapshot,

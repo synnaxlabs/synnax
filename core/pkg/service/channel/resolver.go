@@ -60,7 +60,7 @@ func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
 	if err != nil {
 		return q, err
 	}
-	return q.AllowFolders(allowed).Where(Match(func(
+	return q.Where(Match(func(
 		_ gorp.Context,
 		_ Retrieve,
 		ch *Channel,

@@ -253,10 +253,9 @@ func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
 	return &symbolResolver{svc: s, snap: snap}
 }
 
-// NewSubjectResolver returns a resolver like NewArcSymbolResolver that sees only what a
-// subject can retrieve. access returns whether the subject can retrieve a record, and
-// the resolver calls it at each lookup. A channel that the subject cannot retrieve, or
-// a path through a folder that it cannot retrieve, resolves nothing.
+// NewSubjectResolver returns a resolver like NewArcSymbolResolver that sees only the
+// channels that a subject can retrieve, in any folder. access returns whether the
+// subject can retrieve a record, and the resolver calls it at each lookup.
 func (s *Service) NewSubjectResolver(
 	snap gorp.Snapshot,
 	access func(context.Context) (func(resource.ID) bool, error),
