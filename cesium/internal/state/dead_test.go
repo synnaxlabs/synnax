@@ -118,6 +118,15 @@ var _ = Describe("Settle", func() {
 		Expect(s.Channel(6)).To(BeNil())
 	})
 
+	It("Should return the error of a failed state", func() {
+		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		run(s)
+		Expect(s.Durable(5, []log.Record{&log.Drop{Key: 6}})).To(Succeed())
+		failed := MatchError(ContainSubstring("entry 5 follows entry 9"))
+		Eventually(s.Err).Should(failed)
+		Expect(s.Settle()).To(failed)
+	})
+
 	It("Should return the error of a closed state", func() {
 		s := MustSucceed(state.Open(config(&appended{}), sample()))
 		ctx, cancel := context.WithCancel(context.Background())

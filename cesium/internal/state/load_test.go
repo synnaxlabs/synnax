@@ -59,6 +59,17 @@ var _ = Describe("Cuts", func() {
 		Expect(s.Channel(5).Cuts).To(BeZero())
 	})
 
+	It("Should not count a Tombstone that takes no sample of the key", func() {
+		s := MustSucceed(state.Open(config(&appended{}), sample()))
+		run(s)
+		Expect(s.Durable(10, []log.Record{
+			&log.Tombstone{Key: 6, Start: 1000, End: 2000},
+		})).To(Succeed())
+		Expect(s.Settle()).To(Succeed())
+		Expect(s.Err()).ToNot(HaveOccurred())
+		Expect(s.Channel(6).Cuts).To(BeZero())
+	})
+
 	Describe("Of a clock with a new segment", func() {
 		var (
 			a  *appended
