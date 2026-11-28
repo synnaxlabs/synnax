@@ -50,6 +50,7 @@ class _Request(BaseModel):
     bounds: TimeRange | None = None
     stamp: TimeStamp | None = None
     keys: list[channel.Key] | None = None
+    untimed_keys: list[channel.Key] | None = None
     chunk_size: int | None = None
     reduction: Reduction | None = None
 
@@ -102,6 +103,7 @@ class Iterator:
     value: Frame
     _chunk_size: int
     _reduction: Reduction | None
+    _untimed: bool
 
     def __init__(
         self,
@@ -112,6 +114,7 @@ class Iterator:
         chunk_size: int = 100000,
         reduction: Reduction | None = None,
         instrumentation: Instrumentation = NOOP,
+        untimed: bool = False,
     ) -> None:
         self.tr = tr
         self.instrumentation = instrumentation
@@ -120,6 +123,7 @@ class Iterator:
         self._stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
         self._reduction = reduction
+        self._untimed = untimed
         self._open()
 
     def _open(self) -> None:
@@ -134,6 +138,7 @@ class Iterator:
                 command=_Command.OPEN,
                 bounds=self.tr,
                 keys=self._adapter.keys,
+                untimed_keys=self._adapter.keys if self._untimed else None,
                 chunk_size=self._chunk_size,
                 reduction=self._reduction,
             )
