@@ -145,6 +145,48 @@ export class ReadAdapter {
   }
 }
 
+// TIME is the reserved key of a write's time. It never names a channel, so a channel
+// named time is written by its key.
+const TIME = "time";
+
+// entriesOf returns each channel of a write that is not a frame with its series, in
+// order.
+const entriesOf = (
+  columnsOrData: channel.Params | object,
+  series?: CrudeSeries | CrudeSeries[],
+): Array<[channel.Key | channel.Name | channel.Payload, CrudeSeries]> => {
+  if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {
+    if (series == null)
+      throw new ValidationError(`
+        Received a single channel name or key but no series.
+        `);
+    if (Array.isArray(series))
+      if (series.some((s) => s instanceof Series || Array.isArray(s)))
+        throw new ValidationError(`
+          Received a single channel name or key but multiple series.
+          `);
+    return [[columnsOrData, series]];
+  }
+  if (Array.isArray(columnsOrData)) {
+    if (series == null)
+      throw new ValidationError(`
+          Received an array of channel names or keys but no series.
+          `);
+    if (!Array.isArray(series))
+      throw new ValidationError(`
+        Received an array of channel names or keys but no array of series.
+        `);
+    return columnsOrData.map((ch, i) => {
+      if (i >= series.length)
+        throw new ValidationError(`
+          Received an array of channel names or keys but not enough series.
+          `);
+      return [ch, series[i] as CrudeSeries];
+    });
+  }
+  return Object.entries(columnsOrData as Record<channel.Name, CrudeSeries>);
+};
+
 const TIME_AND_NO_CHANNELS =
   'The write holds "time" and no channels. An empty series, time or data, makes ' +
   "nothing present";
@@ -235,56 +277,12 @@ export class WriteAdapter {
       channel.Params | Record<channel.Key | channel.Name, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
-    if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {
-      if (series == null)
-        throw new ValidationError(`
-        Received a single channel name or key but no series.
-        `);
-      if (Array.isArray(series))
-        if (series.some((s) => s instanceof Series || Array.isArray(s)))
-          throw new ValidationError(`
-          Received a single channel name or key but multiple series.
-          `);
-
-      const pld = await this.fetchChannel(columnsOrData);
-      const s = new Series({ data: series, dataType: pld.dataType });
-      return new Frame(pld.key, s);
-    }
-
-    if (Array.isArray(columnsOrData)) {
-      if (series == null)
-        throw new ValidationError(`
-          Received an array of channel names or keys but no series.
-          `);
-      if (!Array.isArray(series))
-        throw new ValidationError(`
-        Received an array of channel names or keys but no array of series.
-        `);
-      const cols = [];
-      const data = [];
-      for (let i = 0; i < columnsOrData.length; i++) {
-        const pld = await this.fetchChannel(columnsOrData[i]);
-        if (i >= series.length)
-          throw new ValidationError(`
-          Received an array of channel names or keys but not enough series.
-          `);
-
-        const s = new Series({
-          data: series[i] as CrudeSeries,
-          dataType: pld.dataType,
-        });
-        cols.push(pld.key);
-        data.push(s);
-      }
-      return new Frame(cols, data);
-    }
-
     if (columnsOrData instanceof Frame || columnsOrData instanceof Map) {
       let fr = new Frame(columnsOrData);
       let time: Series | undefined;
-      if (this.isTimeKey("time") && fr.has("time")) {
-        time = fr.get("time").series[0];
-        fr = fr.filter((k) => k !== "time");
+      if (fr.has(TIME)) {
+        time = fr.get(TIME).series[0];
+        fr = fr.filter((k) => k !== TIME);
       }
       if (this.byName == null) return time == null ? fr : this.placeTime(fr, time);
       const cols = fr.columns.map((col_) => {
@@ -298,31 +296,20 @@ export class WriteAdapter {
       const adapted = new Frame(cols, fr.series);
       return time == null ? adapted : this.placeTime(adapted, time);
     }
-
-    const cols = [];
-    const data = [];
+    const cols: channel.Key[] = [];
+    const data: Series[] = [];
     let time: CrudeSeries | undefined;
-    const kvs = Object.entries(columnsOrData);
-    for (let i = 0; i < kvs.length; i++) {
-      const [k, v] = kvs[i];
-      if (this.isTimeKey(k)) {
+    for (const [k, v] of entriesOf(columnsOrData, series)) {
+      if (k === TIME) {
         time = v;
         continue;
       }
       const pld = await this.fetchChannel(k);
-      const s = new Series({ data: v, dataType: pld.dataType });
       cols.push(pld.key);
-      data.push(s);
+      data.push(new Series({ data: v, dataType: pld.dataType }));
     }
-
     const frame = new Frame(cols, data);
     return time == null ? frame : this.placeTime(frame, time);
-  }
-
-  // isTimeKey reports whether k is the reserved "time" key of a write, which a writer
-  // channel named time takes instead.
-  private isTimeKey(k: string): boolean {
-    return k === "time" && this.byName?.has(k) !== true;
   }
 
   // placeTime returns frame with time under the clock of each group that has a channel
@@ -336,13 +323,14 @@ export class WriteAdapter {
       if (ch == null || ch.virtual || ch.index === 0) return s;
       if (!this.clocks.includes(ch.index))
         throw new ValidationError(
-          `${ch.name} takes its time from the stamps that its index already stores, ` +
-            'so the write cannot hold "time" for it',
+          `${ch.name} cannot take "time": its index already stores stamps from the ` +
+            "writer's start, or the writer may not write its index",
         );
       if (keys.includes(ch.index))
         throw new ValidationError(
-          `The write holds "time" and the index channel ${ch.index}, which both give ` +
-            "the time of one group",
+          `The write holds "time" and the index channel ` +
+            `${this.byKey.get(ch.index)?.name ?? ch.index}, which both give the time ` +
+            "of one group",
         );
       if (!placed.includes(ch.index)) placed.push(ch.index);
       return new Series({
