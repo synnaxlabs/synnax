@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type InferredField } from "@/json/types.gen";
+import type { InferredField } from "@/json/types.gen";
 
 /**
  * @returns a key for a shape that stays the same across samples while its set of field

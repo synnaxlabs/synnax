@@ -27,7 +27,7 @@ import {
   array,
   DataType,
   deep,
-  json,
+  type json,
   payload,
   TimeSpan,
   TimeStamp,
