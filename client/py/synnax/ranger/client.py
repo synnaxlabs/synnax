@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any, Literal, overload, override
 
 import numpy as np
@@ -430,6 +430,10 @@ class Range(Payload, _Clients):
     def write(
         self, channels: channel.Params, series: CrudeSeries | list[CrudeSeries]
     ) -> None: ...
+
+    # A mapping literal that mixes names, such as "time", with keys.
+    @overload
+    def write(self, channels: Mapping[channel.Key | str, CrudeSeries]) -> None: ...
 
     @overload
     def write(self, channels: framer.CrudeFrame[K]) -> None: ...

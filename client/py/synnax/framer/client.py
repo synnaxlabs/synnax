@@ -213,6 +213,16 @@ class Client:
             untimed=untimed,
         )
 
+    # A mapping literal that mixes names, such as "time", with keys.
+    @overload
+    def write(
+        self,
+        start: CrudeTimeStamp,
+        channels: Mapping[channel.Key | str, CrudeSeries],
+        *,
+        strict: bool = False,
+    ) -> None: ...
+
     @overload
     def write(
         self,

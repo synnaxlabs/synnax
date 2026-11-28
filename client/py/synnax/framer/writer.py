@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import Enum
 from typing import Literal, NoReturn, TypeAlias, overload, override
 from uuid import uuid4
@@ -234,6 +235,13 @@ class Writer:
         self,
         channels_or_data: channel.Params,
         series: CrudeSeries | list[CrudeSeries],
+    ) -> None: ...
+
+    # A mapping literal that mixes names, such as "time", with keys.
+    @overload
+    def write(
+        self,
+        channels_or_data: Mapping[channel.Key | str, CrudeSeries],
     ) -> None: ...
 
     @overload
