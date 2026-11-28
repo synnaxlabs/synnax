@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -92,19 +93,21 @@ export const Connect = ({
           />
           <Form.Sections>
             <Form.Section title="Server">
-              <Form.TextField
-                path={path.properties.host}
-                label="Host"
-                padHelpText={false}
-                required
-                inputProps={HOST_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path={path.properties.port}
-                label="Port"
-                padHelpText={false}
-                required
-              />
+              <Flex.Box x>
+                <Form.TextField
+                  path={path.properties.host}
+                  label="Host"
+                  padHelpText={false}
+                  required
+                  inputProps={HOST_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path={path.properties.port}
+                  label="Port"
+                  padHelpText={false}
+                  required
+                />
+              </Flex.Box>
               <PlatformDevice.RackField integration={INTEGRATION_KEY} />
             </Form.Section>
           </Form.Sections>

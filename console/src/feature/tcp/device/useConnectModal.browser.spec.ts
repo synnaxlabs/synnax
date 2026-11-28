@@ -85,4 +85,13 @@ describe("TCP.Device.useConnectModal", () => {
       await screen.findByText(/expected string to have >=1 characters/),
     ).toBeTruthy();
   });
+
+  it("should put the host and the port in one row", async () => {
+    await renderModalOpener(TCP.Device.useConnectModal, [{}], { client });
+    const host = (
+      await screen.findByPlaceholderText("192.168.1.20")
+    ).getBoundingClientRect();
+    const port = screen.getByDisplayValue("0").getBoundingClientRect();
+    expect(host.top < port.bottom && port.top < host.bottom).toBe(true);
+  });
 });
