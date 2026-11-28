@@ -502,5 +502,6 @@ export const seriesToPayload = (series: Series): SeriesPayload => {
         : data.slice().buffer,
     alignment: series.alignment,
     alignmentMultiple: series.alignmentMultiple,
+    clock: series.clock,
   };
 };
