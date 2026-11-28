@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
@@ -147,7 +148,7 @@ var _ = Describe("Writer Behavior", func() {
 										},
 									}),
 								)
-								i, o := confluence.Attach(s, 2)
+								i, o := confluencetestutil.Attach(s, 2)
 								sCtx, cancel := signal.WithCancel(ctx)
 								defer cancel()
 								s.Flow(sCtx)
@@ -231,7 +232,7 @@ var _ = Describe("Writer Behavior", func() {
 										Channels: []cesium.ChannelKey{idx, data},
 									}),
 								)
-								in, out := confluence.Attach(s, 2)
+								in, out := confluencetestutil.Attach(s, 2)
 								sCtx, cancel := signal.WithCancel(ctx)
 								defer cancel()
 								s.Flow(sCtx)
@@ -340,7 +341,7 @@ var _ = Describe("Writer Behavior", func() {
 										Channels: []cesium.ChannelKey{data},
 									}),
 								)
-								in, out := confluence.Attach(s, 2)
+								in, out := confluencetestutil.Attach(s, 2)
 								sCtx, cancel := signal.WithCancel(ctx)
 								defer cancel()
 								s.Flow(sCtx)
@@ -478,7 +479,7 @@ var _ = Describe("Writer Behavior", func() {
 										Channels: []cesium.ChannelKey{data},
 									}),
 								)
-								in, out := confluence.Attach(s, 2)
+								in, out := confluencetestutil.Attach(s, 2)
 								sCtx, cancel := signal.WithCancel(ctx)
 								defer cancel()
 								s.Flow(sCtx)
@@ -572,7 +573,7 @@ var _ = Describe("Writer Behavior", func() {
 										Channels: []cesium.ChannelKey{data},
 									}),
 								)
-								in, out := confluence.Attach(s, 2)
+								in, out := confluencetestutil.Attach(s, 2)
 								sCtx, cancel := signal.WithCancel(ctx)
 								defer cancel()
 								s.Flow(sCtx)
@@ -659,7 +660,7 @@ var _ = Describe("Writer Behavior", func() {
 										Channels: []cesium.ChannelKey{d1, d2},
 									}),
 								)
-								in, out := confluence.Attach(s, 2)
+								in, out := confluencetestutil.Attach(s, 2)
 								sCtx, cancel := signal.WithCancel(ctx)
 								defer cancel()
 								s.Flow(sCtx)
@@ -790,7 +791,7 @@ var _ = Describe("Writer Behavior", func() {
 										Channels: []cesium.ChannelKey{idx, data},
 									}),
 								)
-								in, out := confluence.Attach(s, 4)
+								in, out := confluencetestutil.Attach(s, 4)
 								sCtx, cancel := signal.WithCancel(ctx)
 								defer cancel()
 								s.Flow(sCtx)
@@ -5092,7 +5093,7 @@ var _ = Describe("Writer Behavior", func() {
 						}))
 						sCtx, cancel := signal.Isolated()
 						defer cancel()
-						i, o := confluence.Attach(s, 2)
+						i, o := confluencetestutil.Attach(s, 2)
 						s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 						Expect(
@@ -5926,7 +5927,7 @@ func openObservedStreamer(
 ) (*alignmentObserver, confluence.Outlet[cesium.StreamerResponse], func()) {
 	GinkgoHelper()
 	s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{Channels: keys}))
-	in, out := confluence.Attach(s, len(keys)*64)
+	in, out := confluencetestutil.Attach(s, len(keys)*64)
 	sCtx, cancel := signal.WithCancel(ctx)
 	s.Flow(sCtx)
 	return newAlignmentObserver(), out, func() {

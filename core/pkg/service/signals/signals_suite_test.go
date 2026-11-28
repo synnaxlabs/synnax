@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -138,7 +139,7 @@ func openStreamer(
 		Keys:        keys,
 		SendOpenAck: true,
 	}))
-	requests, responses := confluence.Attach(streamer, 2)
+	requests, responses := confluencetestutil.Attach(streamer, 2)
 	sCtx, cancel := signal.Isolated()
 	closeStreamer := signal.NewHardShutdown(sCtx, cancel)
 	DeferCleanup(func() {

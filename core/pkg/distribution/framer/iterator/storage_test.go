@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -117,7 +118,7 @@ var _ = Describe("Storage stream", func() {
 		stream := openStream(ctx, s.dist, s.keys, 3)
 		sCtx, cancel := signal.Isolated()
 		defer cancel()
-		requests, responses := confluence.Attach(stream, 1)
+		requests, responses := confluencetestutil.Attach(stream, 1)
 		stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
 		Eventually(responses.Outlet()).Should(Receive(HaveField("Ack", true)))
@@ -279,7 +280,7 @@ var _ = Describe("Storage stream read failures", func() {
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
-			requests, responses := confluence.Attach(stream, 1)
+			requests, responses := confluencetestutil.Attach(stream, 1)
 			stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
 			Eventually(responses.Outlet()).Should(Receive(HaveField("Ack", true)))

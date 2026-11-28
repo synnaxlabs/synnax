@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	xtestutil "github.com/synnaxlabs/x/testutil"
@@ -46,7 +47,7 @@ func openFreeStreamer(
 		SendOpenAck: new(true),
 	}))
 	sCtx, cancel := signal.WithCancel(b.Context())
-	req, res := confluence.Attach(streamer, 2*benchWindow)
+	req, res := confluencetestutil.Attach(streamer, 2*benchWindow)
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	<-res.Outlet()
 	b.Cleanup(func() {

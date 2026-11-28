@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
@@ -124,7 +125,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				streamerSvc.New(ctx, streamer.Config{Keys: keys, SendOpenAck: true}),
 			)
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
@@ -153,7 +154,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				cfg.SendOpenAck = true
 				s := MustSucceed(streamerSvc.New(ctx, cfg))
 				sCtx, cancel := signal.Isolated()
-				inlet, outlet := confluence.Attach(s)
+				inlet, outlet := confluencetestutil.Attach(s)
 				defer cancel()
 				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				var res streamer.Response
@@ -236,7 +237,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				SendOpenAck: true,
 			}))
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
@@ -281,7 +282,7 @@ var _ = Describe("Streamer", Ordered, func() {
 					SendOpenAck: true,
 				}))
 				sCtx, cancel := signal.Isolated()
-				inlet, outlet := confluence.Attach(s)
+				inlet, outlet := confluencetestutil.Attach(s)
 				defer cancel()
 				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				Eventually(outlet.Outlet()).Should(Receive())
@@ -364,7 +365,7 @@ var _ = Describe("Streamer", Ordered, func() {
 					SendOpenAck: true,
 				}))
 				sCtx, cancel := signal.Isolated()
-				inlet, outlet := confluence.Attach(s)
+				inlet, outlet := confluencetestutil.Attach(s)
 				defer cancel()
 				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				Eventually(outlet.Outlet()).Should(Receive())
@@ -420,7 +421,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				DownsampleFactor: 2,
 			}))
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
@@ -457,7 +458,7 @@ var _ = Describe("Streamer", Ordered, func() {
 					DownsampleFactor: 2,
 				}))
 				sCtx, cancel := signal.Isolated()
-				inlet, outlet := confluence.Attach(s)
+				inlet, outlet := confluencetestutil.Attach(s)
 				defer cancel()
 				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				Eventually(outlet.Outlet()).Should(Receive())
@@ -533,7 +534,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				}))
 
 				sCtx, cancel := signal.Isolated()
-				inlet, outlet := confluence.Attach(s)
+				inlet, outlet := confluencetestutil.Attach(s)
 				defer cancel()
 				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				Eventually(outlet.Outlet()).Should(Receive())
@@ -611,7 +612,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}))
 			sCtx, cancel := signal.Isolated()
 			DeferCleanup(cancel)
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			return statefulStream{
@@ -694,7 +695,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s := MustSucceed(streamerSvc.New(ctx, cfg))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			// Nobody reads the streamer, so its buffers fill and the relay drops
@@ -770,7 +771,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}))
 
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
@@ -809,7 +810,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}))
 
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
@@ -849,7 +850,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}))
 
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
@@ -894,7 +895,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}))
 
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
@@ -933,7 +934,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}))
 
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
@@ -973,7 +974,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}))
 
 			sCtx, cancel := signal.Isolated()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -85,7 +86,7 @@ var _ = Describe("Layer", func() {
 				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.WithCancel(ctx)
-			req, res := confluence.Attach(s, 1)
+			req, res := confluencetestutil.Attach(s, 1)
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			DeferCleanup(func() {
 				req.Close()

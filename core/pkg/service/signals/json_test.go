@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -116,7 +117,7 @@ var _ = Describe("JSON", func() {
 				Keys:        channel.Keys{ch.Key()},
 				SendOpenAck: true,
 			}))
-			requests, responses = confluence.Attach(streamer, 2)
+			requests, responses = confluencetestutil.Attach(streamer, 2)
 			sCtx, cancel := signal.Isolated()
 			DeferClose(signal.NewHardShutdown(sCtx, cancel))
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())

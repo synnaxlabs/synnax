@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -63,7 +64,7 @@ var _ = Describe("Relay", func() {
 					SendOpenAck: new(true),
 				}))
 				sCtx, cancel := signal.Isolated()
-				streamerReq, readerRes := confluence.Attach(reader, 10)
+				streamerReq, readerRes := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				DeferCleanup(func() {
 					streamerReq.Close()
@@ -126,7 +127,7 @@ var _ = Describe("Relay", func() {
 				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.WithCancel(ctx)
-			req, res := confluence.Attach(reader, 10)
+			req, res := confluencetestutil.Attach(reader, 10)
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			DeferCleanup(func() {
 				req.Close()
@@ -331,7 +332,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				streamerReq, readerRes := confluence.Attach(reader, 10)
+				streamerReq, readerRes := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				var ack relay.Response
 				Eventually(readerRes.Outlet()).Should(Receive(&ack))
@@ -373,7 +374,7 @@ var _ = Describe("Relay", func() {
 					SendOpenAck: new(true),
 				}))
 				sCtx, cancel := signal.Isolated()
-				req, res := confluence.Attach(reader, 1)
+				req, res := confluencetestutil.Attach(reader, 1)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				DeferCleanup(func() {
 					req.Close()
@@ -433,7 +434,7 @@ var _ = Describe("Relay", func() {
 						SendOpenAck: new(true),
 					}))
 					sCtx, cancel := signal.Isolated()
-					req, res := confluence.Attach(reader, buffer)
+					req, res := confluencetestutil.Attach(reader, buffer)
 					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 					DeferCleanup(func() {
 						req.Close()
@@ -516,7 +517,7 @@ var _ = Describe("Relay", func() {
 						SendOpenAck: new(true),
 					}))
 					sCtx, cancel := signal.Isolated()
-					req, res := confluence.Attach(reader, buffer)
+					req, res := confluencetestutil.Attach(reader, buffer)
 					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 					DeferCleanup(func() {
 						req.Close()
@@ -584,7 +585,7 @@ var _ = Describe("Relay", func() {
 						MissedRequested: new(missedRequested),
 					}))
 					sCtx, cancel := signal.Isolated()
-					req, res := confluence.Attach(reader, buffer)
+					req, res := confluencetestutil.Attach(reader, buffer)
 					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 					DeferCleanup(func() {
 						req.Close()
@@ -702,7 +703,7 @@ var _ = Describe("Relay", func() {
 						MissedRequested: new(true),
 					}))
 					sCtx, cancel := signal.Isolated()
-					req, res := confluence.Attach(reader, buffer)
+					req, res := confluencetestutil.Attach(reader, buffer)
 					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 					DeferCleanup(func() {
 						req.Close()
@@ -788,7 +789,7 @@ var _ = Describe("Relay", func() {
 				const count = 200000
 				// A streamer that never waits on its outlet often empties its buffer
 				// while the relay drops frames for it.
-				req, res := confluence.Attach(reader, count+1)
+				req, res := confluencetestutil.Attach(reader, count+1)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				DeferCleanup(func() {
 					req.Close()
@@ -856,7 +857,7 @@ var _ = Describe("Relay", func() {
 					MissedRequested: new(missedRequested),
 				}))
 				sCtx, cancel := signal.Isolated()
-				req, res := confluence.Attach(reader, buffer)
+				req, res := confluencetestutil.Attach(reader, buffer)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				DeferCleanup(func() {
 					req.Close()
@@ -925,7 +926,7 @@ var _ = Describe("Relay", func() {
 					MissedRequested: new(true),
 				}))
 				sCtx, cancel := signal.Isolated()
-				req, res := confluence.Attach(reader, 0)
+				req, res := confluencetestutil.Attach(reader, 0)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				DeferCleanup(func() {
 					req.Close()
@@ -961,7 +962,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				streamerReq, readerRes := confluence.Attach(reader, 10)
+				streamerReq, readerRes := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				var ack relay.Response
 				Eventually(readerRes.Outlet()).Should(Receive(&ack))
@@ -1007,7 +1008,7 @@ var _ = Describe("Relay", func() {
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
-			streamerReq, readerRes := confluence.Attach(reader, 10)
+			streamerReq, readerRes := confluencetestutil.Attach(reader, 10)
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			var ack relay.Response
 			Eventually(readerRes.Outlet()).Should(Receive(&ack))
@@ -1054,7 +1055,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				streamerReq, readerRes := confluence.Attach(reader, 10)
+				streamerReq, readerRes := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				var ack relay.Response
 				Eventually(readerRes.Outlet()).Should(Receive(&ack))
@@ -1101,7 +1102,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				streamerReq, readerRes := confluence.Attach(reader, 10)
+				streamerReq, readerRes := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				var ack relay.Response
 				Eventually(readerRes.Outlet()).Should(Receive(&ack))
@@ -1183,7 +1184,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				req, res := confluence.Attach(reader, 10)
+				req, res := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 				var ack relay.Response
@@ -1215,7 +1216,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				req, res := confluence.Attach(reader, 10)
+				req, res := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 				var ack relay.Response
@@ -1242,7 +1243,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				req, res := confluence.Attach(reader, 10)
+				req, res := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 				var ack relay.Response
@@ -1265,7 +1266,7 @@ var _ = Describe("Relay", func() {
 					SendOpenAck: new(true),
 				}))
 				sCtx, cancel := signal.Isolated()
-				req, res := confluence.Attach(reader, 10)
+				req, res := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				cancel()
 
@@ -1284,7 +1285,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				cancel()
-				_, res := confluence.Attach(reader, 10)
+				_, res := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				Expect(sCtx.Wait()).To(MatchError(context.Canceled))
 				Eventually(res.Outlet()).Should(BeClosed())
@@ -1310,7 +1311,7 @@ var _ = Describe("Relay", func() {
 							SendOpenAck: new(true),
 						}),
 					)
-					inlets[i], outlets[i] = confluence.Attach(readers[i], 10)
+					inlets[i], outlets[i] = confluencetestutil.Attach(readers[i], 10)
 					readers[i].Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				}
 				for _, o := range outlets {
@@ -1354,7 +1355,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				req, res := confluence.Attach(reader, 10)
+				req, res := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 				var ack relay.Response
@@ -1395,7 +1396,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				DeferCleanup(cancel)
-				req, res := confluence.Attach(reader, 10)
+				req, res := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				var ack relay.Response
 				Eventually(res.Outlet()).Should(Receive(&ack))
@@ -1508,7 +1509,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				req, res := confluence.Attach(reader, 10)
+				req, res := confluencetestutil.Attach(reader, 10)
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 				var ack relay.Response
@@ -1549,7 +1550,7 @@ var _ = Describe("Relay", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				mixedReq, mixedRes := confluence.Attach(mixed, 10)
+				mixedReq, mixedRes := confluencetestutil.Attach(mixed, 10)
 				mixed.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				var ack relay.Response
 				Eventually(mixedRes.Outlet()).Should(Receive(&ack))
@@ -1559,7 +1560,7 @@ var _ = Describe("Relay", func() {
 					Keys:        keys,
 					SendOpenAck: new(true),
 				}))
-				validReq, validRes := confluence.Attach(valid, 10)
+				validReq, validRes := confluencetestutil.Attach(valid, 10)
 				valid.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				Eventually(validRes.Outlet()).Should(Receive(&ack))
 				Expect(ack.Frame.Empty()).To(BeTrue())

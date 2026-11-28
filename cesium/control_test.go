@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/control"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -675,8 +676,8 @@ var _ = Describe("Control", func() {
 
 							ctx1, cancel1 := signal.Isolated()
 
-							w1In, w1Out := confluence.Attach(w1, 2)
-							w2In, w2Out := confluence.Attach(w2, 2)
+							w1In, w1Out := confluencetestutil.Attach(w1, 2)
+							w2In, w2Out := confluencetestutil.Attach(w2, 2)
 
 							w1.Flow(ctx1, confluence.CloseOutputInletsOnExit())
 							w2.Flow(ctx2, confluence.CloseOutputInletsOnExit())
@@ -1232,7 +1233,7 @@ var _ = Describe("Control", func() {
 						)
 						sCtx, cancel := signal.Isolated()
 						DeferClose(signal.NewHardShutdown(sCtx, cancel))
-						dataStreamerIn, dataStreamerOut = confluence.Attach(
+						dataStreamerIn, dataStreamerOut = confluencetestutil.Attach(
 							dataStreamer,
 							2,
 						)

@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -217,7 +218,7 @@ func (e *benchStreamerEnv) openPipeline(
 	}
 	var sCtx signal.Context
 	sCtx, p.cancel = signal.Isolated()
-	p.inlet, p.outlet = confluence.Attach(s)
+	p.inlet, p.outlet = confluencetestutil.Attach(s)
 	s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	<-p.outlet.Outlet()
 	time.Sleep(settle)
@@ -281,7 +282,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 
 	sCtx, cancel := signal.Isolated()
 	defer cancel()
-	inlet, outlet := confluence.Attach(s)
+	inlet, outlet := confluencetestutil.Attach(s)
 	s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	<-outlet.Outlet()
 	time.Sleep(5 * time.Millisecond)
@@ -338,7 +339,7 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			<-outlet.Outlet()
 			time.Sleep(5 * time.Millisecond)
@@ -436,7 +437,7 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			<-outlet.Outlet()
 			time.Sleep(5 * time.Millisecond)

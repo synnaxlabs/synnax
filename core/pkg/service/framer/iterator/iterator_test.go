@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
@@ -257,7 +258,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}))
 					sCtx, cancel := signal.Isolated()
 					defer cancel()
-					requests, _ := confluence.Attach(stream)
+					requests, _ := confluencetestutil.Attach(stream)
 					stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 					requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
 					Consistently(sCtx.Stopped()).ShouldNot(BeClosed())

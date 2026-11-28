@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -186,7 +187,7 @@ var _ = Describe("Service", func() {
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			inlet.Inlet() <- framer.WriterRequest{
 				Command: framer.WriterCommandWrite,
@@ -242,7 +243,7 @@ var _ = Describe("Service", func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				inlet, outlet := confluence.Attach(s)
+				inlet, outlet := confluencetestutil.Attach(s)
 				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				inlet.Inlet() <- framer.IteratorRequest{Command: iterator.CommandSeekFirst}
 				var res framer.IteratorResponse
@@ -275,7 +276,7 @@ var _ = Describe("Service", func() {
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
-			inlet, outlet := confluence.Attach(s)
+			inlet, outlet := confluencetestutil.Attach(s)
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/history"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +46,7 @@ func openStreamer(ctx context.Context, key channel.Key) (
 		Keys:        channel.Keys{sigCh.Key()},
 		SendOpenAck: true,
 	}))
-	requests, responses := confluence.Attach(streamer, 10)
+	requests, responses := confluencetestutil.Attach(streamer, 10)
 	sCtx, cancel := signal.Isolated()
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	DeferCleanup(func() {
