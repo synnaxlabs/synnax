@@ -198,12 +198,13 @@ class DevicesClient(ResourceClient):
         self.show_toolbar()
         self.tree.wait_for_removal(self.DEVICE_PREFIX, name, exact=False)
 
-    # Map CSS color variables to status variants.
+    # The theme color of each status variant, as in lyra/src/status/colors.ts.
     _COLOR_TO_VARIANT: ClassVar[dict[str, sy.status.Variant]] = {
         "--pluto-primary-z": "success",
-        "--pluto-gray-l8": "disabled",
+        "--pluto-text-disabled": "disabled",
         "--pluto-warning-m1": "warning",
-        "--pluto-error-m1": "error",
+        "--pluto-error-z": "error",
+        "--pluto-text-color": "info",
     }
 
     def get_status(self, name: str) -> sy.Status:
@@ -232,11 +233,15 @@ class DevicesClient(ResourceClient):
         message = tooltip.inner_text().strip()
         variant: sy.status.Variant = "disabled"
         if is_device:
-            color_attr = status_icon.get_attribute("color") or ""
-            for css_var, v in self._COLOR_TO_VARIANT.items():
-                if css_var in color_attr:
-                    variant = v
-                    break
+            # Loading shows as an icon. Other variants set their color in the style.
+            style = status_icon.get_attribute("style") or ""
+            matched = [v for c, v in self._COLOR_TO_VARIANT.items() if c in style]
+            if status_icon.locator(".lyra-loading__orbit").count() > 0:
+                variant = "loading"
+            elif len(matched) == 1:
+                variant = matched[0]
+            else:
+                raise AssertionError(f"No status color in the style of {name}: {style}")
         else:
             class_attr = status_icon.get_attribute("class") or ""
             if "pluto-rack__heartbeat--beat" in class_attr:
