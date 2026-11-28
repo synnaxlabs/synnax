@@ -43,7 +43,7 @@ type Driver struct {
 	rack   rack.Rack
 	mu     struct {
 		instances map[task.Key]instance
-		// failures holds the error of each task that this driver failed to deploy.
+		// failures holds the error of each task that this Driver failed to deploy.
 		failures map[task.Key]error
 		// stopping holds a channel for each task whose deleted instance is stopping.
 		// The channel closes when the stop returns. A deploy of the task waits for it.
@@ -101,7 +101,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	return d, nil
 }
 
-// registerRack writes the driver's integrations and version to its rack and reads the
+// registerRack writes the Driver's integrations and version to its rack and reads the
 // rack back.
 func (d *Driver) registerRack(ctx context.Context) error {
 	integrations := make([]string, len(d.cfg.Factories))
@@ -328,8 +328,8 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	}
 	if tsk.Rack != d.rack.Key {
 		// The task moved racks: the start deploys it on the new rack, and doubles
-		// as the teardown signal for the instance this driver still holds. The
-		// teardown is silent: the new rack's driver owns status reporting.
+		// as the teardown signal for the instance this Driver still holds. The
+		// teardown is silent: the new rack's Driver owns status reporting.
 		if d.release(cmd.Task, false) {
 			d.cfg.L.Info("stopped task moved to another rack",
 				zap.Stringer("task", cmd.Task),
@@ -798,7 +798,7 @@ func (d *Driver) release(key task.Key, sendStatus bool) bool {
 	return true
 }
 
-// Close stops the driver and each live task. The stops write no status: the next boot
+// Close stops the Driver and each live task. The stops write no status: the next boot
 // reports each task that was running.
 func (d *Driver) Close() error {
 	// The command sink drains first, so no command deploys a task after the stops.

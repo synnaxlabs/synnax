@@ -81,7 +81,7 @@ log_message() {
 VERSIONED_NAME=$($DAEMON version)
 
 do_start() {
-    # Check if the driver is already running using the official PID.
+    # Check if the Driver is already running using the official PID.
     log_message "Starting $VERSIONED_NAME at $(date)" "$BLUE"
     log_message "PID file location: $PIDFILE" "$BLUE"
 

@@ -181,7 +181,7 @@ var _ = Describe("Writer", func() {
 			Expect(exists(ctx, b.Key)).To(BeFalse())
 		})
 		It("Should not delete a root user", func(ctx SpecContext) {
-			// Insert a root user directly via the raw gorp writer because
+			// Insert a root user directly via the raw Gorp writer because
 			// Writer.Create rejects RootUser=true.
 			rootUser := user.User{Key: uuid.New(), Name: "root", RootUser: true}
 			Expect(

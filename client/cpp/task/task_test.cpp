@@ -120,7 +120,7 @@ TEST(TaskTests, testRetrieveOneWhereNotFound) {
     ASSERT_NIL(client.racks.create(r));
     const auto [_, err] = r.tasks.retrieve({.type = "missing_type"}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, R"(Found no task where type = "missing_type")");
+    ASSERT_EQ(err.data(), R"(Found no task where type = "missing_type")");
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -376,7 +376,7 @@ TEST(TaskTests, testRetrieveTaskRejectsPage) {
         const auto [_, err] = r.tasks.retrieve("test_module", options);
         ASSERT_MATCHES(err, x::errors::VALIDATION);
         ASSERT_EQ(
-            err.data,
+            err.data(),
             "a query for one record takes no limit or cursor, since a page could "
             "hide a second match"
         );

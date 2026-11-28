@@ -36,7 +36,7 @@ const client = createTestClient();
 const roles = new RoleClients(client);
 
 const CONFIG = { channels: [] };
-// The server assigns config hashes; overrides.configHash is what the driver reports
+// The server assigns config hashes; overrides.configHash is what the Driver reports
 // as deployed, so leaving it unset means the running instance matches the task.
 const CONFIG_HASH = "2de66015b3bdded8";
 

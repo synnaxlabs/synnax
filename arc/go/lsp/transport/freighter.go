@@ -35,7 +35,7 @@ var errContentLengthExceeded = errors.New(
 	"[transport] - content length exceeded maximum allowed size",
 )
 
-// streamAdapter wraps a freighter stream to implement jsonrpc2.Stream. Each freighter
+// streamAdapter wraps a Freighter stream to implement jsonrpc2.Stream. Each Freighter
 // message carries one fully-encoded JSON-RPC envelope in Content. jsonrpc2 v1 requires
 // Write to be safe for concurrent use (unlike v0.10, which serialized writes in the
 // Conn), so writeMu serializes Send: the underlying freighter/websocket stream panics
@@ -155,9 +155,9 @@ func ServeFreighter(ctx context.Context, cfgs ...Config) (err error) {
 	cfg.Server.SetClient(client)
 	close(adapter.ready)
 	<-conn.Done()
-	// Fence the adapter before returning: freighter writes its own close frames
+	// Fence the adapter before returning: Freighter writes its own close frames
 	// after the handler exits, and a republish notification still in flight would
-	// race them on the websocket. Shutdown then stops the external change observer
+	// race them on the WebSocket. Shutdown then stops the external change observer
 	// and drains the republish goroutine, whose writes now fail fast at the fence.
 	err = errors.Combine(conn.Err(), adapter.Close())
 	return errors.Combine(err, cfg.Server.Shutdown(ctx))

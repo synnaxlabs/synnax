@@ -9,7 +9,7 @@ functions. Language spec: `arc/docs/spec.md`.
 - `arc/go` — parser → analyzer → compiler pipeline, LSP, formatter, STL, Go runtime.
   Entry: `arc.CompileText`/`arc.CompileGraph` against a caller-built root scope
   (`symbol.NewRoot`).
-- `arc/cpp` — embedded runtime (WASM execution, scheduler, state) used by the driver's
+- `arc/cpp` — embedded runtime (WASM execution, scheduler, state) used by the Driver's
   Arc task (`driver/arc/`).
 - `arc/ts` — `@synnaxlabs/arc`: grammar/syntax utilities for editors.
 

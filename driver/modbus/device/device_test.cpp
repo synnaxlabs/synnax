@@ -380,7 +380,7 @@ TEST_P(ClassifyTest, Classifies) {
     const auto [errnum, expected] = GetParam();
     const auto err = classify(errnum);
     ASSERT_OCCURRED_AS(err, expected);
-    EXPECT_EQ(err.data, modbus_strerror(errnum));
+    EXPECT_EQ(err.data(), modbus_strerror(errnum));
     EXPECT_EQ(err.matches(UNREACHABLE), expected.matches(UNREACHABLE));
 }
 
@@ -507,7 +507,7 @@ TEST(DeviceTest, ConnectTimeoutDoesNotDemoteUnit) {
     for (std::size_t i = 0; i <= DEMOTE_AFTER; i++) {
         const auto err = dev->read_bits(Coil, 0, 1, &bit);
         ASSERT_OCCURRED_AS(err, UNREACHABLE);
-        EXPECT_EQ(err.data, modbus_strerror(ETIMEDOUT));
+        EXPECT_EQ(err.data(), modbus_strerror(ETIMEDOUT));
     }
     EXPECT_EQ(dev->stats().requests, DEMOTE_AFTER + 1);
     EXPECT_EQ(dev->stats().timeouts, 0U);
@@ -532,7 +532,7 @@ TEST(DeviceTest, IllegalAddressIsCritical) {
     uint16_t reg = 0;
     const auto err = dev->read_registers(HoldingRegister, 500, 1, &reg);
     ASSERT_OCCURRED_AS(err, CRITICAL_ERROR);
-    EXPECT_EQ(err.data, "Illegal data address");
+    EXPECT_EQ(err.data(), "Illegal data address");
     ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
     slave.stop();
 }
@@ -549,7 +549,7 @@ TEST(DeviceTest, RejectedFunctionIsCritical) {
     uint8_t bit = 0;
     const auto err = dev->read_bits(Coil, 0, 1, &bit);
     ASSERT_OCCURRED_AS(err, CRITICAL_ERROR);
-    EXPECT_EQ(err.data, "Illegal function");
+    EXPECT_EQ(err.data(), "Illegal function");
     slave.stop();
 }
 
@@ -850,7 +850,7 @@ TEST(ManagerTest, RejectsMismatchedLineSettings) {
     const auto err = manager.acquire(second).second;
     ASSERT_OCCURRED_AS(err, CRITICAL_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "serial port /dev/ttyMISMATCH is open at 19200 8E1, but this device uses "
         "9600 8N1"
     );
@@ -951,7 +951,7 @@ TEST(DeviceTest, DemotesSilentUnit) {
     const auto err = silent->read_registers(HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, UNREACHABLE);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "unit 9 timed out 3 times in a row, so its requests fail for 10s"
     );
     EXPECT_EQ(slave.unit_requests(9), 3);
@@ -988,7 +988,7 @@ TEST(DeviceTest, ServesUnitAfterDemotion) {
     const auto err = dev->read_registers(HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, UNREACHABLE);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "unit 6 timed out 3 times in a row, so its requests fail for 100ms"
     );
     slave.set_silent(6, false);
@@ -1073,7 +1073,7 @@ TEST(DeviceTest, TimesOutReplyThatPausesMidway) {
     std::array<uint16_t, 10> regs{};
     const auto err = dev->read_registers(HoldingRegister, 0, 10, regs.data());
     ASSERT_OCCURRED_AS(err, UNREACHABLE);
-    EXPECT_EQ(err.data, modbus_strerror(ETIMEDOUT));
+    EXPECT_EQ(err.data(), modbus_strerror(ETIMEDOUT));
     uint16_t reg = 0;
     ASSERT_NIL(dev->read_registers(HoldingRegister, 1, 1, &reg));
     EXPECT_EQ(reg, 22);
@@ -1409,7 +1409,7 @@ TEST(DeviceTest, ProbeStopsWaitingForBusyConnection) {
     const auto waited = std::chrono::steady_clock::now() - start;
     slow.join();
     ASSERT_OCCURRED_AS(err, UNREACHABLE);
-    EXPECT_EQ(err.data, "other requests kept the connection busy for 100ms");
+    EXPECT_EQ(err.data(), "other requests kept the connection busy for 100ms");
     EXPECT_LT(waited, std::chrono::milliseconds(400));
     ASSERT_NIL(probed->probe());
     slave.stop();
@@ -1624,7 +1624,7 @@ TEST(DeviceTest, TurnWaitEndsWhenHolderRunsPastItsLimit) {
     holding.join();
     ASSERT_OCCURRED_AS(err, UNREACHABLE);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "a request held the connection longer than its timeout and retries allow"
     );
     EXPECT_GT(waited, std::chrono::milliseconds(1000));
@@ -1782,7 +1782,7 @@ TEST_P(ProbeTest, Probes) {
         ASSERT_NIL(err);
     else {
         ASSERT_OCCURRED_AS(err, param.expected);
-        EXPECT_EQ(err.data, modbus_strerror(param.errnum));
+        EXPECT_EQ(err.data(), modbus_strerror(param.errnum));
     }
     slave.stop();
 }
@@ -1835,7 +1835,7 @@ TEST_P(ReplyTest, ChecksReply) {
         EXPECT_EQ(reg, 0x1234);
     } else {
         ASSERT_OCCURRED_AS(err, param.expected);
-        EXPECT_EQ(err.data, modbus_strerror(param.errnum));
+        EXPECT_EQ(err.data(), modbus_strerror(param.errnum));
     }
     slave.stop();
 }

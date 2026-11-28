@@ -46,7 +46,7 @@ export const DRIFT_STATE: Drift.StoreState = {
  * Drift state naming the main window and one torn-off window, for specs that open or
  * close a second window.
  * @param key - The window's key, which window-keyed slices store their state under.
- * @param label - The runtime label drift addresses the window by.
+ * @param label - The runtime label Drift addresses the window by.
  */
 export const createDriftStateWithWindow = (
   key: string,
@@ -81,7 +81,7 @@ export interface SliceStoreParams<Name extends string, S> {
 }
 
 /**
- * A store holding one window-keyed slice plus the drift slice its selectors read the
+ * A store holding one window-keyed slice plus the Drift slice its selectors read the
  * current window from, running the slice's own middleware.
  */
 export const createSliceStore = <Name extends string, S, A extends Action = Action>({

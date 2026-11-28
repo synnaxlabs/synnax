@@ -702,6 +702,124 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     EXPECT_TRUE(ctx->statuses[0].details.config_hash.empty());
 }
 
+/// @brief it should keep the running state and config hash of a running instance that a
+/// failed deploy replaces.
+TEST(TestHandleConfigErr, testErrorReplacingARunningInstanceKeepsItRunning) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{
+        .name = "task1",
+        .type = "ni_analog_read",
+        .config_hash = "hash2"
+    };
+    ctx->statuses.push_back({
+        .message = "Started task",
+        .details =
+            {
+                .running = true,
+                .cmd = "start_1",
+                .config_hash = "hash1",
+                .rack = 7,
+                .data = x::json::json::object_t{{"rate", 1}},
+            },
+        .owner = synnax::task::resource_id(task.key),
+    });
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
+        "start_2",
+        cancel
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto &s = ctx->statuses[1];
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(s.message, "Failed to deploy changes");
+    EXPECT_EQ(
+        s.description,
+        "The task still runs its last deployed config. bad config"
+    );
+    EXPECT_TRUE(s.details.running);
+    EXPECT_EQ(s.details.cmd, "start_2");
+    EXPECT_EQ(s.details.config_hash, "hash1");
+    EXPECT_EQ(s.details.rack, 7);
+    EXPECT_FALSE(s.details.data.has_value());
+}
+
+/// @brief it should answer no command for a failed redeploy, so the status shows as the
+/// state of the task and not as a reply.
+TEST(TestHandleConfigErr, testFailedRedeployAnswersNoCommand) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    ctx->statuses.push_back({
+        .details = {.running = true},
+        .owner = synnax::task::resource_id(task.key),
+    });
+    handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
+        task::REDEPLOY,
+        cancel
+    );
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].message, "Failed to deploy changes");
+    EXPECT_TRUE(ctx->statuses[1].details.cmd.empty());
+}
+
+/// @brief it should report a task whose instance stopped before its deploy failed as
+/// not configured, even when the instance ran when the deploy began.
+TEST(TestHandleConfigErr, testErrorAfterTheInstanceStoppedReportsItStopped) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto owner = synnax::task::resource_id(task.key);
+    ctx->statuses.push_back({.details = {.running = true}, .owner = owner});
+    ctx->statuses.push_back({
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Failed to read data",
+        .details = {.running = false},
+        .owner = owner,
+    });
+    handle_config_err(
+        ctx,
+        task,
+        {ConfigureResult{}, x::errors::Error(x::errors::VALIDATION, "bad config")},
+        "start_2",
+        cancel
+    );
+    ASSERT_EQ(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[2].message, "Failed to configure task");
+    EXPECT_FALSE(ctx->statuses[2].details.running);
+}
+
+/// @brief it should not start a redeploy on its own, since the task manager starts it.
+TEST(TestHandleConfigErr, testRedeployDoesNotAutoStart) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    ConfigureResult res;
+    auto recording = std::make_unique<RecordingTask>();
+    auto *raw = recording.get();
+    raw->ctx = ctx;
+    res.task = std::move(recording);
+    res.auto_start = true;
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {std::move(res), x::errors::NIL},
+        task::REDEPLOY,
+        cancel
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_NE(tsk, nullptr);
+    EXPECT_TRUE(ctx->statuses.empty());
+    EXPECT_TRUE(raw->cmds.empty());
+}
+
 /// @brief it should write no status for a configure that its cancel ended, so the
 /// start is answered as stopped.
 TEST(TestHandleConfigErr, testCancelledConfigureWritesNothing) {

@@ -17,6 +17,7 @@ const field = {
   type: "number",
   timeFormat: "unix_ms",
   enum: [],
+  optional: false,
 };
 
 describe("shapeZ", () => {
@@ -48,6 +49,15 @@ describe("shapeZ", () => {
 
   it("should reject a field with a null type", () => {
     expect(() => json.inferredFieldZ.parse({ ...field, type: "null" })).toThrow();
+  });
+
+  it.each([true, false])("should keep whether a field is optional: %s", (optional) => {
+    expect(json.inferredFieldZ.parse({ ...field, optional }).optional).toBe(optional);
+  });
+
+  it("should reject a field that does not say whether it is optional", () => {
+    const { optional: _, ...rest } = field;
+    expect(() => json.inferredFieldZ.parse(rest)).toThrow();
   });
 });
 

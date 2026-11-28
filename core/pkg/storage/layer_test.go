@@ -14,17 +14,26 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
+	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs/testutil/fault"
+	"github.com/synnaxlabs/x/io/fs/testutil/pebblefs"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type entry struct {
@@ -34,7 +43,98 @@ type entry struct {
 
 func (e entry) GorpKey() int32 { return e.Key }
 
+// syncFailFS fails each SyncDir of dir with EIO.
+type syncFailFS struct {
+	xfs.FS
+	dir string
+}
+
+func (f syncFailFS) SyncDir(name string) error {
+	if name == f.dir {
+		return syscall.EIO
+	}
+	return f.FS.SyncDir(name)
+}
+
 var _ = Describe("storage", func() {
+	It("Should open the stores on the file systems that the config injects", func(
+		ctx SpecContext,
+	) {
+		kvFS, tsFS := vfs.NewMem(), xfs.NewMem()
+		l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+			Dirname: "data",
+			Version: "0.0.0",
+			KVFS:    kvFS,
+			TSFS:    tsFS,
+		}))
+		StartRun(l.Run)
+		Expect(l.TS.CreateChannel(ctx, cesium.Channel{
+			Key: 1, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		})).To(Succeed())
+		Expect(kvFS.Stat(filepath.Join("data", "LOCK"))).Error().ToNot(HaveOccurred())
+		Expect(MustSucceed(kvFS.List(filepath.Join("data", "kv")))).ToNot(BeEmpty())
+		Expect(tsFS.Exists(filepath.Join("data", "cesium", "1"))).To(BeTrue())
+	})
+
+	DescribeTable("Should keep a committed write through a crash", func(
+		ctx SpecContext,
+		existing string,
+	) {
+		disk := MustSucceed(fault.New(fault.Config{}))
+		if existing != "" {
+			// An open that failed, or another process, made it with no sync.
+			MustSucceed(disk.Sub(existing))
+		}
+		open := func(fs *fault.FS) *storage.Layer {
+			GinkgoHelper()
+			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+				Dirname: filepath.Join("parent", "data"),
+				Version: "0.0.0",
+				KVFS:    pebblefs.New(fs),
+				TSFS:    fs,
+			}))
+			StartRun(l.Run)
+			return l
+		}
+		Expect(open(disk).KV.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+		image := MustSucceed(disk.Crash(fault.CrashConfig{}))
+		Expect(image.Exists(filepath.Join("parent", "data", "cesium"))).To(BeTrue())
+		value, closer := MustSucceed2(open(image).KV.Get([]byte("key")))
+		Expect(value).To(Equal([]byte("value")))
+		Expect(closer.Close()).To(Succeed())
+	},
+		Entry("in a new storage directory", ""),
+		Entry(
+			"in a storage directory that exists with no durable entry",
+			filepath.Join("parent", "data"),
+		),
+		Entry(
+			"in a storage directory whose parent exists with no durable entry",
+			"parent",
+		),
+	)
+
+	It("Should open and log a warning when a sync of the storage directory fails", func(
+		ctx SpecContext,
+	) {
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+			Instrumentation: alamos.New("storage", alamos.WithLogger(logger)),
+			Dirname:         "data",
+			Version:         "0.0.0",
+			KVFS:            vfs.NewMem(),
+			TSFS:            syncFailFS{FS: xfs.NewMem(), dir: "data"},
+		}))
+		entries := logs.FilterMessage("failed to sync storage directory").All()
+		Expect(entries).To(HaveLen(1))
+		fields := entries[0].ContextMap()
+		Expect(fields).To(HaveKeyWithValue("dir", "data"))
+		Expect(fields).To(HaveKeyWithValue("error", syscall.EIO.Error()))
+	})
+
 	Describe("Run", func() {
 		It("Should run the time-series engine until its context ends", func(
 			ctx SpecContext,

@@ -316,7 +316,7 @@ var _ = Describe("check against the shipped release", func() {
 	})
 })
 
-// buildOracleBinary compiles the oracle binary once per test run and
+// buildOracleBinary compiles the Oracle binary once per test run and
 // caches the path. Cmd-level e2e tests exercise the real binary so flag
 // parsing, exit codes, and output go through the same paths users hit.
 var oracleBinaryPath string
@@ -344,7 +344,7 @@ func buildOracleBinary() string {
 	return bin
 }
 
-// findOracleModuleRoot walks upward from cwd looking for the oracle
+// findOracleModuleRoot walks upward from cwd looking for the Oracle
 // module root (where go.mod lives at oracle/go.mod). Tests run from
 // the cmd/ directory, so the module root is the parent.
 func findOracleModuleRoot() (string, error) {

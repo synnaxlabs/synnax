@@ -19,7 +19,7 @@ To run this example, you'll need to have your Synnax cluster properly configured
 detect National Instruments devices:
 https://docs.synnaxlabs.com/reference/hardware/ni/configure-device
 
-You'll also need physical NI devices or simulated devices via NI-MAX.
+You'll also need physical NI devices or simulated devices via NI MAX.
 """
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
@@ -96,7 +96,7 @@ task = ni.AnalogReadTask(
     ],
 )
 
-# This will create the task in Synnax and wait for the driver to validate that the
+# This will create the task in Synnax and wait for the Driver to validate that the
 # configuration is correct.
 client.tasks.configure(task)
 

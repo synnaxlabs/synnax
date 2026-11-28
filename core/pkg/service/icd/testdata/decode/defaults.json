@@ -191,7 +191,25 @@
       "document": {
         "temp": 1
       },
-      "error": "field id: no value at /id: validation error"
+      "message": "reading",
+      "samples": [
+        3,
+        4,
+        "idle",
+        1,
+        1000000,
+        null,
+        "6f1c3a52-9a4e-4c1b-8d2e-0b7a1f3c5d90",
+        { "mode": "auto" },
+        "AQI="
+      ],
+      "failures": [
+        {
+          "binding": 5,
+          "missing": true,
+          "error": "field id: no value at /id: validation error"
+        }
+      ]
     }
   ]
 }

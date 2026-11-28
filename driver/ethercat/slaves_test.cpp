@@ -47,7 +47,7 @@ TEST(SlavesBindTest, KeepsThePositionsWhenASlaveIsMissing) {
     slaves.by_key.emplace("missing", on_bus(2, 777).properties);
     const auto err = slaves.bind({on_bus(1, 888)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Module 2 (serial 777) is not on the bus.");
+    EXPECT_EQ(err.data(), "Module 2 (serial 777) is not on the bus.");
     EXPECT_EQ(slaves.by_key.at("missing").position, 2);
 }
 }

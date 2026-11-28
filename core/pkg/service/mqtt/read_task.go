@@ -12,7 +12,6 @@ package mqtt
 import (
 	"bytes"
 	"context"
-	"encoding/json/jsontext"
 	"fmt"
 	"slices"
 	"strings"
@@ -79,8 +78,6 @@ type readTopic struct {
 	topicSubscription
 	source *read.Source
 	groups []read.Group
-	// text holds a payload that is not JSON as a JSON string.
-	text []byte
 }
 
 // newReadTopic validates entry, whose documents source decodes.
@@ -103,18 +100,10 @@ func newReadTopic(entry PlainReadEntry, source *read.Source) (*readTopic, error)
 }
 
 // convert reads payload as the message whose match rule it meets, and returns a sample
-// for each group whose fields decode. A payload that is not JSON is read as a bare
-// string, such as ON. An error that names a field comes with the samples of the other
-// groups.
+// for each group whose fields decode. An error that names a field comes with the
+// samples of the other groups.
 func (t *readTopic) convert(payload []byte) ([]read.Sample, error) {
 	samples, ok, err := t.source.Decode(payload)
-	if err != nil &&
-		!jsontext.Value(payload).IsValid(jsontext.AllowDuplicateNames(true)) {
-		if t.text, err = jsontext.AppendQuote(t.text[:0], payload); err != nil {
-			return nil, err
-		}
-		samples, ok, err = t.source.Decode(t.text)
-	}
 	if err == nil && !ok {
 		err = errors.New("the payload matches no message")
 	}
@@ -250,33 +239,13 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 // data.
 func (s *readSource) seed(ctx context.Context) error {
 	for _, key := range s.stored {
-		if err := s.seedIndex(ctx, key); err != nil {
+		last, err := driver.LastStored(ctx, s.framer, key)
+		if err != nil {
 			return err
 		}
+		s.lastStamp[key] = max(s.lastStamp[key], last)
 	}
 	return nil
-}
-
-// seedIndex opens an iterator for one index only, because an iterator over channels on
-// several Cores reports the seek result of one Core.
-func (s *readSource) seedIndex(ctx context.Context, key channel.Key) error {
-	iter, err := s.framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:      channel.Keys{key},
-		Bounds:    telem.TimeRangeMax,
-		ChunkSize: 1,
-	})
-	if err != nil {
-		return err
-	}
-	if iter.SeekLast() && iter.Prev(framer.IteratorAutoSpan) {
-		for _, series := range iter.Value().Entries() {
-			if series.Len() > 0 {
-				last := series.ValueAt[telem.TimeStamp](-1)
-				s.lastStamp[key] = max(s.lastStamp[key], last)
-			}
-		}
-	}
-	return errors.Combine(iter.Error(), iter.Close())
 }
 
 // reader is the driver.Reader of one run of an MQTT read task.

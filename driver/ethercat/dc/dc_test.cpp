@@ -101,7 +101,7 @@ TEST(Select, RejectsAChosenCycleForAnSMMode) {
     const auto res = select({DC_MODE, SM_MODE}, choice);
     ASSERT_OCCURRED_AS_P(res, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "mode \"SM-Synchron\" (AssignActivate 0x0000) does not run SYNC0, so it "
         "cannot use a SYNC0 cycle of 1ms"
     );
@@ -117,7 +117,7 @@ TEST(Select, RejectsAChosenSYNC0CycleForAModeWithoutSYNC0) {
     const auto res = select({latch}, choice);
     ASSERT_OCCURRED_AS_P(res, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "mode \"DC-Latch\" (AssignActivate 0x0100) does not run SYNC0, so it cannot "
         "use a SYNC0 cycle of 1ms"
     );
@@ -133,7 +133,7 @@ TEST(Select, RejectsAChosenSYNC1CycleForAModeWithoutSYNC0) {
     const auto res = select({latch}, choice);
     ASSERT_OCCURRED_AS_P(res, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "mode \"DC-Latch\" (AssignActivate 0x0100) does not run SYNC0, so it cannot "
         "use a SYNC1 cycle of 1s"
     );
@@ -150,7 +150,7 @@ TEST(Select, RejectsAChosenCycleForAModeWhosePDIOwnsTheSyncUnit) {
     const auto res = select({pdi}, choice);
     ASSERT_OCCURRED_AS_P(res, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "mode \"DC\" (AssignActivate 0x0301) gives the sync unit to the PDI, so it "
         "cannot use a SYNC0 cycle of 1ms"
     );
@@ -165,7 +165,7 @@ TEST(Select, RejectsAChoiceTheSlaveDoesNotList) {
         const auto res = select({SM_MODE, DC_MODE}, choice);
         ASSERT_OCCURRED_AS_P(res, errors::SLAVE_CONFIG_ERROR);
         EXPECT_EQ(
-            res.second.data,
+            res.second.data(),
             std::format(
                 "the module does not list mode {} with AssignActivate 0x{:04X}. "
                 "It lists 0 \"SM-Synchron\" (AssignActivate 0x0000), 1 \"DC\" "
@@ -178,7 +178,7 @@ TEST(Select, RejectsAChoiceTheSlaveDoesNotList) {
     const auto none = select({}, Choice{});
     ASSERT_OCCURRED_AS_P(none, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        none.second.data,
+        none.second.data(),
         "the module does not list mode 0 with AssignActivate 0x0000. It lists no modes."
     );
 }
@@ -262,7 +262,7 @@ TEST(Resolve, RejectsAChosenSYNC1ThatIsNotAMultipleOfSYNC0) {
     const auto res = resolve(DC_MODE, x::telem::MILLISECOND, cycles);
     ASSERT_OCCURRED_AS_P(res, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "SYNC1 cycle of " + sync1.to_string() +
             " is not a multiple of the SYNC0 cycle of " + sync0.to_string()
     );
@@ -332,7 +332,7 @@ TEST(Resolve, RefusesAModeWithoutASYNC0Cycle) {
     const OpMode mode{.name = "DC-Synchron", .assign_activate = 0x0300};
     const auto err = resolve(mode, x::telem::MILLISECOND).second;
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "mode DC-Synchron gives no SYNC0 cycle");
+    EXPECT_EQ(err.data(), "mode DC-Synchron gives no SYNC0 cycle");
 }
 
 /// @brief it should refuse a SYNC0 fraction that is not a whole number of
@@ -341,7 +341,10 @@ TEST(Resolve, RefusesASYNC0CycleOfPartNanoseconds) {
     const OpMode mode{.assign_activate = 0x0300, .sync0_factor = -3};
     const auto err = resolve(mode, x::telem::MILLISECOND).second;
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "SYNC0 cycle of 1ms / 3 is not a whole number of nanoseconds");
+    EXPECT_EQ(
+        err.data(),
+        "SYNC0 cycle of 1ms / 3 is not a whole number of nanoseconds"
+    );
 }
 
 /// @brief it should refuse a SYNC0 cycle that its register cannot hold.
@@ -349,7 +352,10 @@ TEST(Resolve, RefusesASYNC0CycleOverTheRegisterLimit) {
     const OpMode mode{.assign_activate = 0x0300, .sync0_factor = 5};
     const auto err = resolve(mode, x::telem::SECOND).second;
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "SYNC0 cycle of 5s is over the limit of 4s 294ms 967us 295ns");
+    EXPECT_EQ(
+        err.data(),
+        "SYNC0 cycle of 5s is over the limit of 4s 294ms 967us 295ns"
+    );
 }
 
 /// @brief it should refuse a SYNC1 cycle that is not a multiple of the SYNC0 cycle.
@@ -362,7 +368,7 @@ TEST(Resolve, RefusesASYNC1CycleThatIsNotAMultipleOfSYNC0) {
     const auto err = resolve(mode, x::telem::MILLISECOND * 2).second;
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "SYNC1 cycle of 2ms is not a multiple of the SYNC0 cycle of 1s"
     );
 }
@@ -377,7 +383,10 @@ TEST(Resolve, RefusesASYNC1CycleOverTheRegisterLimit) {
     };
     const auto err = resolve(mode, x::telem::MILLISECOND * 10).second;
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "SYNC1 cycle of 10s is over the limit of 4s 294ms 968us 295ns");
+    EXPECT_EQ(
+        err.data(),
+        "SYNC1 cycle of 10s is over the limit of 4s 294ms 968us 295ns"
+    );
 }
 
 /// @brief it should refuse a chosen SYNC1 cycle so long that its register value would
@@ -388,7 +397,7 @@ TEST(Resolve, RefusesAChosenSYNC1CycleThatOverflowsTheRegisterValue) {
     const auto err = resolve(mode, x::telem::MILLISECOND, {.sync1 = sync1}).second;
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "SYNC1 cycle of " + sync1.to_string() +
             " is over the limit of 4s 294ms 967us 294ns"
     );
@@ -403,7 +412,7 @@ TEST(Resolve, RefusesASYNC1ShiftBeforeSYNC0) {
     };
     const auto err = resolve(mode, x::telem::MILLISECOND).second;
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "SYNC1 shift of -100us is under the limit of 0ns");
+    EXPECT_EQ(err.data(), "SYNC1 shift of -100us is under the limit of 0ns");
 }
 
 /// @brief it should mark process data with a SYNC0 cycle of 100 us or more, and not

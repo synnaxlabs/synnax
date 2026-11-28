@@ -73,6 +73,18 @@ describe("TauriRuntime", () => {
       expect(created?.trafficLightPosition).toBeUndefined();
     });
 
+    it("should create the window with the background throttling policy", async () => {
+      const runtime = new TauriRuntime({ backgroundThrottling: "disabled" });
+      await runtime.create("child", {});
+      expect(created?.backgroundThrottling).toBe("disabled");
+    });
+
+    it("should leave background throttling to Tauri without a policy", async () => {
+      const runtime = new TauriRuntime();
+      await runtime.create("child", {});
+      expect(created?.backgroundThrottling).toBeUndefined();
+    });
+
     it("should reject when Tauri fails to create the window", async () => {
       createError = "a webview with label `child` already exists";
       const runtime = new TauriRuntime();
