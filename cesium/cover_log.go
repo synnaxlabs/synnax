@@ -19,26 +19,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// pushDead takes dead, which the state's owner pushes from its step, into cover, and
-// unlinks on the executor each dead segment that the log covers and that no read may
-// use.
+// pushDead takes dead, which the owner of the state pushes from its step, into cover,
+// and unlinks on the executor each dead segment that the log covers and that no read
+// may use.
 func (e *engine) pushDead(dead []state.Dead) {
 	e.cover.Lock()
 	e.cover.dead = append(e.cover.dead, dead...)
-	e.cover.Unlock()
-	e.exec(func() {
-		if err := e.release(); err != nil {
-			e.ins.L.Error("failed to unlink the file of a dead segment", zap.Error(err))
-		}
-	})
-}
-
-// release unlinks each dead segment that the log covers and that no read may use.
-func (e *engine) release() error {
-	e.cover.Lock()
 	free := e.free()
 	e.cover.Unlock()
-	return e.unlink(free)
+	e.unlinkLater(free)
 }
 
 // covered unlinks, off the step of the log, the file of each dead segment whose record
@@ -193,9 +182,6 @@ func (e *engine) unlinkLater(dead []state.Dead) {
 // unlink closes the read handles of each segment of dead, which free took, and removes
 // its file. It tries every removal, and then ends the unlink of each segment.
 func (e *engine) unlink(dead []state.Dead) error {
-	if len(dead) == 0 {
-		return nil
-	}
 	errs := make([]error, 0, 2*len(dead))
 	for _, d := range dead {
 		errs = append(

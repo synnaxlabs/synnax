@@ -88,7 +88,6 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 	if waitErr := db.engine.waitCovered(ctx, sequence); waitErr != nil {
 		return errors.Join(err, waitErr)
 	}
-	err = errors.Join(err, db.engine.release())
 	for _, k := range dropped {
 		err = errors.Join(err, db.removeLogDir(k))
 	}

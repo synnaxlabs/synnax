@@ -77,9 +77,9 @@ type engine struct {
 	// cover holds the dead segments whose files wait until the log covers the record
 	// that took them out of the state, so no crash cuts that record while the file is
 	// gone, and until no read may use them. Every entry below covered is covered. Its
-	// lock is never held while waiting on the owner of the state or across an unlink,
-	// and the push of the owner takes it only to append, so the owner never waits on a
-	// read or an unlink.
+	// lock is never held while waiting on the owner of the state or across an unlink.
+	// The push of the owner takes it to append and free, which do no I/O, so the owner
+	// never waits on a read or an unlink.
 	cover struct {
 		sync.Mutex
 		covered uint64
