@@ -14,6 +14,7 @@
 
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "x/cpp/fs/file.h"
@@ -53,6 +54,45 @@ File::open(const std::filesystem::path &path) {
     );
     if (fd < 0) return {nullptr, errno_error("failed to open " + path.string())};
     return {std::unique_ptr<File>(new File(fd)), x::errors::NIL};
+}
+
+std::pair<std::unique_ptr<File>, x::errors::Error>
+File::open_read(const std::filesystem::path &path) {
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return {nullptr, errno_error("failed to open " + path.string())};
+    return {std::unique_ptr<File>(new File(fd)), x::errors::NIL};
+}
+
+std::pair<std::size_t, x::errors::Error>
+File::read(const std::uint64_t pos, char *dst, const std::size_t size) const {
+    std::size_t done = 0;
+    while (done < size) {
+        const auto n = pread(
+            static_cast<int>(this->handle),
+            dst + done,
+            size - done,
+            static_cast<off_t>(pos + done)
+        );
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0) return {done, errno_error("failed to read")};
+        if (n == 0) break;
+        done += static_cast<std::size_t>(n);
+    }
+    return {done, x::errors::NIL};
+}
+
+std::pair<std::uint64_t, x::errors::Error> File::size() const {
+    struct stat st{};
+    if (fstat(static_cast<int>(this->handle), &st) != 0)
+        return {0, errno_error("failed to stat")};
+    return {static_cast<std::uint64_t>(st.st_size), x::errors::NIL};
+}
+
+std::pair<bool, x::errors::Error> File::removed() const {
+    struct stat st{};
+    if (fstat(static_cast<int>(this->handle), &st) != 0)
+        return {false, errno_error("failed to stat")};
+    return {st.st_nlink == 0, x::errors::NIL};
 }
 
 x::errors::Error File::write(std::string_view data) const {
@@ -102,5 +142,48 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to) {
     if (std::rename(from.c_str(), to.c_str()) != 0)
         return errno_error("failed to rename " + from.string());
     return x::errors::NIL;
+}
+
+namespace {
+/// @brief renames from to to, and fails with EEXIST when to exists. Sets errno to
+/// ENOTSUP when the file system has no such rename.
+int rename_exclusive(const char *from, const char *to) {
+#ifdef __APPLE__
+    return renamex_np(from, to, RENAME_EXCL);
+#else
+    return renameat2(AT_FDCWD, from, AT_FDCWD, to, RENAME_NOREPLACE);
+#endif
+}
+
+bool unsupported(const int err) {
+// ENOTSUP and EOPNOTSUPP are the same value on Linux.
+#if EOPNOTSUPP != ENOTSUP
+    if (err == EOPNOTSUPP) return true;
+#endif
+    return err == EINVAL || err == ENOSYS || err == EPERM || err == ENOTSUP;
+}
+}
+
+x::errors::Error
+rename_new(const std::filesystem::path &from, const std::filesystem::path &to) {
+    if (rename_exclusive(from.c_str(), to.c_str()) == 0) return x::errors::NIL;
+    if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
+    if (!unsupported(errno)) return errno_error("failed to rename " + from.string());
+    // FAT and some network volumes have no exclusive rename. An exclusive create takes
+    // the name first, and its lock keeps a writer from using it before the rename.
+    const int fd = ::open(to.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+    if (fd < 0) {
+        if (errno == EEXIST) return x::errors::Error(EXISTS, to.string());
+        return errno_error("failed to create " + to.string());
+    }
+    auto err = x::errors::NIL;
+    // A writer that found the empty file holds its lock, and now owns it.
+    if (flock(fd, LOCK_EX | LOCK_NB) != 0)
+        err = errno == EWOULDBLOCK ? x::errors::Error(EXISTS, to.string())
+                                   : errno_error("failed to lock " + to.string());
+    else if (std::rename(from.c_str(), to.c_str()) != 0)
+        err = errno_error("failed to rename " + from.string());
+    close(fd);
+    return err;
 }
 }
