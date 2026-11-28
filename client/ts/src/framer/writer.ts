@@ -260,6 +260,10 @@ export class Writer {
    *    3. When writing to an index (i.e. TimeStamp) channel, the values must be
    *       monotonically increasing.
    *
+   * In any form, the reserved name "time" gives the timestamps of the write: each
+   * channel takes them under its index, so the write needs no index channel. "time"
+   * never names a channel, so write a channel named time by its key.
+   *
    * @throws if the writer has accumulated an error. Once write throws, all subsequent
    * calls to write and commit will also throw, and the writer must be closed and
    * re-opened to continue writing.
