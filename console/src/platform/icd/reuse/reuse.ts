@@ -162,6 +162,30 @@ interface Score {
 
 const compare = (a: Score, b: Score): number => b.stored - a.stored || b.held - a.held;
 
+const scoreOf = (
+  shape: Shape,
+  { message, missing }: Fit,
+  stored: ReadonlySet<icd.MessageKey>,
+): Score => ({
+  stored: stored.has(message.key) ? 1 : 0,
+  held: shape.fields.length - missing.length,
+});
+
+/**
+ * @returns how each of messages that fits shape fits it, best first: a message that
+ * the device stores channels for first, then the one that holds the most fields of
+ * shape.
+ * @param stored - The keys of the messages that the device stores channels for.
+ */
+export const fitsOf = (
+  shape: Shape,
+  messages: icd.Message[],
+  stored: ReadonlySet<icd.MessageKey>,
+): Fit[] =>
+  messages
+    .flatMap((m) => fit(shape, m) ?? [])
+    .sort((a, b) => compare(scoreOf(shape, a, stored), scoreOf(shape, b, stored)));
+
 /** @returns the candidate of the messages of an ICD for source, and its score. */
 const rank = (
   { key, name, messages }: Pick<icd.ICD, "key" | "name" | "messages">,
@@ -169,21 +193,13 @@ const rank = (
 ): { candidate: Candidate; score: Score } => {
   const score: Score = { stored: 0, held: 0 };
   const fits = shapes.map((shape) => {
-    const scored = messages
-      .flatMap((m) => fit(shape, m) ?? [])
-      .map((f) => ({
-        f,
-        score: {
-          stored: stored.has(f.message.key) ? 1 : 0,
-          held: shape.fields.length - f.missing.length,
-        },
-      }))
-      .sort((a, b) => compare(a.score, b.score));
-    const [best] = scored;
+    const ranked = fitsOf(shape, messages, stored);
+    const [best] = ranked;
     if (best == null) return [];
-    score.stored += best.score.stored;
-    score.held += best.score.held;
-    return scored.filter((s) => compare(s.score, best.score) === 0).map(({ f }) => f);
+    const top = scoreOf(shape, best, stored);
+    score.stored += top.stored;
+    score.held += top.held;
+    return ranked.filter((f) => compare(scoreOf(shape, f, stored), top) === 0);
   });
   return { candidate: { icd: key, name, fits }, score };
 };

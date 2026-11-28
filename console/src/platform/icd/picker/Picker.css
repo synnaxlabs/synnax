@@ -180,6 +180,14 @@
         color: var(--pluto-primary-text);
     }
 
+    .console-icd-picker__section-note + .console-icd-picker__section-control {
+        margin-left: 1rem;
+    }
+
+    .console-icd-picker__section-control {
+        margin: -0.5rem 0 -0.5rem auto;
+    }
+
     .console-icd-picker__value-list.console--dimmed .console-icd-picker__value > *,
     .console-icd-picker__value-list.console--dimmed
         .console-icd-picker__value-name

@@ -14,6 +14,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import {
@@ -233,6 +234,26 @@ const storedAt = (
       ),
   );
 
+/** The ICD messages that the new records of a sampled topic read. */
+interface Found extends ICD.Reuse.Result {
+  /**
+   * The messages of the ICD of the reading that each free shape can read, best first,
+   * by position. Empty with no reading.
+   */
+  options: ICD.Reuse.Fit[][];
+}
+
+/**
+ * The message that the user chose for the new records of each free shape of a topic,
+ * by shape key. Null chooses a new message.
+ */
+type Choices = Map<string, icd.MessageKey | null>;
+
+const NO_CHOICES: Choices = new Map();
+
+/** The value of the message select that chooses a new message. */
+const NEW_MESSAGE = "new";
+
 /** @returns the ICD messages that the new records of a sampled topic read. */
 const findReading = (
   topic: string,
@@ -241,24 +262,38 @@ const findReading = (
   device: Device.Device,
   icds: Pick<icd.ICD, "key" | "name" | "messages">[],
   home?: icd.Key,
-): ICD.Reuse.Result => {
+): Found => {
   const shapes = freeShapes(sample.shapes, reads);
   const source = {
     shapes: shapes.map((shape) => ICD.Reuse.shapeOf(shape, newestFirst(sample, shape))),
     stored: new Set(storedAt(topic, shapes, device)),
   };
-  return ICD.Reuse.find(source, icds, home);
+  const found = ICD.Reuse.find(source, icds, home);
+  const read = icds.find(({ key }) => key === found.reading?.icd);
+  const options = shapes.map((shape, i) =>
+    read == null
+      ? []
+      : ICD.Reuse.fitsOf(source.shapes[i], read.messages, source.stored).filter(
+          ({ message }) => isReusable(shape, ICD.jsonFields(message)),
+        ),
+  );
+  return { ...found, options };
 };
 
 /**
  * @returns the fit whose message the new records of a shape read, by the position of
- * the shape in the free shapes of its sample.
+ * the shape in the free shapes of its sample. A choice that no option holds reads the
+ * message of the reading.
  */
 const reusedFit = (
-  { reading }: ICD.Reuse.Result,
+  { reading, options }: Found,
   shape: json.Shape,
   i: number,
+  choice: icd.MessageKey | null | undefined,
 ): ICD.Reuse.Fit | undefined => {
+  if (i < 0 || choice === null) return undefined;
+  const chosen = options[i].find(({ message }) => message.key === choice);
+  if (chosen != null) return chosen;
   const fit = reading?.fits[i];
   return fit != null && isReusable(shape, ICD.jsonFields(fit.message))
     ? fit
@@ -270,12 +305,15 @@ const reusedFit = (
  * when no shape with picks reuses a message.
  */
 const reusedReading = (
-  found: ICD.Reuse.Result,
+  found: Found,
   free: json.Shape[],
   picks: Picks,
+  choices: Choices,
 ): ICD.Reuse.Reading | undefined => {
   if (found.reading == null) return undefined;
-  const fits = free.map((shape, i) => reusedFit(found, shape, i));
+  const fits = free.map((shape, i) =>
+    reusedFit(found, shape, i, choices.get(json.shapeKey(shape))),
+  );
   const reuses = free.some(
     (shape, i) => fits[i] != null && (picks.get(json.shapeKey(shape))?.size ?? 0) > 0,
   );
@@ -283,42 +321,18 @@ const reusedReading = (
 };
 
 /**
- * @returns what the new records of a shape read: the message of fit, else the count of
- * messages that tie for it. i is the position of the shape in the free shapes of its
- * sample.
+ * @returns the count of messages that tie for the new records of a shape, when two or
+ * more do. i is the position of the shape in the free shapes of its sample.
  */
-const readingNote = (
-  found: ICD.Reuse.Result,
-  fit: ICD.Reuse.Fit | undefined,
-  shape: json.Shape,
-  i: number,
-): string | undefined => {
+const tieNote = (found: Found, shape: json.Shape, i: number): string | undefined => {
   if (i < 0) return undefined;
   const { reading, candidates } = found;
-  if (reading != null && fit != null)
-    return `Reads ${fit.message.name} of ${reading.name}`;
   const tied = candidates
     .filter(({ icd: k }) => reading == null || k === reading.icd)
     .flatMap(({ fits }) => fits[i] ?? [])
     .filter(({ message }) => isReusable(shape, ICD.jsonFields(message))).length;
   return tied < 2 ? undefined : `Fits ${tied} messages`;
 };
-
-/**
- * @returns the fit whose message the new records of a free shape read in the planned
- * add, by the position of the shape in the free shapes of its sample.
- * @param reused - The keys of the picked shapes that the plan reuses a message for.
- */
-const plannedFit = (
-  found: ICD.Reuse.Result,
-  shape: json.Shape,
-  i: number,
-  picked: boolean,
-  reused: Set<string> | undefined,
-): ICD.Reuse.Fit | undefined =>
-  picked && reused != null && !reused.has(json.shapeKey(shape))
-    ? undefined
-    : reusedFit(found, shape, i);
 
 /**
  * @returns defaults with the text of the Default input of the field at pointer of a
@@ -487,7 +501,9 @@ interface TopicValuesProps {
   sample: kafka.SampledTopic;
   reads: Reads;
   /** The ICD messages that the new records of the topic read. */
-  found: ICD.Reuse.Result;
+  found: Found;
+  choices: Choices;
+  onChoiceChange: (shape: string, choice: icd.MessageKey | null) => void;
   /** Whether a stored message of the topic has no ICD yet, as the search reads on. */
   searching: boolean;
   /**
@@ -514,6 +530,8 @@ const TopicValues = ({
   sample,
   reads,
   found,
+  choices,
+  onChoiceChange,
   searching,
   reused,
   label,
@@ -538,17 +556,45 @@ const TopicValues = ({
     const position = free.indexOf(shape);
     // A search that reads on can still change the reading.
     const waits = searching && position >= 0;
-    const fit =
-      split == null && !waits
-        ? plannedFit(found, shape, position, value.has(shapeKey), reused)
-        : undefined;
+    const open = split == null && !waits;
+    const choice = choices.get(shapeKey);
+    const chosen = open ? reusedFit(found, shape, position, choice) : undefined;
+    // A message that the add appends a field to for another shape can stop fitting.
+    const unfit =
+      chosen != null && value.has(shapeKey) && reused != null && !reused.has(shapeKey);
+    const fit = unfit ? undefined : chosen;
     let note: string | undefined;
     if (split != null) note = ICD.Picker.splitNote(split);
     else if (waits) note = SEARCHING;
-    else note = readingNote(found, fit, shape, position);
+    else if (unfit) note = `${chosen.message.name} no longer fits`;
+    else if (chosen == null && choice !== null) note = tieNote(found, shape, position);
+    const title = titleOf(shape, label);
+    const { reading } = found;
+    const options = open && position >= 0 ? found.options[position] : [];
     return {
-      title: titleOf(shape, label),
+      title,
       note,
+      control:
+        reading == null || options.length === 0 ? undefined : (
+          <Select.Simple<string>
+            resourceName="message"
+            searchHidden
+            allowNone={false}
+            value={fit?.message.key ?? NEW_MESSAGE}
+            onChange={(next: string) =>
+              onChoiceChange(shapeKey, next === NEW_MESSAGE ? null : next)
+            }
+            variant="floating"
+            triggerProps={{ variant: "shadow", "aria-label": `Message of ${title}` }}
+          >
+            {options.map(({ message }) => (
+              <Select.Item<string> key={message.key} itemKey={message.key}>
+                {`${message.name} of ${reading.name}`}
+              </Select.Item>
+            ))}
+            <Select.Item<string> itemKey={NEW_MESSAGE}>New message</Select.Item>
+          </Select.Simple>
+        ),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
@@ -690,6 +736,7 @@ const Content = ({
   const [selected, setSelected] = useState<string | null>(null);
   const [entered, setEntered] = useState<string[]>([]);
   const [picks, setPicks] = useState<Map<string, TopicPick>>(() => new Map());
+  const [choices, setChoices] = useState<Map<string, Choices>>(() => new Map());
   const [defaults, setDefaults] = useState<Map<string, FieldDefaults>>(() => new Map());
   const [focus, setFocus] = useState<Focus | null>(null);
   const [queued, setQueued] = useState<{ record: string | null } | null>(null);
@@ -828,7 +875,12 @@ const Content = ({
         home,
       );
       const free = freeShapes(sample.data.shapes, held);
-      const reading = reusedReading(found, free, kept);
+      const reading = reusedReading(
+        found,
+        free,
+        kept,
+        choices.get(pick.topic) ?? NO_CHOICES,
+      );
       return [reading == null ? next : { ...next, reading }];
     })
     .sort(compare.by(({ topic }) => topic));
@@ -1038,6 +1090,12 @@ const Content = ({
             candidatesOf(topic),
             home,
           )}
+          choices={choices.get(topic) ?? NO_CHOICES}
+          onChoiceChange={(shape, choice) =>
+            setChoices((prev) =>
+              new Map(prev).set(topic, new Map(prev.get(topic)).set(shape, choice)),
+            )
+          }
           searching={searchingIn(topic)}
           reused={reusedIn(topic)}
           label={label}

@@ -385,6 +385,19 @@ const clickAddData = async () => {
   return within(await screen.findByRole("dialog"));
 };
 
+/** @returns the select of the message that the new records of the shape of key read. */
+const getMessageSelect = (key: string) =>
+  screen.getByRole("button", { name: new RegExp(`^Message of ${key} `) });
+
+/** @returns the message that the select of the shape of key shows. */
+const messageOf = (key: string) => getMessageSelect(key).textContent;
+
+/** Picks option in the select of the message of the shape of key. */
+const pickMessage = async (key: string, option: string) => {
+  fireEvent.click(await waitFor(() => getMessageSelect(key)));
+  fireEvent.click(await screen.findByRole("option", { name: option }));
+};
+
 /**
  * Opens the Add data dialog of the task on dev, answers its browse with browse, then
  * answers the sample of the topic that it shows first.
@@ -1640,7 +1653,7 @@ describe("Kafka read form", () => {
       });
       await screen.findByRole("treeitem", { name: /^temperature/ });
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
-      await dialog.findByText(/^Reads oven-1 of format/);
+      await dialog.findByText(/^oven-1 of format/);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
       const records = await waitFor(async () => {
@@ -1680,7 +1693,7 @@ describe("Kafka read form", () => {
         ],
       };
       const dialog = await openAddData(dev, { data: sampleOf(shape) });
-      await dialog.findByText(/^Reads oven-1 of format/);
+      await dialog.findByText(/^oven-1 of format/);
       await dialog.findByText("Adds to oven-1");
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
@@ -1969,7 +1982,7 @@ describe("Kafka read form", () => {
           fields: [...OVEN_SHAPE.fields.slice(0, 2), optional("/pressure")],
         };
         const dialog = await openAddData(dev, { data: sampleOf(shape) });
-        await dialog.findByText(/^Reads oven-1 of format/);
+        await dialog.findByText(/^oven-1 of format/);
         fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
         await dialog.findByRole("button", { name: "Add 2 fields" });
         dialog.getByText("Missing from some records");
@@ -2275,12 +2288,13 @@ describe("Kafka read form", () => {
         ),
       });
       await dialog.findByText("Adds to oven-1");
-      await dialog.findByText(/^Reads oven-1 of format/);
+      await dialog.findByText(/^oven-1 of format/);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       await waitFor(() => {
         expect(dialog.queryByText("Adds to oven-1")).toBeNull();
-        expect(dialog.queryByText(/^Reads oven-1 of format/)).toBeNull();
+        expect(messageOf("oven-2")).toBe("New message");
       });
+      dialog.getByText("oven-1 no longer fits");
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
       const records = await waitFor(async () => {
         const next = await retrieveRecords(draft.key);
@@ -2320,7 +2334,7 @@ describe("Kafka read form", () => {
       const dialog = await openAddData(dev, {
         data: sampleOf(shapeOf("oven-2", "pressure"), shapeOf("oven-5", "flow")),
       });
-      await dialog.findByText(/^Reads oven-4 of format/);
+      await dialog.findByText(/^oven-4 of format/);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
       const records = await waitFor(async () => {
@@ -2355,7 +2369,7 @@ describe("Kafka read form", () => {
         present: -1,
       };
       const dialog = await openAddData(dev, { data: sampleOf(shape) });
-      await dialog.findByText(/^Reads oven-1 of format/);
+      await dialog.findByText(/^oven-1 of format/);
       const message = rec.messages[0].message;
       const [field] = ICD.jsonFields((await client.icds.retrieve(rec.icd)).messages[0]);
       const payload = ["messages", message, "payload"];
@@ -2371,7 +2385,9 @@ describe("Kafka read form", () => {
         icd.set({ path: [...payload, "fields", field.key, "name"], value: "heat" }),
       );
       await screen.findByRole("treeitem", { name: /^heat/ });
-      await waitFor(() => expect(dialog.queryByText(/^Reads /)).toBeNull());
+      await waitFor(() =>
+        expect(dialog.queryByRole("button", { name: /^Message of / })).toBeNull(),
+      );
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       await waitFor(async () =>
@@ -2451,7 +2467,7 @@ describe("Kafka read form", () => {
       const dialog = await openAddData(dev, {
         data: sampleOf(shapeOf("oven-2", "pressure"), shapeOf("oven-5", "flow")),
       });
-      await dialog.findByText(/^Reads oven-4 of format/);
+      await dialog.findByText(/^oven-4 of format/);
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Record /flow" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       const records = await waitFor(async () => {
@@ -2511,7 +2527,7 @@ describe("Kafka read form", () => {
       };
       const dialog = await openAddData(dev, { data: sampleOf(shape) });
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
-      expect(dialog.queryByText(/^Reads /)).toBeNull();
+      expect(dialog.queryByRole("button", { name: /^Message of / })).toBeNull();
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       const records = await waitFor(async () => {
         const next = await retrieveRecords(draft.key);
@@ -2554,7 +2570,7 @@ describe("Kafka read form", () => {
         truncated: false,
       };
       const dialog = await openAddData(dev, { data });
-      await dialog.findByText(/^Reads oven-1 of format/);
+      await dialog.findByText(/^oven-1 of format/);
     });
 
     /** A shape of the key oven-2 that holds a temperature. */
@@ -2566,21 +2582,33 @@ describe("Kafka read form", () => {
       present: -1,
     };
 
-    /** Renders a task whose ICD holds two messages of a temperature. */
-    const renderTwins = async (
+    interface TwinsParams {
+      /** The fields of twin. */
+      fields?: icd.JSONField[];
       beforeRender?: (
         dev: device.Device,
         rec: Kafka.Task.ReadRecord,
         twin: icd.Message,
-      ) => Promise<unknown>,
-    ) => {
-      const fields = [createField("temperature", "float")];
+      ) => Promise<unknown>;
+    }
+
+    /**
+     * Renders a task whose record of the key oven-1 reads a message of a temperature,
+     * while its ICD holds twin, a second message.
+     */
+    const renderTwins = async ({
+      fields = [createField("temperature", "float")],
+      beforeRender,
+    }: TwinsParams = {}) => {
       const twin: icd.Message = {
         key: uuid.create(),
         name: "twin",
-        payload: { format: "json", fields: [createField("temperature", "float")] },
+        payload: { format: "json", fields },
       };
-      const rec = await createRecord({ fields, recordKey: "oven-1" });
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+      });
       await client.icds.dispatch(
         rec.icd,
         icd.insert({
@@ -2595,6 +2623,20 @@ describe("Kafka read form", () => {
       });
       await screen.findByRole("treeitem", { name: /^temperature/ });
       return { ...rendered, rec, twin };
+    };
+
+    /** Stores channels on dev at the key oven-2 for twin, a message of rec's ICD. */
+    const storeTwin = async (
+      dev: device.Device,
+      rec: Kafka.Task.ReadRecord,
+      twin: icd.Message,
+    ) => {
+      const stored = kafka.readRecordZ.parse({
+        icd: rec.icd,
+        recordKey: "oven-2",
+        messages: [{ message: twin.key }],
+      });
+      await storeChannels(dev.key, stored, { index: 0, channels: {} });
     };
 
     it("should add a new message for a new key that two messages fit equally", async () => {
@@ -2615,16 +2657,9 @@ describe("Kafka read form", () => {
     });
 
     it("should read the message that the device stores channels for at a new key", async () => {
-      const { draft, dev, rec, twin } = await renderTwins(async (d, r, t) => {
-        const stored = kafka.readRecordZ.parse({
-          icd: r.icd,
-          recordKey: "oven-2",
-          messages: [{ message: t.key }],
-        });
-        await storeChannels(d.key, stored, { index: 0, channels: {} });
-      });
+      const { draft, dev, rec, twin } = await renderTwins({ beforeRender: storeTwin });
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
-      await dialog.findByText(/^Reads twin of format/);
+      await dialog.findByText(/^twin of format/);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       const records = await waitFor(async () => {
@@ -2635,6 +2670,144 @@ describe("Kafka read form", () => {
       expect(records[1].messages.map(({ message }) => message)).toEqual([twin.key]);
       const { messages } = await client.icds.retrieve(rec.icd);
       expect(messages).toHaveLength(2);
+    });
+
+    describe("picking the message", () => {
+      it("should read a message that the user picks over the best one", async () => {
+        const { draft, dev, rec } = await renderTwins({ beforeRender: storeTwin });
+        const { name, messages } = await client.icds.retrieve(rec.icd);
+        const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
+        await waitFor(() => expect(messageOf("oven-2")).toBe(`twin of ${name}`));
+        await pickMessage("oven-2", `oven-1 of ${name}`);
+        await waitFor(() => expect(messageOf("oven-2")).toBe(`oven-1 of ${name}`));
+        fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        const records = await waitFor(async () => {
+          const next = await retrieveRecords(draft.key);
+          expect(next).toHaveLength(2);
+          return next;
+        });
+        expect(records[1].messages.map(({ message }) => message)).toEqual([
+          messages[0].key,
+        ]);
+        expect((await client.icds.retrieve(rec.icd)).messages).toHaveLength(2);
+      });
+
+      it("should add a new message when the user picks it over a fit", async () => {
+        const { draft, dev, rec } = await renderTwins({ beforeRender: storeTwin });
+        const { name } = await client.icds.retrieve(rec.icd);
+        const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
+        await pickMessage("oven-2", "New message");
+        await waitFor(() => expect(messageOf("oven-2")).toBe("New message"));
+        expect(dialog.queryByText(`twin of ${name}`)).toBeNull();
+        fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        await waitFor(async () =>
+          expect(await retrieveRecords(draft.key)).toHaveLength(2),
+        );
+        const { messages } = await client.icds.retrieve(rec.icd);
+        expect(messages.map(({ name }) => name)).toEqual([
+          "oven-1",
+          "twin",
+          "oven oven-2",
+        ]);
+      });
+
+      it("should read the message that the user picks of two that tie", async () => {
+        const { draft, dev, rec, twin } = await renderTwins();
+        const { name } = await client.icds.retrieve(rec.icd);
+        const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
+        await dialog.findByText("Fits 2 messages");
+        expect(messageOf("oven-2")).toBe("New message");
+        await pickMessage("oven-2", `twin of ${name}`);
+        await waitFor(() => expect(messageOf("oven-2")).toBe(`twin of ${name}`));
+        expect(dialog.queryByText("Fits 2 messages")).toBeNull();
+        fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        const records = await waitFor(async () => {
+          const next = await retrieveRecords(draft.key);
+          expect(next).toHaveLength(2);
+          return next;
+        });
+        expect(records[1].messages.map(({ message }) => message)).toEqual([twin.key]);
+      });
+
+      it("should show no message select for a key that a record reads", async () => {
+        const { dev } = await renderTwins();
+        const held = {
+          ...OVEN_2_SHAPE,
+          sources: ["oven-1"],
+          fields: [
+            ...OVEN_2_SHAPE.fields,
+            createInferredField("/pressure", "float", "number"),
+          ],
+        };
+        await openAddData(dev, { data: sampleOf(held, OVEN_2_SHAPE) });
+        await waitFor(() => getMessageSelect("oven-2"));
+        expect(
+          screen.queryByRole("button", { name: /^Message of oven-1 / }),
+        ).toBeNull();
+      });
+
+      it("should read a new message when an append makes the pick unfit", async () => {
+        const { dev, rec } = await renderTwins();
+        const { name } = await client.icds.retrieve(rec.icd);
+        const held = {
+          ...OVEN_2_SHAPE,
+          sources: ["oven-1"],
+          fields: [
+            ...OVEN_2_SHAPE.fields,
+            createInferredField("/pressure", "string", "string"),
+          ],
+        };
+        const free = {
+          ...OVEN_2_SHAPE,
+          fields: [
+            ...OVEN_2_SHAPE.fields,
+            createInferredField("/pressure", "float", "number"),
+            createInferredField("/flow", "float", "number"),
+          ],
+        };
+        const dialog = await openAddData(dev, { data: sampleOf(held, free) });
+        await pickMessage("oven-2", `oven-1 of ${name}`);
+        await waitFor(() => expect(messageOf("oven-2")).toBe(`oven-1 of ${name}`));
+        fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
+        await waitFor(() => expect(messageOf("oven-2")).toBe("New message"));
+        dialog.getByText("oven-1 no longer fits");
+      });
+
+      it("should read the best message again when a new sample does not fit the pick", async () => {
+        const { dev, rec } = await renderTwins({
+          fields: [
+            icd.jsonFieldZ.parse({
+              name: "temperature",
+              pointer: "/temperature",
+              type: "json",
+            }),
+          ],
+        });
+        const { name } = await client.icds.retrieve(rec.icd);
+        const scan = await createScanTask(client, dev);
+        const first = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: browseOf(listTopic(TOPIC)) },
+          sample: { data: sampleOf(OVEN_2_SHAPE) },
+        });
+        const dialog = await clickAddData();
+        await first.answered;
+        await pickMessage("oven-2", `oven-1 of ${name}`);
+        await waitFor(() => expect(messageOf("oven-2")).toBe(`oven-1 of ${name}`));
+        const text = {
+          ...OVEN_2_SHAPE,
+          fields: [createInferredField("/temperature", "string", "string")],
+        };
+        const second = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: browseOf(listTopic(TOPIC)) },
+          sample: { data: sampleOf(text) },
+        });
+        fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+        await second.answered;
+        await waitFor(() => expect(messageOf("oven-2")).toBe(`twin of ${name}`));
+      });
     });
 
     interface StoredElsewhereParams {
@@ -2711,7 +2884,7 @@ describe("Kafka read form", () => {
     it("should read a stored message of an ICD that no record reads", async () => {
       const { draft, dev, rec, twin, elsewhere } = await renderStoredElsewhere();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
-      await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+      await dialog.findByText(`twin of ${elsewhere.name}`);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       const records = await waitFor(async () => {
@@ -2728,7 +2901,7 @@ describe("Kafka read form", () => {
     it("should add a field to a stored message of an ICD that no record reads", async () => {
       const { draft, dev, elsewhere } = await renderStoredElsewhere();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_PRESSURE_SHAPE) });
-      await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+      await dialog.findByText(`twin of ${elsewhere.name}`);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
       const records = await waitFor(async () => {
@@ -2759,14 +2932,14 @@ describe("Kafka read form", () => {
       });
       const dialog = await clickAddData();
       await first.answered;
-      await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+      await dialog.findByText(`twin of ${elsewhere.name}`);
       const second = await answerCommandsUntil(client, [scan], "sample", {
         sample: { data: sampleOfTopic("plant", OVEN_2_PRESSURE_SHAPE) },
       });
       fireEvent.click(dialog.getByText("plant"));
       await second.answered;
-      await dialog.findByText(`Reads ${home.messages[0].name} of ${home.name}`);
-      expect(dialog.queryByText(`Reads twin of ${elsewhere.name}`)).toBeNull();
+      await dialog.findByText(`${home.messages[0].name} of ${home.name}`);
+      expect(dialog.queryByText(`twin of ${elsewhere.name}`)).toBeNull();
     });
 
     it("should add to a found ICD with no new ICD when the task holds no records", async () => {
@@ -2779,7 +2952,7 @@ describe("Kafka read form", () => {
         fresh,
       );
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_PRESSURE_SHAPE) });
-      await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+      await dialog.findByText(`twin of ${elsewhere.name}`);
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       fireEvent.click(dialog.getByRole("button", { name: /^Add \d+ field/ }));
       const records = await waitFor(async () => {
@@ -2811,7 +2984,7 @@ describe("Kafka read form", () => {
       });
       const dialog = await clickAddData();
       await first.answered;
-      await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+      await dialog.findByText(`twin of ${elsewhere.name}`);
       fireEvent.click(dialog.getByRole("button", { name: "Select all" }));
       const second = await answerCommandsUntil(client, [scan], "sample", {
         sample: { data: sampleOfTopic("plant", OVEN_2_PRESSURE_SHAPE) },
@@ -2861,7 +3034,7 @@ describe("Kafka read form", () => {
         const { dev, elsewhere } = await renderStoredElsewhere({ as: fresh });
         expect(retrieve).not.toHaveBeenCalled();
         const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
-        await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+        await dialog.findByText(`twin of ${elsewhere.name}`);
         expect(more).toHaveBeenCalled();
       });
 
@@ -2886,7 +3059,7 @@ describe("Kafka read form", () => {
         await screen.findByRole("treeitem", { name: /^temperature/ });
         const { name, messages } = await client.icds.retrieve(rec.icd);
         const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
-        await dialog.findByText(`Reads ${messages[0].name} of ${name}`);
+        await dialog.findByText(`${messages[0].name} of ${name}`);
         expect(more).not.toHaveBeenCalled();
       });
 
@@ -2926,7 +3099,7 @@ describe("Kafka read form", () => {
       onTestFinished(() => begin.mockRestore());
       const { container, draft, dev, elsewhere } = await renderStoredElsewhere();
       const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
-      await dialog.findByText(`Reads twin of ${elsewhere.name}`);
+      await dialog.findByText(`twin of ${elsewhere.name}`);
       fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
       const { configHash } = await client.tasks.retrieve({ key: draft.key });
       expect(configHash).toBe(draft.configHash);
