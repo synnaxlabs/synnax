@@ -43,9 +43,10 @@ channel.
   payload that has no value for a field with no
   [default](/reference/hardware/icds/reference#defaults), or a value that the channel
   cannot hold.
-- **Multiplexed fields** -> binary fields whose channels share an index channel must
-  have the same multiplexor values. The task does not write them for a payload whose
-  multiplexor does not select them.
+- **Multiplexed fields** -> binary fields with no default whose channels share an index
+  channel must have the same multiplexor values. For a payload whose multiplexor does
+  not select a field, the task writes the default of the field, or nothing when it has
+  none.
 - **Topics** -> a topic can be in a task once, and it cannot hold the wildcards `+` or
   `#`. Two topics cannot write to the same channel.
 - **Shared formats** -> an ICD is not part of a task, so more than one task can read it.

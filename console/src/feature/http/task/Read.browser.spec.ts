@@ -350,9 +350,7 @@ describe("Read", () => {
     const ep = await createEndpoint({ key: "ep1", path: "/data" });
     const icdKey = ep.icd;
     assertDefined(icdKey, "the endpoint reads no ICD");
-    await renderWithDevice([ep]);
-    // The Core reads only JSON messages over HTTP, so it would refuse the task.
-    holdRequests(client, "/task/create");
+    const { draft } = await renderWithDevice([ep]);
     await client.icds.dispatch(
       icdKey,
       icd.set({
@@ -367,6 +365,11 @@ describe("Read", () => {
       expect(
         (await client.icds.retrieve({ key: icdKey })).messages[0].payload.fields,
       ).toMatchObject([{ kind: "unsigned", startBit: 0, bitLength: 8 }]),
+    );
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].messages[0].bindings).toHaveLength(
+        1,
+      ),
     );
   });
 

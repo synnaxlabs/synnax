@@ -107,8 +107,8 @@ These properties are the same for each message format.
 
 ## JSON messages
 
-A JSON message reads one JSON document. An
-[MQTT read task](/reference/hardware/mqtt/read-task) reads JSON messages.
+A JSON message reads one JSON document. MQTT, Kafka, and HTTP read and write tasks use
+JSON messages.
 
 ### JSON message properties
 
@@ -274,7 +274,8 @@ click **Add mapping**.
 
 ## Text messages
 
-A text message reads one line of text.
+A text message reads one line of text. MQTT, Kafka, and HTTP read tasks use text
+messages.
 
 ### Text message properties
 
@@ -331,7 +332,8 @@ TypeScript, `encoding` is `"delimited"` or `"tagged"`.
 
 ## Binary messages
 
-A binary message reads the bytes of one frame, such as a CAN frame.
+A binary message reads the bytes of one frame, such as a CAN frame. MQTT, Kafka, and
+HTTP read tasks use binary messages.
 
 ### Binary message properties
 

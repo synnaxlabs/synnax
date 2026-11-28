@@ -37,9 +37,10 @@ a field with no channel.
   [enum mapping](#set-a-default-or-an-enum-mapping) maps a text label to a value.
 - **Several messages** -> an endpoint can read more than one message. Each message has a
   match rule under **Responses** that selects the responses it reads.
-- **Multiplexed fields** -> binary fields whose channels share an index channel must
-  have the same multiplexor values. The task does not write them for a payload whose
-  multiplexor does not select them.
+- **Multiplexed fields** -> binary fields with no default whose channels share an index
+  channel must have the same multiplexor values. For a payload whose multiplexor does
+  not select a field, the task writes the default of the field, or nothing when it has
+  none.
 - **Shared formats** -> an ICD is not part of a task, so more than one task can read it.
   You cannot delete an ICD while a task reads it.
 - **New endpoints** -> the message of a new endpoint goes into the ICD that most
