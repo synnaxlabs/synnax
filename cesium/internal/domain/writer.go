@@ -258,6 +258,13 @@ func (w *Writer) Finish(ctx context.Context) error {
 	return nil
 }
 
+// Covers reports whether end falls after the start of the domain and before the end of
+// its last commit, so that the commit holds every sample that a commit at end would. A
+// writer with a preset end covers nothing.
+func (w *Writer) Covers(end telem.TimeStamp) bool {
+	return !w.presetEnd && w.Start.Before(end) && end.Before(w.prevCommit)
+}
+
 func (w *Writer) switchFile(ctx context.Context) error {
 	if err := w.internal.Close(); err != nil {
 		return err
