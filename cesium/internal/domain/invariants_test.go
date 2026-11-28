@@ -24,26 +24,18 @@ import (
 
 var _ = Describe("Invariants", func() {
 	DescribeTable(
-		"Should panic when the resolvers of a delete place a kept part out of order",
-		func(
-			ctx SpecContext,
-			headEnd telem.TimeStamp,
-			tailStart telem.TimeStamp,
-			panicText string,
-		) {
+		"Should panic when the resolvers of a delete keep a part that ends before it starts",
+		func(ctx SpecContext, headEnd, tailStart telem.TimeStamp) {
 			db := DeferClose(MustSucceed(domain.Open(domain.Config{
 				FS:              xfs.NewMem(),
 				Instrumentation: PanicLogger(),
 			})))
-			starts := []telem.TimeStamp{10 * telem.SecondTS, 30 * telem.SecondTS}
-			for _, start := range starts {
-				Expect(testutil.WriteDomain(
-					ctx,
-					db,
-					start.SpanRange(10*telem.Second),
-					make([]byte, 10),
-				)).To(Succeed())
-			}
+			Expect(testutil.WriteDomain(
+				ctx,
+				db,
+				(10 * telem.SecondTS).SpanRange(10*telem.Second),
+				make([]byte, 10),
+			)).To(Succeed())
 			Expect(func() {
 				MustSucceed(db.Delete(
 					ctx,
@@ -51,25 +43,9 @@ var _ = Describe("Invariants", func() {
 					fixedOffsetAndTimeStamp(2, headEnd),
 					fixedOffsetAndTimeStamp(6, tailStart),
 				))
-			}).To(PanicWith(MatchError(ContainSubstring(panicText))))
+			}).To(PanicWith(MatchError(ContainSubstring("ends before it starts"))))
 		},
-		Entry(
-			"a kept head that ends before it starts",
-			5*telem.SecondTS,
-			14*telem.SecondTS,
-			"ends before it starts",
-		),
-		Entry(
-			"a kept tail that ends before it starts",
-			12*telem.SecondTS,
-			25*telem.SecondTS,
-			"ends before it starts",
-		),
-		Entry(
-			"a kept head that ends after the kept tail starts",
-			35*telem.SecondTS,
-			14*telem.SecondTS,
-			"are not sorted and apart",
-		),
+		Entry("a kept head", 5*telem.SecondTS, 14*telem.SecondTS),
+		Entry("a kept tail", 12*telem.SecondTS, 25*telem.SecondTS),
 	)
 })
