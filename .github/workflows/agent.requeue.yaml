@@ -12,13 +12,14 @@
 # rejection, or the drain of such a seat stopped its runner. The fleet controller then
 # starts a seat for it, on a shared login with usage left for Claude. When no Claude
 # login or Codex seat has usage left, or the run was already tried three times, this
-# workflow fails instead. Release runs are left to a person.
+# workflow fails instead, and posts to Slack when the relay cancelled the run. Release
+# runs are left to a person.
 
 name: Agent - Requeue
 run-name: Requeue run ${{ inputs.run }}
 
 # A failed run of a watched workflow starts this from its last job, through
-# relay.failure.yaml.
+# relay.failure.yaml. The relay cancels the run when only usage limits stopped it.
 on:
   workflow_dispatch:
     inputs:
@@ -26,6 +27,10 @@ on:
         description: "Run to requeue"
         type: string
         required: true
+      cancelled:
+        description: "The relay cancelled the run"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -45,12 +50,19 @@ jobs:
       # GitHub runs a job again only after its run completes.
       - name: Wait for the run to complete
         id: run
+        env:
+          CANCELLED: ${{ inputs.cancelled }}
         run: |
           for _ in $(seq 120); do
             gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" > "$RUNNER_TEMP/run"
             if [ "$(jq -r .status "$RUNNER_TEMP/run")" = completed ]; then
               jq -r '"conclusion=\(.conclusion)", "attempt=\(.run_attempt)",
-                "title=\(.display_title)"' "$RUNNER_TEMP/run" >> "$GITHUB_OUTPUT"
+                "title=\(.display_title)", "name=\(.name)"' "$RUNNER_TEMP/run" \
+                >> "$GITHUB_OUTPUT"
+              # A run that a person cancelled runs nothing again.
+              requeue=$(jq --argjson relay "$CANCELLED" '.conclusion == "failure"
+                or (.conclusion == "cancelled" and $relay)' "$RUNNER_TEMP/run")
+              echo "requeue=$requeue" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             sleep 15
@@ -59,7 +71,7 @@ jobs:
           exit 1
 
       - name: Assume the runner start role
-        if: steps.run.outputs.conclusion == 'failure'
+        if: steps.run.outputs.requeue == 'true'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
@@ -68,11 +80,12 @@ jobs:
       # agent.yaml runs a drain step only when the agent stopped at a usage limit or a
       # rejected token. A runner that the drain stopped just after it took a job leaves
       # no such step, only a lost runner on a seat that shut down. An idle seat never
-      # shuts down under a job, so such a job runs again too. Only one job of a run can
-      # run again at a time, so the first one goes.
+      # shuts down under a job, so such a job of a failed run runs again too. Only one
+      # job of a run can run again at a time, so the first one goes.
       - name: Run a job that a usage limit stopped again where usage is left
-        if: steps.run.outputs.conclusion == 'failure'
+        if: steps.run.outputs.requeue == 'true'
         env:
+          CONCLUSION: ${{ steps.run.outputs.conclusion }}
           ATTEMPT: ${{ steps.run.outputs.attempt }}
           TITLE: ${{ steps.run.outputs.title }}
         run: |
@@ -86,7 +99,7 @@ jobs:
           found=""
           while IFS=$'\t' read -r id runner drained name; do
             if [ "$drained" = false ]; then
-              [[ $runner == agent-*-* ]] || continue
+              [ "$CONCLUSION" = failure ] && [[ $runner == agent-*-* ]] || continue
               annotations="repos/$GITHUB_REPOSITORY/check-runs/$id/annotations"
               messages=$(gh api "$annotations" --jq '.[].message')
               grep -qE 'shutdown signal|lost communication' <<< "$messages" ||
@@ -148,22 +161,51 @@ jobs:
             exit 1
           fi
           # A rerun cannot reopen the check run that the review ended, so the review of
-          # a pull request starts again in a new run. A replay has no check run. Each
-          # new run starts at attempt 1, so the cap counts the failed reviews of the
-          # pull request in the last day instead.
-          read -r pr kind _ <<< "$TITLE"
-          if [ "$name" = Review ] && [ "$kind" != replay ]; then
+          # a pull request starts again in a new run, with the flags of its title. A
+          # replay has no check run, and a restore has no Review job. Each new run
+          # starts at attempt 1, so the cap counts the reviews of the pull request in
+          # the last day with a failed job instead, with or without repeat. The relay
+          # cancels a run that a usage limit stopped, so cancelled runs count too.
+          read -r pr flags <<< "$TITLE"
+          if [ "$name" = Review ] && [[ " $flags " != *" replay "* ]]; then
+            repeat=false
+            if [[ " $flags " == *" repeat "* ]]; then repeat=true; fi
             review="repos/$GITHUB_REPOSITORY/actions/workflows/review.sedosaur.yaml"
             since=$(date -u -d '-1 day' +%FT%TZ)
-            failed=$(gh api "$review/runs?created=>$since&status=failure&per_page=100" \
-              --jq "[.workflow_runs[] | select(.display_title == \"$pr\")] | length")
+            failed=0
+            for status in failure cancelled; do
+              runs=$(gh api "$review/runs?created=>$since&status=$status&per_page=100" \
+                --jq ".workflow_runs[]
+                  | select(.display_title | IN(\"$pr\", \"$pr repeat\")) | .id")
+              for id in $runs; do
+                jobs="repos/$GITHUB_REPOSITORY/actions/runs/$id/jobs?filter=latest"
+                if gh api "$jobs" --jq '.jobs[].conclusion' | grep -qx failure; then
+                  failed=$((failed + 1))
+                fi
+              done
+            done
             if [ "$failed" -ge 3 ]; then
               echo "::error::The review of #$pr failed $failed times in a day." \
                 "It does not run again."
               exit 1
             fi
             gh api -X POST --silent "$review/dispatches" \
-              -f ref=main -f "inputs[pr]=$pr" -f "inputs[repeat]=false"
+              -f ref=main -f "inputs[pr]=$pr" -f "inputs[repeat]=$repeat"
             exit 0
           fi
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$found/rerun" --silent
+
+      # GitHub sends no email for a cancelled run, and none for this run, which the
+      # relay started.
+      - name: Post to Slack that the run does not run again
+        if: failure() && inputs.cancelled
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          NAME: ${{ steps.run.outputs.name }}
+        run: |
+          runs="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs"
+          text="A usage limit stopped ${NAME:-a run}, and it does not run again:"
+          text+=" $runs/$RUN. See $runs/$GITHUB_RUN_ID."
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"

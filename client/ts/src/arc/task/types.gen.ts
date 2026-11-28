@@ -24,3 +24,23 @@ export const configZ = task.persistConfigZ.extend({
   performance: performanceZ.default("auto"),
 });
 export interface Config extends z.infer<typeof configZ> {}
+
+/** Scope is a top-level sequence or stage of the program that runs. */
+export const scopeZ = z.object({
+  /**
+   * path is the key of a top-level sequence or stage, then the key of each active step
+   * below it, down to a step that is not a sequence.
+   */
+  path: z
+    .string()
+    .array()
+    .default(() => []),
+});
+export interface Scope extends z.infer<typeof scopeZ> {}
+
+/** StatusData is the status data of an Arc task. */
+export const statusDataZ = z.object({
+  /** scopes are the top-level scopes that run, in program order. */
+  scopes: scopeZ.array().default(() => []),
+});
+export interface StatusData extends z.infer<typeof statusDataZ> {}

@@ -9,13 +9,15 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
+import { context } from "@synnaxlabs/lyra/context";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Skeleton } from "@synnaxlabs/lyra/skeleton";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Fragment } from "react";
+import { Fragment, type SyntheticEvent, useEffect, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 import { useHint } from "@/platform/icd/picker/hint";
@@ -48,7 +50,34 @@ export interface Value {
   sample: string | null;
   dataType: string;
   lock?: Lock;
+  /** Shows under the name, such as what a pick of the value changes. */
+  note?: string;
+  /** The text of the Default input of the value. Absent, the value takes no default. */
+  default?: string;
+  /** Says why default spells no default of the value. */
+  problem?: string;
 }
+
+/** Called with the key of a value and the new text of its Default input. */
+type DefaultChange = (key: string, text: string) => void;
+
+/** A request to focus the Default input of a value. */
+export interface DefaultFocus {
+  /** The key of the value. */
+  key: string;
+  /** Counts the requests, so each new one focuses the input again. */
+  request: number;
+}
+
+interface DefaultContextValue {
+  onChange: DefaultChange;
+  focus: DefaultFocus | undefined;
+}
+
+const [DefaultContext, useDefaultContext] = context.create<DefaultContextValue | null>({
+  defaultValue: null,
+  displayName: "Picker.DefaultContext",
+});
 
 export interface ValueGroup {
   title?: string;
@@ -98,7 +127,7 @@ const PickAll = ({ free, picked, onPickAll, onClear }: PickAllProps) =>
 export const PaneHeader = (props: PaneHeaderProps) => (
   <>
     <Header.Header bordered={false} className={CSS.BE("icd-picker", "pane-header")}>
-      <Header.Title weight={500} color={10} variant="code">
+      <Header.Title weight={500} color={10}>
         {props.title}
         {props.note != null && (
           <Text.Text el="span" level="small" color={9}>
@@ -118,12 +147,14 @@ export const PaneHeader = (props: PaneHeaderProps) => (
 
 interface HeadProps {
   noun: string;
+  /** Adds a Default column. */
+  defaults?: boolean;
 }
 
-const Head = ({ noun }: HeadProps) => (
+const Head = ({ noun, defaults = false }: HeadProps) => (
   <div className={CSS.BE("icd-picker", "values-head")}>
     <span />
-    {[noun, "Last value", "Type"].map((label) => (
+    {[noun, "Last value", "Type", ...(defaults ? ["Default"] : [])].map((label) => (
       <Text.Text key={label} level="small" weight={500} color={9}>
         {label}
       </Text.Text>
@@ -131,19 +162,74 @@ const Head = ({ noun }: HeadProps) => (
   </div>
 );
 
-const Cells = ({ value: { name, sample, dataType, lock } }: { value: Value }) => (
-  <>
-    <Text.Text level="small" weight={500} color={lock != null ? 9 : 10} overflow="fade">
-      {name}
-    </Text.Text>
-    <Text.Text level="small" color={9} overflow="fade" variant="code">
-      {sample ?? "–"}
-    </Text.Text>
-    <Text.Text level="small" color={9} overflow="fade">
-      {lock?.label ?? dataType}
-    </Text.Text>
-  </>
-);
+const stopPropagation = (e: SyntheticEvent) => e.stopPropagation();
+
+interface DefaultInputProps extends DefaultContextValue {
+  value: Value;
+}
+
+/** The Default input of a value. Clicks and keys in it do not pick the value. */
+const DefaultInput = ({
+  value: { key, name, default: text = "", problem },
+  onChange,
+  focus,
+}: DefaultInputProps) => {
+  const ref = useRef<HTMLInputElement>(null);
+  const request = focus?.key === key ? focus.request : null;
+  useEffect(() => {
+    if (request != null) ref.current?.focus();
+  }, [request]);
+  return (
+    <div onClick={stopPropagation} onKeyDown={stopPropagation}>
+      <Input.Text
+        ref={ref}
+        size="small"
+        value={text}
+        onChange={(next) => onChange(key, next)}
+        placeholder="None"
+        status={problem == null ? undefined : "error"}
+        tooltip={problem}
+        aria-label={`Default of ${name}`}
+      />
+    </div>
+  );
+};
+
+const Cells = ({ value }: { value: Value }) => {
+  const { name, sample, dataType, lock, note } = value;
+  const defaults = useDefaultContext();
+  return (
+    <>
+      <Flex.Box y gap="tiny" className={CSS.BE("icd-picker", "value-name")}>
+        <Text.Text
+          level="small"
+          weight={500}
+          color={lock != null ? 9 : 10}
+          overflow="fade"
+        >
+          {name}
+        </Text.Text>
+        {note != null && (
+          <Text.Text level="small" color={8} overflow="fade">
+            {note}
+          </Text.Text>
+        )}
+      </Flex.Box>
+      <Text.Text level="small" color={9} overflow="fade" variant="numeric">
+        {sample ?? "–"}
+      </Text.Text>
+      <Text.Text level="small" color={9} overflow="fade">
+        {lock?.label ?? dataType}
+      </Text.Text>
+      {defaults != null &&
+        (value.default == null ? (
+          <span />
+        ) : (
+          <DefaultInput value={value} {...defaults} />
+        ))}
+    </>
+  );
+};
 
 const Item = (props: List.ItemRenderProps<string>) => {
   const value = List.useItem<string, Value>(props.itemKey);
@@ -228,37 +314,62 @@ export interface ValuesProps {
   value?: string[];
   /** Omitted, the values are a preview with no checkboxes. */
   onChange?: (value: string[]) => void;
+  /** Adds a Default column for the values that take a default. */
+  onDefaultChange?: DefaultChange;
+  /** Focuses the Default input of a value. */
+  focus?: DefaultFocus;
 }
 
-export const Values = ({ noun, groups, value, onChange }: ValuesProps) => (
-  <div className={CSS.BE("icd-picker", "values")}>
-    <Head noun={noun} />
-    {groups.map(({ title, note, dimmed, values }) => (
-      <Fragment key={title ?? ""}>
-        {title != null && (
-          <Text.Text
-            level="small"
-            weight={500}
-            color={9}
-            className={CSS.BE("icd-picker", "section")}
-          >
-            {title}
-            {note != null && (
+export const Values = ({
+  noun,
+  groups,
+  value,
+  onChange,
+  onDefaultChange,
+  focus,
+}: ValuesProps) => {
+  const defaults =
+    onDefaultChange != null &&
+    groups.some(({ values }) => values.some((v) => v.default != null));
+  return (
+    <div
+      className={CSS.cls(CSS.BE("icd-picker", "values"), defaults && CSS.M("defaults"))}
+    >
+      <Head noun={noun} defaults={defaults} />
+      <DefaultContext value={defaults ? { onChange: onDefaultChange, focus } : null}>
+        {groups.map(({ title, note, dimmed, values }) => (
+          <Fragment key={title ?? ""}>
+            {title != null && (
               <Text.Text
-                el="span"
                 level="small"
-                className={CSS.BE("icd-picker", "section-note")}
+                weight={500}
+                color={9}
+                className={CSS.BE("icd-picker", "section")}
               >
-                {note}
+                {title}
+                {note != null && (
+                  <Text.Text
+                    el="span"
+                    level="small"
+                    className={CSS.BE("icd-picker", "section-note")}
+                  >
+                    {note}
+                  </Text.Text>
+                )}
               </Text.Text>
             )}
-          </Text.Text>
-        )}
-        <GroupList values={values} dimmed={dimmed} value={value} onChange={onChange} />
-      </Fragment>
-    ))}
-  </div>
-);
+            <GroupList
+              values={values}
+              dimmed={dimmed}
+              value={value}
+              onChange={onChange}
+            />
+          </Fragment>
+        ))}
+      </DefaultContext>
+    </div>
+  );
+};
 
 const SKELETON_WIDTHS = [
   ["14ch", "12ch", "6ch"],
@@ -279,7 +390,7 @@ export const PaneSkeleton = ({ noun, title }: PaneSkeletonProps) => (
           <Skeleton.Skeleton style={{ width: "24rem" }} />
         </Header.Title>
       ) : (
-        <Header.Title weight={500} color={10} variant="code">
+        <Header.Title weight={500} color={10}>
           {title}
         </Header.Title>
       )}

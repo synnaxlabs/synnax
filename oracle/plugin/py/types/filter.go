@@ -189,7 +189,7 @@ func lineInput(
 		)
 	}
 	name := getPyName(op) + "Input"
-	if op.FilePath != data.FilePath {
+	if !data.declares(op) {
 		modulePath := toPythonModulePath(output.GetPath(op, "py"))
 		name = addCrossNamespaceImport(op, modulePath, name, data)
 	}

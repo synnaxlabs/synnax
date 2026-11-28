@@ -22,6 +22,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
 #include "x/cpp/json/field.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
@@ -337,7 +338,7 @@ TEST(Decoder, RejectsRepeatedNameInLargeJSONObject) {
     raw += R"("7":0})";
     const auto err = decode_error({.data_type = telem::JSON_T}, raw);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(duplicate object member name "7")");
+    ASSERT_EQ(err.data(), R"(duplicate object member name "7")");
 }
 
 /// @brief it should convert an integer in range into a float.
@@ -371,7 +372,8 @@ TEST(Decoder, ConvertsTrueInUnsignedRange) {
 TEST(Decoder, ConvertsISO8601) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2026-01-02T03:04:05.000000006Z")"
         )
             .at<std::int64_t>(0),
@@ -383,7 +385,8 @@ TEST(Decoder, ConvertsISO8601) {
 TEST(Decoder, ConvertsISO8601WithSpaceAndLowercaseZone) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2026-01-02 03:04:05z")"
         )
             .at<std::int64_t>(0),
@@ -395,7 +398,8 @@ TEST(Decoder, ConvertsISO8601WithSpaceAndLowercaseZone) {
 TEST(Decoder, ConvertsISO8601WithOffset) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2026-01-02T03:04:05.5+01:00")"
         )
             .at<std::int64_t>(0),
@@ -407,7 +411,8 @@ TEST(Decoder, ConvertsISO8601WithOffset) {
 TEST(Decoder, TruncatesISO8601PastNanoseconds) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2026-01-02T03:04:05.1234567891Z")"
         )
             .at<std::int64_t>(0),
@@ -419,7 +424,8 @@ TEST(Decoder, TruncatesISO8601PastNanoseconds) {
 TEST(Decoder, ConvertsSmallestISO8601) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("1677-09-21T00:12:43.145224192Z")"
         )
             .at<std::int64_t>(0),
@@ -431,7 +437,8 @@ TEST(Decoder, ConvertsSmallestISO8601) {
 TEST(Decoder, ConvertsLargestISO8601) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_ISO_8601},
             R"("2262-04-11T23:47:16.854775807Z")"
         )
             .at<std::int64_t>(0),
@@ -443,7 +450,8 @@ TEST(Decoder, ConvertsLargestISO8601) {
 TEST(Decoder, ConvertsUnixSecondsToNanosecond) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_UNIX_SEC},
             "1767323045.123456789"
         )
             .at<std::int64_t>(0),
@@ -456,7 +464,7 @@ TEST(Decoder, ConvertsUnixMillisecondsInString) {
     ASSERT_EQ(
         decode(
             {.data_type = telem::TIMESTAMP_T,
-             .time_format = TimeFormat::UnixMillisecond},
+             .time_format = payload::TIME_FORMAT_UNIX_MS},
             R"("1767323045123")"
         )
             .at<std::int64_t>(0),
@@ -469,7 +477,7 @@ TEST(Decoder, ConvertsUnixMicrosecondsWithExponent) {
     ASSERT_EQ(
         decode(
             {.data_type = telem::TIMESTAMP_T,
-             .time_format = TimeFormat::UnixMicrosecond},
+             .time_format = payload::TIME_FORMAT_UNIX_US},
             "1.5e3"
         )
             .at<std::int64_t>(0),
@@ -481,7 +489,8 @@ TEST(Decoder, ConvertsUnixMicrosecondsWithExponent) {
 TEST(Decoder, ConvertsNegativeUnixSeconds) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_UNIX_SEC},
             "-1.5"
         )
             .at<std::int64_t>(0),
@@ -494,7 +503,7 @@ TEST(Decoder, TruncatesFractionOfNanosecond) {
     ASSERT_EQ(
         decode(
             {.data_type = telem::TIMESTAMP_T,
-             .time_format = TimeFormat::UnixNanosecond},
+             .time_format = payload::TIME_FORMAT_UNIX_NS},
             "10.9"
         )
             .at<std::int64_t>(0),
@@ -506,7 +515,8 @@ TEST(Decoder, TruncatesFractionOfNanosecond) {
 TEST(Decoder, ConvertsHexUnixSecondsWithWhitespace) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_UNIX_SEC},
             R"(" 0x10\t")"
         )
             .at<std::int64_t>(0),
@@ -518,7 +528,8 @@ TEST(Decoder, ConvertsHexUnixSecondsWithWhitespace) {
 TEST(Decoder, ConvertsTrimmedUnixSecondsToNanosecond) {
     ASSERT_EQ(
         decode(
-            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = payload::TIME_FORMAT_UNIX_SEC},
             R"(" 1767323045.123456789 ")"
         )
             .at<std::int64_t>(0),
@@ -531,7 +542,7 @@ TEST(Decoder, TruncatesHexFloatNanoseconds) {
     ASSERT_EQ(
         decode(
             {.data_type = telem::TIMESTAMP_T,
-             .time_format = TimeFormat::UnixNanosecond},
+             .time_format = payload::TIME_FORMAT_UNIX_NS},
             R"("-0x1.8")"
         )
             .at<std::int64_t>(0),
@@ -665,7 +676,7 @@ TEST(Decoder, ConvertsObjectToStringAsCompactedJSONText) {
 TEST(Decoder, RejectsStringOfNoNumberForNumber) {
     const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("x")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid number \"x\"");
+    ASSERT_EQ(err.data(), "invalid number \"x\"");
 }
 
 /// @brief it should convert a number in a string with whitespace and a sign.
@@ -704,35 +715,35 @@ TEST(Decoder, ConvertsNaNInString) {
 TEST(Decoder, RejectsStringOfTwoNumbersForNumber) {
     const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("1 2")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid number \"1 2\"");
+    ASSERT_EQ(err.data(), "invalid number \"1 2\"");
 }
 
 /// @brief it should reject a quoted decimal with an exponent past -2^20.
 TEST(Decoder, RejectsQuotedDecimalPastSmallestExponent) {
     const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("1e-1048577")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid number \"1e-1048577\"");
+    ASSERT_EQ(err.data(), "invalid number \"1e-1048577\"");
 }
 
 /// @brief it should reject a quoted hex number with an exponent past -2^20.
 TEST(Decoder, RejectsQuotedHexPastSmallestExponent) {
     const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("0x1p-1048577")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid number \"0x1p-1048577\"");
+    ASSERT_EQ(err.data(), "invalid number \"0x1p-1048577\"");
 }
 
 /// @brief it should reject a hex prefix with no digits for a number.
 TEST(Decoder, RejectsHexPrefixWithNoDigitsForNumber) {
     const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("0x")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid number \"0x\"");
+    ASSERT_EQ(err.data(), "invalid number \"0x\"");
 }
 
 /// @brief it should reject NaN in a string for an integer.
 TEST(Decoder, RejectsNaNInStringForInteger) {
     const auto err = decode_error({.data_type = telem::INT32_T}, R"("NaN")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "NaN is not an integer");
+    ASSERT_EQ(err.data(), "NaN is not an integer");
 }
 
 /// @brief it should reject a string that is no label for a number with enums.
@@ -742,121 +753,121 @@ TEST(Decoder, RejectsStringOfNoLabelForNumberWithEnums) {
         R"("1x")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "unknown enum label \"1x\"");
+    ASSERT_EQ(err.data(), "unknown enum label \"1x\"");
 }
 
 /// @brief it should reject null for a number.
 TEST(Decoder, RejectsNullForNumber) {
     const auto err = decode_error({.data_type = telem::FLOAT64_T}, "null");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "expected a number or boolean, got null");
+    ASSERT_EQ(err.data(), "expected a number or boolean, got null");
 }
 
 /// @brief it should reject a number past an int8.
 TEST(Decoder, RejectsNumberPastInt8) {
     const auto err = decode_error({.data_type = telem::INT8_T}, "128");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "128 is out of range for int8");
+    ASSERT_EQ(err.data(), "128 is out of range for int8");
 }
 
 /// @brief it should reject a negative number for an unsigned integer.
 TEST(Decoder, RejectsNegativeForUnsigned) {
     const auto err = decode_error({.data_type = telem::UINT8_T}, "-1");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "-1 is out of range for uint8");
+    ASSERT_EQ(err.data(), "-1 is out of range for uint8");
 }
 
 /// @brief it should reject a fraction for an integer.
 TEST(Decoder, RejectsFractionForInteger) {
     const auto err = decode_error({.data_type = telem::INT32_T}, "1.5");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "1.5 is not an integer");
+    ASSERT_EQ(err.data(), "1.5 is not an integer");
 }
 
 /// @brief it should reject a fraction that a double rounds away.
 TEST(Decoder, RejectsFractionThatFloatRoundsAway) {
     const auto err = decode_error({.data_type = telem::INT64_T}, "9007199254740993.5");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "9007199254740993.5 is not an integer");
+    ASSERT_EQ(err.data(), "9007199254740993.5 is not an integer");
 }
 
 /// @brief it should reject a whole decimal past an int64.
 TEST(Decoder, RejectsWholeDecimalPastInt64) {
     const auto err = decode_error({.data_type = telem::INT64_T}, "1e19");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "10000000000000000000 is out of range for int64");
+    ASSERT_EQ(err.data(), "10000000000000000000 is out of range for int64");
 }
 
 /// @brief it should reject a number past a float32.
 TEST(Decoder, RejectsFloatPastFloat32) {
     const auto err = decode_error({.data_type = telem::FLOAT32_T}, "1e39");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "1e39 overflows float32");
+    ASSERT_EQ(err.data(), "1e39 overflows float32");
 }
 
 /// @brief it should reject an object for a UUID.
 TEST(Decoder, RejectsObjectForUUID) {
     const auto err = decode_error({.data_type = telem::UUID_T}, "{}");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "expected a UUID string, got an object");
+    ASSERT_EQ(err.data(), "expected a UUID string, got an object");
 }
 
 /// @brief it should reject text that is not a UUID.
 TEST(Decoder, RejectsInvalidUUID) {
     const auto err = decode_error({.data_type = telem::UUID_T}, R"("x")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid UUID \"x\"");
+    ASSERT_EQ(err.data(), "invalid UUID \"x\"");
 }
 
 /// @brief it should reject a number for an ISO 8601 timestamp.
 TEST(Decoder, RejectsNumberForISO8601) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         "1"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "expected an ISO 8601 string, got a number");
+    ASSERT_EQ(err.data(), "expected an ISO 8601 string, got a number");
 }
 
 /// @brief it should reject text that is not ISO 8601.
 TEST(Decoder, RejectsInvalidISO8601) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         R"("now")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid ISO 8601 timestamp \"now\"");
+    ASSERT_EQ(err.data(), "invalid ISO 8601 timestamp \"now\"");
 }
 
 /// @brief it should reject a day past the end of its month.
 TEST(Decoder, RejectsDayPastMonth) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         R"("2026-02-29T00:00:00Z")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid ISO 8601 timestamp \"2026-02-29T00:00:00Z\"");
+    ASSERT_EQ(err.data(), "invalid ISO 8601 timestamp \"2026-02-29T00:00:00Z\"");
 }
 
 /// @brief it should reject an ISO 8601 timestamp with no zone.
 TEST(Decoder, RejectsISO8601WithoutZone) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         R"("2026-01-02T03:04:05")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid ISO 8601 timestamp \"2026-01-02T03:04:05\"");
+    ASSERT_EQ(err.data(), "invalid ISO 8601 timestamp \"2026-01-02T03:04:05\"");
 }
 
 /// @brief it should reject an ISO 8601 timestamp before the smallest timestamp.
 TEST(Decoder, RejectsISO8601PastTimestamp) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::ISO8601},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_ISO_8601},
         R"("1677-09-21T00:12:43.145224191Z")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "\"1677-09-21T00:12:43.145224191Z\" is out of range for a timestamp"
     );
 }
@@ -864,78 +875,84 @@ TEST(Decoder, RejectsISO8601PastTimestamp) {
 /// @brief it should reject a boolean for Unix seconds.
 TEST(Decoder, RejectsBooleanForUnixSeconds) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         "true"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "expected a number, got a boolean");
+    ASSERT_EQ(err.data(), "expected a number, got a boolean");
 }
 
 /// @brief it should reject text that is not a number for Unix seconds.
 TEST(Decoder, RejectsWordForUnixSeconds) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         R"("soon")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid number \"soon\"");
+    ASSERT_EQ(err.data(), "invalid number \"soon\"");
 }
 
 /// @brief it should reject Unix seconds past the range of a timestamp.
 TEST(Decoder, RejectsUnixSecondsPastTimestamp) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         "1e12"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "1e12 is out of range for a unix_sec timestamp");
+    ASSERT_EQ(err.data(), "1e12 is out of range for a unix_sec timestamp");
 }
 
 /// @brief it should reject Unix seconds with an exponent past -2^20.
 TEST(Decoder, RejectsUnixSecondsPastSmallestExponent) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         "1e-1048577"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid number \"1e-1048577\"");
+    ASSERT_EQ(err.data(), "invalid number \"1e-1048577\"");
 }
 
 /// @brief it should reject infinity in Unix seconds.
 TEST(Decoder, RejectsInfiniteUnixSeconds) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         R"("inf")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "inf is out of range for a unix_sec timestamp");
+    ASSERT_EQ(err.data(), "inf is out of range for a unix_sec timestamp");
 }
 
 /// @brief it should reject hex Unix seconds past the range of a timestamp.
 TEST(Decoder, RejectsHexUnixSecondsPastTimestamp) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_SEC},
         R"("0x7fffffffffffffff")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "0x7fffffffffffffff is out of range for a unix_sec timestamp");
+    ASSERT_EQ(
+        err.data(),
+        "0x7fffffffffffffff is out of range for a unix_sec timestamp"
+    );
 }
 
 /// @brief it should reject hex Unix nanoseconds below an int64.
 TEST(Decoder, RejectsHexUnixNanosecondsBelowInt64) {
     const auto err = decode_error(
-        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixNanosecond},
+        {.data_type = telem::TIMESTAMP_T, .time_format = payload::TIME_FORMAT_UNIX_NS},
         R"("-0x8000000000000001")"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "-0x8000000000000001 is out of range for a unix_ns timestamp");
+    ASSERT_EQ(
+        err.data(),
+        "-0x8000000000000001 is out of range for a unix_ns timestamp"
+    );
 }
 
 /// @brief it should reject JSON that repeats a member name.
 TEST(Decoder, RejectsRepeatedJSONMember) {
     const auto err = decode_error({.data_type = telem::JSON_T}, R"({"a":1,"a":2})");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "duplicate object member name \"a\"");
+    ASSERT_EQ(err.data(), "duplicate object member name \"a\"");
 }
 
 /// @brief it should reject JSON that repeats a member name in a nested object.
@@ -945,49 +962,49 @@ TEST(Decoder, RejectsRepeatedNestedJSONMember) {
         R"({"a":[{"b":1,"b":2}]})"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "duplicate object member name \"b\"");
+    ASSERT_EQ(err.data(), "duplicate object member name \"b\"");
 }
 
 /// @brief it should reject a number for bytes.
 TEST(Decoder, RejectsNumberForBytes) {
     const auto err = decode_error({.data_type = telem::BYTES_T}, "1");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "expected a base64 string, got a number");
+    ASSERT_EQ(err.data(), "expected a base64 string, got a number");
 }
 
 /// @brief it should reject text that is not base64.
 TEST(Decoder, RejectsInvalidBase64) {
     const auto err = decode_error({.data_type = telem::BYTES_T}, R"("a*b=")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "not canonical base64");
+    ASSERT_EQ(err.data(), "not canonical base64");
 }
 
 /// @brief it should reject base64 without padding.
 TEST(Decoder, RejectsUnpaddedBase64) {
     const auto err = decode_error({.data_type = telem::BYTES_T}, R"("YQ")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "not canonical base64");
+    ASSERT_EQ(err.data(), "not canonical base64");
 }
 
 /// @brief it should reject base64 with padding bits set.
 TEST(Decoder, RejectsBase64PaddingBits) {
     const auto err = decode_error({.data_type = telem::BYTES_T}, R"("YR==")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "not canonical base64");
+    ASSERT_EQ(err.data(), "not canonical base64");
 }
 
 /// @brief it should reject base64 with a line feed.
 TEST(Decoder, RejectsBase64LineFeed) {
     const auto err = decode_error({.data_type = telem::BYTES_T}, R"("Y\nQ==")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "base64 must not hold a line break");
+    ASSERT_EQ(err.data(), "base64 must not hold a line break");
 }
 
 /// @brief it should reject base64 with a carriage return.
 TEST(Decoder, RejectsBase64CarriageReturn) {
     const auto err = decode_error({.data_type = telem::BYTES_T}, R"("YQ==\r")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "base64 must not hold a line break");
+    ASSERT_EQ(err.data(), "base64 must not hold a line break");
 }
 
 /// @brief it should reject a fraction that a double rounds away from an integer range.
@@ -997,7 +1014,7 @@ TEST(Decoder, RejectsRoundedFractionInRange) {
         "9007199254740993.5"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "9007199254740993.5 is not an integer");
+    ASSERT_EQ(err.data(), "9007199254740993.5 is not an integer");
 }
 
 /// @brief it should reject a negative number outside an unsigned range.
@@ -1007,7 +1024,7 @@ TEST(Decoder, RejectsNegativeOutsideUnsignedRange) {
         "-1"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "-1 is out of range for uint64");
+    ASSERT_EQ(err.data(), "-1 is out of range for uint64");
 }
 
 /// @brief it should reject a whole decimal past an integer range.
@@ -1017,14 +1034,35 @@ TEST(Decoder, RejectsWholeDecimalPastRange) {
         "1e19"
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "10000000000000000000 is out of range for int64");
+    ASSERT_EQ(err.data(), "10000000000000000000 is out of range for int64");
 }
 
 /// @brief it should reject a data type that no JSON value converts to.
 TEST(Decoder, RejectsUnknownDataType) {
     const auto err = create_error({.data_type = telem::UNKNOWN_T});
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "cannot convert a JSON value to " + telem::UNKNOWN_T.name());
+    ASSERT_EQ(err.data(), "cannot convert a JSON value to " + telem::UNKNOWN_T.name());
+}
+
+/// @brief it should reject a timestamp field with no time format or an unknown one.
+TEST(Decoder, RejectsUnknownTimeFormat) {
+    for (const std::string format: {"", "unix_min"}) {
+        const auto err = create_error(
+            {.data_type = telem::TIMESTAMP_T, .time_format = format}
+        );
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(
+            err.data(),
+            "unknown time format \"" + format +
+                "\": expected \"iso8601\", \"unix_sec\", \"unix_ms\", \"unix_us\", or "
+                "\"unix_ns\""
+        );
+    }
+}
+
+/// @brief it should need no time format for a data type that is not a timestamp.
+TEST(Decoder, NeedsNoTimeFormatForInt64) {
+    ASSERT_NIL(create_error({.data_type = telem::INT64_T}));
 }
 
 /// @brief it should reject a range that is not an integer data type.
@@ -1033,7 +1071,7 @@ TEST(Decoder, RejectsFloatRange) {
         {.data_type = telem::FLOAT64_T, .range = telem::FLOAT32_T}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "range float32 is not an integer data type");
+    ASSERT_EQ(err.data(), "range float32 is not an integer data type");
 }
 
 /// @brief it should reject a fraction enum for an integer.
@@ -1042,7 +1080,7 @@ TEST(Decoder, RejectsFractionEnumForInteger) {
         {.data_type = telem::UINT8_T, .enums = {{"HALF", 0.5}}}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "enum label \"HALF\": 0.5 is not an integer");
+    ASSERT_EQ(err.data(), "enum label \"HALF\": 0.5 is not an integer");
 }
 
 /// @brief it should reject an enum past the data type.
@@ -1051,7 +1089,7 @@ TEST(Decoder, RejectsEnumPastDataType) {
         {.data_type = telem::INT8_T, .enums = {{"BIG", std::int64_t{128}}}}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "enum label \"BIG\": 128 is out of range for int8");
+    ASSERT_EQ(err.data(), "enum label \"BIG\": 128 is out of range for int8");
 }
 
 /// @brief it should reject a NaN enum for an integer.
@@ -1060,7 +1098,7 @@ TEST(Decoder, RejectsNaNEnumForInteger) {
         {.data_type = telem::INT32_T, .enums = {{"FAULT", NaN}}}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "enum label \"FAULT\": NaN is not an integer");
+    ASSERT_EQ(err.data(), "enum label \"FAULT\": NaN is not an integer");
 }
 
 /// @brief it should reject a fraction enum for a boolean.
@@ -1069,7 +1107,7 @@ TEST(Decoder, RejectsFractionEnumForBoolean) {
         {.data_type = telem::BOOLEAN_T, .enums = {{"HALF", 0.5}}}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "enum label \"HALF\": 0.5 is not a boolean");
+    ASSERT_EQ(err.data(), "enum label \"HALF\": 0.5 is not a boolean");
 }
 
 /// @brief it should reject a negative enum for a boolean.
@@ -1078,7 +1116,7 @@ TEST(Decoder, RejectsNegativeEnumForBoolean) {
         {.data_type = telem::BOOLEAN_T, .enums = {{"ERR", std::int64_t{-1}}}}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "enum label \"ERR\": -1 is not a boolean");
+    ASSERT_EQ(err.data(), "enum label \"ERR\": -1 is not a boolean");
 }
 
 /// @brief it should reject a NaN enum for a boolean.
@@ -1087,7 +1125,7 @@ TEST(Decoder, RejectsNaNEnumForBoolean) {
         {.data_type = telem::BOOLEAN_T, .enums = {{"FAULT", NaN}}}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "enum label \"FAULT\": NaN is not a boolean");
+    ASSERT_EQ(err.data(), "enum label \"FAULT\": NaN is not a boolean");
 }
 
 /// @brief it should reject a number enum for a string.
@@ -1097,7 +1135,7 @@ TEST(Decoder, RejectsNumberEnumForString) {
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "enum label \"ON\": a float64 value does not convert to string"
     );
 }
@@ -1109,19 +1147,21 @@ TEST(Decoder, RejectsStringEnumForNumber) {
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "enum label \"ON\": a string value does not convert to float64"
     );
 }
 
 /// @brief it should reject an enum for a timestamp.
 TEST(Decoder, RejectsEnumForTimestamp) {
-    const auto err = create_error(
-        {.data_type = telem::TIMESTAMP_T, .enums = {{"EPOCH", std::int64_t{0}}}}
-    );
+    const auto err = create_error({
+        .data_type = telem::TIMESTAMP_T,
+        .time_format = payload::TIME_FORMAT_ISO_8601,
+        .enums = {{"EPOCH", std::int64_t{0}}},
+    });
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "enum label \"EPOCH\": a int64 value does not convert to timestamp"
     );
 }
@@ -1170,7 +1210,7 @@ TEST(DecoderAppendFloat, AppendsNaN) {
 TEST(DecoderAppendFloat, RejectsNaNIntoInteger) {
     const auto err = decode_float_error({.data_type = telem::INT32_T}, NaN);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "NaN is not an integer");
+    ASSERT_EQ(err.data(), "NaN is not an integer");
 }
 
 /// @brief it should reject infinity into an integer.
@@ -1180,21 +1220,21 @@ TEST(DecoderAppendFloat, RejectsInfinityIntoInteger) {
         std::numeric_limits<double>::infinity()
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "Infinity is out of range for int64");
+    ASSERT_EQ(err.data(), "Infinity is out of range for int64");
 }
 
 /// @brief it should reject a double past a float32.
 TEST(DecoderAppendFloat, RejectsFloatPastFloat32) {
     const auto err = decode_float_error({.data_type = telem::FLOAT32_T}, 1e39);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "1e+39 overflows float32");
+    ASSERT_EQ(err.data(), "1e+39 overflows float32");
 }
 
 /// @brief it should reject a fraction for an integer.
 TEST(DecoderAppendFloat, RejectsFractionForInteger) {
     const auto err = decode_float_error({.data_type = telem::INT32_T}, 1.5);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "1.5 is not an integer");
+    ASSERT_EQ(err.data(), "1.5 is not an integer");
 }
 
 /// @brief it should reject a fraction outside an integer range.
@@ -1204,14 +1244,14 @@ TEST(DecoderAppendFloat, RejectsFractionOutsideRange) {
         2.5
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "2.5 is not an integer");
+    ASSERT_EQ(err.data(), "2.5 is not an integer");
 }
 
 /// @brief it should reject a double for a string.
 TEST(DecoderAppendFloat, RejectsFloatForString) {
     const auto err = decode_float_error({.data_type = telem::STRING_T}, 1.0);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "cannot convert a float to string");
+    ASSERT_EQ(err.data(), "cannot convert a float to string");
 }
 
 /// @brief it should write a number as the shortest JSON number that reads back as it.
@@ -1353,10 +1393,13 @@ TEST(Encoder, WritesString) {
 /// @brief it should write a timestamp in the time format of the field.
 TEST(Encoder, WritesTimestamp) {
     expect_encodes({
-        {{.data_type = telem::TIMESTAMP_T, .type = Type::Boolean},
+        {{.data_type = telem::TIMESTAMP_T,
+          .time_format = payload::TIME_FORMAT_ISO_8601,
+          .type = Type::Boolean},
          telem::TimeStamp(1500000006),
          R"("1970-01-01T00:00:01.500000006Z")"},
-        {{.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        {{.data_type = telem::TIMESTAMP_T,
+          .time_format = payload::TIME_FORMAT_UNIX_SEC},
          telem::TimeStamp(1767323045123456789),
          "1767323045.123456789"},
     });
@@ -1391,7 +1434,7 @@ TEST(Encoder, RejectsSampleWithNoJSONValue) {
     for (const auto &[field, sample, message]: cases) {
         const auto err = encode_error(field, sample);
         ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-        EXPECT_EQ(err.data, message);
+        EXPECT_EQ(err.data(), message);
     }
 }
 
@@ -1405,7 +1448,10 @@ TEST(Encoder, RejectsTypeThatCannotHoldDataType) {
          }) {
         const auto err = create_encoder_error({.data_type = dt, .type = type});
         ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-        EXPECT_EQ(err.data, "data type " + dt.name() + " only serializes as a string");
+        EXPECT_EQ(
+            err.data(),
+            "data type " + dt.name() + " only serializes as a string"
+        );
     }
 }
 
@@ -1416,9 +1462,30 @@ TEST(Encoder, RejectsUnknownDataType) {
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "cannot convert " + telem::UNKNOWN_T.name() + " to a JSON value"
     );
+}
+
+/// @brief it should reject a timestamp field with no time format or an unknown one.
+TEST(Encoder, RejectsUnknownTimeFormat) {
+    for (const std::string format: {"", "unix_min"}) {
+        const auto err = create_encoder_error(
+            {.data_type = telem::TIMESTAMP_T, .time_format = format}
+        );
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(
+            err.data(),
+            "unknown time format \"" + format +
+                "\": expected \"iso8601\", \"unix_sec\", \"unix_ms\", \"unix_us\", or "
+                "\"unix_ns\""
+        );
+    }
+}
+
+/// @brief it should need no time format for a data type that is not a timestamp.
+TEST(Encoder, NeedsNoTimeFormatForInt64) {
+    ASSERT_NIL(create_encoder_error({.data_type = telem::INT64_T}));
 }
 
 /// @brief it should reject an enum value that does not convert to the data type.
@@ -1427,7 +1494,7 @@ TEST(Encoder, RejectsEnumThatDoesNotConvert) {
         {.data_type = telem::UINT8_T, .enums = {{"HALF", 0.5}}}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "enum label \"HALF\": 0.5 is not an integer");
+    ASSERT_EQ(err.data(), "enum label \"HALF\": 0.5 is not an integer");
 }
 
 /// @brief it should reject an enum label that is not valid UTF-8.
@@ -1436,7 +1503,7 @@ TEST(Encoder, RejectsEnumLabelThatIsNotUTF8) {
         {.data_type = telem::UINT8_T, .enums = {{"a\xff", std::uint8_t{1}}}}
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "enum label \"a\\xff\": invalid UTF-8");
+    ASSERT_EQ(err.data(), "enum label \"a\\xff\": invalid UTF-8");
 }
 
 /// @brief it should accept one JSON value in which no object repeats a member name.

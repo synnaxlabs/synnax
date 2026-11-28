@@ -19,6 +19,8 @@ export const BROWSE_COMMAND_TYPE = "browse";
 
 export const BROWSE_SPARKPLUG_COMMAND_TYPE = "browse_sparkplug";
 
+export const SAMPLE_COMMAND_TYPE = "sample";
+
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),

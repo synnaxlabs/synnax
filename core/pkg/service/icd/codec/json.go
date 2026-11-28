@@ -14,6 +14,7 @@ package codec
 import (
 	"encoding/json/jsontext"
 	"math"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -38,6 +39,9 @@ type Binding struct {
 type Failure struct {
 	// Binding is the index of the field's binding in its message.
 	Binding int
+	// Missing is true when the payload has no value for the field, and the field has no
+	// default.
+	Missing bool
 	// Err names the field, and also the message when the decoder holds more than one.
 	Err error
 }
@@ -65,6 +69,10 @@ type JSON struct {
 	router     *router
 	// failures holds the failures of the last decode.
 	failures []Failure
+	// bare is true when a field or a match rule reads the root of a document.
+	bare bool
+	// quoted holds the last document that is not JSON as a JSON string.
+	quoted []byte
 }
 
 type jsonMessage struct {
@@ -124,6 +132,9 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 			pointers = append(pointers, f.pointer)
 		}
 	}
+	j.bare = slices.ContainsFunc(pointers, func(p xjson.Pointer) bool {
+		return len(p) == 0
+	})
 	j.extractor = xjson.NewExtractor(pointers)
 	j.values = make([]jsontext.Value, len(pointers))
 	values := j.values[j.ruleValues:]
@@ -283,10 +294,7 @@ func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
 	case icd.UnsignedJSONField:
 		out.sample.Range = telem.Uint64T
 	case icd.TimestampJSONField:
-		format := string(v.TimeFormat)
-		if out.sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
-			return jsonVariant{}, err
-		}
+		out.sample.TimeFormat = v.TimeFormat
 		if err = f.readTimestampDefault(v.Default); err != nil {
 			return jsonVariant{}, err
 		}
@@ -443,7 +451,9 @@ func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
 // bindings to samples[message]. samples holds an entry for each message in NewJSON
 // order, and each entry holds one slice for each binding, in binding order. ok is
 // false, and Decode appends nothing, when doc belongs to no message. Decode returns an
-// error, appending nothing, when doc is not JSON or meets two match rules.
+// error, appending nothing, when doc is not JSON or meets two match rules. When a field
+// or a match rule reads the root of a document, a doc that is not JSON reads as a JSON
+// string, so it fails only when it is not UTF-8.
 //
 // failures holds each field whose value does not convert, or that has no value and no
 // default. A failed field appends no sample, and the other fields still append.
@@ -452,7 +462,7 @@ func (j *JSON) Decode(
 	doc []byte,
 	samples [][][]byte,
 ) (message int, ok bool, failures []Failure, err error) {
-	if err := j.extractor.Extract(doc, j.values); err != nil {
+	if err := j.extract(doc); err != nil {
 		return 0, false, nil, errors.Wrap(validate.ErrValidation, err.Error())
 	}
 	if message, ok, err = j.router.find(j.values[:j.ruleValues]); err != nil || !ok {
@@ -470,12 +480,29 @@ func (j *JSON) Decode(
 	return message, true, j.failures, nil
 }
 
+// extract reads the value at each pointer of doc into j.values, reading a doc that is
+// not JSON as a JSON string when j.bare is true.
+func (j *JSON) extract(doc []byte) error {
+	err := j.extractor.Extract(doc, j.values)
+	if err == nil || !j.bare ||
+		jsontext.Value(doc).IsValid(jsontext.AllowDuplicateNames(true)) {
+		return err
+	}
+	if j.quoted, err = jsontext.AppendQuote(j.quoted[:0], doc); err != nil {
+		return err
+	}
+	return j.extractor.Extract(j.quoted, j.values)
+}
+
 // decode appends the sample of each field to samples, and each failed field to
 // failures.
 func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 	for i := range m.fields {
 		f := &m.fields[i]
-		var err error
+		var (
+			err     error
+			missing bool
+		)
 		if payload.Absent(m.values[i], f.dataType) {
 			switch {
 			case f.generate != nil:
@@ -483,6 +510,7 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 			case f.fallback != nil:
 				samples[i] = append(samples[i], f.fallback...)
 			default:
+				missing = true
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
 				)
@@ -496,6 +524,7 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 		if err != nil {
 			failures = append(failures, Failure{
 				Binding: i,
+				Missing: missing,
 				Err:     errors.Wrapf(err, "field %s", f.name),
 			})
 		}

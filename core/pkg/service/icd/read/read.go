@@ -14,6 +14,7 @@ package read
 import (
 	"context"
 	"maps"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -40,8 +42,7 @@ type Read struct {
 	// Messages are the messages to read and the channel of each field.
 	Messages []icd.ReadMessage
 	// Framed is true when the task splits a byte stream into messages with the framing
-	// of the ICD. The Driver then decodes binary and text messages as well as JSON, and
-	// an edit to the framing changes the hash.
+	// of the ICD, so an edit to the framing changes the hash.
 	Framed bool
 }
 
@@ -154,8 +155,10 @@ func (r Resolver) Hash(
 }
 
 // Check checks each of reads, in order, against its ICD, from icds or else retrieved
-// through snap, and its channels, then claims the index channels that each read writes.
-// It returns the validation error of the first problem.
+// through snap, and its channels, and claims the index channels that each read writes.
+// The framed reads share one stream, so they must then frame it the same way, read each
+// message once, and read messages of one format. It returns the validation error of the
+// first problem.
 func (r Resolver) Check(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -176,6 +179,70 @@ func (r Resolver) Check(
 			return err
 		}
 	}
+	return c.checkStream(lo.Filter(reads, func(rd Read, _ int) bool {
+		_, held := c.icds[rd.ICD]
+		return rd.Framed && held
+	}))
+}
+
+// checkStream returns a validation error when reads, which share one stream and pass
+// Read, frame the stream differently, read one message twice, or read messages of
+// different formats. A message name includes its ICD when reads have more than one.
+func (c Checker) checkStream(reads []Read) error {
+	if len(reads) == 0 {
+		return nil
+	}
+	first := c.icds[reads[0].ICD]
+	for _, rd := range reads {
+		if ic := c.icds[rd.ICD]; !reflect.DeepEqual(ic.Framing, first.Framing) {
+			return validate.PathedError(validate.Errorf(
+				"ICDs %s and %s frame the stream differently", first.Name, ic.Name,
+			), slices.Concat(rd.Path, []string{"icd"})...)
+		}
+	}
+	several := slices.ContainsFunc(reads, func(rd Read) bool {
+		return rd.ICD != first.Key
+	})
+	type message struct {
+		icd icd.Key
+		key icd.MessageKey
+	}
+	var (
+		seen        = make(set.Set[message])
+		firstName   string
+		firstFormat payload.Format
+	)
+	for _, rd := range reads {
+		ic := c.icds[rd.ICD]
+		for j, rm := range rd.Messages {
+			path := slices.Concat(
+				rd.Path,
+				[]string{"messages", strconv.Itoa(j), "message"},
+			)
+			msg := ic.Messages[slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
+				return m.Key == rm.Message
+			})]
+			name := msg.Name
+			if several {
+				name += " of ICD " + ic.Name
+			}
+			read := message{icd: ic.Key, key: rm.Message}
+			if seen.Contains(read) {
+				return validate.PathedError(
+					validate.Errorf("message %s is read twice", name),
+					path...,
+				)
+			}
+			seen.Add(read)
+			if format := msg.Payload.Format(); firstFormat == "" {
+				firstName, firstFormat = name, format
+			} else if format != firstFormat {
+				return validate.PathedError(validate.Errorf(
+					"messages %s and %s have different formats", firstName, name,
+				), path...)
+			}
+		}
+	}
 	return nil
 }
 
@@ -191,16 +258,25 @@ type Checker struct {
 
 // Read checks each message of rd against its ICD and the channels of its bindings, and
 // claims each channel of a binding. It returns a validation error at the path of the
-// first problem.
+// first problem, such as two messages of different formats.
 func (c Checker) Read(rd Read) error {
 	ic, ok := c.icds[rd.ICD]
 	if !ok {
 		return nil
 	}
+	var first icd.Message
 	for j, rm := range rd.Messages {
 		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
-		if err := c.message(rm, ic, rd.Framed, path); err != nil {
+		msg, err := c.message(rm, ic, path)
+		if err != nil {
 			return err
+		}
+		if j == 0 {
+			first = msg
+		} else if msg.Payload.Format() != first.Payload.Format() {
+			return validate.PathedError(validate.Errorf(
+				"messages %s and %s have different formats", first.Name, msg.Name,
+			), slices.Concat(path, []string{"message"})...)
 		}
 	}
 	return nil
@@ -325,14 +401,12 @@ func (c Checker) BindTag(key channel.Key, path []string) (icdv0.Channel, error) 
 }
 
 // message checks rm, at path, against its message in ic and the channels of its
-// bindings, and claims each channel of a binding. A message that is not JSON passes
-// only when framed is true.
+// bindings, claims each channel of a binding, and returns the message.
 func (c Checker) message(
 	rm icd.ReadMessage,
 	ic icd.ICD,
-	framed bool,
 	path []string,
-) error {
+) (icd.Message, error) {
 	at := func(err error, segment string) error {
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
@@ -340,37 +414,114 @@ func (c Checker) message(
 		return m.Key == rm.Message
 	})
 	if i < 0 {
-		return at(validate.Errorf(
+		return icd.Message{}, at(validate.Errorf(
 			"message %s does not exist in ICD %s", rm.Message, ic.Name,
 		), "message")
 	}
 	msg := ic.Messages[i]
-	if _, isJSON := msg.Payload.Variant.(icd.JSONPayload); !isJSON && !framed {
-		return at(
-			validate.Errorf("message %s is not a JSON message", msg.Name),
-			"message",
-		)
-	}
 	fields := fieldsOf(msg.Payload)
 	if rm.Index != nil {
 		if err := checkIndex(rm, fields, msg.Name); err != nil {
-			return at(err, "index")
+			return icd.Message{}, at(err, "index")
 		}
 	}
 	for j, b := range rm.Bindings {
 		f, ok := fields[b.Field]
 		bindingPath := slices.Concat(path, []string{"bindings", strconv.Itoa(j)})
 		if !ok {
-			return validate.PathedError(validate.Errorf(
+			return icd.Message{}, validate.PathedError(validate.Errorf(
 				"field %s does not exist in message %s", b.Field, msg.Name,
 			), slices.Concat(bindingPath, []string{"field"})...)
 		}
 		isIndex := rm.Index != nil && *rm.Index == b.Field
 		if err := c.checkBinding(b, f, isIndex, bindingPath); err != nil {
-			return err
+			return icd.Message{}, err
 		}
 	}
+	if p, ok := msg.Payload.Variant.(icd.BinaryPayload); ok {
+		if err := c.checkSelections(rm, p, path); err != nil {
+			return icd.Message{}, err
+		}
+	}
+	return msg, nil
+}
+
+// checkSelections returns a validation error at the path of a binding of rm whose
+// channel shares an index channel with the channel of an earlier binding, when
+// different multiplexor values of p select their fields. A payload would then write the
+// index and one channel without the other.
+func (c Checker) checkSelections(
+	rm icd.ReadMessage,
+	p icd.BinaryPayload,
+	path []string,
+) error {
+	type selected struct {
+		name string
+		sel  selection
+	}
+	fields := make(map[icd.FieldKey]selected, len(p.Fields))
+	for _, f := range p.Fields {
+		fields[f.Base().Key] = selected{name: f.Base().Name, sel: selectionOf(f)}
+	}
+	first := make(map[channel.Key]selected, len(rm.Bindings))
+	for j, b := range rm.Bindings {
+		ch, ok := c.channels[b.Channel]
+		if !ok || ch.IndexKey == 0 {
+			continue
+		}
+		f := fields[b.Field]
+		seen, ok := first[ch.IndexKey]
+		if !ok {
+			first[ch.IndexKey] = f
+			continue
+		}
+		if seen.sel.equal(f.sel) {
+			continue
+		}
+		return validate.PathedError(validate.Errorf(
+			"fields %s and %s write to one index channel, but different multiplexor "+
+				"values select them",
+			seen.name,
+			f.name,
+		), slices.Concat(path, []string{"bindings", strconv.Itoa(j)})...)
+	}
 	return nil
+}
+
+// selection is the multiplexor of a binary field and the sorted values of it that
+// select the field. It is zero for a field that each payload holds: one with no
+// multiplexor, or with a default.
+type selection struct {
+	multiplexor icd.FieldKey
+	values      []int32
+}
+
+func selectionOf(f icd.BinaryField) selection {
+	b := f.Base()
+	if b.Multiplexor == nil || defaulted(f) {
+		return selection{}
+	}
+	return selection{
+		multiplexor: *b.Multiplexor,
+		values:      slices.Sorted(slices.Values(b.MultiplexValues)),
+	}
+}
+
+func (s selection) equal(o selection) bool {
+	return s.multiplexor == o.multiplexor && slices.Equal(s.values, o.values)
+}
+
+func defaulted(f icd.BinaryField) bool {
+	switch v := f.Variant.(type) {
+	case icd.FloatBinaryField:
+		return v.Default != nil
+	case icd.IntegerBinaryField:
+		return v.Default != nil
+	case icd.UnsignedBinaryField:
+		return v.Default != nil
+	default:
+		panic(errors.Newf("read: unknown binary field variant %T", v))
+	}
 }
 
 // checkIndex checks the index field of rm, which has one, against fields, the fields

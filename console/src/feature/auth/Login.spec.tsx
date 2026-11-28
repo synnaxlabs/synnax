@@ -168,7 +168,7 @@ const renderLogin = async (
 // The desktop shell of a dev build: its main window, keychain, loopback listener, and
 // the browser a login hands the provider page to. The browser returns at once with the
 // state the Console waits for.
-const fakeDesktop = (onWait?: () => void) => {
+const fakeDesktop = (onWait?: () => void, result = "code=abc") => {
   const ipc = { listens: 0, saved: new Map<string, string>() };
   mockWindows("main");
   mockIPC((cmd, args) => {
@@ -184,7 +184,7 @@ const fakeDesktop = (onWait?: () => void) => {
         return 4242;
       case "oidc_wait":
         onWait?.();
-        return `code=abc&state=${state}`;
+        return `${result}&state=${state}`;
       default:
         return undefined;
     }
@@ -254,7 +254,11 @@ describe("Auth login", () => {
 
   it("should drop the methods the client does not know", async () => {
     const { port } = await serveAuth(["api_key", "carrier_pigeon"]);
-    const client = auth.createTokenlessClient({ host: "127.0.0.1", port });
+    const client = auth.createTokenlessClient({
+      host: "127.0.0.1",
+      port,
+      secure: false,
+    });
     expect(await auth.retrieveMethods(client)).toEqual(["api_key"]);
   });
 
@@ -335,6 +339,38 @@ describe("Auth login", () => {
     const plant = screen.getByRole("button", { name: "Log in with plant-sso" });
     for (const button of [google, corp, microsoft, plant])
       expect(button.querySelector("svg")).not.toBeNull();
+  });
+
+  it("should draw the provider logos in brand color", async () => {
+    const core = await serveAuth(
+      ["oidc"],
+      [
+        {
+          provider: "gitlab",
+          issuer: "https://gitlab.com",
+          authorizationEndpoint: "https://gitlab.com/oauth/authorize",
+          clientId: "synnax",
+        },
+        {
+          provider: "microsoft",
+          issuer: "https://login.microsoftonline.com",
+          authorizationEndpoint: "https://login.microsoftonline.com/acme/authorize",
+          clientId: "synnax",
+        },
+      ],
+    );
+    await renderLogin(core);
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    const gitlab = await screen.findByRole("button", { name: "Log in with GitLab" });
+    const microsoft = screen.getByRole("button", { name: "Log in with Microsoft" });
+    expect(gitlab.querySelector("svg")?.style.color).toEqual("rgb(226, 67, 41)");
+    const parts = Array.from(microsoft.querySelectorAll<SVGGElement>("svg g"));
+    expect(parts.map((part) => part.style.color)).toEqual([
+      "rgb(242, 80, 34)",
+      "rgb(127, 186, 0)",
+      "rgb(0, 164, 239)",
+      "rgb(255, 185, 0)",
+    ]);
   });
 
   it("should explain that provider login needs HTTPS", async () => {
@@ -496,6 +532,57 @@ describe("Auth login", () => {
     expect(screen.queryByText(/no credentials/)).toBeNull();
   });
 
+  describe("a provider login the person did not finish", () => {
+    const returnWith = (query: string): void => {
+      sessionStorage.setItem(
+        "synnax-oidc-login",
+        JSON.stringify({
+          core: ALPHA.key,
+          provider: "company-sso",
+          verifier: "verifier",
+          state: "s",
+          redirectUri: "http://localhost:3000/",
+        }),
+      );
+      window.history.replaceState(null, "", `/?${query}&state=s`);
+      onTestFinished(() => {
+        sessionStorage.clear();
+        window.history.replaceState(null, "", "/");
+      });
+    };
+
+    const expectNotFinished = async (
+      statuses: () => Status.NotificationSpec[],
+      description: string,
+    ): Promise<void> => {
+      await vi.waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            variant: "info",
+            message: "Login not finished",
+            description,
+          }),
+        ),
+      );
+      expect(statuses().map((s) => s.variant)).not.toContain("error");
+    };
+
+    it("should report the provider's reason as information", async () => {
+      returnWith("error=access_denied&error_description=Denied");
+      const { statuses } = await renderLogin();
+      await expectNotFinished(statuses, "Denied");
+    });
+
+    it("should name both reasons when the provider gives none", async () => {
+      returnWith("error=access_denied");
+      const { statuses } = await renderLogin();
+      await expectNotFinished(
+        statuses,
+        "You cancelled the login, or the provider refused it.",
+      );
+    });
+  });
+
   describe("on desktop", () => {
     beforeEach(() => {
       runtime.engine = "tauri";
@@ -520,6 +607,24 @@ describe("Auth login", () => {
       expect(Object.fromEntries(ipc.saved)).toEqual({
         [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_token",
       });
+    });
+
+    it("should report a denied provider login as not finished", async () => {
+      const core = await serveAuth(["oidc"], [PROVIDER]);
+      fakeDesktop(undefined, "error=access_denied&error_description=Denied");
+      const { statuses } = await renderLogin(core, createConsoleWrapper);
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await vi.waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            variant: "info",
+            message: "Login not finished",
+            description: "Denied",
+          }),
+        ),
+      );
+      expect(statuses().map((s) => s.message)).not.toContain(FAILED);
     });
 
     it("should let a new provider login replace one still waiting", async () => {

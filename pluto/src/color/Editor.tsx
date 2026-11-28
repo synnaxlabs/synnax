@@ -43,7 +43,7 @@ interface HexProps {
 }
 
 const Hex = ({ value }: HexProps): ReactElement => (
-  <Text.Text level="small" variant="code" color={value == null ? 8 : 10}>
+  <Text.Text level="small" color={value == null ? 8 : 10}>
     {value == null ? "Auto" : xcolor.hex(value).toUpperCase()}
   </Text.Text>
 );

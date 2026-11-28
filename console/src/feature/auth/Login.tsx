@@ -79,42 +79,31 @@ const errorMessage = (status: connection.Status): string | undefined => {
   return error.message;
 };
 
-interface Accepted {
-  password: boolean;
-  oidc: boolean;
-  // undefined while the providers load, or after their request fails
-  providers?: auth.OIDCLogin[];
-}
-
-const DEFAULT_ACCEPTED: Accepted = { password: true, oidc: false, providers: [] };
-
-// An unreachable Core, or one older than the methods endpoint, keeps the password
-// form: the connection status reports the first, and the second accepts passwords.
-const useAccepted = (core?: auth.TokenlessParams): Accepted => {
+// Undefined while the providers load, or after their request fails.
+const useProviders = (
+  core: auth.TokenlessParams | undefined,
+  oidc: boolean,
+): auth.OIDCLogin[] | undefined => {
   const host = core?.host;
   const port = core?.port;
   const secure = core?.secure;
-  const key = host == null || port == null ? null : `${host}:${port}:${secure}`;
-  const [found, setFound] = useState<{ key: string; accepted: Accepted } | null>(null);
+  const key =
+    !oidc || host == null || port == null ? null : `${host}:${port}:${secure}`;
+  const [found, setFound] = useState<{ key: string; providers: auth.OIDCLogin[] }>();
   const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async (signal) => {
       if (key == null || host == null || port == null) return;
       const tokenless = auth.createTokenlessClient({ host, port, secure });
-      const methods = await auth.retrieveMethods(tokenless).catch(() => null);
-      if (methods == null || signal.aborted) return;
-      const oidc = methods.includes("oidc");
-      const password = methods.includes("password");
-      setFound({ key, accepted: { password, oidc, providers: oidc ? undefined : [] } });
-      if (!oidc) return;
       handleError(async () => {
         const providers = await auth.retrieveProviders(tokenless);
-        if (!signal.aborted) setFound({ key, accepted: { password, oidc, providers } });
+        if (!signal.aborted) setFound({ key, providers });
       }, "Failed to retrieve the login providers");
     },
-    [host, port, secure],
+    [key],
   );
-  return found != null && found.key === key ? found.accepted : DEFAULT_ACCEPTED;
+  if (key == null) return [];
+  return found?.key === key ? found.providers : undefined;
 };
 
 /**
@@ -126,9 +115,16 @@ export const useCompleteBrowserLogin = (): void => {
   const servingCore = Core.detectConnection();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
+  const reportUnfinished = Core.useReportUnfinished();
   useEffect(() => {
     handleError(() => {
-      const completed = Core.completeBrowserLogin();
+      let completed: Core.CompletedLogin | undefined;
+      try {
+        completed = Core.completeBrowserLogin();
+      } catch (e) {
+        reportUnfinished(e, "Login not finished");
+        return;
+      }
       if (completed == null) return;
       const core = cores.find((c) => c.key === completed.core) ?? servingCore;
       if (core == null) return;
@@ -141,10 +137,9 @@ export const useCompleteBrowserLogin = (): void => {
 
 /**
  * Full-screen login surface. Serves both initial login and credential re-entry after
- * the active Core rejects auth, where submitting resumes its connection.
+ * the active Core rejects auth. Each submit is a new login, with a new client.
  */
 export const Login = (): ReactElement => {
-  const client = Synnax.use();
   const message = errorMessage(Synnax.useConnectionStatus());
   const servingCore = Core.detectConnection();
   const cores = Session.Core.useSelectMany();
@@ -157,13 +152,14 @@ export const Login = (): ReactElement => {
     servingCore != null || activeKey != null ? "login" : "cores",
   );
   const target = servingCore ?? selectedCore;
-  const accepted = useAccepted(target);
-  const passwordAccepted = accepted.password;
-  const providers = accepted.providers ?? [];
+  const { password: passwordAccepted, oidc: oidcAccepted } =
+    Core.useAcceptedMethods(target);
+  const loadedProviders = useProviders(target, oidcAccepted);
+  const providers = loadedProviders ?? [];
   // a provider list that is still loading, or failed to load, says nothing yet
-  const noLogin =
-    !passwordAccepted && (!accepted.oidc || accepted.providers?.length === 0);
+  const noLogin = !passwordAccepted && (!oidcAccepted || loadedProviders?.length === 0);
   const handleError = Status.useErrorHandler();
+  const reportUnfinished = Core.useReportUnfinished();
   // a newer provider login replaces an older one, which then ends unreported
   const attempts = useRef(0);
   const mounted = useRef(false);
@@ -189,7 +185,10 @@ export const Login = (): ReactElement => {
           failure = errors.fromUnknown(e);
         }
         if (attempt !== attempts.current) return;
-        if (failure != null) throw failure;
+        if (failure != null) {
+          reportUnfinished(failure, "Login not finished");
+          return;
+        }
         if (Session.Runtime.ENGINE !== "tauri") return;
         const current = Session.Core.selectState(store.getState(), core.key);
         // the token is saved under the address the login started with
@@ -217,10 +216,14 @@ export const Login = (): ReactElement => {
     if (!methods.validate() || coreToConnect == null) return;
     const credentials = methods.value();
     const { key } = coreToConnect;
-    // A same-credentials resubmit leaves the connection params untouched, so the
-    // provider never swaps the client; nudge the existing one to reconnect.
-    if (client != null && key === activeKey) client.reauthenticate(credentials);
-    dispatch(Session.Core.set({ ...coreToConnect, ...credentials, oidc: undefined }));
+    dispatch(
+      Session.Core.set({
+        ...coreToConnect,
+        ...credentials,
+        oidc: undefined,
+        lastLogin: Date.now(),
+      }),
+    );
     dispatch(Session.Core.select(key));
   };
 
@@ -346,22 +349,24 @@ export const Login = (): ReactElement => {
                     full="x"
                     className={CSS.BE("login", "providers")}
                   >
-                    {providers.map((login) => {
-                      const { label, icon } = display(login);
-                      return (
-                        <Button.Button
-                          key={login.provider}
-                          onClick={() => handleProvider(login)}
-                          variant="outlined"
-                          size="large"
-                          full="x"
-                          justify="center"
-                        >
-                          {icon}
-                          Log in with {label}
-                        </Button.Button>
-                      );
-                    })}
+                    <Icon.Colored>
+                      {providers.map((login) => {
+                        const { label, icon } = display(login);
+                        return (
+                          <Button.Button
+                            key={login.provider}
+                            onClick={() => handleProvider(login)}
+                            variant="outlined"
+                            size="large"
+                            full="x"
+                            justify="center"
+                          >
+                            {icon}
+                            Log in with {label}
+                          </Button.Button>
+                        );
+                      })}
+                    </Icon.Colored>
                   </Flex.Box>
                 )}
                 {errorNote}

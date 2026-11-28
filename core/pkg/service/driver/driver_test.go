@@ -472,7 +472,7 @@ var _ = Describe("Driver", func() {
 				openDriver(ctx, factory)
 
 				// Never created: the deploy fetch fails with not-found, which
-				// must stay silent so the driver cannot recreate a status the
+				// must stay silent so the Driver cannot recreate a status the
 				// delete removed.
 				ghost := uuid.New()
 				writeCommand(
@@ -832,7 +832,7 @@ var _ = Describe("Driver", func() {
 				t.Rack = otherRack.Key
 				setTask(ctx, t.Key, []string{"rack"}, t.Rack)
 
-				// The redeploy start lands on the new rack; for this driver it is the
+				// The redeploy start lands on the new rack; for this Driver it is the
 				// teardown signal for the instance it still holds.
 				writeCommand(
 					ctx,
@@ -1451,7 +1451,7 @@ var _ = Describe("Driver", func() {
 				Eventually(func() bool { return configured.Load() }).Should(BeTrue())
 
 				// Deleting the task deletes its status too, so nothing should be
-				// left behind once the driver tears the instance down.
+				// left behind once the Driver tears the instance down.
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return taskService.NewWriter(tx).Delete(ctx, t.Key, false)
 				})).To(Succeed())
@@ -1734,7 +1734,7 @@ var _ = Describe("Driver", func() {
 					func() int32 { return configCount.Load() },
 				).Should(Equal(int32(1)))
 
-				// Second task: configuration succeeds, proving the driver is still
+				// Second task: configuration succeeds, proving the Driver is still
 				// functional after the first error.
 				t2 := newTask(embeddedRackKey(ctx))
 				knownKeys.Store(t2.Key, true)
@@ -3502,7 +3502,7 @@ var _ = Describe("Driver", func() {
 			Eventually(configureStarted, time.Second).Should(BeClosed())
 			// The goroutine should receive context cancellation after the timeout.
 			Eventually(func() bool { return timedOut.Load() }).Should(BeTrue())
-			// The factory had no live context to report with, so the driver owes
+			// The factory had no live context to report with, so the Driver owes
 			// the start command an answer.
 			Eventually(func(g Gomega) {
 				var stat status.Status[task.StatusDetails]
@@ -3591,7 +3591,7 @@ var _ = Describe("Driver", func() {
 				)
 				const numTasks = 3
 
-				// Pre-create tasks before opening the driver.
+				// Pre-create tasks before opening the Driver.
 				d1 := DeferClose(MustSucceed(driver.Open(ctx, driver.Config{
 					DB:        node.DB,
 					Rack:      rackService,

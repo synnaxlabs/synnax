@@ -121,8 +121,8 @@ func Publish(ctx context.Context, cfgs ...Config) (io.Closer, error) {
 	}, nil
 }
 
-// coalescer merges history changes per channel. add runs under storage locks, so it
-// only records the change and wakes run, which publishes after the flush interval.
+// coalescer merges history changes per channel. add records the change and wakes run,
+// which publishes after the flush interval.
 type coalescer struct {
 	observe.Observer[[]framer.HistoryChange]
 	wake     chan struct{}

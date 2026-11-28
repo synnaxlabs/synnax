@@ -162,35 +162,35 @@ TEST(Extractor, RejectsPastMaxDepth) {
     const auto doc = std::string(10001, '[') + std::string(10001, ']');
     const auto err = extract_error(doc);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "exceeded max depth after offset 10000");
+    ASSERT_EQ(err.data(), "exceeded max depth after offset 10000");
 }
 
 /// @brief it should reject a document that ends early.
 TEST(Extractor, RejectsTruncatedDocument) {
     const auto err = extract_error(R"({"a":)");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "unexpected EOF after offset 5");
+    ASSERT_EQ(err.data(), "unexpected EOF after offset 5");
 }
 
 /// @brief it should reject an empty document.
 TEST(Extractor, RejectsEmptyDocument) {
     const auto err = extract_error(" ");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "unexpected EOF after offset 1");
+    ASSERT_EQ(err.data(), "unexpected EOF after offset 1");
 }
 
 /// @brief it should reject data after the document.
 TEST(Extractor, RejectsTrailingData) {
     const auto err = extract_error(R"({"a":1} 2)");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "unexpected data after the top-level value");
+    ASSERT_EQ(err.data(), "unexpected data after the top-level value");
 }
 
 /// @brief it should reject a repeated addressed name.
 TEST(Extractor, RejectsRepeatedAddressedName) {
     const auto err = extract_error(R"({"a":1,"a":2})");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "duplicate value at /a");
+    ASSERT_EQ(err.data(), "duplicate value at /a");
 }
 
 /// @brief it should reject a repeated name above an addressed value.
@@ -199,48 +199,48 @@ TEST(Extractor, RejectsRepeatedParentName) {
     std::vector<std::optional<std::string_view>> values;
     const auto err = e.extract(R"({"a":{"b":1},"a":{"b":2}})", values);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "duplicate value at /a/b");
+    ASSERT_EQ(err.data(), "duplicate value at /a/b");
 }
 
 /// @brief it should reject invalid UTF-8.
 TEST(Extractor, RejectsInvalidUTF8) {
     const auto err = extract_error("{\"a\":\"\xff\"}");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid UTF-8 after offset 6");
+    ASSERT_EQ(err.data(), "invalid UTF-8 after offset 6");
 }
 
 /// @brief it should reject a misspelled literal.
 TEST(Extractor, RejectsBadLiteral) {
     const auto err = extract_error("not json");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid character 'o' after offset 1");
+    ASSERT_EQ(err.data(), "invalid character 'o' after offset 1");
 }
 
 /// @brief it should reject a malformed value that no pointer addresses.
 TEST(Extractor, RejectsMalformedSkippedValue) {
     const auto err = extract_error(R"({"x":[1,],"a":1})");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid character ']' after offset 8");
+    ASSERT_EQ(err.data(), "invalid character ']' after offset 8");
 }
 
 /// @brief it should reject a number with a leading zero.
 TEST(Extractor, RejectsLeadingZero) {
     const auto err = extract_error(R"({"a":01})");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid character '1' after offset 6");
+    ASSERT_EQ(err.data(), "invalid character '1' after offset 6");
 }
 
 /// @brief it should reject a member with no colon.
 TEST(Extractor, RejectsMissingColon) {
     const auto err = extract_error(R"({"a" 1})");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid character '1' after offset 5");
+    ASSERT_EQ(err.data(), "invalid character '1' after offset 5");
 }
 
 /// @brief it should reject a control character in a string.
 TEST(Extractor, RejectsControlCharacterInString) {
     const auto err = extract_error("[\"a\nb\"]");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid control character after offset 3");
+    ASSERT_EQ(err.data(), "invalid control character after offset 3");
 }
 }

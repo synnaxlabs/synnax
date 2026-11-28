@@ -24,18 +24,25 @@
 #include "x/cpp/uuid/uuid.h"
 
 namespace x::json {
+using details::TimeFormat;
 
-std::pair<TimeFormat, errors::Error> parse_time_format(const std::string &str) {
-    if (str == "iso8601") return {TimeFormat::ISO8601, errors::NIL};
-    if (str == "unix_sec") return {TimeFormat::UnixSecond, errors::NIL};
-    if (str == "unix_ms") return {TimeFormat::UnixMillisecond, errors::NIL};
-    if (str == "unix_us") return {TimeFormat::UnixMicrosecond, errors::NIL};
-    if (str == "unix_ns") return {TimeFormat::UnixNanosecond, errors::NIL};
+std::pair<TimeFormat, errors::Error>
+details::parse_time_format(const std::string &format) {
+    if (format == payload::TIME_FORMAT_ISO_8601)
+        return {TimeFormat::ISO8601, errors::NIL};
+    if (format == payload::TIME_FORMAT_UNIX_SEC)
+        return {TimeFormat::UnixSecond, errors::NIL};
+    if (format == payload::TIME_FORMAT_UNIX_MS)
+        return {TimeFormat::UnixMillisecond, errors::NIL};
+    if (format == payload::TIME_FORMAT_UNIX_US)
+        return {TimeFormat::UnixMicrosecond, errors::NIL};
+    if (format == payload::TIME_FORMAT_UNIX_NS)
+        return {TimeFormat::UnixNanosecond, errors::NIL};
     return {
         TimeFormat::ISO8601,
         errors::Error(
-            BASE_ERROR,
-            "unknown time format \"" + str +
+            errors::VALIDATION,
+            "unknown time format \"" + format +
                 "\": expected \"iso8601\", \"unix_sec\", \"unix_ms\","
                 " \"unix_us\", or \"unix_ns\""
         ),
@@ -416,7 +423,7 @@ telem::SampleValue convert(
         const auto &str = value.get_ref<const std::string &>();
         if (target == telem::BYTES_T) {
             auto [bytes, err] = base64::decode_strict(str);
-            if (err) throw std::runtime_error(err.data);
+            if (err) throw std::runtime_error(err.data());
             return telem::SampleValue(std::move(bytes));
         }
         const auto [uuid, err] = uuid::UUID::parse(str);
@@ -449,11 +456,17 @@ telem::SampleValue convert(
 std::pair<telem::SampleValue, errors::Error> to_sample_value(
     const nlohmann::json &value,
     const telem::DataType &target,
-    TimeFormat time_format,
+    const std::string &time_format,
     const EnumMap *enum_values
 ) {
+    auto format = TimeFormat::ISO8601;
+    if (target == telem::TIMESTAMP_T) {
+        const auto [parsed, err] = details::parse_time_format(time_format);
+        if (err) return {telem::SampleValue(), err};
+        format = parsed;
+    }
     try {
-        return {convert(value, target, time_format, enum_values), errors::NIL};
+        return {convert(value, target, format, enum_values), errors::NIL};
     } catch (const std::exception &e) {
         auto msg = std::string("cannot convert ") + value.dump() + " to " +
                    target.name();
@@ -467,7 +480,7 @@ std::pair<telem::SampleValue, errors::Error> to_sample_value(
 }
 
 std::pair<int64_t, int64_t>
-split_unix(const telem::TimeStamp ts, const TimeFormat format) {
+details::split_unix(const telem::TimeStamp ts, const TimeFormat format) {
     const int64_t unit = nanoseconds_per_unit(format);
     const int64_t ns = ts.nanoseconds();
     int64_t whole = ns / unit;

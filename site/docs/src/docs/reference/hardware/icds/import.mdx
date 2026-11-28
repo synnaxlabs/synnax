@@ -40,10 +40,14 @@ To import a file into an ICD that exists:
 
   <Fragment slot="python">
 
+Give `key` to import into an ICD that exists, or `name` to import the file as a new ICD:
+
 ```python
 from pathlib import Path
 
-oven = client.icds.import_file(oven.key, Path("oven.dbc").read_bytes(), "dbc")
+data = Path("oven.dbc").read_bytes()
+oven = client.icds.import_file(data, "dbc", key=oven.key)
+engine = client.icds.import_file(data, "dbc", name="Engine")
 ```
 
 The format is `"dbc"`, `"csv"`, or `"xlsx"`.
@@ -52,10 +56,14 @@ The format is `"dbc"`, `"csv"`, or `"xlsx"`.
 
   <Fragment slot="typescript">
 
+Give the key of an ICD that exists, or `{ name }` to import the file as a new ICD:
+
 ```typescript
 import { readFile } from "node:fs/promises";
 
-const imported = await client.icds.import(oven.key, await readFile("oven.dbc"), "dbc");
+const data = await readFile("oven.dbc");
+const imported = await client.icds.import(oven.key, data, "dbc");
+const engine = await client.icds.import({ name: "Engine" }, data, "dbc");
 ```
 
 The format is `"dbc"`, `"csv"`, or `"xlsx"`.
@@ -74,9 +82,9 @@ An import replaces all the messages of the ICD with the messages in the file:
 - A message or field that the file does not hold is removed from the ICD.
 
 A file that Synnax cannot read stops the import, and the ICD does not change. So does a
-value that breaks a rule of the ICD's schema, such as a field with no name. Other
-problems that a [check](/reference/hardware/icds/create#check-an-icd) finds do not stop
-an import.
+value that breaks a rule of the ICD's schema, such as a field with no name. When the
+import of a new ICD stops, Synnax creates no ICD. Other problems that a
+[check](/reference/hardware/icds/create#check-an-icd) finds do not stop an import.
 
 <Divider.Divider x />
 

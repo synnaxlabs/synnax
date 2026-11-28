@@ -242,7 +242,7 @@ func newTask(
 	return t
 }
 
-// boot configures t as the driver does at boot, with no command, and stops the task at
+// boot configures t as the Driver does at boot, with no command, and stops the task at
 // the end of the spec.
 func boot(ctx context.Context, f driver.Factory, t task.Task) driver.Task {
 	GinkgoHelper()

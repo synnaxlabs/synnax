@@ -225,6 +225,15 @@ var _ = Describe("Read", func() {
 			}, icds)).To(Succeed())
 		})
 
+		It("Should let reads that are not framed read one message twice", func(
+			ctx SpecContext,
+		) {
+			Expect(resolver.Check(ctx, db, []read.Read{
+				readAt(0, plant.Key, readOf(status, bind(temp, valueKey))),
+				readAt(1, plant.Key, readOf(status, bind(temp, pressureKey))),
+			}, icds)).To(Succeed())
+		})
+
 		It("Should return the error of the first read that it refuses", func(
 			ctx SpecContext,
 		) {
@@ -302,24 +311,146 @@ var _ = Describe("Read", func() {
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
-			It("Should accept a framed read of binary and text messages", func(
+			It("Should accept a read of binary messages and a read of text messages",
+				func(ctx SpecContext) {
+					Expect(check(ctx,
+						readAt(0, plant.Key, readOf(
+							frame,
+							icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
+							icd.ReadBinding{
+								Field:    count.Base().Key,
+								DataType: telem.Uint8T,
+							},
+							icd.ReadBinding{Field: level.Base().Key, Channel: valueKey},
+							icd.ReadBinding{
+								Field:    wide.Base().Key,
+								DataType: telem.Int16T,
+							},
+						)),
+						readAt(1, plant.Key, readOf(line, icd.ReadBinding{
+							Field: volts.Base().Key, Channel: levelKey,
+						})),
+					)).To(Succeed())
+				},
+			)
+
+			Describe("Multiplexed binary fields", func() {
+				field := func(
+					name string,
+					offset uint16,
+					mux *icd.FieldKey,
+					values ...int32,
+				) icd.BinaryField {
+					return icd.BinaryField{Variant: icd.UnsignedBinaryField{
+						BinaryBaseField: icd.BinaryBaseField{
+							Key:             uuid.New(),
+							Name:            name,
+							Scale:           1,
+							StartBit:        offset * 8,
+							BitLength:       8,
+							ByteOrder:       icd.ByteOrderLittleEndian,
+							Multiplexor:     mux,
+							MultiplexValues: values,
+						},
+					}}
+				}
+				var (
+					mode  = field("mode", 0, nil)
+					a     = field("a", 1, new(mode.Base().Key), 0, 2)
+					same  = field("same", 2, new(mode.Base().Key), 2, 0)
+					b     = field("b", 3, new(mode.Base().Key), 1)
+					plain = field("plain", 4, nil)
+					// fallback has a default, so each payload holds it.
+					fallback = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+						BinaryBaseField: field(
+							"fallback", 5, new(mode.Base().Key), 1,
+						).Base(),
+						Default: new(payload.Unsigned(3)),
+					}}
+					muxed = icd.Message{
+						Key:  uuid.New(),
+						Name: "Muxed",
+						Payload: icd.Payload{Variant: icd.BinaryPayload{
+							Fields: []icd.BinaryField{
+								mode,
+								a,
+								same,
+								b,
+								plain,
+								fallback,
+							},
+						}},
+					}
+					panel = icd.ICD{
+						Key: uuid.New(), Name: "Panel", Messages: []icd.Message{muxed},
+					}
+				)
+				checkMuxed := func(
+					ctx context.Context,
+					first, second icd.BinaryField,
+					secondCh channel.Key,
+				) error {
+					GinkgoHelper()
+					rd := readAt(0, panel.Key, readOf(
+						muxed,
+						icd.ReadBinding{Field: first.Base().Key, Channel: valueKey},
+						icd.ReadBinding{Field: second.Base().Key, Channel: secondCh},
+					))
+					c := MustSucceed(resolver.NewChecker(
+						ctx,
+						db,
+						[]read.Read{rd},
+						nil,
+						map[icd.Key]icd.ICD{panel.Key: panel},
+					))
+					return c.Read(rd)
+				}
+
+				It("Should accept two fields on one index channel that the same "+
+					"multiplexor values select", func(ctx SpecContext) {
+					Expect(checkMuxed(ctx, a, same, levelKey)).To(Succeed())
+				})
+
+				It("Should accept fields that different multiplexor values select on "+
+					"two index channels", func(ctx SpecContext) {
+					Expect(checkMuxed(ctx, a, b, pressureKey)).To(Succeed())
+				})
+
+				It("Should accept a multiplexed field with a default and a field that "+
+					"each payload holds on one index channel", func(ctx SpecContext) {
+					Expect(checkMuxed(ctx, plain, fallback, levelKey)).To(Succeed())
+				})
+
+				DescribeTable("Should reject two fields on one index channel that "+
+					"different multiplexor values select",
+					func(ctx SpecContext, second icd.BinaryField, name string) {
+						Expect(checkMuxed(ctx, a, second, levelKey)).To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError("reads.0.messages.0.bindings.1: fields a and "+
+								name+" write to one index channel, but different "+
+								"multiplexor values select them"),
+						))
+					},
+					Entry("another value of the same multiplexor", b, "b"),
+					Entry("a field that each payload holds", plain, "plain"),
+				)
+			})
+
+			It("Should reject a read of messages of different formats", func(
 				ctx SpecContext,
 			) {
-				Expect(check(ctx, framed(readAt(0, plant.Key,
-					readOf(
-						frame,
-						icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
-						icd.ReadBinding{
-							Field:    count.Base().Key,
-							DataType: telem.Uint8T,
-						},
-						icd.ReadBinding{Field: level.Base().Key, Channel: valueKey},
-						icd.ReadBinding{Field: wide.Base().Key, DataType: telem.Int16T},
-					),
+				Expect(check(ctx, readAt(0, plant.Key,
 					readOf(line, icd.ReadBinding{
 						Field: volts.Base().Key, Channel: levelKey,
 					}),
-				)))).To(Succeed())
+					readOf(frame, icd.ReadBinding{
+						Field: count.Base().Key, Channel: totalKey,
+					}),
+				))).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("reads.0.messages.1.message: messages Line and Frame "+
+						"have different formats"),
+				))
 			})
 
 			DescribeTable("Should reject a framed read with the path of the problem",
@@ -406,11 +537,6 @@ var _ = Describe("Read", func() {
 				Entry("a message that the ICD lacks",
 					icd.ReadMessage{Message: uuid.New()},
 					"reads.0.messages.0.message", "does not exist in ICD Plant",
-				),
-				Entry("a message that is not JSON",
-					readOf(frame),
-					"reads.0.messages.0.message",
-					"message Frame is not a JSON message",
 				),
 				Entry("a field that the message lacks",
 					readOf(status, icd.ReadBinding{Field: uuid.New()}),

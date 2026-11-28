@@ -94,7 +94,7 @@ errors::Error check_enum(const Enum &e, const telem::DataType &dt) {
             "a " + telem::DataType::infer(e.value).name() +
             " value does not convert to " + dt.name()
         );
-    if (const auto err = n->check_fits(dt)) return wrap(err.data);
+    if (const auto err = n->check_fits(dt)) return wrap(err.data());
     if (const auto f = n->to_float64(); dt == telem::BOOLEAN_T && f != 0 && f != 1)
         return wrap(n->to_string() + " is not a boolean");
     return errors::NIL;
@@ -174,6 +174,11 @@ std::pair<Decoder, errors::Error> Decoder::create(Field field) {
             invalid("range " + field.range.name() + " is not an integer data type"),
         };
     Decoder d;
+    if (dt == telem::TIMESTAMP_T) {
+        const auto [format, err] = details::parse_time_format(field.time_format);
+        if (err) return {Decoder(), err};
+        d.time_format = format;
+    }
     for (const auto &e: field.enums) {
         if (const auto err = check_enum(e, dt)) return {Decoder(), err};
         if (const auto n = to_number(e.value))
@@ -241,7 +246,7 @@ errors::Error Decoder::append_bytes(const std::string_view raw, telem::Series &d
     if (this->text.find_first_of("\r\n") != std::string::npos)
         return invalid("base64 must not hold a line break");
     auto [data, err] = base64::decode_strict(this->text);
-    if (err) return invalid(err.data);
+    if (err) return invalid(err.data());
     dst.write(data);
     return errors::NIL;
 }
@@ -282,19 +287,19 @@ bool Decoder::labeled(const std::string_view raw) {
 
 errors::Error
 Decoder::append_timestamp(const std::string_view raw, telem::Series &dst) {
-    const auto format = this->field.time_format;
+    const auto format = this->time_format;
     const auto kind = kind_of(raw);
     std::pair<telem::TimeStamp, errors::Error> parsed;
-    if (format == TimeFormat::ISO8601) {
+    if (format == details::TimeFormat::ISO8601) {
         if (kind != '"')
             return invalid("expected an ISO 8601 string, got " + kind_name(raw));
         if (const auto err = unquote(raw, this->text)) return err;
         parsed = parse_iso8601(this->text);
     } else if (kind == '0')
-        parsed = parse_unix(raw, format);
+        parsed = details::parse_unix(raw, format);
     else if (kind == '"') {
         if (const auto err = unquote(raw, this->text)) return err;
-        parsed = parse_unix(this->text, format);
+        parsed = details::parse_unix(this->text, format);
     } else
         return invalid("expected a number, got " + kind_name(raw));
     if (parsed.second) return parsed.second;
@@ -352,13 +357,18 @@ std::pair<Encoder, errors::Error> Encoder::create(Field field) {
             invalid("data type " + dt.name() + " only serializes as a string"),
         };
     Encoder e;
+    if (dt == telem::TIMESTAMP_T) {
+        const auto [format, err] = details::parse_time_format(field.time_format);
+        if (err) return {Encoder(), err};
+        e.time_format = format;
+    }
     for (const auto &en: field.enums) {
         if (const auto err = check_enum(en, dt)) return {Encoder(), err};
         std::string text;
         if (const auto err = append_quoted(en.label, text))
             return {
                 Encoder(),
-                invalid("enum label " + quote(en.label) + ": " + err.data),
+                invalid("enum label " + quote(en.label) + ": " + err.data()),
             };
         e.labels.push_back({std::move(text), dt.cast(en.value)});
     }
@@ -377,7 +387,11 @@ Encoder::append(const telem::Series &s, const std::size_t i, std::string &out) c
     const auto &dt = this->field.data_type;
     const auto index = static_cast<int>(i);
     if (dt == telem::TIMESTAMP_T) {
-        append_timestamp(s.at<telem::TimeStamp>(index), this->field.time_format, out);
+        details::append_timestamp(
+            s.at<telem::TimeStamp>(index),
+            this->time_format,
+            out
+        );
         return errors::NIL;
     }
     if (dt == telem::UUID_T) {

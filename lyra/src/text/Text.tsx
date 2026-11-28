@@ -26,8 +26,11 @@ import { isValidElement } from "@/util";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
-/** The typeface and treatment: body prose, monospace code, a key cap, or a link. */
-export type Variant = "prose" | "code" | "keyboard" | "link";
+/**
+ * The typeface and treatment: body prose, prose with tabular digits for numbers that
+ * change, monospace code, a key cap, or a link.
+ */
+export type Variant = "prose" | "numeric" | "code" | "keyboard" | "link";
 /** What happens to text that outruns its box. */
 export type Overflow = "fade" | "clip" | "nowrap" | "wrap";
 

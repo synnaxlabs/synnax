@@ -274,7 +274,7 @@ describe("log queries", () => {
 
     it("resolves synchronously without suspending when already in the store", async () => {
       const created = await createLog({ name: "fastpath_log" });
-      // Warm the flux store through the production retrieve path.
+      // Warm the Flux store through the production retrieve path.
       const warm = await renderHookSuspended(() => Log.use({ key: created.key }), {
         wrapper,
       });

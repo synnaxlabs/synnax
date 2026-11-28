@@ -117,7 +117,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherCluster) {
     const auto err = cfg.check_core();
     ASSERT_OCCURRED_AS(err, CORE_CHANGED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "the Core is now cluster " + core_key.to_string() + ", not " +
             cfg.remote_info.cluster_key.to_string() +
             ". The Driver stops so that it can start again on the new cluster"
@@ -133,7 +133,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherVersion) {
     const auto err = cfg.check_core();
     ASSERT_OCCURRED_AS(err, CORE_CHANGED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "the Core now runs version " + version +
             ". The Driver stops so that it can start again for this version"
     );

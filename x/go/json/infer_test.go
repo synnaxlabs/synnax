@@ -116,7 +116,7 @@ var _ = Describe("Infer", func() {
 			Pointer:    xjson.Pointer{"time"},
 			Kind:       payload.KindTimestamp,
 			Type:       xjson.String,
-			TimeFormat: new(MustSucceed(xjson.ParseTimeFormat("iso8601"))),
+			TimeFormat: new(payload.TimeFormatISO8601),
 		}))
 		state := fieldAt(shapes[0], "/state")
 		Expect(state.Kind).To(Equal(payload.KindString))
@@ -144,7 +144,7 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[0].Sources).To(Equal([]string{"tank-1", "tank-2"}))
 		Expect(shapes[0].Count).To(Equal(6))
 		Expect(fieldAt(shapes[0], "/ts").TimeFormat).
-			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ms")))))
+			To(HaveValue(Equal(payload.TimeFormatUnixMs)))
 		Expect(fieldAt(shapes[0], "/pressure").Kind).To(Equal(payload.KindInteger))
 		Expect(shapes[1].Sources).To(Equal([]string{"pump-1"}))
 		Expect(fieldAt(shapes[1], "/running").Kind).To(Equal(payload.KindBoolean))
@@ -169,7 +169,7 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[0].Fields).To(HaveLen(2))
 		Expect(indexPointer(shapes[0])).To(Equal("/time"))
 		Expect(fieldAt(shapes[0], "/time").TimeFormat).
-			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_sec")))))
+			To(HaveValue(Equal(payload.TimeFormatUnixSec)))
 	})
 
 	It("Should give a shape to each cluster of documents of one source", func() {
@@ -405,7 +405,7 @@ var _ = Describe("Infer", func() {
 		}))
 		Expect(indexPointer(shapes[0])).To(Equal("/timestamp"))
 		Expect(fieldAt(shapes[0], "/timestamp").TimeFormat).
-			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ns")))))
+			To(HaveValue(Equal(payload.TimeFormatUnixNs)))
 		Expect(fieldAt(shapes[0], "/open")).To(Equal(xjson.InferredField{
 			Pointer: xjson.Pointer{"open"},
 			Kind:    payload.KindBoolean,
@@ -424,7 +424,7 @@ var _ = Describe("Infer", func() {
 		Expect(reading.Kind).To(Equal(payload.KindInteger))
 		Expect(reading.Type).To(Equal(xjson.Number))
 		Expect(fieldAt(shapes[0], "/t").TimeFormat).
-			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_us")))))
+			To(HaveValue(Equal(payload.TimeFormatUnixUs)))
 	})
 
 	It("Should keep the kind of a field with a number too big for a float64", func() {
@@ -463,11 +463,37 @@ var _ = Describe("Infer", func() {
 
 	It("Should give an enum label of 64 bytes", func() {
 		label := strings.Repeat("x", 64)
-		shapes, _ := xjson.Infer(documents("a", 2, func(int) string {
+		shapes, _ := xjson.Infer(documents("a", 3, func(i int) string {
+			if i == 0 {
+				return `{"state":"a"}`
+			}
 			return fmt.Sprintf(`{"state":%q}`, label)
 		}))
-		Expect(fieldAt(shapes[0], "/state").Enum).To(Equal([]string{label}))
+		Expect(fieldAt(shapes[0], "/state").Enum).To(Equal([]string{"a", label}))
 	})
+
+	It("Should not give an enum to a string field that holds one value", func() {
+		shapes, _ := xjson.Infer(documents("a", 3, func(int) string {
+			return `{"state":"ok"}`
+		}))
+		Expect(fieldAt(shapes[0], "/state").Enum).To(BeNil())
+	})
+
+	DescribeTable("Should not give an enum to a string field that holds other types",
+		func(other string) {
+			shapes, _ := xjson.Infer(documents("a", 5, func(i int) string {
+				if i == 4 {
+					return fmt.Sprintf(`{"state":%s}`, other)
+				}
+				return fmt.Sprintf(`{"state":%q}`, []string{"on", "off"}[i%2])
+			}))
+			state := fieldAt(shapes[0], "/state")
+			Expect(state.Kind).To(Equal(payload.KindString))
+			Expect(state.Enum).To(BeNil())
+		},
+		Entry("a number", "1"),
+		Entry("a boolean", "true"),
+	)
 
 	It("Should not give an enum to a string field with a value over 64 bytes", func() {
 		shapes, _ := xjson.Infer(documents("a", 3, func(i int) string {
@@ -558,6 +584,23 @@ var _ = Describe("Infer", func() {
 		),
 	)
 
+	DescribeTable("Should mark a field optional when some documents lack it",
+		func(docs []string, pointer string, optional bool) {
+			shapes, _ := xjson.Infer(documents("tank", len(docs), func(i int) string {
+				return docs[i]
+			}))
+			Expect(shapes).To(HaveLen(1))
+			Expect(fieldAt(shapes[0], pointer).Optional).To(Equal(optional))
+		},
+		Entry("a field of every document", []string{narrow(0), narrow(1)}, "/v", false),
+		Entry("a field that a document lacks",
+			[]string{wide(0), narrow(1), wide(2)}, "/w", true),
+		Entry("a field of every document of a joined cluster",
+			[]string{wide(0), narrow(1), wide(2)}, "/v", false),
+		Entry("a field that a document holds as null",
+			[]string{`{"v":1,"w":2}`, `{"v":1,"w":null}`}, "/w", true),
+	)
+
 	It("Should not index on a timestamp that some documents lack", func() {
 		docs := documents("a", 2, func(i int) string {
 			return fmt.Sprintf(`{"ts":%d,"v":1}`, t0Seconds+int64(i))
@@ -592,7 +635,7 @@ var _ = Describe("Infer", func() {
 		Expect(ts.Type).To(Equal(xjson.String))
 		Expect(
 			ts.TimeFormat,
-		).To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ms")))))
+		).To(HaveValue(Equal(payload.TimeFormatUnixMs)))
 	})
 
 	It("Should take a scalar document as a field at the root", func() {
@@ -643,7 +686,7 @@ var _ = Describe("Infer", func() {
 		text := MustSucceed(json.Marshal(shapes[0].Fields[0]))
 		Expect(string(text)).To(Equal(
 			`{"pointer":"/a~1b/ts","kind":"timestamp","type":"number",` +
-				`"time_format":"unix_ns","enum":[]}`,
+				`"time_format":"unix_ns","enum":[],"optional":false}`,
 		))
 		var decoded xjson.InferredField
 		Expect(json.Unmarshal(text, &decoded)).To(Succeed())
@@ -651,7 +694,7 @@ var _ = Describe("Infer", func() {
 		Expect(decoded.Type).To(Equal(xjson.Number))
 		Expect(
 			decoded.TimeFormat,
-		).To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ns")))))
+		).To(HaveValue(Equal(payload.TimeFormatUnixNs)))
 	})
 
 	It("Should omit the time format of a field that is not a timestamp", func() {
@@ -659,7 +702,8 @@ var _ = Describe("Infer", func() {
 			documents("a", 1, func(int) string { return `{"v":1}` }),
 		)
 		Expect(string(MustSucceed(json.Marshal(shapes[0].Fields[0])))).To(Equal(
-			`{"pointer":"/v","kind":"integer","type":"number","enum":[]}`,
+			`{"pointer":"/v","kind":"integer","type":"number","enum":[],` +
+				`"optional":false}`,
 		))
 	})
 })
@@ -689,7 +733,7 @@ var _ = Describe("Inferrer", func() {
 		Expect(ts.Kind).To(Equal(payload.KindTimestamp))
 		Expect(
 			ts.TimeFormat,
-		).To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ms")))))
+		).To(HaveValue(Equal(payload.TimeFormatUnixMs)))
 		Expect(fieldAt(shape, "/v").Kind).To(Equal(payload.KindFloat))
 	})
 

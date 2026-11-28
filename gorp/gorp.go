@@ -266,7 +266,7 @@ type Snapshot interface {
 }
 
 // Context is an extension of the built-in context.Context type that adds additional
-// fields useful in gorp callbacks.
+// fields useful in Gorp callbacks.
 type Context struct {
 	// Context is the underlying request-scoped context.
 	context.Context

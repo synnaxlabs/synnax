@@ -68,9 +68,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Table, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Table, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Table, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -85,9 +87,11 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
-			Retarget: func(e *Table, from, to project.Key) {
-				if e.Project != nil && *e.Project == from {
-					*e.Project = to
+			Retarget: func(e *Table, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						*e.Project = t
+					}
 				}
 			},
 		}),
@@ -169,7 +173,7 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Table, from, to color.Key) {
+			Retarget: func(e *Table, to map[color.Key]color.Key) {
 				for i16 := range e.Rows {
 					for i17 := range e.Rows[i16].Cells {
 						switch v18 := e.Rows[i16].Cells[i17].Config.Variant.(type) {
@@ -177,8 +181,8 @@ func newIndexes() indexes {
 							if v18.FillColor != nil {
 								switch v19 := v18.FillColor.Variant.(type) {
 								case color.NamedRef:
-									if v19.Key == from {
-										v19.Key = to
+									if t, ok := to[v19.Key]; ok {
+										v19.Key = t
 									}
 									v18.FillColor.Variant = v19
 								}
@@ -188,8 +192,8 @@ func newIndexes() indexes {
 							if v18.FillColor != nil {
 								switch v20 := v18.FillColor.Variant.(type) {
 								case color.NamedRef:
-									if v20.Key == from {
-										v20.Key = to
+									if t, ok := to[v20.Key]; ok {
+										v20.Key = t
 									}
 									v18.FillColor.Variant = v20
 								}
@@ -313,7 +317,7 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Table, from, to color.Key) {
+			Retarget: func(e *Table, to map[color.Key]color.Key) {
 				for i16 := range e.Rows {
 					for i17 := range e.Rows[i16].Cells {
 						switch v18 := e.Rows[i16].Cells[i17].Config.Variant.(type) {
@@ -321,8 +325,8 @@ func newIndexes() indexes {
 							if v18.TextColor != nil {
 								switch v19 := v18.TextColor.Variant.(type) {
 								case color.NamedRef:
-									if v19.Key == from {
-										v19.Key = to
+									if t, ok := to[v19.Key]; ok {
+										v19.Key = t
 									}
 									v18.TextColor.Variant = v19
 								}
@@ -332,8 +336,8 @@ func newIndexes() indexes {
 							if v18.TextColor != nil {
 								switch v20 := v18.TextColor.Variant.(type) {
 								case color.NamedRef:
-									if v20.Key == from {
-										v20.Key = to
+									if t, ok := to[v20.Key]; ok {
+										v20.Key = t
 									}
 									v18.TextColor.Variant = v20
 								}
@@ -434,7 +438,7 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Table, from, to color.Key) {
+			Retarget: func(e *Table, to map[color.Key]color.Key) {
 				for i13 := range e.Rows {
 					for i14 := range e.Rows[i13].Cells {
 						switch v15 := e.Rows[i13].Cells[i14].Config.Variant.(type) {
@@ -442,8 +446,8 @@ func newIndexes() indexes {
 							if v15.StalenessColor != nil {
 								switch v16 := v15.StalenessColor.Variant.(type) {
 								case color.NamedRef:
-									if v16.Key == from {
-										v16.Key = to
+									if t, ok := to[v16.Key]; ok {
+										v16.Key = t
 									}
 									v15.StalenessColor.Variant = v16
 								}

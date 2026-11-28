@@ -74,7 +74,7 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         if (!state_keys.empty()) {
             auto [state_chs, err] = client->channels.retrieve(state_keys);
             if (err) {
-                cfg.field_err("channels", err.data);
+                cfg.field_err("channels", err.data());
                 return;
             }
             std::unordered_map<synnax::channel::Key, synnax::channel::Channel> by_key;

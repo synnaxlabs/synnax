@@ -125,7 +125,19 @@ in a color picker has no "+".
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
-- Numbers that change, or that people compare, use `font-variant-numeric: tabular-nums`.
+- DOM text is Inter, and its `Text` variant sets the treatment. Canvas text has its own
+  rules.
+
+| Variant           | Use for                                             | Examples                                                                                           |
+| ----------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `prose` (default) | All other text, including static numbers            | Labels, names, IDs and UUIDs, URLs and topics, OPC UA node IDs, hex codes, "Tank 1", static counts |
+| `numeric`         | Numbers that change in place or line up in a column | Live values, relative times, timestamps, table value columns                                       |
+| `code`            | Code and raw machine text                           | Code editors, logs, pasted PEM or JSON, code inside a sentence                                     |
+| `keyboard`        | Key caps                                            | Shortcut hints                                                                                     |
+| `link`            | Links                                               | Docs links                                                                                         |
+
+When unsure, use `prose`.
+
 - Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
   tabular digits, through `variant: "numeric"` in `theme.fontString`.
 
@@ -327,6 +339,9 @@ bound, a log precision, or the line plot X channel.
   message is "Failed to deploy changes", and the footer description starts with "The
   task still runs its last deployed config." Rejected: "Failed to start task" there,
   which reads as if the task stopped.
+- A failed deploy or a reply to a task command toasts only while no focused window shows
+  the task's tab. Where the tab shows, the footer shows the failure, and a toast would
+  cover it. When the Console cannot check, it toasts.
 - The header stays compact: the rack name hangs under the utility buttons and adds no
   height.
 - A disabled channel dims to half strength. Its enabled dot stays at full strength, as
@@ -345,14 +360,18 @@ bound, a log precision, or the line plot X channel.
   channel table, and a fields table in the topic details, which showed each field twice.
 - A topic that reads several messages holds a node for each, with its fields beneath. A
   message's details hold its name and match, from the ICD, then its timestamp.
-- A topic that reads one message picks it in **Message format**, from the JSON messages
-  of every ICD, each shown with its ICD's name. A new topic's message goes into the ICD
-  that most of the task's topics read. A pick deletes the message that the topic read
-  before when it is a message the task made, has no fields, and no other topic reads it,
-  so new topics leave no empty messages behind. A message that the user made in the ICD
-  editor stays. The form knows the messages that the task made only while it stays open,
-  so after a reload or a reopened tab, an empty message stays too. Rejected: a stored
-  task-level ICD, which repeats each topic's ICD key.
+- A topic that reads one message picks it in **Message format**, from the messages of
+  every ICD, each shown with its format, as the tree shows it, then its ICD's name.
+  Under them, "New JSON message", "New text message", and "New binary message" make an
+  empty message of that format in the topic's ICD and pick it, with no modal: the item
+  names the format, and the name is the one that Add message gives. The user renames it
+  in the ICD. The create items ignore the search, which matches ICD names. A new topic's
+  message goes into the ICD that most of the task's topics read. A pick deletes the
+  message that the topic read before when it is a message the task made, has no fields,
+  and no other topic reads it, so new topics leave no empty messages behind. A message
+  that the user made in the ICD editor stays. The form knows the messages that the task
+  made only while it stays open, so after a reload or a reopened tab, an empty message
+  stays too. Rejected: a stored task-level ICD, which repeats each topic's ICD key.
 - A field's format stays short, so its channel shows with no scroll: Scale and Offset
   share a line, Units shows only for a number type, and Enum mapping is one line until
   it holds a mapping.
@@ -399,6 +418,12 @@ bound, a log precision, or the line plot X channel.
   group in the picker, such as a palette, ends with a "+" text button that adds an item
   to that group. The Series palette is the one exception: it has no "+", because a user
   adds a series color in the Library.
+- Where a create happens follows the user's goal. In the Library the item is the goal,
+  so it creates in place. In a field the item serves another goal, so a create that
+  needs more than a name is a draft, and nothing exists until the user clicks Create.
+  The draft stays in the picker when the picker already edits that kind of value, as the
+  color picker does. Otherwise it opens the create modal, as for a label or an
+  enumeration. The modal asks before Esc or a click outside discards a changed draft.
 - A right click on an item in a picker opens its menu, with Edit. Shift+F10 and the Menu
   key open it on a focused item. Edit opens the type's editor in place. A picker has no
   hover edit button.
@@ -406,6 +431,9 @@ bound, a log precision, or the line plot X channel.
   access gets no menu.
 - An edit reaches every user of the item. When other places use the item and the Core
   can list them, the editor shows "Used by N".
+- When the Core refuses to delete an item that something uses, the delete dialog lists
+  the users before it asks and disables Delete while any remain, as for an ICD that a
+  task uses.
 
 ### Pickers
 
@@ -431,7 +459,7 @@ bound, a log precision, or the line plot X channel.
   Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
   on Custom while the value is a fixed color.
 - One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
-  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+  Swatches are 21 px with 8 px gaps across and down. Eight across set the width: 242 px.
 - Library has the select dialog's search under the tab bar's hairline, with a hairline
   under it. Each palette sits under its title, which ends with the name of the color an
   open swatch menu acts on, else the hovered color, else the focused color, else the
@@ -448,7 +476,7 @@ bound, a log precision, or the line plot X channel.
   each edge. An edit saves at once.
 - The saturation and brightness plane has the tiny radius.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
-  icon. Hex codes use the code font, so every code takes the same width and fits.
+  icon. Hex codes are Inter, and the inputs fit the widest hex.
 
 ### Symbol motion
 
@@ -524,12 +552,13 @@ bound, a log precision, or the line plot X channel.
   an empty search, a pinned "New <noun>" opens the create modal. While the user types,
   it changes to "Create <noun> "text"", which creates the item at once and picks it. An
   item that needs a choice from the user opens the create modal with the text as its
-  name: a label asks for its color. The Console never picks a color for the user. The
-  option hides when the text matches a name in any case, and after a click until the
-  text changes, so a second click makes no copy. It needs create permission. A filter
-  never creates. A new parent range covers the ranges that move into it. Under the
-  divider, the create option comes first, then "No <noun>". The "Replace with" select of
-  the enumeration delete dialog only picks: a new enumeration has no entries for the
+  name: a label asks for its color. An enumeration asks for its entries, so a mistake
+  never strands an empty one. The Console never picks a color for the user. The option
+  hides when the text matches a name in any case, and after a click until the text
+  changes, so a second click makes no copy. It needs create permission. A filter never
+  creates. A new parent range covers the ranges that move into it. Under the divider,
+  the create option comes first, then "No <noun>". The "Replace with" select of the
+  enumeration delete dialog only picks: a new enumeration has only a blank entry for the
   users to move to.
 - A create button at the foot of a dialog, such as "New project" in the project selector
   or "Create palette", is a small `Button.CreateListItem` with its own margin: 1rem from
@@ -565,6 +594,10 @@ bound, a log precision, or the line plot X channel.
   nothing.
 - Only a tag that shows a color dot shows as a dot in the count. Tags with other icons,
   such as channels, fold into a plain "+N".
+- A group whose tags are short names to read, such as the entries of an enumeration in
+  its select, never stacks. Each tag shows in full or folds into the count.
+- The list of hidden tags lines up their names. When one has a dot, a tag with no dot
+  keeps the room of one.
 - An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
@@ -584,7 +617,10 @@ bound, a log precision, or the line plot X channel.
   trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
   "Disconnected" from the status `connected` flag, in the color of the status variant.
   Its tooltip shows the message and the description. A word from the variant was
-  rejected, because one variant covers both states.
+  rejected, because one variant covers both states. The Core gives a device that no
+  Driver has reached the disabled status "Device status unknown", so its badge is a gray
+  "Disconnected". Only a device with no status shows a gray "Unknown" badge, with no
+  tooltip. The disabled variant alone never means unknown: a Driver also writes it.
 
 ### Devices
 
@@ -798,8 +834,9 @@ bound, a log precision, or the line plot X channel.
 - Create in place when every field you set is a column, such as a label or a secret. The
   create item opens at the top with check and X buttons, and Enter and Esc. It stays
   open and empty after each create, and the new item fades in under it.
-- A record whose next step is to fill in its children, such as an enumeration, closes
-  the create item and opens with its add button focused.
+- A record whose next step is to fill in its children, such as an enumeration, starts
+  with one blank child. The create item closes, and the record opens with that child
+  focused.
 - Use a modal when the item needs a field the list does not show, such as a user's
   password, or when the create returns a value to copy, such as an API key's token.
 - A record table names its columns in a band above the items. Explorers have no
@@ -849,9 +886,9 @@ bound, a log precision, or the line plot X channel.
 - The Ports view keeps each title over its grid, with a thin line between sections or
   devices and 2.5 rem above and below it. Labels beside or above each bank were
   rejected.
-- An NI device's location ("Dev3") is a chip at the right end of its title line:
-  monospace, small, on gray step 3. The usage text does not repeat it. Monospace text
-  alone was rejected, because it stands out too little.
+- An NI device's location ("Dev3") is a chip at the right end of its title line: small,
+  on gray step 3. The usage text does not repeat it. Plain text alone was rejected,
+  because it stands out too little.
 - In a map, a click on a used port selects its channel. A click on a free port adds a
   channel there: the port shows a + under the pointer, and its tooltip reads "Add a
   channel on FIO3". The pointer stays an arrow. A used port keeps its tint, and its

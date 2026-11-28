@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xjson "github.com/synnaxlabs/x/json"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -39,7 +40,7 @@ var _ = Describe("Allocation", func() {
 		decoders := []*xjson.Decoder{
 			MustSucceed(xjson.NewDecoder(xjson.Field{
 				DataType:   telem.TimestampT,
-				TimeFormat: MustSucceed(xjson.ParseTimeFormat("iso8601")),
+				TimeFormat: payload.TimeFormatISO8601,
 			})),
 			MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.Float64T})),
 			MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.StringT})),
@@ -88,7 +89,7 @@ var _ = Describe("Allocation", func() {
 		fields := []xjson.Field{
 			{
 				DataType:   telem.TimestampT,
-				TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				TimeFormat: payload.TimeFormatUnixSec,
 			},
 			{DataType: telem.Float64T},
 			{DataType: telem.StringT, Type: xjson.String},
