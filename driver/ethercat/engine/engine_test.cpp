@@ -563,7 +563,7 @@ TEST_F(EngineTest, WriteToUnknownIndexReturnsError) {
     ));
     const auto err = writer->open_tx().write(1, static_cast<int16_t>(0x1234));
     ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
-    EXPECT_EQ(err.data, "output index 1 is out of range for 1 registered entries");
+    EXPECT_EQ(err.data(), "output index 1 is out of range for 1 registered entries");
 }
 
 /// @brief it should set the outputs of a closed writer to its stop values and hold them
@@ -1147,7 +1147,7 @@ TEST_F(EngineTest, UnmappedEntryIsRejected) {
     );
     ASSERT_OCCURRED_AS(res.second, errors::PDO_NOT_MAPPED);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "PDO 0x9999:01 is not in the process image of module 0."
     );
     EXPECT_FALSE(this->engine->running());
@@ -1163,7 +1163,7 @@ TEST_F(EngineTest, EntryLongerThanItsPDOIsRejected) {
     );
     ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "PDO 0x6000:04 on module 0 is 4 bits, not 32. Scan the network again."
     );
     EXPECT_FALSE(this->engine->running());
@@ -1236,7 +1236,7 @@ TEST_F(EngineTest, EntryOffTheRunningImageAsksForARestartOfTheTasks) {
     );
     ASSERT_OCCURRED_AS(err, errors::PDO_NOT_MAPPED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "PDO 0x6000:01 is not in the process image of module 1. Stop every task on "
         "Ethernet 2, then start them again."
     );
@@ -1293,7 +1293,7 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheStart) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(res.second.data, "invalid settings");
+    EXPECT_EQ(res.second.data(), "invalid settings");
     EXPECT_EQ(this->master->call_count("scan"), 0);
     EXPECT_FALSE(this->engine->running());
 }
@@ -1418,7 +1418,7 @@ TEST_F(EngineTest, SlaveSettingsErrorFailsTheWriterStart) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(res.second.data, "invalid settings");
+    EXPECT_EQ(res.second.data(), "invalid settings");
     EXPECT_EQ(this->master->call_count("scan"), 0);
     EXPECT_FALSE(this->engine->running());
 }
@@ -1646,7 +1646,7 @@ TEST_F(EngineTest, StartFailsAConflictWhoseSerialStaysUnread) {
     );
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Slave1 (serial 7) and Slave1 (serial 8) are both saved for module 1 on eth0 "
         "with different settings, and the module did not give its serial number: no "
         "answer."
@@ -1673,7 +1673,7 @@ TEST_F(EngineTest, StartFailsAConflictOfASlaveThatStaysStarting) {
     );
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Slave1 (serial 7) and Slave1 (serial 8) are both saved for module 1 on eth0 "
         "with different settings, and the module did not give its serial number: it is "
         "still starting up."
@@ -1733,7 +1733,7 @@ TEST_F(EngineTest, StartFailsAConflictOfDevicesWithNoSerialAtOnce) {
     );
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Other and Slave1 are both saved for module 1 on eth0 with different settings. "
         "Give them the same settings, or delete the device that is no longer on the "
         "bus."
@@ -2100,7 +2100,7 @@ TEST_F(EngineTest, InitializeErrorPropagates) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(res.second.data, "Init failed.");
+    EXPECT_EQ(res.second.data(), "Init failed.");
     EXPECT_EQ(this->master->call_count("scan"), 3);
     EXPECT_FALSE(this->engine->running());
 }
@@ -2118,7 +2118,7 @@ TEST_F(EngineTest, ActivationErrorPropagates) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Activate failed.");
+    EXPECT_EQ(res.second.data(), "Activate failed.");
     EXPECT_EQ(this->master->call_count("activate"), 3);
     EXPECT_EQ(this->master->call_count("deactivate"), 3);
     EXPECT_FALSE(this->engine->running());
@@ -2222,7 +2222,7 @@ TEST_F(EngineTest, StateChangeRefusalSkipsRetries) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
-    EXPECT_EQ(res.second.data, "Inconsistent settings.");
+    EXPECT_EQ(res.second.data(), "Inconsistent settings.");
     EXPECT_EQ(this->master->call_count("activate"), 1);
     EXPECT_EQ(this->master->call_count("deactivate"), 1);
     EXPECT_FALSE(this->engine->running());
@@ -2254,7 +2254,7 @@ TEST_F(EngineTest, StartFailsWhenOnlyASlaveWithoutProcessDataIsLeft) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Failed to reach SAFE-OP: refused SAFE-OP: Inconsistent settings."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
@@ -2273,7 +2273,7 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. To fix \"Invalid DC SYNC configuration\", right-click the "
@@ -2298,7 +2298,7 @@ TEST_F(EngineTest, ReaderOnASlaveSetUpForAnotherProgramGetsSwitchAdvice) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. The device is set up for DewesoftX. In Configure, switch the "
@@ -2323,7 +2323,7 @@ TEST_F(EngineTest, ReaderOnASlaveOnlyReadByAnotherProgramGetsSwitchAdvice) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. The device is set up for DewesoftX. In Configure, switch the "
@@ -2359,7 +2359,7 @@ TEST_F(EngineTest, ReaderOnASharedSlaveWithAPickedSyncModeGetsBothAdvices) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. " +
@@ -2389,7 +2389,7 @@ TEST_F(EngineTest, ReaderOnASwitchedSlaveGetsPowerRestartAdvice) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid DC "
         "SYNC configuration. Fix the device, then stop every task on the network to "
         "try it again. Restart the power of the device."
@@ -2409,7 +2409,7 @@ TEST_F(EngineTest, ReaderOnALeftOutSlaveFails) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: "
         "Inconsistent settings. Fix the device, then stop every task on the network to "
         "try it again."
@@ -2434,7 +2434,7 @@ TEST_F(EngineTest, FailedStartGivesTheLeftOutSlaves) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
         "Inconsistent settings."
     );
@@ -2458,7 +2458,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOfALeftOutSlave) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
@@ -2484,7 +2484,7 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. The Driver left out module 2 because it "
         "refused SAFE-OP: Invalid DC SYNC configuration. " +
@@ -2517,7 +2517,7 @@ TEST_F(EngineTest, FailedStartGivesEachDistinctAdvice) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Failed to reach OP. The Driver left out module 1 because it refused SAFE-OP: "
         "Invalid DC SYNC configuration. The Driver left out module 2 because it "
         "refused SAFE-OP: Invalid output configuration. The Driver left out module 3 "
@@ -2539,7 +2539,7 @@ TEST_F(EngineTest, StartFailsWithTheDCSyncAdviceWhenEverySlaveRefuses) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Failed to reach SAFE-OP: refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
     );
@@ -2616,7 +2616,7 @@ TEST_F(EngineTest, LeavesOutASlaveThatRefusesAStaleLayoutTwice) {
         this->engine->begin_start(this->cancel)
     );
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Module 1 (Slave1) is left out of the network: it refused SAFE-OP: Invalid "
         "input configuration. Fix the device, then stop every task on the network to "
         "try it again. If the mode of the device changed, restart its power."
@@ -2726,7 +2726,7 @@ TEST_F(EngineTest, StartStopsRetryingBeforeTheStartTimeout) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Activate failed.");
+    EXPECT_EQ(res.second.data(), "Activate failed.");
     // The second try ends at 50 s, so a third would end at 75 s.
     EXPECT_EQ(this->master->call_count("activate"), 2);
     EXPECT_FALSE(this->engine->running());
@@ -2762,7 +2762,7 @@ TEST_F(EngineTest, StartLeavesOutNoSlaveAfterTheStartTimeout) {
     );
     ASSERT_OCCURRED_AS(res.second, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "Failed to reach SAFE-OP: refused SAFE-OP: Invalid input configuration. The "
         "Driver left out module 1 because it refused SAFE-OP: Invalid input "
         "configuration. If the mode of the device changed, restart its power."
@@ -2798,7 +2798,7 @@ TEST_F(EngineTest, StartGetsTheRestOfTheStartTimeout) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Activate failed.");
+    EXPECT_EQ(res.second.data(), "Activate failed.");
     // The first try ends at 50 s, so a second would end at 75 s.
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }
@@ -2842,7 +2842,7 @@ TEST_F(EngineTest, OpenBehindAStartFailsAtTheStartTimeout) {
     retrying.stop();
     opener.join();
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
+    EXPECT_EQ(res.second.data(), "Another task is still using eth0.");
 }
 
 /// @brief it should fail a writer that waits for another start at the start timeout,
@@ -2862,7 +2862,7 @@ TEST_F(EngineTest, WriterBehindAStartFailsAtTheStartTimeout) {
     retrying.stop();
     opener.join();
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
+    EXPECT_EQ(res.second.data(), "Another task is still using eth0.");
 }
 
 /// @brief it should keep an open waiting past the start timeout while another start
@@ -2921,7 +2921,7 @@ TEST_F(EngineTest, OpenBehindAStartEndsWhenCanceled) {
     this->master->release_activate();
     opener.join();
     ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
-    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(res.second.data(), "The Driver stopped the start on eth0.");
 }
 
 /// @brief it should end a start with no retry when its cancel stops while the slaves
@@ -2950,7 +2950,7 @@ TEST_F(EngineTest, StartEndsWhenCanceledWhileTheSlavesReachOP) {
     this->master->release_activate();
     opener.join();
     ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
-    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(res.second.data(), "The Driver stopped the start on eth0.");
     const auto steps = log.snapshot();
     ASSERT_EQ(steps.size(), 1);
     EXPECT_EQ(steps[0].message, "Starting eth0");
@@ -2978,7 +2978,7 @@ TEST_F(EngineTest, StartKeepsTheErrorOfATryThatFailsWhileCanceled) {
         this->engine->begin_start(cancel, log.report())
     );
     ASSERT_OCCURRED_AS(res.second, errors::STARTUP_PARAMETER_REJECTED);
-    EXPECT_EQ(res.second.data, "Module 1 rejected 0x5FFE:00.");
+    EXPECT_EQ(res.second.data(), "Module 1 rejected 0x5FFE:00.");
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }
 
@@ -3001,7 +3001,7 @@ TEST_F(EngineTest, StartEndsWhenCanceledDuringATryThatARetryCanClear) {
         this->engine->begin_start(cancel, log.report())
     );
     ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
-    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(res.second.data(), "The Driver stopped the start on eth0.");
     EXPECT_EQ(this->master->call_count("activate"), 1);
     for (const auto &step: log.snapshot())
         EXPECT_NE(step.message, "Retrying the start");
@@ -3071,7 +3071,7 @@ TEST_F(EngineTest, StartWithNoTimeLeftFailsBeforeItsFirstTry) {
         this->engine->begin_start(this->cancel)
     );
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "The start on eth0 ran out of time.");
+    EXPECT_EQ(res.second.data(), "The start on eth0 ran out of time.");
     EXPECT_EQ(this->master->call_count("activate"), 0);
 }
 
@@ -3116,7 +3116,7 @@ TEST_F(EngineTest, LateStartBehindAnotherStartNamesTheOtherStart) {
     releaser.join();
     first.join();
     ASSERT_OCCURRED_AS(res.second, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(res.second.data, "Another task is still using eth0.");
+    EXPECT_EQ(res.second.data(), "Another task is still using eth0.");
 }
 
 /// @brief it should end the wait between two tries of a failed start when the cancel of
@@ -3147,7 +3147,7 @@ TEST_F(EngineTest, StartRetryWaitEndsWhenCanceled) {
     opener.join();
     EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(5));
     ASSERT_OCCURRED_AS(res.second, x::errors::CANCELLED);
-    EXPECT_EQ(res.second.data, "The Driver stopped the start on eth0.");
+    EXPECT_EQ(res.second.data(), "The Driver stopped the start on eth0.");
     EXPECT_EQ(this->master->call_count("activate"), 1);
 }
 
@@ -3367,7 +3367,7 @@ TEST_F(EngineTest, FailedCyclesReturnATemporaryError) {
     const auto err = reader->read(this->brk, frame, times);
     ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
     ASSERT_TRUE(err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR));
-    EXPECT_EQ(err.data, "Every bus cycle failed: expected 3, got 1.");
+    EXPECT_EQ(err.data(), "Every bus cycle failed: expected 3, got 1.");
     this->master->clear_injected_errors();
     ASSERT_EVENTUALLY_NIL(reader->read(this->brk, frame, times));
 }
@@ -3387,7 +3387,7 @@ TEST_F(EngineTest, ReadTimesOutWhenTheBusStalls) {
     const auto err = reader->read(this->brk, frame, times);
     this->master->resume();
     ASSERT_OCCURRED_AS(err, errors::CYCLE_OVERRUN);
-    EXPECT_EQ(err.data, "No inputs from eth0 within 220ms.");
+    EXPECT_EQ(err.data(), "No inputs from eth0 within 220ms.");
     EXPECT_EQ(this->read_times(*reader, 1).size(), 1);
 }
 
@@ -3859,7 +3859,7 @@ TEST_F(EngineTest, ShortCycleBeyondTheLostSlavesFailsEveryReader) {
     const auto err = reader->read(this->brk, frame, times);
     ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Every bus cycle failed: short by 4. Module 1 (Slave1) is not in OP: not "
         "responding."
     );
@@ -3932,7 +3932,7 @@ TEST_F(EngineTest, ShortCycleWithEverySlaveInOPFailsEveryReader) {
     );
     const auto err = reader->read(this->brk, frame, times);
     ASSERT_OCCURRED_AS(err, errors::CYCLE_FAILED);
-    EXPECT_EQ(err.data, "Every bus cycle failed: short by 1.");
+    EXPECT_EQ(err.data(), "Every bus cycle failed: short by 1.");
 }
 
 /// @brief it should name no slave in the warning of cycles that failed for another
@@ -4157,7 +4157,7 @@ TEST_F(EngineTest, ReadRatesWithoutASmallCommonMultipleAreRejected) {
     );
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "No bus rate at or below 10000 Hz on eth0 is a multiple of every read task "
         "sample rate (997 Hz, 300 Hz). Choose sample rates with a smaller common "
         "multiple."
@@ -4175,7 +4175,7 @@ TEST_F(EngineTest, WriterAboveTheMaximumRateIsRejected) {
     );
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "A write task on eth0 runs at 20000 Hz, above the maximum bus rate of 10000 "
         "Hz."
     );
@@ -4222,7 +4222,7 @@ TEST_F(EngineTest, RefusesANewRateWhileASlaveRunsDCSync) {
     );
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "The bus on eth0 cycles at 100 Hz while a module runs DC sync, and the rate "
         "cannot change until every task on the port stops. Use a sample rate that 100 "
         "Hz is a multiple of, or an execution rate of at most 100 Hz."
@@ -4255,7 +4255,7 @@ TEST_F(EngineTest, RefusesAReaderAtANewRateWhileASlaveRunsDCSync) {
     );
     ASSERT_OCCURRED_AS(res.second, errors::RATE_MISMATCH);
     EXPECT_EQ(
-        res.second.data,
+        res.second.data(),
         "The bus on eth0 cycles at 100 Hz while a module runs DC sync, and the rate "
         "cannot change until every task on the port stops. Use a sample rate that 100 "
         "Hz is a multiple of, or an execution rate of at most 100 Hz."
@@ -5075,7 +5075,7 @@ TEST_F(EngineTest, ConfigureRefusesASlaveThatIsNotOnTheBus) {
     gone.serial = 9;
     const auto err = this->engine->configure(gone, standalone);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "Slave0 is not on eth0. Check its power and cabling.");
+    EXPECT_EQ(err.data(), "Slave0 is not on eth0. Check its power and cabling.");
     EXPECT_EQ(this->master->call_count("write"), 0);
 }
 
@@ -5090,7 +5090,7 @@ TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
     this->master->clear_call_log();
     const auto err = this->engine->configure(io_slave(0), standalone);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "A task uses eth0. Stop the tasks that use it first.");
+    EXPECT_EQ(err.data(), "A task uses eth0. Stop the tasks that use it first.");
     EXPECT_EQ(this->master->call_count("write"), 0);
 }
 
@@ -5112,7 +5112,7 @@ TEST_F(EngineTest, ConfigureRefusesAtOnceWhileATaskStartsTheBus) {
     opener.join();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "A task is starting on eth0. Try again when the start ends, or stop the task."
     );
     EXPECT_EQ(this->master->call_count("write"), 0);
@@ -5143,7 +5143,7 @@ TEST_F(EngineTest, MessagesUseTheNameOfTheMaster) {
     ));
     const auto err = this->engine->configure(io_slave(0), standalone);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
-    EXPECT_EQ(err.data, "A task uses Ethernet 2. Stop the tasks that use it first.");
+    EXPECT_EQ(err.data(), "A task uses Ethernet 2. Stop the tasks that use it first.");
 }
 
 /// @brief it should return the error of a write that the slave rejects.

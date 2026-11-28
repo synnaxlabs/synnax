@@ -292,7 +292,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheMasterCannotBeOpened) {
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to open igh:0. Check that libethercat comes from the EtherLab version "
         "of the ec_master kernel module"
     );
@@ -322,7 +322,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenIgHKeepsScanning) {
     this->api->scan_reads = 100000;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "IgH did not finish its scan of the bus within 10s");
+    EXPECT_EQ(err.data(), "IgH did not finish its scan of the bus within 10s");
     EXPECT_TRUE(this->api->released);
 }
 
@@ -331,7 +331,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenNoSlaveAnswers) {
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::NO_SLAVES_FOUND);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "No EtherCAT modules found on igh:0. Check the cable and the power of the first "
         "module."
     );
@@ -344,7 +344,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenThePortHasNoLink) {
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::NO_LINK);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "No EtherCAT modules found on igh:0. Its network port has no link. Check the "
         "cable to the first module, and that MASTER0_DEVICE in the IgH configuration "
         "names the port."
@@ -356,7 +356,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheMasterInfoCannotBeRead) {
     this->api->master_info_result = -1;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "failed to get master info");
+    EXPECT_EQ(err.data(), "failed to get master info");
     EXPECT_TRUE(this->api->released);
 }
 
@@ -366,7 +366,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenADomainCannotBeCreated) {
     this->api->domain_fails = true;
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "failed to create the domain of module 1 (TestSlave)");
+    EXPECT_EQ(err.data(), "failed to create the domain of module 1 (TestSlave)");
 }
 
 /// @brief it should fail to initialize, and release the master, when it cannot read a
@@ -376,7 +376,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenASlaveCannotBeRead) {
     this->api->add_slave().unreadable = true;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "failed to read module 2: Input/output error");
+    EXPECT_EQ(err.data(), "failed to read module 2: Input/output error");
     EXPECT_TRUE(this->api->released);
 }
 
@@ -804,7 +804,7 @@ TEST_F(IGHMasterTest, ReadGivesTheReasonForEachFailure) {
         const auto err = this->master.read(1, 0x8000, sub_index).second;
         ASSERT_OCCURRED_AS(err, errors::SDO_READ_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             std::format("failed to read 0x8000:{:02X}: {}", sub_index, reason)
         );
     }
@@ -846,7 +846,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterDoesNotActivate) {
     this->api->activate_result = -1;
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "ecrt_master_activate failed");
+    EXPECT_EQ(err.data(), "ecrt_master_activate failed");
 }
 
 /// @brief it should tell why it cannot reserve the master.
@@ -865,7 +865,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheMasterCannotBeReserved) {
         this->api->reserve_result = ret;
         const auto err = this->activate().err;
         ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-        EXPECT_EQ(err.data, msg);
+        EXPECT_EQ(err.data(), msg);
     }
 }
 
@@ -877,7 +877,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheSlavesChangedSinceTheScan) {
     this->api->slaves[0].info.product_code = 0x03F03052;
     const auto err = this->activate().err;
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "the modules on igh:0 changed since the last scan");
+    EXPECT_EQ(err.data(), "the modules on igh:0 changed since the last scan");
     EXPECT_FALSE(this->api->slaves[0].configured);
 }
 
@@ -893,7 +893,7 @@ TEST_F(IGHMasterTest, ActivateRefusesAUsedSlaveWithNoIdentity) {
     const auto activation = this->activate();
     ASSERT_OCCURRED_AS(activation.err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        activation.err.data,
+        activation.err.data(),
         "module 1 (Unknown) gave no identity when IgH read its EEPROM"
     );
     const std::map<uint16_t, slave::Refusal> refusals{
@@ -950,7 +950,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveCannotBeConfigured) {
     this->api->slave_config_fails = true;
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
-    EXPECT_EQ(err.data, "failed to configure module 1 (TestSlave)");
+    EXPECT_EQ(err.data(), "failed to configure module 1 (TestSlave)");
 }
 
 /// @brief it should give the cycle the domains, with the offset of each entry.
@@ -1042,7 +1042,7 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalOfEachSlave) {
     EXPECT_EQ(this->api->resets, 1);
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        activation.err.data,
+        activation.err.data(),
         "failed to reach OP: module 2 (EL4002) is in PRE-OP with an AL error; module "
         "3 (EL1008) is in SAFE-OP with an AL error"
     );
@@ -1061,7 +1061,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveStaysBelowOP) {
     const auto activation = this->activate();
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
-        activation.err.data,
+        activation.err.data(),
         "failed to reach OP (no module reached OP for 10s): module 1 (TestSlave) is in "
         "SAFE-OP"
     );
@@ -1112,7 +1112,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnceNoSlaveReachesOPForTheTimeout) {
     const auto activation = this->activate();
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
-        activation.err.data,
+        activation.err.data(),
         "failed to reach OP (no module reached OP for 10s): module 2 (TestSlave) is in "
         "SAFE-OP"
     );
@@ -1132,7 +1132,7 @@ TEST_F(IGHMasterTest, ActivateEndsWhenCanceled) {
         [&cancel](const master::Image &) { cancel.stop(); }
     );
     ASSERT_OCCURRED_AS(activation.err, x::errors::CANCELLED);
-    EXPECT_EQ(activation.err.data, "the start stopped before the slaves reached OP");
+    EXPECT_EQ(activation.err.data(), "the start stopped before the slaves reached OP");
 }
 
 /// @brief it should start when a slave whose configuration state it cannot read is in
@@ -1157,7 +1157,7 @@ TEST_F(IGHMasterTest, ActivateReportsASlaveWhoseStateItCannotRead) {
     );
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_ERROR);
     EXPECT_EQ(
-        activation.err.data,
+        activation.err.data(),
         "failed to reach OP (no module reached OP for 10s): module 1 (TestSlave): "
         "failed to read its state: Input/output error"
     );
@@ -1200,7 +1200,7 @@ TEST_F(IGHMasterTest, ActivateWaitsForASlaveBelowOPWithNoErrorFlag) {
     EXPECT_EQ(this->api->resets, 0);
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        activation.err.data,
+        activation.err.data(),
         "failed to reach OP (no module reached OP for 10s): module 1 (EL4002) is in "
         "PRE-OP with an AL error; module 2 (EL1008) is in SAFE-OP"
     );
@@ -1222,7 +1222,7 @@ TEST_F(IGHMasterTest, ActivateReturnsTheRefusalsWhenTheResetFails) {
     EXPECT_EQ(this->api->resets, 1);
     ASSERT_OCCURRED_AS(activation.err, errors::STATE_CHANGE_REFUSED);
     EXPECT_EQ(
-        activation.err.data,
+        activation.err.data(),
         "failed to reach OP: module 1 (TestSlave) is in PRE-OP with an AL error"
     );
 }
@@ -1253,7 +1253,7 @@ TEST_F(IGHMasterTest, ScanFailsWhenTheSIICannotBeRead) {
     this->api->add_slave().sii_result = -EIO;
     const auto err = this->master.scan().second;
     ASSERT_OCCURRED_AS(err, errors::MASTER_INIT_ERROR);
-    EXPECT_EQ(err.data, "failed to read the SII of module 2: Input/output error");
+    EXPECT_EQ(err.data(), "failed to read the SII of module 2: Input/output error");
 }
 
 /// @brief it should fail activation on a chosen mode that the slave does not list,
@@ -1267,7 +1267,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenModeTheSlaveDoesNotList) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 2 (TestSlave) cannot use its chosen mode: the module does not list "
         "mode 1 with AssignActivate 0x0700. It lists 0 \"FreeRun\" (AssignActivate "
         "0x0000), 1 \"DC\" (AssignActivate 0x0300)."
@@ -1290,7 +1290,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnAChosenCycleForAnSMMode) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) cannot use its chosen mode: mode \"FreeRun\" "
         "(AssignActivate 0x0000) does not run SYNC0, so it cannot use a SYNC0 cycle "
         "of 1ms"
@@ -1366,7 +1366,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnASYNC1ShiftOffTheSYNC0Grid) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) cannot run its DC mode on the IgH master: SYNC1 comes "
         "250us after SYNC0, which is not a whole number of SYNC0 cycles of 1ms"
     );
@@ -1389,7 +1389,7 @@ TEST_F(IGHMasterTest, ActivateFailsOnSYNC0CyclesWithNoCommonStart) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "the SYNC0 cycles of the modules have no common multiple that the IgH master "
         "can start them on"
     );
@@ -1403,7 +1403,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheDCSyncCannotBeSetUp) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to set up the DC sync of module 1 (TestSlave): Cannot allocate memory"
     );
 }
@@ -1415,7 +1415,10 @@ TEST_F(IGHMasterTest, SendFailsWhenTheApplicationTimeIsNotTaken) {
     this->api->app_time_result = -EPERM;
     const auto err = this->master.send();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to give the application time: Operation not permitted");
+    EXPECT_EQ(
+        err.data(),
+        "failed to give the application time: Operation not permitted"
+    );
 }
 
 /// @brief it should give the application time in each cycle, and sync the reference
@@ -1458,7 +1461,7 @@ TEST_F(IGHMasterTest, SendFailsWhenTheClocksCannotSync) {
     this->api->clock_sync_result = -EIO;
     const auto err = this->master.send();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to sync the distributed clocks: Input/output error");
+    EXPECT_EQ(err.data(), "failed to sync the distributed clocks: Input/output error");
 }
 
 /// @brief it should read the DC time once a slave gives a working counter, as the time
@@ -1535,7 +1538,7 @@ TEST_F(IGHMasterTest, ReceiveFailsWhenTheReferenceClockCannotBeRead) {
     ASSERT_NIL(this->master.send());
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to read the reference clock: Bad address");
+    EXPECT_EQ(err.data(), "failed to read the reference clock: Bad address");
 }
 
 /// @brief it should start the bus when the master rejects the entries of a slave whose
@@ -1557,7 +1560,7 @@ TEST_F(IGHMasterTest, ActivateReturnsWhyTheMasterRejectedAnEntry) {
     );
     ASSERT_OCCURRED_AS_P(rejected, errors::PDO_MAPPING_ERROR);
     EXPECT_EQ(
-        rejected.second.data,
+        rejected.second.data(),
         "the IgH master rejected PDO " +
             telem::format_index_sub_index(entry->index, entry->sub_index) +
             " of module 1 (EL3102): No such file or directory"
@@ -1584,7 +1587,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveRejectsAStartupParameter) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_REJECTED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
         "parameter written too high"
     );
@@ -1600,7 +1603,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenASlaveDoesNotAnswerAStartupParameter) {
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_FALSE(err.matches(errors::STARTUP_PARAMETER_REJECTED));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) failed to write startup parameter 0x8000:15 (Filter): no "
         "response"
     );
@@ -1615,7 +1618,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenAStartupParameterCannotBeConfigured) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to add startup parameter 0x8000:15 (Filter) to module 1 (TestSlave)"
     );
 }
@@ -1645,7 +1648,7 @@ TEST_F(IGHMasterTest, WriteReturnsWhyASlaveRejectedAParameter) {
     const auto err = this->master.write(1, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
         "parameter written too high"
     );
@@ -1722,7 +1725,7 @@ TEST_F(IGHMasterTest, WriteRefusesAValueThatIgHCannotKeep) {
     const auto err = this->master.write(1, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::SETTING_CONFLICT);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "the IgH master cannot change 0x8000:15 (Filter) of module 1 (TestSlave) while "
         "other tasks run the bus. Stop them, then start this task first"
     );
@@ -1769,7 +1772,7 @@ TEST_F(IGHMasterTest, WriteReturnsWhyASlaveFailedToReadAParameter) {
     const auto err = this->master.write(1, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "module 1 (TestSlave) failed to read startup parameter 0x8000:15 (Filter): "
         "Object does not exist in the object dictionary"
     );
@@ -1781,7 +1784,7 @@ TEST_F(IGHMasterTest, WriteRejectsAPositionWithNoSlave) {
     ASSERT_NIL(this->scan_and_activate());
     const auto err = this->master.write(2, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
-    EXPECT_EQ(err.data, "no module at position 2");
+    EXPECT_EQ(err.data(), "no module at position 2");
 }
 
 /// @brief it should register the entries of the PDO a startup parameter assigns, and
@@ -1916,7 +1919,7 @@ TEST_F(IGHMasterTest, ActivateFailsWhenTheLayoutCannotBeRead) {
     const auto err = this->scan_and_activate();
     ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read the PDO layout of module 1 (TestSlave) after its startup "
         "parameters: failed to read 0x1A01:00: Object does not exist in the "
         "object dictionary"
@@ -1941,7 +1944,7 @@ TEST_F(IGHMasterTest, ReceiveFailsWhenNoSlaveAnswers) {
         this->api->domain_of(slave).state.wc_state = EC_WC_ZERO;
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "no modules responded");
+    EXPECT_EQ(err.data(), "no modules responded");
     EXPECT_EQ(this->master.shortfall(), 6);
     EXPECT_TRUE(this->master.inputless().empty());
 }
@@ -1957,7 +1960,7 @@ TEST_F(IGHMasterTest, ReceiveReportsThePartOfASlaveThatFellShort) {
     };
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "incomplete working counter: 1 of 3");
+    EXPECT_EQ(err.data(), "incomplete working counter: 1 of 3");
     EXPECT_EQ(this->master.shortfall(), 2);
     EXPECT_TRUE(this->master.inputless().empty());
 }
@@ -1973,7 +1976,7 @@ TEST_F(IGHMasterTest, ReceiveReportsEachSilentSlaveAsInputless) {
     this->api->domain_of(this->api->slaves[2]).state.wc_state = EC_WC_ZERO;
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "incomplete working counter: 3 of 7");
+    EXPECT_EQ(err.data(), "incomplete working counter: 3 of 7");
     EXPECT_EQ(this->master.shortfall(), 4);
     EXPECT_EQ(
         std::vector(this->master.inputless().begin(), this->master.inputless().end()),
@@ -2027,7 +2030,7 @@ TEST_F(IGHMasterTest, ReceiveFailsWhenTheMasterCannotReceive) {
     this->api->receive_result = -EIO;
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to receive frames: Input/output error");
+    EXPECT_EQ(err.data(), "failed to receive frames: Input/output error");
 }
 
 /// @brief it should fail when the master fails to send frames.
@@ -2037,7 +2040,7 @@ TEST_F(IGHMasterTest, SendFailsWhenTheMasterCannotSend) {
     this->api->send_result = -EIO;
     const auto err = this->master.send();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to send frames: Input/output error");
+    EXPECT_EQ(err.data(), "failed to send frames: Input/output error");
 }
 
 /// @brief it should fail when the master fails to process a domain.
@@ -2047,7 +2050,7 @@ TEST_F(IGHMasterTest, ReceiveFailsWhenADomainCannotBeProcessed) {
     this->api->domain_process_result = -EIO;
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to process a domain: Input/output error");
+    EXPECT_EQ(err.data(), "failed to process a domain: Input/output error");
 }
 
 /// @brief it should fail when the master fails to read the state of a domain.
@@ -2057,7 +2060,7 @@ TEST_F(IGHMasterTest, ReceiveFailsWhenADomainStateCannotBeRead) {
     this->api->domain_state_result = -EIO;
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to read a domain state: Input/output error");
+    EXPECT_EQ(err.data(), "failed to read a domain state: Input/output error");
 }
 
 /// @brief it should fail when the master fails to queue a domain.
@@ -2067,7 +2070,7 @@ TEST_F(IGHMasterTest, SendFailsWhenADomainCannotBeQueued) {
     this->api->domain_queue_result = -EIO;
     const auto err = this->master.send();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to queue a domain: Input/output error");
+    EXPECT_EQ(err.data(), "failed to queue a domain: Input/output error");
 }
 
 /// @brief it should not read or write the process data of a slave that IgH reports
@@ -2081,7 +2084,7 @@ TEST_F(IGHMasterTest, SendSkipsTheProcessDataOfASlaveBelowSafeOp) {
     EXPECT_EQ(this->api->queued, (std::vector<size_t>{0}));
     const auto err = this->master.receive();
     ASSERT_OCCURRED_AS(err, errors::WORKING_COUNTER_ERROR);
-    EXPECT_EQ(err.data, "incomplete working counter: 3 of 6");
+    EXPECT_EQ(err.data(), "incomplete working counter: 3 of 6");
     EXPECT_EQ(
         std::vector(this->master.inputless().begin(), this->master.inputless().end()),
         (std::vector<uint16_t>{2})
@@ -2120,7 +2123,7 @@ TEST_F(IGHMasterTest, SendFailsWhenTheStateOfASlaveCannotBeRead) {
     this->api->slaves[0].state_unreadable = true;
     const auto err = this->master.send();
     ASSERT_OCCURRED_AS(err, errors::CYCLIC_ERROR);
-    EXPECT_EQ(err.data, "failed to read the state of module 1: Input/output error");
+    EXPECT_EQ(err.data(), "failed to read the state of module 1: Input/output error");
 }
 
 /// @brief it should report a slave whose state or info it cannot read as lost.
@@ -2341,7 +2344,7 @@ TEST(IGHManagerTest, CreateRejectsAKeyThatIsNotOfTheFormIghN) {
     for (const std::string key: {"igh:", "igh:x", "igh:1x", "igh:-1", "eth0"}) {
         auto res = manager.create(key);
         EXPECT_EQ(
-            res.second.data,
+            res.second.data(),
             "invalid IgH master key '" + key + "': expected format 'igh:N'"
         );
         ASSERT_OCCURRED_AS_P(std::move(res), errors::MASTER_INIT_ERROR);

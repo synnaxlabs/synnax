@@ -33,23 +33,63 @@
     },
     {
       "text": "{\"v\":1e-1048577}",
-      "error": "field v: invalid number \"1e-1048577\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"1e-1048577\": validation error"
+        }
+      ]
     },
     {
       "text": "{\"v\":0e1048577}",
-      "error": "field v: invalid number \"0e1048577\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"0e1048577\": validation error"
+        }
+      ]
     },
     {
       "text": "{\"v\":1e1048577}",
-      "error": "field v: invalid number \"1e1048577\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"1e1048577\": validation error"
+        }
+      ]
     },
     {
       "document": { "v": "1e-1048577" },
-      "error": "field v: invalid number \"1e-1048577\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"1e-1048577\": validation error"
+        }
+      ]
     },
     {
       "document": { "v": "0x1p-1048577" },
-      "error": "field v: invalid number \"0x1p-1048577\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: invalid number \"0x1p-1048577\": validation error"
+        }
+      ]
     }
   ]
 }

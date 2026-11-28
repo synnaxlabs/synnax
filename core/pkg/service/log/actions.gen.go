@@ -151,7 +151,7 @@ type SwapChannelPayload struct {
 	To   channel.Key `json:"to" msgpack:"to"`
 }
 
-// SetTimestampPrecisionPayload sets the precision of displayed timestamps (0-3).
+// SetTimestampPrecisionPayload sets the precision of displayed timestamps (0-9).
 type SetTimestampPrecisionPayload struct {
 	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 }

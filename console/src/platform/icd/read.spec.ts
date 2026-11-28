@@ -7,9 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { icd } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/platform/icd";
+
+const jsonFieldOf = (fields: Record<string, unknown>) =>
+  icd.jsonFieldZ.parse({ key: uuid.create(), name: "j", pointer: "/j", ...fields });
+
+const textField = icd.textFieldZ.parse({
+  key: uuid.create(),
+  name: "t",
+  encoding: "delimited",
+  position: 1,
+});
+
+const binaryField = icd.binaryFieldZ.parse({
+  key: uuid.create(),
+  name: "b",
+  kind: "unsigned",
+  bitLength: 16,
+});
+
+const timestamp = jsonFieldOf({ type: "timestamp", timeFormat: "unix_ms" });
 
 describe("ICD", () => {
   describe("mostRead", () => {
@@ -25,6 +46,75 @@ describe("ICD", () => {
       expect(
         ICD.mostRead([{ icd: "a" }, { icd: "b" }, { icd: "b" }, { icd: "a" }]),
       ).toBe("a");
+    });
+  });
+
+  describe("isReadable", () => {
+    it.each([
+      [
+        "a JSON bytes field with no pointer",
+        jsonFieldOf({ type: "bytes", pointer: "" }),
+        false,
+      ],
+      ["a JSON bytes field with a pointer", jsonFieldOf({ type: "bytes" }), true],
+      ["a text field", textField, true],
+      ["a binary field", binaryField, true],
+    ] as const)("should report whether the Core reads %s", (_, field, expected) => {
+      expect(ICD.isReadable(field)).toBe(expected);
+      expect(ICD.treeFieldOf(field).readable).toBe(expected);
+    });
+  });
+
+  describe("isIndexable", () => {
+    it("should report that a read cannot index on no field", () => {
+      expect(ICD.isIndexable(undefined)).toBe(false);
+    });
+  });
+
+  describe("suit", () => {
+    const message = uuid.create();
+
+    it("should drop the binding of a field that the message no longer holds", () => {
+      const read = {
+        message,
+        bindings: [
+          { field: textField.key, channel: 1, dataType: "" },
+          { field: uuid.create(), channel: 2, dataType: "" },
+        ],
+      };
+      expect(ICD.suit(read, [textField]).bindings).toEqual([read.bindings[0]]);
+    });
+
+    it("should clear a data type that the field of a binding cannot read into", () => {
+      const read = {
+        message,
+        bindings: [
+          { field: textField.key, channel: 1, dataType: "int64" },
+          { field: binaryField.key, channel: 2, dataType: "int16" },
+        ],
+      };
+      expect(ICD.suit(read, [textField, binaryField]).bindings).toEqual([
+        { field: textField.key, channel: 1, dataType: "" },
+        { field: binaryField.key, channel: 2, dataType: "" },
+      ]);
+    });
+
+    it("should drop an index on a field that is not a timestamp", () => {
+      const read = {
+        message,
+        index: textField.key,
+        bindings: [{ field: textField.key, channel: 1, dataType: "" }],
+      };
+      expect(ICD.suit(read, [textField])).toEqual({ message, bindings: [] });
+    });
+
+    it("should keep an index on a JSON timestamp field", () => {
+      const read = {
+        message,
+        index: timestamp.key,
+        bindings: [{ field: timestamp.key, channel: 1, dataType: "" }],
+      };
+      expect(ICD.suit(read, [timestamp])).toEqual(read);
     });
   });
 });

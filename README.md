@@ -64,7 +64,7 @@ monorepo. The following is a summary of each:
   operating systems.
 - [Freighter](freighter) - A protocol-agnostic network transport for cross-language
   unary and streaming communication with implementations in several languages (C++, Go,
-  Python, and TypeScript) and protocols (GRPC, HTTP, and WebSockets).
+  Python, and TypeScript) and protocols (gRPC, HTTP, and WebSocket).
 - [Integration](integration) - A Python-based test conductor framework for end-to-end
   integration and stress testing across the Synnax server and its clients.
 - [Oracle](oracle) - A schema definition language, code generator, and migration CLI

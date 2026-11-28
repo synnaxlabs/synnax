@@ -36,12 +36,15 @@ class EnumerationClient(ResourceClient):
         self.client = client
 
     def create(self, name: str, *, entries: list[str]) -> enumeration.Enumeration:
-        """Create an enumeration, then add entries in the grid under it.
+        """Create an enumeration, then name entries in the grid under it.
 
         :param name: The name of the new enumeration.
-        :param entries: The names of the entries to add, in order.
+        :param entries: The names of the entries, in order. A new enumeration starts
+            with one blank entry, which takes the first name.
         :returns: The enumeration as the Core holds it.
         """
+        if len(entries) == 0:
+            raise ValueError("A new enumeration starts with one entry to name")
         self._show_page()
         item = self.layout.open_settings_create("Create enumeration")
         item.get_by_placeholder("Enumeration name", exact=True).fill(name)
@@ -49,7 +52,9 @@ class EnumerationClient(ResourceClient):
         item.wait_for(state="hidden", timeout=5000)
         self.wait_for(name, lambda _: True, f"The Core did not create {name}")
         self.search(name)
-        self._add_entries(name, entries)
+        first = self.entries(name).get_by_label("Name 1", exact=True)
+        self._commit(first, entries[0])
+        self._add_entries(name, entries[1:])
         return self.wait_for(
             name,
             lambda e: [x.name for x in e.entries] == entries,

@@ -331,7 +331,7 @@ var _ = Describe("Freighter Transport", func() {
 
 // contractStream flags a Send that is still in flight, or starts, after
 // ServeFreighter has returned. Freighter streams are single-writer: once the
-// handler exits, freighter writes its own teardown frames, so any later Send is a
+// handler exits, Freighter writes its own teardown frames, so any later Send is a
 // contract violation that panics the real websocket transport.
 type contractStream struct {
 	freighter.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]

@@ -17,7 +17,7 @@ import { renderAether } from "@/testutil/internal";
 import { Button } from "@/vis/button";
 import { button } from "@/vis/button/aether";
 
-// Mounts the aether Button under the real provider stack with a registered test sink.
+// Mounts the Aether Button under the real provider stack with a registered test sink.
 // Handlers are called directly on the typed `h.component`, and the writes they make are
 // asserted against the test sink.
 const setup = (mode?: button.Mode) => {
@@ -118,7 +118,7 @@ describe("button/aether/Button", () => {
     });
   });
 
-  // The aether Button carries the behavior above; Button.use is a thin React
+  // The Aether Button carries the behavior above; Button.use is a thin React
   // adapter over its RPC methods. These tests cover only that adapter wiring.
   describe("Button.use (React adapter)", () => {
     const TestWrapper = TelemTest.createTestWrapper({ registry: button.REGISTRY });

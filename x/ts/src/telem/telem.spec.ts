@@ -2548,7 +2548,7 @@ describe("DataType", () => {
     });
 
     it("satisfies primitive.isHashable", () => {
-      expect(primitive.isHashable(DataType.UNKNOWN)).toBe(true);
+      expect(primitive.isHashable(DataType.FLOAT32)).toBe(true);
     });
   });
 });

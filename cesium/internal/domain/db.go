@@ -84,9 +84,10 @@ type Config struct {
 	//
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
-	// OnHistoryChange receives the time range of each domain inserted before the last,
-	// each commit to a domain that is not the last, and each delete that removes data.
-	// It runs inline under the DB's locks and must not block or call back into the DB.
+	// OnHistoryChange receives the time range of each domain inserted before the last
+	// and each commit to a domain that is not the last, after the index releases its
+	// lock. Delete returns its range and the changes of the commits that it reveals
+	// instead.
 	//
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)

@@ -47,6 +47,12 @@ std::pair<std::size_t, std::error_code> queued_output(Handle handle);
 /// waits up to 30 s for them otherwise.
 void discard_output(Handle handle);
 
+/// @brief returns the key that each path to the port at path shares while the port
+/// exists: the device number of its node on Linux and macOS, or the COM name in upper
+/// case with no \\.\ prefix on Windows.
+/// @returns UNREACHABLE_ERROR on Linux and macOS when the port does not exist.
+std::pair<std::string, x::errors::Error> identity(const std::string &path);
+
 /// @brief Line is the line errors of an open port, carried from one read to the next.
 struct Line {
     /// @brief marked is how many bytes of an error mark ended the last read.

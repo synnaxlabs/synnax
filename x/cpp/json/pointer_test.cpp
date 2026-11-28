@@ -22,7 +22,7 @@ TEST(Pointer, RejectsMissingLeadingSlash) {
     const auto [p, err] = Pointer::parse("temperature");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         R"(json pointer "temperature" must be empty or start with "/")"
     );
 }
@@ -32,7 +32,7 @@ TEST(Pointer, RejectsInvalidTildeEscape) {
     const auto [p, err] = Pointer::parse("/a~2b");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         R"(json pointer "/a~2b" is malformed: "~" must be followed by "0" or "1")"
     );
 }
@@ -42,7 +42,7 @@ TEST(Pointer, RejectsTrailingTilde) {
     const auto [p, err] = Pointer::parse("/a~");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         R"(json pointer "/a~" is malformed: "~" must be followed by "0" or "1")"
     );
 }

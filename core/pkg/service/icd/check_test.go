@@ -22,7 +22,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -66,12 +68,105 @@ type checkFixture struct {
 
 var checkFixtures = os.DirFS("testdata/fixtures")
 
-func checkFixtureEntries(kind string) []TableEntry {
+// checkFixtureEntries returns an entry for each fixture of kind that keep accepts.
+func checkFixtureEntries(kind string, keep func(checkFixture) bool) []TableEntry {
 	GinkgoHelper()
-	paths := MustSucceed(fs.Glob(checkFixtures, kind+"/*.json"))
+	paths := lo.Filter(
+		MustSucceed(fs.Glob(checkFixtures, kind+"/*.json")),
+		func(path string, _ int) bool { return keep(loadCheckFixture(path)) },
+	)
 	return lo.Map(paths, func(path string, _ int) TableEntry {
 		name := strings.TrimSuffix(strings.TrimPrefix(path, kind+"/"), ".json")
 		return Entry(name, path)
+	})
+}
+
+// kindTypes holds, for each field kind, the data type of a channel that takes the field
+// unscaled.
+var kindTypes = map[payload.Kind]telem.DataType{
+	payload.KindFloat:     telem.Float64T,
+	payload.KindInteger:   telem.Int64T,
+	payload.KindUnsigned:  telem.Uint64T,
+	payload.KindBoolean:   telem.BooleanT,
+	payload.KindString:    telem.StringT,
+	payload.KindTimestamp: telem.TimestampT,
+	payload.KindJSON:      telem.JSONT,
+	payload.KindUUID:      telem.UUIDT,
+	payload.KindBytes:     telem.BytesT,
+}
+
+// codecRejects reports whether the Go codec rejects the JSON, text, or binary messages
+// of ic under the binding it refuses least: each field binds to the data type of its
+// kind, or to float64 when it scales or is text.
+func codecRejects(ic icd.ICD) bool {
+	var (
+		jsonMessages   []codec.JSONMessage
+		textMessages   []codec.TextMessage
+		binaryMessages []codec.BinaryMessage
+	)
+	for _, m := range ic.Messages {
+		switch p := m.Payload.Variant.(type) {
+		case icd.JSONPayload:
+			bindings := lo.Map(p.Fields, func(f icd.JSONField, _ int) codec.Binding {
+				b, dt := f.Base(), kindTypes[f.Type()]
+				if b.Scale != 1 || b.Offset != 0 {
+					dt = telem.Float64T
+				}
+				return codec.Binding{Field: b.Key, DataType: dt}
+			})
+			jsonMessages = append(jsonMessages, codec.JSONMessage{
+				Name: m.Name, Payload: p, Bindings: bindings,
+			})
+		case icd.TextPayload:
+			bindings := lo.Map(p.Fields, func(f icd.TextField, _ int) codec.Binding {
+				return codec.Binding{Field: f.Base().Key, DataType: telem.Float64T}
+			})
+			textMessages = append(textMessages, codec.TextMessage{
+				Name: m.Name, Payload: p, Bindings: bindings,
+			})
+		case icd.BinaryPayload:
+			bindings := lo.Map(p.Fields, func(f icd.BinaryField, _ int) codec.Binding {
+				b, dt := f.Base(), kindTypes[payload.Kind(f.Kind())]
+				if b.Scale != 1 || b.Offset != 0 {
+					dt = telem.Float64T
+				}
+				return codec.Binding{Field: b.Key, DataType: dt}
+			})
+			binaryMessages = append(binaryMessages, codec.BinaryMessage{
+				Name: m.Name, Payload: p, Bindings: bindings,
+			})
+		}
+	}
+	if len(jsonMessages) > 0 {
+		if _, err := codec.NewJSON(jsonMessages); err != nil {
+			return true
+		}
+	}
+	if len(textMessages) > 0 {
+		if _, err := codec.NewText(textMessages); err != nil {
+			return true
+		}
+	}
+	if len(binaryMessages) > 0 {
+		if _, err := codec.NewBinary(binaryMessages); err != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func anyFixture(checkFixture) bool { return true }
+
+// hasGoCodec reports whether f holds no framing and no CAN identifier, since Go has no
+// framer and reads no CAN frames.
+func hasGoCodec(f checkFixture) bool {
+	return f.ICD.Framing == nil && !lo.SomeBy(f.ICD.Messages, func(m icd.Message) bool {
+		p, binary := m.Payload.Variant.(icd.BinaryPayload)
+		if !binary || p.Identifier == nil {
+			return false
+		}
+		_, can := p.Identifier.Variant.(icd.CanIdentifier)
+		return can
 	})
 }
 
@@ -89,7 +184,7 @@ var _ = Describe("Check", func() {
 		f := loadCheckFixture(path)
 		Expect(f.Problems).To(BeEmpty())
 		Expect(problemsOf(f.ICD)).To(BeEmpty())
-	}, checkFixtureEntries("valid"))
+	}, checkFixtureEntries("valid", anyFixture))
 
 	DescribeTable(
 		"Should find exactly the problems an invalid fixture names",
@@ -98,7 +193,20 @@ var _ = Describe("Check", func() {
 			Expect(f.Problems).ToNot(BeEmpty())
 			Expect(problemsOf(f.ICD)).To(ConsistOf(f.Problems))
 		},
-		checkFixtureEntries("invalid"),
+		checkFixtureEntries("invalid", anyFixture),
+	)
+
+	DescribeTable("Should build the Go codec of a valid fixture", func(path string) {
+		Expect(codecRejects(loadCheckFixture(path).ICD)).To(BeFalse())
+	}, checkFixtureEntries("valid", hasGoCodec))
+
+	DescribeTable(
+		"Should reject an invalid fixture in the Go codec when it says the codec rejects it",
+		func(path string) {
+			f := loadCheckFixture(path)
+			Expect(codecRejects(f.ICD)).To(Equal(f.CodecRejects))
+		},
+		checkFixtureEntries("invalid", hasGoCodec),
 	)
 
 	It("Should store a valid fixture", func(ctx SpecContext) {

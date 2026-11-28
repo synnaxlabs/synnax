@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""The Driver built for NI Linux RT, run on the cRIO-9041 of the HITL station."""
+"""The Driver built for NI Linux Real-Time, run on the cRIO-9041 of the HITL station."""
 
 import pathlib
 import re
@@ -19,7 +19,7 @@ from framework import resources
 from framework.hardware_case import HardwareCase
 
 HOST = "admin@192.168.50.30"
-"""The cRIO on the instrument subnet. On NI Linux RT, admin is root."""
+"""The cRIO on the instrument subnet. On NI Linux Real-Time, admin is root."""
 KEY = pathlib.Path("C:/hitl/keys/crio")
 """The key of the cRIO, which only the runner's user can read."""
 KNOWN_HOSTS = pathlib.Path("C:/hitl/keys/known_hosts")

@@ -157,7 +157,7 @@ public:
             .name = this->task.name,
             .variant = ::synnax::status::VARIANT_ERROR,
             .message = "Failed to report Driver status",
-            .description = err.data,
+            .description = err.data(),
             .time = x::telem::TimeStamp::now(),
             .details =
                 synnax::task::StatusDetails{
@@ -188,7 +188,7 @@ private:
 };
 
 /// @brief a task that periodically
-/// to indicate that the driver is still alive.
+/// to indicate that the Driver is still alive.
 class Task final : public driver::task::Task {
     Source pipe;
 
@@ -222,7 +222,7 @@ public:
                 .name = TASK_NAME,
                 .variant = ::synnax::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",
-                .description = rack_err.data,
+                .description = rack_err.data(),
                 .owner = synnax::task::resource_id(task.key),
             };
             ctx->set_status(stat);

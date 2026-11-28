@@ -13,7 +13,7 @@ import type { PropsWithChildren, ReactElement } from "react";
 export interface MenuProps extends PropsWithChildren {}
 
 /**
- * Menu is the root of every console context menu. Order items in fixed bands,
+ * Menu is the root of every Console context menu. Order items in fixed bands,
  * top to bottom: primary action (what double-click would do), rename and
  * organization, feature-specific actions, Export / Copy link / Copy properties,
  * Delete, Reload Console. Emit a Menu.Divider between bands unconditionally;

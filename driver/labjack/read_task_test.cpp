@@ -284,7 +284,7 @@ TEST(TestReadChannelApply, testT8AirCJC) {
     const auto err = chan->apply(dev, T8);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "AIN1 uses the air temperature as its CJC source, which the T8 does not have. "
         "Select another CJC source."
     );
@@ -298,7 +298,7 @@ TEST(TestReadChannelApply, testT4Thermocouple) {
     const auto err = chan->apply(dev, T4);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "AIN2 is a thermocouple channel, but the T4 does not support thermocouples."
     );
     EXPECT_TRUE(dev->written_names().empty());
@@ -421,7 +421,7 @@ TEST(TestReadChannelApply, testAnalogRangeAboveDeviceMax) {
     const auto err = chan->apply(dev, T8);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "AIN0 has a max voltage of 12 V, but the largest range of the device is ±11 V."
     );
 }
@@ -1239,7 +1239,7 @@ TEST_F(ReadTaskTest, testT8OldFirmware) {
     const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Thermocouples on a T8 need firmware 1.0038 or later, but the device has "
         "firmware 1.0025. Update the firmware with Kipling."
     );
@@ -1256,7 +1256,7 @@ TEST_F(ReadTaskTest, testT8OldLJM) {
     const auto err = source.start("start_cmd", this->cancel);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Thermocouples on a T8 need LJM 1.2304 or later, but the Driver loaded LJM "
         "1.2302. Install the latest LJM."
     );

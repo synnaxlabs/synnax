@@ -148,11 +148,7 @@ interface ThumbprintDetailProps {
 }
 
 const ThumbprintDetail = ({ value }: ThumbprintDetailProps): ReactElement => (
-  <Detail
-    label="Thumbprint"
-    variant="code"
-    className={CSS.BE("opc-certificate", "value")}
-  >
+  <Detail label="Thumbprint" className={CSS.BE("opc-certificate", "value")}>
     {formatThumbprint(value)}
   </Detail>
 );
