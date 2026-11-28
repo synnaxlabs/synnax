@@ -271,33 +271,44 @@ class WriteFrameAdapter:
             raise PathError("keys", ValidationError(f"frame has extra keys {extra}"))
 
         for i, (ch, series) in enumerate(zip(channels, frame.series, strict=True)):
-            if series.data_type != ch.data_type:
-                if self._strict_data_types:
-                    raise PathError(
-                        str(ch.key),
-                        ValidationError(
-                            f"Data type {ch.data_type} for channel {ch} does "
-                            + f"not match series data type {series.data_type}.",
-                        ),
-                    )
-                if not self._suppress_warnings and not (
-                    ch.data_type == DataType.TIMESTAMP
-                    and series.data_type == DataType.INT64
-                ):
-                    warnings.warn(
-                        f"""Series for channel {ch.name} has type {series.data_type} but
-                        channel expects type {ch.data_type}. We can safely convert
-                        between the two, but this can cause performance degradations
-                        and is not recommended. To suppress this warning,
-                        set suppress_warnings=True when constructing the writer. To
-                        raise an error instead, set strict=True when constructing
-                        the writer.""",
-                        stacklevel=3,
-                    )
-                frame.series[i] = series.astype(ch.data_type)
+            frame.series[i] = self._convert(
+                str(ch.key), str(ch), ch.name, series, ch.data_type
+            )
         if time is not None:
+            time = self._convert("time", '"time"', "time", time, DataType.TIMESTAMP)
             self._place_time(frame, time)
         return frame
+
+    def _convert(
+        self, path: str, label: str, name: str, series: Series, data_type: DataType
+    ) -> Series:
+        """Returns series as data_type. It warns of the conversion, or fails when the
+        writer takes strict data types.
+        """
+        if series.data_type == data_type:
+            return series
+        if self._strict_data_types:
+            raise PathError(
+                path,
+                ValidationError(
+                    f"Data type {data_type} for channel {label} does "
+                    + f"not match series data type {series.data_type}.",
+                ),
+            )
+        if not self._suppress_warnings and not (
+            data_type == DataType.TIMESTAMP and series.data_type == DataType.INT64
+        ):
+            warnings.warn(
+                f"""Series for channel {name} has type {series.data_type} but
+                channel expects type {data_type}. We can safely convert
+                between the two, but this can cause performance degradations
+                and is not recommended. To suppress this warning,
+                set suppress_warnings=True when constructing the writer. To
+                raise an error instead, set strict=True when constructing
+                the writer.""",
+                stacklevel=4,
+            )
+        return series.astype(data_type)
 
     def _take_time(self, frame: Frame) -> Series | None:
         """Removes the series of the write's "time" key from frame and returns it."""
@@ -313,8 +324,6 @@ class WriteFrameAdapter:
         """
         if len(frame.channels) == 0:
             raise ValidationError(_TIME_AND_NO_CHANNELS)
-        if time.data_type not in (DataType.TIMESTAMP, DataType.INT64):
-            raise ValidationError(f'"time" holds {time.data_type}, not timestamps')
         placed: list[channel.Key] = []
         for col, s in frame.items():
             if not isinstance(col, channel.Key):
