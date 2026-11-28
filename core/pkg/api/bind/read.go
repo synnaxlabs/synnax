@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 )
 
-// Named is a retrieve request that names records by key.
+// Named is a request that names records by key. Read and Write need retrieve on each.
 type Named interface {
 	// Named returns the records that the request names.
 	Named() []resource.ID
@@ -77,9 +77,19 @@ func (s Snapshot) Visible(ids []resource.ID) []resource.ID {
 // Enforce returns an error that wraps access.ErrDenied and names the first of ids that
 // the subject of the request cannot retrieve.
 func (s Snapshot) Enforce(ids ...resource.ID) error {
+	return deny(s.subject, s.allowed, ids)
+}
+
+// deny returns an error that wraps access.ErrDenied and names the first of ids that
+// allowed refuses subject.
+func deny(
+	subject resource.ID,
+	allowed func(resource.ID) bool,
+	ids []resource.ID,
+) error {
 	for _, id := range ids {
-		if !s.allowed(id) {
-			return access.Denied(s.subject, access.ActionRetrieve, id)
+		if !allowed(id) {
+			return access.Denied(subject, access.ActionRetrieve, id)
 		}
 	}
 	return nil

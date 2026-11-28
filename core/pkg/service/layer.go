@@ -50,6 +50,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
@@ -340,6 +341,8 @@ type Layer struct {
 	Certificate *certificate.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
+	// Impact plans each change to channels and applies it with the caller's picks.
+	Impact *impact.Service
 	// Node serves the host node of the Core as a resource.
 	Node *node.Service
 	// Resource searches and names records of every type.
@@ -1369,7 +1372,95 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}
+	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
+		RecordOf: taskconfig.RecordOf,
+		Deleters: map[resource.Type]impact.Deleter{
+			resource.TypeChannel: channelDeleter(l.Channel),
+			resource.TypeTask:    taskDeleter(l.Task, l.TaskStopper),
+		},
+	}); err != nil {
+		return nil, err
+	}
 	return l, nil
+}
+
+// channelDeleter returns the impact.Deleter of channels, which plans and deletes as
+// channel.Service.PlanDelete and channel.Writer.DeletePlanned do.
+func channelDeleter(svc *channel.Service) impact.Deleter {
+	return impact.Deleter{
+		Plan: func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			ids []resource.ID,
+		) ([]resource.ID, gorp.DeleteEffects, error) {
+			keys, err := channel.KeysFromResourceIDs(ids)
+			if err != nil {
+				return nil, gorp.DeleteEffects{}, err
+			}
+			removed, effects, err := svc.PlanDelete(ctx, snap, keys)
+			if err != nil {
+				return nil, gorp.DeleteEffects{}, err
+			}
+			return channel.ResourceIDsFromKeys(removed), effects, nil
+		},
+		Delete: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			removed []resource.ID,
+			effects gorp.DeleteEffects,
+		) error {
+			keys, err := channel.KeysFromResourceIDs(removed)
+			if err != nil {
+				return err
+			}
+			return svc.NewWriter(tx).DeletePlanned(ctx, keys, effects)
+		},
+	}
+}
+
+// taskDeleter returns the impact.Deleter of tasks. A delete of tasks plans no effect on
+// the records that hold them. A key that is not a UUID fails the plan as invalid. Its
+// Stop stops the running tasks through stopper, as the task delete route does.
+func taskDeleter(svc *task.Service, stopper *task.Stopper) impact.Deleter {
+	return impact.Deleter{
+		Plan: func(
+			_ context.Context,
+			_ gorp.Snapshot,
+			ids []resource.ID,
+		) ([]resource.ID, gorp.DeleteEffects, error) {
+			for _, id := range ids {
+				if _, err := resource.ParseUUIDKey(id); err != nil {
+					return nil, gorp.DeleteEffects{}, err
+				}
+			}
+			return ids, gorp.DeleteEffects{}, nil
+		},
+		Delete: func(
+			ctx context.Context,
+			tx gorp.Tx,
+			removed []resource.ID,
+			_ gorp.DeleteEffects,
+		) error {
+			keys, err := task.KeysFromResourceIDs(removed)
+			if err != nil {
+				return err
+			}
+			w := svc.NewWriter(tx)
+			for _, k := range keys {
+				if err = w.Delete(ctx, k, false); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		Stop: func(ctx context.Context, removed []resource.ID) error {
+			keys, err := task.KeysFromResourceIDs(removed)
+			if err != nil {
+				return err
+			}
+			return stopper.Stop(ctx, keys)
+		},
+	}
 }
 
 // openSecretsFolder returns the folder at dir. It returns an error when dir is not a

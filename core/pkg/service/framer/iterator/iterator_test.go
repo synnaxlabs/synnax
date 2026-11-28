@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -3073,7 +3074,7 @@ var _ = Describe("Read failure", func() {
 		})).Error().To(MatchError(ContainSubstring(ErrFault.Error())))
 		faulty.SetOptions()
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return channelSvc.NewWriter(tx).DeleteMany(ctx, keys, false)
+			return channeltestutil.Delete(ctx, channelSvc, tx, keys...)
 		})).To(Succeed())
 	})
 })

@@ -42,6 +42,8 @@ const NODE_SPECS = [
   "src/**/where.spec.ts",
   // Reads the orphan vectors from the file system.
   "src/schematic/orphans.spec.ts",
+  // Finds a closed port with a TCP server.
+  "src/impact/unreachable.spec.ts",
 ];
 
 // A stale entry would let a browser run a Node spec.

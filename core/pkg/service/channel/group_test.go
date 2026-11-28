@@ -137,8 +137,7 @@ var _ = Describe("Group", Ordered, func() {
 			a := createCalculated(ctx, UniqueChannelName(), &grp.Key)
 			b := createCalculated(ctx, UniqueChannelName(), &grp.Key)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).
-					DeleteMany(ctx, channel.Keys{a.Key(), b.Key()}, false)
+				return Delete(ctx, svc, tx, a.Key(), b.Key())
 			})).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(channel.MatchKeys(a.Index(), b.Index())).

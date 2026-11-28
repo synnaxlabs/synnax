@@ -1,0 +1,78 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/impact"
+import "schemas/synnax/resource"
+
+@go output "core/pkg/api/impact"
+@py output "client/py/synnax/impact"
+@ts output "client/ts/src/impact"
+
+Change union on type {
+    delete {
+        records resource.ID[] {
+            @doc value "are the records to delete."
+        }
+
+        @doc value "deletes records."
+    }
+
+    @doc value "is a change that a plan covers."
+}
+
+Response union on type {
+    delete {
+        plan impact.Plan {
+            @doc value "is the plan of the delete."
+        }
+
+        @doc value "answers a delete of records."
+    }
+
+    @doc value "is the plan of a change, under the type of the change."
+}
+
+PlanRequest struct {
+    change Change                     {
+        @doc value "is the change to plan."
+    }
+    picks  map<string, impact.Effect> {
+        @doc value        """
+            maps the text form of the record of a visible entry to the pick for it.
+        """
+        @ts preserve_keys
+    }
+    hidden impact.Effect?             {
+        @doc value "is the pick for every hidden entry that stops the change."
+    }
+
+    @doc value "asks what a change would do with the caller's picks."
+}
+
+ApplyRequest struct {
+    change Change                     {
+        @doc value "is the change to apply."
+    }
+    token  string = "" {
+        @doc value """
+            is the token of the plan that the caller saw. Empty skips the check.
+        """
+    }
+    picks  map<string, impact.Effect> {
+        @doc value        """
+            maps the text form of the record of a visible entry to the pick for it.
+        """
+        @ts preserve_keys
+    }
+    hidden impact.Effect?             {
+        @doc value "is the pick for every hidden entry that stops the change."
+    }
+
+    @doc value "carries out a change with the caller's picks."
+}

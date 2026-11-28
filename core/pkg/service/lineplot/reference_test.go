@@ -123,11 +123,7 @@ var _ = Describe("Channel references", func() {
 				return err
 			})).To(Succeed())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).DeleteMany(
-					ctx,
-					[]channel.Key{gone, x},
-					false,
-				)
+				return channeltestutil.Delete(ctx, channelSvc, tx, gone, x)
 			})).To(Succeed())
 			res := retrieve(ctx, plot.Key)
 			Expect(res.Channels).To(Equal(lineplot.Channels{

@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	apiimpact "github.com/synnaxlabs/synnax/pkg/api/impact"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
@@ -120,6 +121,10 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LicenseRetrieve = noop.UnaryServer[license.RetrieveRequest, license.RetrieveResponse]{}
 	t.LicenseActivate = noop.UnaryServer[license.ActivateRequest, license.ActivateResponse]{}
 	t.LicenseDeactivate = noop.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]{}
+
+	// IMPACT
+	t.ImpactPlan = noop.UnaryServer[apiimpact.PlanRequest, apiimpact.Response]{}
+	t.ImpactApply = noop.UnaryServer[apiimpact.ApplyRequest, apiimpact.Response]{}
 
 	// CHANNEL
 	t.ChannelCountLimited = noop.UnaryServer[

@@ -52,6 +52,8 @@ type Returns interface {
 //   - retrieve on the target of each use link added. A rack is denied a new use of a
 //     record that ServiceConfig.Vouched reports, and a move onto a rack of a record
 //     that uses one or holds a record that uses one;
+//   - retrieve on each record that a request implementing Named names, before apply
+//     runs;
 //   - retrieve on each source of a request that implements Copy;
 //   - retrieve on each record that a response implementing Returns holds and the
 //     transaction did not change.
@@ -64,6 +66,19 @@ func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {
+	return write(s, apply, false)
+}
+
+// errRehearsed rolls back the transaction of a rehearsal once its checks pass.
+var errRehearsed = errors.New("[bind] - a rehearsal rolls back")
+
+// write runs apply and the checks of Write in one transaction, then commits it, or
+// rolls it back when rehearse is true.
+func write[RQ, RS freighter.Payload](
+	s *Service,
+	apply func(context.Context, gorp.Tx, RQ) (RS, error),
+	rehearse bool,
+) freighter.UnaryHandler[RQ, RS] {
 	return func(ctx context.Context, req RQ) (RS, error) {
 		var (
 			res, zero RS
@@ -73,15 +88,46 @@ func Write[RQ, RS freighter.Payload](
 			sources = c.Sources()
 		}
 		if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) (err error) {
+			if n, ok := any(req).(Named); ok {
+				if err = s.enforceNamed(ctx, tx, n.Named()); err != nil {
+					return err
+				}
+			}
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx, append(slices.Clip(sources), unchanged(tx, res)...))
-		}); err != nil {
+			if err = s.check(
+				ctx,
+				tx,
+				append(slices.Clip(sources), unchanged(tx, res)...),
+			); err != nil || !rehearse {
+				return err
+			}
+			return errRehearsed
+		}); err != nil && !errors.Is(err, errRehearsed) {
 			return zero, err
 		}
 		return res, nil
 	}
+}
+
+// enforceNamed returns an error that wraps access.ErrDenied and names the first of ids
+// that the subject of the request cannot retrieve in tx.
+func (s *Service) enforceNamed(
+	ctx context.Context,
+	tx gorp.Tx,
+	ids []resource.ID,
+) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	subject := auth.GetSubject(ctx)
+	allowed, err := s.cfg.RBAC.NewEnforcer(tx).
+		Allowed(ctx, subject, access.ActionRetrieve)
+	if err != nil {
+		return err
+	}
+	return deny(subject, allowed, ids)
 }
 
 // WritePrepared returns a handler that runs prepare outside any transaction, then runs
@@ -115,7 +161,31 @@ func WriteRetrievable[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {
-	return Write(s, func(ctx context.Context, tx gorp.Tx, req RQ) (RS, error) {
+	return write(s, withRetrievable(s, apply), false)
+}
+
+// RehearseRetrievable returns a handler that runs a write as WriteRetrievable does,
+// then rolls back every write. It returns the error that the write fails with, or nil
+// when the write would commit. Use it before work outside the transaction that a
+// refused write must not do, such as stopping a running task.
+func RehearseRetrievable[RQ, RS freighter.Payload](
+	s *Service,
+	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
+) func(context.Context, RQ) error {
+	rehearsal := write(s, withRetrievable(s, apply), true)
+	return func(ctx context.Context, req RQ) error {
+		_, err := rehearsal(ctx, req)
+		return err
+	}
+}
+
+// withRetrievable returns apply with what the subject can retrieve, by the committed
+// policies that Write checks.
+func withRetrievable[RQ, RS freighter.Payload](
+	s *Service,
+	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
+) func(context.Context, gorp.Tx, RQ) (RS, error) {
+	return func(ctx context.Context, tx gorp.Tx, req RQ) (RS, error) {
 		allowed, err := s.cfg.RBAC.NewEnforcer(s.cfg.DB).
 			Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
 		if err != nil {
@@ -123,7 +193,7 @@ func WriteRetrievable[RQ, RS freighter.Payload](
 			return zero, err
 		}
 		return apply(ctx, tx, allowed, req)
-	})
+	}
 }
 
 // WriteUnchecked returns a handler that runs apply in one write transaction of db and

@@ -58,6 +58,13 @@ var _ bind.Copy = copyRequest{}
 
 func (r copyRequest) Sources() []resource.ID { return r.sources }
 
+// namedRequest is a write request that names records.
+type namedRequest struct{ records []resource.ID }
+
+var _ bind.Named = namedRequest{}
+
+func (r namedRequest) Named() []resource.ID { return r.records }
+
 // unmapped is a record whose table has no resource type.
 type unmapped struct{ Key string }
 
@@ -938,6 +945,52 @@ var _ = Describe("Write", func() {
 		},
 	)
 
+	It(
+		"Should require retrieve on each record that a request names before apply runs",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			l := createLabel(ctx)
+			ran := false
+			write := bind.Write(
+				binder,
+				func(context.Context, gorp.Tx, namedRequest) (struct{}, error) {
+					ran = true
+					return struct{}{}, nil
+				},
+			)
+			req := namedRequest{records: []resource.ID{l.ResourceID()}}
+			Expect(write(AuthedCtx(ctx, u), req)).
+				Error().To(denied(u, access.ActionRetrieve, l.ResourceID()))
+			Expect(ran).To(BeFalse())
+			grant(ctx, u, access.ActionRetrieve, l.ResourceID())
+			MustSucceed(write(AuthedCtx(ctx, u), req))
+			Expect(ran).To(BeTrue())
+		},
+	)
+
+	It(
+		"Should name the first named record that the subject cannot retrieve",
+		func(ctx SpecContext) {
+			u := newUser(ctx)
+			seen, hidden := createLabel(ctx), createLabel(ctx)
+			grant(ctx, u, access.ActionRetrieve, seen.ResourceID())
+			ran := false
+			write := bind.Write(
+				binder,
+				func(context.Context, gorp.Tx, namedRequest) (struct{}, error) {
+					ran = true
+					return struct{}{}, nil
+				},
+			)
+			req := namedRequest{
+				records: []resource.ID{seen.ResourceID(), hidden.ResourceID()},
+			}
+			Expect(write(AuthedCtx(ctx, u), req)).
+				Error().To(denied(u, access.ActionRetrieve, hidden.ResourceID()))
+			Expect(ran).To(BeFalse())
+		},
+	)
+
 	It("Should return the response of apply", func(ctx SpecContext) {
 		u := newUser(ctx)
 		Expect(bind.Write(
@@ -1589,6 +1642,38 @@ var _ = Describe("WriteRetrievable", func() {
 				}, nil
 			},
 		)(AuthedCtx(ctx, u), "request")).To(Equal([]bool{true, false}))
+	})
+})
+
+var _ = Describe("RehearseRetrievable", func() {
+	createLabelAs := func(
+		ctx context.Context,
+		tx gorp.Tx,
+		_ bind.Retrievable,
+		l label.Label,
+	) (label.Label, error) {
+		return l, svc.Label.NewWriter(tx).Create(ctx, &l)
+	}
+
+	It("Should return the error that the write fails with", func(ctx SpecContext) {
+		u := newUser(ctx)
+		l := label.Label{Key: uuid.New(), Name: "denied", Color: labelColor}
+		rehearse := bind.RehearseRetrievable(binder, createLabelAs)
+		rehearsed := rehearse(AuthedCtx(ctx, u), l)
+		Expect(rehearsed).To(MatchError(access.ErrDenied))
+		Expect(bind.WriteRetrievable(binder, createLabelAs)(AuthedCtx(ctx, u), l)).
+			Error().To(MatchError(rehearsed.Error()))
+	})
+
+	It("Should roll back a write that passes its checks", func(ctx SpecContext) {
+		u := newUser(ctx)
+		grant(ctx, u, access.ActionCreate, resource.ID{Type: resource.TypeLabel})
+		l := label.Label{Key: uuid.New(), Name: "rehearsed", Color: labelColor}
+		Expect(bind.RehearseRetrievable(binder, createLabelAs)(AuthedCtx(ctx, u), l)).
+			To(Succeed())
+		Expect(svc.Label.NewRetrieve().
+			Where(label.MatchKeys(l.Key)).
+			Exists(ctx, db)).To(BeFalse())
 	})
 })
 

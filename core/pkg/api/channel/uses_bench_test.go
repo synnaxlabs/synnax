@@ -87,6 +87,7 @@ func benchRetrieve(
 		RBAC:    layer.RBAC,
 		Channel: layer.Channel,
 		Status:  layer.Status,
+		Impact:  layer.Impact,
 	})
 	if err != nil {
 		b.Fatalf("failed to open the API service: %v", err)

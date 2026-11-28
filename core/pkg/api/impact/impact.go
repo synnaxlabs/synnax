@@ -1,0 +1,240 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Package impact serves the plan and apply routes of the delete of records.
+package impact
+
+import (
+	"context"
+	"slices"
+
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
+)
+
+// ServiceConfig is the configuration for the impact API service.
+type ServiceConfig struct {
+	// RBAC checks which records a subject may see.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Impact plans and applies the delete of records.
+	//
+	// [REQUIRED]
+	Impact *impact.Service
+}
+
+var _ config.Config[ServiceConfig] = ServiceConfig{}
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Impact = override.Nil(c.Impact, other.Impact)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.impact")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("impact", c.Impact)
+	return v.Error()
+}
+
+// Service serves the plan and apply routes.
+type Service struct{ cfg ServiceConfig }
+
+// NewService opens a Service from cfgs.
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Service{cfg: cfg}, nil
+}
+
+// Named implements bind.Named: the subject needs retrieve on each record it names.
+func (r PlanRequest) Named() []resource.ID { return named(r.Change) }
+
+// Named implements bind.Named, as PlanRequest does.
+func (r ApplyRequest) Named() []resource.ID { return named(r.Change) }
+
+// named returns the records that c names.
+func named(c Change) []resource.ID {
+	if d, ok := c.Variant.(DeleteChange); ok {
+		return d.Records
+	}
+	return nil
+}
+
+// parsePicks returns the picks of a request keyed by record. A key that is not a record
+// fails with a validation error for the smallest such key.
+func parsePicks(picks map[string]impact.Effect) (map[resource.ID]impact.Effect, error) {
+	if len(picks) == 0 {
+		return nil, nil
+	}
+	parsed := make(map[resource.ID]impact.Effect, len(picks))
+	var unparsed []string
+	for text, pick := range picks {
+		id, err := resource.ParseID(text)
+		if err != nil {
+			unparsed = append(unparsed, text)
+			continue
+		}
+		parsed[id] = pick
+	}
+	if len(unparsed) > 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"%s is not a record",
+			slices.Min(unparsed),
+		)
+	}
+	return parsed, nil
+}
+
+// deleted returns the records that c deletes. Any other change fails with a
+// validation error.
+func deleted(c Change) ([]resource.ID, error) {
+	d, ok := c.Variant.(DeleteChange)
+	if !ok {
+		return nil, errors.Wrap(validate.ErrValidation, "unknown change")
+	}
+	return d.Records, nil
+}
+
+// Plan returns every record that the change touches with the subject's picks, with an
+// entry for each that the subject can retrieve and a count of the others, under the
+// type of the change.
+func (s *Service) Plan(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req PlanRequest,
+) (Response, error) {
+	records, err := deleted(req.Change)
+	if err != nil {
+		return Response{}, err
+	}
+	picks, err := parsePicks(req.Picks)
+	if err != nil {
+		return Response{}, err
+	}
+	plan, err := s.cfg.Impact.Plan(ctx, snap, records, impact.PlanOptions{
+		Picks:   picks,
+		Hidden:  req.Hidden,
+		Visible: snap.Allowed,
+	})
+	if err != nil {
+		return Response{}, err
+	}
+	return Response{Variant: DeleteResponse{Plan: plan}}, nil
+}
+
+// ApplyHandler returns the apply route on binder. It plans and applies the change and
+// checks access on what it wrote, in one transaction, and returns the plan under the
+// type of the change. When the delete must stop records first, such as running tasks,
+// it runs the write once and rolls it back, then stops them outside any transaction, so
+// a write that its checks refuse stops nothing. As the plan route does, it refuses a
+// change that names a record the subject cannot retrieve, before it plans. A denial on
+// a record that the subject cannot retrieve and did not name names no record.
+func (s *Service) ApplyHandler(
+	binder *bind.Service,
+) freighter.UnaryHandler[ApplyRequest, Response] {
+	return func(ctx context.Context, req ApplyRequest) (Response, error) {
+		var visible bind.Retrievable
+		apply := func(
+			ctx context.Context,
+			tx gorp.Tx,
+			retrievable bind.Retrievable,
+			req ApplyRequest,
+		) (impact.Plan, error) {
+			visible = retrievable
+			records, err := deleted(req.Change)
+			if err != nil {
+				return impact.Plan{}, err
+			}
+			picks, err := parsePicks(req.Picks)
+			if err != nil {
+				return impact.Plan{}, err
+			}
+			return s.cfg.Impact.Apply(ctx, tx, records, impact.ApplyOptions{
+				Token:   req.Token,
+				Picks:   picks,
+				Hidden:  req.Hidden,
+				Visible: retrievable,
+			})
+		}
+		ids, err := bind.Read(binder, s.stopping)(ctx, req)
+		if err != nil {
+			return Response{}, err
+		}
+		if len(ids) > 0 {
+			// A write that its checks refuse must stop nothing, so it runs once and
+			// rolls back before the stop.
+			if err = bind.RehearseRetrievable(binder, apply)(ctx, req); err != nil {
+				return Response{}, redact(err, visible)
+			}
+			if err = s.cfg.Impact.Stop(ctx, ids); err != nil {
+				return Response{}, err
+			}
+		}
+		plan, err := bind.WriteRetrievable(binder, apply)(ctx, req)
+		if err != nil {
+			return Response{}, redact(err, visible)
+		}
+		return Response{Variant: DeleteResponse{Plan: plan}}, nil
+	}
+}
+
+// stopping returns the records that the delete of req must stop before it deletes, as
+// impact.Service.Stopping does.
+func (s *Service) stopping(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req ApplyRequest,
+) ([]resource.ID, error) {
+	records, err := deleted(req.Change)
+	if err != nil {
+		return nil, err
+	}
+	picks, err := parsePicks(req.Picks)
+	if err != nil {
+		return nil, err
+	}
+	return s.cfg.Impact.Stopping(ctx, snap, records, impact.ApplyOptions{
+		Token:   req.Token,
+		Picks:   picks,
+		Hidden:  req.Hidden,
+		Visible: snap.Allowed,
+	})
+}
+
+// redact returns err, or for a denial on a record that visible hides, a denial that
+// names no record.
+func redact(err error, visible func(resource.ID) bool) error {
+	denied, ok := errors.AsType[access.DeniedError](err)
+	if !ok || visible == nil || visible(denied.Object) {
+		return err
+	}
+	return errors.Wrapf(
+		access.ErrDenied,
+		"%s cannot %s a record that it cannot see",
+		denied.Subject,
+		denied.Action,
+	)
+}

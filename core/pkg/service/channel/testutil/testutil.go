@@ -49,3 +49,19 @@ func CreateVirtual(
 	}
 	return channel.KeysFromChannels(channels), nil
 }
+
+// Delete deletes the channels with keys through svc in tx, as a delete with no picks
+// does: it plans with svc.PlanDelete, then deletes with DeletePlanned. A built-in
+// channel or a record that restricts a channel fails it.
+func Delete(
+	ctx context.Context,
+	svc *channel.Service,
+	tx gorp.Tx,
+	keys ...channel.Key,
+) error {
+	removed, effects, err := svc.PlanDelete(ctx, tx, keys)
+	if err != nil {
+		return err
+	}
+	return svc.NewWriter(tx).DeletePlanned(ctx, removed, effects)
+}
