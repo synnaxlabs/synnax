@@ -108,8 +108,12 @@ func createRoutingKeys(
 	}
 }
 
+// brokenMessage is the status message that no watched config fits.
+const brokenMessage = "broken"
+
 // openWatched opens the config store of watchedType on db. Its hash covers the message
-// of the status, read through stat, that the device field of a config names.
+// of the status, read through stat, that the device field of a config names, and a
+// config does not fit a status whose message is brokenMessage.
 func openWatched(
 	ctx context.Context,
 	db *gorp.DB,
@@ -151,6 +155,26 @@ func openWatched(
 				return err
 			}
 			h.String(st.Message)
+			return nil
+		},
+		CheckReferences: func(
+			ctx context.Context,
+			snap gorp.Snapshot,
+			c *kafka.WriteConfig,
+		) error {
+			var st status.Status[any]
+			if err := stat.NewRetrieve[any]().
+				Where(status.MatchKeys[any](c.Device)).
+				Entry(&st).
+				Exec(ctx, snap); err != nil {
+				return err
+			}
+			if st.Message == brokenMessage {
+				return validate.PathedError(
+					validate.Errorf("status is broken"),
+					"device",
+				)
+			}
 			return nil
 		},
 	}))
@@ -1258,6 +1282,29 @@ var _ = Describe("Task", Ordered, func() {
 			) {
 				frames := collect()
 				setStatus(ctx, db, stat, "st-watch", "a")
+				Expect(stored(ctx)).To(Equal(watched.ConfigHash))
+				Expect(*frames).To(BeEmpty())
+			})
+
+			It("Should fail a record write that the config no longer fits", func(
+				ctx SpecContext,
+			) {
+				frames := collect()
+				err := db.WithTx(ctx, func(tx gorp.Tx) error {
+					return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
+						Key:     "st-watch",
+						Name:    "st-watch",
+						Message: brokenMessage,
+						Variant: status.VariantInfo,
+						Time:    telem.Now(),
+					})
+				})
+				Expect(err).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("breaks task Watched: device: status is broken"),
+				))
+				_, pathed := errors.AsType[validate.PathError](err)
+				Expect(pathed).To(BeFalse())
 				Expect(stored(ctx)).To(Equal(watched.ConfigHash))
 				Expect(*frames).To(BeEmpty())
 			})

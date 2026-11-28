@@ -175,14 +175,14 @@ func OpenService(
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	// A detach or retarget changes a config, and a write to a record that a config
 	// hashes can change its hash, so the task stores the new hash in the same
-	// transaction.
+	// transaction. That write fails when the config no longer fits the record.
 	for _, t := range cfg.Configs.Types() {
 		store, _ := cfg.Configs.Store(t)
 		store.OnRewrite(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {
 			return s.NewWriter(tx).syncConfig(ctx, key)
 		})
 		store.OnTargetSet(func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error {
-			return s.NewWriter(tx).syncHash(ctx, key)
+			return s.NewWriter(tx).targetSet(ctx, key)
 		})
 	}
 	if cfg.Signals != nil {
