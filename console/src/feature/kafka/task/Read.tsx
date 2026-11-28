@@ -47,6 +47,7 @@ import {
 import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import {
+  findProblem,
   type Plan,
   planAdd,
   type TopicAdditions,
@@ -651,7 +652,14 @@ const Records: FC<RecordsProps> = ({
       plan,
     });
     if (result == null) return;
-    const { extensions, kinds, additions } = plan(result.topics, result.record);
+    const planned = plan(result.topics, result.record);
+    // The dialog closes only when every Default input spells a default.
+    const problem = findProblem(planned);
+    if (problem != null)
+      throw new Error(
+        `The default of ${problem.pointer} in ${problem.topic} is invalid: ${problem.message}`,
+      );
+    const { extensions, kinds, additions } = planned;
     extend(extensions, kinds);
     if (additions.size === 0) return;
     await addRecords(additions);
