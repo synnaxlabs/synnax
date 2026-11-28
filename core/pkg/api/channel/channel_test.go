@@ -432,6 +432,127 @@ var _ = Describe("Service", func() {
 			})
 		})
 	})
+	Describe("Delete by path", func() {
+		var (
+			folder   group.Group
+			inFolder channel.Channel
+			kept     channel.Channel
+			subject  user.User
+			path     string
+		)
+		BeforeEach(func(ctx SpecContext) {
+			folder = group.Group{Name: UniqueChannelName(), Scope: resource.TypeChannel}
+			name := UniqueChannelName()
+			inFolder = channel.Channel{
+				Name:     name,
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			kept = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float32T,
+				Virtual:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if err := groupSvc.NewWriter(tx).Create(ctx, &folder); err != nil {
+					return err
+				}
+				inFolder.Group = &folder.Key
+				w := channelSvc.NewWriter(tx)
+				if err := w.Create(ctx, &inFolder); err != nil {
+					return err
+				}
+				return w.Create(ctx, &kept)
+			})).To(Succeed())
+			// A v0.62 store can hold one name in two folders.
+			kept.Name = name
+			Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, kept)).
+				To(Succeed())
+			subject = MustSucceed(rbactestutil.CreateUser(
+				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
+			))
+			path = folder.Name + "." + name
+			// Deleting a channel in a folder updates the folder.
+			grantOn(
+				ctx,
+				subject.ResourceID(),
+				[]access.Action{access.ActionUpdate},
+				folder.ResourceID(),
+			)
+		})
+		exists := func(ctx SpecContext, ch channel.Channel) bool {
+			GinkgoHelper()
+			return MustSucceed(channelSvc.NewRetrieve().
+				Where(channel.MatchKeys(ch.Key())).
+				Exists(ctx, db))
+		}
+
+		It("Should refuse a name that holds no channel and delete nothing", func(
+			ctx SpecContext,
+		) {
+			missing := UniqueChannelName()
+			Expect(deleteChannels(
+				AuthedCtx(ctx, subject),
+				apichannel.DeleteRequest{Names: []string{missing}},
+			)).Error().To(And(
+				MatchError(query.ErrNotFound),
+				MatchError(missing+" does not exist"),
+			))
+			Expect(exists(ctx, inFolder)).To(BeTrue())
+			Expect(exists(ctx, kept)).To(BeTrue())
+		})
+
+		It("Should delete only the channel at the path, not another of its name", func(
+			ctx SpecContext,
+		) {
+			grantOn(
+				ctx,
+				subject.ResourceID(),
+				[]access.Action{access.ActionDelete},
+				channel.ResourceID(inFolder.Key()),
+				channel.ResourceID(kept.Key()),
+				folder.ResourceID(),
+			)
+			MustSucceed(deleteChannels(
+				AuthedCtx(ctx, subject),
+				apichannel.DeleteRequest{Names: []string{path}},
+			))
+			Expect(exists(ctx, inFolder)).To(BeFalse())
+			Expect(exists(ctx, kept)).To(BeTrue())
+		})
+
+		It("Should delete through a folder the subject can delete but not retrieve",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					subject.ResourceID(),
+					[]access.Action{access.ActionDelete},
+					channel.ResourceID(inFolder.Key()),
+					folder.ResourceID(),
+				)
+				MustSucceed(deleteChannels(
+					AuthedCtx(ctx, subject),
+					apichannel.DeleteRequest{Names: []string{path}},
+				))
+				Expect(exists(ctx, inFolder)).To(BeFalse())
+			})
+
+		It("Should not find a channel behind a folder that the subject cannot act on",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					subject.ResourceID(),
+					[]access.Action{access.ActionDelete},
+					channel.ResourceID(inFolder.Key()),
+				)
+				Expect(deleteChannels(
+					AuthedCtx(ctx, subject),
+					apichannel.DeleteRequest{Names: []string{path}},
+				)).Error().To(MatchError(query.ErrNotFound))
+				Expect(exists(ctx, inFolder)).To(BeTrue())
+			})
+	})
+
 	Describe("Dispatch group move", func() {
 		// denied matches an error that denies the subject the action on object.
 		denied := func(

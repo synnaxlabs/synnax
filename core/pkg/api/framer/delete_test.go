@@ -10,14 +10,19 @@
 package framer_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -94,6 +99,32 @@ var _ = Describe("Delete by keys and names", func() {
 		})).Error().ToNot(HaveOccurred())
 		Expect(otherHasData()).To(BeTrue())
 	})
+
+	It("Should delete by name the data that the subject can delete but not retrieve",
+		func(ctx SpecContext) {
+			ch, hasData := written(ctx)
+			u := MustSucceed(rbactestutil.CreateUser(
+				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
+			))
+			MustSucceed(rbactestutil.Grant(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				u.Key,
+				[]access.Action{access.ActionDelete},
+				svcframer.ResourceIDs(channel.Keys{ch.Key()})...,
+			))
+			Expect(apiSvc.Delete(
+				subjectCtx(ctx, u.ResourceID()),
+				db,
+				apiframer.DeleteRequest{
+					Names:  []string{ch.Name},
+					Bounds: telem.TimeRangeMax,
+				},
+			)).Error().ToNot(HaveOccurred())
+			Expect(hasData()).To(BeFalse())
+		})
 
 	It(
 		"Should refuse the request and keep the data of its keys when a name beside them "+
