@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -60,7 +59,7 @@ type browsedField struct {
 	// Kind is the kind of a payload field that holds most values heard at Pointer.
 	Kind payload.Kind `json:"kind"`
 	// TimeFormat is the format of a timestamp field. Nil for any other field.
-	TimeFormat *xjson.TimeFormat `json:"time_format,omitempty"`
+	TimeFormat *payload.TimeFormat `json:"time_format,omitempty"`
 	// Enum holds the distinct values, sorted, of a field of only strings that repeats
 	// a few.
 	Enum []string `json:"enum"`

@@ -973,8 +973,8 @@ var _ = Describe("Status", Ordered, func() {
 
 	Describe("Generic Type Behavior", func() {
 		BeforeEach(openTx)
-		// This test suite documents how generic types work with Status[D] in gorp.
-		// All Status[D] types share the same gorp namespace because CustomTypeName()
+		// This test suite documents how generic types work with Status[D] in Gorp.
+		// All Status[D] types share the same Gorp namespace because CustomTypeName()
 		// returns "Status" regardless of the type parameter D. This means:
 		// 1. Statuses stored with different D types are stored in the same namespace
 		// 2. Retrieval does not filter by the generic type parameter
@@ -1027,7 +1027,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(typedWriter.Set(ctx, s)).To(Succeed())
 
 				// Retrieve using any type - this works because all Status[D] share
-				// the same gorp namespace
+				// the same Gorp namespace
 				var retrieved status.Status[any]
 				Expect(
 					svc.NewRetrieve[any]().
@@ -1063,7 +1063,7 @@ var _ = Describe("Status", Ordered, func() {
 					Details: TypeB{ValueB: "test"}, Time: telem.Now(),
 				})).To(Succeed())
 
-				// Retrieve both using any - demonstrates that gorp doesn't filter by
+				// Retrieve both using any - demonstrates that Gorp doesn't filter by
 				// generic type parameter
 				var statuses []status.Status[any]
 				Expect(

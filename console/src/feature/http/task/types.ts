@@ -31,21 +31,15 @@ const required = (input: Request[], path: PropertyKey[], message: string) => ({
  * Driver skips a disabled read endpoint.
  */
 const validateRequests =
-  (skipDisabled: boolean) =>
-  ({ value, issues }: z.core.ParsePayload<Request[]>) =>
-    value.forEach(({ disabled, headers, queryParams }, i) => {
+  (skipDisabled: boolean) => (payload: z.core.ParsePayload<Request[]>) =>
+    payload.value.forEach(({ disabled, headers, queryParams }, i) => {
       if (skipDisabled && disabled) return;
-      headers.forEach(({ name, value: headerValue }, j) => {
-        if (name === "")
-          issues.push(required(value, [i, "headers", j, "name"], "Name is required"));
-        if (headerValue === "")
-          issues.push(required(value, [i, "headers", j, "value"], "Value is required"));
-      });
+      Device.validateHeaders(payload, headers, [i, "headers"]);
       queryParams.forEach(({ parameter }, j) => {
         if (parameter === "")
-          issues.push(
+          payload.issues.push(
             required(
-              value,
+              payload.value,
               [i, "queryParams", j, "parameter"],
               "Parameter is required",
             ),

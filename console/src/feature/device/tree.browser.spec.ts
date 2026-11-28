@@ -119,6 +119,7 @@ describe("device/tree", () => {
       variant: "error",
       message: uniqueName("message"),
       time: TimeStamp.now(),
+      details: { rack: chassis.rack, connected: false },
     });
     await waitFor(async () => expect(await indicator()).not.toBe(before));
   });

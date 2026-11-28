@@ -18,66 +18,62 @@ import (
 	"unsafe"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// TimeFormat is the encoding of a timestamp within a JSON document.
-type TimeFormat uint8
+// timeFormat is a payload.TimeFormat in the form that a conversion reads for each
+// sample.
+type timeFormat uint8
 
 const (
-	// iso8601 is an RFC 3339 string such as "2026-01-02T03:04:05.678Z".
-	iso8601 TimeFormat = iota
-	// unixSecond is a count of seconds since the Unix epoch.
+	iso8601 timeFormat = iota
 	unixSecond
-	// unixMillisecond is a count of milliseconds since the Unix epoch.
 	unixMillisecond
-	// unixMicrosecond is a count of microseconds since the Unix epoch.
 	unixMicrosecond
-	// unixNanosecond is a count of nanoseconds since the Unix epoch.
 	unixNanosecond
 )
 
-var timeFormatNames = [...]string{
-	iso8601:         "iso8601",
-	unixSecond:      "unix_sec",
-	unixMillisecond: "unix_ms",
-	unixMicrosecond: "unix_us",
-	unixNanosecond:  "unix_ns",
+var payloadTimeFormats = [...]payload.TimeFormat{
+	iso8601:         payload.TimeFormatISO8601,
+	unixSecond:      payload.TimeFormatUnixSec,
+	unixMillisecond: payload.TimeFormatUnixMs,
+	unixMicrosecond: payload.TimeFormatUnixUs,
+	unixNanosecond:  payload.TimeFormatUnixNs,
 }
 
-// ParseTimeFormat parses the config form of a TimeFormat: "iso8601", "unix_sec",
-// "unix_ms", "unix_us", or "unix_ns". It returns an error wrapping
-// validate.ErrValidation for any other text.
-func ParseTimeFormat(text string) (TimeFormat, error) {
-	for f, name := range timeFormatNames {
-		if text == name {
-			return TimeFormat(f), nil
+// timeFormatOf returns the timeFormat of f. It returns an error wrapping
+// validate.ErrValidation when f is not a payload.TimeFormat.
+func timeFormatOf(f payload.TimeFormat) (timeFormat, error) {
+	for t, p := range payloadTimeFormats {
+		if f == p {
+			return timeFormat(t), nil
 		}
 	}
 	return iso8601, errors.Wrapf(
 		validate.ErrValidation,
 		`unknown time format %q: expected "iso8601", "unix_sec", "unix_ms", `+
 			`"unix_us", or "unix_ns"`,
-		text,
+		f,
 	)
 }
 
-// String returns the config form of f.
-func (f TimeFormat) String() string { return timeFormatNames[f] }
+// String returns the payload.TimeFormat of f.
+func (f timeFormat) String() string { return string(payloadTimeFormats[f]) }
 
-// MarshalText implements encoding.TextMarshaler.
-func (f TimeFormat) MarshalText() ([]byte, error) { return []byte(f.String()), nil }
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (f *TimeFormat) UnmarshalText(text []byte) (err error) {
-	*f, err = ParseTimeFormat(string(text))
-	return err
+// timeFormatOfField returns the timeFormat of f when it holds timestamps. Any other f
+// needs none.
+func timeFormatOfField(f Field) (timeFormat, error) {
+	if f.DataType != telem.TimestampT {
+		return iso8601, nil
+	}
+	return timeFormatOf(f.TimeFormat)
 }
 
 // nanosExponent returns the base 10 logarithm of the nanoseconds in one unit of a
 // numeric format.
-func (f TimeFormat) nanosExponent() int {
+func (f timeFormat) nanosExponent() int {
 	switch f {
 	case unixSecond:
 		return 9
@@ -92,7 +88,7 @@ func (f TimeFormat) nanosExponent() int {
 	panic(fmt.Sprintf("json: %s is not a numeric time format", f))
 }
 
-func (f TimeFormat) nanosPerUnit() int64 {
+func (f timeFormat) nanosPerUnit() int64 {
 	n := int64(1)
 	for range f.nanosExponent() {
 		n *= 10
@@ -100,10 +96,10 @@ func (f TimeFormat) nanosPerUnit() int64 {
 	return n
 }
 
-// AppendTimeStamp appends ts as a JSON value in format: a string for "iso8601", a
-// whole number rounded toward negative infinity for "unix_ms" and "unix_us", and a
-// number with every digit of ts otherwise.
-func AppendTimeStamp(dst []byte, ts telem.TimeStamp, format TimeFormat) []byte {
+// appendTimeStamp appends ts as a JSON value in format: a string for iso8601, a whole
+// number rounded toward negative infinity for unixMillisecond and unixMicrosecond, and
+// a number with every digit of ts otherwise.
+func appendTimeStamp(dst []byte, ts telem.TimeStamp, format timeFormat) []byte {
 	if format == iso8601 {
 		dst = append(dst, '"')
 		dst = ts.Time().UTC().AppendFormat(dst, time.RFC3339Nano)
@@ -163,7 +159,7 @@ func parseISO8601(text []byte) (telem.TimeStamp, error) {
 // parseUnix parses text, number text or the content of a JSON string, as a count of
 // format's units. It takes what parseQuoted takes. Scaling decimal text instead of a
 // float64 keeps every digit down to the nanosecond.
-func parseUnix(text []byte, format TimeFormat) (telem.TimeStamp, error) {
+func parseUnix(text []byte, format timeFormat) (telem.TimeStamp, error) {
 	text = bytes.Trim(text, quotedSpace)
 	var (
 		nanos int64

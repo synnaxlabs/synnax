@@ -88,7 +88,9 @@ class KafkaTask(TaskPage):
         return [i for i in self._under(topic) if i.get_attribute("aria-level") == "2"]
 
     def _add_button(self) -> Locator:
-        return self._pane().get_by_role("button", name=self.add_label, exact=True)
+        # The empty details pane shows an action of the same name.
+        list_ = self._pane().locator(_LIST_SELECTOR).first
+        return list_.get_by_role("button", name=self.add_label, exact=True)
 
     def select_cluster(self, name: str) -> None:
         """Pick the cluster the task talks to and wait for the form body.

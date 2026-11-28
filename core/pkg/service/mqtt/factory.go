@@ -616,7 +616,7 @@ func (s *writeSink) addTargets(enabled []WriteTargetVariant, c write.Checker) er
 			if err != nil {
 				return err
 			}
-			s.add(built, built.docs.Channels()...)
+			s.add(built, built.payloads.Channels()...)
 		case SparkplugWriteTarget:
 			ch, ok := channels[target.Channel]
 			if !ok {

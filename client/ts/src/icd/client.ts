@@ -14,7 +14,6 @@ import {
   caseconv,
   type destructor,
   errors,
-  strings,
   uuid,
   zod,
 } from "@synnaxlabs/x";
@@ -66,21 +65,6 @@ const createResZ = z.object({ icds: icdZ.array() });
 const checkReqZ = z.object({ icd: icdZ });
 const checkResZ = z.object({ problems: errors.payloadZ.array() });
 
-/**
- * Words an issue with a rule of the ICD schema as a sentence that names its field, as
- * the Core words the problems with its schema.
- */
-const issueMessage = (issue: z.core.$ZodIssue): string => {
-  const name = issue.path.findLast((p) => typeof p === "string") ?? "";
-  const field = strings.toSentence(name).toLowerCase();
-  if (issue.code === "too_small")
-    return issue.origin === "string"
-      ? `${field} is required`
-      : `${field} must be greater than or equal to ${issue.minimum}`;
-  if (issue.code === "too_big")
-    return `${field} must be less than or equal to ${issue.maximum}`;
-  return `${field} is not valid`;
-};
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 
@@ -187,7 +171,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
         (issue) =>
           new PathError(
             issue.path.map(String),
-            new ValidationError(issueMessage(issue)),
+            new ValidationError(zod.issueMessage(issue)),
           ),
       );
     const res = await this.cfg.unary.send(

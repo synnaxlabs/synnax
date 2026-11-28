@@ -37,7 +37,7 @@ var (
 	ErrChannelNotFound = channel.ErrNotFound
 )
 
-// Metrics contains statistics about the cesium database.
+// Metrics contains statistics about the Cesium database.
 type Metrics struct {
 	// DiskSize is the total disk space used by all channel data.
 	DiskSize telem.Size

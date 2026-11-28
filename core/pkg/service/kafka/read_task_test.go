@@ -143,6 +143,82 @@ var _ = Describe("Read task", func() {
 		Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 	})
 
+	// fieldRecords returns the records of a topic that read the field key of m into
+	// data.
+	fieldRecords := func(
+		ctx context.Context,
+		m icd.Message,
+		key icd.FieldKey,
+		data channel.Channel,
+	) []kafka.ReadRecord {
+		GinkgoHelper()
+		return []kafka.ReadRecord{record("", createICD(ctx, m), icd.ReadMessage{
+			Message:  m.Key,
+			Bindings: []icd.ReadBinding{{Field: key, Channel: data.Key()}},
+		})}
+	}
+
+	// produceValue produces one record whose value is value.
+	produceValue := func(ctx context.Context, topic string, value []byte) {
+		GinkgoHelper()
+		rec := &kgo.Record{Topic: topic, Value: value}
+		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
+	}
+
+	It("Should write the fields of a text record", func(ctx SpecContext) {
+		level := icd.TextField{Variant: icd.DelimitedTextField{
+			TextBaseField: icd.TextBaseField{
+				BaseField: icd.BaseField{Key: uuid.New(), Name: "level", Scale: 1},
+			},
+			Position: 1,
+		}}
+		m := icd.Message{
+			Key:  uuid.New(),
+			Name: "Line",
+			Payload: icd.Payload{Variant: icd.TextPayload{
+				Delimiter: ",", Prefix: "L", Fields: []icd.TextField{level},
+			}},
+		}
+		_, data := createIndexed(ctx, telem.Float64T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device: dev.Key,
+			Topics: oneTopic(topic, fieldRecords(ctx, m, level.Base().Key, data)),
+		})
+		start(ctx, dt, t)
+		produceValue(ctx, topic, []byte("L,2.5"))
+		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2.5}))
+	})
+
+	It("Should write the fields of a binary record", func(ctx SpecContext) {
+		flow := icd.BinaryField{Variant: icd.UnsignedBinaryField{
+			BinaryBaseField: icd.BinaryBaseField{
+				BaseField: icd.BaseField{Key: uuid.New(), Name: "flow", Scale: 1},
+				BitLength: 16,
+				ByteOrder: icd.ByteOrderLittleEndian,
+			},
+		}}
+		m := icd.Message{
+			Key:  uuid.New(),
+			Name: "Frame",
+			Payload: icd.Payload{Variant: icd.BinaryPayload{
+				Fields: []icd.BinaryField{flow},
+			}},
+		}
+		_, data := createIndexed(ctx, telem.Uint16T)
+		dev := createDevice(ctx, clusterProperties())
+		topic := newTopic()
+		dt, t := configure(ctx, kafka.ReadConfig{
+			Device: dev.Key,
+			Topics: oneTopic(topic, fieldRecords(ctx, m, flow.Base().Key, data)),
+		})
+		start(ctx, dt, t)
+		produceValue(ctx, topic, []byte{0x10, 0x01})
+		Expect(expectStored(ctx, data.Key(), 1).ValueAt[uint16](0)).
+			To(Equal(uint16(272)))
+	})
+
 	// unstampedRecords returns the records of a topic that read /v into data and no
 	// timestamp.
 	unstampedRecords := func(
