@@ -27,7 +27,7 @@ export interface ContextMenuProps {
   onDisable?: () => void;
   /** Items that follow the add field item, such as an add item of the form's own. */
   extraMenuItems?: ReactNode;
-  /** An item that deletes the items where they are defined. It shows with Remove. */
+  /** An item that deletes the items from what defines them, such as an ICD. */
   deleteMenuItem?: ReactNode;
   /** The channels that the Tare item tares. Undefined drops the item. */
   tareChannels?: channel.Key[];
