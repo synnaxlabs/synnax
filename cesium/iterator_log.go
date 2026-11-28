@@ -47,7 +47,7 @@ type logView struct {
 	// loads holds the registered count of each load whose Channels a key or a data
 	// cursor uses, with its uses. The view unregisters a count after its last use.
 	loads []viewLoad
-	// readers counts the data cursors of the view. The Close of the last drops every
+	// readers counts the data cursors of the view. The Close of the last releases every
 	// use.
 	readers int
 	// err holds the error of an unlink after an unregister, which close returns.
@@ -114,7 +114,7 @@ func (v *logView) load() {
 	}
 	v.use(count, v.live)
 	if v.loaded {
-		v.drop(v.cur, v.live)
+		v.release(v.cur, v.live)
 	}
 	v.cur, v.loaded = count, true
 }
@@ -143,8 +143,9 @@ func (v *logView) use(count uint64, n int) {
 	v.loads = append(v.loads, viewLoad{count: count, uses: n})
 }
 
-// drop drops n uses of the load of count, and unregisters the count after its last use.
-func (v *logView) drop(count uint64, n int) {
+// release drops n uses of the load of count, and unregisters the count after its last
+// use. It panics when v holds no use of count.
+func (v *logView) release(count uint64, n int) {
 	for i := range v.loads {
 		if v.loads[i].count != count {
 			continue
@@ -155,23 +156,25 @@ func (v *logView) drop(count uint64, n int) {
 		}
 		return
 	}
+	panic(errors.Newf("cesium: release of count %d, which the view does not use",
+		count))
 }
 
 // stale makes the next seek load v again.
 func (v *logView) stale() { v.fresh = false }
 
-// close drops a data cursor of v. The close of the last drops every use of v, and makes
-// the next seek load v anew.
+// close drops a data cursor of v. The close of the last releases every use of v, and
+// makes the next seek load v anew.
 func (v *logView) close() error {
 	if v.readers--; v.readers > 0 {
 		return nil
 	}
 	if v.loaded && v.live > 0 {
-		v.drop(v.cur, v.live)
+		v.release(v.cur, v.live)
 	}
 	for i, frozen := range v.frozen {
 		if frozen {
-			v.drop(v.from[i], 1)
+			v.release(v.from[i], 1)
 		}
 	}
 	err := v.err
@@ -269,7 +272,7 @@ func (c *logCursor) load() {
 	if c.slot != 0 && (!c.sought || from != c.from) {
 		c.view.use(from, 1)
 		if c.sought {
-			c.view.drop(c.from, 1)
+			c.view.release(c.from, 1)
 		}
 		c.from, c.sought = from, true
 	}
@@ -408,9 +411,9 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	return lr, nil
 }
 
-// Close implements domain.Ranges. The Close of a data cursor drops its use of the view,
-// and every use of the view after the last data cursor of the view. It gives c back to
-// its source, so c must not be used after it.
+// Close implements domain.Ranges. The Close of a data cursor releases its use of the
+// view, and every use of the view after the last data cursor of the view. It gives c
+// back to its source, so c must not be used after it.
 func (c *logCursor) Close() error {
 	c.valid = false
 	c.src.closed = c
@@ -418,7 +421,7 @@ func (c *logCursor) Close() error {
 		return nil
 	}
 	if c.sought {
-		c.view.drop(c.from, 1)
+		c.view.release(c.from, 1)
 		c.sought = false
 	}
 	return c.view.close()
