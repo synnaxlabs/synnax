@@ -593,7 +593,8 @@ var _ = Describe("@ref", func() {
 			resp := MustGenerate(device(`
 				labels label.Key[] @ref on_delete `+onDelete+` @ref kind use
 			`), "device", loader, p)
-			content := ExpectContent(resp, "retrieve.gen.go").ToContain("gorp.RetargetEach(")
+			content := ExpectContent(resp, "retrieve.gen.go").
+				ToContain("gorp.RetargetEach(")
 			if imports {
 				content.ToContain(`"slices"`, "slices.DeleteFunc(")
 			} else {

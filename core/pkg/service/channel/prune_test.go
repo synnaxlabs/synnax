@@ -28,9 +28,6 @@ var _ = Describe("Untyped channel deletion", func() {
 	It("Should delete each unreferenced channel with no data type and keep the rest",
 		func(ctx SpecContext) {
 			dist := testutil.NewNode(ctx)
-			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[channel.Key, channel.Channel]{
-				DB: dist.DB,
-			}))
 			free := func(name string, local channel.LocalKey) channel.Channel {
 				return channel.Channel{
 					Name:        name,
@@ -49,11 +46,9 @@ var _ = Describe("Untyped channel deletion", func() {
 			holder := free("holder", 7105)
 			holder.DataType = telem.Float64T
 			holder.LocalIndex = restricted.LocalKey
-			Expect(gorp.NewCreate[channel.Key, channel.Channel]().
-				Entries(&[]channel.Channel{
-					unreferenced, typed, calculated, restricted, holder,
-				}).
-				Exec(ctx, dist.DB)).To(Succeed())
+			createStored(
+				ctx, dist.DB, unreferenced, typed, calculated, restricted, holder,
+			)
 			core, logs := observer.New(zapcore.WarnLevel)
 			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
 				ZapLogger: zap.New(core),
