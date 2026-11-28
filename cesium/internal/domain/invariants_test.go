@@ -45,12 +45,12 @@ var _ = Describe("Invariants", func() {
 				)).To(Succeed())
 			}
 			Expect(func() {
-				Expect(db.Delete(
+				MustSucceed(db.Delete(
 					ctx,
 					(12 * telem.SecondTS).Range(14*telem.SecondTS),
 					fixedOffsetAndTimeStamp(2, headEnd),
 					fixedOffsetAndTimeStamp(6, tailStart),
-				)).To(Succeed())
+				))
 			}).To(PanicWith(MatchError(ContainSubstring(panicText))))
 		},
 		Entry(
