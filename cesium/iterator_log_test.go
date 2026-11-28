@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -207,7 +208,77 @@ func (f *readGateFile) ReadAt(p []byte, off int64) (int, error) {
 	return f.File.ReadAt(p, off)
 }
 
+// errRemoveRefused is the error of a remove that refuseFS refuses.
+var errRemoveRefused = errors.New("remove refused")
+
+// refuseFS refuses each remove of a file under its prefix, once one is set.
+type refuseFS struct {
+	xfs.FS
+	dir    string
+	prefix *atomic.Pointer[string]
+}
+
+func newRefuseFS(fs xfs.FS) *refuseFS {
+	return &refuseFS{FS: fs, prefix: &atomic.Pointer[string]{}}
+}
+
+func (f *refuseFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return &refuseFS{FS: sub, dir: path.Join(f.dir, name), prefix: f.prefix}, nil
+}
+
+func (f *refuseFS) Remove(name string) error {
+	if p := f.prefix.Load(); p != nil && strings.HasPrefix(path.Join(f.dir, name), *p) {
+		return errRemoveRefused
+	}
+	return f.FS.Remove(name)
+}
+
 var _ = Describe("Reads on the pointer log", func() {
+	It("Should close a read with no error when the unlink of a segment that it kept "+
+		"fails", func(ctx SpecContext) {
+		fs := newRefuseFS(xfs.NewMem())
+		db := mustOpenDBOnFS(ctx, fs, cesium.WithPointerLog())
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		for _, start := range []telem.TimeStamp{10, 20} {
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Clock:    idx,
+				Start:    start * telem.SecondTS,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(start, start+1),
+				telem.NewSeriesV[int64](1, 2),
+			}), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+		}
+		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Bounds:   telem.TimeRangeMax,
+			Channels: []cesium.ChannelKey{data},
+		}))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		Expect(db.DeleteTimeRange(
+			ctx,
+			[]cesium.ChannelKey{data},
+			telem.TimeStamp(0).Range(15*telem.SecondTS),
+		)).To(Succeed())
+		prefix := strconv.FormatUint(uint64(data), 10) + "/"
+		fs.prefix.Store(&prefix)
+		Expect(iter.Close()).To(Succeed())
+	})
+
 	It("Should give a read of a segment its own open of the file while another read "+
 		"of it waits inside a read", func(ctx SpecContext) {
 		fs := newReadGateFS(xfs.NewMem())
