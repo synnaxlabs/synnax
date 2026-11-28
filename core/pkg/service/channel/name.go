@@ -14,7 +14,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // nameSpace is the space of the index that keeps channel names unique across the Core.
@@ -27,7 +26,7 @@ func newNameIndex() *gorp.UniqueIndex[Key, Channel, string] {
 	return gorp.NewUniqueIndex(
 		"unique_name",
 		nameSpace,
-		func(c *Channel) (string, bool) { return validate.NormalizeName(c.Name), true },
+		func(c *Channel) (string, bool) { return normalizeName(c.Name), true },
 	)
 }
 
@@ -42,7 +41,7 @@ func NormalizeWhere(w Where) Where {
 		name.StartsWith = normalizePtr(name.StartsWith)
 		if name.In != nil {
 			name.In = lo.Map(name.In, func(n string, _ int) string {
-				return validate.NormalizeName(n)
+				return normalizeName(n)
 			})
 		}
 		w.Name = &name
@@ -64,7 +63,7 @@ func normalizePtr(s *string) *string {
 	if s == nil {
 		return nil
 	}
-	n := validate.NormalizeName(*s)
+	n := normalizeName(*s)
 	return &n
 }
 
@@ -74,7 +73,7 @@ func normalizePtr(s *string) *string {
 func NormalizeNames(names []string) []string {
 	var out []string
 	for i, n := range names {
-		nfc := validate.NormalizeName(n)
+		nfc := normalizeName(n)
 		if nfc == n {
 			continue
 		}
@@ -98,7 +97,7 @@ func normalizeNameActions(acts []Action) []Action {
 		if a.Rename == nil {
 			continue
 		}
-		if nfc := validate.NormalizeName(a.Rename.Name); nfc != a.Rename.Name {
+		if nfc := normalizeName(a.Rename.Name); nfc != a.Rename.Name {
 			if out == nil {
 				out = slices.Clone(acts)
 			}

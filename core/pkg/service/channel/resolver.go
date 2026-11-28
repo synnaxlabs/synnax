@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
@@ -70,7 +69,7 @@ func (r *symbolResolver) Resolve(
 	if key, err := strconv.ParseUint(name, 10, 32); err == nil {
 		q = q.Where(MatchKeys(Key(key)))
 	} else {
-		q = q.Where(MatchNames(validate.NormalizeName(name)))
+		q = q.Where(MatchNames(normalizeName(name)))
 	}
 	if err := q.Exec(ctx, r.snap); err != nil {
 		return nil, err

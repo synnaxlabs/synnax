@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package validate
+package channel
 
 import (
 	"strings"
@@ -17,31 +17,30 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// PathSeparator joins the segments of a path. A path segment never holds it.
-const PathSeparator = '.'
+// pathSeparator joins the segments of a path. A path segment never holds it.
+const pathSeparator = '.'
 
-// IsPathSegment reports whether s can name one segment of a path: valid UTF-8 in NFC,
-// not empty after trimming spaces, and with no '.' and no character that shows as
-// nothing or as a space other than U+0020.
-func IsPathSegment(s string) bool {
+// isPathSegment reports whether s can name one segment of a path: valid UTF-8, not
+// empty after trimming spaces, and with no '.' and no character that shows as nothing
+// or as a space other than U+0020.
+func isPathSegment(s string) bool {
 	if ascii, ok := asciiPathSegment(s); ascii {
 		return ok
 	}
-	// String returns s itself when s is in NFC, so the check allocates nothing.
-	if !utf8.ValidString(s) || strings.Trim(s, " ") == "" || norm.NFC.String(s) != s {
+	if !utf8.ValidString(s) || strings.Trim(s, " ") == "" {
 		return false
 	}
 	for _, r := range s {
-		if r == PathSeparator || isInvisible(r) {
+		if r == pathSeparator || isInvisible(r) {
 			return false
 		}
 	}
 	return true
 }
 
-// asciiPathSegment reports whether s is all ASCII, which is always in NFC, and if so
-// whether it passes the rule of IsPathSegment. It reports true for a refused byte
-// before it sees the rest of s, since s then fails either way.
+// asciiPathSegment reports whether s is all ASCII, and if so whether it passes the rule
+// of isPathSegment. It reports true for a refused byte before it sees the rest of s,
+// since s then fails either way.
 func asciiPathSegment(s string) (ascii, ok bool) {
 	visible := false
 	for i := range len(s) {
@@ -49,7 +48,7 @@ func asciiPathSegment(s string) (ascii, ok bool) {
 		switch {
 		case c >= utf8.RuneSelf:
 			return false, false
-		case c == PathSeparator || c < ' ' || c == 0x7f:
+		case c == pathSeparator || c < ' ' || c == 0x7f:
 			return true, false
 		case c != ' ':
 			visible = true
@@ -83,3 +82,7 @@ var invisibleTables = []*unicode.RangeTable{
 	unicode.Other_Default_Ignorable_Code_Point,
 	unicode.Variation_Selector,
 }
+
+// normalizeName returns s in Unicode Normalization Form C, the one form in which names
+// are stored and compared.
+func normalizeName(s string) string { return norm.NFC.String(s) }

@@ -495,7 +495,7 @@ func checkCreatedNames(
 		if stored.Contains(i) {
 			continue
 		}
-		channels[i].Name = validate.NormalizeName(channels[i].Name)
+		channels[i].Name = normalizeName(channels[i].Name)
 		if err := checkNameRule(channels[i].Name, identifiers); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i), "name")
 		}
@@ -968,7 +968,7 @@ func (w Writer) refuseTakenNames(
 	}
 	taken := make(map[string]Key, len(holders))
 	for _, h := range holders {
-		taken[validate.NormalizeName(h.Name)] = h.Key()
+		taken[normalizeName(h.Name)] = h.Key()
 	}
 	for _, i := range newIndices {
 		if k, ok := taken[channels[i].Name]; ok {
@@ -1209,7 +1209,7 @@ func (w Writer) checkRename(c Channel, next string, allowInternal bool) error {
 			c,
 		)
 	}
-	if next == validate.NormalizeName(c.Name) {
+	if next == normalizeName(c.Name) {
 		return nil
 	}
 	return validate.PathedError(checkNameRule(next, *w.svc.cfg.ValidateNames), "name")
@@ -1246,7 +1246,7 @@ func (w Writer) checkChainedRenames(
 	}
 	held := make(map[string]Key, len(renamed))
 	for _, c := range renamed {
-		held[validate.NormalizeName(c.Name)] = c.Key()
+		held[normalizeName(c.Name)] = c.Key()
 	}
 	for i, name := range names {
 		if k, ok := held[name]; ok && k != keys[i] {

@@ -19,8 +19,8 @@ import (
 // character, or bytes that are not UTF-8. It returns an empty name, which the group
 // reports as required.
 func CheckFolderName(name string) (string, error) {
-	name = validate.NormalizeName(name)
-	if name == "" || validate.IsPathSegment(name) {
+	name = normalizeName(name)
+	if name == "" || isPathSegment(name) {
 		return name, nil
 	}
 	return "", validate.PathedError(errors.Wrapf(
