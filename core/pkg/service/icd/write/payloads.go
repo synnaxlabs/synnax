@@ -21,19 +21,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Documents builds the documents of one ICD message from the commands of its channel
-// bindings. Document i of a frame holds command i of each bound channel, and the last
+// Payloads builds the payloads of one ICD message from the commands of its channel
+// bindings. Payload i of a frame holds command i of each bound channel, and the last
 // command of a channel with fewer. A field with no command since the last Reset sends
-// its default. Documents builds nothing until each field with no default has a command.
+// its default. Payloads builds nothing until each field with no default has a command.
 // A command that its field cannot hold is dropped, and the field keeps its last good
-// command. Document i goes out only when one of its commands is good. Documents is not
+// command. Payload i goes out only when one of its commands is good. Payloads is not
 // safe for concurrent use.
-type Documents struct {
+type Payloads struct {
 	name    string
 	encoder *codec.JSONEncoder
 	// channels holds the command channel of each binding.
@@ -42,28 +43,28 @@ type Documents struct {
 	// last holds the last good command of each binding. Each one is non-nil, because
 	// Encode writes the default for a nil command.
 	last [][]byte
-	// next holds the commands of the document to encode, nil for a binding with none.
+	// next holds the commands of the payload to encode, nil for a binding with none.
 	next [][]byte
 	// commands holds the commands of each binding in one frame.
 	commands [][][]byte
-	// size is the capacity of the next document: the length of the last one, and an
+	// size is the capacity of the next payload: the length of the last one, and an
 	// eighth more for values that grow.
 	size int
 }
 
-// NewDocuments returns the Documents of wm, the message of ic that a task sends.
-// channels holds the command channels of wm, and name names the sender in each skip
-// description. NewDocuments returns a validation error when a command channel does not
-// exist or wm does not build from ic.
-func NewDocuments(
+// NewPayloads returns the Payloads of wm, the message of ic that a task sends. channels
+// holds the command channels of wm, and name names the sender in each skip description.
+// NewPayloads returns a validation error when a command channel does not exist or wm
+// does not build from ic.
+func NewPayloads(
 	wm icd.WriteMessage,
 	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
+	channels map[channel.Key]icdv0.Channel,
 	name string,
-) (*Documents, error) {
+) (*Payloads, error) {
 	sampled := ChannelBindings(wm)
 	n := len(sampled)
-	d := &Documents{
+	p := &Payloads{
 		name:     name,
 		channels: make(channel.Keys, n),
 		received: make([]bool, n),
@@ -80,14 +81,14 @@ func NewDocuments(
 			)
 		}
 		dataTypes[b.Channel] = ch.DataType
-		d.channels[i] = b.Channel
-		d.last[i] = []byte{}
+		p.channels[i] = b.Channel
+		p.last[i] = []byte{}
 	}
 	var err error
-	if d.encoder, err = newEncoder(wm, ic, dataTypes); err != nil {
+	if p.encoder, err = newEncoder(wm, ic, dataTypes); err != nil {
 		return nil, err
 	}
-	return d, nil
+	return p, nil
 }
 
 // ChannelBindings returns the channel bindings of wm, in binding order.
@@ -102,40 +103,40 @@ func ChannelBindings(wm icd.WriteMessage) []icd.ChannelWriteBinding {
 }
 
 // Channels returns the command channel of each channel binding, in binding order.
-func (d *Documents) Channels() channel.Keys { return d.channels }
+func (p *Payloads) Channels() channel.Keys { return p.channels }
 
 // Reset forgets every command.
-func (d *Documents) Reset() { clear(d.received) }
+func (p *Payloads) Reset() { clear(p.received) }
 
-// From returns the documents of fr, each with its row: the index in fr of the commands
-// that it holds. It counts each command in skips as read, and each command or document
+// From returns the payloads of fr, each with its row: the index in fr of the commands
+// that it holds. It counts each command in skips as read, and each command or payload
 // that it drops as skipped.
-func (d *Documents) From(fr framer.Frame, skips *driver.Skips) iter.Seq2[int, []byte] {
+func (p *Payloads) From(fr framer.Frame, skips *driver.Skips) iter.Seq2[int, []byte] {
 	return func(yield func(int, []byte) bool) {
-		for i := range d.gather(fr) {
+		for i := range p.gather(fr) {
 			good := false
-			for b, commands := range d.commands {
+			for b, commands := range p.commands {
 				if i >= len(commands) {
 					continue
 				}
 				skips.Read()
-				if err := d.encoder.Check(b, commands[i]); err != nil {
-					d.skip(skips, err)
+				if err := p.encoder.Check(b, commands[i]); err != nil {
+					p.skip(skips, err)
 					continue
 				}
-				d.last[b] = append(d.last[b][:0], commands[i]...)
-				d.received[b], good = true, true
+				p.last[b] = append(p.last[b][:0], commands[i]...)
+				p.received[b], good = true, true
 			}
-			if !good || !d.fill() {
+			if !good || !p.fill() {
 				continue
 			}
-			doc, err := d.encoder.Encode(make([]byte, 0, d.size), d.next)
+			payload, err := p.encoder.Encode(make([]byte, 0, p.size), p.next)
 			if err != nil {
-				d.skip(skips, err)
+				p.skip(skips, err)
 				continue
 			}
-			d.size = len(doc) + len(doc)/8
-			if !yield(i, doc) {
+			p.size = len(payload) + len(payload)/8
+			if !yield(i, payload) {
 				return
 			}
 		}
@@ -143,25 +144,25 @@ func (d *Documents) From(fr framer.Frame, skips *driver.Skips) iter.Seq2[int, []
 }
 
 // skip counts in skips a command that err dropped.
-func (d *Documents) skip(skips *driver.Skips, err error) {
-	skips.Skip(time.Now(), fmt.Sprintf("Command for %s: %s", d.name, err))
+func (p *Payloads) skip(skips *driver.Skips, err error) {
+	skips.Skip(time.Now(), fmt.Sprintf("Command for %s: %s", p.name, err))
 }
 
 // gather fills commands with the commands of each binding in fr, and returns the count
-// of documents that they make.
-func (d *Documents) gather(fr framer.Frame) int {
-	for b := range d.commands {
-		d.commands[b] = d.commands[b][:0]
+// of payloads that they make.
+func (p *Payloads) gather(fr framer.Frame) int {
+	for b := range p.commands {
+		p.commands[b] = p.commands[b][:0]
 	}
 	for key, s := range fr.Entries() {
-		for b, ch := range d.channels {
+		for b, ch := range p.channels {
 			if ch == key {
-				d.commands[b] = slices.AppendSeq(d.commands[b], s.Samples())
+				p.commands[b] = slices.AppendSeq(p.commands[b], s.Samples())
 			}
 		}
 	}
 	n := 0
-	for _, commands := range d.commands {
+	for _, commands := range p.commands {
 		n = max(n, len(commands))
 	}
 	return n
@@ -169,13 +170,13 @@ func (d *Documents) gather(fr framer.Frame) int {
 
 // fill fills next with the last good command of each binding, and reports whether each
 // field with no default has one.
-func (d *Documents) fill() bool {
+func (p *Payloads) fill() bool {
 	ready := true
-	for b := range d.next {
-		d.next[b] = nil
-		if d.received[b] {
-			d.next[b] = d.last[b]
-		} else if !d.encoder.HasDefault(b) {
+	for b := range p.next {
+		p.next[b] = nil
+		if p.received[b] {
+			p.next[b] = p.last[b]
+		} else if !p.encoder.HasDefault(b) {
 			ready = false
 		}
 	}

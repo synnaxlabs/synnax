@@ -13,7 +13,10 @@ cc_library(
     name = "testutil",
     srcs = ["fixture.cpp"],
     hdrs = ["fixture.h"],
-    visibility = ["//driver/codec:__pkg__"],
+    visibility = [
+        "//driver/codec:__pkg__",
+        "//driver/icd:__pkg__",
+    ],
     deps = [
         "//client/cpp/icd",
         "//driver/codec",

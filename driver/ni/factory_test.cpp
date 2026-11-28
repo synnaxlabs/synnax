@@ -25,7 +25,7 @@ const std::string DAQMX_MISSING = "National Instruments NI-DAQmx shared library 
                                   "https://www.ni.com/en/support/downloads/drivers/"
                                   "download.ni-daq-mx.html.";
 
-/// @brief an NI factory whose DAQmx library fails to load once, then loads.
+/// @brief an NI factory whose NI-DAQmx library fails to load once, then loads.
 class FactoryTest : public ::testing::Test {
 protected:
     /// @brief the cancel token given to configure_task and exec.
@@ -101,8 +101,8 @@ protected:
     void TearDown() override { this->cancel.stop(); }
 };
 
-/// @brief it should fail to configure a read task while DAQmx does not load, and
-/// configure it once DAQmx loads.
+/// @brief it should fail to configure a read task while NI-DAQmx does not load, and
+/// configure it once NI-DAQmx loads.
 TEST_F(FactoryTest, ConfigureFailsUntilDAQmxLoads) {
     const auto [failed, failed_handled] = this->factory.configure_task(
         this->ctx,
@@ -129,8 +129,8 @@ TEST_F(FactoryTest, ConfigureFailsUntilDAQmxLoads) {
     EXPECT_EQ(this->dmx_loads, 2);
 }
 
-/// @brief it should report the missing DAQmx library at boot for a task that starts on
-/// its own.
+/// @brief it should report the missing NI-DAQmx library at boot for a task that starts
+/// on its own.
 TEST_F(FactoryTest, AutoStartReportsMissingDAQmxAtBoot) {
     this->task.config["auto_start"] = true;
     const auto [tsk, handled] = this->factory.configure_task(

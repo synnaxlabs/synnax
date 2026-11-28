@@ -115,6 +115,7 @@ type Service struct {
 	closer  io.MultiCloser
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
+	names   *gorp.UniqueIndex[Key, Channel, string]
 	index   *gorp.KeyReference[Key, Channel, Key]
 	state   *actions.State[Key, Action]
 	// renames holds the renames of each transaction. The hook of the last one sends all
@@ -141,6 +142,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		cfg:     cfg,
 		db:      cfg.DB,
 		indexes: newIndexes(),
+		names:   newNameIndex(),
 		index:   indexReference(),
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
@@ -154,7 +156,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			slices.Clone(versions.Migrations),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
-		Indexes:         s.indexes.all(),
+		Indexes:         append(s.indexes.all(), s.names),
 		References:      append(s.indexes.references(), s.index),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

@@ -25,7 +25,7 @@ export const installPortalRoot = (): void => {
 
 /**
  * Right-clicks the element with the given text, or the element that find returns, and
- * waits for the context menu to open. Retries with a fresh query: async flux
+ * waits for the context menu to open. Retries with a fresh query: async Flux
  * resolutions (permissions, labels) can replace the target node between lookup and
  * dispatch, detaching the first match.
  */
@@ -63,17 +63,17 @@ export const clickAndSettle = async (text: string): Promise<void> => {
   });
 };
 
-/** Queries container for a rendered pluto icon by its name, or null. */
+/** Queries container for a rendered Pluto icon by its name, or null. */
 export const queryIcon = (container: ParentNode, icon: string): Element | null =>
   container.querySelector(`.lyra-icon--${icon}`);
 
-/** Returns the closest button wrapping the given pluto icon, or null. */
+/** Returns the closest button wrapping the given Pluto icon, or null. */
 export const queryIconButton = (
   container: ParentNode,
   icon: string,
 ): HTMLButtonElement | null => queryIcon(container, icon)?.closest("button") ?? null;
 
-/** Returns every button wrapping the given pluto icon, in document order. */
+/** Returns every button wrapping the given Pluto icon, in document order. */
 export const getIconButtons = (
   container: ParentNode,
   icon: string,
@@ -109,7 +109,7 @@ export const getBySelector = <E extends Element = Element>(
   return el;
 };
 
-/** Finds the pluto input item element labeled with labelText in the document. */
+/** Finds the Pluto input item element labeled with labelText in the document. */
 export const getInputItem = (labelText: string): HTMLElement => {
   const item = screen.getByText(labelText).closest<HTMLElement>(".lyra-input__item");
   if (item == null) throw new Error(`no input item wraps label ${labelText}`);
@@ -117,7 +117,7 @@ export const getInputItem = (labelText: string): HTMLElement => {
 };
 
 /**
- * Finds the input element of the pluto input item labeled with labelText. Pluto input
+ * Finds the input element of the Pluto input item labeled with labelText. Pluto input
  * labels are sibling elements, so role/label queries cannot reach the input.
  */
 export const getLabeledInput = (labelText: string): HTMLInputElement =>
@@ -153,14 +153,14 @@ export const findDialogTriggerByText = async (text: string): Promise<HTMLElement
   });
 
 /**
- * Reports whether a pluto element is rendered in its disabled state. Pluto marks
+ * Reports whether a Pluto element is rendered in its disabled state. Pluto marks
  * disabled buttons with a class rather than the disabled attribute.
  */
 export const isPlutoDisabled = (el: Element): boolean =>
   el.classList.contains("lyra--disabled");
 
 /**
- * Finds the input nested inside the pluto input item with the given label text,
+ * Finds the input nested inside the Pluto input item with the given label text,
  * preferring an exact label match over a substring one.
  */
 export const getInputByItemLabel = (
@@ -180,7 +180,7 @@ export const getInputByItemLabel = (
   return input;
 };
 
-/** A handle on the pluto input table inside an input item. */
+/** A handle on the Pluto input table inside an input item. */
 export interface InputTable {
   /** The button that appends a row. */
   add: HTMLButtonElement;
@@ -190,7 +190,7 @@ export interface InputTable {
   cell: (row: number, col?: number) => HTMLInputElement;
 }
 
-/** Finds the pluto input table inside the input item labeled with labelText. */
+/** Finds the Pluto input table inside the input item labeled with labelText. */
 export const getInputTable = (labelText: string): InputTable => {
   const table = getBySelector<HTMLElement>(
     getInputItem(labelText),
@@ -206,7 +206,7 @@ export const getInputTable = (labelText: string): InputTable => {
 };
 
 /**
- * Finds the checkbox input of the pluto switch field labeled with labelText. Pluto
+ * Finds the checkbox input of the Pluto switch field labeled with labelText. Pluto
  * switch labels are sibling elements, so role/label queries cannot reach the input.
  */
 export const getSwitchInput = (labelText: string): HTMLInputElement =>

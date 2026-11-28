@@ -93,7 +93,7 @@ var _ = Describe("Write task with targets", func() {
 		Expect(w.Close()).To(Succeed())
 	}
 
-	It("Should produce the document of each command with the time of its index",
+	It("Should produce the payload of each command with the time of its index",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
@@ -220,6 +220,31 @@ var _ = Describe("Write task with targets", func() {
 		Entry("250 characters", strings.Repeat("a", 250), nameRule),
 		Entry("one period", ".", `cannot be "." or ".."`),
 		Entry("two periods", "..", `cannot be "." or ".."`),
+	)
+
+	It(
+		"Should refuse an enabled target whose ICD does not exist",
+		func(ctx SpecContext) {
+			ch := createVirtual(ctx)
+			dev := createDevice(ctx, clusterProperties())
+			missing := icd.ICD{Key: uuid.New()}
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device: dev.Key,
+				Targets: []kafka.WriteTarget{
+					writeTarget(uniqueTopic(), ic, setpoint, command(setpoint, 0, ch)),
+					writeTarget(
+						uniqueTopic(),
+						missing,
+						setpoint,
+						command(setpoint, 0, ch),
+					),
+				},
+			})
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("icd: ICD %s does not exist", missing.Key)),
+			))
+		},
 	)
 
 	It("Should send to a 249-character topic with each kind of allowed character",

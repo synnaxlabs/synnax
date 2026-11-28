@@ -17,7 +17,7 @@ import { aether } from "@/aether/aether";
  * with this segment. */
 export const ROOT_KEY = "root";
 
-/** Low-level handle over a worker-side aether tree. Drives state updates and deletes
+/** Low-level handle over a worker-side Aether tree. Drives state updates and deletes
  * against a real {@link aether.Root} backed by a mock comms pair, with no knowledge of
  * any particular provider. Higher-level Synnax test utilities build their provider
  * stacks on top of this. */
@@ -40,7 +40,7 @@ export interface Driver {
 }
 
 /**
- * Create a {@link Driver} over a fresh worker-side aether tree using the given
+ * Create a {@link Driver} over a fresh worker-side Aether tree using the given
  * registry. The driver constructs components lazily through the registry the same way
  * production does — the caller never wires `parent` by hand, so every level runs its
  * real `afterUpdate` lifecycle and propagates context normally.

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package write checks the writes of ICD messages that task configs hold against their
-// ICDs and channels, and builds the documents that a write task sends.
+// ICDs and channels, and builds the payloads that a write task sends.
 package write
 
 import (
@@ -39,7 +39,7 @@ var defaultDataTypes = map[payload.Kind]telem.DataType{
 	payload.KindBytes:     telem.BytesT,
 }
 
-// newEncoder returns the encoder of the documents that wm sends of its message in ic.
+// newEncoder returns the encoder of the payloads that wm sends of its message in ic.
 // The encoder takes one sample for each channel binding of wm, in binding order. A
 // value binding sends its value as its field. dataTypes holds the data type of each
 // channel that exists. A binding to another channel takes its own data type, or else

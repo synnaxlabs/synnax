@@ -67,6 +67,16 @@ synnax::icd::TimestampJSONField time_field() {
     return f;
 }
 
+/// @brief returns a delimited text field named name at position.
+synnax::icd::DelimitedTextField
+delimited(const std::string &name, const std::uint32_t position) {
+    synnax::icd::DelimitedTextField f;
+    f.key = x::uuid::create();
+    f.name = name;
+    f.position = position;
+    return f;
+}
+
 /// @brief returns an unsigned binary field named name in the byte at offset that the
 /// multiplexor mux selects with value, or that no multiplexor selects.
 synnax::icd::UnsignedBinaryField byte_field(
@@ -114,7 +124,7 @@ struct Config {
     }
 
     [[nodiscard]] std::pair<Reader, x::errors::Error> create() const {
-        return Reader::create(this->reads, this->ic, this->channels);
+        return Reader::create({{.ic = this->ic, .reads = this->reads}}, this->channels);
     }
 };
 
@@ -201,11 +211,10 @@ TEST(Reader, ReadsBinaryMessage) {
 /// @brief it should read a text line into the channels of its message.
 TEST(Reader, ReadsTextMessage) {
     auto e = message("line", synnax::icd::TextPayload{});
-    synnax::icd::DelimitedTextField v;
-    v.key = x::uuid::create();
-    v.name = "v";
-    v.position = 1;
-    e.bind<synnax::icd::TextPayload>(v, channel(2, x::telem::FLOAT64_T));
+    e.bind<synnax::icd::TextPayload>(
+        delimited("v", 1),
+        channel(2, x::telem::FLOAT64_T)
+    );
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(2);
     ASSERT_EQ(ASSERT_NIL_P(r.read(bytes("oven, 21.5"), RECEIVED, fr)), 0U);
@@ -366,6 +375,25 @@ TEST(Reader, AppendsToSeriesInFrame) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0, 9.0}));
 }
 
+/// @brief it should add the samples of a read to the series of a frame that holds them
+/// in another order than the frame of the read before.
+TEST(Reader, AppendsToSeriesInReorderedFrame) {
+    auto r = ASSERT_NIL_P(frame().create());
+    x::telem::Frame first;
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{7}, RECEIVED, first, 2));
+    ASSERT_EQ(*first.channels, (std::vector<std::uint32_t>{1, 2}));
+    x::telem::Frame fr;
+    fr.emplace(2, x::telem::Series(x::telem::FLOAT64_T, 2));
+    fr.emplace(1, x::telem::Series(x::telem::TIMESTAMP_T, 2));
+    ASSERT_NIL_P(r.read(std::vector<std::uint8_t>{9}, RECEIVED, fr, 2));
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{2, 1}));
+    ASSERT_EQ(fr.series->at(0).values<double>(), (std::vector{9.0}));
+    ASSERT_EQ(
+        fr.series->at(1).values<std::int64_t>(),
+        (std::vector{RECEIVED.nanoseconds()})
+    );
+}
+
 /// @brief it should stamp the samples of a message with the value of its index field.
 TEST(Reader, StampsSamplesWithIndexField) {
     auto r = ASSERT_NIL_P(indexed().create());
@@ -441,6 +469,52 @@ TEST(Reader, WritesOtherIndexGroupsWhenValueOfOneDoesNotConvert) {
     ASSERT_EQ(
         r.failures()[0].error.data(),
         "field w: expected a number or boolean, got an object"
+    );
+}
+
+/// @brief it should write the other index groups when a text field has no value, and
+/// list the field in its failures.
+TEST(Reader, WritesOtherIndexGroupsWhenTextFieldHasNoValue) {
+    auto e = message("line", synnax::icd::TextPayload{});
+    e.bind<synnax::icd::TextPayload>(
+        delimited("v", 1),
+        channel(2, x::telem::FLOAT64_T)
+    );
+    e.bind<synnax::icd::TextPayload>(
+        delimited("w", 2),
+        channel(3, x::telem::FLOAT64_T, 4)
+    );
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(4);
+    ASSERT_EQ(ASSERT_NIL_P(r.read(bytes("oven, 21.5"), RECEIVED, fr)), 0U);
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(fr.at<double>(2, 0), 21.5);
+    ASSERT_EQ(r.failures().size(), 1U);
+    ASSERT_EQ(r.failures()[0].channel, 3U);
+    ASSERT_TRUE(r.failures()[0].missing);
+    ASSERT_EQ(r.failures()[0].error.data(), "field w: no value at position 2");
+}
+
+/// @brief it should write the other index groups when a binary frame is too short for a
+/// field, and list the field in its failures.
+TEST(Reader, WritesOtherIndexGroupsWhenFrameIsTooShortForField) {
+    auto e = frame();
+    e.bind<synnax::icd::BinaryPayload>(
+        byte_field("w", 1),
+        channel(3, x::telem::FLOAT64_T, 4)
+    );
+    auto r = ASSERT_NIL_P(e.create());
+    x::telem::Frame fr(4);
+    const std::vector<std::uint8_t> payload{7};
+    ASSERT_EQ(ASSERT_NIL_P(r.read(payload, RECEIVED, fr)), 0U);
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
+    ASSERT_EQ(fr.at<double>(2, 0), 7.0);
+    ASSERT_EQ(r.failures().size(), 1U);
+    ASSERT_EQ(r.failures()[0].channel, 3U);
+    ASSERT_TRUE(r.failures()[0].missing);
+    ASSERT_EQ(
+        r.failures()[0].error.data(),
+        "field w: the payload has 1 bytes and the field needs 2"
     );
 }
 
@@ -551,6 +625,15 @@ TEST(Reader, RejectsMessageNotInICD) {
         err.data(),
         "message " + key.to_string() + " does not exist in ICD sensors"
     );
+}
+
+/// @brief it should reject two reads of one message.
+TEST(Reader, RejectsMessageReadTwice) {
+    auto e = reading();
+    e.reads.push_back(e.reads[0]);
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data(), "message reading is read twice");
 }
 
 /// @brief it should reject two messages of different formats.

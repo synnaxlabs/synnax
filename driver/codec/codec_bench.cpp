@@ -382,7 +382,8 @@ void binary_decode(benchmark::State &state, const std::size_t n) {
     }
     const auto decode = [&] {
         const auto [message, err] = dec.decode(frame);
-        if (err || !message.has_value()) state.SkipWithError("decode failed");
+        if (err || !message.has_value() || !dec.failures(0).empty())
+            state.SkipWithError("decode failed");
     };
     decode();
     if (!each_equal(dec.samples(0), x::telem::Series(1000.0, x::telem::FLOAT64_T)))
@@ -439,8 +440,9 @@ void text_decode(benchmark::State &state, const std::size_t n) {
         return;
     }
     const auto decode = [&] {
-        const auto [message, err] = dec.decode(line);
-        if (err || !message.has_value()) state.SkipWithError("decode failed");
+        const auto message = dec.decode(line);
+        if (!message.has_value() || !dec.failures(0).empty())
+            state.SkipWithError("decode failed");
     };
     decode();
     if (!each_equal(dec.samples(0), FLOAT_SAMPLE()))

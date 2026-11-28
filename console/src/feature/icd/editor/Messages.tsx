@@ -18,26 +18,13 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { type payload, uuid } from "@synnaxlabs/x";
+import type { payload } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import type { ReactElement } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
-
-const uniqueName = (messages: icd.Message[]): string => {
-  const names = new Set(messages.map(({ name }) => name));
-  let i = messages.length + 1;
-  while (names.has(`Message ${i}`)) i++;
-  return `Message ${i}`;
-};
-
-const createMessage = (messages: icd.Message[]): icd.Message => ({
-  key: uuid.create(),
-  name: uniqueName(messages),
-  payload: { format: "binary", fields: [] },
-});
 
 const FORMAT_ICONS: Record<payload.Format, ReactElement> = {
   binary: <Icon.Binary />,
@@ -124,22 +111,21 @@ export interface MessagesProps {
   /** The keys of the selected messages. The editor shows the first. */
   selected: string[];
   onSelect: (keys: string[]) => void;
+  onAdd: () => void;
 }
 
 /**
  * Lists the messages of the ICD and adds them. Shift selects a range and Cmd toggles a
  * message. The context menu removes the selected messages.
  */
-export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement => {
-  const messages = Form.useFieldList(PICD.formPath.messages);
-  const { data, push, remove } = messages;
+export const Messages = ({
+  selected,
+  onSelect,
+  onAdd,
+}: MessagesProps): ReactElement => {
+  const { data, remove } = Form.useFieldList(PICD.formPath.messages);
   const { mode } = Form.useContext();
   const menuProps = Menu.useContextMenu();
-  const handleAdd = () => {
-    const message = createMessage(messages.value());
-    push(message);
-    onSelect([message.key]);
-  };
   const handleRemove = (keys: string[]) => onSelect(remove(keys).slice(0, 1));
   return (
     <Flex.Box y empty grow className={CSS.BE("icd-editor", "messages")}>
@@ -173,7 +159,7 @@ export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement =>
         </Select.Frame>
       </Menu.ContextMenu>
       {mode !== "preview" && (
-        <Button.CreateListItem size="small" onClick={handleAdd}>
+        <Button.CreateListItem size="small" onClick={onAdd}>
           Add message
         </Button.CreateListItem>
       )}

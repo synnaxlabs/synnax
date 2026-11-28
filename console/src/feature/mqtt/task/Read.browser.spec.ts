@@ -10,10 +10,12 @@
 import { type device, icd, mqtt, type rack, type Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithRole,
   holdRequests,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -42,6 +44,9 @@ import {
   clickFailedDeploy,
   countFailedSaves,
   deployAndAwaitTask,
+  findDetailsButton,
+  findDetailsPane,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   START_FAILURE,
@@ -533,7 +538,7 @@ describe("MQTT read form", () => {
       },
     ];
     const { dev, draft } = await renderRead();
-    await screen.findByText("Add data to read a topic or a tag");
+    await screen.findByText("No entry selected");
     const scanner = await openScanner(client, dev.rack);
     let dialog = await openAddData();
     await scanner.answer({ data: { topics: TOPICS, truncated: false } });
@@ -1215,15 +1220,67 @@ describe("MQTT read form", () => {
         { type: "plain", topic: "plant/kiln" },
       ]),
     );
+    const labels = await screen.findAllByText("plant/kiln");
+    expect(labels.map(treatment)).not.toContain("code");
+  });
+
+  it("should draw the topic names of the Add data tree in Inter", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    const scanned = {
+      topic: TOPIC,
+      payload: '{"temperature": 1}',
+      shapes: [
+        {
+          fields: [
+            {
+              pointer: "/temperature",
+              type: "number",
+              kind: "float",
+              sample: "1",
+              enum: [],
+            },
+          ],
+          count: 1,
+        },
+      ],
+      retained: true,
+    };
+    await scanner.answer({ data: { topics: [scanned], truncated: false } });
+    expect(treatment(await dialog.findByText("plant"))).toBe("prose");
   });
 
   it("should open one Add data dialog for a double click", async () => {
     await renderRead();
-    const button = await screen.findByRole("button", { name: "Add data" });
+    const button = await findListButton("Add data");
     fireEvent.click(button);
     fireEvent.click(button);
     await screen.findByRole("dialog");
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("should open Add data from the empty details pane", async () => {
+    await renderRead();
+    fireEvent.click(await findDetailsButton("Add data"));
+    await screen.findByRole("dialog");
+  });
+
+  it("should offer no add in the empty details pane while it cannot bind", async () => {
+    const missing = 2 ** 31 - 1;
+    await renderRead({
+      properties: { read: { stored: { index: 0, channels: { "/x": missing } } } },
+    });
+    const details = await findDetailsPane();
+    await within(details).findByText("No entry selected");
+    expect(within(details).queryByRole("button", { name: "Add data" })).toBeNull();
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderRead({ as: await createTestClientWithRole(client, "Viewer") });
+    const details = await findDetailsPane();
+    await within(details).findByText("No entry selected");
+    expect(within(details).queryByRole("button", { name: "Add data" })).toBeNull();
   });
 
   it("should name a new ICD after the device while the task has no name", async () => {
@@ -3021,7 +3078,7 @@ describe("MQTT read form", () => {
         as: viewer,
       });
       await openTopic();
-      const add = await screen.findByRole("button", { name: "Add data" });
+      const add = await findListButton("Add data");
       const addField = await screen.findByRole("button", { name: "Add field" });
       const format = await findDialogTriggerByText(TOPIC);
       const read = await screen.findByRole<HTMLInputElement>("checkbox", {

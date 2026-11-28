@@ -42,7 +42,7 @@ type additionalCodec struct {
 }
 
 // streamServerOptions configures a streaming HTTP server. Stream handlers can register
-// stateful codecs whose state lives for the duration of a single websocket connection;
+// stateful codecs whose state lives for the duration of a single WebSocket connection;
 // per-request construction is supported.
 type streamServerOptions struct {
 	// additionalCodecs are codecs registered alongside the defaults. They are matched
@@ -101,7 +101,7 @@ type streamServer[RQ, RS freighter.Payload] struct {
 }
 
 // Report describes the stream server's protocol and the content types it can negotiate
-// at websocket upgrade time. Content types come from the codecs registered via
+// at WebSocket upgrade time. Content types come from the codecs registered via
 // WithAdditionalCodec.
 func (s *streamServer[RQ, RS]) Report() alamos.Report {
 	encs := lo.Map(s.additionalCodecs, func(ac additionalCodec, _ int) string {
@@ -130,11 +130,11 @@ func (s *streamServer[RQ, RS]) BindHandler(
 	s.handler = handler
 }
 
-// fiberHandler handles the incoming websocket connection and upgrades the connection to
-// a websocket connection.
+// fiberHandler handles the incoming WebSocket connection and upgrades the connection to
+// a WebSocket connection.
 func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 	// If the caller is hitting this endpoint with a standard HTTP request, tell them
-	// they can only use websockets.
+	// they can only use WebSockets.
 	if !fiberws.IsWebSocketUpgrade(upgradeCtx) {
 		return fiber.ErrUpgradeRequired
 	}
@@ -155,7 +155,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 	if !ok {
 		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}
-	// Upgrade the connection to a websocket connection.
+	// Upgrade the connection to a WebSocket connection.
 	return fiberws.New(
 		func(c *fiberws.Conn) { s.handleSocket(iCtx, newCodec, c) },
 		fiberws.Config{Subprotocols: []string{subprotocol}},

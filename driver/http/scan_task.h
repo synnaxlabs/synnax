@@ -77,10 +77,13 @@ struct HealthCheckConfig {
             });
         if (parser.has("headers"))
             parser.iter("headers", [&](x::json::Parser &h) {
-                auto name = h.field<std::string>("name");
-                auto val = h.field<std::string>("value");
-                if (!name.empty() && !request.headers.emplace(name, val).second)
+                auto name = h.field<std::string>("name", "");
+                auto val = h.field<std::string>("value", "");
+                if (name.empty())
+                    h.field_err("name", "this field is required");
+                else if (!request.headers.emplace(name, val).second)
                     h.field_err("name", "duplicate header '" + name + "'");
+                if (val.empty()) h.field_err("value", "this field is required");
             });
         auto resp = parser.optional_child("response");
         if (resp.ok()) expected_response.emplace(ExpectedResponseConfig(resp));
