@@ -23,9 +23,9 @@ func (s *Service) deleteStorage(keys Keys) error {
 	return s.cfg.TS.DeleteChannels(stored.Uint32())
 }
 
-// renameStorage renames each storage channel keyed in renames to its corresponding new
-// name. Free channels have no storage registration and are skipped.
-func (s *Service) renameStorage(ctx context.Context, renames map[Key]string) error {
+// RenameStorage renames the storage of each channel keyed in renames to its new name.
+// A free channel has no storage, so it is skipped.
+func (s *Service) RenameStorage(ctx context.Context, renames map[Key]string) error {
 	stored := make(map[cesium.ChannelKey]string, len(renames))
 	for key, name := range renames {
 		if !key.Free() {

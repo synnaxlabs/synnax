@@ -22,8 +22,10 @@ import (
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	resourcev0 "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -104,6 +106,133 @@ func newGroupRemovalReport(
 			return nil
 		},
 	)
+}
+
+// newRenameReport returns a migration that writes a warning status for each rename that
+// the name passes staged, renames the storage of each renamed channel through channels,
+// and then deletes the staged renames.
+func newRenameReport(
+	res *resource.Service,
+	statuses *status.Service,
+	channels *channel.Service,
+) gorp.Migration {
+	return migrate.New(
+		"v63_report_renames",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			renames, err := resourcev0.StagedRenames(tx)
+			if err != nil || len(renames) == 0 {
+				return err
+			}
+			names, err := renamedNames(ctx, tx, res, renames)
+			if err != nil {
+				return err
+			}
+			var (
+				w      = statuses.NewWriter(tx)
+				stored = make(map[channel.Key]string)
+			)
+			for _, r := range renames {
+				s, err := renameStatus(r, names[r.ID])
+				if err != nil {
+					return err
+				}
+				if err = w.Set(ctx, &s); err != nil {
+					return err
+				}
+				if r.ID.Type != resource.TypeChannel {
+					continue
+				}
+				key, err := channel.ParseKey(r.ID.Key)
+				if err != nil {
+					return err
+				}
+				stored[key] = names[r.ID]
+			}
+			if err = channels.RenameStorage(ctx, stored); err != nil {
+				return err
+			}
+			return resourcev0.ClearRenames(ctx, tx)
+		},
+	)
+}
+
+// renamedNames returns the name that each renamed channel and folder holds now, by
+// resource ID.
+func renamedNames(
+	ctx context.Context,
+	tx gorp.Tx,
+	res *resource.Service,
+	renames []resourcev0.Rename,
+) (map[resource.ID]string, error) {
+	ids := make([]resource.ID, len(renames))
+	for i, r := range renames {
+		if r.ID.Type != resource.TypeChannel && r.ID.Type != resource.TypeGroup {
+			return nil, errors.Newf(
+				"staged rename of %s is not of a channel or a folder",
+				r.ID,
+			)
+		}
+		ids[i] = r.ID
+	}
+	found, err := res.Retrieve(ctx, tx, ids...)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[resource.ID]string, len(found))
+	for _, r := range found {
+		names[r.ID] = r.Name
+	}
+	for _, id := range ids {
+		if _, ok := names[id]; !ok {
+			return nil, errors.Newf("staged rename of %s names no record", id)
+		}
+	}
+	return names, nil
+}
+
+// renameStatus returns the warning status that reports the rename r of a resource that
+// now holds name.
+func renameStatus(r resourcev0.Rename, name string) (status.Status[any], error) {
+	noun := "channel"
+	if r.ID.Type == resource.TypeGroup {
+		noun = "folder"
+	}
+	reason, err := renameReason(r.Reason, noun)
+	if err != nil {
+		return status.Status[any]{}, errors.Wrapf(err, "staged rename of %s", r.ID)
+	}
+	return status.Status[any]{
+		Name:    name,
+		Variant: status.VariantWarning,
+		Message: "Renamed " + noun,
+		Description: fmt.Sprintf(
+			"The upgrade renamed %s %q to %q, because %s. Update each reference to "+
+				"the old name outside Synnax.",
+			noun,
+			r.From,
+			name,
+			reason,
+		),
+		Time: telem.Now(),
+	}, nil
+}
+
+// renameReason returns why the upgrade renamed a noun for reason.
+func renameReason(reason resourcev0.Reason, noun string) (string, error) {
+	switch reason {
+	case resourcev0.ReasonInvalidBytes:
+		return "the old name held bytes that are not valid text", nil
+	case resourcev0.ReasonSeparator:
+		return "a '.' now separates the folders of a path, so a name cannot hold one", nil
+	case resourcev0.ReasonEmpty:
+		return "the old name was empty", nil
+	case resourcev0.ReasonRepeat:
+		if noun == "folder" {
+			return "another folder beside it held the same name", nil
+		}
+		return "another channel in the same folder held the same name", nil
+	}
+	return "", errors.Newf("unknown reason %d", reason)
 }
 
 // rangeAliasDropMigration deletes the range aliases that an upgraded store holds.

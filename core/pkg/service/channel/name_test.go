@@ -12,6 +12,7 @@ package channel_test
 import (
 	"fmt"
 	"sync"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -245,5 +247,73 @@ var _ = Describe("Unique names", Ordered, func() {
 		Expect(rename(ctx, b.Key(), "dup_flag")).To(MatchError(
 			ContainSubstring("channel with name 'dup_flag' already exists"),
 		))
+	})
+})
+
+var _ = Describe("Name normalization", func() {
+	const decomposed, composed = "cafe\u0301", "caf\u00e9"
+	byName := func(f filter.String) channel.Where { return channel.Where{Name: &f} }
+	DescribeTable("NormalizeWhere",
+		func(in, expected channel.Where) {
+			Expect(channel.NormalizeWhere(in)).To(Equal(expected))
+		},
+		Entry(
+			"a contains match",
+			byName(filter.String{Contains: new(decomposed)}),
+			byName(filter.String{Contains: new(composed)}),
+		),
+		Entry(
+			"a starts-with match",
+			byName(filter.String{StartsWith: new(decomposed)}),
+			byName(filter.String{StartsWith: new(composed)}),
+		),
+		Entry(
+			"a regular expression, which stays as it is",
+			byName(filter.String{Regex: new(decomposed)}),
+			byName(filter.String{Regex: new(decomposed)}),
+		),
+		Entry(
+			"a name in an and",
+			channel.Where{
+				And: []channel.Where{byName(filter.String{Eq: new(decomposed)})},
+			},
+			channel.Where{
+				And: []channel.Where{byName(filter.String{Eq: new(composed)})},
+			},
+		),
+		Entry(
+			"a name in an or",
+			channel.Where{
+				Or: []channel.Where{byName(filter.String{Eq: new(decomposed)})},
+			},
+			channel.Where{
+				Or: []channel.Where{byName(filter.String{Eq: new(composed)})},
+			},
+		),
+		Entry(
+			"a name in a not",
+			channel.Where{Not: new(byName(filter.String{Eq: new(decomposed)}))},
+			channel.Where{Not: new(byName(filter.String{Eq: new(composed)}))},
+		),
+	)
+
+	Describe("NormalizeNames", func() {
+		It("Should return each name in NFC and leave the names it takes as they are",
+			func() {
+				names := []string{"pt", decomposed}
+				Expect(channel.NormalizeNames(names)).
+					To(Equal([]string{"pt", composed}))
+				Expect(names).To(Equal([]string{"pt", decomposed}))
+			})
+
+		It("Should return the names it takes, with no allocation, when each is in NFC",
+			func() {
+				names := []string{"pt", composed}
+				var out []string
+				Expect(testing.AllocsPerRun(10, func() {
+					out = channel.NormalizeNames(names)
+				})).To(BeZero())
+				Expect(&out[0]).To(BeIdenticalTo(&names[0]))
+			})
 	})
 })

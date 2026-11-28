@@ -1252,6 +1252,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.Channel.UntypedDeleteMigration(),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
+			newRenameReport(l.Resource, l.Status, l.Channel),
 		),
 	}); !ok(err, nil) {
 		return nil, err

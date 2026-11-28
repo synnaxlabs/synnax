@@ -1248,6 +1248,38 @@ var _ = Describe("Writer", func() {
 					Expect(retrieved.Name).To(Equal("1sensor"))
 				},
 			)
+			DescribeTable(
+				"Should still reject a name that a path cannot hold",
+				func(ctx SpecContext, name string) {
+					ch := channel.Channel{
+						Name:        name,
+						DataType:    telem.Float64T,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+					}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &ch)
+					})).To(MatchError(ContainSubstring("cannot hold a '.' or invalid UTF-8")))
+				},
+				Entry("a separator", "stand.pt"),
+				Entry("invalid UTF-8", "sensor\xff"),
+			)
+			It("Should still reject renaming to a name with a separator", func(
+				ctx SpecContext,
+			) {
+				ch := channel.Channel{
+					Name:        "dotless",
+					DataType:    telem.Float64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &ch)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Rename(ctx, ch.Key(), "dot.ted", false)
+				})).To(MatchError(ContainSubstring("cannot hold a '.' or invalid UTF-8")))
+			})
 			It("Should still reject empty names", func(ctx SpecContext) {
 				ch := channel.Channel{
 					Name:        "",

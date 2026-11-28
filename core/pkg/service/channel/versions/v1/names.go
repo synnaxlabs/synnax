@@ -1,0 +1,124 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v1
+
+import (
+	"cmp"
+	"context"
+	"slices"
+
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+	"github.com/synnaxlabs/x/set"
+)
+
+// NameRuleMigration renames each stored channel whose name a path cannot hold
+// (resource.NeedsRename), or whose name in NFC an earlier channel in the same group
+// holds, and stages each rename (resource.StageRename). Built-ins come first and keep
+// their names, then names in NFC, then the rest, each from the highest key down,
+// because a v0.62 Core bound a repeated name to its last channel in key order. A new
+// name is resource.SanitizeName of the old one, or "channel_<key>" when that is empty,
+// with the first suffix (_2, _3) that no other channel holds. It writes each name of a
+// user channel that it keeps in NFC, with no staged rename. It runs after the step that
+// names each unnamed channel.
+var NameRuleMigration = migrate.New("v63_channel_name_rule", migrateNameRule)
+
+// sibling is a name in a group, or in no group when group is zero.
+type sibling struct {
+	group group.Key
+	name  string
+}
+
+func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+	var channels []Channel
+	if err := gorp.NewRetrieve[Key, Channel]().
+		Entries(&channels).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	slices.SortFunc(channels, claimOrder)
+	moves, taken := markMoves(channels)
+	var changed []Channel
+	for i, c := range channels {
+		if !moves[i] {
+			if nfc := resource.NormalizeName(c.Name); !c.Internal && nfc != c.Name {
+				c.Name = nfc
+				changed = append(changed, c)
+			}
+			continue
+		}
+		base := resource.SanitizeName(c.Name)
+		if base == "" {
+			base = "channel_" + c.Key().String()
+		}
+		name := resource.FreeName(base, taken.Contains)
+		taken.Add(name)
+		if err := resource.StageRename(
+			ctx,
+			tx,
+			c.ResourceID(),
+			c.Name,
+			resource.RenameReason(c.Name),
+		); err != nil {
+			return err
+		}
+		c.Name = name
+		changed = append(changed, c)
+	}
+	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, changed...)
+}
+
+// claimOrder puts internal channels first, then names in NFC, then the highest key, so
+// each channel claims its name before the channels after it.
+func claimOrder(a, b Channel) int {
+	if a.Internal != b.Internal {
+		if a.Internal {
+			return -1
+		}
+		return 1
+	}
+	// On a tie in NFC, the name that is in NFC keeps it.
+	if aNFC, bNFC := resource.InNFC(a.Name), resource.InNFC(b.Name); aNFC != bNFC {
+		if aNFC {
+			return -1
+		}
+		return 1
+	}
+	return cmp.Compare(b.Key(), a.Key())
+}
+
+// markMoves reports which of channels, in claim order, take a new name, and returns the
+// names that the others keep.
+func markMoves(channels []Channel) ([]bool, set.Set[string]) {
+	var (
+		claimed = make(set.Set[sibling], len(channels))
+		moves   = make([]bool, len(channels))
+		taken   = make(set.Set[string], len(channels))
+	)
+	for i, c := range channels {
+		if !c.Internal && resource.NeedsRename(c.Name) {
+			moves[i] = true
+			continue
+		}
+		at := sibling{name: resource.NormalizeName(c.Name)}
+		if c.Group != nil {
+			at.group = *c.Group
+		}
+		moves[i] = !c.Internal && claimed.Contains(at)
+		claimed.Add(at)
+		if !moves[i] {
+			taken.Add(at.name)
+		}
+	}
+	return moves, taken
+}

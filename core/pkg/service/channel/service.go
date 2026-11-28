@@ -71,7 +71,8 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	Status *status.Service
 	// ValidateNames sets whether to validate channel names during creation and
-	// renaming.
+	// renaming. A Core that does not still refuses a name that holds a '.' or invalid
+	// UTF-8.
 	//
 	// [OPTIONAL] - Defaults to true.
 	ValidateNames *bool
