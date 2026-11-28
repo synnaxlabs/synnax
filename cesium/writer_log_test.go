@@ -11,7 +11,9 @@ package cesium_test
 
 import (
 	"context"
+	"maps"
 	"math/rand/v2"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -713,6 +715,37 @@ func (f segmentSyncFile) Sync() error {
 }
 
 var _ = Describe("Drop on the pointer log", func() {
+	It("Should remove each segment file of a dropped key once, and then its "+
+		"directory", func(ctx SpecContext) {
+		gate := &logGate{release: make(chan struct{})}
+		fs := newRemoveCountFS(logGateFS{FS: xfs.NewMem(), gate: gate})
+		db := mustOpenDBOnFS(ctx, fs, cesium.WithPointerLog())
+		clock := GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key: clock, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+		})).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{clock},
+			Clock:    clock,
+			Start:    10 * telem.SecondTS,
+		}))
+		mustWrite(ctx, w, telem.UnaryFrame(clock, telem.NewSeriesSecondsTSV(10)))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		gate.after(1)
+		dropped := make(chan error, 1)
+		go func() { dropped <- db.Drop(ctx, []cesium.ChannelKey{clock}) }()
+		Consistently(dropped).ShouldNot(Receive(), "the log does not cover the Drop")
+		close(gate.release)
+		Eventually(dropped).Should(Receive(BeNil()))
+		Expect(fs.Exists(strconv.Itoa(int(clock)))).To(BeFalse())
+		counts := fs.counts()
+		Expect(counts).ToNot(BeEmpty())
+		for name, n := range counts {
+			Expect(n).To(Equal(1), name)
+		}
+	})
+
 	It("Should remove the files of a key only once the log covers its Drop", func(
 		ctx SpecContext,
 	) {
@@ -747,6 +780,69 @@ var _ = Describe("Drop on the pointer log", func() {
 		Expect(mem.Exists(dir)).To(BeFalse())
 	})
 })
+
+// removeCountFS counts the removes of each segment file of its tree. It holds the first
+// remove of each file until a second remove of it comes, or for at most a fifth of a
+// second.
+type removeCountFS struct {
+	xfs.FS
+	dir string
+	c   *removeCount
+}
+
+type removeCount struct {
+	mu      sync.Mutex
+	removes map[string]int
+	second  map[string]chan struct{}
+}
+
+func newRemoveCountFS(fs xfs.FS) *removeCountFS {
+	return &removeCountFS{FS: fs, c: &removeCount{
+		removes: map[string]int{},
+		second:  map[string]chan struct{}{},
+	}}
+}
+
+func (f *removeCountFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return &removeCountFS{FS: sub, dir: path.Join(f.dir, name), c: f.c}, nil
+}
+
+func (f *removeCountFS) Remove(name string) error {
+	full := path.Join(f.dir, name)
+	if !strings.HasSuffix(full, ".seg") {
+		return f.FS.Remove(name)
+	}
+	f.c.mu.Lock()
+	f.c.removes[full]++
+	n := f.c.removes[full]
+	second, ok := f.c.second[full]
+	if !ok {
+		second = make(chan struct{})
+		f.c.second[full] = second
+	}
+	if n == 2 {
+		close(second)
+	}
+	f.c.mu.Unlock()
+	if n == 1 {
+		select {
+		case <-second:
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+	return f.FS.Remove(name)
+}
+
+// counts returns the removes of each segment file.
+func (f *removeCountFS) counts() map[string]int {
+	f.c.mu.Lock()
+	defer f.c.mu.Unlock()
+	return maps.Clone(f.c.removes)
+}
 
 // logGate holds each log sync after the next n until release closes.
 type logGate struct {
