@@ -1430,7 +1430,7 @@
         "is_index": false,
         "index": 1048578,
         "virtual": false,
-        "internal": false,
+        "built_in": false,
         "expression": ""
       },
       "b": {
@@ -1441,7 +1441,7 @@
         "is_index": true,
         "index": 1048578,
         "virtual": false,
-        "internal": false,
+        "built_in": false,
         "expression": ""
       },
       "c": {
@@ -1452,7 +1452,7 @@
         "is_index": false,
         "index": 0,
         "virtual": true,
-        "internal": false,
+        "built_in": false,
         "expression": "return pressure_1 * 2"
       },
       "d": {
@@ -1463,7 +1463,7 @@
         "is_index": false,
         "index": 0,
         "virtual": true,
-        "internal": false,
+        "built_in": false,
         "expression": ""
       },
       "e": {
@@ -1474,7 +1474,7 @@
         "is_index": false,
         "index": 2097154,
         "virtual": false,
-        "internal": true,
+        "built_in": true,
         "expression": ""
       }
     },
@@ -1596,9 +1596,9 @@
         "expected": ["b"]
       },
       {
-        "name": "internal eq",
+        "name": "built_in eq",
         "where": {
-          "internal": {
+          "built_in": {
             "eq": true
           }
         },
@@ -1635,7 +1635,7 @@
         "expected": ["a", "c"]
       },
       {
-        "name": "or of name and internal",
+        "name": "or of name and built_in",
         "where": {
           "or": [
             {
@@ -1644,7 +1644,7 @@
               }
             },
             {
-              "internal": {
+              "built_in": {
                 "eq": true
               }
             }

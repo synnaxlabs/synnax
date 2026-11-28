@@ -65,7 +65,7 @@ func serviceConfig(
 	}, groupSvc
 }
 
-// openService opens a channel service for the node and creates the node's internal
+// openService opens a channel service for the node and creates the node's built-in
 // control channel, mirroring what the service layer's OpenLayer does in production.
 // Tests rely on the control channel for their local-key and channel-count expectations.
 // Extra configs override the derived distribution-layer fields.

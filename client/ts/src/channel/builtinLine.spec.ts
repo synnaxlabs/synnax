@@ -33,8 +33,8 @@ const chainOf = (err: unknown): string => {
   return parts.join(" <- ");
 };
 
-describe("Internal line across a reconnect", () => {
-  it("should keep an internal-line list live while built-in keys reload", async () => {
+describe("Built-in line across a reconnect", () => {
+  it("should keep a built-in line live while built-in keys reload", async () => {
     const internal: Error[] = [];
     const { proxy, client } = await createProxiedTestClient({
       retry: FAST_RETRY,
@@ -53,9 +53,9 @@ describe("Internal line across a reconnect", () => {
     await expect.poll(() => builtInsFetches(send).length).toBeGreaterThanOrEqual(1);
     await builtInsFetches(send)[0];
     later = true;
-    const prefix = `internal_${id.create()}`;
+    const prefix = `built_in_${id.create()}`;
     const list = client.channels.watch({
-      where: { internal: { eq: false }, name: { startsWith: prefix } },
+      where: { builtIn: { eq: false }, name: { startsWith: prefix } },
     });
     const off = list.onChange(() => {});
     await list.retrieve();

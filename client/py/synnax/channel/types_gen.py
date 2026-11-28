@@ -86,7 +86,7 @@ class Use(BaseModel):
 
 class CountLimitedResponse(BaseModel):
     """Holds the count of the channels that count against the license channel limit (not
-    internal, not virtual).
+    built-in, not virtual).
 
     Attributes:
         count: Is how many channels count against the license channel limit.
@@ -107,7 +107,7 @@ class Where(BaseModel):
         leaseholder: Selects by leaseholder.
         data_type: Selects by data_type.
         is_index: Selects by is_index.
-        internal: Matches the built-in channels, or every other channel when false.
+        built_in: Matches the built-in channels, or every other channel when false.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
         groups: Matches the channels in any of the given groups.
@@ -124,7 +124,7 @@ class Where(BaseModel):
     leaseholder: filter.Set[node.Key] | None = None
     data_type: filter.Set[telem.DataType] | None = None
     is_index: filter.Bool | None = None
-    internal: filter.Bool | None = None
+    built_in: filter.Bool | None = None
     virtual: bool | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
@@ -148,7 +148,7 @@ WhereInput = TypedDict(
         "leaseholder": filter.SetInput[node.Key],
         "data_type": filter.SetInput[telem.DataType],
         "is_index": filter.BoolInput,
-        "internal": filter.BoolInput,
+        "built_in": filter.BoolInput,
         "virtual": bool,
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
@@ -201,7 +201,7 @@ class Payload(BaseModel):
             value with a timestamp.
         virtual: Is true if this channel does not store data in the database but can
             still be used for streaming purposes.
-        internal: Is true if this is a system channel hidden from normal user queries.
+        built_in: Is true for a channel that a Core service makes for its own work.
         expression: Is an Arc expression for calculated channels. If set, the channel is
             automatically configured as virtual.
         operations: Contains optional aggregation operations (min, max, avg, derivative)
@@ -222,7 +222,7 @@ class Payload(BaseModel):
     is_index: bool = False
     index: Key = Field(default=Key(0), ge=0, le=4294967295)
     virtual: bool = False
-    internal: bool = False
+    built_in: bool = False
     expression: str = ""
     operations: list[Operation] = Field(default_factory=list)
     concurrency: control.Concurrency = control.Concurrency.exclusive

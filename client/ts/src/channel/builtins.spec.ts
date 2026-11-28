@@ -40,10 +40,11 @@ const createPagedChannels = async (): Promise<string> => {
   return prefix;
 };
 
-// Pages through a watched list of non-internal channels, as a channel select does.
+// Pages through a watched list of the channels that are not built-in, as a channel
+// select does.
 const pageToEnd = async (client: Synnax, prefix: string): Promise<number> => {
   const list = client.channels.watch({
-    where: { internal: { eq: false }, name: { startsWith: prefix } },
+    where: { builtIn: { eq: false }, name: { startsWith: prefix } },
     limit: 50,
   });
   const off = list.onChange(() => {});
@@ -53,7 +54,24 @@ const pageToEnd = async (client: Synnax, prefix: string): Promise<number> => {
   return window.records.length;
 };
 
-describe("Lists with an internal line", () => {
+describe("The built-in flag of a retrieved channel", () => {
+  it("should read built-in on a channel that a Core service makes", async () => {
+    const cmd = await remote.channels.retrieve("sy_task_cmd");
+    expect(cmd.builtIn).toBe(true);
+  });
+
+  it("should read not built-in on a channel that a user makes", async () => {
+    const made = await remote.channels.create({
+      name: `builtin_flag_${id.create()}`,
+      dataType: "float32",
+      virtual: true,
+    });
+    const retrieved = await remote.channels.retrieve(made.key);
+    expect(retrieved.builtIn).toBe(false);
+  });
+});
+
+describe("Lists with a built-in line", () => {
   it("should page to the end once the built-in keys arrived", async () => {
     const prefix = await createPagedChannels();
     const client = createTestClient();
@@ -78,8 +96,8 @@ describe("Lists with an internal line", () => {
 // How the fetch of the built-in keys behaves after the reconnect.
 type AfterReconnect = "answers" | "answers-late" | "fails-once";
 
-// Watches a list with an internal line across a reconnect, and checks that it admits
-// a channel created after the reconnect.
+// Watches a list with a built-in line across a reconnect, and checks that it admits a
+// channel created after the reconnect.
 const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
   const internal: Error[] = [];
   const { proxy, client: local } = await createProxiedTestClient({
@@ -119,7 +137,7 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
   const secondName = `builtin_${id.create()}`;
   // The built-in keys are known, so the client matches this query itself.
   const list = local.channels.watch({
-    where: { internal: { eq: false }, name: { in: [first.name, secondName] } },
+    where: { builtIn: { eq: false }, name: { in: [first.name, secondName] } },
   });
   const off = list.onChange(() => {});
   try {
@@ -149,15 +167,15 @@ const reconnectWithList = async (after: AfterReconnect): Promise<void> => {
 };
 
 describe("Built-in channels after a reconnect", () => {
-  it("should keep a watched internal list live", async () => {
+  it("should keep a watched built-in line live", async () => {
     await reconnectWithList("answers");
   }, 30000);
 
-  it("should recover a watched internal list once late built-in keys arrive", async () => {
+  it("should recover a watched built-in line once late keys arrive", async () => {
     await reconnectWithList("answers-late");
   }, 30000);
 
-  it("should keep a watched internal list live when a refetch of the keys fails", async () => {
+  it("should keep a watched built-in line live when a refetch of the keys fails", async () => {
     await reconnectWithList("fails-once");
   }, 30000);
 });

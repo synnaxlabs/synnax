@@ -123,8 +123,8 @@ type Where struct {
 	DataType *filter.Set[telem.DataType] `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
 	// IsIndex selects by is_index.
 	IsIndex *filter.Bool `json:"is_index,omitzero" msgpack:"is_index,omitempty"`
-	// Internal matches the built-in channels, or every other channel when false.
-	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
+	// BuiltIn matches the built-in channels, or every other channel when false.
+	BuiltIn *filter.Bool `json:"built_in,omitzero" msgpack:"built_in,omitempty"`
 	// Virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
 	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`

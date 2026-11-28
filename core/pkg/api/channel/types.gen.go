@@ -51,8 +51,8 @@ type Channel struct {
 	// Virtual is true if this channel does not store data in the database but can still
 	// be used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Internal is true if this is a system channel hidden from normal user queries.
-	Internal bool `json:"internal" msgpack:"internal"`
+	// BuiltIn is true for a channel that a Core service makes for its own work.
+	BuiltIn bool `json:"built_in" msgpack:"built_in"`
 	// Expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`
@@ -105,7 +105,7 @@ func (u Use) Validate() error {
 }
 
 // CountLimitedResponse holds the count of the channels that count against the license
-// channel limit (not internal, not virtual).
+// channel limit (not built-in, not virtual).
 type CountLimitedResponse struct {
 	// Count is how many channels count against the license channel limit.
 	Count uint32 `json:"count" msgpack:"count"`

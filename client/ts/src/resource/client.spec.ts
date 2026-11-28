@@ -104,15 +104,15 @@ describe("Resource", () => {
       await expect.poll(() => read()?.map((r) => r.id)).toContainEqual(g);
     });
 
-    it("should leave a retrieved internal channel out of a subscribed list", async () => {
+    it("should leave a retrieved built-in channel out of a subscribed list", async () => {
       // The term names the channel, so it would rank first if the list took it.
       const read = await subscribe({
         searchTerm: channel.SET_CHANNEL_NAME,
         types: ["channel"],
         limit: 50,
       });
-      const internal = await client.channels.retrieve(channel.SET_CHANNEL_NAME);
-      const id = channel.resourceID(internal.key);
+      const builtIn = await client.channels.retrieve(channel.SET_CHANNEL_NAME);
+      const id = channel.resourceID(builtIn.key);
       await client.resources.retrieve(id);
       expect(read()?.map((r) => r.id)).not.toContainEqual(id);
     });

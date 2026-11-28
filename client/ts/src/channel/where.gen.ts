@@ -27,8 +27,7 @@ import { node } from "@/node";
  * that only the Core can check.
  */
 export interface Lines {
-  internal:
-    ((record: Payload, value: NonNullable<Where["internal"]>) => boolean) | null;
+  builtIn: ((record: Payload, value: NonNullable<Where["builtIn"]>) => boolean) | null;
   virtual: ((record: Payload, value: NonNullable<Where["virtual"]>) => boolean) | null;
   groups: ((record: Payload, value: NonNullable<Where["groups"]>) => boolean) | null;
   grouped: ((record: Payload, value: NonNullable<Where["grouped"]>) => boolean) | null;
@@ -57,9 +56,9 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     return false;
   if (where.isIndex != null && !filter.matchesSet(where.isIndex, record.isIndex))
     return false;
-  if (where.internal != null) {
-    if (lines.internal == null) throw new Error("only the Core can check internal");
-    if (!lines.internal(record, where.internal)) return false;
+  if (where.builtIn != null) {
+    if (lines.builtIn == null) throw new Error("only the Core can check builtIn");
+    if (!lines.builtIn(record, where.builtIn)) return false;
   }
   if (where.virtual != null) {
     if (lines.virtual == null) throw new Error("only the Core can check virtual");
@@ -86,7 +85,7 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     where.or?.some((w) => serverComputed(lines, w)) === true ||
     (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
-    (where.internal != null && lines.internal == null) ||
+    (where.builtIn != null && lines.builtIn == null) ||
     (where.virtual != null && lines.virtual == null) ||
     (where.groups != null && lines.groups == null) ||
     (where.grouped != null && lines.grouped == null));
@@ -102,8 +101,8 @@ const inputs = {
   dataType: filter.setInputZ(telem.dataTypeZ).exactOptional(),
   /** isIndex selects by is_index. */
   isIndex: filter.boolInputZ.exactOptional(),
-  /** internal matches the built-in channels, or every other channel when false. */
-  internal: filter.boolInputZ.exactOptional(),
+  /** builtIn matches the built-in channels, or every other channel when false. */
+  builtIn: filter.boolInputZ.exactOptional(),
   /**
    * virtual matches virtual channels that are not calculated, or every other channel
    * when false.
@@ -159,7 +158,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "leaseholder",
         "dataType",
         "isIndex",
-        "internal",
+        "builtIn",
         "virtual",
         "groups",
         "grouped",

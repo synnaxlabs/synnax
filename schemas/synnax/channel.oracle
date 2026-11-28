@@ -252,10 +252,9 @@ APIChannel struct {
             used for streaming purposes.
         """
     }
-    internal    bool = false {
-        @doc value """
-            is true if this is a system channel hidden from normal user queries.
-        """
+    built_in    bool = false {
+        @doc value "is true for a channel that a Core service makes for its own work."
+        @output
     }
     expression  string = "" {
         @doc value """
@@ -346,7 +345,7 @@ CountLimitedResponse struct {
     @cpp omit
     @doc value """
         holds the count of the channels that count against the license channel limit
-        (not internal, not virtual).
+        (not built-in, not virtual).
     """
     @go output "core/pkg/api/channel"
     @pb omit
@@ -358,7 +357,7 @@ Where filter Channel {
     leaseholder
     data_type
     is_index
-    internal    filter.Bool {
+    built_in    filter.Bool {
         @doc value "matches the built-in channels, or every other channel when false."
     }
     virtual     bool        {

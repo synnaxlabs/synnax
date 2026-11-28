@@ -612,7 +612,6 @@ class TestChannel:
                 name=f"sensor_{i + 1}_{channel_name()}",
                 virtual=True,
                 data_type=sy.DataType.FLOAT64,
-                internal=True,
             )
             for i in range(100)
         ]
@@ -884,15 +883,15 @@ class TestChannelRetrieveFilters:
             create_channels[2].key,
         }
 
-    def test_internal(
+    def test_built_in(
         self,
         client: sy.Synnax,
         create_channels: tuple[sy.Channel, sy.Channel, sy.Channel],
     ) -> None:
-        """Should keep only internal or only non-internal channels"""
+        """Should keep only built-in or only other channels"""
         names = self.names(create_channels)
-        assert client.channels.retrieve(names, internal=True) == []
-        assert len(client.channels.retrieve(names, internal=False)) == 3
+        assert client.channels.retrieve(names, built_in=True) == []
+        assert len(client.channels.retrieve(names, built_in=False)) == 3
 
     def test_node_key(
         self,
@@ -1148,13 +1147,21 @@ class TestChannelUses:
         )
         assert client.channels.retrieve(ch.key).uses is None
 
-    def test_retrieve_internal(self, client: sy.Synnax) -> None:
-        """Should retrieve the built-in channels through the internal filter."""
+    def test_retrieved_channel_reads_built_in(self, client: sy.Synnax) -> None:
+        """Should read the built-in flag on each channel that a retrieve returns."""
+        assert client.channels.retrieve("sy_task_cmd").built_in is True
+        made = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        assert client.channels.retrieve(made.key).built_in is False
+
+    def test_retrieve_built_in(self, client: sy.Synnax) -> None:
+        """Should retrieve the built-in channels through the built-in filter."""
         cmd = client.channels.retrieve("sy_task_cmd")
         plain = client.channels.create(
             name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
         )
-        keys = [ch.key for ch in client.channels.retrieve(internal=True)]
+        keys = [ch.key for ch in client.channels.retrieve(built_in=True)]
         assert cmd.key in keys
         assert plain.key not in keys
 

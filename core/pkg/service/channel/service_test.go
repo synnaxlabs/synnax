@@ -288,7 +288,7 @@ var _ = Describe("Service", func() {
 
 	Describe("CountLimited", func() {
 		It(
-			"Should count the committed channels that are neither internal nor virtual",
+			"Should count the committed channels that are neither built-in nor virtual",
 			func(ctx SpecContext) {
 				node := testutil.NewNode(ctx)
 				countSvc := openService(ctx, node)
@@ -309,7 +309,7 @@ var _ = Describe("Service", func() {
 					DataType: telem.Float64T,
 					Virtual:  true,
 				}
-				internal := channel.Channel{
+				builtIn := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.TimestampT,
 					IsIndex:     true,
@@ -327,7 +327,7 @@ var _ = Describe("Service", func() {
 					if err := w.Create(ctx, &virtual); err != nil {
 						return err
 					}
-					if err := w.Declare(ctx, &internal); err != nil {
+					if err := w.Declare(ctx, &builtIn); err != nil {
 						return err
 					}
 					Expect(countSvc.CountLimited()).To(Equal(base))

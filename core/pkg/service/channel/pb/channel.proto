@@ -136,8 +136,8 @@ message Where {
   optional TelemDataTypeSet data_type = 7;
   // is_index selects by is_index.
   optional .x.filter.pb.Bool is_index = 8;
-  // internal matches the built-in channels, or every other channel when false.
-  optional .x.filter.pb.Bool internal = 9;
+  // built_in matches the built-in channels, or every other channel when false.
+  optional .x.filter.pb.Bool built_in = 9;
   // virtual matches virtual channels that are not calculated, or every other channel
   // when false.
   optional bool virtual = 10;

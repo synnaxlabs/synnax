@@ -72,14 +72,14 @@ func (r *symbolResolver) Resolve(
 	return r.toSymbol(ch), nil
 }
 
-// Search fuzzy-searches non-internal cluster channels by name.
+// Search fuzzy-searches the cluster channels that are not built-in by name.
 func (r *symbolResolver) Search(
 	ctx context.Context,
 	name string,
 ) ([]*symbol.Symbol, error) {
 	var results []Channel
 	if err := r.retrieve().
-		Where(MatchInternal(false)).
+		Where(MatchBuiltIn(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.snap); err != nil {
 		return nil, err

@@ -72,7 +72,7 @@ export interface Use extends z.infer<typeof useZ> {}
 
 /**
  * CountLimitedResponse holds the count of the channels that count against the license
- * channel limit (not internal, not virtual).
+ * channel limit (not built-in, not virtual).
  */
 export const countLimitedResponseZ = z.object({
   /** count is how many channels count against the license channel limit. */
@@ -90,7 +90,7 @@ export type Where = {
   leaseholder?: filter.Set<typeof node.keyZ>;
   dataType?: filter.Set<typeof telem.dataTypeZ>;
   isIndex?: filter.Bool;
-  internal?: filter.Bool;
+  builtIn?: filter.Bool;
   virtual?: boolean;
   groups?: group.Key[];
   grouped?: boolean;
@@ -118,8 +118,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   dataType: filter.setZ(telem.dataTypeZ).optional(),
   /** isIndex selects by is_index. */
   isIndex: filter.boolZ.optional(),
-  /** internal matches the built-in channels, or every other channel when false. */
-  internal: filter.boolZ.optional(),
+  /** builtIn matches the built-in channels, or every other channel when false. */
+  builtIn: filter.boolZ.optional(),
   /**
    * virtual matches virtual channels that are not calculated, or every other channel
    * when false.
@@ -196,8 +196,8 @@ export const payloadZ = z.object({
    * be used for streaming purposes.
    */
   virtual: z.boolean().default(false),
-  /** internal is true if this is a system channel hidden from normal user queries. */
-  internal: z.boolean().default(false),
+  /** builtIn is true for a channel that a Core service makes for its own work. */
+  builtIn: z.boolean().default(false),
   /**
    * expression is an Arc expression for calculated channels. If set, the channel is
    * automatically configured as virtual.
@@ -244,7 +244,7 @@ export const retrieveRequestZ = z.strictObject({
   includeUses: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
-export interface New extends z.input<typeof payloadZ> {}
+export interface New extends Omit<z.input<typeof payloadZ>, "builtIn"> {}
 
 /** RetrieveResponse holds the channels a RetrieveRequest selects. */
 export const retrieveResponseZ = z.object({

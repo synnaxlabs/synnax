@@ -19,11 +19,11 @@ import (
 type Retrieve struct {
 	gorp    gorp.Retrieve[Key, Channel]
 	indexes indexes
-	// builtIn holds the filters of MatchInternal.
+	// builtIn holds the filters of MatchBuiltIn.
 	builtIn *builtInFilters
 }
 
-// builtInFilters holds the filters of MatchInternal for one Service. The Service builds
+// builtInFilters holds the filters of MatchBuiltIn for one Service. The Service builds
 // them once, so that a request allocates none.
 type builtInFilters struct{ in, out gorp.Filter[Key, Channel] }
 
@@ -42,10 +42,10 @@ func matchBuiltIn(r Retrieve) gorp.Filter[Key, Channel] { return r.builtIn.in }
 
 func matchNotBuiltIn(r Retrieve) gorp.Filter[Key, Channel] { return r.builtIn.out }
 
-// MatchInternal returns a filter for the built-in channels when internal is true, or
-// for every other channel when it is false.
-func MatchInternal(internal bool) Filter {
-	if internal {
+// MatchBuiltIn returns a filter for the built-in channels when builtIn is true, or for
+// every other channel when it is false.
+func MatchBuiltIn(builtIn bool) Filter {
+	if builtIn {
 		return matchBuiltIn
 	}
 	return matchNotBuiltIn

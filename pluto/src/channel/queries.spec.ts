@@ -89,7 +89,7 @@ describe("queries", () => {
   });
 
   describe("useList", () => {
-    it("should leave out internal channels unless the query sets where.internal", async () => {
+    it("should leave out built-in channels unless the query sets where.builtIn", async () => {
       const ch = await client.channels.create({
         name: id.create(),
         dataType: DataType.FLOAT32,
@@ -99,21 +99,21 @@ describe("queries", () => {
       const { result } = renderHook(
         () => ({
           visible: Channel.useList({ query: { where: { name } } }),
-          internal: Channel.useList({
-            query: { where: { name, internal: { eq: true } } },
+          builtIn: Channel.useList({
+            query: { where: { name, builtIn: { eq: true } } },
           }),
         }),
         { wrapper },
       );
       act(() => {
         result.current.visible.more();
-        result.current.internal.more();
+        result.current.builtIn.more();
       });
       await waitFor(() => {
         expect(result.current.visible.data).toEqual([ch.key]);
-        expect(result.current.internal.data.length).toBeGreaterThan(0);
+        expect(result.current.builtIn.data.length).toBeGreaterThan(0);
       });
-      expect(result.current.internal.data).not.toContain(ch.key);
+      expect(result.current.builtIn.data).not.toContain(ch.key);
     });
   });
 
@@ -668,7 +668,7 @@ describe("queries", () => {
       await waitFor(() =>
         expect(result.current.kind.data).toEqual({
           icon: Channel.resolveIcon(ch.payload),
-          internal: false,
+          builtIn: false,
           virtual: true,
         }),
       );
@@ -852,16 +852,16 @@ describe("queries", () => {
     });
 
     it("should fail to delete a built-in channel", async () => {
-      const [internal] = await client.channels.retrieve({ internal: true });
+      const [builtIn] = await client.channels.retrieve({ builtIn: true });
       const { result } = renderHook(() => Channel.useDelete(), { wrapper });
       await act(async () => {
-        expect(await result.current.updateAsync(internal.key)).toBe(false);
+        expect(await result.current.updateAsync(builtIn.key)).toBe(false);
       });
       expect(result.current.variant).toEqual("error");
       expect(result.current.status.description).toContain(
-        `can't delete built-in channel "${internal.name}"`,
+        `can't delete built-in channel "${builtIn.name}"`,
       );
-      await expect(client.channels.retrieve(internal.key)).resolves.toBeDefined();
+      await expect(client.channels.retrieve(builtIn.key)).resolves.toBeDefined();
     });
   });
 

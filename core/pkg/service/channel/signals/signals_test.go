@@ -108,11 +108,11 @@ var _ = Describe("Signals", func() {
 	)
 
 	DescribeTable(
-		"Should mark a set channel as internal only when a Core service declared it",
+		"Should mark a set channel as built-in only when a Core service declared it",
 		func(
 			ctx SpecContext,
 			write func(context.Context, channel.Writer, *channel.Channel) error,
-			internal bool,
+			builtIn bool,
 		) {
 			responses := openStreamer(ctx, "sy_channel_set")
 			ch := channel.Channel{
@@ -124,7 +124,7 @@ var _ = Describe("Signals", func() {
 			receiveSeries(responses, func(g Gomega, s telem.Series) {
 				g.Expect(s.DecodeJSON[map[string]any]()).To(ContainElement(SatisfyAll(
 					HaveKeyWithValue("name", ch.Name),
-					HaveKeyWithValue("internal", internal),
+					HaveKeyWithValue("built_in", builtIn),
 				)))
 			})
 		},

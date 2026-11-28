@@ -211,7 +211,7 @@ Channel::to_proto() const {
     pb.set_is_index(this->is_index);
     pb.set_index(this->index);
     pb.set_virtual_(this->is_virtual);
-    pb.set_internal(this->internal);
+    pb.set_built_in(this->built_in);
     pb.set_expression(this->expression);
     for (const auto &item: this->operations) {
         auto [v, err] = item.to_proto();
@@ -237,7 +237,7 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
     cpp.is_index = pb.is_index();
     cpp.index = pb.index();
     cpp.is_virtual = pb.virtual_();
-    cpp.internal = pb.internal();
+    cpp.built_in = pb.built_in();
     cpp.expression = pb.expression();
     if (auto err = x::pb::from_proto_repeated<Operation>(
             cpp.operations,
@@ -302,10 +302,10 @@ Where::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_is_index() = v;
     }
-    if (this->internal.has_value()) {
-        auto [v, err] = this->internal->to_proto();
+    if (this->built_in.has_value()) {
+        auto [v, err] = this->built_in->to_proto();
         if (err) return {{}, err};
-        *pb.mutable_internal() = v;
+        *pb.mutable_built_in() = v;
     }
     if (this->virtual_.has_value()) pb.set_virtual_(*this->virtual_);
     return {pb, x::errors::NIL};
@@ -354,10 +354,10 @@ Where::from_proto(const ::service::channel::pb::Where &pb) {
         if (err) return {{}, err};
         cpp.is_index = v;
     }
-    if (pb.has_internal()) {
-        auto [v, err] = ::x::filter::Bool::from_proto(pb.internal());
+    if (pb.has_built_in()) {
+        auto [v, err] = ::x::filter::Bool::from_proto(pb.built_in());
         if (err) return {{}, err};
-        cpp.internal = v;
+        cpp.built_in = v;
     }
     if (pb.has_virtual_()) cpp.virtual_ = pb.virtual_();
     return {cpp, x::errors::NIL};

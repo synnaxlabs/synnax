@@ -175,7 +175,7 @@ var _ = Describe("Built-in channels", func() {
 		})).To(Succeed())
 	})
 
-	It("Should report a built-in channel as internal", func(ctx SpecContext) {
+	It("Should report a built-in channel as built-in", func(ctx SpecContext) {
 		u := MustSucceed(rbactestutil.CreateUser(
 			ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
 		))
@@ -193,20 +193,20 @@ var _ = Describe("Built-in channels", func() {
 			}),
 		)
 		Expect(res.Channels).To(HaveLen(1))
-		Expect(res.Channels[0].Internal).To(BeTrue())
+		Expect(res.Channels[0].BuiltIn).To(BeTrue())
 	})
 
-	retrieveInternal := func(ctx SpecContext, u user.User) []apichannel.Channel {
+	retrieveBuiltIn := func(ctx SpecContext, u user.User) []apichannel.Channel {
 		GinkgoHelper()
 		return MustSucceed(retrieveChannels(
 			AuthedCtx(ctx, u),
 			apichannel.RetrieveRequest{
-				Where: &channel.Where{Internal: &filter.Bool{Eq: new(true)}},
+				Where: &channel.Where{BuiltIn: &filter.Bool{Eq: new(true)}},
 			},
 		)).Channels
 	}
 
-	It("Should list each built-in channel through the internal filter", func(
+	It("Should list each built-in channel through the built-in filter", func(
 		ctx SpecContext,
 	) {
 		u := MustSucceed(rbactestutil.CreateUser(
@@ -226,10 +226,10 @@ var _ = Describe("Built-in channels", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &plain)
 		})).To(Succeed())
-		chs := retrieveInternal(ctx, u)
+		chs := retrieveBuiltIn(ctx, u)
 		keys := make([]channel.Key, 0, len(chs))
 		for _, ch := range chs {
-			Expect(ch.Internal).To(BeTrue())
+			Expect(ch.BuiltIn).To(BeTrue())
 			keys = append(keys, ch.Key)
 		}
 		Expect(keys).To(ContainElement(builtIn.Key()))
@@ -242,6 +242,6 @@ var _ = Describe("Built-in channels", func() {
 		u := MustSucceed(rbactestutil.CreateUser(
 			ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
 		))
-		Expect(retrieveInternal(ctx, u)).To(BeEmpty())
+		Expect(retrieveBuiltIn(ctx, u)).To(BeEmpty())
 	})
 })

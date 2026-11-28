@@ -183,7 +183,7 @@ const ChannelRow = ({
 };
 
 const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
-  where: { internal: IS_DEV ? undefined : { eq: false } },
+  where: { builtIn: IS_DEV ? undefined : { eq: false } },
 };
 
 const selectQueryExcluding = (keys: channel.Key[]): Channel.ListQuery =>

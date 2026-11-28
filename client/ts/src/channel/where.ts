@@ -15,12 +15,12 @@ import type { Lines } from "@/channel/where.gen";
 import { group } from "@/group";
 
 /**
- * @returns the typed lines of a channel Where. The internal line checks the keys that
+ * @returns the typed lines of a channel Where. The built-in line checks the keys that
  * builtIns returns, and only the Core checks it while builtIns returns null.
  */
 export const createLines = (builtIns: () => Set<Key> | null): Lines => ({
   ...group.MEMBER_LINES,
-  get internal() {
+  get builtIn() {
     const keys = builtIns();
     if (keys == null) return null;
     return (ch: Payload, value: filter.Bool) =>

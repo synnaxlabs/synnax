@@ -15,7 +15,7 @@ import (
 )
 
 // Resources returns the resource.Provider of channels. Searches and lists leave out
-// internal channels.
+// built-in channels.
 func (s *Service) Resources() *resource.TableProvider[Key, Channel] {
 	return resource.NewTableProvider(resource.TableProviderConfig[Key, Channel]{
 		Table:  s.table,

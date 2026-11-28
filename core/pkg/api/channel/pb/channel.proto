@@ -49,8 +49,8 @@ message Channel {
   // virtual is true if this channel does not store data in the database but can still
   // be used for streaming purposes.
   bool virtual = 7;
-  // internal is true if this is a system channel hidden from normal user queries.
-  bool internal = 8;
+  // built_in is true for a channel that a Core service makes for its own work.
+  bool built_in = 8;
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
   string expression = 9;
