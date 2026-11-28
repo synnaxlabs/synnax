@@ -32,6 +32,25 @@ func newHTTPFramerCodec(
 	return framer.NewCodec(b.Context(), codec.NewStatic(keys, dts))
 }
 
+// encodeSteady returns msg encoded after the first frame of c's state, which declares
+// the state's types and which c decodes, so a decode benchmark reads a steady frame.
+func encodeSteady[T any](b *testing.B, c *framer.Codec, msg T) []byte {
+	b.Helper()
+	first, err := c.Encode(msg)
+	if err != nil {
+		b.Fatalf("encode: %v", err)
+	}
+	var dec T
+	if err = c.Decode(first, &dec); err != nil {
+		b.Fatalf("decode: %v", err)
+	}
+	encoded, err := c.Encode(msg)
+	if err != nil {
+		b.Fatalf("encode: %v", err)
+	}
+	return encoded
+}
+
 func httpBenchFrame(numChannels int) (channel.Keys, []telem.DataType, framer.Frame) {
 	keys := make(channel.Keys, numChannels)
 	dts := make([]telem.DataType, numChannels)
@@ -120,10 +139,7 @@ func BenchmarkHTTPCodec_WriteRequest_Decode(b *testing.B) {
 					Frame:   fr,
 				},
 			}
-			encoded, err := c.Encode(msg)
-			if err != nil {
-				b.Fatalf("encode: %v", err)
-			}
+			encoded := encodeSteady(b, c, msg)
 			var dec http.WSMessage[framer.WriterRequest]
 			b.ReportAllocs()
 			for b.Loop() {
@@ -166,10 +182,7 @@ func BenchmarkHTTPCodec_StreamerResponse_Decode(b *testing.B) {
 				Type:    "data",
 				Payload: framer.StreamerResponse{Frame: fr},
 			}
-			encoded, err := c.Encode(msg)
-			if err != nil {
-				b.Fatalf("encode: %v", err)
-			}
+			encoded := encodeSteady(b, c, msg)
 			var dec http.WSMessage[framer.StreamerResponse]
 			b.ReportAllocs()
 			for b.Loop() {
@@ -251,10 +264,7 @@ func BenchmarkHTTPCodec_IteratorResponse_Decode(b *testing.B) {
 					Frame:   fr,
 				},
 			}
-			encoded, err := c.Encode(msg)
-			if err != nil {
-				b.Fatalf("encode: %v", err)
-			}
+			encoded := encodeSteady(b, c, msg)
 			var dec http.WSMessage[framer.IteratorResponse]
 			b.ReportAllocs()
 			for b.Loop() {
