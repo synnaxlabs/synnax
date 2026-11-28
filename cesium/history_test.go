@@ -244,3 +244,38 @@ var _ = Describe("History", func() {
 		})
 	}
 })
+
+var _ = Describe("History of a delete that fails to persist", func() {
+	for fsName, openFS := range FileSystems {
+		It("Should report the change of a delete that readers see, also when its "+
+			"index write fails, on "+fsName, func(ctx SpecContext) {
+			faulty := WrapFaultyFS(openFS())
+			db := mustOpenDBOnFS(ctx, faulty)
+			key := GenerateChannelKey()
+			Expect(db.CreateChannel(ctx, cesium.Channel{
+				Key: key, Name: "Shackleton", IsIndex: true, DataType: telem.TimestampT,
+			})).To(Succeed())
+			Expect(db.WriteSeries(
+				ctx,
+				key,
+				10*telem.SecondTS,
+				telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
+			)).To(Succeed())
+			changes := observeHistory(db)
+			faulty.SetOptions(WithFailWriteAt())
+			Expect(db.DeleteTimeRange(
+				ctx,
+				[]cesium.ChannelKey{key},
+				(11 * telem.SecondTS).Range(13*telem.SecondTS),
+			)).To(MatchError(ErrFault))
+			faulty.SetOptions()
+			Eventually(changes).Should(Receive(Equal(
+				historyChange(key, 11*telem.SecondTS, 13*telem.SecondTS),
+			)))
+			f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+			Expect(f.Get(key).Series[0].Unmarshal[telem.TimeStamp]()).ToNot(
+				ContainElement(11 * telem.SecondTS),
+			)
+		})
+	}
+})

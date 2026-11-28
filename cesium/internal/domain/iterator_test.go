@@ -87,12 +87,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				) {
 					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						(20 * telem.SecondTS).Range(25*telem.SecondTS),
 						fixedOffsetAndTimeStamp(0, 20*telem.SecondTS),
 						fixedOffsetAndTimeStamp(1, 25*telem.SecondTS),
-					)).To(Succeed())
+					))
 					Expect(i.Next()).To(BeTrue())
 					Expect(i.TimeRange()).To(Equal(second))
 					Expect(i.Close()).To(Succeed())
@@ -107,12 +107,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					)
 					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						tail,
 						fixedOffsetAndTimeStamp(1, tail.Start),
 						fixedOffsetAndTimeStamp(2, tail.End),
-					)).To(Succeed())
+					))
 					Expect(
 						testutil.WriteDomain(ctx, db, crossing, []byte{4}),
 					).To(Succeed())
@@ -153,12 +153,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					).To(Succeed())
 					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						early.Start.Range(first.End),
 						fixedOffsetAndTimeStamp(0, early.Start),
 						fixedOffsetAndTimeStamp(2, first.End),
-					)).To(Succeed())
+					))
 					Expect(
 						testutil.WriteDomain(ctx, db, wider, []byte{4}),
 					).To(Succeed())
@@ -176,12 +176,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					)
 					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						head,
 						fixedOffsetAndTimeStamp(0, head.Start),
 						fixedOffsetAndTimeStamp(1, head.End),
-					)).To(Succeed())
+					))
 					Expect(
 						testutil.WriteDomain(ctx, db, crossing, []byte{4}),
 					).To(Succeed())
@@ -201,12 +201,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
 					)
 					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						head,
 						fixedOffsetAndTimeStamp(0, head.Start),
 						fixedOffsetAndTimeStamp(1, head.End),
-					)).To(Succeed())
+					))
 					Expect(
 						testutil.WriteDomain(ctx, db, crossing, []byte{4}),
 					).To(Succeed())
@@ -225,12 +225,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
 					)
 					Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
-					Expect(db.Delete(
+					MustSucceed(db.Delete(
 						ctx,
 						tail,
 						fixedOffsetAndTimeStamp(1, tail.Start),
 						fixedOffsetAndTimeStamp(2, tail.End),
-					)).To(Succeed())
+					))
 					Expect(
 						testutil.WriteDomain(ctx, db, crossing, []byte{4}),
 					).To(Succeed())
@@ -248,12 +248,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							return i
 						}
 						forward, backward = open(), open()
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							first,
 							fixedOffsetAndTimeStamp(0, first.Start),
 							fixedOffsetAndTimeStamp(2, first.End),
-						)).To(Succeed())
+						))
 					})
 
 					DescribeTable(
@@ -316,12 +316,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							db.OpenIterator(domain.IterRange(telem.TimeRangeMax)),
 						)
 						Expect(i.SeekGE(ctx, wide.Start)).To(BeTrue())
-						Expect(db.Delete(
+						MustSucceed(db.Delete(
 							ctx,
 							cut,
 							fixedOffsetAndTimeStamp(2, cut.Start),
 							fixedOffsetAndTimeStamp(5, cut.End),
-						)).To(Succeed())
+						))
 						Expect(
 							testutil.WriteDomain(ctx, db, mid, []byte{10}),
 						).To(Succeed())
