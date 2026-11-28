@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 )
 
 // readCount is a publish count that reads registered, with the number of them.
@@ -39,9 +40,9 @@ func (e *engine) register() uint64 {
 	return count
 }
 
-// unregister drops a read of count, which register returned, and unlinks each dead
-// segment that the log covers and that no read may use after it.
-func (e *engine) unregister(count uint64) error {
+// unregister drops a read of count, which register returned, and unlinks on the
+// executor each dead segment that the log covers and that no read may use after it.
+func (e *engine) unregister(count uint64) {
 	e.cover.Lock()
 	i, found := slices.BinarySearchFunc(
 		e.cover.reads,
@@ -60,7 +61,7 @@ func (e *engine) unregister(count uint64) error {
 		}
 	}
 	e.cover.Unlock()
-	return e.unlink(free)
+	e.unlinkLater(free)
 }
 
 // free takes out of cover and returns each dead segment that the log covers and that no
@@ -97,6 +98,21 @@ func (e *engine) waitUnlinked(key ChannelKey) {
 		}
 		<-unlinked
 	}
+}
+
+// unlinkLater unlinks dead, which free took, on the executor, and logs the error.
+func (e *engine) unlinkLater(dead []state.Dead) {
+	if len(dead) == 0 {
+		return
+	}
+	e.exec(func() {
+		if err := e.unlink(dead); err != nil {
+			e.ins.L.Error(
+				"failed to unlink the file of a dead segment",
+				zap.Error(err),
+			)
+		}
+	})
 }
 
 // unlink closes the read handles of each segment of dead, which free took, and removes

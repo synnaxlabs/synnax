@@ -321,16 +321,7 @@ func (e *engine) reap() error {
 // the log now covers and that no read may use, and asks Run to take the segments that
 // left the state since the last reap.
 func (e *engine) covered(sequence uint64) {
-	if free := e.uncover(sequence, nil); len(free) > 0 {
-		e.exec(func() {
-			if err := e.unlink(free); err != nil {
-				e.ins.L.Error(
-					"failed to unlink the file of a dead segment",
-					zap.Error(err),
-				)
-			}
-		})
-	}
+	e.unlinkLater(e.uncover(sequence, nil))
 	if e.state.HasDead() {
 		e.askReap()
 	}

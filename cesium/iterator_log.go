@@ -50,8 +50,6 @@ type logView struct {
 	// readers counts the data cursors of the view. The Close of the last releases every
 	// use.
 	readers int
-	// err holds the error of an unlink after an unregister, which close returns.
-	err error
 }
 
 // viewLoad is the registered count of a load of a view, and the uses of its Channels.
@@ -104,7 +102,7 @@ func (v *logView) load() {
 		v.freeze()
 	}
 	if v.live == 0 {
-		v.err = errors.Join(v.err, v.e.unregister(count))
+		v.e.unregister(count)
 		return
 	}
 	for i, ch := range v.next {
@@ -152,7 +150,7 @@ func (v *logView) release(count uint64, n int) {
 		}
 		if v.loads[i].uses -= n; v.loads[i].uses == 0 {
 			v.loads = slices.Delete(v.loads, i, i+1)
-			v.err = errors.Join(v.err, v.e.unregister(count))
+			v.e.unregister(count)
 		}
 		return
 	}
@@ -165,9 +163,9 @@ func (v *logView) stale() { v.fresh = false }
 
 // close drops a data cursor of v. The close of the last releases every use of v, and
 // makes the next seek load v anew.
-func (v *logView) close() error {
+func (v *logView) close() {
 	if v.readers--; v.readers > 0 {
-		return nil
+		return
 	}
 	if v.loaded && v.live > 0 {
 		v.release(v.cur, v.live)
@@ -177,11 +175,9 @@ func (v *logView) close() error {
 			v.release(v.from[i], 1)
 		}
 	}
-	err := v.err
-	v.err, v.fresh, v.loaded, v.live = nil, false, false, len(v.keys)
+	v.fresh, v.loaded, v.live = false, false, len(v.keys)
 	clear(v.chs)
 	clear(v.frozen)
-	return err
 }
 
 // logSource opens the cursors of the key at index slot of view on the pointer log
@@ -424,7 +420,8 @@ func (c *logCursor) Close() error {
 		c.view.release(c.from, 1)
 		c.sought = false
 	}
-	return c.view.close()
+	c.view.close()
+	return nil
 }
 
 // logReader reads the bytes of one pointer from its segment file, through a handle that

@@ -546,7 +546,7 @@ var _ = Describe("Delete on the pointer log", func() {
 			Expect(db.DeleteTimeRange(ctx, keys, span(0, 15))).To(Succeed())
 			Expect(segments()).To(Equal(2), "the read uses the empty segment")
 			Expect(iter.Close()).To(Succeed())
-			Expect(segments()).To(Equal(1))
+			Eventually(segments).Should(Equal(1))
 			Expect(values(ctx, data)).To(Equal([]int64{20, 21}))
 		})
 
@@ -659,7 +659,8 @@ var _ = Describe("Delete on the pointer log", func() {
 			Expect(got).To(Equal([]int64{10, 11, 20, 21}))
 			Expect(iter.Close()).To(Succeed())
 			dir := strconv.FormatUint(uint64(data), 10)
-			Expect(fs.List(dir)).To(BeEmpty(), "the last reader unlinks the segments")
+			Eventually(func() []xfs.FileInfo { return MustSucceed(fs.List(dir)) }).
+				Should(BeEmpty(), "the last reader unlinks the segments")
 		})
 
 	It(
