@@ -21,7 +21,8 @@ import {
   useState,
 } from "react";
 
-import { jsonFields, type Messages } from "@/platform/icd/read";
+import { fieldNames } from "@/platform/icd/fieldNames";
+import { fieldsPath, jsonFields, type Messages } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
 /** The form that edits an ICD. */
@@ -47,18 +48,28 @@ export const formatOf = (formats: Formats, key: icd.Key): FormatForm => {
 export const messagesOf = (formats: Formats): Messages =>
   new Map([...formats].map(([key, form]) => [key, form.value().messages]));
 
-/** @returns the messages of each open ICD, by ICD key, current with each edit. */
-export const useMessages = (): Messages => {
-  const formats = useFormats();
-  const [messages, setMessages] = useState(() => messagesOf(formats));
+/** @returns what read takes from formats, current with each edit of a form. */
+const useCurrent = <T,>(formats: Formats, read: (formats: Formats) => T): T => {
+  const [value, setValue] = useState(() => read(formats));
   useEffect(() => {
-    const update = () => setMessages(messagesOf(formats));
+    const update = () => setValue(read(formats));
     update();
     const destructors = [...formats.values()].map((form) => form.bind(update));
     return () => destructors.forEach((destroy) => destroy());
-  }, [formats]);
-  return messages;
+  }, [formats, read]);
+  return value;
 };
+
+/** @returns the messages of each open ICD, by ICD key, current with each edit. */
+export const useMessages = (): Messages => useCurrent(useFormats(), messagesOf);
+
+const valuesOf = (formats: Formats): Pick<icd.ICD, "key" | "name" | "messages">[] =>
+  [...formats].map(([key, form]) => ({ key, ...form.value() }));
+
+/** @returns each ICD that formats open, current with each edit. */
+export const useValues = (
+  formats: Formats,
+): Pick<icd.ICD, "key" | "name" | "messages">[] => useCurrent(formats, valuesOf);
 
 /**
  * @returns a message of an ICD that an enclosing WithFormats opens, current with each
@@ -73,18 +84,44 @@ export const useMessage = (
     ctx: formatOf(useFormats(), icdKey),
   });
 
-/** @returns the fields of a message of an ICD. */
-export const fieldsOf = (
+/** @returns a message of an open ICD, or undefined when the ICD has none. */
+export const heldMessage = (
   formats: Formats,
   icdKey: icd.Key,
   message: icd.MessageKey,
-): icd.JSONField[] =>
-  jsonFields(
-    formats
-      .get(icdKey)
-      ?.value()
-      .messages.find(({ key }) => key === message),
+): icd.Message | undefined =>
+  formats
+    .get(icdKey)
+    ?.value()
+    .messages.find(({ key }) => key === message);
+
+/** Inserts entries into the lists of one ICD. */
+export type Inserter = Pick<FormatForm, "insert">;
+
+/**
+ * Appends each field whose pointer the message lacks.
+ * @returns the fields it appends.
+ */
+export const appendFields = (
+  to: Inserter,
+  message: icd.Message,
+  fields: icd.JSONField[],
+): icd.JSONField[] => {
+  const held = jsonFields(message);
+  const pointers = new Set(held.map(({ pointer }) => pointer));
+  const added = fields.filter(({ pointer }) => !pointers.has(pointer));
+  const names = fieldNames(
+    added.map(({ pointer }) => pointer),
+    held.map(({ name }) => name),
   );
+  const appended = added.map((field, i) => ({ ...field, name: names[i] }));
+  let after = held.at(-1)?.key;
+  for (const field of appended) {
+    to.insert(fieldsPath(message.key), field, after);
+    after = field.key;
+  }
+  return appended;
+};
 
 interface WithFormatProps extends PropsWithChildren {
   icdKey: icd.Key;

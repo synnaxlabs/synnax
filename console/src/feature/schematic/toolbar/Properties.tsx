@@ -34,19 +34,15 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 
-import { Symbol } from "@/feature/schematic/symbol";
 import { COLOR_FIELDS } from "@/feature/schematic/toolbar/colorFields";
 import { CSS } from "@/platform/css";
 import { Enumeration } from "@/platform/enumeration";
 import { MultiEdit } from "@/platform/multiedit";
 import { Session } from "@/session";
 
-const path = deep.path<{
-  variant: Schematic.ElementConfig["variant"];
-  spec?: schematic.symbol.Ref;
-}>();
+const path = deep.path<{ variant: Schematic.ElementConfig["variant"] }>();
 
 export const Properties = (): ReactElement => {
   const selected = Session.Schematic.useSelectSelected();
@@ -81,25 +77,8 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
     sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
   const { form } = Schematic.useConfigForm({ elKey });
   const variant = Form.useFieldValue(path.variant, { ctx: form });
-  const spec = Form.useFieldValue(path.spec, { ctx: form, optional: true });
-  const editKey = spec?.type === "custom" ? spec.key : null;
-  const openEditModal = Symbol.Edit.useModal();
-  let actions: ReactNode = null;
-  if (editKey != null)
-    actions = (
-      <Button.Button
-        variant="filled"
-        size="tiny"
-        className={CSS.BE("schematic", "properties", "edit")}
-        onClick={() => openEditModal({ symbolKey: editKey })}
-      >
-        <Icon.Edit />
-      </Button.Button>
-    );
-
   const C = Schematic.ELEMENT_REGISTRY[variant];
   const formProps: Schematic.Node.FormProps = {
-    actions,
     schematicKey,
     tab,
     onTabChange: handleTabChange,
@@ -521,7 +500,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               yDirection="down"
             />
           </Input.Item>
-          <Input.Item label="Location">
+          <Input.Item label="Position">
             <Schematic.Node.Orientation.Select
               value={{ inner: "top", outer: firstNodeLabel.orientation }}
               onChange={(v) =>

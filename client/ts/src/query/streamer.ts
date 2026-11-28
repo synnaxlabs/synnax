@@ -172,7 +172,7 @@ export const createStreamer = ({
           const series = frame.get(name);
           const listeners = listenersForChannels.get(name);
           if (listeners == null) continue;
-          const json = series.dataType.equals(DataType.JSON);
+          const json = series.dataType?.equals(DataType.JSON) === true;
           const samples: unknown[] = json ? series.toStrings() : Array.from(series);
           const parseOpts = { label: `${name} sample` };
           for (const { onChange, onInvalid, schema } of listeners) {

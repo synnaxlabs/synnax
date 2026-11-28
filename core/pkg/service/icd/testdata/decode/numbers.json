@@ -122,7 +122,15 @@
         "level": 1,
         "raw": 1
       },
-      "error": "field temp: invalid number \"x\": validation error"
+      "message": "reading",
+      "samples": [null, 1, 1, 0, 1, 1],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field temp: invalid number \"x\": validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -133,7 +141,15 @@
         "level": 1,
         "raw": 1
       },
-      "error": "field count: 1.5 is not an integer: validation error"
+      "message": "reading",
+      "samples": [-10, null, 1, 0, 1, 1],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field count: 1.5 is not an integer: validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -144,7 +160,15 @@
         "level": 1,
         "raw": 1
       },
-      "error": "field total: -1 is out of range for uint64: validation error"
+      "message": "reading",
+      "samples": [-10, 1, null, 0, 1, 1],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": false,
+          "error": "field total: -1 is out of range for uint64: validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -155,7 +179,15 @@
         "level": 1,
         "raw": 1
       },
-      "error": "field armed: expected a boolean, got number 1: validation error"
+      "message": "reading",
+      "samples": [-10, 1, 1, null, 1, 1],
+      "failures": [
+        {
+          "binding": 3,
+          "missing": false,
+          "error": "field armed: expected a boolean, got number 1: validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -166,7 +198,15 @@
         "level": "MID",
         "raw": 1
       },
-      "error": "field level: unknown enum label \"MID\": validation error"
+      "message": "reading",
+      "samples": [-10, 1, 1, 0, null, 1],
+      "failures": [
+        {
+          "binding": 4,
+          "missing": false,
+          "error": "field level: unknown enum label \"MID\": validation error"
+        }
+      ]
     },
     {
       "document": {
@@ -177,7 +217,15 @@
         "level": 1,
         "raw": 2.5
       },
-      "error": "field raw: 2.5 is not an integer: validation error"
+      "message": "reading",
+      "samples": [-10, 1, 1, 0, 1, null],
+      "failures": [
+        {
+          "binding": 5,
+          "missing": false,
+          "error": "field raw: 2.5 is not an integer: validation error"
+        }
+      ]
     },
     {
       "text": "not json",

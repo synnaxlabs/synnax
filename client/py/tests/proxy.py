@@ -34,14 +34,17 @@ def _frame_end(buf: bytes, start: int) -> int | None:
     return end if len(buf) >= end else None
 
 
-class _Injector:
-    """Writes a keep-alive into a Core WebSocket stream right after the transport's
-    open message, ahead of any response from the endpoint.
+class _AfterOpen:
+    """Acts on a Core WebSocket stream right after the transport's open message, ahead
+    of any response from the endpoint: writes a keep-alive there, or drops the rest of
+    the stream.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, stall: bool) -> None:
         self._buf = b""
         self._done = False
+        self._stall = stall
+        self.stalled = False
 
     def feed(self, data: bytes) -> bytes:
         """Returns the bytes ready to forward, holding back a partial prefix."""
@@ -58,6 +61,9 @@ class _Injector:
         if end is None:
             return b""
         self._done = True
+        if self._stall:
+            self.stalled = True
+            return self._buf[:end]
         return self._buf[:end] + _KEEP_ALIVE_FRAME + self._buf[end:]
 
 
@@ -66,12 +72,13 @@ class _Pair:
         self,
         downstream: socket.socket,
         upstream: socket.socket,
-        injector: _Injector | None,
+        after_open: _AfterOpen | None,
     ) -> None:
         self.downstream = downstream
         self.upstream = upstream
-        self.injector = injector
+        self.after_open = after_open
         self.blackholed = False
+        self.closed_by_client = False
         self.head = b""
         self.upgraded: bool | None = None
 
@@ -82,13 +89,22 @@ class Proxy:
 
     :param inject_keep_alive: Sends every WebSocket client a keep-alive before the
     endpoint's first response, as if the Core sent one ahead of the open ack.
+    :param stall_after_open: Blackholes every WebSocket connection right after the
+    transport's open message, before the endpoint's first response.
     """
 
     port: int
 
-    def __init__(self, host: str, port: int, inject_keep_alive: bool = False) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        inject_keep_alive: bool = False,
+        stall_after_open: bool = False,
+    ) -> None:
         self._target = (host, port)
         self._keep_alive_injected = inject_keep_alive
+        self._stalled_after_open = stall_after_open
         self._server = socket.create_server(("localhost", 0))
         self._server.settimeout(0.05)
         self.port = self._server.getsockname()[1]
@@ -108,7 +124,9 @@ class Proxy:
             pair = _Pair(
                 downstream,
                 socket.create_connection(self._target),
-                _Injector() if self._keep_alive_injected else None,
+                _AfterOpen(self._stalled_after_open)
+                if self._keep_alive_injected or self._stalled_after_open
+                else None,
             )
             with self._lock:
                 self._pairs.add(pair)
@@ -127,14 +145,18 @@ class Proxy:
                     pair.head += data
                     if len(pair.head) >= len(_UPGRADED):
                         pair.upgraded = pair.head.startswith(_UPGRADED)
-                if src is pair.upstream and pair.injector is not None:
-                    data = pair.injector.feed(data)
+                if src is pair.upstream and pair.after_open is not None:
+                    data = pair.after_open.feed(data)
                 # A blackholed client's writes are read and dropped so backpressure
                 # never closes its socket.
                 if not pair.blackholed:
                     dst.sendall(data)
+                if pair.after_open is not None and pair.after_open.stalled:
+                    self._blackhole(pair)
         except OSError:
             pass
+        if src is pair.downstream:
+            pair.closed_by_client = True
         if not pair.blackholed:
             self._drop(pair)
 
@@ -154,6 +176,12 @@ class Proxy:
         with self._lock:
             return sum(1 for p in self._pairs if p.upgraded)
 
+    @property
+    def blackholed_closed_by_client(self) -> int:
+        """The number of blackholed connections whose client has closed its socket."""
+        with self._lock:
+            return sum(1 for p in self._pairs if p.blackholed and p.closed_by_client)
+
     def blackhole(self) -> int:
         """Kills the Core side of every live connection and holds the client side open
         and silent, modeling a half-open socket. New connections still forward.
@@ -163,9 +191,15 @@ class Proxy:
         with self._lock:
             pairs = [p for p in self._pairs if not p.blackholed]
         for pair in pairs:
-            pair.blackholed = True
-            pair.upstream.shutdown(socket.SHUT_RDWR)
+            self._blackhole(pair)
         return len(pairs)
+
+    @staticmethod
+    def _blackhole(pair: _Pair) -> None:
+        if pair.blackholed:
+            return
+        pair.blackholed = True
+        pair.upstream.shutdown(socket.SHUT_RDWR)
 
     def close(self) -> None:
         """Closes every connection, blackholed ones included, and stops the proxy."""

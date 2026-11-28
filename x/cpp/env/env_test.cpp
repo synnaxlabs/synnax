@@ -43,7 +43,7 @@ TEST_F(XEnvTest, RejectOutOfRangeInteger) {
     Parser parser;
     EXPECT_EQ(parser.field("TEST_OUT_OF_RANGE", static_cast<uint16_t>(100)), 100);
     EXPECT_EQ(
-        parser.error().data,
+        parser.error().data(),
         "TEST_OUT_OF_RANGE: failed to convert TEST_OUT_OF_RANGE: value is not an "
         "integer in range"
     );
@@ -81,7 +81,7 @@ TEST_F(XEnvTest, RejectInvalidOptionalBool) {
     EXPECT_EQ(parser.field("TEST_OPTIONAL_BOOL", std::optional<bool>()), std::nullopt);
     ASSERT_OCCURRED_AS(parser.error(), errors::VALIDATION);
     EXPECT_EQ(
-        parser.error().data,
+        parser.error().data(),
         "TEST_OPTIONAL_BOOL: TEST_OPTIONAL_BOOL must be true, false, 1, or 0"
     );
     unset("TEST_OPTIONAL_BOOL");

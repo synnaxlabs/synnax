@@ -9,6 +9,7 @@
 
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import type { ReactElement } from "react";
 
@@ -41,7 +42,11 @@ export const Search = (): ReactElement => (
         rounded={1}
         className="search-results__content"
       >
-        <Results />
+        {/* Follows the system theme, as the page styles do. A null el leaves the page
+            alone. */}
+        <Theming.Provider el={null}>
+          <Results />
+        </Theming.Provider>
       </Dialog.Dialog>
     </Dialog.Frame>
   </Triggers.Provider>

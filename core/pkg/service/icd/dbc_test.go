@@ -559,7 +559,7 @@ BO_ 256 M: 8 Ecu
 		"Should reject an invalid file",
 		func(ctx SpecContext, body, message string) {
 			err := MatchError(SatisfyAll(
-				HavePrefix("data: "+message),
+				HavePrefix(message),
 				HaveSuffix(": validation error"),
 			))
 			Expect(

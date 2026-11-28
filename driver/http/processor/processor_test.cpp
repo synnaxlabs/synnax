@@ -365,7 +365,7 @@ TEST(ProcessorTest, RedirectToAnotherOriginDoesNotSendAPIKey) {
         const auto [resp, err] = proc.execute(req);
         ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "refused redirect to " + target->base_url() +
                 ", a different scheme, host, or port than " + server->base_url()
         );
@@ -781,7 +781,7 @@ TEST(ProcessorTest, ResponseLargerThanMaxResponseSizeErrors) {
         const auto [resp, err] = proc.execute(req);
         ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "response body is larger than the max_response_size of the device"
         );
     }

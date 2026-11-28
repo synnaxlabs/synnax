@@ -89,7 +89,7 @@ export const createCellGrid = (): Pick<table.New, "rows" | "columns"> =>
 export const configOf = (t: table.Table, key: string): table.CellConfig | undefined =>
   t.rows.flatMap((r) => r.cells).find((c) => c.key === key)?.config;
 
-// loadTable primes key's flux cache through the production retrieve path. The
+// loadTable primes key's Flux cache through the production retrieve path. The
 // single-hook bootstrap keeps the suspending useEnsure from being followed by
 // other hooks, a shape that trips a React 19 concurrent-replay error.
 const loadTable = async (
@@ -135,7 +135,7 @@ export interface RenderTableOptions {
 
 // renderTable creates a table on the server, mounts Component inside the panel and tab
 // scopes of a seeded resource tab (the way the mosaic renders a tab) with the table
-// loaded into the flux cache and a live Modals.Stack, and returns the render result
+// loaded into the Flux cache and a live Modals.Stack, and returns the render result
 // plus the Redux store and table key.
 export const renderTable = async (
   Component: ComponentType,

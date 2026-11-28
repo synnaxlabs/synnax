@@ -106,7 +106,7 @@ errors::Error render(
         if (const auto err = append_quoted(m.name, text))
             return errors::Error(
                 errors::VALIDATION,
-                "pointer token " + quote(m.name) + ": " + err.data
+                "pointer token " + quote(m.name) + ": " + err.data()
             );
         text += ':';
         if (const auto err = render(fields, m, text, add_slot)) return err;

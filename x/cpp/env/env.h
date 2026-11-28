@@ -115,7 +115,7 @@ public:
 
     /// @brief binds an error to the given field name from an existing error.
     void field_err(const std::string &name, const errors::Error &err) {
-        this->field_err(name, err.data);
+        this->field_err(name, err.data());
     }
 
     /// @returns true if no errors have been accumulated.

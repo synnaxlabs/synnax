@@ -1,9 +1,48 @@
 {
   "gated": [
-    { "module": "freighter/integration", "usage": "tests-only" },
-    { "module": "freighter/integration", "usage": "unused" }
+    {
+      "module": "freighter/integration",
+      "usage": "tests-only"
+    },
+    {
+      "module": "freighter/integration",
+      "usage": "unused"
+    }
   ],
   "pending": [
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "TextEncoder",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "NewTextEncoder",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "TextEncoder",
+      "name": "Encode",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "TextEncoder",
+      "name": "Check",
+      "caller": "sy-6979-text-binary-writes"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "TextEncoder",
+      "name": "HasDefault",
+      "caller": "sy-6979-text-binary-writes"
+    },
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium",
@@ -27,6 +66,70 @@
       "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
       "name": "Writeback",
       "caller": "https://linear.app/synnax/issue/SY-6385"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "name": "Config",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "name": "Run",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "name": "Output",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "receiver": "Output",
+      "name": "Reset",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "name": "Join",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "name": "New",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "receiver": "Join",
+      "name": "Push",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "receiver": "Join",
+      "name": "Next",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "name": "Input",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "receiver": "Join",
+      "name": "Load",
+      "caller": "https://linear.app/synnax/issue/SY-6396"
     },
     {
       "module": "x/go",
@@ -58,6 +161,44 @@
       "receiver": "Text",
       "name": "Decode",
       "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "BinaryMessage",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "Binary",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "NewBinary",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "Binary",
+      "name": "Decode",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
+      "receiver": "Scheduler",
+      "name": "SetScopeHandler",
+      "caller": "sy-7012-arc-task-scope-status"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
+      "name": "ScopeHandler",
+      "caller": "sy-7012-arc-task-scope-status"
     }
   ]
 }
