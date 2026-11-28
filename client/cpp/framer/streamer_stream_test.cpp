@@ -121,6 +121,88 @@ public:
 };
 }
 
+namespace {
+/// @brief a channel transport that returns one float32 channel with key 1.
+class OneChannelRetrieve final : public channel::RetrieveClient {
+public:
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<::api::channel::pb::RetrieveResponse, x::errors::Error>
+    send(const std::string &, grpc::channel::RetrieveRequest &) override {
+        ::api::channel::pb::RetrieveResponse res;
+        auto *ch = res.add_channels();
+        ch->set_key(1);
+        ch->set_name("one");
+        ch->set_data_type("float32");
+        ch->set_virtual_(true);
+        return {res, x::errors::NIL};
+    }
+};
+
+std::string hex_bytes(const std::string &h) {
+    std::string out;
+    for (std::size_t i = 0; i + 1 < h.size(); i += 2)
+        out.push_back(static_cast<char>(std::stoi(h.substr(i, 2), nullptr, 16)));
+    return out;
+}
+
+/// @brief replays the responses a Core sends over gRPC: the open ack, a missed marker
+/// after a key change, and then the first frame of state 2, which declares its types
+/// and holds one float32 sample.
+class KeyChangeThenMissedStream final : public StreamerStream {
+    int received = 0;
+
+public:
+    std::pair<grpc::framer::StreamerResponse, x::errors::Error> receive() override {
+        grpc::framer::StreamerResponse res;
+        switch (this->received++) {
+            case 0:
+                break;
+            case 1:
+                res.set_missed(true);
+                break;
+            default:
+                res.set_buffer(hex_bytes("BF020000000109010000000000803F"));
+        }
+        return {res, x::errors::NIL};
+    }
+
+    x::errors::Error send(grpc::framer::StreamerRequest &) const override {
+        return x::errors::NIL;
+    }
+
+    void close_send() override {}
+};
+
+class KeyChangeThenMissedClient final : public StreamerClient {
+public:
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<std::unique_ptr<StreamerStream>, x::errors::Error>
+    stream(const std::string &) override {
+        return {std::make_unique<KeyChangeThenMissedStream>(), x::errors::NIL};
+    }
+};
+}
+
+/// @brief it should decode the first frame of a state that comes after a missed marker.
+TEST(StreamerStream, DecodesFirstFrameAfterMissedMarker) {
+    const Client client{
+        std::make_unique<KeyChangeThenMissedClient>(),
+        nullptr,
+        channel::Client(std::make_shared<OneChannelRetrieve>(), nullptr)
+    };
+    int missed = 0;
+    auto streamer = ASSERT_NIL_P(client.open_streamer(
+        StreamerConfig{.channels = {1}, .on_missed = [&missed] { ++missed; }}
+    ));
+    ASSERT_NIL(streamer.set_channels({1}));
+    ASSERT_NIL_P(streamer.read());
+    ASSERT_EQ(missed, 1);
+    const auto frame = ASSERT_NIL_P(streamer.read());
+    ASSERT_EQ(frame.size(), 1);
+}
+
 /// @brief it should return the error the stream ends with when frames are still in
 /// flight at close.
 TEST(StreamerStream, CloseReturnsErrorAfterInFlightFrames) {

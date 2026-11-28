@@ -30,6 +30,7 @@ import (
 	telempb "github.com/synnaxlabs/x/telem/pb"
 	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -210,7 +211,10 @@ var _ = Describe("gRPC Framer Transport", func() {
 					Buffer:  []byte{0x01, 0x02},
 				},
 			)
-			Eventually(errs).Should(Receive(MatchError(io.ErrUnexpectedEOF)))
+			Eventually(errs).Should(Receive(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("remote sent a frame that ends early")),
+			)))
 		})
 
 		It("Should fail to receive an open command for a missing channel", func(
@@ -282,6 +286,19 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(
 				fr.SeriesAt(0),
 			).To(MatchSeriesData(telem.NewSeriesV[int64](10, 20, 30)))
+		})
+
+		It("Should send an empty frame with no buffer", func(ctx SpecContext) {
+			keys := createVirtualChannel(ctx, telem.Int64T)
+			serve(transport.FrameStreamer, 1, framer.StreamerResponse{Ack: true})
+			res := exchange(
+				MustSucceed(client.Exec(ctx)),
+				1,
+				&grpcframer.StreamerRequest{Keys: keys.Uint32()},
+			)[0]
+			Expect(res.Ack).To(BeTrue())
+			Expect(res.Buffer).To(BeEmpty())
+			Expect(res.Frame).To(BeNil())
 		})
 
 		It("Should keep the codec when a later request names no keys", func(

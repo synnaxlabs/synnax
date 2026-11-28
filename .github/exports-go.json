@@ -185,19 +185,6 @@
       "caller": "sy-6599-name-every-path-describe-and-refuse-ambiguous-names"
     },
     {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/telem",
-      "receiver": "DataTypeCode",
-      "name": "DataType",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7949"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/telem",
-      "name": "CodeOf",
-      "caller": "https://github.com/synnaxlabs/synnax/pull/7949"
-    },
-    {
       "module": "arc/go",
       "package": "github.com/synnaxlabs/arc/runtime/scheduler",
       "receiver": "Scheduler",

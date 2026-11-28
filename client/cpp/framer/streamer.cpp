@@ -29,11 +29,12 @@ Client::open_streamer(const StreamerConfig &config) const {
     grpc::framer::StreamerRequest req;
     config.to_proto(req);
     if (!net_stream->send(req).ok()) net_stream->close_send();
+    Codec codec(this->channel_client);
+    if (const auto codec_err = codec.update(config.channels))
+        return {Streamer(), codec_err};
     auto [_, res_err] = net_stream->receive();
     auto streamer = Streamer(std::move(net_stream), config);
-    streamer.codec = Codec(this->channel_client);
-    if (const auto codec_err = streamer.codec.update(config.channels))
-        return {Streamer(), codec_err};
+    streamer.codec = std::move(codec);
     return {std::move(streamer), res_err};
 }
 
