@@ -9,7 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Serial } from "@/feature/serial";
@@ -56,7 +56,7 @@ describe("Serial.Device.useConnectModal", () => {
     expect(document.activeElement).toBe(name);
   });
 
-  it("should save the line settings of a new device and report it", async () => {
+  it("should save the trimmed port and line settings of a new device and report it", async () => {
     const rack = await createRunningRack(client, Serial.Device.INTEGRATION_KEY);
     const analytics = createTestSink();
     const { result } = await renderModalOpener(
@@ -69,7 +69,7 @@ describe("Serial.Device.useConnectModal", () => {
       target: { value: name },
     });
     fireEvent.change(screen.getByPlaceholderText("/dev/ttyUSB0"), {
-      target: { value: "/dev/ttyUSB3" },
+      target: { value: " /dev/ttyUSB3\n" },
     });
     commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("9600"), "115200");
     commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("8"), "7");
@@ -95,7 +95,7 @@ describe("Serial.Device.useConnectModal", () => {
     );
   });
 
-  it("should show the schema error of an empty port at its input", async () => {
+  it("should show the schema error of a blank port at its input", async () => {
     const rack = await createRunningRack(client, Serial.Device.INTEGRATION_KEY);
     await renderModalOpener(Serial.Device.useConnectModal, [{ rack: rack.key }], {
       client,
@@ -103,9 +103,36 @@ describe("Serial.Device.useConnectModal", () => {
     fireEvent.change(await screen.findByPlaceholderText("Device name"), {
       target: { value: uniqueName("serial") },
     });
+    fireEvent.change(screen.getByPlaceholderText("/dev/ttyUSB0"), {
+      target: { value: "   " },
+    });
     pressSaveTrigger();
     expect(
       await screen.findByText(/expected string to have >=1 characters/),
     ).toBeTruthy();
+  });
+
+  it("should put the port with the baud rate and the line settings in pairs", async () => {
+    await renderModalOpener(Serial.Device.useConnectModal, [{}], { client });
+    const box = (el: HTMLElement) => el.getBoundingClientRect();
+    const sameRow = (a: DOMRect, b: DOMRect) => a.top < b.bottom && b.top < a.bottom;
+    const port = box(await screen.findByPlaceholderText("/dev/ttyUSB0"));
+    const baudRate = box(screen.getByDisplayValue("9600"));
+    const dataBits = box(screen.getByDisplayValue("8"));
+    const stopBits = box(await findDialogTriggerByText("1"));
+    // Parity and flow control both start at None, in that order.
+    const [parity, flowControl] = screen
+      .getAllByRole("button")
+      .filter(
+        (b) =>
+          b.getAttribute("aria-haspopup") === "dialog" &&
+          within(b).queryAllByText("None").length > 0,
+      )
+      .map(box);
+    expect(sameRow(port, baudRate)).toBe(true);
+    expect(sameRow(dataBits, parity)).toBe(true);
+    expect(sameRow(stopBits, flowControl)).toBe(true);
+    expect(dataBits.top).toBeGreaterThanOrEqual(port.bottom);
+    expect(stopBits.top).toBeGreaterThanOrEqual(dataBits.bottom);
   });
 });
