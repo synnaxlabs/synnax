@@ -30,46 +30,57 @@ func BenchmarkRewrite(b *testing.B) {
 	for _, lines := range []int{1_000, 10_000} {
 		for _, reads := range []int{1, 100} {
 			b.Run(fmt.Sprintf("lines=%d/reads=%d", lines, reads), func(b *testing.B) {
-				db := gorp.Wrap(memkv.New())
-				b.Cleanup(func() {
-					if err := db.Close(); err != nil {
-						b.Error(err)
-					}
-				})
-				if err := resource.StageRename(
-					ctx,
-					db,
-					resource.ID{Type: resource.TypeChannel, Key: "1"},
-					"Metrics",
-					resource.ReasonClash,
-				); err != nil {
-					b.Fatal(err)
-				}
-				renames, err := v1.TextRename(db, map[v1.Key]v1.TextChannel{
-					1: {Name: "Metrics_2", DataType: telem.Float64T},
-				})
-				if err != nil {
-					b.Fatal(err)
-				}
-				w := v1.Rewriter{Renames: renames, Ambient: stl.NewSymbols()}
-				var text strings.Builder
-				for i := range lines {
-					if i < reads {
-						fmt.Fprintf(&text, "x%d := Metrics * %d.0\n", i, i)
-					} else {
-						fmt.Fprintf(&text, "x%d := %d.0\n", i, i)
-					}
-				}
-				text.WriteString("return 1.0")
-				src := v1.Source{Text: text.String(), Form: v1.FormCalculation}
+				w, src := benchRewrite(ctx, b, lines, reads)
 				b.ReportAllocs()
 				b.ResetTimer()
 				for range b.N {
-					if _, err = w.Rewrite(ctx, src); err != nil {
+					if _, err := w.Rewrite(ctx, src); err != nil {
 						b.Fatal(err)
 					}
 				}
 			})
 		}
 	}
+}
+
+// benchRewrite returns a rewriter over the rename of Metrics to Metrics_2, and a
+// calculation of lines statements, the first reads of which read Metrics.
+func benchRewrite(
+	ctx context.Context,
+	b *testing.B,
+	lines, reads int,
+) (v1.Rewriter, v1.Source) {
+	b.Helper()
+	db := gorp.Wrap(memkv.New())
+	b.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			b.Error(err)
+		}
+	})
+	if err := resource.StageRename(
+		ctx,
+		db,
+		resource.ID{Type: resource.TypeChannel, Key: "1"},
+		"Metrics",
+		resource.ReasonClash,
+	); err != nil {
+		b.Fatal(err)
+	}
+	renames, err := v1.TextRename(db, map[v1.Key]v1.TextChannel{
+		1: {Name: "Metrics_2", DataType: telem.Float64T},
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	var text strings.Builder
+	for i := range lines {
+		if i < reads {
+			fmt.Fprintf(&text, "x%d := Metrics * %d.0\n", i, i)
+		} else {
+			fmt.Fprintf(&text, "x%d := %d.0\n", i, i)
+		}
+	}
+	text.WriteString("return 1.0")
+	w := v1.Rewriter{Renames: renames, Ambient: stl.NewSymbols()}
+	return w, v1.Source{Text: text.String(), Form: v1.FormCalculation}
 }
