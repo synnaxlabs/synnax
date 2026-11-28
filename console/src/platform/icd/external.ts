@@ -13,6 +13,7 @@ export * from "@/platform/icd/Confirm";
 export * from "@/platform/icd/dataType";
 export * from "@/platform/icd/default";
 export * from "@/platform/icd/Details";
+export * from "@/platform/icd/Entries";
 export * from "@/platform/icd/EnumValues";
 export * from "@/platform/icd/fieldNames";
 export * from "@/platform/icd/Fields";
