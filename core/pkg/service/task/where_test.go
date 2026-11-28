@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -70,6 +71,11 @@ var _ = Describe("Where", Ordered, func() {
 		}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,
+			Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
+				DB:     db,
+				Status: stat,
+				Rack:   racks,
+			})),
 		}))
 		svc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 			DB:      db,

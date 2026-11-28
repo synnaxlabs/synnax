@@ -34,6 +34,7 @@ import (
 	kafkaversions "github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
@@ -240,7 +241,14 @@ var _ = Describe("Task", Ordered, func() {
 			To(Succeed())
 		testArc = a.Base().Key
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
+		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+			DB: db,
+			Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
+				DB:     db,
+				Status: stat,
+				Rack:   rackService,
+			})),
+		}))
 		named := MustOpen(
 			config.OpenService(ctx, config.ServiceConfig[kafka.ReadConfig]{
 				DB:          db,

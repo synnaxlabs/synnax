@@ -16,18 +16,39 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	node testutil.Node
-	db   *gorp.DB
+	node      testutil.Node
+	db        *gorp.DB
+	devices   *device.Service
+	statusSvc *status.Service
+	rackSvc   *rack.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
 	db = node.DB
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:         db,
+		HostKey:    1,
+		Status:     statusSvc,
+		DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
+	}))
+	devices = MustOpen(device.OpenService(ctx, device.ServiceConfig{
+		DB:     db,
+		Status: statusSvc,
+		Rack:   rackSvc,
+	}))
 })
 
 func TestLabjack(t *testing.T) {

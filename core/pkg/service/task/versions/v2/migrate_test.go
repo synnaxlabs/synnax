@@ -194,13 +194,14 @@ var _ = Describe("Migrations", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return rackSvc.NewWriter(tx).Create(ctx, testRack)
 			})).To(Succeed())
+			devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+				DB:     db,
+				Status: stat,
+				Rack:   rackSvc,
+			}))
 			targets := tasktestutil.NewTargets(tasktestutil.TargetsConfig{
-				DB: db,
-				Device: MustOpen(device.OpenService(ctx, device.ServiceConfig{
-					DB:     db,
-					Status: stat,
-					Rack:   rackSvc,
-				})),
+				DB:     db,
+				Device: devices,
 				Status: stat,
 				Rack:   testRack.Key,
 			})
@@ -354,7 +355,10 @@ var _ = Describe("Migrations", func() {
 				Rack:   secrettestutil.CoreRack,
 			}))
 			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
+			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+				DB:     db,
+				Device: devices,
+			}))
 			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
 				DB:     db,
 				Status: stat,

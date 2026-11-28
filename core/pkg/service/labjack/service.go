@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions/legacy"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -32,6 +33,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Device reads the device of a read task, whose model sets the ranges its analog
+	// channels can take.
+	//
+	// [REQUIRED]
+	Device *device.Service
 	alamos.Instrumentation
 }
 
@@ -40,6 +46,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Device = override.Nil(c.Device, other.Device)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -48,6 +55,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("labjack.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("device", c.Device)
 	return v.Error()
 }
 
@@ -85,13 +93,23 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []gorp.Migration{
 				v3.ReadMigration,
 				v3.ReadReconcileMigration,
+				readModelRangeMigration(cfg.Device),
 			},
 			SetEntryKey: (*ReadConfig).SetKey,
 			PatchEntry:  (*ReadConfig).Patch,
 			HashEntry:   (*ReadConfig).HashContent,
-			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *ReadConfig) error {
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				_ string,
+				c *ReadConfig,
+			) (func(context.Context, gorp.Tx) error, error) {
+				return nil, validateRanges(ctx, snap, cfg.Device, *c)
+			},
+			ReconcileEntry: func(ctx context.Context, tx gorp.Tx, c *ReadConfig) error {
 				v3.ReconcileReadChannels(c.Channels)
-				return nil
+				_, err := reconcileRanges(ctx, tx, cfg.Device, c)
+				return err
 			},
 			ValidateEntry: func(c *ReadConfig) error {
 				v := validate.New("labjack.ReadConfig")

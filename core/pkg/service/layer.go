@@ -1001,6 +1001,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.LabJack, err = labjack.OpenService(ctx, labjack.ServiceConfig{
 		Instrumentation: cfg.Child("labjack"),
 		DB:              cfg.Distribution.DB,
+		Device:          l.Device,
 	}); !ok(err, l.LabJack) {
 		return nil, err
 	}
