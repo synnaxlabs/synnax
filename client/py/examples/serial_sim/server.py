@@ -48,7 +48,7 @@ async def run_server(link: str, rate: float, received: str) -> None:
         os.set_blocking(master, False)
         with contextlib.suppress(FileNotFoundError):
             os.unlink(link)
-        out = os.open(received, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+        out = os.open(received, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         os.symlink(os.ttyname(slave), link)
         start = time.monotonic()
         i = 0
