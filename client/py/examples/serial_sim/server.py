@@ -7,7 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""A serial device on a pseudo-terminal that sends a reading line at its rate."""
+"""A serial device on a pseudo-terminal that sends a reading line at its rate and
+records the bytes that it receives."""
 
 import asyncio
 import contextlib
@@ -16,6 +17,7 @@ import os
 import sys
 import tempfile
 import time
+from pathlib import Path
 from typing import override
 from uuid import uuid4
 
@@ -31,9 +33,10 @@ def reading(i: int, rate: float) -> bytes:
     return f"{20 + 5 * math.sin(t):.3f},{100 + 2 * math.cos(t):.3f}\n".encode()
 
 
-async def run_server(link: str, rate: float) -> None:
+async def run_server(link: str, rate: float, received: str) -> None:
     """Send reading lines at rate on a pseudo-terminal, and point link at the terminal
-    that a client opens. A line that the terminal has no room for is dropped."""
+    that a client opens. A line that the terminal has no room for is dropped. The bytes
+    that the client sends go to the file at received."""
     if sys.platform != "win32":
         # tty imports termios, which Windows does not have.
         import tty
@@ -45,12 +48,15 @@ async def run_server(link: str, rate: float) -> None:
         os.set_blocking(master, False)
         with contextlib.suppress(FileNotFoundError):
             os.unlink(link)
+        out = os.open(received, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         os.symlink(os.ttyname(slave), link)
         start = time.monotonic()
         i = 0
         while True:
             with contextlib.suppress(BlockingIOError):
                 os.write(master, reading(i, rate))
+            with contextlib.suppress(BlockingIOError):
+                os.write(out, os.read(master, 4096))
             i += 1
             await asyncio.sleep(max(0.0, start + i / rate - time.monotonic()))
     else:
@@ -63,11 +69,18 @@ class SerialSim(DeviceSim):
 
     description = "Serial device simulator on a pseudo-terminal"
     serial_port = os.path.join(tempfile.gettempdir(), "synnax-serial-sim")
+    received_path = os.path.join(tempfile.gettempdir(), "synnax-serial-sim.rx")
     device_name = "Serial Sim Device"
 
     @override
     async def _run_server(self) -> None:
-        await run_server(self.serial_port, float(self.rate))
+        await run_server(self.serial_port, float(self.rate), self.received_path)
+
+    @staticmethod
+    def received() -> list[str]:
+        """Return the lines that the client has sent, oldest first. A line that has no
+        newline yet is left out."""
+        return Path(SerialSim.received_path).read_bytes().decode().split("\n")[:-1]
 
     @override
     def _require_port_free(self) -> None:
@@ -94,9 +107,11 @@ class SerialSim(DeviceSim):
 
     @override
     def _wait_for_port_closed(self, timeout: sy.TimeSpan) -> None:
-        """The terminal closes with the server. Remove the link it leaves."""
-        with contextlib.suppress(FileNotFoundError):
-            os.unlink(self.serial_port)
+        """The terminal closes with the server. Remove the link and the file of received
+        bytes that it leaves."""
+        for path in (self.serial_port, self.received_path):
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(path)
 
     @override
     @staticmethod
