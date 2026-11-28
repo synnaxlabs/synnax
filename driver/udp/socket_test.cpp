@@ -258,6 +258,17 @@ TEST(Socket, RefuseOversizedDatagram) {
     );
 }
 
+/// @brief it should refuse a datagram over the limit of the operating system as it
+/// refuses one over the limit of UDP. macOS refuses one this size by default, and Linux
+/// sends it.
+TEST(Socket, RefuseDatagramOverSystemLimitAsValidation) {
+    Peer peer;
+    auto s = open_to(peer);
+    const std::vector<std::uint8_t> big(20000);
+    if (const auto err = s->write(big, TIMEOUT))
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+}
+
 /// @brief it should fail when no interface holds the local address.
 TEST(Socket, FailWhenNoInterfaceHoldsAddress) {
     const Address addr{.local_address = "192.0.2.1"};
