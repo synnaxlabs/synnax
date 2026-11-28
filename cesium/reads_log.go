@@ -65,13 +65,13 @@ func (e *engine) unregister(count uint64) {
 }
 
 // free takes out of cover and returns each dead segment that the log covers and that no
-// read may use, as no read holds a count below that of the segment. The caller holds
+// read may use: no read holds it or a count below that of the segment. The caller holds
 // e.cover, and passes the result to unlink.
 func (e *engine) free() []state.Dead {
 	var free []state.Dead
 	waiting := e.cover.dead[:0]
 	for _, d := range e.cover.dead {
-		if d.Sequence < e.cover.covered &&
+		if d.Sequence < e.cover.covered && e.cover.held[d.Segment] == 0 &&
 			(len(e.cover.reads) == 0 || e.cover.reads[0].count >= d.Count) {
 			free = append(free, d)
 			e.cover.unlinking[d.Key]++
@@ -98,6 +98,30 @@ func (e *engine) waitUnlinked(key ChannelKey) {
 		}
 		<-unlinked
 	}
+}
+
+// hold keeps the files of segs, the segments of a Channel that a read froze, until
+// unhold.
+func (e *engine) hold(segs []state.Segment) {
+	e.cover.Lock()
+	defer e.cover.Unlock()
+	for _, seg := range segs {
+		e.cover.held[seg.ID]++
+	}
+}
+
+// unhold drops a hold of segs, and unlinks on the executor each dead segment that the
+// log covers and that no read may use after it.
+func (e *engine) unhold(segs []state.Segment) {
+	e.cover.Lock()
+	for _, seg := range segs {
+		if e.cover.held[seg.ID]--; e.cover.held[seg.ID] == 0 {
+			delete(e.cover.held, seg.ID)
+		}
+	}
+	free := e.free()
+	e.cover.Unlock()
+	e.unlinkLater(free)
 }
 
 // unlinkLater unlinks dead, which free took, on the executor, and logs the error.

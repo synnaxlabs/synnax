@@ -26,18 +26,17 @@ import (
 // loads them from one request of the state's owner, at the first seek of each step of
 // the read in which the state published. A key that a load drops keeps its last Channel
 // for the rest of the read, and so does every key once a load drops the clock or cuts
-// its stamps, since the keys take their stamps from it.
+// its stamps, since the keys take their stamps from it. The cover of the engine keeps
+// the segments of a kept Channel until the read closes.
 type logView struct {
 	e *engine
 	// keys holds the clock and then each key of the read on it, and chs their Channels.
 	// next is the array that the next load fills.
 	keys      []ChannelKey
 	chs, next []*state.Channel
-	// frozen is true for each key that keeps its last Channel, which came from the load
-	// whose registered count from holds. live counts the other keys, whose Channels
-	// came from the load of cur.
+	// frozen is true for each key that keeps its last Channel, and live counts the
+	// other keys, whose Channels came from the load of cur.
 	frozen []bool
-	from   []uint64
 	live   int
 	cur    uint64
 	loaded bool
@@ -70,19 +69,18 @@ func (v *logView) add(key ChannelKey) int {
 	v.keys = append(v.keys, key)
 	v.chs = append(v.chs, nil)
 	v.frozen = append(v.frozen, false)
-	v.from = append(v.from, 0)
 	v.live++
 	return len(v.keys) - 1
 }
 
-// channel returns the Channel of the key at index i in the load of the step, and the
-// registered count of the load that it came from.
-func (v *logView) channel(i int) (*state.Channel, uint64) {
+// channel returns the Channel of the key at index i in the load of the step. For a key
+// that loads on, it also returns the registered count of that load, and true.
+func (v *logView) channel(i int) (*state.Channel, uint64, bool) {
 	v.load()
 	if v.frozen[i] {
-		return v.chs[i], v.from[i]
+		return v.chs[i], 0, false
 	}
-	return v.chs[i], v.cur
+	return v.chs[i], v.cur, true
 }
 
 // load loads the live keys of v again when the step is new and the state published
@@ -118,15 +116,24 @@ func (v *logView) load() {
 }
 
 // freeze freezes each live key that the load in next drops, and every live key when the
-// load drops the clock or cuts its stamps. A frozen key keeps its use of the last load.
+// load drops the clock or cuts its stamps. Cover holds the segments of a frozen key in
+// place of its use of the last load.
 func (v *logView) freeze() {
 	last, next := v.chs[0], v.next[0]
 	all := last != nil && (next == nil || next.Cuts != last.Cuts)
+	n := 0
 	for i, ch := range v.chs {
 		if !v.frozen[i] && (all || (ch != nil && v.next[i] == nil)) {
-			v.frozen[i], v.from[i] = true, v.cur
-			v.live--
+			if ch != nil {
+				v.e.hold(ch.Segments)
+			}
+			v.frozen[i] = true
+			n++
 		}
+	}
+	if n > 0 {
+		v.release(v.cur, n)
+		v.live -= n
 	}
 }
 
@@ -171,8 +178,8 @@ func (v *logView) close() {
 		v.release(v.cur, v.live)
 	}
 	for i, frozen := range v.frozen {
-		if frozen {
-			v.release(v.from[i], 1)
+		if frozen && v.chs[i] != nil {
+			v.e.unhold(v.chs[i].Segments)
 		}
 	}
 	v.fresh, v.loaded, v.live = false, false, len(v.keys)
@@ -245,14 +252,14 @@ type logCursor struct {
 	slot int
 	src  *logSource
 	// from is the registered count of the load that the ranges of a data cursor came
-	// from, once sought is true. The cursor uses that load until its next seek or
+	// from, while counted is true. The cursor uses that load until its next seek or
 	// Close, since another cursor can load the view again before then.
-	from   uint64
-	sought bool
-	bounds telem.TimeRange
-	ranges []logRange
-	pos    int
-	valid  bool
+	from    uint64
+	counted bool
+	bounds  telem.TimeRange
+	ranges  []logRange
+	pos     int
+	valid   bool
 	// cur is the range of the last valid move, which a failed Next or Prev keeps, as on
 	// the old layout. A seek loads again, so one that finds no range leaves none.
 	cur logRange
@@ -264,13 +271,15 @@ var _ domain.Ranges = (*logCursor)(nil)
 // cursor moves its use to the load that they came from.
 func (c *logCursor) load() {
 	c.ranges = c.ranges[:0]
-	ch, from := c.view.channel(c.slot)
-	if c.slot != 0 && (!c.sought || from != c.from) {
-		c.view.use(from, 1)
-		if c.sought {
+	ch, from, counted := c.view.channel(c.slot)
+	if c.slot != 0 && (counted != c.counted || from != c.from) {
+		if counted {
+			c.view.use(from, 1)
+		}
+		if c.counted {
 			c.view.release(c.from, 1)
 		}
-		c.from, c.sought = from, true
+		c.from, c.counted = from, counted
 	}
 	if ch == nil {
 		return
@@ -416,9 +425,9 @@ func (c *logCursor) Close() error {
 	if c.slot == 0 {
 		return nil
 	}
-	if c.sought {
+	if c.counted {
 		c.view.release(c.from, 1)
-		c.sought = false
+		c.counted = false
 	}
 	c.view.close()
 	return nil

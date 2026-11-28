@@ -85,8 +85,10 @@ type engine struct {
 		dead    []state.Dead
 		// advanced is closed and replaced each time covered rises.
 		advanced chan struct{}
-		// reads holds the publish counts that reads registered, in rising order.
+		// reads holds the publish counts that reads registered, in rising order, and
+		// held counts the reads that froze each segment.
 		reads []readCount
+		held  map[uint64]int
 		// unlinking counts the segments of each key that free took and whose unlink has
 		// not ended. unlinked is closed and replaced each time an unlink ends.
 		unlinking map[ChannelKey]int
@@ -133,6 +135,7 @@ func openEngine(o *options) (*engine, error) {
 	}
 	e.cover.advanced = make(chan struct{})
 	e.cover.unlinking = map[ChannelKey]int{}
+	e.cover.held = map[uint64]int{}
 	e.cover.unlinked = make(chan struct{})
 	e.handles.m = make(map[ChannelKey]map[uint64]*segmentHandles)
 	if snapshot == nil {
