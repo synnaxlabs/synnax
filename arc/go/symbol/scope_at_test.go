@@ -33,10 +33,9 @@ func blocksOf(tree antlr.Tree) []parser.IBlockContext {
 var _ = Describe("ScopeAt", func() {
 	var outer, inner parser.IBlockContext
 	BeforeEach(func() {
-		block, diag := parser.ParseBlock(
+		block := MustSucceed(parser.ParseBlock(
 			"{\n\tx := 1\n\tif x > 0 {\n\t\ty := 2\n\t}\n}",
-		)
-		Expect(diag).To(BeNil())
+		))
 		blocks := blocksOf(block)
 		Expect(blocks).To(HaveLen(2))
 		outer, inner = blocks[0], blocks[1]
