@@ -17,13 +17,13 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
+import { useDeleteModal } from "@/feature/icd/Delete";
 import { useCreate } from "@/feature/icd/useCreate";
 import { useImport } from "@/feature/icd/useImport";
 import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
-import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
 
 const COLUMNS: List.Column[] = [
@@ -82,14 +82,7 @@ const ICDsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
   const open = useOpen();
   const handleImport = useImport();
   const handleLink = Core.useCopyLinkToClipboard();
-  const confirm = Modals.useConfirmDelete({
-    type: "ICD",
-    plural: "ICDs",
-    icon: "Library",
-  });
-  const { update: remove } = ICD.useDelete({
-    beforeUpdate: async () => await confirm(icds),
-  });
+  const openDelete = useDeleteModal();
   const single = icds.length === 1 ? icds[0] : undefined;
   return (
     <ContextMenu.Menu>
@@ -120,7 +113,11 @@ const ICDsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
       )}
       <Menu.Divider />
       {icds.length > 0 && canDelete && (
-        <ContextMenu.DeleteItem onClick={() => remove(icds.map((i) => i.key))} />
+        <ContextMenu.DeleteItem
+          onClick={() =>
+            openDelete({ icds: icds.map(({ key, name }) => ({ key, name })) })
+          }
+        />
       )}
       <Menu.Divider />
       <ContextMenu.ReloadConsoleItem />

@@ -26,7 +26,8 @@ type Create[K Key, E Entry[K]] struct {
 	exclusive bool
 }
 
-// NewCreate opens a new Create query.
+// NewCreate opens a new Create query. A query that no Table built skips unique checks,
+// so only a migration may write through it to a table with a unique index.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 	return Create[K, E]{}
 }
@@ -57,7 +58,7 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
 	var w Writer[K, E]
 	if c.table != nil {
-		w = c.table.writer(tx, true)
+		w = c.table.writer(tx, checkAll)
 	} else {
 		w = wrapWriter[K, E](tx, "", c.keyPrefix, nil)
 	}

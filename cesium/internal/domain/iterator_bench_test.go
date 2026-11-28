@@ -166,7 +166,7 @@ func cutDomain(b *testing.B, db *domain.DB, k int) {
 	// From the last cut back, each cut is in the first piece, which starts at cutStart.
 	for j := k - 1; j >= 0; j-- {
 		tr := (cutStart + telem.TimeStamp(3*j+1)*telem.SecondTS).SpanRange(telem.Second)
-		if err := db.Delete(
+		if _, err := db.Delete(
 			ctx,
 			tr,
 			fixedOffsetAndTimeStamp(telem.Size(3*j+1), tr.Start),

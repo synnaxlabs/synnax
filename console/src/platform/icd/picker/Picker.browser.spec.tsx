@@ -96,6 +96,38 @@ describe("ICD.Picker.Values", () => {
     const cell = screen.getByText(label);
     expect(cell.scrollWidth).toBeLessThanOrEqual(cell.clientWidth);
   });
+
+  it("should dim the name and note of each value of a dimmed group", async () => {
+    await renderWithConsole(
+      <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
+        <ICD.Picker.Root value="topics">
+          <ICD.Picker.Values
+            noun="Field"
+            groups={[
+              {
+                title: "plant/oven",
+                dimmed: true,
+                values: [
+                  {
+                    key: "t",
+                    name: "temperature",
+                    sample: "21.5",
+                    dataType: "float64",
+                    note: "Adds to oven",
+                  },
+                ],
+              },
+            ]}
+            value={[]}
+            onChange={() => {}}
+          />
+        </ICD.Picker.Root>
+      </Dialog.Frame>,
+    );
+    const { color } = getComputedStyle(screen.getByText("21.5"));
+    expect(getComputedStyle(screen.getByText("temperature")).color).toBe(color);
+    expect(getComputedStyle(screen.getByText("Adds to oven")).color).toBe(color);
+  });
 });
 
 describe("ICD.Picker.PaneSkeleton", () => {
