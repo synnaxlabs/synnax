@@ -14,7 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -30,6 +34,7 @@ var _ = Describe("CheckFolderName", func() {
 		Entry("letters of other scripts", "圧力 \u00E9"),
 		Entry("a symbol with no variation selector", "💧"),
 		Entry("the replacement character", "\uFFFD"),
+		Entry("an empty name, which the group reports as required", ""),
 	)
 
 	DescribeTable("Should refuse a name that a path segment cannot hold",
@@ -37,7 +42,6 @@ var _ = Describe("CheckFolderName", func() {
 			Expect(channel.CheckFolderName(name)).Error().
 				To(MatchError(validate.ErrValidation))
 		},
-		Entry("empty", ""),
 		Entry("spaces only", "   "),
 		Entry("the separator", "a.b"),
 		Entry("a lone separator", "."),
@@ -72,5 +76,18 @@ var _ = Describe("CheckFolderName", func() {
 			})).To(BeZero())
 			Expect(err).ToNot(HaveOccurred())
 		}
+	})
+})
+
+var _ = Describe("Channel folder names", func() {
+	It("Should report an empty channel folder name as required", func(
+		ctx SpecContext,
+	) {
+		node := testutil.NewNode(ctx)
+		_, groupSvc := serviceConfig(ctx, node, node.DB)
+		g := group.Group{Scope: resource.TypeChannel}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return groupSvc.NewWriter(tx).Create(ctx, &g)
+		})).To(MatchError(ContainSubstring("name: required")))
 	})
 })

@@ -15,11 +15,12 @@ import (
 )
 
 // CheckFolderName returns name in NFC, the form in which a channel folder stores its
-// name, or a validation error when a path cannot hold it: it is empty, or it holds a
-// '.', an invisible character, or bytes that are not UTF-8.
+// name, or a validation error when a path cannot hold it: it holds a '.', an invisible
+// character, or bytes that are not UTF-8. It returns an empty name, which the group
+// reports as required.
 func CheckFolderName(name string) (string, error) {
 	name = normalizeName(name)
-	if isPathSegment(name) {
+	if name == "" || isPathSegment(name) {
 		return name, nil
 	}
 	return "", validate.PathedError(errors.Wrapf(
