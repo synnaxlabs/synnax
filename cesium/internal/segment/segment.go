@@ -42,15 +42,25 @@ const (
 // the layout of its blocks.
 type Config struct {
 	// DB is the identity of the database.
+	//
+	// [OPTIONAL]
 	DB uint64
 	// ID is the identity of the segment.
+	//
+	// [REQUIRED]
 	ID uint64
 	// DataType is the data type code of the samples.
+	//
+	// [REQUIRED]
 	DataType uint8
 	// Clock is the key of the clock that times the samples.
+	//
+	// [REQUIRED]
 	Clock uint32
 	// Variable is true for a variable-density type. Each of its samples is a uint32
 	// length and then that many bytes, and a sample can cross blocks.
+	//
+	// [OPTIONAL]
 	Variable bool
 }
 

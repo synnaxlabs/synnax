@@ -127,13 +127,13 @@ type Log struct {
 		closing bool
 	}
 	// The fields below belong to the steps of the owner.
-	step     func()
-	stepped  chan bool
-	seq      uint64
-	prevCRC  uint32
-	prevEnd  int64
-	lastEnd  int64
-	needMark bool
+	step    func()
+	stepped chan bool
+	seq     uint64
+	prevCRC uint32
+	prevEnd int64
+	lastEnd int64
+	markDue bool
 	// commitsFull is true once a Commit did not fit. The log then refuses every later
 	// Commit, so the durable Commits stay a prefix of the queue.
 	commitsFull bool
@@ -275,7 +275,7 @@ func (l *Log) run() {
 	l.write(queue)
 	if closing {
 		l.mark(true)
-	} else if l.needMark && l.idle() {
+	} else if l.markDue && l.idle() {
 		l.mark(false)
 	}
 	l.stepped <- closing
@@ -292,7 +292,7 @@ func (l *Log) take() ([]pending, bool) {
 func (l *Log) idle() bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return len(l.mu.queue) == 0 && !l.mu.closing && l.mu.err == nil
+	return len(l.mu.queue) == 0 && !l.mu.closing
 }
 
 // write writes queue as frames of at most MaxFrame bytes, one sync each, and acks each
@@ -318,7 +318,7 @@ func (l *Log) write(queue []pending) {
 			for i, p := range batch {
 				p.done <- result{sequence: l.frame.Sequence + uint64(i)}
 			}
-			l.needMark = true
+			l.markDue = true
 		}
 		batch, l.buf = batch[:0], l.buf[:0]
 		start = l.nextStart()
@@ -414,7 +414,7 @@ func (l *Log) mark(clean bool) {
 	l.frame = Frame{Sequence: l.seq, PrevCRC: l.prevCRC, Clean: clean}
 	start := (l.lastEnd + BlockSize - 1) &^ (BlockSize - 1)
 	if err := l.writeFrame(start); err == nil {
-		l.needMark = false
+		l.markDue = false
 	}
 }
 

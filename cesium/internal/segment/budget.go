@@ -55,7 +55,7 @@ func NewBudget(limit, width int, exec func(f func())) (*Budget, error) {
 // Create creates the file name in fs, which must not exist, and returns its handle. The
 // first Sync of the handle also syncs the directory of name.
 func (b *Budget) Create(fs xfs.FS, name string) (*Handle, error) {
-	h := &Handle{b: b, fs: fs, name: name, flag: createFlag, newEntry: true}
+	h := &Handle{b: b, fs: fs, name: name, flag: createFlag, fresh: true}
 	if _, err := h.acquire(); err != nil {
 		return nil, err
 	}

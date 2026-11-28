@@ -129,7 +129,7 @@ type Frame struct {
 	// Entries holds the encoded entries. A decoded frame's Entries alias the bytes it
 	// was decoded from.
 	Entries []byte
-	// CRC is the frame's crc field. Encode sets it.
+	// CRC is the frame's crc field. Append sets it.
 	CRC uint32
 }
 

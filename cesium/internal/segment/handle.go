@@ -52,11 +52,10 @@ type Handle struct {
 	// written counts writes, and synced is written at the last sync that passed. The
 	// budget closes a file only when they are equal or the handle is failed.
 	written, synced uint64
-	// newEntry is true until a sync makes the directory entry of a created file
-	// durable.
-	newEntry bool
-	failed   error
-	closed   bool
+	// fresh is true until a sync makes the directory entry of a created file durable.
+	fresh  bool
+	failed error
+	closed bool
 	// prev and next link the handle in the idle ring of b while it is idle.
 	prev, next *Handle
 }
@@ -202,7 +201,7 @@ func (h *Handle) sync() error {
 		b.mu.Unlock()
 		return h.failed
 	}
-	file, dirty, newEntry := h.file, h.written != h.synced, h.newEntry
+	file, dirty, fresh := h.file, h.written != h.synced, h.fresh
 	if dirty {
 		h.refs++
 		h.unlink()
@@ -212,7 +211,7 @@ func (h *Handle) sync() error {
 	if dirty {
 		err = b.do(file.Sync)
 	}
-	if err == nil && newEntry {
+	if err == nil && fresh {
 		d := dir(h.name)
 		if err = b.do(func() error { return h.fs.SyncDir(d) }); err != nil {
 			err = errors.Mark(errors.Wrapf(err, "sync of directory %q", d), ErrDirSync)
@@ -224,7 +223,7 @@ func (h *Handle) sync() error {
 	if err != nil {
 		h.fail(err)
 	} else {
-		h.synced, h.newEntry = h.written, false
+		h.synced, h.fresh = h.written, false
 	}
 	if dirty {
 		h.releaseLocked(false)
