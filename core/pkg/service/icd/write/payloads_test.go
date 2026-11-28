@@ -12,6 +12,7 @@ package write_test
 import (
 	"math"
 	"time"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -140,6 +141,44 @@ var _ = Describe("Payloads", func() {
 		Expect(skips.Warning(time.Now())).To(BeNil())
 		Expect(from(d, frame.NewUnary(yKey, telem.NewSeriesV(2.0)))).
 			To(HaveExactElements(`{"x":1,"y":2}`))
+	})
+
+	It("Should build a payload once each field that its multiplexor selects has a "+
+		"command", func() {
+		byteAt := func(name string, offset uint16) icd.BinaryBaseField {
+			return icd.BinaryBaseField{
+				Key:       uuid.New(),
+				Name:      name,
+				Scale:     1,
+				StartBit:  offset * 8,
+				BitLength: 8,
+				ByteOrder: icd.ByteOrderLittleEndian,
+			}
+		}
+		mode, a, b := byteAt("mode", 0), byteAt("a", 1), byteAt("b", 2)
+		a.Multiplexor, a.MultiplexValues = new(mode.Key), []int32{0}
+		b.Multiplexor, b.MultiplexValues = new(mode.Key), []int32{1}
+		m := icd.Message{
+			Key:  uuid.New(),
+			Name: "Muxed",
+			Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: []icd.BinaryField{
+				{Variant: icd.UnsignedBinaryField{BinaryBaseField: mode}},
+				{Variant: icd.UnsignedBinaryField{BinaryBaseField: a}},
+				{Variant: icd.UnsignedBinaryField{
+					BinaryBaseField: b,
+					Default:         new(payload.Unsigned(9)),
+				}},
+			}}},
+		}
+		d := MustSucceed(write.NewPayloads(
+			writeOf(m, channelOf(mode.Key, xKey, nil), channelOf(a.Key, yKey, nil)),
+			icd.ICD{Name: "Plant", Messages: []icd.Message{m}},
+			channels,
+			"target plant/muxed",
+		))
+		Expect(from(d, frame.NewUnary(xKey, telem.NewSeriesV(0.0)))).To(BeEmpty())
+		Expect(from(d, frame.NewUnary(xKey, telem.NewSeriesV(1.0)))).
+			To(Equal([]string{"\x01\x00\x09"}))
 	})
 
 	It("Should forget every command on a reset", func() {

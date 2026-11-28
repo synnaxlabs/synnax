@@ -192,6 +192,25 @@ var _ = Describe("NewPayloads", func() {
 		),
 	)
 
+	DescribeTable("Should send a message of each format",
+		func(wm icd.WriteMessage, expected string) {
+			ic := icd.ICD{Name: "Plant", Messages: []icd.Message{counts, line}}
+			Expect(send(wm, ic, telem.NewSeriesV(20.5))).To(Equal(expected))
+		},
+		Entry("binary",
+			writeOf(
+				counts,
+				channelOf(gain.Base().Key, valueKey, nil),
+				valueOf(unit.Base().Key, icd.UnsignedWriteValue{Value: 2}),
+			),
+			"\x00\x00\xa4\x41\x02\x00",
+		),
+		Entry("text",
+			writeOf(line, channelOf(volts.Base().Key, valueKey, nil)),
+			"20.5,0",
+		),
+	)
+
 	DescribeTable("Should refuse a fixed value that its field cannot send",
 		func(v icd.JSONField, value icd.WriteValueVariant, expected string) {
 			m := jsonMessage("Fixed", temp, v)
@@ -268,10 +287,6 @@ var _ = Describe("NewPayloads", func() {
 		Entry("a message the ICD lacks",
 			icd.WriteMessage{Message: uuid.New()},
 			"does not exist in ICD Plant",
-		),
-		Entry("a message that is not JSON",
-			writeOf(binary, bind(temp)),
-			"message Frame is not a JSON message",
 		),
 		Entry("a message with no bindings",
 			writeOf(setpoint),

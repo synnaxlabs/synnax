@@ -232,6 +232,56 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		volts := uuid.New()
+		DescribeTable("Should publish a message in its format",
+			func(ctx SpecContext, p icd.Payload, expected string) {
+				ch := createVirtual(ctx, telem.Float64T)
+				m := icd.Message{Key: uuid.New(), Name: "Command", Payload: p}
+				start(ctx, writeConfig(dev, messageTarget(
+					"plant/psu/set",
+					createICD(ctx, m),
+					m,
+					map[string]any{
+						"type":    "channel",
+						"field":   volts,
+						"channel": ch.Key(),
+					},
+				)))
+				command(ctx, ch, telem.NewSeriesV(20.5), func(g Gomega) {
+					g.Expect(payloads("plant/psu/set")).To(ContainElement(expected))
+				})
+			},
+			Entry("binary",
+				icd.Payload{Variant: icd.BinaryPayload{Fields: []icd.BinaryField{
+					{
+						Variant: icd.IntegerBinaryField{
+							BinaryBaseField: icd.BinaryBaseField{
+								Key:       volts,
+								Name:      "volts",
+								Scale:     0.1,
+								BitLength: 16,
+								ByteOrder: icd.ByteOrderLittleEndian,
+							},
+						},
+					},
+				}}},
+				"\xcd\x00",
+			),
+			Entry("text",
+				icd.Payload{Variant: icd.TextPayload{
+					Delimiter: ",",
+					Fields: []icd.TextField{{Variant: icd.DelimitedTextField{
+						TextBaseField: icd.TextBaseField{
+							Key:   volts,
+							Name:  "volts",
+							Scale: 1,
+						},
+					}}},
+				}},
+				"20.5",
+			),
+		)
+
 		It("Should publish the fixed value of a binding in each payload",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.Float32T)
@@ -832,22 +882,6 @@ var _ = Describe("Write task", func() {
 							"plant/x", ic, m, channelBinding(m, 0, ch),
 						)), "target plant/x: message " + m.Key.String() +
 							" does not exist in ICD Plant"
-				},
-			),
-			Entry("a message that is not JSON",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					m := icd.Message{
-						Key:     uuid.New(),
-						Name:    "Frame",
-						Payload: icd.Payload{Variant: icd.BinaryPayload{}},
-					}
-					ch := createVirtual(ctx, telem.Float64T)
-					return writeConfig(dev, messageTarget(
-						"plant/x", createICD(ctx, m), m,
-						map[string]any{
-							"type": "channel", "field": uuid.New(), "channel": ch.Key(),
-						},
-					)), "target plant/x: message Frame is not a JSON message"
 				},
 			),
 			Entry("a message that binds no channels",

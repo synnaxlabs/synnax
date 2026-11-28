@@ -135,13 +135,13 @@ var _ = Describe("TextEncoder", func() {
 		))
 	})
 
-	It("Should report which bindings have a default", func() {
+	It("Should be ready when each field has a sample or a default", func() {
 		enc := MustSucceed(codec.NewTextEncoder(textMessage("cmd", "",
 			delimited("a", 0),
 			delimitedWith("b", 1, icd.TextBaseField{Default: new(payload.Float(1))}),
 		)))
-		Expect(enc.HasDefault(0)).To(BeFalse())
-		Expect(enc.HasDefault(1)).To(BeTrue())
+		Expect(enc.Ready([][]byte{nil, nil})).To(BeFalse())
+		Expect(enc.Ready([][]byte{float64Sample(2), nil})).To(BeTrue())
 	})
 
 	Describe("Limits", func() {

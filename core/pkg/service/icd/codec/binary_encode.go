@@ -247,7 +247,7 @@ func newBinaryEncodeField(
 	if err = icd.CheckScale(b.Scale); err != nil {
 		return binaryEncodeField{}, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	if err = CheckWrite(e.kind(), field.scaled, dt); err != nil {
+	if err = checkWrite(e.kind(), field.scaled, dt); err != nil {
 		return binaryEncodeField{}, err
 	}
 	field.kind, _ = payload.KindOf(dt)

@@ -43,6 +43,7 @@ var (
 		BinaryBaseField: icd.BinaryBaseField{
 			BaseField: icd.BaseField{Key: uuid.New(), Name: "gain", Scale: 1},
 			BitLength: 32,
+			ByteOrder: icd.ByteOrderLittleEndian,
 		},
 	}}
 	unit = icd.BinaryField{Variant: icd.UnsignedBinaryField{
@@ -50,6 +51,7 @@ var (
 			BaseField: icd.BaseField{Key: uuid.New(), Name: "unit", Scale: 1},
 			StartBit:  32,
 			BitLength: 8,
+			ByteOrder: icd.ByteOrderLittleEndian,
 		},
 		Default: new(payload.Unsigned(1)),
 	}}
@@ -58,6 +60,7 @@ var (
 			BaseField: icd.BaseField{Key: uuid.New(), Name: "stuck"},
 			StartBit:  40,
 			BitLength: 8,
+			ByteOrder: icd.ByteOrderLittleEndian,
 		},
 		Default: new(payload.Unsigned(0)),
 	}}
@@ -68,8 +71,8 @@ var (
 			Fields: []icd.BinaryField{gain, unit, stuck},
 		}},
 	}
-	volts = textField("volts", nil)
-	trim  = textField("trim", new(payload.Float(0)))
+	volts = textField("volts", 0, nil)
+	trim  = textField("trim", 1, new(payload.Float(0)))
 	line  = icd.Message{
 		Key:  uuid.New(),
 		Name: "Line",
@@ -87,6 +90,7 @@ var (
 		BinaryBaseField: icd.BinaryBaseField{
 			BaseField: icd.BaseField{Key: uuid.New(), Name: "id", Scale: 1},
 			BitLength: 8,
+			ByteOrder: icd.ByteOrderLittleEndian,
 		},
 	}}
 	selector = icd.BinaryField{Variant: icd.UnsignedBinaryField{
@@ -94,6 +98,7 @@ var (
 			BaseField: icd.BaseField{Key: uuid.New(), Name: "selector", Scale: 1},
 			StartBit:  8,
 			BitLength: 8,
+			ByteOrder: icd.ByteOrderLittleEndian,
 		},
 	}}
 	opening = icd.BinaryField{Variant: icd.UnsignedBinaryField{
@@ -101,6 +106,7 @@ var (
 			BaseField:       icd.BaseField{Key: uuid.New(), Name: "opening", Scale: 1},
 			StartBit:        16,
 			BitLength:       8,
+			ByteOrder:       icd.ByteOrderLittleEndian,
 			Multiplexor:     new(selector.Base().Key),
 			MultiplexValues: []int32{0},
 		},
@@ -112,6 +118,7 @@ var (
 			},
 			StartBit:        16,
 			BitLength:       32,
+			ByteOrder:       icd.ByteOrderLittleEndian,
 			Multiplexor:     new(selector.Base().Key),
 			MultiplexValues: []int32{1},
 		},
@@ -131,12 +138,13 @@ var (
 // unheldKey is the key of a channel that the channel lookup does not find.
 const unheldKey channel.Key = 9
 
-func textField(name string, fallback *payload.Float) icd.TextField {
+func textField(name string, position uint32, fallback *payload.Float) icd.TextField {
 	return icd.TextField{Variant: icd.DelimitedTextField{
 		TextBaseField: icd.TextBaseField{
 			BaseField: icd.BaseField{Key: uuid.New(), Name: name, Scale: 1},
 			Default:   fallback,
 		},
+		Position: position,
 	}}
 }
 
@@ -319,21 +327,25 @@ var _ = Describe("Resolver", func() {
 			),
 		)
 
-		It("Should accept framed writes of binary and text messages", func(
+		DescribeTable("Should accept writes of binary and text messages", func(
 			ctx SpecContext,
+			frame func(write.Write) write.Write,
 		) {
 			Expect(check(
 				ctx,
-				framed(writeAt(0, given.Key, writeOf(
+				frame(writeAt(0, given.Key, writeOf(
 					counts,
 					channelOf(gain.Base().Key, valueKey, nil),
 					valueOf(unit.Base().Key, icd.UnsignedWriteValue{Value: 2}),
 				))),
-				framed(writeAt(1, given.Key, writeOf(
+				frame(writeAt(1, given.Key, writeOf(
 					line, channelOf(volts.Base().Key, valueKey, nil),
 				))),
 			)).To(Succeed())
-		})
+		},
+			Entry("framed", framed),
+			Entry("not framed", func(w write.Write) write.Write { return w }),
+		)
 
 		It("Should not ask a binding of the identifier or of a field that a fixed "+
 			"multiplexor never selects", func(ctx SpecContext) {
@@ -350,19 +362,8 @@ var _ = Describe("Resolver", func() {
 			Expect(check(ctx, framed(writeAt(0, given.Key, writeOf(
 				counts, channelOf(gain.Base().Key, modeKey, new(telem.Float64T)),
 			))))).To(MatchError(
-				"targets.0.message.bindings.0: field gain: cannot write string " +
+				"targets.0.message: message Counts: field gain: cannot write string " +
 					"channels to float fields: validation error",
-			))
-		})
-
-		It("Should refuse a write of a binary message that is not framed", func(
-			ctx SpecContext,
-		) {
-			w := writeAt(0, given.Key, writeOf(
-				counts, channelOf(gain.Base().Key, valueKey, nil),
-			))
-			Expect(check(ctx, w)).To(MatchError(
-				"targets.0.message: message Counts is not a JSON message",
 			))
 		})
 
@@ -379,10 +380,10 @@ var _ = Describe("Resolver", func() {
 			))
 		})
 
-		DescribeTable("Should refuse a framed write of a binary or text message at "+
-			"the path of the problem",
+		DescribeTable("Should refuse a write of a binary or text message at the path "+
+			"of the problem",
 			func(ctx SpecContext, wm icd.WriteMessage, expected string) {
-				Expect(check(ctx, framed(writeAt(0, given.Key, wm)))).To(SatisfyAll(
+				Expect(check(ctx, writeAt(0, given.Key, wm))).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(expected),
 				))
@@ -416,7 +417,8 @@ var _ = Describe("Resolver", func() {
 			),
 			Entry("a field with no binding and no default",
 				writeOf(line, channelOf(trim.Base().Key, valueKey, nil)),
-				"targets.0.message: field volts has no binding and no default",
+				"targets.0.message: message Line: field volts: needs a channel or a "+
+					"default: validation error",
 			),
 			Entry("a channel on a field with a zero scale",
 				writeOf(
@@ -424,7 +426,8 @@ var _ = Describe("Resolver", func() {
 					channelOf(gain.Base().Key, valueKey, nil),
 					channelOf(stuck.Base().Key, valueKey, nil),
 				),
-				"targets.0.message.bindings.1: field stuck: scale must be non-zero",
+				"targets.0.message: message Counts: field stuck: scale must be "+
+					"non-zero: validation error",
 			),
 			Entry(
 				"a channel data type that cannot write its field",
@@ -432,7 +435,7 @@ var _ = Describe("Resolver", func() {
 					line,
 					channelOf(volts.Base().Key, unheldKey, new(telem.StringT)),
 				),
-				"targets.0.message.bindings.0: field volts: cannot write string "+
+				"targets.0.message: message Line: field volts: cannot write string "+
 					"channels to float fields: validation error",
 			),
 			Entry("a channel that is not a float on a scaled field",
@@ -441,8 +444,8 @@ var _ = Describe("Resolver", func() {
 					valueOf(selector.Base().Key, icd.UnsignedWriteValue{Value: 1}),
 					channelOf(rate.Base().Key, unheldKey, new(telem.Int32T)),
 				),
-				"targets.0.message.bindings.1: field rate: a scaled field requires "+
-					"a float channel, not int32: validation error",
+				"targets.0.message: message Actuator: field rate: a scaled field "+
+					"requires a float channel, not int32: validation error",
 			),
 			Entry("a value that the bits of its field cannot hold",
 				writeOf(
@@ -484,8 +487,8 @@ var _ = Describe("Resolver", func() {
 					valueOf(selector.Base().Key, icd.UnsignedWriteValue{Value: 1}),
 					channelOf(opening.Base().Key, valueKey, nil),
 				),
-				"targets.0.message.bindings.1: field opening takes a channel, but "+
-					"multiplexor selector never selects it",
+				"targets.0.message: message Actuator: field opening takes a channel, "+
+					"but multiplexor selector never selects it: validation error",
 			),
 			Entry("no binding or default for a field that a multiplexor set by a "+
 				"channel can select",
@@ -494,7 +497,8 @@ var _ = Describe("Resolver", func() {
 					channelOf(selector.Base().Key, valueKey, nil),
 					channelOf(opening.Base().Key, valueKey, nil),
 				),
-				"targets.0.message: field rate has no binding and no default",
+				"targets.0.message: message Actuator: field rate: needs a channel or "+
+					"a default: validation error",
 			),
 		)
 
@@ -532,8 +536,8 @@ var _ = Describe("Resolver", func() {
 		) {
 			key := temp.Base().Key.String()
 			Expect(check(ctx, writeAt(0, given.Key, writeOf(empty, bind(temp))))).
-				To(MatchError("targets.0.message: message Empty: field " + key +
-					" does not exist: validation error"))
+				To(MatchError("targets.0.message.bindings.0.field: field " + key +
+					" does not exist"))
 		})
 
 		It("Should look up each channel that a binding names once", func(

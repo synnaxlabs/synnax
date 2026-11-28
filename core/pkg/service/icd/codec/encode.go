@@ -277,9 +277,9 @@ func memberPointer(text string) (xjson.Pointer, error) {
 	return pointer, nil
 }
 
-// CheckWrite returns an error wrapping validate.ErrValidation when samples of dt cannot
+// checkWrite returns an error wrapping validate.ErrValidation when samples of dt cannot
 // write a field of kind k, or when the field is scaled and dt is not a float.
-func CheckWrite(k payload.Kind, scaled bool, dt telem.DataType) error {
+func checkWrite(k payload.Kind, scaled bool, dt telem.DataType) error {
 	if !writes(k, dt) {
 		return errors.Wrapf(
 			validate.ErrValidation, "cannot write %s channels to %s fields", dt, k,
@@ -331,7 +331,7 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 	if err != nil {
 		return encodeField{}, err
 	}
-	if err = CheckWrite(kind, f.scaled, dt); err != nil {
+	if err = checkWrite(kind, f.scaled, dt); err != nil {
 		return encodeField{}, err
 	}
 	bounded := b.Min != nil || b.Max != nil
@@ -567,10 +567,15 @@ func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 	return out, nil
 }
 
-// HasDefault reports whether the field of binding i has a default, which Encode writes
-// for a nil sample.
-func (e *JSONEncoder) HasDefault(i int) bool {
-	return e.slots.fields[i].fallback.defined()
+// Ready reports whether each field has a sample or a default, so Encode has a value for
+// it. samples is as in Encode.
+func (e *JSONEncoder) Ready(samples [][]byte) bool {
+	for i, s := range samples {
+		if s == nil && !e.slots.fields[i].fallback.defined() {
+			return false
+		}
+	}
+	return true
 }
 
 // Check returns the error that Encode returns when binding i holds sample, or nil when

@@ -184,8 +184,8 @@ var _ = Describe("Write config", func() {
 					"type": "channel", "field": lacked.String(), "channel": ch.Key(),
 				}
 			},
-			"endpoints.0.message: message Pair: field "+lacked.String()+
-				" does not exist: validation error",
+			"endpoints.0.message.bindings.1.field: field "+lacked.String()+
+				" does not exist",
 		),
 		Entry(
 			"a value that does not suit its field",

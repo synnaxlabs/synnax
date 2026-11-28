@@ -227,7 +227,7 @@ func newTextEncodeField(
 	if err := icd.CheckScale(b.Scale); err != nil {
 		return textEncodeField{}, errors.Wrap(validate.ErrValidation, err.Error())
 	}
-	if err := CheckWrite(payload.KindFloat, field.scaled, dt); err != nil {
+	if err := checkWrite(payload.KindFloat, field.scaled, dt); err != nil {
 		return textEncodeField{}, err
 	}
 	field.kind, _ = payload.KindOf(dt)
@@ -288,10 +288,15 @@ func (e *TextEncoder) append(dst []byte, i int, samples [][]byte) ([]byte, error
 	return appendDecimal(dst, f.fallback), nil
 }
 
-// HasDefault reports whether the field of binding i has a default, which Encode writes
-// for a nil sample.
-func (e *TextEncoder) HasDefault(i int) bool {
-	return e.fields[e.bound[i]].defaulted
+// Ready reports whether each field has a sample or a default, so Encode has a value for
+// it. samples is as in Encode.
+func (e *TextEncoder) Ready(samples [][]byte) bool {
+	for i, s := range samples {
+		if s == nil && !e.fields[e.bound[i]].defaulted {
+			return false
+		}
+	}
+	return true
 }
 
 // Check returns the error that Encode returns when binding i holds sample, or an error
