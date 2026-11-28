@@ -102,6 +102,7 @@ export type MessagesOf = (icdKey: icd.Key) => icd.Message[];
 interface MessageRead {
   /** The position of the message in the reads of the record. */
   read: number;
+  name: string;
   match?: icd.JSONMatch;
   /** The fields that the record reads in the message, by pointer. */
   fields: Map<string, icd.JSONField>;
@@ -118,13 +119,16 @@ export interface Reads {
 /** @returns what a record reads in each of its JSON messages. */
 const messageReads = (record: ReadRecord, held: icd.Message[]): MessageRead[] =>
   record.messages.flatMap(({ message, bindings }, read): MessageRead[] => {
-    const { payload } = held.find(({ key }) => key === message) ?? {};
-    if (payload?.format !== "json") return [];
+    const found = held.find(({ key }) => key === message);
+    if (found == null) return [];
+    const { name, payload } = found;
+    if (payload.format !== "json") return [];
     const bound = new Set(bindings.map(({ field }) => field));
     const fields = payload.fields.filter(({ key }) => bound.has(key));
     return [
       {
         read,
+        name,
         match: payload.match,
         fields: new Map(fields.map((f) => [f.pointer, f])),
       },
@@ -139,10 +143,14 @@ const routeOf = (shape: json.Shape, messages: MessageRead[]) =>
 const messagesOfKey = ({ messages }: Reads, key: string): MessageRead[] =>
   messages.get(key) ?? messages.get("") ?? [];
 
-/** @returns what the records of each Kafka key read. */
+/**
+ * @returns what the enabled records of each Kafka key read. The Core skips disabled
+ * records.
+ */
 export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads => {
   const reads: Reads = { messages: new Map(), jsonless: new Set() };
   for (const record of records) {
+    if (record.disabled) continue;
     const own = messageReads(record, messagesOf(record.icd));
     if (own.length === 0) reads.jsonless.add(record.recordKey);
     map.getOrInsert(reads.messages, record.recordKey, () => []).push(...own);
@@ -171,18 +179,22 @@ export const carriedFields = (
 };
 
 /**
- * @returns the pointer of the value that tells the documents of a shape apart, when the
- * fields of the shape do not tell which message of a key gets them.
+ * @returns why a pick cannot take the values of a shape: the fields of the shape do not
+ * tell which message of a key gets its documents, or the documents meet the present
+ * rules of more than one message of a key.
  */
-export const splitOf = (shape: json.Shape, reads: Reads): string | undefined =>
+export const blockOf = (
+  shape: json.Shape,
+  reads: Reads,
+): ICD.Picker.Block | undefined =>
   shape.sources
-    .map((key) => routeOf(shape, messagesOfKey(reads, key)).split)
-    .find((split) => split != null);
+    .map((key) => ICD.Picker.blockOf(routeOf(shape, messagesOfKey(reads, key))))
+    .find((block) => block != null);
 
 /** @returns whether a pick of a shape can extend each record of its keys. */
 export const isExtendable = (shape: json.Shape, reads: Reads): boolean =>
   !shape.sources.some((key) => reads.jsonless.has(key)) &&
-  splitOf(shape, reads) == null;
+  blockOf(shape, reads) == null;
 
 /**
  * @returns the pointers that every key of a shape reads in the message that the Core
@@ -448,9 +460,9 @@ export interface KindMessage {
 }
 
 /**
- * @returns the picks that the records of the task gain, in the message that the Core
- * gives the documents of each picked shape. A message gains each picked field that it
- * does not hold, once for all of its records. A record starts to read each picked
+ * @returns the picks that the enabled records of the task gain, in the message that the
+ * Core gives the documents of each picked shape. A message gains each picked field that
+ * it does not hold, once for all of its records. A record starts to read each picked
  * field that it does not read in that message. When no message of a record takes a
  * shape, the records of its ICD start to read a new message for the kind.
  * @throws if a picked shape is not extendable.
@@ -470,13 +482,13 @@ export const createExtensions = (
     const pointers = picks.get(json.shapeKey(shape));
     if (pointers == null) continue;
     for (const record of records) {
-      if (!shape.sources.includes(record.recordKey)) continue;
+      if (record.disabled || !shape.sources.includes(record.recordKey)) continue;
       const held = messagesOf(record.icd);
       const own = messageReads(record, held);
       if (own.length === 0)
         throw new Error(`Record ${record.key} reads no JSON message`);
-      const { message: routed, split } = routeOf(shape, own);
-      if (split != null)
+      const { message: routed, split, matches } = routeOf(shape, own);
+      if (split != null || matches != null)
         throw new Error(
           `Record ${record.key} has no one message for shape ${json.shapeKey(shape)}`,
         );

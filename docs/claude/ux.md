@@ -440,6 +440,10 @@ bound, a log precision, or the line plot X channel.
   Core never refuses the save, so the confirm stays enabled when the task lookup fails,
   and shows the error. A blank name reads "this message" or "this ICD". The editor
   removes a field or a message at once: that is a direct edit of the ICD.
+- In a task's ICD tree, the menu of fields says "Delete from ICD", because a field
+  belongs to the ICD, so the delete reaches every task that uses it. It asks first, with
+  the same confirm. A message or a source keeps Remove, which changes only the task.
+  Fields of several ICDs get no delete. A blank field name reads "this field".
 
 ### Pickers
 

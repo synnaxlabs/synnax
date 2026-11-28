@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"os"
 	"strconv"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	xjson "github.com/synnaxlabs/x/json"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // routeTable is testdata/routes.json, which the Console's route spec also reads.
@@ -34,12 +36,14 @@ type routeGroup struct {
 }
 
 // routeCase is a document, the pointers of the fields that inference gives it, and the
-// message that it belongs to. Unmatched is true when it belongs to no message.
+// message that it belongs to. Unmatched is true when it belongs to no message. Matches
+// names the two messages whose present rules it meets, when the Core refuses it.
 type routeCase struct {
 	Document  json.RawMessage `json:"document"`
 	Fields    []string        `json:"fields"`
 	Message   string          `json:"message"`
 	Unmatched bool            `json:"unmatched"`
+	Matches   []string        `json:"matches"`
 }
 
 var _ = Describe("Routes", func() {
@@ -61,10 +65,23 @@ var _ = Describe("Routes", func() {
 			dec := MustSucceed(codec.NewJSON(messages))
 			for k, c := range g.Cases {
 				By("case " + strconv.Itoa(k))
-				m, ok := decode(dec, c.Document, newSamples(messages))
-				Expect(ok).To(Equal(!c.Unmatched))
-				if ok {
-					Expect(messages[m].Name).To(Equal(c.Message))
+				if len(c.Matches) > 0 {
+					Expect(dec.Decode(
+						c.Document,
+						newSamples(messages),
+					)).Error().To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(
+							"document matches messages %s",
+							strings.Join(c.Matches, " and "),
+						)),
+					))
+				} else {
+					m, ok := decode(dec, c.Document, newSamples(messages))
+					Expect(ok).To(Equal(!c.Unmatched))
+					if ok {
+						Expect(messages[m].Name).To(Equal(c.Message))
+					}
 				}
 				shapes, _ := xjson.Infer(
 					[]xjson.Document{{Source: "s", Data: c.Document}},

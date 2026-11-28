@@ -52,6 +52,7 @@ import type { Integration } from "@/platform/task/integration";
 import type { PlotChannels } from "@/platform/task/plot";
 import { type Registry, RegistryProvider } from "@/platform/task/registry";
 import type { CreateParams, UseCreate } from "@/platform/task/useCreate";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -511,7 +512,7 @@ const step = async <T,>(name: string, run: () => Promise<T>): Promise<T> => {
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
  * whose single leaf holds a resource tab for the task, then mounts the form inside the
  * panel and tab scopes within the full console provider stack. The drag and drop
- * provider and a modal stack render around the panel, as in a window.
+ * provider, a resource tree, and a modal stack render around the panel, as in a window.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -547,11 +548,13 @@ const renderTaskFormTabSteps = async (
     <Analytics.Provider sink={analytics}>
       <RegistryProvider registry={DEFAULT_REGISTRY}>
         <HaulProvider>
-          <Modals.Stack />
-          <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-            <Form taskKey={taskKey} />
-            {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-          </PanelScopes>
+          <Tree.Provider items={{}}>
+            <Modals.Stack />
+            <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+              <Form taskKey={taskKey} />
+              {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+            </PanelScopes>
+          </Tree.Provider>
         </HaulProvider>
       </RegistryProvider>
     </Analytics.Provider>,
