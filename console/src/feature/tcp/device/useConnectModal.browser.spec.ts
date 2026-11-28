@@ -94,4 +94,12 @@ describe("TCP.Device.useConnectModal", () => {
     const port = screen.getByDisplayValue("0").getBoundingClientRect();
     expect(host.top < port.bottom && port.top < host.bottom).toBe(true);
   });
+
+  it("should mark the host as required and not the port, which has a value", async () => {
+    await renderModalOpener(TCP.Device.useConnectModal, [{}], { client });
+    const mark = (input: HTMLElement) =>
+      input.closest(".lyra-input__item")?.querySelector(".lyra-required-indicator");
+    expect(mark(await screen.findByPlaceholderText("192.168.1.20"))).toBeTruthy();
+    expect(mark(screen.getByDisplayValue("0"))).toBeFalsy();
+  });
 });
