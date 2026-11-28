@@ -12,6 +12,7 @@ package group
 import (
 	"context"
 	"io"
+	"maps"
 	"slices"
 	"uuid"
 
@@ -70,7 +71,9 @@ type Service struct {
 	signals io.Closer
 	table   *gorp.Table[Key, Group]
 	indexes indexes
-	state   *actions.State[Key, Action]
+	// siblings holds the index of the names of the groups of each namespaced scope.
+	siblings map[resource.Type]siblingIndex
+	state    *actions.State[Key, Action]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -79,14 +82,19 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	s := &Service{
-		cfg:     cfg,
-		indexes: newIndexes(),
-		state:   actions.NewState[Key, Action](cfg.DB),
+		cfg:      cfg,
+		indexes:  newIndexes(),
+		siblings: newSiblingIndexes(),
+		state:    actions.NewState[Key, Action](cfg.DB),
+	}
+	indexes := s.indexes.all()
+	for _, scope := range slices.Sorted(maps.Keys(s.siblings)) {
+		indexes = append(indexes, s.siblings[scope])
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
 		Name:            tableName,
-		Indexes:         s.indexes.all(),
+		Indexes:         indexes,
 		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
@@ -112,7 +120,9 @@ func (s *Service) BuiltinDeleteMigration() gorp.Migration {
 }
 
 // CreateOrRetrieve returns the top-level group of scope named name, creating it when no
-// such group exists.
+// such group exists. A name of a namespaced scope matches after NFC, and a create that
+// another holder of the name refuses returns an error that matches
+// query.ErrUniqueViolation.
 func (s *Service) CreateOrRetrieve(
 	ctx context.Context,
 	name string,
@@ -120,13 +130,8 @@ func (s *Service) CreateOrRetrieve(
 ) (Group, error) {
 	var g Group
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.NewRetrieve().
-			Where(MatchNames(name)).
-			Where(MatchScopes(scope)).
-			Where(MatchHasParent(false)).
-			Entry(&g).
-			Exec(ctx, tx)
-		if !errors.Is(err, query.ErrNotFound) {
+		found, err := s.retrieveTop(ctx, tx, name, scope, &g)
+		if err != nil || found {
 			return err
 		}
 		g = Group{Name: name, Scope: scope}
@@ -135,6 +140,31 @@ func (s *Service) CreateOrRetrieve(
 		return Group{}, err
 	}
 	return g, nil
+}
+
+// retrieveTop reads the top-level group of scope named name into g, and returns false
+// when there is none. A namespaced scope stores its names in NFC, so they match after
+// NFC.
+func (s *Service) retrieveTop(
+	ctx context.Context,
+	tx gorp.Tx,
+	name string,
+	scope resource.Type,
+	g *Group,
+) (bool, error) {
+	if isNamespaced(scope) {
+		name = validate.NormalizeName(name)
+	}
+	err := s.NewRetrieve().
+		Where(MatchNames(name)).
+		Where(MatchScopes(scope)).
+		Where(MatchHasParent(false)).
+		Entry(g).
+		Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // Changes returns the changes that c made to groups.
@@ -158,53 +188,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
-	}
-}
-
-// Ancestors returns every group above the groups with keys that is not one of them,
-// each once. The walk stops at a parent that is not a group.
-func (s *Service) Ancestors(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	keys ...Key,
-) ([]Group, error) {
-	var (
-		out     []Group
-		level   []Group
-		visited = set.New(keys...)
-	)
-	if err := s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&level).
-		Exec(ctx, snap); err != nil {
-		return nil, err
-	}
-	for {
-		var parents []Key
-		for _, g := range level {
-			if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
-				continue
-			}
-			key, err := KeyFromResourceID(*g.Parent)
-			if err != nil {
-				return nil, err
-			}
-			if !visited.Contains(key) {
-				visited.Add(key)
-				parents = append(parents, key)
-			}
-		}
-		if len(parents) == 0 {
-			return out, nil
-		}
-		level = nil
-		if err := s.NewRetrieve().
-			Where(MatchKeys(parents...)).
-			Entries(&level).
-			Exec(ctx, snap); err != nil {
-			return nil, err
-		}
-		out = append(out, level...)
 	}
 }
 
@@ -265,11 +248,14 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 			return err
 		}
 	}
+	if err := checkName(g); err != nil {
+		return err
+	}
 	if err := g.Validate(); err != nil {
 		return err
 	}
 	if err := w.table.NewCreate().Exclusive().Entry(g).Exec(ctx, w.tx); err != nil {
-		return err
+		return SiblingError(err)
 	}
 	w.dispatcher.Attach(w.tx, g.Key, NewCreateAction(CreatePayload{Group: *g}))
 	return nil
@@ -282,6 +268,7 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 // validate, or a move breaks a rule, and an error wrapping query.ErrNotFound when no
 // group has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	acts = normalizeNameActions(acts)
 	var (
 		top   *resource.ID
 		moved bool
@@ -292,6 +279,11 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			next, err := Reduce(g, acts...)
 			if err != nil {
 				return Group{}, err
+			}
+			if next.Name != g.Name {
+				if err = checkName(&next); err != nil {
+					return Group{}, err
+				}
 			}
 			if err = next.Validate(); err != nil {
 				return Group{}, err
@@ -316,7 +308,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return SiblingError(err)
 	}
 	if moved {
 		if err := w.moveMembers(ctx, []Key{key}, top); err != nil {
@@ -325,6 +317,33 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
+}
+
+// normalizeNameActions returns acts with the name of each set of the name in NFC, so
+// the write and the broadcast both carry the stored name.
+func normalizeNameActions(acts []Action) []Action {
+	var out []Action
+	for i, a := range acts {
+		if a.Set == nil || !slices.Equal(a.Set.Path, []string{"name"}) {
+			continue
+		}
+		name, ok := a.Set.Value.(string)
+		if !ok {
+			continue
+		}
+		if nfc := validate.NormalizeName(name); nfc != name {
+			if out == nil {
+				out = slices.Clone(acts)
+			}
+			p := *a.Set
+			p.Value = nfc
+			out[i].Set = &p
+		}
+	}
+	if out == nil {
+		return acts
+	}
+	return out
 }
 
 // SetParent moves the groups with keys under parent, or to the top level when parent is

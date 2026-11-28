@@ -65,6 +65,10 @@ type Channel struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Group is the group the channel sits in, if any.
 	Group *group.Key `json:"group,omitzero" msgpack:"group,omitempty"`
+	// Path is the names of the channel's folders from the top, then its name, joined by
+	// '.'. It is filled only when a retrieve request asks for it, and only when the
+	// caller can retrieve every folder on it.
+	Path *string `json:"path,omitzero" msgpack:"path,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -142,6 +146,8 @@ type RetrieveRequest struct {
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
 	// IncludeStatus includes the status of each record.
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
+	// IncludePath includes the path of each record.
+	IncludePath bool `json:"include_path" msgpack:"include_path"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

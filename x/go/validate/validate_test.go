@@ -147,6 +147,17 @@ var _ = Describe("Validate", func() {
 			Expect(errors.CheapIs(err, validate.ErrValidation)).To(BeTrue())
 		})
 
+		It("Should keep the cause of a WithCause error in its chain", func() {
+			cause := errors.New("held by entry 7")
+			err := validate.WithCause(cause, "name %q taken", "pt")
+			Expect(err).To(MatchError(`name "pt" taken`))
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(cause))
+			pathed := validate.PathedError(err, "0", "name")
+			Expect(pathed).To(MatchError(cause))
+			Expect(pathed).To(MatchError(validate.ErrValidation))
+		})
+
 		It("Should mark the Ternaryf error as a validation error", func() {
 			v.Ternaryf("field", true, "wrong: %d", 1)
 			Expect(v.Error()).To(MatchError(validate.ErrValidation))

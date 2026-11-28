@@ -10,6 +10,7 @@
 package validate
 
 import (
+	"fmt"
 	"reflect"
 	"unicode/utf8"
 
@@ -47,6 +48,23 @@ func (ruleError) Is(target error) bool { return target == ErrValidation }
 // Errorf returns a validation error whose message is the formatted text alone.
 func Errorf(format string, args ...any) error {
 	return ruleError{errors.Newf(format, args...)}
+}
+
+// causedError is an error with its own message over a cause that errors.Is and
+// errors.As reach.
+type causedError struct {
+	msg   string
+	cause error
+}
+
+func (e causedError) Error() string { return e.msg }
+
+func (e causedError) Unwrap() error { return e.cause }
+
+// WithCause returns a validation error whose message is the formatted text alone, and
+// whose chain holds cause, so errors.As finds it.
+func WithCause(cause error, format string, args ...any) error {
+	return ruleError{causedError{msg: fmt.Sprintf(format, args...), cause: cause}}
 }
 
 // Ternary adds the error with the given message to the validator if the condition is

@@ -23,14 +23,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -62,6 +65,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
+	// Status reports a channel that the service renames to keep the name of its folder.
+	//
+	// [REQUIRED]
+	Status *status.Service
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 	// CollectionInterval sets the interval at which metrics will be collected from the
@@ -90,6 +97,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -102,6 +110,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("storage", c.Storage)
 	v.Positive("collection_interval", c.CollectionInterval)
 	v.NotNil("group", c.Group)
+	v.NotNil("status", c.Status)
 	v.NotNil("db", c.DB)
 	return v.Error()
 }
@@ -124,6 +133,63 @@ const (
 	channelBufferSize                 = 10
 )
 
+// folderName is the name of the top-level channel folder that holds the metrics
+// channels.
+const folderName = "Metrics"
+
+// openFolder returns the top-level channel folder named folderName, and creates it when
+// there is none. A top-level channel that holds the name yields first (yieldName).
+func openFolder(ctx context.Context, cfg ServiceConfig) (group.Group, error) {
+	g, err := cfg.Group.CreateOrRetrieve(ctx, folderName, resource.TypeChannel)
+	if !errors.Is(err, query.ErrUniqueViolation) {
+		return g, err
+	}
+	if err = yieldName(ctx, cfg); err != nil {
+		return group.Group{}, err
+	}
+	return cfg.Group.CreateOrRetrieve(ctx, folderName, resource.TypeChannel)
+}
+
+// yieldName renames the top-level channel named folderName to the first free name of
+// the form Metrics_2, and writes a warning status that names the new name.
+func yieldName(ctx context.Context, cfg ServiceConfig) error {
+	return cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var ch channel.Channel
+		if err := cfg.Channel.NewRetrieve().
+			Where(channel.MatchPaths(folderName)).
+			Entry(&ch).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		w := cfg.Channel.NewWriter(tx)
+		for n := 2; ; n++ {
+			name := fmt.Sprintf("%s_%d", folderName, n)
+			err := w.Rename(ctx, ch.Key(), name, false)
+			if errors.Is(err, query.ErrUniqueViolation) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			s := status.Status[any]{
+				Name:    name,
+				Variant: status.VariantWarning,
+				Message: "Renamed channel",
+				Description: fmt.Sprintf(
+					"The Core renamed channel %q to %q, because its metrics folder "+
+						"keeps the top-level name %q. Update each reference to the "+
+						"old name.",
+					folderName,
+					name,
+					folderName,
+				),
+				Time: telem.Now(),
+			}
+			return cfg.Status.NewWriter(tx).Set(ctx, &s)
+		}
+	})
+}
+
 // OpenService opens a new metric.Service using the provided configuration. See the
 // ServiceConfig struct for details on the required configuration values. If OpenService
 // returns an error, the service is not safe to use. If OpenService succeeds, it must be
@@ -134,9 +200,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx, "Metrics", resource.TypeChannel,
-	); err != nil {
+	if s.group, err = openFolder(ctx, cfg); err != nil {
 		return nil, err
 	}
 	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostKey)

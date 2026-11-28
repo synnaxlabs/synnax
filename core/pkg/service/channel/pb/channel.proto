@@ -116,6 +116,18 @@ message TelemDataTypeSet {
   // in matches a value equal to an element of in.
   TelemDataTypeList in = 2;
 }
+message StringList {
+  repeated string values = 1;
+}
+
+// StringSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+message StringSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  StringList in = 2;
+}
 message GroupKeyList {
   repeated string values = 1;
 }
@@ -143,8 +155,11 @@ message Where {
   // virtual matches virtual channels that are not calculated, or every other channel
   // when false.
   optional bool virtual = 10;
+  // path matches the channels at full paths: the names of the folders from the top,
+  // then the channel's name, joined by '.'.
+  optional StringSet path = 11;
   // groups matches the channels in any of the given groups.
-  GroupKeyList groups = 11;
+  GroupKeyList groups = 12;
   // grouped matches the channels in a group, or in no group when false.
-  optional bool grouped = 12;
+  optional bool grouped = 13;
 }

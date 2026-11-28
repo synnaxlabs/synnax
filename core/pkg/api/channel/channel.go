@@ -22,10 +22,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -205,8 +207,8 @@ func (r RetrieveRequest) Named() []resource.ID {
 }
 
 // Retrieve retrieves the channels that the request selects and that the subject can
-// retrieve. A channel that the top level of Where names by exact name needs retrieve,
-// as a named key does.
+// retrieve. A channel that the top level of Where names by exact name or path needs
+// retrieve, as a named key does.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -230,7 +232,44 @@ func (s *Service) Retrieve(
 			res.Channels[i].Status = st
 		}
 	}
+	if req.IncludePath {
+		if err = fillPaths(ctx, snap, resChannels, res.Channels); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
+}
+
+// fillPaths sets the path of each of channels, the API forms of stored, when the
+// subject can retrieve every folder on it.
+func fillPaths(
+	ctx context.Context,
+	snap bind.Snapshot,
+	stored []channel.Channel,
+	channels []Channel,
+) error {
+	paths, err := channel.Paths(ctx, snap, stored)
+	if err != nil {
+		return err
+	}
+	// Each folder is checked once, though many paths pass it.
+	checked, allowed := make(set.Set[group.Key]), make(set.Set[group.Key])
+	visible := func(g group.Group) bool {
+		if !checked.Contains(g.Key) {
+			checked.Add(g.Key)
+			if snap.Allowed(g.ResourceID()) {
+				allowed.Add(g.Key)
+			}
+		}
+		return allowed.Contains(g.Key)
+	}
+	text := channel.PathTexts(paths)
+	for i, p := range paths {
+		if lo.EveryBy(p.Folders, visible) {
+			channels[i].Path = &text[i]
+		}
+	}
+	return nil
 }
 
 func (s *Service) retrieve(
@@ -243,11 +282,14 @@ func (s *Service) retrieve(
 		where := channel.NormalizeWhere(*req.Where)
 		req.Where = &where
 	}
-	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res))
+	q, err := ApplyRetrieve(
+		req,
+		s.internal.NewRetrieve().AllowFolders(snap.Allowed).Entries(&res),
+	)
 	if err != nil {
 		return nil, err
 	}
-	named := namesByName(req.Where)
+	named := namedExactly(req.Where)
 	if !named {
 		q = q.Where(bind.Filter(snap, channel.Match))
 	}
@@ -262,11 +304,15 @@ func (s *Service) retrieve(
 	return res, nil
 }
 
-// namesByName reports whether the top level of where names channels by exact name.
-// Clients name channels by name as they do by key, so each match needs retrieve.
-func namesByName(where *channel.Where) bool {
-	return where != nil && where.Name != nil &&
-		(where.Name.Eq != nil || len(where.Name.In) > 0)
+// namedExactly reports whether the top level of where names channels by exact name or
+// path. Clients name channels by name or path as they do by key, so each match needs
+// retrieve.
+func namedExactly(where *channel.Where) bool {
+	if where == nil {
+		return false
+	}
+	return where.Name != nil && (where.Name.Eq != nil || len(where.Name.In) > 0) ||
+		where.Path != nil && (where.Path.Eq != nil || len(where.Path.In) > 0)
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {

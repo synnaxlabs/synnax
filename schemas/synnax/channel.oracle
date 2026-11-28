@@ -161,10 +161,11 @@ Channel struct {
         """
     }
     group       group.Key?          {
-        @doc value     "is the group the channel sits in, if any."
-        @group scope   channel
-        @ref kind      place
-        @ref on_delete detach
+        @doc value        "is the group the channel sits in, if any."
+        @group namespaced
+        @group scope      channel
+        @ref kind         place
+        @ref on_delete    detach
     }
 
     action Create {
@@ -194,19 +195,19 @@ Channel struct {
     }
 
     @cpp hand
-    @doc value     """
+    @doc value       """
         is an internal representation of a channel containing all storage and
         cluster-routing metadata. This type is used internally by the server; clients
         should use APIChannel instead.
     """
     @go marshal
     @go migrate
-    @go output     "core/pkg/service/channel"
+    @go output       "core/pkg/service/channel"
     @pb
     @py hand
-    @resource type "channel"
-    @retrieve
-    @retrieve key  "Key"
+    @resource type   "channel"
+    @retrieve custom
+    @retrieve key    "Key"
     @ts hand
 }
 
@@ -287,6 +288,14 @@ APIChannel struct {
         @cpp omit
         @doc value "is the group the channel sits in, if any."
     }
+    path        string?             {
+        @doc value """
+            is the names of the channel's folders from the top, then its name, joined by
+            '.'. It is filled only when a retrieve request asks for it, and only when
+            the caller can retrieve every folder on it.
+        """
+        @include
+    }
 
     @cpp name      "Channel"
     @create
@@ -324,17 +333,24 @@ Where filter Channel {
     data_type
     is_index
     internal
-    virtual     bool        {
+    virtual     bool               {
         @doc value """
             matches virtual channels that are not calculated, or every other channel
             when false.
         """
     }
-    groups      group.Key[] {
+    path        filter.Set<string> {
+        @doc value """
+            matches the channels at full paths: the names of the folders from the top,
+            then the channel's name, joined by '.'.
+        """
+        @go match  "MatchPaths"
+    }
+    groups      group.Key[]        {
         @cpp omit
         @doc value "matches the channels in any of the given groups."
     }
-    grouped     bool        {
+    grouped     bool               {
         @cpp omit
         @doc value "matches the channels in a group, or in no group when false."
     }

@@ -138,13 +138,18 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err = next.Validate(); err != nil {
 		return nil, err
 	}
-	if next.Name != prev.Name {
-		if err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
-			return nil, err
+	renamed := next.Name != prev.Name
+	if renamed {
+		if err = w.checkRename(prev, next.Name, false); err != nil {
+			return nil, validate.PathedError(err, "0")
 		}
 	}
+	// One write of the name and the group checks the name in the new group.
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return nil, err
+		return nil, nameTaken(err, []string{next.Name}, nil)
+	}
+	if renamed {
+		w.stageRenames(Keys{key}, []string{next.Name})
 	}
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
@@ -403,10 +408,17 @@ func (w Writer) create(
 	// brand-new calculated channels and existing ones missing an index). Synthesis
 	// runs before the overwrite step so the auto-created index names flow through the
 	// same name-collision machinery as caller-provided channels.
-	indexChannels, calcNeedingIndex, err := synthesizeIndexes(channels)
+	indexChannels, calcNeedingIndex, owners, err := synthesizeIndexes(channels)
 	if err != nil {
 		return err
 	}
+	// An error names a position in the request, so an index channel takes the position
+	// of its calculated channel.
+	requested := make([]int, len(channels), len(channels)+len(owners))
+	for i := range requested {
+		requested[i] = i
+	}
+	requested = append(requested, owners...)
 	regroup, err := w.adoptIndexes(ctx, indexChannels, opts)
 	if err != nil {
 		return err
@@ -417,7 +429,7 @@ func (w Writer) create(
 			return err
 		}
 	}
-	written, err := w.allocateNew(ctx, channels)
+	written, err := w.allocateNew(ctx, channels, requested)
 	if err != nil {
 		return err
 	}
@@ -428,11 +440,23 @@ func (w Writer) create(
 	written = append(written, linked...)
 	for idx, g := range regroup {
 		if err = w.SetGroup(ctx, g, indexChannels[idx].Key()); err != nil {
-			return err
+			return atOwner(err, owners[idx])
 		}
 	}
 	*_channels = channels
 	return w.attachCreates(ctx, lo.Uniq(written))
+}
+
+// atOwner returns err, the error of a move of one adopted index, with the position that
+// starts its path set to owner: the position in the request of the calculated channel
+// that adopts the index.
+func atOwner(err error, owner int) error {
+	pe, ok := errors.AsType[validate.PathError](err)
+	if !ok || len(pe.Path) == 0 {
+		return err
+	}
+	path := append([]string{strconv.Itoa(owner)}, pe.Path[1:]...)
+	return validate.PathedError(pe.Err, path...)
 }
 
 // validateCreate validates each channel and its group. checkCreatedNames checks the
@@ -588,11 +612,13 @@ func (w Writer) resetStoredNames(
 	return reset, nil
 }
 
-// synthesizeIndexes returns a new index channel for each calculated channel without
-// an index, and the positions in channels of the calculated channels that need one.
-func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
+// synthesizeIndexes returns a new index channel for each calculated channel without an
+// index, the positions in channels of the calculated channels that need one, and the
+// position of the calculated channel of each new index channel.
+func synthesizeIndexes(channels []Channel) ([]Channel, []int, []int, error) {
 	indexChannels := make([]Channel, 0, len(channels))
 	calcNeedingIndex := make([]int, 0)
+	var owners []int
 	batchPositionByName := make(map[string]int, len(channels))
 	for i, ch := range channels {
 		batchPositionByName[ch.Name] = i
@@ -608,7 +634,7 @@ func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
 			// persisted index would graft its LocalKey into the calculated channel's
 			// free keyspace, producing an index key that resolves to the wrong channel.
 			if !isFreeIndex(channels[bi]) {
-				return nil, nil, errors.Wrapf(
+				return nil, nil, nil, errors.Wrapf(
 					validate.ErrValidation,
 					"channel %q in the same request cannot serve as the index for calculated channel %q",
 					indexName,
@@ -628,8 +654,9 @@ func synthesizeIndexes(channels []Channel) ([]Channel, []int, error) {
 			Group:       ch.Group,
 		})
 		calcNeedingIndex = append(calcNeedingIndex, i)
+		owners = append(owners, i)
 	}
-	return indexChannels, calcNeedingIndex, nil
+	return indexChannels, calcNeedingIndex, owners, nil
 }
 
 // isFreeIndex reports whether ch can serve as the index of a calculated channel.
@@ -735,8 +762,13 @@ func (w Writer) overwriteDiffering(ctx context.Context, channels []Channel) erro
 }
 
 // allocateNew allocates local keys for the channels without one through the
-// distribution allocator, writes them, and returns their keys.
-func (w Writer) allocateNew(ctx context.Context, channels []Channel) (Keys, error) {
+// distribution allocator, writes them, and returns their keys. An error names the
+// position in requested of the channel that a name index refuses.
+func (w Writer) allocateNew(
+	ctx context.Context,
+	channels []Channel,
+	requested []int,
+) (Keys, error) {
 	newIndices := make([]int, 0, len(channels))
 	minimal := make([]channel.Channel, 0, len(channels))
 	for i, ch := range channels {
@@ -745,7 +777,13 @@ func (w Writer) allocateNew(ctx context.Context, channels []Channel) (Keys, erro
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
-	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal); err != nil {
+	if err := w.allocateAndWrite(
+		ctx,
+		channels,
+		requested,
+		newIndices,
+		minimal,
+	); err != nil {
 		return nil, err
 	}
 	written := make(Keys, 0, len(newIndices))
@@ -844,14 +882,16 @@ func (w Writer) attachCreates(ctx context.Context, keys Keys) error {
 
 // allocateAndWrite enforces the channel limit, then allocates keys for the new channels
 // and writes them to the table. When the transaction commits, it creates their storage
-// channels and records them in the external non-virtual set.
+// channels and records them in the external non-virtual set. An error names the
+// position in requested of the channel that a name index refuses.
 func (w Writer) allocateAndWrite(
 	ctx context.Context,
 	channels []Channel,
+	requested []int,
 	newIndices []int,
 	minimal []channel.Channel,
 ) error {
-	if err := w.refuseTakenNames(ctx, channels, newIndices); err != nil {
+	if err := w.refuseTakenNames(ctx, channels, requested, newIndices); err != nil {
 		return err
 	}
 	if err := w.checkLimit(channels, newIndices); err != nil {
@@ -887,7 +927,7 @@ func (w Writer) allocateAndWrite(
 		Exec(ctx, w.tx); err != nil {
 		// A request repeats no name (validateRepeatedNames), so the name of a clash
 		// sits at one position.
-		return nameTaken(err, Names(channels))
+		return nameTaken(err, Names(channels), requested)
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
 		stored := channel.ToStorage(allocated)
@@ -903,11 +943,13 @@ func (w Writer) allocateAndWrite(
 }
 
 // refuseTakenNames refuses a channel at newIndices in channels whose name another
-// channel holds, before any key is allocated, so that the create uses no key. The name
-// index stays the rule for every write path.
+// channel holds, before any key is allocated, so that the create uses no key. It
+// returns the error that the name index returns at commit, which stays the rule for
+// every write path.
 func (w Writer) refuseTakenNames(
 	ctx context.Context,
 	channels []Channel,
+	requested []int,
 	newIndices []int,
 ) error {
 	if len(newIndices) == 0 {
@@ -924,10 +966,17 @@ func (w Writer) refuseTakenNames(
 		Exec(ctx, w.tx); err != nil || len(holders) == 0 {
 		return err
 	}
-	taken := set.New(Names(holders)...)
+	taken := make(map[string]Key, len(holders))
+	for _, h := range holders {
+		taken[validate.NormalizeName(h.Name)] = h.Key()
+	}
 	for _, i := range newIndices {
-		if taken.Contains(channels[i].Name) {
-			return nameExists(channels[i].Name, i)
+		if k, ok := taken[channels[i].Name]; ok {
+			return nameTaken(gorp.UniqueError{
+				Space:  nameSpace,
+				Holder: gorp.NewTarget(tableName, k),
+				Value:  channels[i].Name,
+			}, Names(channels), requested)
 		}
 	}
 	return nil
@@ -1028,20 +1077,39 @@ func validateRepeatedNames(names []string) error {
 	return nil
 }
 
-// nameTaken returns err as a validation error at the position in names of the name
-// that clashes when err is a clash of the name index, and returns err unchanged
-// otherwise.
-func nameTaken(err error, names []string) error {
+// nameTaken returns err as a validation error at the request position of the name that
+// clashes when err is a clash of the name index or of sibling names, and returns err
+// unchanged otherwise. requested holds the request position of each name in names, or
+// is nil when they match. The UniqueError of the clash stays in the chain of the error.
+func nameTaken(err error, names []string, requested []int) error {
 	var clash gorp.UniqueError
-	if !errors.As(err, &clash) || clash.Space != nameSpace {
+	if !errors.As(err, &clash) {
 		return err
 	}
-	name, _ := clash.Value.(string)
+	var name string
+	switch v := clash.Value.(type) {
+	case string:
+		name = v
+	case group.Sibling:
+		name = v.Name
+	default:
+		return err
+	}
 	i := slices.Index(names, name)
 	if i < 0 {
 		return err
 	}
-	return nameExists(name, i)
+	if requested != nil {
+		i = requested[i]
+	}
+	at := strconv.Itoa(i)
+	if clash.Space != nameSpace {
+		return validate.PathedError(group.SiblingError(err), at)
+	}
+	return validate.PathedError(
+		validate.WithCause(err, "channel with name '%v' already exists", name),
+		at, "name",
+	)
 }
 
 // nameExists returns the validation error of a request that gives the channel at
@@ -1112,22 +1180,10 @@ func (w Writer) rename(
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			if c.Internal && !allowInternal {
-				return Channel{},
-					errors.Wrapf(
-						validate.ErrValidation,
-						"cannot rename internal channel %v",
-						c,
-					)
-			}
-			// A stored name that the rule refuses stays writable while a rename keeps
-			// it, in any normal form.
 			i := at[c.Key()]
 			next := names[i]
-			if next != validate.NormalizeName(c.Name) {
-				if err := checkNameRule(next, *w.svc.cfg.ValidateNames); err != nil {
-					return Channel{}, validate.PathedError(err, strconv.Itoa(i), "name")
-				}
+			if err := w.checkRename(c, next, allowInternal); err != nil {
+				return Channel{}, validate.PathedError(err, strconv.Itoa(i))
 			}
 			c.Name = next
 			if err := c.Validate(); err != nil {
@@ -1136,8 +1192,32 @@ func (w Writer) rename(
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return nameTaken(err, names)
+		return nameTaken(err, names, nil)
 	}
+	w.stageRenames(keys, names)
+	return nil
+}
+
+// checkRename returns a validation error when c cannot take the name next. A stored
+// name that the rule refuses stays writable while a rename keeps it, in any normal
+// form.
+func (w Writer) checkRename(c Channel, next string, allowInternal bool) error {
+	if c.Internal && !allowInternal {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"cannot rename internal channel %v",
+			c,
+		)
+	}
+	if next == validate.NormalizeName(c.Name) {
+		return nil
+	}
+	return validate.PathedError(checkNameRule(next, *w.svc.cfg.ValidateNames), "name")
+}
+
+// stageRenames records that the channels with keys take names in storage when the
+// transaction of w commits.
+func (w Writer) stageRenames(keys Keys, names []string) {
 	for i, key := range keys {
 		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
 	}
@@ -1147,7 +1227,6 @@ func (w Writer) rename(
 			return w.renameStored(ctx, count)
 		})
 	}
-	return nil
 }
 
 // checkChainedRenames refuses a rename of a channel to the name that another channel of

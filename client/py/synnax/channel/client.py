@@ -75,6 +75,7 @@ class Channel(Payload):
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
         group: group_.Key | None = None,
+        path: str | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -101,6 +102,8 @@ class Channel(Payload):
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
         :param group: The group the channel sits in, if any.
+        :param path: The names of the channel's folders from the top, then its name,
+            joined by '.', set only when a retrieve asks for it.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -124,6 +127,7 @@ class Channel(Payload):
             concurrency=concurrency,
             status=status,
             group=group,
+            path=path,
         )
         self._cached_frame_client = _frame_client
         self._client = _client
@@ -380,6 +384,7 @@ class Client:
         node_key: node.Key | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
+        include_path: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
 
@@ -402,6 +407,7 @@ class Client:
         where: Where | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
+        include_path: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
 
@@ -424,6 +430,7 @@ class Client:
         where: Where | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
+        include_path: bool = ...,
         one: bool = ...,
     ) -> Channel: ...
 
@@ -450,6 +457,7 @@ class Client:
         node_key: node.Key | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
+        include_path: bool = ...,
         one: Literal[True],
     ) -> Channel: ...
 
@@ -479,6 +487,7 @@ class Client:
         order: Order | None = ...,
         after: Cursor | None = ...,
         include_status: bool = ...,
+        include_path: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Channel]: ...
 
@@ -495,6 +504,7 @@ class Client:
         order: Order | None = None,
         after: Cursor | None = None,
         include_status: bool = False,
+        include_path: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Channel | list[Channel]:
@@ -534,6 +544,8 @@ class Client:
             the last channel of the page before, and its value of the order field.
         :param include_status: Attaches each channel's status. A channel with no
             status gets None.
+        :param include_path: Attaches each channel's path. A channel gets None when the
+            subject cannot retrieve every folder on its path.
         :param one: Returns one channel for any filter.
         :returns: One channel when one is wanted, otherwise a list of channels. The
             list leaves out keys that do not exist.
@@ -575,6 +587,7 @@ class Client:
             order=order,
             after=after,
             include_status=include_status,
+            include_path=include_path,
         )
         res = self._retriever.filter(req)
         sug = self._sugar(res)

@@ -63,6 +63,10 @@ message Channel {
   optional .service.status.pb.Status status = 12;
   // group is the group the channel sits in, if any.
   optional string group = 13;
+  // path is the names of the channel's folders from the top, then its name, joined by
+  // '.'. It is filled only when a retrieve request asks for it, and only when the
+  // caller can retrieve every folder on it.
+  optional string path = 14;
 }
 
 // Cursor is a position in an order of channels: the sort value and the key of a
@@ -96,6 +100,8 @@ message RetrieveRequest {
   optional uint32 limit = 5;
   // include_status includes the status of each record.
   bool include_status = 6;
+  // include_path includes the path of each record.
+  bool include_path = 7;
 }
 
 // RetrieveResponse holds the channels a RetrieveRequest selects.

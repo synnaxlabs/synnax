@@ -91,6 +91,8 @@ class Where(BaseModel):
         internal: Selects by internal.
         virtual: Matches virtual channels that are not calculated, or every other
             channel when false.
+        path: Matches the channels at full paths: the names of the folders from the top,
+            then the channel's name, joined by '.'.
         groups: Matches the channels in any of the given groups.
         grouped: Matches the channels in a group, or in no group when false.
     """
@@ -107,6 +109,7 @@ class Where(BaseModel):
     is_index: filter.Bool | None = None
     internal: filter.Bool | None = None
     virtual: bool | None = None
+    path: filter.Set[str] | None = None
     groups: list[group_.Key] | None = None
     grouped: bool | None = None
 
@@ -131,6 +134,7 @@ WhereInput = TypedDict(
         "is_index": filter.BoolInput,
         "internal": filter.BoolInput,
         "virtual": bool,
+        "path": filter.Set[str],
         "groups": group_.Key | list[group_.Key],
         "grouped": bool,
     },
@@ -191,6 +195,9 @@ class Payload(BaseModel):
             virtual channels can have a policy of shared concurrency.
         status: Is the current operational status of the channel.
         group: Is the group the channel sits in, if any.
+        path: Is the names of the channel's folders from the top, then its name, joined
+            by '.'. It is filled only when a retrieve request asks for it, and only when
+            the caller can retrieve every folder on it.
     """
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
@@ -206,6 +213,7 @@ class Payload(BaseModel):
     concurrency: control.Concurrency = control.Concurrency.exclusive
     status: Status | None = None
     group: group_.Key | None = None
+    path: str | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -222,6 +230,7 @@ class RetrieveRequest(BaseModel):
         after: Starts the channels strictly past this position in their order.
         limit: Is the most channels to return.
         include_status: Includes the status of each record.
+        include_path: Includes the path of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -232,6 +241,7 @@ class RetrieveRequest(BaseModel):
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
+    include_path: bool = False
 
 
 class RetrieveResponse(BaseModel):
