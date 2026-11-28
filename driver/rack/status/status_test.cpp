@@ -601,7 +601,9 @@ TEST(stateTests, ProblemReplacesHealthyStatus) {
         .variant = synnax::status::VARIANT_WARNING,
         .message = "API key expires soon",
     };
-    const auto health = with_problem(Health{}, [&] { return problem; });
+    const auto health = with_problem(Health{}, [&] {
+        return std::optional<Health>(problem);
+    });
     EXPECT_EQ(health.variant, problem.variant);
     EXPECT_EQ(health.message, problem.message);
 }

@@ -100,7 +100,7 @@ class Renewer {
 public:
     /// @brief starts the renewer. save is null when the Driver did not load its key
     /// from its persisted state.
-    Renewer(Config cfg, std::shared_ptr<synnax::Synnax> client, Save save);
+    Renewer(const Config &cfg, std::shared_ptr<synnax::Synnax> client, Save save);
 
     ~Renewer();
 

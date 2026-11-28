@@ -104,7 +104,7 @@ TEST(ArgsTest, RejectsBadKeyRenewal) {
          }) {
         x::errors::Error err;
         load(flags, err);
-        EXPECT_TRUE(err) << flags[0];
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     }
 }
 }

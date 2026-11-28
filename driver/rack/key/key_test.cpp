@@ -162,7 +162,10 @@ TEST(KeyRenewerTest, WarnsWhenItCannotSave) {
         std::chrono::seconds(3),
         std::chrono::milliseconds(20)
     );
-    ASSERT_EQ(renewer.health()->variant, synnax::status::VARIANT_WARNING);
+    ASSERT_EQ(
+        renewer.health().value_or(status::Health{}).variant,
+        synnax::status::VARIANT_WARNING
+    );
     ASSERT_EQ(client->auth->current_session().credential, credential);
 }
 

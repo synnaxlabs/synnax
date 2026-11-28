@@ -30,8 +30,8 @@ std::string expiry_text(const synnax::auth::apikey::APIKey &key) {
 }
 }
 
-Renewer::Renewer(Config cfg, std::shared_ptr<synnax::Synnax> client, Save save):
-    cfg(std::move(cfg)),
+Renewer::Renewer(const Config &cfg, std::shared_ptr<synnax::Synnax> client, Save save):
+    cfg(cfg),
     client(std::move(client)),
     save(std::move(save)),
     breaker(x::breaker::Config{.name = "api_key"}) {
