@@ -387,47 +387,47 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// errTxEnded is the error of a read, a write, or a commit through a transaction that
-// has ended: its Commit returned, or its Close ran.
-var errTxEnded = errors.New("[gorp] - the transaction has ended")
+// ErrTxEnded is returned by a read, a write, or a commit through a transaction that has
+// ended: its Commit returned, or its Close ran.
+var ErrTxEnded = errors.New("[gorp] - the transaction has ended")
 
-// checkOpen returns errTxEnded when snap is a transaction that has ended.
+// checkOpen returns ErrTxEnded when snap is a transaction that has ended.
 func checkOpen(snap Snapshot) error {
 	if s := scopeOf(snap); s != nil && s.ended.Load() {
-		return errTxEnded
+		return ErrTxEnded
 	}
 	return nil
 }
 
-// Get implements kv.Reader. It fails with errTxEnded once the transaction ends.
+// Get implements kv.Reader. It fails with ErrTxEnded once the transaction ends.
 func (t *tx) Get(key []byte, opts ...any) ([]byte, io.Closer, error) {
 	if t.state.ended.Load() {
-		return nil, nil, errTxEnded
+		return nil, nil, ErrTxEnded
 	}
 	return t.Tx.Get(key, opts...)
 }
 
-// OpenIterator implements kv.Reader. It fails with errTxEnded once the transaction
+// OpenIterator implements kv.Reader. It fails with ErrTxEnded once the transaction
 // ends.
 func (t *tx) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	if t.state.ended.Load() {
-		return nil, errTxEnded
+		return nil, ErrTxEnded
 	}
 	return t.Tx.OpenIterator(opts)
 }
 
-// Set implements kv.Writer. It fails with errTxEnded once the transaction ends.
+// Set implements kv.Writer. It fails with ErrTxEnded once the transaction ends.
 func (t *tx) Set(ctx context.Context, key, value []byte) error {
 	if t.state.ended.Load() {
-		return errTxEnded
+		return ErrTxEnded
 	}
 	return t.Tx.Set(ctx, key, value)
 }
 
-// Delete implements kv.Writer. It fails with errTxEnded once the transaction ends.
+// Delete implements kv.Writer. It fails with ErrTxEnded once the transaction ends.
 func (t *tx) Delete(ctx context.Context, key []byte) error {
 	if t.state.ended.Load() {
-		return errTxEnded
+		return ErrTxEnded
 	}
 	return t.Tx.Delete(ctx, key)
 }
@@ -441,7 +441,7 @@ func (t *tx) Delete(ctx context.Context, key []byte) error {
 // the transaction ends.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	if t.state.ended.Load() {
-		return errTxEnded
+		return ErrTxEnded
 	}
 	for _, work := range t.state.beforeCommit {
 		if err := work(ctx); err != nil {

@@ -20,9 +20,6 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-// txEnded is the error of a use of a transaction that has ended.
-const txEnded = "[gorp] - the transaction has ended"
-
 var _ = Describe("An ended transaction", func() {
 	var (
 		db     *gorp.DB
@@ -61,6 +58,7 @@ var _ = Describe("An ended transaction", func() {
 	})
 
 	failCommit := func(ctx context.Context) gorp.Tx {
+		GinkgoHelper()
 		tx := db.OpenTx()
 		Expect(items.NewCreate().Entry(&txItem{Key: 9, Name: "z"}).Exec(ctx, tx)).
 			To(Succeed())
@@ -70,6 +68,7 @@ var _ = Describe("An ended transaction", func() {
 	}
 
 	commit := func(ctx context.Context) gorp.Tx {
+		GinkgoHelper()
 		tx := db.OpenTx()
 		Expect(items.NewCreate().Entry(&txItem{Key: 9, Name: "z"}).Exec(ctx, tx)).
 			To(Succeed())
@@ -78,6 +77,7 @@ var _ = Describe("An ended transaction", func() {
 	}
 
 	closeTx := func(context.Context) gorp.Tx {
+		GinkgoHelper()
 		tx := db.OpenTx()
 		Expect(tx.Close()).To(Succeed())
 		return tx
@@ -89,7 +89,7 @@ var _ = Describe("An ended transaction", func() {
 				tx := end(ctx)
 				Expect(items.NewCreate().
 					Entry(&txItem{Key: 2, Name: "b", Labels: []string{"l"}}).
-					Exec(ctx, tx)).To(MatchError(txEnded))
+					Exec(ctx, tx)).To(MatchError(gorp.ErrTxEnded))
 				Expect(lookup.Get(ctx, db, "b")).To(BeEmpty())
 			})
 
@@ -97,7 +97,7 @@ var _ = Describe("An ended transaction", func() {
 				tx := end(ctx)
 				Expect(labels.NewDelete().
 					Where(gorp.MatchKeys[string, txLabel]("l")).
-					Exec(ctx, tx)).To(MatchError(txEnded))
+					Exec(ctx, tx)).To(MatchError(gorp.ErrTxEnded))
 				Expect(labels.NewRetrieve().
 					Where(gorp.MatchKeys[string, txLabel]("l")).
 					Exists(ctx, db)).To(BeTrue())
@@ -109,7 +109,7 @@ var _ = Describe("An ended transaction", func() {
 				Expect(items.NewRetrieve().
 					Where(gorp.MatchKeys[int32, txItem](1)).
 					Entries(&got).
-					Exec(ctx, tx)).To(MatchError(txEnded))
+					Exec(ctx, tx)).To(MatchError(gorp.ErrTxEnded))
 			})
 
 			It("Should refuse a read through an index filter", func(ctx SpecContext) {
@@ -118,17 +118,17 @@ var _ = Describe("An ended transaction", func() {
 				Expect(items.NewRetrieve().
 					Where(lookup.Filter("a")).
 					Entries(&got).
-					Exec(ctx, tx)).To(MatchError(txEnded))
+					Exec(ctx, tx)).To(MatchError(gorp.ErrTxEnded))
 			})
 
 			It("Should refuse a read of the index", func(ctx SpecContext) {
 				tx := end(ctx)
-				Expect(lookup.Get(ctx, tx, "a")).Error().To(MatchError(txEnded))
+				Expect(lookup.Get(ctx, tx, "a")).Error().To(MatchError(gorp.ErrTxEnded))
 			})
 
 			It("Should refuse a commit", func(ctx SpecContext) {
 				tx := end(ctx)
-				Expect(tx.Commit(ctx)).To(MatchError(txEnded))
+				Expect(tx.Commit(ctx)).To(MatchError(gorp.ErrTxEnded))
 			})
 
 			It("Should let Close pass and do nothing", func(ctx SpecContext) {
@@ -155,8 +155,8 @@ var _ = Describe("An ended transaction", func() {
 					Entry(&txItem{Key: 3, Name: "c"}).
 					Exec(ctx, dead)
 			}).NotTo(Panic())
-			Expect(deadErr).To(MatchError(txEnded))
-			Expect(lookup.Get(ctx, dead, "b")).Error().To(MatchError(txEnded))
+			Expect(deadErr).To(MatchError(gorp.ErrTxEnded))
+			Expect(lookup.Get(ctx, dead, "b")).Error().To(MatchError(gorp.ErrTxEnded))
 			Expect(live.Commit(ctx)).To(Succeed())
 			Expect(lookup.Get(ctx, db, "b")).To(ConsistOf(int32(2)))
 			Expect(lookup.Get(ctx, db, "c")).To(BeEmpty())
