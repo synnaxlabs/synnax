@@ -184,7 +184,7 @@ class HTTPClient(MiddlewareCollector):
         zero-byte file, so dest is left untouched in that case too.
         """
         with self.stream(target, req, accept=_file_content_type(dest)) as body:
-            stream_to_file(body, dest, allow_empty=False)
+            stream_to_file(body, dest, empty_rejected=True)
 
     @contextmanager
     def stream(

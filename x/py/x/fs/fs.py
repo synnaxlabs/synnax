@@ -16,6 +16,8 @@ import stat
 from collections.abc import Iterable
 from typing import TypeAlias
 
+from x.params import deprecate_negated
+
 FilePath: TypeAlias = str | os.PathLike[str]
 """A filesystem path.
 
@@ -23,8 +25,9 @@ Equivalent to ``str | os.PathLike[str]`` — the same shape ``open()`` accepts f
 """
 
 
+@deprecate_negated(allow_empty="empty_rejected")
 def stream_to_file(
-    chunks: Iterable[bytes], dest: FilePath, *, allow_empty: bool = True
+    chunks: Iterable[bytes], dest: FilePath, *, empty_rejected: bool = False
 ) -> None:
     """Writes a stream of byte chunks into dest atomically.
 
@@ -38,10 +41,10 @@ def stream_to_file(
 
     :param chunks: an iterable of byte chunks to write in order.
     :param dest: the destination file path.
-    :param allow_empty: when False, a stream that yields no bytes raises ValueError and
-        leaves any existing dest untouched, instead of replacing it with a zero-byte
-        file. Defaults to True.
-    :raises ValueError: if the stream is empty and allow_empty is False.
+    :param empty_rejected: when True, a stream that yields no bytes raises ValueError
+        and leaves any existing dest untouched, instead of replacing it with a zero-byte
+        file. The deprecated allow_empty keyword is the opposite of this one.
+    :raises ValueError: if the stream is empty and empty_rejected is True.
     """
     dest_path = pathlib.Path(os.fspath(dest))
     try:
@@ -61,7 +64,7 @@ def stream_to_file(
                 written += len(chunk)
             out.flush()
             os.fsync(out.fileno())
-        if not allow_empty and written == 0:
+        if empty_rejected and written == 0:
             raise ValueError(
                 f"refusing to write an empty stream to {os.fspath(dest)!r}"
             )

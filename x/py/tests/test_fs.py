@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from x.fs import stream_to_file
+from x.testutil import untyped
 
 
 @pytest.fixture
@@ -45,7 +46,7 @@ class TestStreamToFile:
         assert dest.read_bytes() == b'{"new": true}'
 
     def test_empty_stream_allowed_by_default(self, tmp_path: Path) -> None:
-        """An empty stream writes a zero-byte file when allow_empty is left at
+        """An empty stream writes a zero-byte file when empty_rejected is left at
         default."""
         dest = tmp_path / "out.json"
         stream_to_file([], dest)
@@ -53,12 +54,29 @@ class TestStreamToFile:
         assert list(tmp_path.glob("*.part")) == []
 
     def test_empty_stream_rejected_when_disallowed(self, tmp_path: Path) -> None:
-        """An empty stream raises and writes nothing when allow_empty is False."""
+        """An empty stream raises and writes nothing when empty_rejected is True."""
         dest = tmp_path / "out.json"
         with pytest.raises(ValueError, match="empty stream"):
-            stream_to_file([], dest, allow_empty=False)
+            stream_to_file([], dest, empty_rejected=True)
         assert not dest.exists()
         assert list(tmp_path.glob("*.part")) == []
+
+    def test_allow_empty_maps_and_warns(self, tmp_path: Path) -> None:
+        """Should treat the deprecated allow_empty=False as empty_rejected=True."""
+        dest = tmp_path / "out.json"
+        with (
+            pytest.warns(DeprecationWarning, match="empty_rejected=True"),
+            pytest.raises(ValueError, match="empty stream"),
+        ):
+            untyped(stream_to_file)([], dest, allow_empty=False)
+        assert not dest.exists()
+
+    def test_allow_empty_and_empty_rejected_raise(self, tmp_path: Path) -> None:
+        """Should reject a call that gives both the old and the new name."""
+        with pytest.raises(TypeError, match="Pass only empty_rejected"):
+            untyped(stream_to_file)(
+                [], tmp_path / "out.json", allow_empty=True, empty_rejected=True
+            )
 
     def test_empty_stream_disallowed_preserves_existing_dest(
         self, tmp_path: Path
@@ -67,7 +85,7 @@ class TestStreamToFile:
         dest = tmp_path / "out.json"
         dest.write_bytes(b'{"old": true}')
         with pytest.raises(ValueError, match="empty stream"):
-            stream_to_file([], dest, allow_empty=False)
+            stream_to_file([], dest, empty_rejected=True)
         assert dest.read_bytes() == b'{"old": true}'
         assert list(tmp_path.glob("*.part")) == []
 
@@ -128,7 +146,7 @@ class TestStreamToFile:
         dest.write_bytes(b'{"old": true}')
         dest.chmod(stat.S_IREAD)
         with pytest.raises(ValueError, match="empty stream"):
-            stream_to_file([], dest, allow_empty=False)
+            stream_to_file([], dest, empty_rejected=True)
         assert dest.read_bytes() == b'{"old": true}'
         assert list(tmp_path.glob("*.part")) == []
 
