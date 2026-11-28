@@ -434,6 +434,12 @@ bound, a log precision, or the line plot X channel.
 - When the Core refuses to delete an item that something uses, the delete dialog lists
   the users before it asks and disables Delete while any remain, as for an ICD that a
   task uses.
+- A format change of an ICD message that has fields asks first, because it removes them
+  all. A message with no fields changes at once. The confirm lists the tasks that use
+  the ICD under "Tasks that use <ICD>", because the Core lists users only per ICD. The
+  Core never refuses the save, so the confirm stays enabled when the task lookup fails,
+  and shows the error. A blank name reads "this message" or "this ICD". The editor
+  removes a field or a message at once: that is a direct edit of the ICD.
 
 ### Pickers
 
