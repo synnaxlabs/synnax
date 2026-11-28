@@ -339,10 +339,10 @@ func (r *durableRequest) run(s *State) {
 	}
 }
 
-// sealDeleted logs the Seal of each open segment that no writer holds and that a
-// Tombstone of records left with no live pointer, so its file goes once the Seal is
-// durable. The entry may use the delete reserve, since on a full disk no switch comes
-// to seal the segment. It first forgets the owner's Seals among records.
+// sealDeleted logs the Seal of each open segment that no writer holds or sealed in view
+// and that a Tombstone of records left with no live pointer, so its file goes once the
+// Seal is durable. The entry may use the delete reserve, since on a full disk no switch
+// comes to seal the segment. It first forgets the owner's Seals among records.
 func (s *State) sealDeleted(records []log.Record) {
 	var e log.Entry
 	for _, rec := range records {
@@ -356,8 +356,9 @@ func (s *State) sealDeleted(records []log.Record) {
 			}
 			sealed := false
 			for _, seg := range ch.segs {
-				if seg.holder != nil || seg.dur.sealed || !seg.dur.created ||
-					len(seg.dur.pointers) > 0 || s.sealing.Contains(seg.vis.ID) {
+				if seg.holder != nil || seg.vis.Sealed || seg.dur.sealed ||
+					!seg.dur.created || len(seg.dur.pointers) > 0 ||
+					len(seg.vis.Pointers) > 0 || s.sealing.Contains(seg.vis.ID) {
 					continue
 				}
 				seg.vis.Sealed, sealed = true, true
