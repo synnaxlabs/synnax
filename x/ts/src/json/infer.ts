@@ -7,47 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
-import { pointerZ, primitiveTypeZ } from "@/json/json";
-import { payload } from "@/payload";
-
-/** A field that the Core inferred from a set of JSON documents. */
-export const inferredFieldZ = z.object({
-  /** pointer locates the field in each document. */
-  pointer: pointerZ,
-  /** kind is the kind of a payload field that holds the values of the field. */
-  kind: payload.kindZ,
-  /** type is the JSON type of most values of the field. */
-  type: primitiveTypeZ.exclude(["null"]),
-  /** timeFormat is the encoding of a timestamp field. Undefined for any other field. */
-  timeFormat: payload.timeFormatZ.optional(),
-  /** enum holds the labels of a string field with few distinct values. */
-  enum: z.array(z.string()),
-  /** optional is true when some documents lack the field or hold null at it. */
-  optional: z.boolean(),
-});
-
-export interface InferredField extends z.infer<typeof inferredFieldZ> {}
-
-/** The fields of one cluster of documents, from one or more sources. */
-export const shapeZ = z.object({
-  /** sources name the sources of the documents, such as topics or record keys. */
-  sources: z.array(z.string()),
-  /** fields are the fields of the documents, in the order they first appear. */
-  fields: z.array(inferredFieldZ),
-  /** index is the position in fields of the timestamp that indexes the documents. */
-  index: z.number().transform((i) => (i < 0 ? undefined : i)),
-  /** count is the number of documents. */
-  count: z.number(),
-  /**
-   * present is the position in fields of the field that tells the documents apart from
-   * the other shapes of their sources.
-   */
-  present: z.number().transform((i) => (i < 0 ? undefined : i)),
-});
-
-export interface Shape extends z.infer<typeof shapeZ> {}
+import type { InferredField } from "@/json/types.gen";
 
 /**
  * @returns a key for a shape that stays the same across samples while its set of field

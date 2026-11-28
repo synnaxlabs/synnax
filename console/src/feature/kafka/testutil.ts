@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { device, Synnax, task } from "@synnaxlabs/client";
-import type { payload } from "@synnaxlabs/x";
+import type { json, payload } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { onTestFinished } from "vitest";
 
@@ -81,11 +81,12 @@ export const createInferredField = (
   kind: payload.Kind,
   type: "number" | "boolean" | "string",
   timeFormat?: payload.TimeFormat,
-) => ({
+): json.InferredField => ({
   pointer,
   kind,
   type,
   timeFormat,
-  enum: [],
+  enumLabels: [],
   optional: false,
+  sample: "",
 });

@@ -149,9 +149,7 @@ const MISSING: kafka.SampledTopic = {
 const createShape = (sources: string[], count: number, ...pointers: string[]) => ({
   sources,
   fields: pointers.map((p) => createInferredField(p, "float", "number")),
-  index: -1,
   count,
-  present: -1,
 });
 
 /**
@@ -300,7 +298,7 @@ describe("Kafka Write form", () => {
     const { dev, draft } = await renderWrite();
     const mode = {
       ...createInferredField("/mode", "string", "string"),
-      enum: ["auto", "manual"],
+      enumLabels: ["auto", "manual"],
     };
     const { answered } = await answerScan(dev, "sample", {
       browse: { data: browseOf(listTopic(TOPIC)) },

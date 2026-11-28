@@ -14,8 +14,10 @@ cc_library(
     name = "json",
     hdrs = [
         "any.h",
+        "json.gen.h",
         "json.h",
         "struct.h",
+        "types.gen.h",
         "value.h",
     ],
     visibility = ["//visibility:public"],

@@ -235,35 +235,7 @@ type heardTopic struct {
 }
 
 // infer sets the shapes of the messages heard.
-func (t *heardTopic) infer() {
-	shapes := t.inferrer.Shapes()
-	t.Shapes = make([]browsedShape, len(shapes))
-	for i, s := range shapes {
-		t.Shapes[i] = newBrowsedShape(s)
-	}
-}
-
-// newBrowsedShape returns the browsed form of s.
-func newBrowsedShape(s xjson.SampledShape) browsedShape {
-	b := browsedShape{Fields: make([]browsedField, len(s.Fields)), Count: s.Count}
-	for i, f := range s.Fields {
-		b.Fields[i] = browsedField{
-			Pointer:    f.Pointer.String(),
-			Type:       f.Type.String(),
-			Sample:     s.Samples[i],
-			Kind:       f.Kind,
-			TimeFormat: f.TimeFormat,
-			Enum:       f.Enum,
-		}
-	}
-	if s.Index >= 0 {
-		b.Index = s.Fields[s.Index].Pointer.String()
-	}
-	if s.Present >= 0 {
-		b.Present = s.Fields[s.Present].Pointer.String()
-	}
-	return b
-}
+func (t *heardTopic) infer() { t.Shapes = t.inferrer.Shapes() }
 
 // heard is what a browse heard on each topic.
 type heard struct {

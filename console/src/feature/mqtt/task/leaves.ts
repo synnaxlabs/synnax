@@ -9,22 +9,20 @@
 
 import type { json } from "@synnaxlabs/x";
 
-import type { Device } from "@/feature/mqtt/device";
-
 /** A value that a browsed payload offers. */
 export interface Leaf extends Pick<
   json.InferredField,
-  "pointer" | "type" | "kind" | "timeFormat" | "enum"
+  "pointer" | "type" | "kind" | "timeFormat" | "enumLabels"
 > {}
 
 /** @returns one leaf for each scalar of a browsed payload. */
-export const createLeaves = (scalars: Device.BrowsedField[]): Leaf[] =>
-  scalars.map(({ pointer, type, kind, timeFormat, enum: labels }) => ({
+export const createLeaves = (scalars: json.InferredField[]): Leaf[] =>
+  scalars.map(({ pointer, type, kind, timeFormat, enumLabels }) => ({
     pointer,
     type,
     kind,
     timeFormat,
-    enum: labels,
+    enumLabels,
   }));
 
 /** @returns the leaf of a payload that is not JSON, which reads it as one string. */
@@ -32,5 +30,5 @@ export const createRawLeaf = (): Leaf => ({
   pointer: "",
   type: "string",
   kind: "string",
-  enum: [],
+  enumLabels: [],
 });

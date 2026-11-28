@@ -48,7 +48,7 @@ export const shapeOf = (shape: json.Shape, documents: unknown[]): Shape => ({
     const one = values.size === 1 && value != null;
     return { pointer, kind, type, timeFormat, optional, ...(one ? { value } : {}) };
   }),
-  present: shape.present == null ? undefined : shape.fields[shape.present].pointer,
+  present: shape.present,
 });
 
 /** A message that fits a shape. */

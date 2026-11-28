@@ -51,7 +51,7 @@ func documents(source string, n int, data func(i int) string) []xjson.Document {
 func fieldAt(shape xjson.Shape, pointer string) xjson.InferredField {
 	GinkgoHelper()
 	for _, f := range shape.Fields {
-		if f.Pointer.String() == pointer {
+		if f.Pointer == pointer {
 			return f
 		}
 	}
@@ -59,20 +59,29 @@ func fieldAt(shape xjson.Shape, pointer string) xjson.InferredField {
 	return xjson.InferredField{}
 }
 
+// samplesOf returns the sample of each field of shape.
+func samplesOf(shape xjson.Shape) []string {
+	samples := make([]string, len(shape.Fields))
+	for i, f := range shape.Fields {
+		samples[i] = f.Sample
+	}
+	return samples
+}
+
 // indexPointer returns the pointer of the index of shape, or "none".
 func indexPointer(shape xjson.Shape) string {
-	if shape.Index < 0 {
+	if shape.Index == nil {
 		return "none"
 	}
-	return shape.Fields[shape.Index].Pointer.String()
+	return *shape.Index
 }
 
 // presentPointer returns the pointer of the present field of shape, or "none".
 func presentPointer(shape xjson.Shape) string {
-	if shape.Present < 0 {
+	if shape.Present == nil {
 		return "none"
 	}
-	return shape.Fields[shape.Present].Pointer.String()
+	return *shape.Present
 }
 
 // narrow and wide return a document with a seconds timestamp offset s from t0, where
@@ -110,17 +119,18 @@ var _ = Describe("Infer", func() {
 		}))
 		Expect(shapes).To(HaveLen(1))
 		Expect(shapes[0].Sources).To(Equal([]string{"valves"}))
-		Expect(shapes[0].Count).To(Equal(4))
+		Expect(shapes[0].Count).To(BeEquivalentTo(4))
 		Expect(indexPointer(shapes[0])).To(Equal("/time"))
 		Expect(fieldAt(shapes[0], "/time")).To(Equal(xjson.InferredField{
-			Pointer:    xjson.Pointer{"time"},
+			Pointer:    "/time",
 			Kind:       payload.KindTimestamp,
-			Type:       xjson.String,
+			Type:       payload.JSONTypeString,
 			TimeFormat: new(payload.TimeFormatISO8601),
+			Sample:     `"2026-01-02T03:04:03Z"`,
 		}))
 		state := fieldAt(shapes[0], "/state")
 		Expect(state.Kind).To(Equal(payload.KindString))
-		Expect(state.Enum).To(Equal([]string{"closed", "open"}))
+		Expect(state.EnumLabels).To(Equal([]string{"closed", "open"}))
 		position := fieldAt(shapes[0], "/position")
 		Expect(position.Kind).To(Equal(payload.KindFloat))
 		Expect(position.TimeFormat).To(BeNil())
@@ -142,7 +152,7 @@ var _ = Describe("Infer", func() {
 		shapes, _ := xjson.Infer(docs)
 		Expect(shapes).To(HaveLen(2))
 		Expect(shapes[0].Sources).To(Equal([]string{"tank-1", "tank-2"}))
-		Expect(shapes[0].Count).To(Equal(6))
+		Expect(shapes[0].Count).To(BeEquivalentTo(6))
 		Expect(fieldAt(shapes[0], "/ts").TimeFormat).
 			To(HaveValue(Equal(payload.TimeFormatUnixMs)))
 		Expect(fieldAt(shapes[0], "/pressure").Kind).To(Equal(payload.KindInteger))
@@ -187,13 +197,13 @@ var _ = Describe("Infer", func() {
 		shapes, _ := xjson.Infer(docs)
 		Expect(shapes).To(HaveLen(2))
 		Expect(shapes[0].Sources).To(Equal([]string{"line-1", "line-2"}))
-		Expect(shapes[0].Count).To(Equal(5))
+		Expect(shapes[0].Count).To(BeEquivalentTo(5))
 		Expect(shapes[0].Fields).To(HaveLen(3))
 		Expect(fieldAt(shapes[0], "/pressure").Kind).To(Equal(payload.KindFloat))
 		Expect(indexPointer(shapes[0])).To(Equal("/time"))
 		Expect(shapes[1].Sources).To(Equal([]string{"line-1"}))
-		Expect(shapes[1].Count).To(Equal(3))
-		Expect(fieldAt(shapes[1], "/state").Type).To(Equal(xjson.String))
+		Expect(shapes[1].Count).To(BeEquivalentTo(3))
+		Expect(fieldAt(shapes[1], "/state").Type).To(Equal(payload.JSONTypeString))
 		Expect(indexPointer(shapes[1])).To(Equal("/time"))
 	})
 
@@ -208,7 +218,7 @@ var _ = Describe("Infer", func() {
 			)
 		}))
 		Expect(shapes).To(HaveLen(1))
-		Expect(shapes[0].Count).To(Equal(4))
+		Expect(shapes[0].Count).To(BeEquivalentTo(4))
 		Expect(shapes[0].Fields).To(HaveLen(3))
 		Expect(indexPointer(shapes[0])).To(Equal("/ts"))
 	})
@@ -223,7 +233,7 @@ var _ = Describe("Infer", func() {
 		}))
 		Expect(shapes).To(HaveLen(3))
 		Expect(shapes[2].Fields).To(HaveLen(1))
-		Expect(shapes[2].Count).To(Equal(1))
+		Expect(shapes[2].Count).To(BeEquivalentTo(1))
 	})
 
 	It("Should give documents with no fields to no cluster of two", func() {
@@ -236,8 +246,8 @@ var _ = Describe("Infer", func() {
 			}[i]
 		}))
 		Expect(shapes).To(HaveLen(2))
-		Expect(shapes[0].Count).To(Equal(1))
-		Expect(shapes[1].Count).To(Equal(1))
+		Expect(shapes[0].Count).To(BeEquivalentTo(1))
+		Expect(shapes[1].Count).To(BeEquivalentTo(1))
 	})
 
 	It(
@@ -247,7 +257,7 @@ var _ = Describe("Infer", func() {
 				return [...]string{`{"pressure":1}`, `{}`}[i]
 			}))
 			Expect(shapes).To(HaveLen(1))
-			Expect(shapes[0].Count).To(Equal(2))
+			Expect(shapes[0].Count).To(BeEquivalentTo(2))
 			Expect(shapes[0].Fields).To(HaveLen(1))
 		},
 	)
@@ -259,7 +269,7 @@ var _ = Describe("Infer", func() {
 			}))
 			Expect(inferred).To(HaveLen(shapes))
 			Expect(inferred[0].Fields).To(HaveLen(fields))
-			Expect(inferred[0].Count).To(Equal(fields))
+			Expect(inferred[0].Count).To(BeEquivalentTo(fields))
 		},
 		Entry("16 clusters", 16, 16, 1),
 		Entry("17 clusters", 17, 1, 17),
@@ -375,7 +385,7 @@ var _ = Describe("Infer", func() {
 			}[i]
 		}))
 		Expect(shapes).To(HaveLen(2))
-		Expect(shapes[0].Count).To(Equal(4))
+		Expect(shapes[0].Count).To(BeEquivalentTo(4))
 		Expect(shapes[0].Fields).To(HaveLen(4))
 		Expect(presentPointer(shapes[0])).To(Equal("none"))
 		Expect(indexPointer(shapes[0])).To(Equal("/ts"))
@@ -407,9 +417,10 @@ var _ = Describe("Infer", func() {
 		Expect(fieldAt(shapes[0], "/timestamp").TimeFormat).
 			To(HaveValue(Equal(payload.TimeFormatUnixNs)))
 		Expect(fieldAt(shapes[0], "/open")).To(Equal(xjson.InferredField{
-			Pointer: xjson.Pointer{"open"},
+			Pointer: "/open",
 			Kind:    payload.KindBoolean,
-			Type:    xjson.Boolean,
+			Type:    payload.JSONTypeBoolean,
+			Sample:  "false",
 		}))
 	})
 
@@ -422,7 +433,7 @@ var _ = Describe("Infer", func() {
 		}))
 		reading := fieldAt(shapes[0], "/reading")
 		Expect(reading.Kind).To(Equal(payload.KindInteger))
-		Expect(reading.Type).To(Equal(xjson.Number))
+		Expect(reading.Type).To(Equal(payload.JSONTypeNumber))
 		Expect(fieldAt(shapes[0], "/t").TimeFormat).
 			To(HaveValue(Equal(payload.TimeFormatUnixUs)))
 	})
@@ -458,7 +469,7 @@ var _ = Describe("Infer", func() {
 		shapes, _ := xjson.Infer(documents("a", 3, func(i int) string {
 			return fmt.Sprintf(`{"name":"pump-%d"}`, i)
 		}))
-		Expect(fieldAt(shapes[0], "/name").Enum).To(BeNil())
+		Expect(fieldAt(shapes[0], "/name").EnumLabels).To(BeNil())
 	})
 
 	It("Should give an enum label of 64 bytes", func() {
@@ -469,14 +480,14 @@ var _ = Describe("Infer", func() {
 			}
 			return fmt.Sprintf(`{"state":%q}`, label)
 		}))
-		Expect(fieldAt(shapes[0], "/state").Enum).To(Equal([]string{"a", label}))
+		Expect(fieldAt(shapes[0], "/state").EnumLabels).To(Equal([]string{"a", label}))
 	})
 
 	It("Should not give an enum to a string field that holds one value", func() {
 		shapes, _ := xjson.Infer(documents("a", 3, func(int) string {
 			return `{"state":"ok"}`
 		}))
-		Expect(fieldAt(shapes[0], "/state").Enum).To(BeNil())
+		Expect(fieldAt(shapes[0], "/state").EnumLabels).To(BeNil())
 	})
 
 	DescribeTable("Should not give an enum to a string field that holds other types",
@@ -489,7 +500,7 @@ var _ = Describe("Infer", func() {
 			}))
 			state := fieldAt(shapes[0], "/state")
 			Expect(state.Kind).To(Equal(payload.KindString))
-			Expect(state.Enum).To(BeNil())
+			Expect(state.EnumLabels).To(BeNil())
 		},
 		Entry("a number", "1"),
 		Entry("a boolean", "true"),
@@ -502,7 +513,7 @@ var _ = Describe("Infer", func() {
 			}
 			return `{"state":"open"}`
 		}))
-		Expect(fieldAt(shapes[0], "/state").Enum).To(BeNil())
+		Expect(fieldAt(shapes[0], "/state").EnumLabels).To(BeNil())
 	})
 
 	It("Should pick the rising timestamp nearest the write time as the index", func() {
@@ -520,7 +531,7 @@ var _ = Describe("Infer", func() {
 			return fmt.Sprintf(`{"ts":%d}`, t0Seconds-int64(i))
 		}))
 		Expect(fieldAt(shapes[0], "/ts").Kind).To(Equal(payload.KindTimestamp))
-		Expect(shapes[0].Index).To(Equal(-1))
+		Expect(shapes[0].Index).To(BeNil())
 	})
 
 	DescribeTable("Should index on a timestamp that rises across the sets of a cluster",
@@ -607,7 +618,7 @@ var _ = Describe("Infer", func() {
 		})
 		docs = append(docs, documents("a", 1, func(int) string { return `{"v":2}` })...)
 		shapes, _ := xjson.Infer(docs)
-		Expect(shapes[0].Index).To(Equal(-1))
+		Expect(shapes[0].Index).To(BeNil())
 	})
 
 	It("Should not take a number far from the write time as a timestamp", func() {
@@ -615,7 +626,7 @@ var _ = Describe("Infer", func() {
 			return fmt.Sprintf(`{"uptime":%d}`, 3600+i)
 		}))
 		Expect(fieldAt(shapes[0], "/uptime").Kind).To(Equal(payload.KindInteger))
-		Expect(shapes[0].Index).To(Equal(-1))
+		Expect(shapes[0].Index).To(BeNil())
 	})
 
 	It("Should not take a time-named field that mixes formats as a timestamp", func() {
@@ -632,7 +643,7 @@ var _ = Describe("Infer", func() {
 			return fmt.Sprintf(`{"ts":"%d"}`, t0Milliseconds+int64(i))
 		}))
 		ts := fieldAt(shapes[0], "/ts")
-		Expect(ts.Type).To(Equal(xjson.String))
+		Expect(ts.Type).To(Equal(payload.JSONTypeString))
 		Expect(
 			ts.TimeFormat,
 		).To(HaveValue(Equal(payload.TimeFormatUnixMs)))
@@ -652,7 +663,7 @@ var _ = Describe("Infer", func() {
 			return `{"list":[1,2],"none":null,"nested":{"v":1}}`
 		}))
 		Expect(shapes[0].Fields).To(HaveLen(1))
-		Expect(shapes[0].Fields[0].Pointer).To(Equal(xjson.Pointer{"nested", "v"}))
+		Expect(shapes[0].Fields[0].Pointer).To(Equal("/nested/v"))
 	})
 
 	It("Should skip documents that are not JSON", func() {
@@ -668,7 +679,7 @@ var _ = Describe("Infer", func() {
 		shapes, _ := xjson.Infer(docs)
 		Expect(shapes).To(HaveLen(1))
 		Expect(shapes[0].Sources).To(Equal([]string{"a"}))
-		Expect(shapes[0].Count).To(Equal(1))
+		Expect(shapes[0].Count).To(BeEquivalentTo(1))
 	})
 
 	It("Should report which documents are one JSON value", func() {
@@ -684,14 +695,15 @@ var _ = Describe("Infer", func() {
 			return fmt.Sprintf(`{"a/b":{"ts":%d}}`, int64(t0)+int64(i))
 		}))
 		text := MustSucceed(json.Marshal(shapes[0].Fields[0]))
-		Expect(string(text)).To(Equal(
-			`{"pointer":"/a~1b/ts","kind":"timestamp","type":"number",` +
-				`"time_format":"unix_ns","enum":[],"optional":false}`,
-		))
+		Expect(string(text)).To(Equal(fmt.Sprintf(
+			`{"pointer":"/a~1b/ts","kind":"timestamp","type":"number",`+
+				`"time_format":"unix_ns","enum_labels":[],"optional":false,"sample":"%d"}`,
+			int64(t0)+1,
+		)))
 		var decoded xjson.InferredField
 		Expect(json.Unmarshal(text, &decoded)).To(Succeed())
-		Expect(decoded.Pointer).To(Equal(xjson.Pointer{"a/b", "ts"}))
-		Expect(decoded.Type).To(Equal(xjson.Number))
+		Expect(decoded.Pointer).To(Equal("/a~1b/ts"))
+		Expect(decoded.Type).To(Equal(payload.JSONTypeNumber))
 		Expect(
 			decoded.TimeFormat,
 		).To(HaveValue(Equal(payload.TimeFormatUnixNs)))
@@ -702,8 +714,8 @@ var _ = Describe("Infer", func() {
 			documents("a", 1, func(int) string { return `{"v":1}` }),
 		)
 		Expect(string(MustSucceed(json.Marshal(shapes[0].Fields[0])))).To(Equal(
-			`{"pointer":"/v","kind":"integer","type":"number","enum":[],` +
-				`"optional":false}`,
+			`{"pointer":"/v","kind":"integer","type":"number","enum_labels":[],` +
+				`"optional":false,"sample":"1"}`,
 		))
 	})
 })
@@ -724,9 +736,9 @@ var _ = Describe("Inferrer", func() {
 		)
 		shapes := inf.Shapes()
 		Expect(shapes).To(HaveLen(1))
-		shape := shapes[0].Shape
+		shape := shapes[0]
 		Expect(shape.Sources).To(BeEmpty())
-		Expect(shape.Count).To(Equal(4))
+		Expect(shape.Count).To(BeEquivalentTo(4))
 		Expect(presentPointer(shape)).To(Equal("none"))
 		Expect(indexPointer(shape)).To(Equal("/ts"))
 		ts := fieldAt(shape, "/ts")
@@ -758,7 +770,7 @@ var _ = Describe("Inferrer", func() {
 			}
 			shapes := inf.Shapes()
 			Expect(shapes).To(HaveLen(1))
-			Expect(shapes[0].Samples).To(Equal([]string{a, b}))
+			Expect(samplesOf(shapes[0])).To(Equal([]string{a, b}))
 		},
 		Entry("from a later set", []string{`{"a":1,"b":1}`, `{"a":2}`}, "2", "1"),
 		Entry(
@@ -773,7 +785,7 @@ var _ = Describe("Inferrer", func() {
 		inf := xjson.NewInferrer()
 		inf.Add([]byte(`{"v":"`+strings.Repeat("a", 62)+`éé"}`), t0)
 		shapes := inf.Shapes()
-		Expect(shapes[0].Samples).To(Equal([]string{`"` + strings.Repeat("a", 62)}))
+		Expect(samplesOf(shapes[0])).To(Equal([]string{`"` + strings.Repeat("a", 62)}))
 	})
 
 	It("Should give no index when a timestamp falls", func() {
@@ -782,8 +794,8 @@ var _ = Describe("Inferrer", func() {
 		inf.Add(fmt.Appendf(nil, `{"ts":%d}`, t0Milliseconds), t0+telem.SecondTS)
 		shapes := inf.Shapes()
 		Expect(shapes).To(HaveLen(1))
-		Expect(fieldAt(shapes[0].Shape, "/ts").Kind).To(Equal(payload.KindTimestamp))
-		Expect(shapes[0].Index).To(Equal(-1))
+		Expect(fieldAt(shapes[0], "/ts").Kind).To(Equal(payload.KindTimestamp))
+		Expect(shapes[0].Index).To(BeNil())
 	})
 
 	DescribeTable("Should give one shape past 1,024 fields across its sets of fields",
@@ -817,12 +829,7 @@ var _ = Describe("Inferrer", func() {
 			for i := range expected {
 				expected[i].Sources = nil
 			}
-			inferred := inf.Shapes()
-			shapes := make([]xjson.Shape, len(inferred))
-			for i, s := range inferred {
-				shapes[i] = s.Shape
-			}
-			Expect(shapes).To(Equal(expected))
+			Expect(inf.Shapes()).To(Equal(expected))
 		},
 		Entry("two record kinds", stamped("", 4, func(i int) string {
 			return [...]string{`"rpm":1`, `"fault":"x"`, `"rpm":2.5`, `"fault":"y"`}[i]

@@ -20,32 +20,12 @@ import {
 import type { Device } from "@/feature/mqtt/device/types";
 import type { ICD } from "@/platform/icd";
 
-const browsedFieldZ = json.inferredFieldZ
-  .pick({ pointer: true, type: true, kind: true, timeFormat: true, enum: true })
-  .extend({
-    /** The start of the JSON text of the last value heard. */
-    sample: z.string(),
-  });
-
-export interface BrowsedField extends z.infer<typeof browsedFieldZ> {}
-
-/** The JSON messages of a topic that hold the same fields. */
-const browsedShapeZ = z.object({
-  fields: browsedFieldZ.array(),
-  /** The pointer of the timestamp in fields that indexes the messages. */
-  index: z.string().optional(),
-  /** The pointer of the field that only the messages of the shape hold. */
-  present: z.string().optional(),
-  /** The number of messages heard. */
-  count: z.number(),
-});
-
 const browsedTopicZ = z.object({
   topic: z.string(),
   /** The start of the last payload. */
   payload: z.string(),
   /** The shapes of the JSON messages heard, in the order first heard. */
-  shapes: browsedShapeZ.array(),
+  shapes: json.shapeZ.array(),
   retained: z.boolean(),
 });
 

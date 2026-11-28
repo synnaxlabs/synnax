@@ -44,7 +44,7 @@ describe("ICD inferred formats", () => {
       const labeled = {
         pointer: "/mode",
         kind: "string" as const,
-        enum: ["auto", "manual"],
+        enumLabels: ["auto", "manual"],
       };
       const [field] = ICD.createFields([labeled]);
       expect(field).toMatchObject({ pointer: "/mode", type: "string", enumValues: [] });
@@ -70,14 +70,14 @@ describe("ICD inferred formats", () => {
       ["a float for labels that spell a fraction", ["1", "2.5"], "float"],
       ["an integer for labels that mix numbers and words", ["1", "ON"], "integer"],
     ] as const)("should give %s", (_, labels, kind) => {
-      expect(ICD.readKind({ kind: "string", enum: [...labels] })).toEqual(kind);
+      expect(ICD.readKind({ kind: "string", enumLabels: [...labels] })).toEqual(kind);
     });
   });
 
   describe("createReadField", () => {
     it("should read each enum label as its position in the labels", () => {
       const field = ICD.createReadField(
-        { pointer: "/state", kind: "string", enum: ["OFF", "ON"] },
+        { pointer: "/state", kind: "string", enumLabels: ["OFF", "ON"] },
         "state",
       );
       expect(field).toMatchObject({
@@ -98,7 +98,7 @@ describe("ICD inferred formats", () => {
       "should read enum labels that spell numbers as a %s field with no enum values",
       (type, labels) => {
         const field = ICD.createReadField(
-          { pointer: "/mode", kind: "string", enum: [...labels] },
+          { pointer: "/mode", kind: "string", enumLabels: [...labels] },
           "mode",
         );
         expect(field).toMatchObject({
@@ -112,7 +112,7 @@ describe("ICD inferred formats", () => {
 
     it("should create a field of the inferred kind for no enum labels", () => {
       const field = ICD.createReadField(
-        { pointer: "/time", kind: "timestamp", timeFormat: "unix_ns", enum: [] },
+        { pointer: "/time", kind: "timestamp", timeFormat: "unix_ns", enumLabels: [] },
         "time",
       );
       expect(field).toMatchObject({
@@ -127,8 +127,8 @@ describe("ICD inferred formats", () => {
   describe("createReadFields", () => {
     it("should name each read field after its pointer", () => {
       const fields = ICD.createReadFields([
-        { pointer: "/plant/state", kind: "string", enum: ["OFF", "ON"] },
-        { pointer: "/speed", kind: "float", enum: [] },
+        { pointer: "/plant/state", kind: "string", enumLabels: ["OFF", "ON"] },
+        { pointer: "/speed", kind: "float", enumLabels: [] },
       ]);
       expect(fields).toMatchObject([
         { name: "plant_state", pointer: "/plant/state", type: "integer" },
@@ -141,13 +141,13 @@ describe("ICD inferred formats", () => {
     it("should give the field at a pointer the sorted labels of every shape", () => {
       expect(
         ICD.mergeFields([
-          { pointer: "/state", kind: "string", enum: ["OFF", "ON"] },
-          { pointer: "/speed", kind: "float", enum: [] },
-          { pointer: "/state", kind: "string", enum: ["FAULT", "OFF"] },
+          { pointer: "/state", kind: "string", enumLabels: ["OFF", "ON"] },
+          { pointer: "/speed", kind: "float", enumLabels: [] },
+          { pointer: "/state", kind: "string", enumLabels: ["FAULT", "OFF"] },
         ]),
       ).toEqual([
-        { pointer: "/state", kind: "string", enum: ["FAULT", "OFF", "ON"] },
-        { pointer: "/speed", kind: "float", enum: [] },
+        { pointer: "/state", kind: "string", enumLabels: ["FAULT", "OFF", "ON"] },
+        { pointer: "/speed", kind: "float", enumLabels: [] },
       ]);
     });
 
@@ -158,10 +158,10 @@ describe("ICD inferred formats", () => {
       const fields = labels.map((l) => ({
         pointer: "/state",
         kind: "string",
-        enum: l,
+        enumLabels: l,
       }));
       expect(ICD.mergeFields(fields)).toEqual([
-        { pointer: "/state", kind: "string", enum: [] },
+        { pointer: "/state", kind: "string", enumLabels: [] },
       ]);
     });
   });

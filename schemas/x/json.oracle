@@ -1,0 +1,79 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/payload"
+
+@cpp output "x/cpp/json"
+@go output  "x/go/json"
+@ts output  "x/ts/src/json"
+
+InferredField struct {
+    pointer     string              {
+        @doc value "is the JSON Pointer of the field, a scalar in each document."
+    }
+    kind        payload.Kind        {
+        @doc value "is the kind of a payload field that holds the values of the field."
+    }
+    type        payload.JSONType    {
+        @doc value "is the JSON type of most values of the field."
+    }
+    time_format payload.TimeFormat? {
+        @doc value "is the format of a timestamp field. Absent for any other field."
+    }
+    enum_labels string[]            {
+        @doc value """
+            holds the distinct values, sorted, of a field of only strings that repeats a
+            few.
+        """
+    }
+    optional    bool                {
+        @doc value """
+            is true when some documents of the shape lack the field or hold null at it.
+        """
+    }
+    sample      string              {
+        @doc value """
+            is the start of the JSON text of the last value of the field: at most 64
+            bytes, cut at a rune boundary.
+        """
+    }
+
+    @doc value "is a scalar field that inference found in a set of JSON documents."
+}
+
+Shape struct {
+    sources string[]        {
+        @doc value """
+            are the sources of the documents, such as record keys, in the order first
+            seen.
+        """
+    }
+    fields  InferredField[] {
+        @doc value "are the fields of the documents, in the order first seen."
+    }
+    index   string?         {
+        @doc value """
+            is the pointer of the timestamp field that indexes the documents. Absent
+            when no field can.
+        """
+    }
+    present string?         {
+        @doc value """
+            is the pointer of the field that only the documents of the shape hold, among
+            the shapes of their sources. Absent when the shape has none.
+        """
+    }
+    count   uint32          {
+        @doc value "is the number of documents of the shape."
+    }
+
+    @doc value """
+        is the layout of one cluster of JSON documents, from one or more sources.
+    """
+}

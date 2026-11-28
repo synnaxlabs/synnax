@@ -506,7 +506,7 @@ var _ = Describe("Discover", func() {
 			shapes := samples[0].Shapes
 			Expect(shapes).To(HaveLen(2))
 			Expect(shapes[0].Sources).To(Equal([]string{"tank-1", "tank-2"}))
-			Expect(shapes[0].Fields[shapes[0].Index].Pointer.String()).To(Equal("/ts"))
+			Expect(shapes[0].Index).To(HaveValue(Equal("/ts")))
 			Expect(shapes[1].Sources).To(Equal([]string{"pump-1"}))
 		})
 
@@ -599,7 +599,7 @@ var _ = Describe("Discover", func() {
 				samples, truncated := sample(ctx, []string{topic}, 20)
 				Expect(truncated).To(BeTrue())
 				Expect(samples[0].Shapes).To(HaveLen(1))
-				Expect(samples[0].Shapes[0].Count).To(Equal(18))
+				Expect(samples[0].Shapes[0].Count).To(BeEquivalentTo(18))
 			},
 		)
 
@@ -719,7 +719,7 @@ var _ = Describe("Discover", func() {
 				Expect(truncated).To(BeTrue())
 				Expect(len(samples[0].Records)).To(BeNumerically("<", 80))
 				Expect(samples[0].Shapes).To(HaveLen(1))
-				Expect(samples[0].Shapes[0].Count).To(Equal(80))
+				Expect(samples[0].Shapes[0].Count).To(BeEquivalentTo(80))
 			},
 		)
 	})

@@ -189,12 +189,12 @@ const parse = (payload: string): unknown => {
  * that hold its present field, if it has one.
  */
 const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] => {
-  const present = shape.present == null ? undefined : shape.fields[shape.present];
+  const { present } = shape;
   return sample.records
     .filter(({ key, format }) => format === "json" && shape.sources.includes(key))
     .sort((a, b) => Number(b.time.valueOf() - a.time.valueOf()))
     .map(({ payload }) => parse(payload))
-    .filter((doc) => present == null || valueAt(doc, present.pointer) !== undefined);
+    .filter((doc) => present == null || valueAt(doc, present) !== undefined);
 };
 
 /** @returns the value of a field in the newest record that holds it. */
@@ -451,8 +451,8 @@ const valueOf = (
 const titleOf = (shape: json.Shape, label: Params["label"]): string => {
   const keys = shape.sources.map(label).join(", ");
   const records = pluralize("record", shape.count, true);
-  const present = shape.present == null ? undefined : shape.fields[shape.present];
-  return `${keys} · ${records}${present == null ? "" : ` with ${present.pointer}`}`;
+  const { present } = shape;
+  return `${keys} · ${records}${present == null ? "" : ` with ${present}`}`;
 };
 
 const PaneWarning = ({ warning }: { warning: string | null }) =>
@@ -527,12 +527,12 @@ const TopicValues = ({
     return {
       title: titleOf(shape, label),
       note: block?.note ?? readingNote(found, fit, shape, free.indexOf(shape)),
-      values: shape.fields.map((f, j): ICD.Picker.Value => {
+      values: shape.fields.map((f): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
         fields.set(key, [json.shapeKey(shape), f.pointer]);
         let lock: ICD.Picker.Lock | undefined;
         if (block != null) lock = block.lock;
-        else if (j === shape.index) lock = ICD.Picker.INDEX;
+        else if (f.pointer === shape.index) lock = ICD.Picker.INDEX;
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;
