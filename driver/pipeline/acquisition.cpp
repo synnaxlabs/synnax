@@ -23,8 +23,11 @@ x::errors::Error SynnaxWriter::write(const x::telem::Frame &fr) {
 }
 
 x::errors::Error SynnaxWriter::set_authority(const Authorities &authorities) {
-    return this->internal
-        .set_authority(authorities.keys, authorities.authorities, false);
+    return this->internal.set_authority(
+        authorities.keys,
+        authorities.authorities,
+        {.unacknowledged = true}
+    );
 }
 
 x::errors::Error SynnaxWriter::close() {

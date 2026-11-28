@@ -480,7 +480,7 @@ TEST(WriterTests, testSetAuthorityFireAndForget) {
     ASSERT_NIL(writer.set_authority(
         std::vector{data1.key, data2.key},
         std::vector<x::control::Authority>{200, 200},
-        false
+        {.unacknowledged = true}
     ));
 
     auto now = x::telem::TimeStamp::now();
@@ -524,7 +524,7 @@ TEST(WriterTests, testSetAuthorityFireAndForgetTakesEffect) {
     ASSERT_NIL(w1.set_authority(
         std::vector{time.key, data.key},
         std::vector<x::control::Authority>{0, 0},
-        false
+        {.unacknowledged = true}
     ));
 
     // The release is not acknowledged, so a writer opened right after it can still be

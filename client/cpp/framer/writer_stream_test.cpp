@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -59,10 +60,81 @@ public:
     }
 };
 
+/// @brief a writer stream that accepts every send, answers the open, and then ends
+/// with the given status.
+class UnansweredStream final : public WriterStream {
+    x::errors::Error status;
+    bool answered = false;
+
+public:
+    explicit UnansweredStream(const x::errors::Error &status): status(status) {}
+
+    std::pair<grpc::framer::WriterResponse, x::errors::Error> receive() override {
+        if (this->answered) return {grpc::framer::WriterResponse(), this->status};
+        this->answered = true;
+        return {grpc::framer::WriterResponse(), x::errors::NIL};
+    }
+
+    x::errors::Error send(grpc::framer::WriterRequest &) const override {
+        return x::errors::NIL;
+    }
+
+    void close_send() override {}
+};
+
+/// @brief a writer transport that opens streams that never answer after the open.
+class UnansweredStreamClient final : public WriterClient {
+    x::errors::Error status;
+
+public:
+    explicit UnansweredStreamClient(const x::errors::Error &status): status(status) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<std::unique_ptr<WriterStream>, x::errors::Error>
+    stream(const std::string &) override {
+        return {std::make_unique<UnansweredStream>(this->status), x::errors::NIL};
+    }
+};
+
 /// @brief a client whose writers end with the given status after they open.
 Client ended_client(const x::errors::Error &status) {
     return {nullptr, std::make_unique<EndedStreamClient>(status), channel::Client()};
 }
+}
+
+/// @brief it should wait for the Core to acknowledge an authority change by default.
+TEST(WriterStream, WaitsForAuthorityAcknowledgementByDefault) {
+    ASSERT_FALSE(SetAuthorityOptions{}.unacknowledged);
+    const Client client{
+        nullptr,
+        std::make_unique<UnansweredStreamClient>(freighter::UNREACHABLE),
+        channel::Client()
+    };
+    auto writer = ASSERT_NIL_P(client.open_writer(WriterConfig{}));
+    ASSERT_OCCURRED_AS(
+        writer.set_authority(
+            std::vector<channel::Key>{1},
+            std::vector<x::control::Authority>{200}
+        ),
+        freighter::UNREACHABLE
+    );
+}
+
+/// @brief it should not wait for the Core to acknowledge an unacknowledged authority
+/// change.
+TEST(WriterStream, SkipsAuthorityAcknowledgementWhenUnacknowledged) {
+    const Client client{
+        nullptr,
+        std::make_unique<UnansweredStreamClient>(freighter::UNREACHABLE),
+        channel::Client()
+    };
+    auto writer = ASSERT_NIL_P(client.open_writer(WriterConfig{}));
+    ASSERT_NIL(writer.set_authority(
+        std::vector<channel::Key>{1},
+        std::vector<x::control::Authority>{200},
+        {.unacknowledged = true}
+    ));
 }
 
 /// @brief it should return the status of a stream that the Core ended, not a closed
