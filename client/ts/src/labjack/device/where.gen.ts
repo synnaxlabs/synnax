@@ -16,6 +16,8 @@ import {
   type Device,
   keyZ,
   modelZ,
+  type Order,
+  type OrderField,
   type Where,
 } from "@/labjack/device/types.gen";
 import { rack } from "@/rack";
@@ -121,17 +123,36 @@ export const LIST_FIELDS: readonly string[] = [
   "model",
 ];
 
-/** @returns the position of record in key order. */
-export const cursor = (record: Device): Cursor => ({ key: record.key });
+/** @returns the position of record in order, or in key order when order is absent. */
+export const cursor = (record: Device, order?: Order): Cursor => {
+  if (order == null) return { key: record.key };
+  switch (order.field) {
+    case "name":
+      return { key: record.key, name: record.name };
+  }
+};
+
+const compareValues = (field: OrderField, a: Cursor, b: Cursor): number => {
+  switch (field) {
+    case "name":
+      if (a.name == null || b.name == null) throw new Error("a cursor has no name");
+      return compare.text(a.name, b.name);
+  }
+};
 
 /**
- * Orders two positions by key, as the Core walks them.
+ * Orders two positions as the Core walks them: by the order's field, then by key, or
+ * by key alone when order is absent.
  *
  * @returns a negative number if a comes before b, a positive number if after, and 0 if
  * they are the same position.
+ * @throws {Error} if a or b holds no value for the order's field.
  */
-export const compareCursors = (a: Cursor, b: Cursor): number =>
-  compare.uuids(a.key, b.key);
+export const compareCursors = (a: Cursor, b: Cursor, order?: Order): number => {
+  if (order == null) return compare.uuids(a.key, b.key);
+  const c = compareValues(order.field, a, b) || compare.uuids(a.key, b.key);
+  return order.descending ? -c : c;
+};
 
 /**
  * shortcutZ reads a key, a name, or a list of either into a request whose where holds

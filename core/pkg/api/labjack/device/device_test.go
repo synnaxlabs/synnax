@@ -207,6 +207,86 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Retrieve", func() {
+		It("Should page by name in both directions, ignoring case", func(
+			ctx SpecContext,
+		) {
+			prefix := uuid.New().String()
+			named := func(name string) device.Key {
+				GinkgoHelper()
+				return createDevice(
+					ctx,
+					func(d *device.Device) { d.Name = prefix + name },
+				).Key
+			}
+			beta := named("beta")
+			alpha := named("Alpha")
+			gamma := named("gamma")
+			grantRetrieve(ctx)
+			page := func(order apidevice.Order) []device.Key {
+				GinkgoHelper()
+				var (
+					keys  []device.Key
+					after *apidevice.Cursor
+				)
+				for {
+					res := MustSucceed(retrieve(
+						testutil.AuthedCtx(ctx, u),
+						apidevice.RetrieveRequest{
+							Where: &device.Where{Name: &filter.String{
+								In: []string{
+									prefix + "beta",
+									prefix + "Alpha",
+									prefix + "gamma",
+								},
+							}},
+							Order: &order,
+							After: after,
+							Limit: new(uint32(1)),
+						},
+					))
+					if len(res.Devices) == 0 {
+						return keys
+					}
+					last := res.Devices[len(res.Devices)-1]
+					keys = append(keys, last.Key)
+					after = &apidevice.Cursor{Key: last.Key, Name: &last.Name}
+				}
+			}
+			Expect(page(apidevice.Order{Field: apidevice.OrderFieldName})).
+				To(Equal([]device.Key{alpha, beta, gamma}))
+			Expect(page(apidevice.Order{
+				Field:      apidevice.OrderFieldName,
+				Descending: true,
+			})).To(Equal([]device.Key{gamma, beta, alpha}))
+		})
+
+		DescribeTable("Should reject a request",
+			func(ctx SpecContext, req apidevice.RetrieveRequest, message string) {
+				grantRetrieve(ctx)
+				Expect(retrieve(testutil.AuthedCtx(ctx, u), req)).Error().
+					To(SatisfyAll(
+						BeAssignableToTypeOf(validate.PathError{}),
+						MatchError(message),
+					))
+			},
+			Entry(
+				"that resumes an order without the order's value",
+				apidevice.RetrieveRequest{
+					Order: &apidevice.Order{Field: apidevice.OrderFieldName},
+					After: &apidevice.Cursor{Key: uuid.New()},
+				},
+				"after.name: is required to resume an order by name: validation error",
+			),
+			Entry(
+				"that sorts a search",
+				apidevice.RetrieveRequest{
+					SearchTerm: "T7",
+					Order:      &apidevice.Order{Field: apidevice.OrderFieldName},
+				},
+				"order: a search sorts by relevance: validation error",
+			),
+		)
+
 		It("Should reject a named device when retrieve is not granted", func(
 			ctx SpecContext,
 		) {
