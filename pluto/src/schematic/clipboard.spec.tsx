@@ -74,7 +74,7 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
   });
 };
 
-// Populates the flux store with the schematic at `key`. Uses a single-hook
+// Populates the Flux store with the schematic at `key`. Uses a single-hook
 // bootstrap component so the suspending `useEnsure` is not followed by
 // additional hooks — that shape trips a React 19 concurrent-replay warning.
 const loadSchematic = async (

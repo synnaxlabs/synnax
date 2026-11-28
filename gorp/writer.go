@@ -40,6 +40,9 @@ type Writer[K Key, E Entry[K]] struct {
 	// derived is true when the writes of the Writer are cascades, detaches, or
 	// retargets.
 	derived bool
+	// relationsDeferred is true when Set leaves the unique and acyclic checks of its
+	// references to the caller, which runs them once a batch of writes is in.
+	relationsDeferred bool
 	// exclusive is true when Set refuses an entry whose key exists.
 	exclusive bool
 }
@@ -172,7 +175,8 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	}
 	var current bool
 	if w.table != nil {
-		if current, err = w.table.check(ctx, w.tx, &entry); err != nil {
+		current, err = w.table.check(ctx, w.tx, &entry, !w.relationsDeferred)
+		if err != nil {
 			return err
 		}
 	}
@@ -193,7 +197,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		if _, ok := idx.(Reference[K, E]); ok && current {
 			continue
 		}
-		idx.stageSet(w.tx, entry)
+		idx.stageSet(w.tx, &entry)
 	}
 	links, indexed := s.indexedBefore()
 	if !current || !indexed {

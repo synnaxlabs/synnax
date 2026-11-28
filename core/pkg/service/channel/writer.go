@@ -102,9 +102,6 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if err != nil {
 		return nil, err
 	}
-	if err = next.Validate(); err != nil {
-		return nil, err
-	}
 	if err = w.checkGroup(ctx, prev, next); err != nil {
 		return nil, err
 	}
@@ -122,6 +119,11 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 			return nil, err
 		}
 		next.DataType = result.ChanDataType
+	}
+	// Validate after the analysis, so an expression edit can repair a stored channel
+	// with no data type.
+	if err = next.Validate(); err != nil {
+		return nil, err
 	}
 	if next.Name != prev.Name {
 		if err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
@@ -241,6 +243,9 @@ func (w Writer) ChangeDataType(
 				)
 			}
 			c.DataType = dataType
+			if err := c.Validate(); err != nil {
+				return Channel{}, err
+			}
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
@@ -754,6 +759,9 @@ func (w Writer) allocateAndWrite(
 	minimal []channel.Channel,
 	opts createOptions,
 ) error {
+	if err := w.refuseTakenNames(ctx, channels, newIndices); err != nil {
+		return err
+	}
 	if err := w.checkLimit(channels, newIndices, opts); err != nil {
 		return err
 	}
@@ -799,6 +807,37 @@ func (w Writer) allocateAndWrite(
 		w.svc.mu.Unlock()
 		return nil
 	})
+	return nil
+}
+
+// refuseTakenNames refuses a channel at newIndices in channels whose name another
+// channel holds, before any key is allocated, so that the create uses no key. The name
+// index stays the rule for every write path.
+func (w Writer) refuseTakenNames(
+	ctx context.Context,
+	channels []Channel,
+	newIndices []int,
+) error {
+	if len(newIndices) == 0 {
+		return nil
+	}
+	names := make([]string, len(newIndices))
+	for j, i := range newIndices {
+		names[j] = channels[i].Name
+	}
+	var holders []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(w.svc.names.Filter(names...)).
+		Entries(&holders).
+		Exec(ctx, w.tx); err != nil || len(holders) == 0 {
+		return err
+	}
+	taken := set.New(Names(holders)...)
+	for _, i := range newIndices {
+		if taken.Contains(channels[i].Name) {
+			return nameExists(channels[i].Name, i)
+		}
+	}
 	return nil
 }
 

@@ -436,7 +436,7 @@ jobs:
         if: inputs.driver && (env.DRIVER_REF_RUN_ID == '' || inputs.nilinuxrt)
         uses: bazel-contrib/setup-bazel@f34d6a05eae3c24acab7fa54587492daeaeffdab # 0.19.2
         with:
-          # Use S3 cache instead of github cache.
+          # Use S3 cache instead of GitHub cache.
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
@@ -832,7 +832,7 @@ jobs:
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: core/go.mod
-          # Don't use github cache. Local cache is faster.
+          # Don't use GitHub cache. Local cache is faster.
           cache: false
 
       # Merge queue caches are unreachable from later runs, so the queue never saves.

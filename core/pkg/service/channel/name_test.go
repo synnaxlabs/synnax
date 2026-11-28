@@ -11,9 +11,11 @@ package channel_test
 
 import (
 	"fmt"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -108,6 +110,66 @@ var _ = Describe("Unique names", Ordered, func() {
 		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
 	})
 
+	It("Should use no channel key on a create into a taken name", func(
+		ctx SpecContext,
+	) {
+		first := virtual(UniqueChannelName())
+		Expect(create(ctx, &first)).To(Succeed())
+		taken := virtual(first.Name)
+		Expect(create(ctx, &taken)).To(MatchError(ContainSubstring(
+			fmt.Sprintf("channel with name '%s' already exists", first.Name),
+		)))
+		next := virtual(UniqueChannelName())
+		Expect(create(ctx, &next)).To(Succeed())
+		Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
+	})
+
+	It("Should use no channel key on a create of 100 channels with one taken name",
+		func(ctx SpecContext) {
+			first := virtual(UniqueChannelName())
+			Expect(create(ctx, &first)).To(Succeed())
+			chs := make([]channel.Channel, 100)
+			for i := range chs {
+				chs[i] = virtual(UniqueChannelName())
+			}
+			chs[50].Name = first.Name
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).CreateMany(ctx, &chs)
+			})
+			Expect(err).To(MatchError(ContainSubstring(
+				fmt.Sprintf("channel with name '%s' already exists", first.Name),
+			)))
+			pathErr, ok := errors.AsType[validate.PathError](err)
+			Expect(ok).To(BeTrue())
+			Expect(pathErr.Path).To(Equal([]string{"50", "name"}))
+			next := virtual(UniqueChannelName())
+			Expect(create(ctx, &next)).To(Succeed())
+			Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
+		})
+
+	It("Should fail one of two concurrent creates into one name", func(
+		ctx SpecContext,
+	) {
+		name := UniqueChannelName()
+		var (
+			wg   sync.WaitGroup
+			errs = make([]error, 2)
+		)
+		for i := range errs {
+			wg.Go(func() {
+				ch := virtual(name)
+				errs[i] = create(ctx, &ch)
+			})
+		}
+		wg.Wait()
+		Expect(lo.Compact(errs)).To(ConsistOf(MatchError(ContainSubstring(
+			fmt.Sprintf("channel with name '%s' already exists", name),
+		))))
+		Expect(svc.NewRetrieve().
+			Where(channel.MatchNames(name)).
+			Count(ctx, db)).To(Equal(1))
+	})
+
 	It("Should refuse a rename of two channels to one name", func(ctx SpecContext) {
 		a, b := virtual(UniqueChannelName()), virtual(UniqueChannelName())
 		Expect(create(ctx, &a)).To(Succeed())
@@ -127,29 +189,35 @@ var _ = Describe("Unique names", Ordered, func() {
 		))
 	})
 
-	It("Should refuse a rename to the name that another channel of the request holds",
-		func(ctx SpecContext) {
+	DescribeTable(
+		"Should refuse a rename to the name that another channel of the request holds",
+		func(ctx SpecContext, higherFirst bool) {
 			a, b := virtual(UniqueChannelName()), virtual(UniqueChannelName())
 			Expect(create(ctx, &a)).To(Succeed())
 			Expect(create(ctx, &b)).To(Succeed())
-			for _, order := range [][]channel.Channel{{a, b}, {b, a}} {
-				err := db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).RenameMany(
-						ctx,
-						[]channel.Key{order[0].Key(), order[1].Key()},
-						[]string{UniqueChannelName(), order[0].Name},
-						false,
-					)
-				})
-				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf(
-					"channel with name '%s' already exists",
-					order[0].Name,
-				))))
-				pathErr, ok := errors.AsType[validate.PathError](err)
-				Expect(ok).To(BeTrue())
-				Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+			holder, other := a, b
+			if higherFirst {
+				holder, other = b, a
 			}
-		})
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).RenameMany(
+					ctx,
+					[]channel.Key{holder.Key(), other.Key()},
+					[]string{UniqueChannelName(), holder.Name},
+					false,
+				)
+			})
+			Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf(
+				"channel with name '%s' already exists",
+				holder.Name,
+			))))
+			pathErr, ok := errors.AsType[validate.PathError](err)
+			Expect(ok).To(BeTrue())
+			Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+		},
+		Entry("with the lower key first", false),
+		Entry("with the higher key first", true),
+	)
 
 	It("Should name the position of a clashing channel in a create of many", func(
 		ctx SpecContext,

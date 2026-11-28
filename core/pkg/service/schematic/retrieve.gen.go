@@ -14,6 +14,7 @@ package schematic
 import (
 	"context"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -84,9 +85,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Schematic, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Schematic, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Schematic, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -101,9 +104,11 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
-			Retarget: func(e *Schematic, from, to project.Key) {
-				if e.Project != nil && *e.Project == from {
-					*e.Project = to
+			Retarget: func(e *Schematic, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						*e.Project = t
+					}
 				}
 			},
 		}),
@@ -220,6 +225,103 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t color.Key) []string {
+				for i49, v50 := range e.Nodes {
+					switch v51 := v50.Config.Variant.(type) {
+					case BoxNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v52 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v52.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case CircleNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v53 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v53.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case GaugeNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v54 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v54.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case LineNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v55 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v55.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case PolygonNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v56 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v56.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case StateIndicatorNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v57 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v57.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case StringDisplayNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v58 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v58.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case ValueNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v59 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v59.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case CylinderNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v60 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v60.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case TankNodeConfig:
+						if v51.StrokeColor != nil {
+							switch v61 := v51.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v61.Key == t {
+									return []string{"nodes", strconv.Itoa(i49), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t color.Key) {
 				for i25 := range e.Nodes {
 					switch v26 := e.Nodes[i25].Config.Variant.(type) {
@@ -296,15 +398,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to color.Key) {
+			Retarget: func(e *Schematic, to map[color.Key]color.Key) {
 				for i37 := range e.Nodes {
 					switch v38 := e.Nodes[i37].Config.Variant.(type) {
 					case BoxNodeConfig:
 						if v38.StrokeColor != nil {
 							switch v39 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v39.Key == from {
-									v39.Key = to
+								if t, ok := to[v39.Key]; ok {
+									v39.Key = t
 								}
 								v38.StrokeColor.Variant = v39
 							}
@@ -314,8 +416,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v40 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v40.Key == from {
-									v40.Key = to
+								if t, ok := to[v40.Key]; ok {
+									v40.Key = t
 								}
 								v38.StrokeColor.Variant = v40
 							}
@@ -325,8 +427,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v41 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v41.Key == from {
-									v41.Key = to
+								if t, ok := to[v41.Key]; ok {
+									v41.Key = t
 								}
 								v38.StrokeColor.Variant = v41
 							}
@@ -336,8 +438,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v42 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v42.Key == from {
-									v42.Key = to
+								if t, ok := to[v42.Key]; ok {
+									v42.Key = t
 								}
 								v38.StrokeColor.Variant = v42
 							}
@@ -347,8 +449,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v43 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v43.Key == from {
-									v43.Key = to
+								if t, ok := to[v43.Key]; ok {
+									v43.Key = t
 								}
 								v38.StrokeColor.Variant = v43
 							}
@@ -358,8 +460,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v44 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v44.Key == from {
-									v44.Key = to
+								if t, ok := to[v44.Key]; ok {
+									v44.Key = t
 								}
 								v38.StrokeColor.Variant = v44
 							}
@@ -369,8 +471,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v45 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v45.Key == from {
-									v45.Key = to
+								if t, ok := to[v45.Key]; ok {
+									v45.Key = t
 								}
 								v38.StrokeColor.Variant = v45
 							}
@@ -380,8 +482,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v46 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v46.Key == from {
-									v46.Key = to
+								if t, ok := to[v46.Key]; ok {
+									v46.Key = t
 								}
 								v38.StrokeColor.Variant = v46
 							}
@@ -391,8 +493,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v47 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v47.Key == from {
-									v47.Key = to
+								if t, ok := to[v47.Key]; ok {
+									v47.Key = t
 								}
 								v38.StrokeColor.Variant = v47
 							}
@@ -402,8 +504,8 @@ func newIndexes() indexes {
 						if v38.StrokeColor != nil {
 							switch v48 := v38.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v48.Key == from {
-									v48.Key = to
+								if t, ok := to[v48.Key]; ok {
+									v48.Key = t
 								}
 								v38.StrokeColor.Variant = v48
 							}
@@ -625,6 +727,112 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t color.Key) []string {
+				for i53, v54 := range e.Nodes {
+					switch v55 := v54.Config.Variant.(type) {
+					case BoxNodeConfig:
+						if v55.FillColor != nil {
+							switch v56 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v56.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case ButtonNodeConfig:
+						if v55.FillColor != nil {
+							switch v57 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v57.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case CircleNodeConfig:
+						if v55.FillColor != nil {
+							switch v58 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v58.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case InputNodeConfig:
+						if v55.FillColor != nil {
+							switch v59 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v59.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case OffPageReferenceNodeConfig:
+						if v55.FillColor != nil {
+							switch v60 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v60.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case PolygonNodeConfig:
+						if v55.FillColor != nil {
+							switch v61 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v61.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case SelectNodeConfig:
+						if v55.FillColor != nil {
+							switch v62 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v62.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case SetpointNodeConfig:
+						if v55.FillColor != nil {
+							switch v63 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v63.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case ValueNodeConfig:
+						if v55.FillColor != nil {
+							switch v64 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v64.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case CylinderNodeConfig:
+						if v55.FillColor != nil {
+							switch v65 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v65.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					case TankNodeConfig:
+						if v55.FillColor != nil {
+							switch v66 := v55.FillColor.Variant.(type) {
+							case color.NamedRef:
+								if v66.Key == t {
+									return []string{"nodes", strconv.Itoa(i53), "config", "fill_color", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t color.Key) {
 				for i27 := range e.Nodes {
 					switch v28 := e.Nodes[i27].Config.Variant.(type) {
@@ -708,15 +916,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to color.Key) {
+			Retarget: func(e *Schematic, to map[color.Key]color.Key) {
 				for i40 := range e.Nodes {
 					switch v41 := e.Nodes[i40].Config.Variant.(type) {
 					case BoxNodeConfig:
 						if v41.FillColor != nil {
 							switch v42 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v42.Key == from {
-									v42.Key = to
+								if t, ok := to[v42.Key]; ok {
+									v42.Key = t
 								}
 								v41.FillColor.Variant = v42
 							}
@@ -726,8 +934,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v43 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v43.Key == from {
-									v43.Key = to
+								if t, ok := to[v43.Key]; ok {
+									v43.Key = t
 								}
 								v41.FillColor.Variant = v43
 							}
@@ -737,8 +945,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v44 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v44.Key == from {
-									v44.Key = to
+								if t, ok := to[v44.Key]; ok {
+									v44.Key = t
 								}
 								v41.FillColor.Variant = v44
 							}
@@ -748,8 +956,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v45 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v45.Key == from {
-									v45.Key = to
+								if t, ok := to[v45.Key]; ok {
+									v45.Key = t
 								}
 								v41.FillColor.Variant = v45
 							}
@@ -759,8 +967,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v46 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v46.Key == from {
-									v46.Key = to
+								if t, ok := to[v46.Key]; ok {
+									v46.Key = t
 								}
 								v41.FillColor.Variant = v46
 							}
@@ -770,8 +978,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v47 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v47.Key == from {
-									v47.Key = to
+								if t, ok := to[v47.Key]; ok {
+									v47.Key = t
 								}
 								v41.FillColor.Variant = v47
 							}
@@ -781,8 +989,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v48 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v48.Key == from {
-									v48.Key = to
+								if t, ok := to[v48.Key]; ok {
+									v48.Key = t
 								}
 								v41.FillColor.Variant = v48
 							}
@@ -792,8 +1000,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v49 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v49.Key == from {
-									v49.Key = to
+								if t, ok := to[v49.Key]; ok {
+									v49.Key = t
 								}
 								v41.FillColor.Variant = v49
 							}
@@ -803,8 +1011,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v50 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v50.Key == from {
-									v50.Key = to
+								if t, ok := to[v50.Key]; ok {
+									v50.Key = t
 								}
 								v41.FillColor.Variant = v50
 							}
@@ -814,8 +1022,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v51 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v51.Key == from {
-									v51.Key = to
+								if t, ok := to[v51.Key]; ok {
+									v51.Key = t
 								}
 								v41.FillColor.Variant = v51
 							}
@@ -825,8 +1033,8 @@ func newIndexes() indexes {
 						if v41.FillColor != nil {
 							switch v52 := v41.FillColor.Variant.(type) {
 							case color.NamedRef:
-								if v52.Key == from {
-									v52.Key = to
+								if t, ok := to[v52.Key]; ok {
+									v52.Key = t
 								}
 								v41.FillColor.Variant = v52
 							}
@@ -974,6 +1182,29 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t channel.Key) []string {
+				for i7, v8 := range e.Nodes {
+					switch v9 := v8.Config.Variant.(type) {
+					case ButtonNodeConfig:
+						if v9.CommandChannel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "command_channel"}
+						}
+					case InputNodeConfig:
+						if v9.CommandChannel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "command_channel"}
+						}
+					case SelectNodeConfig:
+						if v9.CommandChannel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "command_channel"}
+						}
+					case SetpointNodeConfig:
+						if v9.CommandChannel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "command_channel"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t channel.Key) {
 				for i3 := range e.Nodes {
 					switch v4 := e.Nodes[i3].Config.Variant.(type) {
@@ -1000,27 +1231,27 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i5 := range e.Nodes {
 					switch v6 := e.Nodes[i5].Config.Variant.(type) {
 					case ButtonNodeConfig:
-						if v6.CommandChannel == from {
-							v6.CommandChannel = to
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case InputNodeConfig:
-						if v6.CommandChannel == from {
-							v6.CommandChannel = to
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case SelectNodeConfig:
-						if v6.CommandChannel == from {
-							v6.CommandChannel = to
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case SetpointNodeConfig:
-						if v6.CommandChannel == from {
-							v6.CommandChannel = to
+						if t, ok := to[v6.CommandChannel]; ok {
+							v6.CommandChannel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					}
@@ -1083,6 +1314,37 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t channel.Key) []string {
+				for i7, v8 := range e.Nodes {
+					switch v9 := v8.Config.Variant.(type) {
+					case GaugeNodeConfig:
+						if v9.Channel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "channel"}
+						}
+					case ScaleNodeConfig:
+						if v9.Channel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "channel"}
+						}
+					case StateIndicatorNodeConfig:
+						if v9.Channel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "channel"}
+						}
+					case StringDisplayNodeConfig:
+						if v9.Channel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "channel"}
+						}
+					case ValueNodeConfig:
+						if v9.Channel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "channel"}
+						}
+					case TankNodeConfig:
+						if v9.Channel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "channel"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t channel.Key) {
 				for i3 := range e.Nodes {
 					switch v4 := e.Nodes[i3].Config.Variant.(type) {
@@ -1119,37 +1381,37 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i5 := range e.Nodes {
 					switch v6 := e.Nodes[i5].Config.Variant.(type) {
 					case GaugeNodeConfig:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case ScaleNodeConfig:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case StateIndicatorNodeConfig:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case StringDisplayNodeConfig:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case ValueNodeConfig:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case TankNodeConfig:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					}
@@ -1191,6 +1453,25 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t channel.Key) []string {
+				for i7, v8 := range e.Nodes {
+					switch v9 := v8.Config.Variant.(type) {
+					case InputNodeConfig:
+						if v9.StateChannel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "state_channel"}
+						}
+					case SelectNodeConfig:
+						if v9.StateChannel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "state_channel"}
+						}
+					case SetpointNodeConfig:
+						if v9.StateChannel == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "state_channel"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t channel.Key) {
 				for i3 := range e.Nodes {
 					switch v4 := e.Nodes[i3].Config.Variant.(type) {
@@ -1212,22 +1493,22 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i5 := range e.Nodes {
 					switch v6 := e.Nodes[i5].Config.Variant.(type) {
 					case InputNodeConfig:
-						if v6.StateChannel == from {
-							v6.StateChannel = to
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case SelectNodeConfig:
-						if v6.StateChannel == from {
-							v6.StateChannel = to
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case SetpointNodeConfig:
-						if v6.StateChannel == from {
-							v6.StateChannel = to
+						if t, ok := to[v6.StateChannel]; ok {
+							v6.StateChannel = t
 						}
 						e.Nodes[i5].Config.Variant = v6
 					}
@@ -1261,6 +1542,21 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t enumeration.Key) []string {
+				for i7, v8 := range e.Nodes {
+					switch v9 := v8.Config.Variant.(type) {
+					case SelectNodeConfig:
+						if v9.Enumeration != nil && *v9.Enumeration == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "enumeration"}
+						}
+					case StateIndicatorNodeConfig:
+						if v9.Enumeration != nil && *v9.Enumeration == t {
+							return []string{"nodes", strconv.Itoa(i7), "config", "enumeration"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t enumeration.Key) {
 				for i3 := range e.Nodes {
 					switch v4 := e.Nodes[i3].Config.Variant.(type) {
@@ -1277,17 +1573,21 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to enumeration.Key) {
+			Retarget: func(e *Schematic, to map[enumeration.Key]enumeration.Key) {
 				for i5 := range e.Nodes {
 					switch v6 := e.Nodes[i5].Config.Variant.(type) {
 					case SelectNodeConfig:
-						if v6.Enumeration != nil && *v6.Enumeration == from {
-							*v6.Enumeration = to
+						if v6.Enumeration != nil {
+							if t, ok := to[*v6.Enumeration]; ok {
+								*v6.Enumeration = t
+							}
 						}
 						e.Nodes[i5].Config.Variant = v6
 					case StateIndicatorNodeConfig:
-						if v6.Enumeration != nil && *v6.Enumeration == from {
-							*v6.Enumeration = to
+						if v6.Enumeration != nil {
+							if t, ok := to[*v6.Enumeration]; ok {
+								*v6.Enumeration = t
+							}
 						}
 						e.Nodes[i5].Config.Variant = v6
 					}
@@ -1327,6 +1627,31 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t color.Key) []string {
+				for i17, v18 := range e.Nodes {
+					switch v19 := v18.Config.Variant.(type) {
+					case ScaleNodeConfig:
+						if v19.LevelColor != nil {
+							switch v20 := v19.LevelColor.Variant.(type) {
+							case color.NamedRef:
+								if v20.Key == t {
+									return []string{"nodes", strconv.Itoa(i17), "config", "level_color", "key"}
+								}
+							}
+						}
+					case TankNodeConfig:
+						if v19.LevelColor != nil {
+							switch v21 := v19.LevelColor.Variant.(type) {
+							case color.NamedRef:
+								if v21.Key == t {
+									return []string{"nodes", strconv.Itoa(i17), "config", "level_color", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t color.Key) {
 				for i9 := range e.Nodes {
 					switch v10 := e.Nodes[i9].Config.Variant.(type) {
@@ -1347,15 +1672,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to color.Key) {
+			Retarget: func(e *Schematic, to map[color.Key]color.Key) {
 				for i13 := range e.Nodes {
 					switch v14 := e.Nodes[i13].Config.Variant.(type) {
 					case ScaleNodeConfig:
 						if v14.LevelColor != nil {
 							switch v15 := v14.LevelColor.Variant.(type) {
 							case color.NamedRef:
-								if v15.Key == from {
-									v15.Key = to
+								if t, ok := to[v15.Key]; ok {
+									v15.Key = t
 								}
 								v14.LevelColor.Variant = v15
 							}
@@ -1365,8 +1690,8 @@ func newIndexes() indexes {
 						if v14.LevelColor != nil {
 							switch v16 := v14.LevelColor.Variant.(type) {
 							case color.NamedRef:
-								if v16.Key == from {
-									v16.Key = to
+								if t, ok := to[v16.Key]; ok {
+									v16.Key = t
 								}
 								v14.LevelColor.Variant = v16
 							}
@@ -1442,6 +1767,31 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t color.Key) []string {
+				for i17, v18 := range e.Nodes {
+					switch v19 := v18.Config.Variant.(type) {
+					case ScaleNodeConfig:
+						if v19.AxisColor != nil {
+							switch v20 := v19.AxisColor.Variant.(type) {
+							case color.NamedRef:
+								if v20.Key == t {
+									return []string{"nodes", strconv.Itoa(i17), "config", "axis_color", "key"}
+								}
+							}
+						}
+					case TankNodeConfig:
+						if v19.AxisColor != nil {
+							switch v21 := v19.AxisColor.Variant.(type) {
+							case color.NamedRef:
+								if v21.Key == t {
+									return []string{"nodes", strconv.Itoa(i17), "config", "axis_color", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t color.Key) {
 				for i9 := range e.Nodes {
 					switch v10 := e.Nodes[i9].Config.Variant.(type) {
@@ -1462,15 +1812,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to color.Key) {
+			Retarget: func(e *Schematic, to map[color.Key]color.Key) {
 				for i13 := range e.Nodes {
 					switch v14 := e.Nodes[i13].Config.Variant.(type) {
 					case ScaleNodeConfig:
 						if v14.AxisColor != nil {
 							switch v15 := v14.AxisColor.Variant.(type) {
 							case color.NamedRef:
-								if v15.Key == from {
-									v15.Key = to
+								if t, ok := to[v15.Key]; ok {
+									v15.Key = t
 								}
 								v14.AxisColor.Variant = v15
 							}
@@ -1480,8 +1830,8 @@ func newIndexes() indexes {
 						if v14.AxisColor != nil {
 							switch v16 := v14.AxisColor.Variant.(type) {
 							case color.NamedRef:
-								if v16.Key == from {
-									v16.Key = to
+								if t, ok := to[v16.Key]; ok {
+									v16.Key = t
 								}
 								v14.AxisColor.Variant = v16
 							}
@@ -1587,6 +1937,58 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t color.Key) []string {
+				for i29, v30 := range e.Nodes {
+					switch v31 := v30.Config.Variant.(type) {
+					case ScaleNodeConfig:
+						if v31.TextColor != nil {
+							switch v32 := v31.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v32.Key == t {
+									return []string{"nodes", strconv.Itoa(i29), "config", "text_color", "key"}
+								}
+							}
+						}
+					case StringDisplayNodeConfig:
+						if v31.TextColor != nil {
+							switch v33 := v31.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v33.Key == t {
+									return []string{"nodes", strconv.Itoa(i29), "config", "text_color", "key"}
+								}
+							}
+						}
+					case TextBoxNodeConfig:
+						if v31.TextColor != nil {
+							switch v34 := v31.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v34.Key == t {
+									return []string{"nodes", strconv.Itoa(i29), "config", "text_color", "key"}
+								}
+							}
+						}
+					case ValueNodeConfig:
+						if v31.TextColor != nil {
+							switch v35 := v31.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v35.Key == t {
+									return []string{"nodes", strconv.Itoa(i29), "config", "text_color", "key"}
+								}
+							}
+						}
+					case TankNodeConfig:
+						if v31.TextColor != nil {
+							switch v36 := v31.TextColor.Variant.(type) {
+							case color.NamedRef:
+								if v36.Key == t {
+									return []string{"nodes", strconv.Itoa(i29), "config", "text_color", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t color.Key) {
 				for i15 := range e.Nodes {
 					switch v16 := e.Nodes[i15].Config.Variant.(type) {
@@ -1628,15 +2030,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to color.Key) {
+			Retarget: func(e *Schematic, to map[color.Key]color.Key) {
 				for i22 := range e.Nodes {
 					switch v23 := e.Nodes[i22].Config.Variant.(type) {
 					case ScaleNodeConfig:
 						if v23.TextColor != nil {
 							switch v24 := v23.TextColor.Variant.(type) {
 							case color.NamedRef:
-								if v24.Key == from {
-									v24.Key = to
+								if t, ok := to[v24.Key]; ok {
+									v24.Key = t
 								}
 								v23.TextColor.Variant = v24
 							}
@@ -1646,8 +2048,8 @@ func newIndexes() indexes {
 						if v23.TextColor != nil {
 							switch v25 := v23.TextColor.Variant.(type) {
 							case color.NamedRef:
-								if v25.Key == from {
-									v25.Key = to
+								if t, ok := to[v25.Key]; ok {
+									v25.Key = t
 								}
 								v23.TextColor.Variant = v25
 							}
@@ -1657,8 +2059,8 @@ func newIndexes() indexes {
 						if v23.TextColor != nil {
 							switch v26 := v23.TextColor.Variant.(type) {
 							case color.NamedRef:
-								if v26.Key == from {
-									v26.Key = to
+								if t, ok := to[v26.Key]; ok {
+									v26.Key = t
 								}
 								v23.TextColor.Variant = v26
 							}
@@ -1668,8 +2070,8 @@ func newIndexes() indexes {
 						if v23.TextColor != nil {
 							switch v27 := v23.TextColor.Variant.(type) {
 							case color.NamedRef:
-								if v27.Key == from {
-									v27.Key = to
+								if t, ok := to[v27.Key]; ok {
+									v27.Key = t
 								}
 								v23.TextColor.Variant = v27
 							}
@@ -1679,8 +2081,8 @@ func newIndexes() indexes {
 						if v23.TextColor != nil {
 							switch v28 := v23.TextColor.Variant.(type) {
 							case color.NamedRef:
-								if v28.Key == from {
-									v28.Key = to
+								if t, ok := to[v28.Key]; ok {
+									v28.Key = t
 								}
 								v23.TextColor.Variant = v28
 							}
@@ -1765,6 +2167,20 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t symbol.Key) []string {
+				for i10, v11 := range e.Nodes {
+					switch v12 := v11.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						switch v13 := v12.Spec.Variant.(type) {
+						case symbol.CustomRef:
+							if v13.Key == t {
+								return []string{"nodes", strconv.Itoa(i10), "config", "spec", "key"}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t symbol.Key) {
 				e.Nodes = slices.DeleteFunc(e.Nodes, func(v4 Node) bool {
 					switch v5 := v4.Config.Variant.(type) {
@@ -1779,14 +2195,14 @@ func newIndexes() indexes {
 					return false
 				})
 			},
-			Retarget: func(e *Schematic, from, to symbol.Key) {
+			Retarget: func(e *Schematic, to map[symbol.Key]symbol.Key) {
 				for i7 := range e.Nodes {
 					switch v8 := e.Nodes[i7].Config.Variant.(type) {
 					case SymbolNodeConfig:
 						switch v9 := v8.Spec.Variant.(type) {
 						case symbol.CustomRef:
-							if v9.Key == from {
-								v9.Key = to
+							if t, ok := to[v9.Key]; ok {
+								v9.Key = t
 							}
 							v8.Spec.Variant = v9
 						}
@@ -1818,6 +2234,22 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t color.Key) []string {
+				for i13, v14 := range e.Nodes {
+					switch v15 := v14.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						if v15.Color != nil {
+							switch v16 := v15.Color.Variant.(type) {
+							case color.NamedRef:
+								if v16.Key == t {
+									return []string{"nodes", strconv.Itoa(i13), "config", "color", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t color.Key) {
 				for i7 := range e.Nodes {
 					switch v8 := e.Nodes[i7].Config.Variant.(type) {
@@ -1831,15 +2263,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to color.Key) {
+			Retarget: func(e *Schematic, to map[color.Key]color.Key) {
 				for i10 := range e.Nodes {
 					switch v11 := e.Nodes[i10].Config.Variant.(type) {
 					case SymbolNodeConfig:
 						if v11.Color != nil {
 							switch v12 := v11.Color.Variant.(type) {
 							case color.NamedRef:
-								if v12.Key == from {
-									v12.Key = to
+								if t, ok := to[v12.Key]; ok {
+									v12.Key = t
 								}
 								v11.Color.Variant = v12
 							}
@@ -1903,6 +2335,24 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t channel.Key) []string {
+				for i13, v14 := range e.Nodes {
+					switch v15 := v14.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i16, v17 := range v15.States {
+							if v17.Source != nil {
+								switch v18 := v17.Source.Variant.(type) {
+								case ChannelSource:
+									if v18.Key != nil && *v18.Key == t {
+										return []string{"nodes", strconv.Itoa(i13), "config", "states", strconv.Itoa(i16), "source", "key"}
+									}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t channel.Key) {
 				for i5 := range e.Nodes {
 					switch v6 := e.Nodes[i5].Config.Variant.(type) {
@@ -1922,7 +2372,7 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i9 := range e.Nodes {
 					switch v10 := e.Nodes[i9].Config.Variant.(type) {
 					case SymbolNodeConfig:
@@ -1930,8 +2380,10 @@ func newIndexes() indexes {
 							if v10.States[i11].Source != nil {
 								switch v12 := v10.States[i11].Source.Variant.(type) {
 								case ChannelSource:
-									if v12.Key != nil && *v12.Key == from {
-										*v12.Key = to
+									if v12.Key != nil {
+										if t, ok := to[*v12.Key]; ok {
+											*v12.Key = t
+										}
 									}
 									v10.States[i11].Source.Variant = v12
 								}
@@ -1970,6 +2422,24 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t channel.Key) []string {
+				for i13, v14 := range e.Nodes {
+					switch v15 := v14.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i16, v17 := range v15.States {
+							if v17.Source != nil {
+								switch v18 := v17.Source.Variant.(type) {
+								case ChannelSource:
+									if v18.Command != nil && *v18.Command == t {
+										return []string{"nodes", strconv.Itoa(i13), "config", "states", strconv.Itoa(i16), "source", "command"}
+									}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t channel.Key) {
 				for i5 := range e.Nodes {
 					switch v6 := e.Nodes[i5].Config.Variant.(type) {
@@ -1989,7 +2459,7 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i9 := range e.Nodes {
 					switch v10 := e.Nodes[i9].Config.Variant.(type) {
 					case SymbolNodeConfig:
@@ -1997,8 +2467,10 @@ func newIndexes() indexes {
 							if v10.States[i11].Source != nil {
 								switch v12 := v10.States[i11].Source.Variant.(type) {
 								case ChannelSource:
-									if v12.Command != nil && *v12.Command == from {
-										*v12.Command = to
+									if v12.Command != nil {
+										if t, ok := to[*v12.Command]; ok {
+											*v12.Command = t
+										}
 									}
 									v10.States[i11].Source.Variant = v12
 								}
@@ -2031,6 +2503,19 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t enumeration.Key) []string {
+				for i10, v11 := range e.Nodes {
+					switch v12 := v11.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i13, v14 := range v12.States {
+							if v14.Enumeration != nil && *v14.Enumeration == t {
+								return []string{"nodes", strconv.Itoa(i10), "config", "states", strconv.Itoa(i13), "enumeration"}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t enumeration.Key) {
 				for i4 := range e.Nodes {
 					switch v5 := e.Nodes[i4].Config.Variant.(type) {
@@ -2044,13 +2529,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to enumeration.Key) {
+			Retarget: func(e *Schematic, to map[enumeration.Key]enumeration.Key) {
 				for i7 := range e.Nodes {
 					switch v8 := e.Nodes[i7].Config.Variant.(type) {
 					case SymbolNodeConfig:
 						for i9 := range v8.States {
-							if v8.States[i9].Enumeration != nil && *v8.States[i9].Enumeration == from {
-								*v8.States[i9].Enumeration = to
+							if v8.States[i9].Enumeration != nil {
+								if t, ok := to[*v8.States[i9].Enumeration]; ok {
+									*v8.States[i9].Enumeration = t
+								}
 							}
 						}
 						e.Nodes[i7].Config.Variant = v8
@@ -2079,6 +2566,19 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t channel.Key) []string {
+				for i10, v11 := range e.Nodes {
+					switch v12 := v11.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i13, v14 := range v12.Commands {
+							if v14.Channel == t {
+								return []string{"nodes", strconv.Itoa(i10), "config", "commands", strconv.Itoa(i13), "channel"}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t channel.Key) {
 				for i4 := range e.Nodes {
 					switch v5 := e.Nodes[i4].Config.Variant.(type) {
@@ -2093,13 +2593,13 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to channel.Key) {
+			Retarget: func(e *Schematic, to map[channel.Key]channel.Key) {
 				for i7 := range e.Nodes {
 					switch v8 := e.Nodes[i7].Config.Variant.(type) {
 					case SymbolNodeConfig:
 						for i9 := range v8.Commands {
-							if v8.Commands[i9].Channel == from {
-								v8.Commands[i9].Channel = to
+							if t, ok := to[v8.Commands[i9].Channel]; ok {
+								v8.Commands[i9].Channel = t
 							}
 						}
 						e.Nodes[i7].Config.Variant = v8
@@ -2190,6 +2690,76 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Schematic, t color.Key) []string {
+				for i37, v38 := range e.Edges {
+					switch v39 := v38.Config.Variant.(type) {
+					case PipeEdgeConfig:
+						if v39.StrokeColor != nil {
+							switch v40 := v39.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v40.Key == t {
+									return []string{"edges", strconv.Itoa(i37), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case ElectricEdgeConfig:
+						if v39.StrokeColor != nil {
+							switch v41 := v39.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v41.Key == t {
+									return []string{"edges", strconv.Itoa(i37), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case SecondaryEdgeConfig:
+						if v39.StrokeColor != nil {
+							switch v42 := v39.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v42.Key == t {
+									return []string{"edges", strconv.Itoa(i37), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case JacketedEdgeConfig:
+						if v39.StrokeColor != nil {
+							switch v43 := v39.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v43.Key == t {
+									return []string{"edges", strconv.Itoa(i37), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case HydraulicEdgeConfig:
+						if v39.StrokeColor != nil {
+							switch v44 := v39.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v44.Key == t {
+									return []string{"edges", strconv.Itoa(i37), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case PneumaticEdgeConfig:
+						if v39.StrokeColor != nil {
+							switch v45 := v39.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v45.Key == t {
+									return []string{"edges", strconv.Itoa(i37), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					case DataEdgeConfig:
+						if v39.StrokeColor != nil {
+							switch v46 := v39.StrokeColor.Variant.(type) {
+							case color.NamedRef:
+								if v46.Key == t {
+									return []string{"edges", strconv.Itoa(i37), "config", "stroke_color", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Schematic, t color.Key) {
 				for i19 := range e.Edges {
 					switch v20 := e.Edges[i19].Config.Variant.(type) {
@@ -2245,15 +2815,15 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Schematic, from, to color.Key) {
+			Retarget: func(e *Schematic, to map[color.Key]color.Key) {
 				for i28 := range e.Edges {
 					switch v29 := e.Edges[i28].Config.Variant.(type) {
 					case PipeEdgeConfig:
 						if v29.StrokeColor != nil {
 							switch v30 := v29.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v30.Key == from {
-									v30.Key = to
+								if t, ok := to[v30.Key]; ok {
+									v30.Key = t
 								}
 								v29.StrokeColor.Variant = v30
 							}
@@ -2263,8 +2833,8 @@ func newIndexes() indexes {
 						if v29.StrokeColor != nil {
 							switch v31 := v29.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v31.Key == from {
-									v31.Key = to
+								if t, ok := to[v31.Key]; ok {
+									v31.Key = t
 								}
 								v29.StrokeColor.Variant = v31
 							}
@@ -2274,8 +2844,8 @@ func newIndexes() indexes {
 						if v29.StrokeColor != nil {
 							switch v32 := v29.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v32.Key == from {
-									v32.Key = to
+								if t, ok := to[v32.Key]; ok {
+									v32.Key = t
 								}
 								v29.StrokeColor.Variant = v32
 							}
@@ -2285,8 +2855,8 @@ func newIndexes() indexes {
 						if v29.StrokeColor != nil {
 							switch v33 := v29.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v33.Key == from {
-									v33.Key = to
+								if t, ok := to[v33.Key]; ok {
+									v33.Key = t
 								}
 								v29.StrokeColor.Variant = v33
 							}
@@ -2296,8 +2866,8 @@ func newIndexes() indexes {
 						if v29.StrokeColor != nil {
 							switch v34 := v29.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v34.Key == from {
-									v34.Key = to
+								if t, ok := to[v34.Key]; ok {
+									v34.Key = t
 								}
 								v29.StrokeColor.Variant = v34
 							}
@@ -2307,8 +2877,8 @@ func newIndexes() indexes {
 						if v29.StrokeColor != nil {
 							switch v35 := v29.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v35.Key == from {
-									v35.Key = to
+								if t, ok := to[v35.Key]; ok {
+									v35.Key = t
 								}
 								v29.StrokeColor.Variant = v35
 							}
@@ -2318,8 +2888,8 @@ func newIndexes() indexes {
 						if v29.StrokeColor != nil {
 							switch v36 := v29.StrokeColor.Variant.(type) {
 							case color.NamedRef:
-								if v36.Key == from {
-									v36.Key = to
+								if t, ok := to[v36.Key]; ok {
+									v36.Key = t
 								}
 								v29.StrokeColor.Variant = v36
 							}

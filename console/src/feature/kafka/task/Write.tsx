@@ -14,14 +14,12 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id, type json, unique } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/kafka/device";
-import { DEFAULT_WRITE_NAME } from "@/feature/kafka/task/create";
 import { createDiscoverModal, type Format } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import {
@@ -33,6 +31,7 @@ import {
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
@@ -116,13 +115,29 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
   const path = root.config.targets[props.itemKey];
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
   const recordKey = PForm.useFieldValue(path.recordKey, { optional: true });
-  if (disabled == null || recordKey == null) return null;
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const message = PForm.useFieldValue(path.message.message, { optional: true });
+  if (disabled == null || recordKey == null || icdKey == null || message == null)
+    return null;
   return (
     <Task.Views.TreeGroupItem
       {...props}
-      label={<RecordLabel recordKey={recordKey} emptyLabel={NO_KEY} />}
+      label={
+        <RecordLabel
+          recordKey={recordKey}
+          emptyLabel={NO_KEY}
+          icdKey={icdKey}
+          message={message}
+        />
+      }
       off={disabled}
     >
+      <ICD.MessageMark
+        icdKey={icdKey}
+        messages={[message]}
+        missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+        jsonOnly
+      />
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
   );
@@ -179,16 +194,13 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
           <ICD.MessageWarning
             message={message}
             missingDescription={ICD.Write.MISSING_DESCRIPTION}
+            jsonOnly
           />
         </PForm.Section>
       </PForm.Sections>
     </Flex.Box>
   );
 };
-
-/** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string =>
-  name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
 const keyLabel = (recordKey: string): string => (recordKey === "" ? NO_KEY : recordKey);
 
@@ -221,7 +233,6 @@ interface TargetsProps {
 /** The targets of the task as a tree of topics, beside the selected item's details. */
 const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProps) => {
   const client = PSynnax.use();
-  const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
   const formats = ICD.useFormats();
   const targets = PForm.useFieldListUtils(root.config.targets);
@@ -250,7 +261,14 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       TargetItem,
       targetPane: (target, onAddField) => ({
         path: root.config.targets[target.key],
-        title: <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />,
+        title: (
+          <RecordLabel
+            recordKey={target.recordKey}
+            emptyLabel={NO_KEY}
+            icdKey={target.icd}
+            message={target.message.message}
+          />
+        ),
         details: (
           <TargetDetails
             key={target.key}
@@ -283,7 +301,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         client,
         formats,
         targets: targets.value(),
-        name: icdName(ctx.get(root.name).value),
+        name: device.name,
         messages: whole.map(({ topic, shape }) => ({
           name: topic,
           fields: ICD.createFields(shape?.fields ?? []),
@@ -308,6 +326,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add targets");
+  const isPreview = Task.useIsPreview();
 
   return (
     <Task.Views.Panes
@@ -330,15 +349,17 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         (currentGroup == null ? null : <TopicLabel name={currentGroup} />)
       }
     >
-      {pane?.details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            {currentGroup == null
-              ? "Add a target to send records to a topic"
-              : "Select a record key of the topic"}
-          </Text.Text>
-        </Flex.Box>
-      )}
+      {pane?.details ??
+        (currentGroup == null ? (
+          <Empty.Action
+            grow
+            message="No target selected"
+            action={isPreview ? undefined : "Add targets"}
+            onClick={handleAdd}
+          />
+        ) : (
+          <Empty.Action grow message="Select a record key of the topic" />
+        ))}
       {all.map(({ key, icd: icdKey }) => (
         <ICD.Write.Suit
           key={key}

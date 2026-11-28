@@ -13,6 +13,7 @@ package sift
 
 import (
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -41,9 +42,9 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *StreamConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *StreamConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -60,25 +61,30 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *StreamConfig, t channel.Key) []string {
+				for i4, k5 := range e.Channels {
+					if k5 == t {
+						return []string{"channels", strconv.Itoa(i4)}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *StreamConfig, t channel.Key) {
 				e.Channels = slices.DeleteFunc(e.Channels, func(k2 channel.Key) bool {
 					return k2 == t
 				})
 			},
-			Retarget: func(e *StreamConfig, from, to channel.Key) {
-				if slices.ContainsFunc(e.Channels, func(k3 channel.Key) bool {
-					return k3 == to
-				}) {
-					e.Channels = slices.DeleteFunc(e.Channels, func(k3 channel.Key) bool {
-						return k3 == from
-					})
-				} else {
-					for i4 := range e.Channels {
-						if e.Channels[i4] == from {
-							e.Channels[i4] = to
-						}
-					}
-				}
+			Retarget: func(e *StreamConfig, to map[channel.Key]channel.Key) {
+				e.Channels = gorp.RetargetEach(
+					e.Channels,
+					to,
+					func(k3 channel.Key) channel.Key {
+						return k3
+					},
+					func(k3 *channel.Key, t channel.Key) {
+						*k3 = t
+					},
+				)
 			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, StreamConfig, label.Key]{
@@ -93,25 +99,30 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *StreamConfig, t label.Key) []string {
+				for i4, k5 := range e.Labels {
+					if k5 == t {
+						return []string{"labels", strconv.Itoa(i4)}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *StreamConfig, t label.Key) {
 				e.Labels = slices.DeleteFunc(e.Labels, func(k2 label.Key) bool {
 					return k2 == t
 				})
 			},
-			Retarget: func(e *StreamConfig, from, to label.Key) {
-				if slices.ContainsFunc(e.Labels, func(k3 label.Key) bool {
-					return k3 == to
-				}) {
-					e.Labels = slices.DeleteFunc(e.Labels, func(k3 label.Key) bool {
-						return k3 == from
-					})
-				} else {
-					for i4 := range e.Labels {
-						if e.Labels[i4] == from {
-							e.Labels[i4] = to
-						}
-					}
-				}
+			Retarget: func(e *StreamConfig, to map[label.Key]label.Key) {
+				e.Labels = gorp.RetargetEach(
+					e.Labels,
+					to,
+					func(k3 label.Key) label.Key {
+						return k3
+					},
+					func(k3 *label.Key, t label.Key) {
+						*k3 = t
+					},
+				)
 			},
 		}),
 	}

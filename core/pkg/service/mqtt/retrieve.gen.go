@@ -13,6 +13,7 @@ package mqtt
 
 import (
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -41,9 +42,9 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *ReadConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -65,6 +66,17 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t icd.Key) []string {
+				for i7, v8 := range e.Entries {
+					switch v9 := v8.Variant.(type) {
+					case PlainReadEntry:
+						if v9.ICD == t {
+							return []string{"entries", strconv.Itoa(i7), "icd"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t icd.Key) {
 				e.Entries = slices.DeleteFunc(e.Entries, func(v3 ReadEntry) bool {
 					switch v4 := v3.Variant.(type) {
@@ -76,12 +88,12 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					return false
 				})
 			},
-			Retarget: func(e *ReadConfig, from, to icd.Key) {
+			Retarget: func(e *ReadConfig, to map[icd.Key]icd.Key) {
 				for i5 := range e.Entries {
 					switch v6 := e.Entries[i5].Variant.(type) {
 					case PlainReadEntry:
-						if v6.ICD == from {
-							v6.ICD = to
+						if t, ok := to[v6.ICD]; ok {
+							v6.ICD = t
 						}
 						e.Entries[i5].Variant = v6
 					}
@@ -113,6 +125,21 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i13, v14 := range e.Entries {
+					switch v15 := v14.Variant.(type) {
+					case PlainReadEntry:
+						for i16, v17 := range v15.Messages {
+							for i18, v19 := range v17.Bindings {
+								if v19.Channel == t {
+									return []string{"entries", strconv.Itoa(i13), "messages", strconv.Itoa(i16), "bindings", strconv.Itoa(i18), "channel"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i5 := range e.Entries {
 					switch v6 := e.Entries[i5].Variant.(type) {
@@ -128,14 +155,14 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				for i9 := range e.Entries {
 					switch v10 := e.Entries[i9].Variant.(type) {
 					case PlainReadEntry:
 						for i11 := range v10.Messages {
 							for i12 := range v10.Messages[i11].Bindings {
-								if v10.Messages[i11].Bindings[i12].Channel == from {
-									v10.Messages[i11].Bindings[i12].Channel = to
+								if t, ok := to[v10.Messages[i11].Bindings[i12].Channel]; ok {
+									v10.Messages[i11].Bindings[i12].Channel = t
 								}
 							}
 						}
@@ -165,6 +192,17 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i7, v8 := range e.Entries {
+					switch v9 := v8.Variant.(type) {
+					case SparkplugReadEntry:
+						if v9.Channel == t {
+							return []string{"entries", strconv.Itoa(i7), "channel"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i3 := range e.Entries {
 					switch v4 := e.Entries[i3].Variant.(type) {
@@ -176,12 +214,12 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				for i5 := range e.Entries {
 					switch v6 := e.Entries[i5].Variant.(type) {
 					case SparkplugReadEntry:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Entries[i5].Variant = v6
 					}
@@ -211,9 +249,9 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *WriteConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -235,6 +273,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t icd.Key) []string {
+				for i7, v8 := range e.Targets {
+					switch v9 := v8.Variant.(type) {
+					case PlainWriteTarget:
+						if v9.ICD == t {
+							return []string{"targets", strconv.Itoa(i7), "icd"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t icd.Key) {
 				e.Targets = slices.DeleteFunc(e.Targets, func(v3 WriteTarget) bool {
 					switch v4 := v3.Variant.(type) {
@@ -246,12 +295,12 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					return false
 				})
 			},
-			Retarget: func(e *WriteConfig, from, to icd.Key) {
+			Retarget: func(e *WriteConfig, to map[icd.Key]icd.Key) {
 				for i5 := range e.Targets {
 					switch v6 := e.Targets[i5].Variant.(type) {
 					case PlainWriteTarget:
-						if v6.ICD == from {
-							v6.ICD = to
+						if t, ok := to[v6.ICD]; ok {
+							v6.ICD = t
 						}
 						e.Targets[i5].Variant = v6
 					}
@@ -284,6 +333,22 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i13, v14 := range e.Targets {
+					switch v15 := v14.Variant.(type) {
+					case PlainWriteTarget:
+						for i16, v17 := range v15.Message.Bindings {
+							switch v18 := v17.Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v18.Channel == t {
+									return []string{"targets", strconv.Itoa(i13), "message", "bindings", strconv.Itoa(i16), "channel"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i5 := range e.Targets {
 					switch v6 := e.Targets[i5].Variant.(type) {
@@ -301,15 +366,15 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to channel.Key) {
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
 				for i9 := range e.Targets {
 					switch v10 := e.Targets[i9].Variant.(type) {
 					case PlainWriteTarget:
 						for i11 := range v10.Message.Bindings {
 							switch v12 := v10.Message.Bindings[i11].Variant.(type) {
 							case icd.ChannelWriteBinding:
-								if v12.Channel == from {
-									v12.Channel = to
+								if t, ok := to[v12.Channel]; ok {
+									v12.Channel = t
 								}
 								v10.Message.Bindings[i11].Variant = v12
 							}
@@ -340,6 +405,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i7, v8 := range e.Targets {
+					switch v9 := v8.Variant.(type) {
+					case SparkplugWriteTarget:
+						if v9.Channel == t {
+							return []string{"targets", strconv.Itoa(i7), "channel"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Targets {
 					switch v4 := e.Targets[i3].Variant.(type) {
@@ -351,12 +427,12 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to channel.Key) {
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
 				for i5 := range e.Targets {
 					switch v6 := e.Targets[i5].Variant.(type) {
 					case SparkplugWriteTarget:
-						if v6.Channel == from {
-							v6.Channel = to
+						if t, ok := to[v6.Channel]; ok {
+							v6.Channel = t
 						}
 						e.Targets[i5].Variant = v6
 					}
@@ -386,9 +462,9 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *EdgeConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *EdgeConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -410,6 +486,14 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *EdgeConfig, t channel.Key) []string {
+				for i4, v5 := range e.Tags {
+					if v5.Channel == t {
+						return []string{"tags", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *EdgeConfig, t channel.Key) {
 				for i2 := range e.Tags {
 					if e.Tags[i2].Channel == t {
@@ -417,10 +501,10 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 					}
 				}
 			},
-			Retarget: func(e *EdgeConfig, from, to channel.Key) {
+			Retarget: func(e *EdgeConfig, to map[channel.Key]channel.Key) {
 				for i3 := range e.Tags {
-					if e.Tags[i3].Channel == from {
-						e.Tags[i3].Channel = to
+					if t, ok := to[e.Tags[i3].Channel]; ok {
+						e.Tags[i3].Channel = t
 					}
 				}
 			},
@@ -443,6 +527,14 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *EdgeConfig, t channel.Key) []string {
+				for i4, v5 := range e.Tags {
+					if v5.CommandChannel == t {
+						return []string{"tags", strconv.Itoa(i4), "command_channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *EdgeConfig, t channel.Key) {
 				for i2 := range e.Tags {
 					if e.Tags[i2].CommandChannel == t {
@@ -450,10 +542,10 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 					}
 				}
 			},
-			Retarget: func(e *EdgeConfig, from, to channel.Key) {
+			Retarget: func(e *EdgeConfig, to map[channel.Key]channel.Key) {
 				for i3 := range e.Tags {
-					if e.Tags[i3].CommandChannel == from {
-						e.Tags[i3].CommandChannel = to
+					if t, ok := to[e.Tags[i3].CommandChannel]; ok {
+						e.Tags[i3].CommandChannel = t
 					}
 				}
 			},

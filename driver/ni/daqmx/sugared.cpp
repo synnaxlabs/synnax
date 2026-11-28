@@ -32,7 +32,7 @@ parse_error(const std::shared_ptr<API> &dmx, const Status status) {
     };
 }
 
-/// @brief reads an attribute with two calls. Given no buffer, DAQmx returns the size
+/// @brief reads an attribute with two calls. Given no buffer, NI-DAQmx returns the size
 /// that the value needs as a positive status.
 template<typename T, typename Read>
 std::pair<std::vector<T>, x::errors::Error>

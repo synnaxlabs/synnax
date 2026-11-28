@@ -55,7 +55,7 @@ func finite(m codec.JSONMessage, c decodeCase) bool {
 func documentEntries() []TableEntry {
 	GinkgoHelper()
 	var entries []TableEntry
-	for _, path := range fixturePaths("decode") {
+	for _, path := range fixturePaths("decode", payload.FormatJSON) {
 		if readDecodeFixture(path).Error == "" {
 			entries = append(entries, fixtureEntry(path))
 		}
@@ -63,8 +63,9 @@ func documentEntries() []TableEntry {
 	return entries
 }
 
-// encodeFixture is one JSON message from testdata/encode and the documents it encodes.
-// A fixture with an error names the error NewJSONEncoder must return, and has no cases.
+// encodeFixture is one message from testdata/encode and the payloads it encodes. A
+// fixture with an error names the error that the encoder's constructor must return, and
+// has no cases.
 type encodeFixture struct {
 	Description string         `json:"description"`
 	Message     fixtureMessage `json:"message"`
@@ -83,6 +84,49 @@ type encodeCase struct {
 	Error    string           `json:"error"`
 }
 
+// encoder is the encoder of the message of an encode fixture.
+type encoder interface {
+	Encode(dst []byte, samples [][]byte) ([]byte, error)
+	Check(i int, sample []byte) error
+}
+
+// checkCases checks that enc, the encoder of the message of f, encodes each case of f.
+// bindings are the bindings of the message.
+func (f encodeFixture) checkCases(enc encoder, bindings []codec.Binding) {
+	GinkgoHelper()
+	Expect(f.Cases).ToNot(BeEmpty())
+	for i, c := range f.Cases {
+		By("case " + strconv.Itoa(i))
+		Expect(c.Samples).To(HaveLen(len(bindings)))
+		samples := make([][]byte, len(c.Samples))
+		var rejected []error
+		for k, raw := range c.Samples {
+			samples[k] = sampleData(bindings[k].DataType, raw)
+			if samples[k] == nil {
+				continue
+			}
+			if err := enc.Check(k, samples[k]); err != nil {
+				rejected = append(rejected, err)
+			}
+		}
+		if c.Error != "" {
+			Expect(enc.Encode(nil, samples)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(c.Error),
+			))
+			Expect(rejected).To(HaveExactElements(MatchError(c.Error)))
+			continue
+		}
+		Expect(rejected).To(BeEmpty())
+		out := MustSucceed(enc.Encode(nil, samples))
+		if c.Text != nil {
+			Expect(string(out)).To(Equal(*c.Text))
+		} else {
+			Expect(out).To(MatchJSON([]byte(c.Document)))
+		}
+	}
+}
+
 func readEncodeFixture(path string) encodeFixture {
 	GinkgoHelper()
 	var f encodeFixture
@@ -93,7 +137,8 @@ func readEncodeFixture(path string) encodeFixture {
 	return f
 }
 
-// sampleData is the sample of dt that a fixture writes as raw, or nil for null.
+// sampleData is the sample of dt that a fixture writes as raw, or nil for null. A float
+// sample can be the string NaN, Infinity, or -Infinity.
 func sampleData(dt telem.DataType, raw jsontext.Value) []byte {
 	GinkgoHelper()
 	if raw.Kind() == 'n' {
@@ -107,6 +152,10 @@ func sampleData(dt telem.DataType, raw jsontext.Value) []byte {
 	var v any
 	// An integer reads without a float64, which holds only 53 bits.
 	switch kind, _ := payload.KindOf(dt); {
+	case raw.Kind() == '"' && kind == payload.KindFloat:
+		var text string
+		Expect(json.Unmarshal(raw, &text)).To(Succeed())
+		v = MustSucceed(strconv.ParseFloat(text, 64))
 	case raw.Kind() == '0' && kind == payload.KindUnsigned:
 		v = MustSucceed(strconv.ParseUint(string(raw), 10, 64))
 	case raw.Kind() == '0' &&
@@ -158,7 +207,8 @@ var _ = Describe("JSONEncoder", func() {
 				By("message " + m.Name)
 				enc := MustSucceed(codec.NewJSONEncoder(m))
 				for k, c := range f.Cases {
-					if c.Error != "" || c.Unmatched || c.Message != m.Name {
+					if c.Error != "" || len(c.Failures) > 0 || c.Unmatched ||
+						c.Message != m.Name {
 						continue
 					}
 					By("case " + strconv.Itoa(k))
@@ -173,8 +223,10 @@ var _ = Describe("JSONEncoder", func() {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
 					}
 					if !finite(m, c) {
-						Expect(enc.Encode(nil, samples)).Error().
-							To(MatchError(validate.ErrValidation))
+						Expect(enc.Encode(nil, samples)).Error().To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("is not a JSON number")),
+						))
 						continue
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
@@ -199,39 +251,8 @@ var _ = Describe("JSONEncoder", func() {
 			))
 			return
 		}
-		enc := MustSucceed(codec.NewJSONEncoder(m))
-		Expect(f.Cases).ToNot(BeEmpty())
-		for i, c := range f.Cases {
-			By("case " + strconv.Itoa(i))
-			Expect(c.Samples).To(HaveLen(len(m.Bindings)))
-			samples := make([][]byte, len(c.Samples))
-			var rejected []error
-			for k, raw := range c.Samples {
-				samples[k] = sampleData(m.Bindings[k].DataType, raw)
-				if samples[k] == nil {
-					continue
-				}
-				if err := enc.Check(k, samples[k]); err != nil {
-					rejected = append(rejected, err)
-				}
-			}
-			if c.Error != "" {
-				Expect(enc.Encode(nil, samples)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(c.Error),
-				))
-				Expect(rejected).To(HaveExactElements(MatchError(c.Error)))
-				continue
-			}
-			Expect(rejected).To(BeEmpty())
-			doc := MustSucceed(enc.Encode(nil, samples))
-			if c.Text != nil {
-				Expect(string(doc)).To(Equal(*c.Text))
-			} else {
-				Expect(doc).To(MatchJSON([]byte(c.Document)))
-			}
-		}
-	}, fixtureEntries("encode"))
+		f.checkCases(MustSucceed(codec.NewJSONEncoder(m)), m.Bindings)
+	}, fixtureEntries("encode", payload.FormatJSON))
 
 	It("Should write the time of each encode for a now default", func() {
 		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{
@@ -340,11 +361,52 @@ var _ = Describe("JSONEncoder", func() {
 			To(MatchError("message command: field temp: no sample and no default"))
 	})
 
+	DescribeTable("Should refuse a sample with no JSON number for a converted field",
+		func(variant icd.JSONFieldVariant, scale, sample float64, expected string) {
+			key := uuid.New()
+			f := icd.JSONField{Variant: variant}
+			f.SetBase(
+				icd.JSONBaseField{Key: key, Name: "v", Scale: scale, Pointer: "/v"},
+			)
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{f}, codec.Binding{Field: key, DataType: telem.Float64T},
+			)))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(sample)})).Error().To(
+				MatchError(
+					"message command: field v: " + expected + ": validation error",
+				),
+			)
+		},
+		Entry("a scaled float", icd.FloatJSONField{}, 2.0, math.NaN(),
+			"NaN is not a JSON number"),
+		Entry("an integer", icd.IntegerJSONField{}, 1.0, math.Inf(1),
+			"Infinity is not a JSON number"),
+		Entry("an unsigned", icd.UnsignedJSONField{}, 1.0, math.Inf(-1),
+			"-Infinity is not a JSON number"),
+		Entry("a boolean", icd.BooleanJSONField{}, 1.0, math.NaN(),
+			"NaN is not a JSON number"),
+	)
+
 	It("Should refuse a NaN default for a field with no binding", func() {
 		f := nanField("v", uuid.New())
 		Expect(codec.NewJSONEncoder(message([]icd.JSONField{f}))).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError("message command: field v: default: NaN is not a JSON number: "+
+				"validation error"),
+		))
+	})
+
+	It("Should refuse a timestamp field with an unknown time format", func() {
+		key := uuid.New()
+		Expect(codec.NewJSONEncoder(message(
+			[]icd.JSONField{{Variant: icd.TimestampJSONField{
+				Key: key, Name: "t", Scale: 1, Pointer: "/t", TimeFormat: "unix_days",
+			}}},
+			codec.Binding{Field: key, DataType: telem.TimestampT},
+		))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(`message command: field t: unknown time format "unix_days": `+
+				`expected "iso8601", "unix_sec", "unix_ms", "unix_us", or "unix_ns": `+
 				"validation error"),
 		))
 	})
@@ -421,6 +483,74 @@ var _ = Describe("JSONEncoder", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(expected),
 		))
+	})
+
+	It("Should write a token of digits past an int as a member name", func() {
+		key := uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{{Variant: icd.FloatJSONField{
+				Key: key, Name: "v", Scale: 1, Pointer: "/a/99999999999999999999",
+			}}},
+			codec.Binding{Field: key, DataType: telem.Float64T},
+		)))
+		Expect(string(MustSucceed(enc.Encode(nil, [][]byte{float64Sample(1.5)})))).
+			To(Equal(`{"a":{"99999999999999999999":1.5}}`))
+	})
+
+	Describe("Check", func() {
+		var (
+			key = uuid.New()
+			enc *codec.JSONEncoder
+		)
+		BeforeEach(func() {
+			enc = MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{floatField("v", key, 1, 0)},
+				codec.Binding{Field: key, DataType: telem.Float64T},
+			)))
+		})
+
+		It("Should encode a sample that differs from the checked sample", func() {
+			Expect(enc.Check(0, float64Sample(1.5))).To(Succeed())
+			Expect(enc.Encode(nil, [][]byte{float64Sample(2.5)})).
+				To(MatchJSON(`{"v":2.5}`))
+		})
+
+		It("Should encode a sample whose buffer changed after its check", func() {
+			sample := float64Sample(1.5)
+			Expect(enc.Check(0, sample)).To(Succeed())
+			copy(sample, float64Sample(2.5))
+			Expect(enc.Encode(nil, [][]byte{sample})).To(MatchJSON(`{"v":2.5}`))
+		})
+
+		It("Should keep the text of the last good sample after a failed check", func() {
+			expected := "message command: field v: NaN is not a JSON number: " +
+				"validation error"
+			Expect(enc.Check(0, float64Sample(1.5))).To(Succeed())
+			Expect(enc.Check(0, float64Sample(math.NaN()))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(1.5)})).
+				To(MatchJSON(`{"v":1.5}`))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(math.NaN())})).Error().
+				To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(expected)))
+		})
+
+		It("Should encode an empty string after the check of a nil sample", func() {
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{{Variant: icd.StringJSONField{
+					Key:     key,
+					Name:    "s",
+					Scale:   1,
+					Pointer: "/s",
+					Default: new("synnax"),
+				}}},
+				codec.Binding{Field: key, DataType: telem.StringT},
+			)))
+			Expect(enc.Check(0, nil)).To(Succeed())
+			Expect(enc.Encode(nil, [][]byte{{}})).To(MatchJSON(`{"s":""}`))
+			Expect(enc.Encode(nil, [][]byte{nil})).To(MatchJSON(`{"s":"synnax"}`))
+		})
 	})
 
 	Describe("JSON samples", func() {
@@ -614,6 +744,51 @@ var _ = Describe("CheckDefault", func() {
 		Entry("a UUID default with no type",
 			icd.UuidJSONField{Default: &icd.UUIDDefault{}},
 			"type is required: validation error",
+		),
+	)
+})
+
+var _ = Describe("CheckWrite", func() {
+	DescribeTable(
+		"Should accept samples that can write a field",
+		func(k payload.Kind, scaled bool, dt telem.DataType) {
+			Expect(codec.CheckWrite(k, scaled, dt)).To(Succeed())
+		},
+		Entry("a channel of the kind of the field",
+			payload.KindString, false, telem.StringT,
+		),
+		Entry("a number channel to a field of another number kind",
+			payload.KindUnsigned, false, telem.Float64T,
+		),
+		Entry("a boolean channel to a number field",
+			payload.KindFloat, false, telem.BooleanT,
+		),
+		Entry(
+			"a float channel to a scaled field",
+			payload.KindInteger,
+			true,
+			telem.Float32T,
+		),
+	)
+
+	DescribeTable("Should refuse samples that cannot write a field",
+		func(k payload.Kind, scaled bool, dt telem.DataType, expected string) {
+			Expect(codec.CheckWrite(k, scaled, dt)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+		},
+		Entry("a channel whose kind does not write the field",
+			payload.KindFloat, false, telem.StringT,
+			"cannot write string channels to float fields: validation error",
+		),
+		Entry("a number channel to a string field",
+			payload.KindString, false, telem.Int32T,
+			"cannot write int32 channels to string fields: validation error",
+		),
+		Entry("an integer channel to a scaled field",
+			payload.KindInteger, true, telem.Int64T,
+			"a scaled field requires a float channel, not int64: validation error",
 		),
 	)
 })

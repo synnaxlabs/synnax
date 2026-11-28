@@ -429,6 +429,41 @@ var _ = Describe("@ref", func() {
 			ToNotContain("func MatchLabel(", "func setLabels")
 	})
 
+	It("Should locate a target in an array by its index", func() {
+		resp := MustGenerate(device(`
+			labels label.Key[] @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain(
+				`"strconv"`,
+				"Locate: func(e *Device, t label.Key) []string {",
+				"for i, v := range e.Labels {",
+				"if v == t {",
+				`return []string{"labels", strconv.Itoa(i)}`,
+			).
+			ToBeValidGoSource()
+	})
+
+	It("Should locate a resource ID in an array by its index", func() {
+		resp := MustGenerate(device(`
+			owners resource.ID[] {
+				@ref {
+					on_delete detach
+					kind      use
+					types     rack
+				}
+			}
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain(
+				"Locate: func(e *Device, t gorp.Target) []string {",
+				"for i, v := range e.Owners {",
+				"if resourceTarget(v) == t {",
+				`return []string{"owners", strconv.Itoa(i)}`,
+			).
+			ToBeValidGoSource()
+	})
+
 	It("Should detach an optional field and write it", func() {
 		resp := MustGenerate(device(`
 			shelf rack.Key? @ref on_delete detach @ref kind use
@@ -488,33 +523,34 @@ var _ = Describe("@ref", func() {
 			"a required key",
 			`rack rack.Key @ref on_delete restrict @ref kind use`,
 			[]string{
-				"Retarget: func(e *Device, from, to rack.Key) {",
-				"if e.Rack == from {",
-				"e.Rack = to",
+				"Retarget: func(e *Device, to map[rack.Key]rack.Key) {",
+				"if t, ok := to[e.Rack]; ok {",
+				"e.Rack = t",
 			},
 		),
 		Entry(
 			"a key with a zero default",
 			`spare rack.Key = 0 @ref on_delete detach @ref kind use`,
-			[]string{"if e.Spare == from {", "e.Spare = to"},
+			[]string{"if t, ok := to[e.Spare]; ok {", "e.Spare = t"},
 		),
 		Entry(
 			"an optional key",
 			`shelf rack.Key? @ref on_delete detach @ref kind use`,
-			[]string{"if e.Shelf != nil && *e.Shelf == from {", "*e.Shelf = to"},
+			[]string{
+				"if e.Shelf != nil {",
+				"if t, ok := to[*e.Shelf]; ok {",
+				"*e.Shelf = t",
+			},
 		),
 		Entry(
-			"an array of keys, dropping from when it holds to",
+			"an array of keys, through RetargetEach",
 			`labels label.Key[] @ref on_delete restrict @ref kind use`,
 			[]string{
-				`"slices"`,
-				"if slices.ContainsFunc(e.Labels, func(k1 label.Key) bool {",
-				"return k1 == to",
-				"e.Labels = slices.DeleteFunc(e.Labels, func(k1 label.Key) bool {",
-				"return k1 == from",
-				"for i2 := range e.Labels {",
-				"if e.Labels[i2] == from {",
-				"e.Labels[i2] = to",
+				"e.Labels = gorp.RetargetEach(",
+				"func(k1 label.Key) label.Key {",
+				"return k1",
+				"func(k1 *label.Key, t label.Key) {",
+				"*k1 = t",
 			},
 		),
 		Entry(
@@ -527,9 +563,9 @@ var _ = Describe("@ref", func() {
 				}
 			}`,
 			[]string{
-				"if (gorp.Target{Table: string(e.Holder.Type), Key: e.Holder.Key}) " +
-					"== from {",
-				"e.Holder.Key = to.Key",
+				"if t, ok := to[gorp.Target{Table: string(e.Holder.Type), " +
+					"Key: e.Holder.Key}]; ok {",
+				"e.Holder.Key = t.Key",
 			},
 		),
 		Entry(
@@ -542,12 +578,32 @@ var _ = Describe("@ref", func() {
 				}
 			}`,
 			[]string{
-				"Retarget: func(e *Device, from, to gorp.Target) {",
-				"if e.Holder != nil && (gorp.Target{Table: string((*e.Holder).Type), " +
-					"Key: (*e.Holder).Key}) == from {",
-				"e.Holder.Key = to.Key",
+				"Retarget: func(e *Device, to map[gorp.Target]gorp.Target) {",
+				"if e.Holder != nil {",
+				"if t, ok := to[gorp.Target{Table: string((*e.Holder).Type), " +
+					"Key: (*e.Holder).Key}]; ok {",
+				"e.Holder.Key = t.Key",
 			},
 		),
+	)
+
+	DescribeTable(
+		"Should import the slices package only for an array reference with a Detach",
+		func(onDelete string, imports bool) {
+			resp := MustGenerate(device(`
+				labels label.Key[] @ref on_delete `+onDelete+` @ref kind use
+			`), "device", loader, p)
+			content := ExpectContent(resp, "retrieve.gen.go").
+				ToContain("gorp.RetargetEach(")
+			if imports {
+				content.ToContain(`"slices"`, "slices.DeleteFunc(")
+			} else {
+				content.ToNotContain(`"slices"`)
+			}
+		},
+		Entry("a restrict reference", "restrict", false),
+		Entry("a detach reference", "detach", true),
+		Entry("a weak reference", "weak", true),
 	)
 
 	It("Should always hold the target of a required field", func() {
@@ -1231,10 +1287,10 @@ var _ = Describe("@ref", func() {
 				alerts Alert[]
 			`).
 				ToContain(
-					"Retarget: func(e *ReadConfig, from, to label.Key) {",
+					"Retarget: func(e *ReadConfig, to map[label.Key]label.Key) {",
 					"for i3 := range e.Alerts {",
-					"if e.Alerts[i3].Tag == from {",
-					"e.Alerts[i3].Tag = to",
+					"if t, ok := to[e.Alerts[i3].Tag]; ok {",
+					"e.Alerts[i3].Tag = t",
 				).
 				ToNotContain("slices.ContainsFunc")
 		})
@@ -1259,8 +1315,8 @@ var _ = Describe("@ref", func() {
 					"if v3 == t {",
 					"delete(e.Ports.Channels, k2)",
 					"for k4, v5 := range e.Ports.Channels {",
-					"if v5 == from {",
-					"v5 = to",
+					"if t, ok := to[v5]; ok {",
+					"v5 = t",
 					"e.Ports.Channels[k4] = v5",
 				)
 		})
@@ -1282,8 +1338,8 @@ var _ = Describe("@ref", func() {
 					"v2.Command = 0",
 					"e.Lines[k3] = v2",
 					"for k5, v4 := range e.Lines {",
-					"if v4.Command == from {",
-					"v4.Command = to",
+					"if t, ok := to[v4.Command]; ok {",
+					"v4.Command = t",
 					"e.Lines[k5] = v4",
 				)
 		})
@@ -1310,6 +1366,90 @@ var _ = Describe("@ref", func() {
 					"v3.Variant = v5",
 					"e.Channels[k4] = v3",
 				)
+		})
+
+		DescribeTable("Should locate a target by the path to the field that holds it",
+			func(types, fields string, locate []string) {
+				generate(types, fields).ToContain(locate...).ToBeValidGoSource()
+			},
+			Entry("an index of an array of structs", `
+				Entry struct {
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+			`, `
+				entries Entry[]
+			`, []string{
+				`"strconv"`,
+				"Locate: func(e *ReadConfig, t channel.Key) []string {",
+				"for i4, v5 := range e.Entries {",
+				"if v5.Channel == t {",
+				`return []string{"entries", strconv.Itoa(i4), "channel"}`,
+			}),
+			Entry("an index of a nested array of keys", `
+				Axes struct {
+					y1 channel.Key[] @ref on_delete detach @ref kind use
+				}
+			`, `
+				axes Axes
+			`, []string{
+				"for i4, k5 := range e.Axes.Y1 {",
+				"if k5 == t {",
+				`return []string{"axes", "y1", strconv.Itoa(i4)}`,
+			}),
+			Entry("an optional key in an array of structs", `
+				Entry struct {
+					channel channel.Key? @ref on_delete detach @ref kind use
+				}
+			`, `
+				entries Entry[]
+			`, []string{
+				"for i4, v5 := range e.Entries {",
+				"if v5.Channel != nil && *v5.Channel == t {",
+				`return []string{"entries", strconv.Itoa(i4), "channel"}`,
+			}),
+			Entry("a map key of a map of keys", `
+				Ports struct {
+					channels map<uint16, channel.Key> = {} {
+						@ref on_delete restrict
+						@ref kind      use
+					}
+				}
+			`, `
+				ports Ports
+			`, []string{
+				"for k6, v7 := range e.Ports.Channels {",
+				"if v7 == t {",
+				`return []string{"ports", "channels", fmt.Sprint(k6)}`,
+			}),
+			Entry("a map key, through each variant of a union", `
+				Base struct {
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+				Channel union on type extends Base {
+					coil {}
+					register {
+						address uint16
+					}
+				}
+			`, `
+				channels map<uint16, Channel> = {}
+			`, []string{
+				`"fmt"`,
+				"for k9, v10 := range e.Channels {",
+				"switch v11 := v10.Variant.(type) {",
+				"if v11.Channel == t {",
+				`return []string{"channels", fmt.Sprint(k9), "channel"}`,
+			}),
+		)
+
+		It("Should not locate a target that fields alone reach", func() {
+			generate(`
+				Inner struct {
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+			`, `
+				inner Inner
+			`).ToNotContain("Locate:", `"strconv"`, `"fmt"`)
 		})
 
 		It("Should drop each map entry that holds a deleted resource ID", func() {
@@ -1361,10 +1501,10 @@ var _ = Describe("@ref", func() {
 				channels Channel[]
 			`).
 				ToContain(
-					"Retarget: func(e *ReadConfig, from, to channel.Key) {",
+					"Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {",
 					"switch v6 := e.Channels[i5].Variant.(type) {",
-					"if v6.Channel == from {",
-					"v6.Channel = to",
+					"if t, ok := to[v6.Channel]; ok {",
+					"v6.Channel = t",
 					"e.Channels[i5].Variant = v6",
 				)
 		})
@@ -1387,12 +1527,12 @@ var _ = Describe("@ref", func() {
 				rack    rack.Key = 0 @ref on_delete restrict @ref kind use
 			`).
 					ToContain(
-						"Retarget: func(e *ReadConfig, from, to gorp.Target) {",
-						"if slices.ContainsFunc(e.Entries[i5].Owners, "+
-							"func(k6 resource.ID) bool {",
-						"return (gorp.Target{Table: string(k6.Type), Key: k6.Key}) "+
-							"== to",
-						"e.Entries[i5].Owners[i7].Key = to.Key",
+						"Retarget: func(e *ReadConfig, to map[gorp.Target]gorp.Target) {",
+						"e.Entries[i5].Owners = gorp.RetargetEach(",
+						"func(k6 resource.ID) gorp.Target {",
+						"return gorp.Target{Table: string(k6.Type), Key: k6.Key}",
+						"func(k6 *resource.ID, t gorp.Target) {",
+						"k6.Key = t.Key",
 					)
 			},
 		)

@@ -26,12 +26,12 @@ import { findLastButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 
-const LOSS = "Valve loses the Active binding.";
-const SPARE_LOSS = "Spare loses the Active binding.";
+const LOSS = "Valve loses the State binding.";
+const SPARE_LOSS = "Spare loses the State binding.";
 const VALUE_LOSS = "Pressure loses its Value settings.";
 const SETPOINT_LOSS = "Pressure loses its Setpoint settings.";
 const VALVE_LOSS = "Valve loses its Valve settings.";
-const VALVE_TO_VALUE_LOSS = "Valve loses the Active binding and its Valve settings.";
+const VALVE_TO_VALUE_LOSS = "Valve loses the State binding and its Valve settings.";
 
 preloadTab();
 

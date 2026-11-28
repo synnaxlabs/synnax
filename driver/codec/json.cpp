@@ -22,6 +22,8 @@
 #include <variant>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
@@ -201,6 +203,7 @@ bool absent(const std::string_view raw, const x::telem::DataType &dt) {
 std::pair<JSON::Field, x::errors::Error>
 JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     auto [pointer, ptr_err] = x::json::Pointer::parse(b.pointer);
     if (ptr_err) return {Field{}, ptr_err};
     Field field;
@@ -222,15 +225,8 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
             ),
         };
     field.scaled = field.scale != 1 || field.offset != 0;
+    if (auto err = check_scaled_channel(field.scaled, dt)) return {Field{}, err};
     if (field.scaled) {
-        if (dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
-            return {
-                Field{},
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    "a scaled field requires a float channel, not " + dt.name()
-                ),
-            };
         // The enums of number fail a string that is no label as an unknown label. A
         // label itself goes to sample.
         auto [number, err] = x::json::Decoder::create({
@@ -257,7 +253,7 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
         err = field.decode(*v.fallback, dst);
     else
         return {std::move(field), x::errors::NIL};
-    if (err) return {Field{}, wrap(err, "default")};
+    if (err) return {Field{}, err.wrap("default")};
     field.fallback = std::move(dst);
     return {std::move(field), x::errors::NIL};
 }
@@ -331,21 +327,33 @@ JSON::create(const std::vector<JSONMessage> &messages) {
         msg.failures.reserve(msg.fields.size());
         j.messages.push_back(std::move(msg));
     }
+    j.bare = std::ranges::any_of(pointers, [](const auto &p) {
+        return p.tokens.empty();
+    });
     j.extractor = x::json::Extractor(std::move(pointers));
     return {std::move(j), x::errors::NIL};
 }
 
+x::errors::Error JSON::extract(const std::string_view doc) {
+    auto err = this->extractor.extract(doc, this->values);
+    if (!err || !this->bare || nlohmann::json::accept(doc.begin(), doc.end()))
+        return err;
+    this->quoted.clear();
+    if (const auto quote_err = x::json::append_quoted(doc, this->quoted))
+        return quote_err;
+    return this->extractor.extract(this->quoted, this->values);
+}
+
 std::pair<std::optional<std::size_t>, x::errors::Error>
 JSON::decode(const std::string_view doc) {
-    if (const auto err = this->extractor.extract(doc, this->values))
-        return {std::nullopt, err};
+    if (const auto err = this->extract(doc)) return {std::nullopt, err};
     auto [message, err] = this->router.find(this->values);
-    if (err || !message.has_value()) return {std::nullopt, err};
+    if (err || !message.has_value()) return {message, err};
     auto &m = this->messages[*message];
     m.decode(this->values);
     if (this->messages.size() > 1)
         for (auto &f: m.failures)
-            f.error = wrap(f.error, "message " + m.name);
+            f.error = f.error.wrap("message " + m.name);
     return {message, x::errors::NIL};
 }
 
@@ -374,7 +382,7 @@ void JSON::Message::decode(const std::vector<std::optional<std::string_view>> &v
         this->failures.push_back({
             .binding = i,
             .missing = missing,
-            .error = wrap(err, "field " + f.name),
+            .error = err.wrap("field " + f.name),
         });
     }
 }
@@ -557,12 +565,14 @@ x::errors::Error JSONEncoder::Default::append(std::string &out) const {
 std::pair<JSONEncoder::Field, x::errors::Error>
 JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     Field field;
     field.name = b.name;
     field.scaled = b.scale != 1 || b.offset != 0;
     field.scale = b.scale;
     field.offset = b.offset;
     field.base = static_cast<const icd::BaseField &>(b);
+    field.density = dt.is_variable() ? 0 : dt.density();
     auto [v, variant_err] = read_variant(f, dt);
     if (variant_err) return {Field{}, variant_err};
     field.kind = v.kind;
@@ -574,11 +584,7 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
                 " fields"
             ),
         };
-    if (field.scaled && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
-        return {
-            Field{},
-            invalid("a scaled field requires a float channel, not " + dt.name()),
-        };
+    if (auto err = check_scaled_channel(field.scaled, dt)) return {Field{}, err};
     field.converted = needs_conversion(
         v.kind,
         dt,
@@ -601,6 +607,19 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
     if (err) return {Field{}, err};
     field.encoder = std::move(encoder);
     return {std::move(field), x::errors::NIL};
+}
+
+std::string_view
+JSONEncoder::Field::bytes(const x::telem::Series &s, std::size_t i) const {
+    const auto *p = s.data();
+    if (this->density != 0)
+        return {reinterpret_cast<const char *>(p + (i * this->density)), this->density};
+    auto size = VARIABLE_LENGTH_PREFIX_SIZE + read_u32_le(p);
+    for (; i > 0; i--) {
+        p += size;
+        size = VARIABLE_LENGTH_PREFIX_SIZE + read_u32_le(p);
+    }
+    return {reinterpret_cast<const char *>(p), size};
 }
 
 x::errors::Error JSONEncoder::Field::append(
@@ -626,13 +645,14 @@ x::errors::Error JSONEncoder::Field::append(
     const auto n = x::json::to_number(sample).value();
     const auto v = n.to_float64();
     if (!std::isfinite(v)) return invalid(n.to_string() + " is not a JSON number");
+    if (this->kind == payload::KIND_INTEGER || this->kind == payload::KIND_UNSIGNED)
+        return this->append_integer(n, out);
     const auto *narrow = std::get_if<float>(&sample);
     if (auto err = narrow != nullptr ? check_limits(this->base, *narrow)
                                      : check_limits(this->base, v))
         return err;
     if (this->kind == payload::KIND_FLOAT)
         return x::json::append_float((v - this->offset) / this->scale, out);
-    if (this->kind != payload::KIND_BOOLEAN) return this->append_integer(n, out);
     if (v != 0 && v != 1)
         return invalid(x::json::Number(v).to_string() + " is not 0 or 1");
     out += v == 1 ? "true" : "false";
@@ -642,19 +662,22 @@ x::errors::Error JSONEncoder::Field::append(
 x::errors::Error
 JSONEncoder::Field::append_integer(const x::json::Number &n, std::string &out) const {
     const bool integer = this->kind == payload::KIND_INTEGER;
-    if (!this->scaled) {
-        if (const auto v = n.to_int64(); integer && v.has_value()) {
-            out += std::to_string(*v);
-            return x::errors::NIL;
-        }
-        if (const auto v = n.to_uint64(); !integer && v.has_value()) {
-            out += std::to_string(*v);
-            return x::errors::NIL;
-        }
-    }
     auto v = n.to_float64();
     if (this->scaled) v = (v - this->offset) / this->scale;
     const auto r = std::round(v);
+    if (auto err = this->scaled ? check_raw_limits(this->base, r)
+                                : check_limits(this->base, r))
+        return err;
+    if (!this->scaled) {
+        if (const auto i = n.to_int64(); integer && i.has_value()) {
+            out += std::to_string(*i);
+            return x::errors::NIL;
+        }
+        if (const auto u = n.to_uint64(); !integer && u.has_value()) {
+            out += std::to_string(*u);
+            return x::errors::NIL;
+        }
+    }
     if (integer && r >= -0x1p63 && r < 0x1p63) {
         out += std::to_string(static_cast<std::int64_t>(r));
         return x::errors::NIL;
@@ -677,17 +700,8 @@ JSONEncoder::create(const JSONMessage &message) {
     std::map<icd::FieldKey, const icd::JSONField *> by_key;
     for (const auto &f: message.payload.fields)
         by_key[icd::base(f).key] = &f;
-    std::map<icd::FieldKey, std::size_t> bound;
-    for (std::size_t i = 0; i < message.bindings.size(); i++) {
-        const auto &key = message.bindings[i].field;
-        const auto found = by_key.find(key);
-        if (found == by_key.end())
-            return fail(invalid("field " + key.to_string() + " does not exist"));
-        if (!bound.try_emplace(key, i).second)
-            return fail(invalid(
-                "field " + icd::base(*found->second).name + " has more than one binding"
-            ));
-    }
+    auto [bound, bind_err] = index_bindings(message.bindings, by_key);
+    if (bind_err) return fail(bind_err);
     JSONEncoder e;
     e.name = message.name;
     e.fields.resize(message.bindings.size());
@@ -697,7 +711,7 @@ JSONEncoder::create(const JSONMessage &message) {
         present = std::get_if<icd::PresentJSONMatch>(&match.value());
         if (present == nullptr) {
             auto [f, err] = match_literal(match.value());
-            if (err) return fail(wrap(err, "match"));
+            if (err) return fail(err.wrap("match"));
             fields.push_back(std::move(f));
             e.slots.emplace_back();
         }
@@ -705,9 +719,9 @@ JSONEncoder::create(const JSONMessage &message) {
     for (const auto &f: message.payload.fields) {
         const auto &b = icd::base(f);
         auto [pointer, ptr_err] = member_pointer(b.pointer);
-        if (ptr_err) return fail(wrap(ptr_err, "field " + b.name));
+        if (ptr_err) return fail(ptr_err.wrap("field " + b.name));
         auto [fallback, def_err] = Default::create(f);
-        if (def_err) return fail(wrap(def_err, "field " + b.name + ": default"));
+        if (def_err) return fail(def_err.wrap("field " + b.name + ": default"));
         x::json::Template::Field tf{.label = "field " + b.name, .pointer = pointer};
         const auto binding = bound.find(b.key);
         if (binding == bound.end()) {
@@ -722,7 +736,7 @@ JSONEncoder::create(const JSONMessage &message) {
         }
         const auto i = binding->second;
         auto [field, err] = Field::create(f, message.bindings[i].data_type);
-        if (err) return fail(wrap(err, "field " + b.name));
+        if (err) return fail(err.wrap("field " + b.name));
         field.fallback = std::move(fallback);
         e.fields[i] = std::move(field);
         fields.push_back(std::move(tf));
@@ -730,7 +744,7 @@ JSONEncoder::create(const JSONMessage &message) {
     }
     if (present != nullptr) {
         auto [at, err] = x::json::Pointer::parse(present->pointer);
-        if (err) return fail(wrap(err, "match"));
+        if (err) return fail(err.wrap("match"));
         if (std::ranges::none_of(fields, [&at](const auto &f) {
                 return within(f.pointer, at);
             }))
@@ -756,13 +770,18 @@ x::errors::Error JSONEncoder::encode(
             if (!s.binding.has_value()) return s.fallback.append(out);
             const auto &f = this->fields[*s.binding];
             const auto &sample = samples[*s.binding];
+            if (!f.sample.empty() && !sample.empty() &&
+                f.bytes(sample, 0) == f.sample) {
+                out += f.text;
+                return x::errors::NIL;
+            }
             const auto err = sample.empty() ? f.fallback.append(out)
                                             : f.append(sample, 0, out);
-            if (err) return wrap(err, "field " + f.name);
+            if (err) return err.wrap("field " + f.name);
             return x::errors::NIL;
         }
     );
-    if (err) return wrap(err, "message " + this->name);
+    if (err) return err.wrap("message " + this->name);
     payload.assign(this->text.begin(), this->text.end());
     return x::errors::NIL;
 }
@@ -772,10 +791,12 @@ x::errors::Error JSONEncoder::check(
     const x::telem::Series &s,
     const std::size_t i
 ) {
-    const auto &f = this->fields[binding];
+    auto &f = this->fields[binding];
     this->text.clear();
     if (auto err = f.append(s, i, this->text))
-        return wrap(err, "message " + this->name + ": field " + f.name);
+        return err.wrap("message " + this->name + ": field " + f.name);
+    f.sample.assign(f.bytes(s, i));
+    f.text.assign(this->text);
     return x::errors::NIL;
 }
 }

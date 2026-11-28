@@ -190,7 +190,7 @@ TEST(Number, RejectsQuotedTextThatIsNotNumber) {
     for (const std::string text: {"0x", "0x1.8pz", "nan(a b)", "1 2"}) {
         const auto err = Number::parse_quoted(text).second;
         ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-        EXPECT_EQ(err.data, "invalid number \"" + text + "\"");
+        EXPECT_EQ(err.data(), "invalid number \"" + text + "\"");
     }
 }
 
@@ -254,46 +254,88 @@ TEST(Number, ParsesUnderflowAsZero) {
     expect_number("1e-400", std::nullopt, std::nullopt, 0.0);
 }
 
+/// @brief it should read a number at the smallest exponent.
+TEST(Number, ParsesSmallestExponent) {
+    expect_number("1e-1048576", std::nullopt, std::nullopt, 0.0);
+}
+
+/// @brief it should hold an integer negative zero as the integer zero.
+TEST(Number, ParsesIntegerNegativeZero) {
+    expect_number("-0", 0, 0, 0.0);
+}
+
+/// @brief it should read a decimal of several digits as the nearest double.
+TEST(Number, ParsesDecimalOfSeveralDigits) {
+    expect_number("1234.5678", std::nullopt, std::nullopt, 1234.5678);
+}
+
+/// @brief it should read a whole number with a negative exponent as a fraction.
+TEST(Number, ParsesWholeNumberWithNegativeExponent) {
+    expect_number("25e-1", std::nullopt, std::nullopt, 2.5);
+}
+
+/// @brief it should read powers of ten at and past the exact ones as the nearest
+/// double.
+TEST(Number, ParsesPowersOfTenPastExactOnes) {
+    expect_number("1e22", std::nullopt, std::nullopt, 1e22);
+    expect_number("1e23", std::nullopt, std::nullopt, 1e23);
+    expect_number("1e-23", std::nullopt, std::nullopt, 1e-23);
+}
+
+/// @brief it should read more digits than a double holds as the nearest double.
+TEST(Number, ParsesMoreDigitsThanDoubleHolds) {
+    expect_number("0.30000000000000000001", std::nullopt, std::nullopt, 0.3);
+}
+
 /// @brief it should reject text that is not a number.
 TEST(Number, RejectsWord) {
     const auto [n, err] = Number::parse("x");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(invalid number "x")");
+    ASSERT_EQ(err.data(), R"(invalid number "x")");
+}
+
+/// @brief it should reject text that is not a decimal number.
+TEST(Number, RejectsMalformedDecimal) {
+    for (const std::string text: {"-", ".", "1.2.3", "1e", "1e-1048577", "0e1048577"}) {
+        const auto [n, err] = Number::parse(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(err.data(), "invalid number \"" + text + "\"");
+    }
 }
 
 /// @brief it should reject a sign that another sign follows.
 TEST(Number, RejectsDoubleSign) {
     const auto [n, err] = Number::parse("+-5");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(invalid number "+-5")");
+    ASSERT_EQ(err.data(), R"(invalid number "+-5")");
 }
 
 /// @brief it should reject a number past the range of a double.
 TEST(Number, RejectsNumberPastFloat) {
     const auto [n, err] = Number::parse("1e999");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(invalid number "1e999")");
+    ASSERT_EQ(err.data(), R"(invalid number "1e999")");
 }
 
 /// @brief it should reject a fraction for an integer data type.
 TEST(NumberCheckFits, RejectsFractionForInteger) {
     const auto err = fits("1.5", telem::INT64_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "1.5 is not an integer");
+    ASSERT_EQ(err.data(), "1.5 is not an integer");
 }
 
 /// @brief it should print the text of a fraction that a double rounds away.
 TEST(NumberCheckFits, PrintsTextOfRoundedFraction) {
     const auto err = fits("9007199254740993.5", telem::INT64_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "9007199254740993.5 is not an integer");
+    ASSERT_EQ(err.data(), "9007199254740993.5 is not an integer");
 }
 
 /// @brief it should reject a uint64 past an int64 for an int64 data type.
 TEST(NumberCheckFits, RejectsUint64ForInt64) {
     const auto err = fits("18446744073709551615", telem::INT64_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "18446744073709551615 is out of range for int64");
+    ASSERT_EQ(err.data(), "18446744073709551615 is out of range for int64");
 }
 
 /// @brief it should reject an integer below an int64 that a double rounds to the
@@ -301,21 +343,21 @@ TEST(NumberCheckFits, RejectsUint64ForInt64) {
 TEST(NumberCheckFits, RejectsIntegerBelowInt64) {
     const auto err = fits("-9223372036854775809", telem::INT64_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "-9223372036854775809 is out of range for int64");
+    ASSERT_EQ(err.data(), "-9223372036854775809 is out of range for int64");
 }
 
 /// @brief it should reject a negative number for an unsigned data type.
 TEST(NumberCheckFits, RejectsNegativeForUnsigned) {
     const auto err = fits("-1", telem::UINT64_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "-1 is out of range for uint64");
+    ASSERT_EQ(err.data(), "-1 is out of range for uint64");
 }
 
 /// @brief it should reject an integer past the range of a small data type.
 TEST(NumberCheckFits, RejectsIntegerPastInt8) {
     const auto err = fits("128", telem::INT8_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "128 is out of range for int8");
+    ASSERT_EQ(err.data(), "128 is out of range for int8");
 }
 
 /// @brief it should take the bounds of a small data type.
@@ -333,7 +375,7 @@ TEST(NumberCheckFits, AcceptsWholeFloatAtUint8Bound) {
 TEST(NumberCheckFits, RejectsFloat32Overflow) {
     const auto err = fits("1e39", telem::FLOAT32_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "1e39 overflows float32");
+    ASSERT_EQ(err.data(), "1e39 overflows float32");
 }
 
 /// @brief it should take any number for a float64 data type.
@@ -346,14 +388,14 @@ TEST(NumberCheckFits, AcceptsAnyNumberForFloat64) {
 TEST(NumberCheckFits, RejectsNaNForInteger) {
     const auto err = Number(NaN).check_fits(telem::INT8_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "NaN is not an integer");
+    ASSERT_EQ(err.data(), "NaN is not an integer");
 }
 
 /// @brief it should reject a whole float past the range of an integer data type.
 TEST(NumberCheckFits, RejectsWholeFloatPastInt8) {
     const auto err = Number(300.0).check_fits(telem::INT8_T);
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "300 is out of range for int8");
+    ASSERT_EQ(err.data(), "300 is out of range for int8");
 }
 
 /// @brief it should print a number that is not finite by name.
@@ -406,7 +448,16 @@ TEST(ParseFloat64, Rejects) {
     for (const auto *text: {"", "nan", "inf", "0x10", "1e999", "1.2.3", " 1"}) {
         const auto [v, err] = parse_float64(text);
         ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-        EXPECT_EQ(err.data, "invalid number " + quote(text));
+        EXPECT_EQ(err.data(), "invalid number " + quote(text));
+    }
+}
+
+/// @brief it should reject a number whose exponent is past ±2^20.
+TEST(ParseFloat64, RejectsExponentPastBound) {
+    for (const auto *text: {"1e-1048577", "0e1048577"}) {
+        const auto [v, err] = parse_float64(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data(), "invalid number " + quote(text));
     }
 }
 
@@ -440,7 +491,7 @@ TEST(AppendFloat, RejectsNumberJSONCannotHold) {
         std::string out;
         const auto err = append_float(v, out);
         ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-        EXPECT_EQ(err.data, expected);
+        EXPECT_EQ(err.data(), expected);
         EXPECT_EQ(out, "");
     }
 }

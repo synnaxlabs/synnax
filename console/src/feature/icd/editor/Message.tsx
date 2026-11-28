@@ -15,21 +15,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type CrudeTimeSpan, deep, type payload, TimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";
-import { Identifier, IdentifierFields } from "@/feature/icd/editor/Identifier";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
-
-const createPayload = (format: payload.Format): icd.Payload => {
-  switch (format) {
-    case "binary":
-      return { format, fields: [] };
-    case "text":
-      return { format, delimiter: ",", prefix: "", fields: [] };
-    case "json":
-      return { format, fields: [] };
-  }
-};
 
 const checkCycleTime = (span: TimeSpan): string | null => {
   if (span.lessThan(TimeSpan.NANOSECOND)) return "Cycle time must be 1ns or more";
@@ -73,13 +60,17 @@ const CycleTime = ({ path }: CycleTimeProps): ReactElement => {
 export interface MessageProps {
   /** The form path of the message. */
   path: deep.Path<icd.Message>;
+  /** Focuses the name and selects it, for a message the user just added. */
+  autoFocus?: boolean;
 }
+
+const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true, selectOnFocus: true } as const;
 
 /**
  * Edits a message: its format, its cycle time, how frames match it, and its fields. A
  * format switch replaces the payload with an empty one of the new format.
  */
-export const Message = ({ path }: MessageProps): ReactElement => {
+export const Message = ({ path, autoFocus = false }: MessageProps): ReactElement => {
   const payloadPath = path.payload;
   const binary = deep.variant(payloadPath, "format", "binary");
   const text = deep.variant(payloadPath, "format", "text");
@@ -87,13 +78,17 @@ export const Message = ({ path }: MessageProps): ReactElement => {
   const { set, mode } = Form.useContext();
   const format = Form.useFieldValue(payloadPath.format);
   const handleFormatChange = (next: payload.Format) => {
-    if (next !== format) set(payloadPath, createPayload(next));
+    if (next !== format) set(payloadPath, ICD.createPayload(next));
   };
   return (
     <Form.Sections className={CSS.BE("icd-editor", "details")}>
       <Form.Section title="Message">
         <Flex.Box x>
-          <Form.TextField path={path.name} label="Name" />
+          <Form.TextField
+            path={path.name}
+            label="Name"
+            inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+          />
           <Input.Item label="Format" padHelpText>
             <Select.Buttons<payload.Format>
               value={format}
@@ -112,18 +107,23 @@ export const Message = ({ path }: MessageProps): ReactElement => {
         <>
           <Form.Section title="Frame">
             <Flex.Box x>
-              <Identifier path={binary} />
-              <FormattedField<number>
+              <ICD.Identifier path={binary} />
+              <ICD.FormattedField<number>
                 path={binary.length}
                 label="Length"
                 placeholder="Variable"
                 unit="bytes"
                 optional
                 format={String}
-                parse={parseInteger}
+                parse={(text) =>
+                  ICD.orError(
+                    ICD.parseUnsigned(text),
+                    "Length must be a whole number of bytes",
+                  )
+                }
               />
             </Flex.Box>
-            <IdentifierFields path={binary} />
+            <ICD.IdentifierFields path={binary} />
           </Form.Section>
           <Form.Section title="Fields">
             <ICD.Fields path={binary.fields} encoding="binary" />

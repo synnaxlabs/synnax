@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithRole,
   holdResponses,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
@@ -31,6 +32,7 @@ import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
 import {
+  focusedIn,
   isDimmed,
   pickMessageFormat,
   removeField,
@@ -43,6 +45,9 @@ import {
   clickDeploy,
   countFailedSaves,
   deployAndAwaitTask,
+  findDetailsButton,
+  findDetailsPane,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -192,8 +197,39 @@ const createFormatTarget = async (fields: icd.JSONField[]) => {
 
 // The add button renders once the form leaves its loading preview.
 const openAddTargets = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
+  fireEvent.click(await findListButton("Add targets"));
   return within(await screen.findByRole("dialog"));
+};
+
+const TOPIC_PLACEHOLDER = "plant/line1/valve/set";
+
+const addTopic = async (): Promise<void> => {
+  const dialog = await openAddTargets();
+  fireEvent.click(await dialog.findByRole("button", { name: "Add a topic by name" }));
+  await screen.findByText("Publish");
+};
+
+const setTopic = async (topic: string): Promise<void> => {
+  const input = await screen.findByPlaceholderText(TOPIC_PLACEHOLDER);
+  fireEvent.change(input, { target: { value: topic } });
+  fireEvent.blur(input);
+};
+
+/** @returns the plain targets of the task, once it has one. */
+const waitForPlain = async (key: task.Key): Promise<MQTT.Task.PlainWriteTarget[]> => {
+  let plain: MQTT.Task.PlainWriteTarget[] = [];
+  await waitFor(async () => {
+    plain = (await retrieveTargets(key)).filter((t) => t.type === "plain");
+    expect(plain).toHaveLength(1);
+  });
+  return plain;
+};
+
+/** @returns the name of the message of the first plain target of the task. */
+const messageNameOf = async (key: task.Key): Promise<string | undefined> => {
+  const [target] = await waitForPlain(key);
+  const [ic] = await client.icds.retrieve([target.icd]);
+  return ic.messages.find((m) => m.key === target.message.message)?.name;
 };
 
 const addTag = async (): Promise<void> => {
@@ -208,10 +244,23 @@ describe("MQTT Write form", () => {
   // a loaded CI runner.
   it("should show the empty state and add + select a target", async () => {
     await renderWrite();
-    await screen.findByText("Add targets to write to a topic or a tag");
+    await screen.findByText("No target selected");
     await addTag();
     expect(screen.getByText("Sparkplug B type")).toBeTruthy();
   }, 30_000);
+
+  it("should open Add targets from the empty details pane", async () => {
+    await renderWrite();
+    fireEvent.click(await findDetailsButton("Add targets"));
+    await screen.findByRole("dialog");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderWrite([], { as: await createTestClientWithRole(client, "Viewer") });
+    const details = await findDetailsPane();
+    await within(details).findByText("No target selected");
+    expect(within(details).queryByRole("button", { name: "Add targets" })).toBeNull();
+  });
 
   it("should show the topic settings of a plain target", async () => {
     await renderWrite([
@@ -351,6 +400,13 @@ describe("MQTT Write form", () => {
     );
   });
 
+  it("should cut a long topic at its end", async () => {
+    await renderWrite([await createPlainTarget("t1", "plant/oven/setpoint/set")]);
+    const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+    const label = within(item).getByText("plant/oven/setpoint/set");
+    expect(getComputedStyle(label).direction).toBe("ltr");
+  });
+
   it("should disable a target through its checkbox", async () => {
     const { draft } = await renderWrite([
       await createPlainTarget("t1", "plant/valve/set"),
@@ -376,6 +432,60 @@ describe("MQTT Write form", () => {
     expect(await screen.findByDisplayValue(`${prefix}_rate_cmd_2`)).toBeTruthy();
   });
 
+  describe("the topic of a plain target", () => {
+    it("should take focus when the target is added by name", async () => {
+      await renderWrite();
+      await addTopic();
+      const topic = await screen.findByPlaceholderText(TOPIC_PLACEHOLDER);
+      await waitFor(() => expect(document.activeElement).toBe(topic));
+    });
+
+    it("should name the message of a target added by name", async () => {
+      const { draft } = await renderWrite();
+      await addTopic();
+      await setTopic("plant/kiln/set");
+      await waitFor(async () =>
+        expect(await messageNameOf(draft.key)).toBe("plant/kiln/set"),
+      );
+    });
+
+    it("should keep the name that a user gave the message", async () => {
+      const { draft } = await renderWrite();
+      await addTopic();
+      const [target] = await waitForPlain(draft.key);
+      await client.icds.dispatch(
+        target.icd,
+        icd.set({
+          path: ["messages", target.message.message, "name"],
+          value: "Kiln command",
+        }),
+      );
+      await screen.findByRole("button", { name: /Kiln command/ });
+      await setTopic("plant/kiln/set");
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          topic: "plant/kiln/set",
+        }),
+      );
+      expect(await messageNameOf(draft.key)).toBe("Kiln command");
+    });
+
+    it("should keep the name of a message that the form did not make", async () => {
+      const { target, message } = await createFormatTarget([
+        createField("setpoint", "float"),
+      ]);
+      const { draft } = await renderWrite([target]);
+      await screen.findByText("Publish");
+      await setTopic("plant/kiln/set");
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          topic: "plant/kiln/set",
+        }),
+      );
+      expect(await messageNameOf(draft.key)).toBe(message.name);
+    });
+  });
+
   describe("Sparkplug B targets", () => {
     it("should say that deploying numbers a typed command channel name that another channel holds", async () => {
       const name = uniqueName("mqtt_cmd");
@@ -384,6 +494,28 @@ describe("MQTT Write form", () => {
       fireEvent.click(await screen.findByRole("treeitem", { name: /setpoint/ }));
       expect(await screen.findByText(`Saves as ${name}_2`)).toBeTruthy();
       expect(screen.getByDisplayValue(name)).toBeTruthy();
+    });
+
+    it("should show the format and the message of a target whose message is text", async () => {
+      const target = await createPlainTarget("t1", "plant/valve/set");
+      await renderWrite([target]);
+      await screen.findByRole("treeitem", { name: /JSON.*plant\/valve\/set/ });
+      await client.icds.dispatch(
+        target.icd,
+        icd.set({
+          path: ["messages", target.message.message, "payload"],
+          value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+        }),
+      );
+      const item = await screen.findByRole("treeitem", {
+        name: /TEXT.*plant\/valve\/set/,
+      });
+      fireEvent.click(item);
+      // The message format field shows the name of the message.
+      await screen.findByRole("button", { name: /Command/ });
+      // A write task takes only JSON messages, even where a read task takes text.
+      await screen.findByText("Message is not JSON");
+      within(item).getByRole("img", { name: "Message is not JSON" });
     });
 
     it("should list a tag by its edge node, with its command channel in its pane", async () => {
@@ -576,6 +708,18 @@ describe("MQTT Write form", () => {
       const messageOf = ({ icd: key, message }: MQTT.Task.PlainWriteTarget) => ({
         icd: key,
         message: message.message,
+      });
+
+      it("should mark the target when the last field leaves the message", async () => {
+        const setpoint = createField("setpoint", "float");
+        const { target } = await createFormatTarget([setpoint]);
+        await renderWrite([target]);
+        const item = await screen.findByRole("treeitem", { name: /plant\/valve\/set/ });
+        expect(
+          within(item).queryByRole("img", { name: "Message has no fields" }),
+        ).toBeNull();
+        await removeField(client, messageOf(target), setpoint);
+        await within(item).findByRole("img", { name: "Message has no fields" });
       });
 
       it("should warn when the last field leaves the message", async () => {
@@ -939,7 +1083,13 @@ describe("MQTT Write form", () => {
         expect(group.getByRole("button", { name }).getAttribute("aria-disabled")).toBe(
           "true",
         );
+      expect(
+        group.getByText("A message needs at least one field on a channel."),
+      ).toBeTruthy();
       const openGroup = await fieldGroup(open.name);
+      expect(
+        openGroup.queryByText("A message needs at least one field on a channel."),
+      ).toBeNull();
       expect(openGroup.getByText("Sends its default, False.")).toBeTruthy();
     });
 
@@ -1038,6 +1188,32 @@ describe("MQTT Write form", () => {
       expect(screen.queryByText("Message has no fields")).toBeNull();
     });
 
+    describe("the conversion of a number field", () => {
+      const CONVERSION = "The task sends (value − offset) ÷ scale.";
+
+      it("should say how a command channel's value converts", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        await renderWrite([target]);
+        await fieldGroup(setpoint.name);
+        expect(await screen.findByText(CONVERSION)).toBeTruthy();
+        await fieldGroup(mode.name);
+        await waitFor(() => expect(screen.queryByText(CONVERSION)).toBeNull());
+      });
+
+      it("should say nothing for a fixed value, which the task sends as typed", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        await renderWrite([target]);
+        const group = await fieldGroup(setpoint.name);
+        await screen.findByText(CONVERSION);
+        fireEvent.click(group.getByRole("button", { name: "Value" }));
+        await waitFor(() => expect(screen.queryByText(CONVERSION)).toBeNull());
+      });
+    });
+
     it("should rename a field in its ICD from its pane", async () => {
       const setpoint = createField("setpoint", "float");
       const { target, ic, message } = await createFormatTarget([setpoint]);
@@ -1060,6 +1236,17 @@ describe("MQTT Write form", () => {
       const { store } = await renderWrite([target]);
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, ic.key)).toEqual([message.key]);
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should open the editor at the selected field", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { target, ic, message } = await createFormatTarget([setpoint]);
+      const { store } = await renderWrite([target]);
+      await fieldGroup(setpoint.name);
+      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
+      expect(selectedIn(store, ic.key)).toEqual([message.key]);
+      expect(focusedIn(store, ic.key)).toBe(setpoint.key);
     });
   });
 
@@ -1087,8 +1274,20 @@ describe("MQTT Write form", () => {
       shapes: [
         {
           fields: [
-            { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
-            { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+            {
+              pointer: "/setpoint",
+              type: "number",
+              kind: "float",
+              sample: "1",
+              enum: [],
+            },
+            {
+              pointer: "/mode",
+              type: "string",
+              kind: "string",
+              sample: '"auto"',
+              enum: [] as string[],
+            },
           ],
           count: 1,
         },
@@ -1105,9 +1304,8 @@ describe("MQTT Write form", () => {
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
-      scanner.close();
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
-      return { dialog, draft };
+      return { dialog, draft, dev };
     };
 
     const retrievePlainTarget = async (key: task.Key, topic: string) => {
@@ -1123,14 +1321,27 @@ describe("MQTT Write form", () => {
       return found;
     };
 
-    it("should add a whole picked topic with a format from its messages, in an ICD named after the task", async () => {
-      const { dialog, draft } = await openOnPickedTopic();
+    it("should lead the topics with adding a topic by name, since command topics often do not show", async () => {
+      const { dev } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [TOPIC], truncated: false } });
+      const add = await dialog.findByRole("button", { name: "Add a topic by name" });
+      const search = dialog.getByPlaceholderText("Search topics");
+      expect(
+        add.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(dialog.getByText("Command topics often do not show here.")).toBeTruthy();
+    });
+
+    it("should add a whole picked topic with a format from its messages, in an ICD named after the device", async () => {
+      const { dialog, draft, dev } = await openOnPickedTopic();
       dialog.getByText("1 topic selected");
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, TOPIC.topic);
       const [ic] = await client.icds.retrieve([target.icd]);
       expect(ic).toMatchObject({
-        name: "MQTT write task",
+        name: dev.name,
         messages: [
           {
             key: target.message.message,
@@ -1154,6 +1365,29 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should keep a string field with enum labels a string, in the dialog and the target", async () => {
+      const [setpoint, mode] = TOPIC.shapes[0].fields;
+      const labeled = {
+        ...TOPIC,
+        shapes: [
+          {
+            ...TOPIC.shapes[0],
+            fields: [setpoint, { ...mode, enum: ["auto", "manual"] }],
+          },
+        ],
+      };
+      const { dialog, draft } = await openOnPickedTopic([], labeled);
+      dialog.getByText("string");
+      expect(dialog.queryByText("int64")).toBeNull();
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, TOPIC.topic);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ICD.jsonFields(ic.messages[0])).toMatchObject([
+        { pointer: "/setpoint", type: "float" },
+        { pointer: "/mode", type: "string", enumValues: [] },
+      ]);
+    });
+
     it("should infer the format of a topic from the shape that the most messages had, and mark it", async () => {
       const topic = {
         topic: "plant/pump/set",
@@ -1161,15 +1395,27 @@ describe("MQTT Write form", () => {
         shapes: [
           {
             fields: [
-              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+              {
+                pointer: "/setpoint",
+                type: "number",
+                kind: "float",
+                sample: "1",
+                enum: [],
+              },
             ],
             present: "/setpoint",
             count: 1,
           },
           {
             fields: [
-              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
-              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5", enum: [] },
+              {
+                pointer: "/mode",
+                type: "string",
+                kind: "string",
+                sample: '"auto"',
+                enum: [],
+              },
             ],
             present: "/rpm",
             count: 3,
@@ -1181,9 +1427,8 @@ describe("MQTT Write form", () => {
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
-      scanner.close();
       const note = await dialog.findByText("Used for the format");
-      expect(titleOf(note)).toBe("3 messages with /rpm");
+      expect(titleOf(note)).toBe("Messages that have /rpm");
       expect(
         ["setpoint", "rpm", "mode"].map((n) => isDimmed(dialog.getByText(n))),
       ).toEqual([true, false, false]);
@@ -1204,15 +1449,27 @@ describe("MQTT Write form", () => {
         shapes: [
           {
             fields: [
-              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+              {
+                pointer: "/setpoint",
+                type: "number",
+                kind: "float",
+                sample: "1",
+                enum: [],
+              },
             ],
             present: "/setpoint",
             count: setpoints,
           },
           {
             fields: [
-              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
-              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5", enum: [] },
+              {
+                pointer: "/mode",
+                type: "string",
+                kind: "string",
+                sample: '"auto"',
+                enum: [],
+              },
             ],
             present: "/rpm",
             count: rpms,
@@ -1227,10 +1484,9 @@ describe("MQTT Write form", () => {
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
       fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
       await scanner.answer({ data: { topics: [listen(1, 3)], truncated: false } });
-      scanner.close();
       await waitFor(() =>
         expect(titleOf(dialog.getByText("Used for the format"))).toBe(
-          "3 messages with /rpm",
+          "Messages that have /rpm",
         ),
       );
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
@@ -1248,7 +1504,6 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       const pump = { ...TOPIC, topic: "plant/pump/set" };
       await scanner.answer({ data: { topics: [TOPIC, pump], truncated: false } });
-      scanner.close();
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick plant" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 targets" }));
       await waitFor(() =>
@@ -1263,6 +1518,7 @@ describe("MQTT Write form", () => {
         sample: "1700000000000",
         kind: "timestamp",
         timeFormat: "unix_ms",
+        enum: [],
       };
       const [shape] = TOPIC.shapes;
       const { dialog, draft } = await openOnPickedTopic([], {
@@ -1399,7 +1655,6 @@ describe("MQTT Write form", () => {
       fireEvent.click(again.getByRole("button", { name: "Sparkplug B" }));
       await scanner.answer({ data: { nodes: NODES, tags: [] } });
       await scanner.answer({ data: { nodes: [], tags } });
-      scanner.close();
       const flow = await again.findByRole<HTMLInputElement>("checkbox", {
         name: "Record flow",
       });
@@ -1436,7 +1691,6 @@ describe("MQTT Write form", () => {
       await dialog.findByText("line3");
       dialog.getByRole("checkbox", { name: "Record flow" });
       expect(dialog.queryByText("0 tags")).toBeNull();
-      scanner.close();
     });
 
     it("should list the tags of an edge node under their devices and lock an unsupported one", async () => {
@@ -1450,8 +1704,7 @@ describe("MQTT Write form", () => {
         { device: "ovenA", name: "zoneTemp", dataType: "double", value: "21.5" },
         { device: "ovenA", name: "recipe", dataType: "DataSet", value: "" },
       ].map((t) => ({ ...t, supported: t.dataType !== "DataSet" }));
-      const { dialog, scanner } = await openOnTags({ tags });
-      scanner.close();
+      const { dialog } = await openOnTags({ tags });
       const zoneTemp = await dialog.findByRole<HTMLInputElement>("checkbox", {
         name: "Record zoneTemp",
       });
@@ -1467,8 +1720,7 @@ describe("MQTT Write form", () => {
 
     it("should keep the edge nodes when one does not answer", async () => {
       const message = "edge node plant/line1 did not answer the rebirth request";
-      const { dialog, scanner } = await openOnTags({ message });
-      scanner.close();
+      const { dialog } = await openOnTags({ message });
       await dialog.findByText(message);
       expect(dialog.getByText("line1")).toBeTruthy();
     });

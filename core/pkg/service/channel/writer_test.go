@@ -2097,5 +2097,121 @@ var _ = Describe("Writer", func() {
 				Expect(retrieved.DataType).To(Equal(telem.Float64T))
 			},
 		)
+		It(
+			"Should return a validation error when changing the data type to none",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return 1",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &base)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).
+						ChangeDataType(ctx, base.Key(), telem.UnknownT)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data_type")),
+				))
+			},
+		)
+	})
+
+	Describe("Create without a data type", Ordered, func() {
+		var (
+			db  *gorp.DB
+			svc *channel.Service
+		)
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			dist := testutil.NewNode(ctx)
+			db = dist.DB
+			svc = openService(ctx, dist)
+		})
+		It("Should reject a channel with a free leaseholder and no data type", func(
+			ctx SpecContext,
+		) {
+			ch := channel.Channel{
+				Name:        UniqueChannelName(),
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("data_type")),
+			))
+		})
+
+		It("Should reject a calculated channel that returns no value", func(
+			ctx SpecContext,
+		) {
+			ch := channel.Channel{
+				Name:       UniqueChannelName(),
+				Virtual:    true,
+				Expression: "x := 1",
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(MatchError(ContainSubstring("returns no value")))
+		})
+
+		It("Should type a stored channel with no data type when its expression changes",
+			func(ctx SpecContext) {
+				untyped := channel.Channel{
+					Name:        UniqueChannelName(),
+					Leaseholder: node.KeyFree,
+					LocalKey:    9001,
+					Virtual:     true,
+					Expression:  "x := 1",
+				}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&untyped).
+					Exec(ctx, db)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := svc.NewWriter(tx).Apply(ctx, untyped.Key(),
+						channel.NewSetAction(channel.SetPayload{
+							Path:  []string{"expression"},
+							Value: "return 1",
+						}),
+					)
+					return err
+				})).To(Succeed())
+				var stored channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(untyped.Key())).
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+				Expect(stored.DataType).To(Equal(telem.Int64T))
+			},
+		)
+		It("Should refuse a rename of a stored channel with no data type",
+			func(ctx SpecContext) {
+				untyped := channel.Channel{
+					Name:        UniqueChannelName(),
+					Leaseholder: node.KeyFree,
+					LocalKey:    9002,
+					Virtual:     true,
+				}
+				Expect(gorp.NewCreate[channel.Key, channel.Channel]().
+					Entry(&untyped).
+					Exec(ctx, db)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := svc.NewWriter(tx).Apply(ctx, untyped.Key(),
+						channel.NewRenameAction(channel.RenamePayload{
+							Name: UniqueChannelName(),
+						}),
+					)
+					return err
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("data_type")),
+				))
+			},
+		)
 	})
 })

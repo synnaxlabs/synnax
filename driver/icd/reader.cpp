@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <optional>
 #include <span>
@@ -138,16 +139,23 @@ x::errors::Error check_selections(
 
 /// @brief returns the series of fr for key, after adding an empty series of dt that
 /// holds cap samples when fr has none.
+/// @param at the position of the series in fr at the last call for key, which series
+/// checks before it scans fr, and then sets.
 x::telem::Series &series(
     x::telem::Frame &fr,
     const synnax::channel::Key key,
     const x::telem::DataType &dt,
-    const std::size_t cap
+    const std::size_t cap,
+    std::size_t &at
 ) {
-    for (std::size_t i = 0; i < fr.size(); i++)
-        if ((*fr.channels)[i] == key) return (*fr.series)[i];
-    fr.emplace(key, x::telem::Series(dt, cap));
-    return fr.series->back();
+    if (at < fr.size() && (*fr.channels)[at] == key) return (*fr.series)[at];
+    const auto n = fr.size();
+    std::size_t i = 0;
+    while (i < n && (*fr.channels)[i] != key)
+        i++;
+    if (i == n) fr.emplace(key, x::telem::Series(dt, cap));
+    at = i;
+    return (*fr.series)[i];
 }
 
 /// @brief Decoded holds the codec messages of each format of a reader.
@@ -227,98 +235,120 @@ std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
 }
 
 std::pair<Reader, x::errors::Error> Reader::create(
-    const std::vector<synnax::icd::ReadMessage> &reads,
-    const synnax::icd::ICD &ic,
+    const std::vector<Source> &sources,
     const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
 ) {
     Reader r;
     Decoded decoded;
     Writers writers;
-    const synnax::icd::Message *first = nullptr;
-    for (const auto &rm: reads) {
-        const auto msg = std::ranges::find(
-            ic.messages,
-            rm.message,
-            &synnax::icd::Message::key
-        );
-        if (msg == ic.messages.end())
-            return {
-                Reader{},
-                x::errors::Error(
-                    driver::errors::CONFIGURATION_ERROR,
-                    "message " + rm.message.to_string() + " does not exist in ICD " +
-                        ic.name
-                ),
-            };
-        const auto &name = msg->name;
-        if (first == nullptr) first = &*msg;
-        if (first->payload.index() != msg->payload.index())
-            return {
-                Reader{},
-                x::errors::Error(
-                    driver::errors::CONFIGURATION_ERROR,
-                    "messages " + first->name + " and " + name +
-                        " have different formats"
-                ),
-            };
-        if (rm.bindings.empty())
-            return {
-                Reader{},
-                x::errors::Error(
-                    driver::errors::CONFIGURATION_ERROR,
-                    "message " + name + " binds no fields"
-                ),
-            };
-        Message m;
-        auto [bindings, err] = bind(rm, *msg, channels, m);
-        if (!err)
-            err = std::visit(
-                [&](const auto &p) { return check_index(rm, p); },
+    const bool several = std::ranges::any_of(sources, [&](const Source &src) {
+        return src.ic.key != sources.front().ic.key;
+    });
+    std::optional<std::string> first;
+    std::size_t format = 0;
+    std::vector<std::pair<synnax::icd::Key, synnax::icd::MessageKey>> seen;
+    for (const auto &[ic, reads]: sources)
+        for (const auto &rm: reads) {
+            const auto msg = std::ranges::find(
+                ic.messages,
+                rm.message,
+                &synnax::icd::Message::key
+            );
+            if (msg == ic.messages.end())
+                return {
+                    Reader{},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "message " + rm.message.to_string() +
+                            " does not exist in ICD " + ic.name
+                    ),
+                };
+            const auto name = several ? msg->name + " of ICD " + ic.name : msg->name;
+            if (std::ranges::contains(seen, std::pair{ic.key, rm.message}))
+                return {
+                    Reader{},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "message " + name + " is read twice"
+                    ),
+                };
+            seen.emplace_back(ic.key, rm.message);
+            if (!first.has_value()) {
+                first = name;
+                format = msg->payload.index();
+            }
+            if (format != msg->payload.index())
+                return {
+                    Reader{},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "messages " + *first + " and " + name +
+                            " have different formats"
+                    ),
+                };
+            if (rm.bindings.empty())
+                return {
+                    Reader{},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "message " + name + " binds no fields"
+                    ),
+                };
+            Message m;
+            auto [bindings, err] = bind(rm, *msg, channels, m);
+            if (!err)
+                err = std::visit(
+                    [&](const auto &p) { return check_index(rm, p); },
+                    msg->payload
+                );
+            if (const auto *p = std::get_if<synnax::icd::BinaryPayload>(&msg->payload);
+                p != nullptr && !err) {
+                std::vector<synnax::channel::Key> keys;
+                keys.reserve(m.indexes.size());
+                for (const auto &idx: m.indexes)
+                    keys.push_back(idx.key);
+                err = check_selections(rm, *p, m.groups, keys);
+            }
+            if (err) return {Reader{}, err.wrap("message " + name)};
+            for (const auto &idx: m.indexes)
+                if (auto claim_err = claim(writers, idx.key, name))
+                    return {Reader{}, claim_err};
+            for (std::size_t k = 0; k < m.channels.size(); k++) {
+                if (k == m.index_field) continue;
+                if (auto claim_err = claim(writers, m.channels[k], name))
+                    return {Reader{}, claim_err};
+            }
+            std::visit(
+                [&]<typename P>(const P &p) {
+                    if constexpr (std::is_same_v<P, synnax::icd::BinaryPayload>)
+                        decoded.binary.push_back(
+                            {.name = name,
+                             .payload = p,
+                             .bindings = std::move(bindings)}
+                        );
+                    else if constexpr (std::is_same_v<P, synnax::icd::TextPayload>)
+                        decoded.text.push_back(
+                            {.name = name,
+                             .payload = p,
+                             .bindings = std::move(bindings)}
+                        );
+                    else
+                        decoded.json.push_back(
+                            {.name = name,
+                             .payload = p,
+                             .bindings = std::move(bindings)}
+                        );
+                },
                 msg->payload
             );
-        if (const auto *p = std::get_if<synnax::icd::BinaryPayload>(&msg->payload);
-            p != nullptr && !err) {
-            std::vector<synnax::channel::Key> keys;
-            keys.reserve(m.indexes.size());
-            for (const auto &idx: m.indexes)
-                keys.push_back(idx.key);
-            err = check_selections(rm, *p, m.groups, keys);
+            m.positions.assign(m.channels.size(), 0);
+            m.index_positions.assign(m.indexes.size(), 0);
+            r.messages.push_back(std::move(m));
         }
-        if (err)
-            return {
-                Reader{},
-                x::errors::Error(err, "message " + name + ": " + err.data)
-            };
-        for (const auto &idx: m.indexes)
-            if (auto claim_err = claim(writers, idx.key, name))
-                return {Reader{}, claim_err};
-        for (std::size_t k = 0; k < m.channels.size(); k++) {
-            if (k == m.index_field) continue;
-            if (auto claim_err = claim(writers, m.channels[k], name))
-                return {Reader{}, claim_err};
-        }
-        std::visit(
-            [&]<typename P>(const P &p) {
-                if constexpr (std::is_same_v<P, synnax::icd::BinaryPayload>)
-                    decoded.binary.push_back(
-                        {.name = name, .payload = p, .bindings = std::move(bindings)}
-                    );
-                else if constexpr (std::is_same_v<P, synnax::icd::TextPayload>)
-                    decoded.text.push_back(
-                        {.name = name, .payload = p, .bindings = std::move(bindings)}
-                    );
-                else
-                    decoded.json.push_back(
-                        {.name = name, .payload = p, .bindings = std::move(bindings)}
-                    );
-            },
-            msg->payload
-        );
-        r.messages.push_back(std::move(m));
-    }
+    // With no messages, the reader holds a Binary decoder, which matches no payload.
     x::errors::Error err;
-    if (!decoded.binary.empty()) {
-        auto [d, d_err] = codec::Binary::create(decoded.binary);
+    if (!decoded.json.empty()) {
+        auto [d, d_err] = codec::JSON::create(decoded.json);
         r.decoder = std::move(d);
         err = d_err;
     } else if (!decoded.text.empty()) {
@@ -326,7 +356,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
         r.decoder = std::move(d);
         err = d_err;
     } else {
-        auto [d, d_err] = codec::JSON::create(decoded.json);
+        auto [d, d_err] = codec::Binary::create(decoded.binary);
         r.decoder = std::move(d);
         err = d_err;
     }
@@ -350,45 +380,49 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     const x::telem::TimeStamp received,
     x::telem::Frame &fr,
     const std::size_t cap,
-    const std::optional<double> fill
+    const bool nan_filled
 ) {
+    const std::string_view text(
+        reinterpret_cast<const char *>(payload.data()),
+        payload.size()
+    );
     const auto [i, err] = std::visit(
-        [&]<typename D>(D &d) {
+        [&]<typename D>(D &d)
+            -> std::pair<std::optional<std::size_t>, x::errors::Error> {
             if constexpr (std::is_same_v<D, codec::Binary>)
                 return d.decode(payload);
+            else if constexpr (std::is_same_v<D, codec::Text>)
+                return {d.decode(text), x::errors::NIL};
             else
-                return d.decode(
-                    std::string_view(
-                        reinterpret_cast<const char *>(payload.data()),
-                        payload.size()
-                    )
-                );
+                return d.decode(text);
         },
         this->decoder
     );
     this->failed.clear();
-    if (err || !i.has_value()) return {std::nullopt, err};
+    if (err || !i.has_value()) return {i, err};
     const auto msg = *i;
-    const auto &m = this->messages[msg];
+    auto &m = this->messages[msg];
     const auto &samples = std::visit(
         [msg](const auto &d) -> const std::vector<x::telem::Series> & {
             return d.samples(msg);
         },
         this->decoder
     );
+    const auto &failures = std::visit(
+        [msg](const auto &d) -> const std::vector<codec::Failure> & {
+            return d.failures(msg);
+        },
+        this->decoder
+    );
     this->filled.assign(samples.size(), false);
-    if (const auto *json = std::get_if<codec::JSON>(&this->decoder); json != nullptr)
-        for (const auto &f: json->failures(msg)) {
-            this->failed.push_back(
-                {.channel = m.channels[f.binding],
-                 .missing = f.missing,
-                 .error = f.error}
-            );
-            if (const auto dt = samples[f.binding].data_type();
-                fill.has_value() &&
-                (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
-                this->filled[f.binding] = true;
-        }
+    for (const auto &f: failures) {
+        this->failed.push_back(
+            {.channel = m.channels[f.binding], .missing = f.missing, .error = f.error}
+        );
+        if (const auto &dt = samples[f.binding].data_type();
+            nan_filled && (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
+            this->filled[f.binding] = true;
+    }
     this->present.assign(m.indexes.size(), true);
     for (std::size_t k = 0; k < samples.size(); k++)
         if (const auto group = m.groups[k];
@@ -397,7 +431,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     for (std::size_t g = 0; g < m.indexes.size(); g++) {
         if (!this->present[g]) continue;
         const auto &[key, field] = m.indexes[g];
-        series(fr, key, x::telem::TIMESTAMP_T, cap)
+        series(fr, key, x::telem::TIMESTAMP_T, cap, m.index_positions[g])
             .write(
                 field.has_value() ? samples[*field].at<x::telem::TimeStamp>(0)
                                   : received
@@ -408,10 +442,11 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         if (const auto group = m.groups[k]; group.has_value() && !this->present[*group])
             continue;
         const auto &dt = samples[k].data_type();
-        if (fill.has_value() && this->filled[k])
-            series(fr, m.channels[k], dt, cap).write(dt.cast(*fill));
+        if (this->filled[k])
+            series(fr, m.channels[k], dt, cap, m.positions[k])
+                .write(dt.cast(std::numeric_limits<double>::quiet_NaN()));
         else if (!samples[k].empty())
-            series(fr, m.channels[k], dt, cap).write(samples[k]);
+            series(fr, m.channels[k], dt, cap, m.positions[k]).write(samples[k]);
     }
     return {msg, x::errors::NIL};
 }

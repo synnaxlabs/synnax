@@ -10,6 +10,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -183,7 +184,7 @@ TEST(JSON, ConvertsKindsToDataTypes) {
 TEST(JSON, RejectsKindsThatDoNotConvert) {
     const auto check = [](const x::errors::Error &err, const std::string &data) {
         ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-        ASSERT_EQ(err.data, "message reading: field v: " + data);
+        ASSERT_EQ(err.data(), "message reading: field v: " + data);
     };
     check(
         create_error<icd::IntegerJSONField>(x::telem::UINT32_T),
@@ -216,7 +217,26 @@ TEST(JSON, RejectsDocumentThatIsNotJSON) {
     );
     const auto [message, err] = dec.decode("not json");
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "invalid character 'o' after offset 1");
+    ASSERT_EQ(err.data(), "invalid character 'o' after offset 1");
+    ASSERT_FALSE(message.has_value());
+}
+
+/// @brief it should reject a document that is neither JSON nor UTF-8 for a field at the
+/// root of a document.
+TEST(JSON, RejectsBareDocumentThatIsNotUTF8) {
+    auto f = field<icd::StringJSONField>("state");
+    f.pointer = "";
+    auto dec = ASSERT_NIL_P(
+        JSON::create({{
+            .name = "state",
+            .payload = {.fields = {f}},
+            .bindings = {{.field = f.key, .data_type = x::telem::STRING_T}},
+        }})
+    );
+    const auto [message, err] = dec.decode("O\xffN");
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data(), "invalid UTF-8");
+    ASSERT_FALSE(message.has_value());
 }
 
 /// @brief it should give a timestamp field with a now default the time of each decode.
@@ -251,7 +271,7 @@ TEST(JSON, RejectsJSONDefaultThatIsNotJSON) {
     std::get<icd::JSONJSONField>(m.payload.fields[0]).default_ = "{";
     const auto err = JSON::create({m}).second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    ASSERT_EQ(err.data, "message reading: field v: default: not valid JSON");
+    ASSERT_EQ(err.data(), "message reading: field v: default: not valid JSON");
 }
 
 /// @brief it should reject a JSON field whose default repeats a member name.
@@ -260,7 +280,7 @@ TEST(JSON, RejectsJSONDefaultWithRepeatedName) {
     std::get<icd::JSONJSONField>(m.payload.fields[0]).default_ = R"({"a":1,"a":2})";
     const auto err = JSON::create({m}).second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    ASSERT_EQ(err.data, "message reading: field v: default: not valid JSON");
+    ASSERT_EQ(err.data(), "message reading: field v: default: not valid JSON");
 }
 
 /// @brief it should decode a document without allocating when a string match rule
@@ -328,8 +348,8 @@ TEST(JSONEncoder, WritesRandomDefault) {
     }
 }
 
-/// @brief it should report which bindings have a default.
-TEST(JSONEncoder, ReportsDefaults) {
+/// @brief it should be ready when each field has a sample or a default.
+TEST(JSONEncoder, Ready) {
     auto mode = field<icd::StringJSONField>("mode");
     mode.default_ = "auto";
     const auto temp = field<icd::FloatJSONField>("temp");
@@ -338,8 +358,13 @@ TEST(JSONEncoder, ReportsDefaults) {
             command({mode, temp}, {x::telem::STRING_T, x::telem::FLOAT64_T})
         )
     );
-    ASSERT_TRUE(enc.has_default(0));
-    ASSERT_FALSE(enc.has_default(1));
+    EXPECT_FALSE(enc.ready(series_of(
+        x::telem::Series(x::telem::STRING_T, 0),
+        x::telem::Series(x::telem::FLOAT64_T, 0)
+    )));
+    EXPECT_TRUE(enc.ready(
+        series_of(x::telem::Series(x::telem::STRING_T, 0), x::telem::Series(1.5))
+    ));
 }
 
 /// @brief it should fail to encode an empty series whose field has no default.
@@ -355,7 +380,7 @@ TEST(JSONEncoder, RejectsMissingSampleWithNoDefault) {
         payload
     );
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "message command: field temp: no sample and no default");
+    ASSERT_EQ(err.data(), "message command: field temp: no sample and no default");
 }
 
 /// @brief it should write a generated default beside the value of a match rule, or as
@@ -383,7 +408,7 @@ TEST(JSONEncoder, RejectsDefaultThatIsNotFinite) {
     v.default_ = std::numeric_limits<double>::infinity();
     const auto err = JSONEncoder::create(command({v})).second;
     ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    ASSERT_EQ(err.data, "message command: field v: default: must be finite");
+    ASSERT_EQ(err.data(), "message command: field v: default: must be finite");
 }
 
 /// @brief it should reject a NaN sample for a float field, in encode and in check.
@@ -397,10 +422,10 @@ TEST(JSONEncoder, RejectsNaNSample) {
     std::vector<std::uint8_t> payload;
     const auto err = enc.encode(samples, payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "message command: field v: NaN is not a JSON number");
+    ASSERT_EQ(err.data(), "message command: field v: NaN is not a JSON number");
     const auto check_err = enc.check(0, samples[0], 0);
     ASSERT_OCCURRED_AS(check_err, x::errors::VALIDATION);
-    ASSERT_EQ(check_err.data, err.data);
+    ASSERT_EQ(check_err.data(), err.data());
 }
 
 /// @brief it should reject an infinite sample before it scales or rounds it.
@@ -414,7 +439,7 @@ TEST(JSONEncoder, RejectsInfiniteSampleBeforeConversion) {
     std::vector<std::uint8_t> payload;
     const auto err = enc.encode(samples, payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "message command: field v: Infinity is not a JSON number");
+    ASSERT_EQ(err.data(), "message command: field v: Infinity is not a JSON number");
 }
 
 /// @brief it should write a boolean sample to a number field as 0 or 1.
@@ -441,7 +466,104 @@ TEST(JSONEncoder, ChecksSampleAtIndex) {
     ASSERT_NIL(enc.check(0, s, 0));
     const auto err = enc.check(0, s, 1);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "message command: field on: 2.5 is not 0 or 1");
+    ASSERT_EQ(err.data(), "message command: field on: 2.5 is not 0 or 1");
+}
+
+/// @brief returns an encoder of one float field v, bound to a float64 channel.
+JSONEncoder float_encoder() {
+    return ASSERT_NIL_P(
+        JSONEncoder::create(
+            command({field<icd::FloatJSONField>("v")}, {x::telem::FLOAT64_T})
+        )
+    );
+}
+
+/// @brief it should encode a sample that differs from the checked sample.
+TEST(JSONEncoder, EncodesSampleThatDiffersFromCheckedSample) {
+    auto enc = float_encoder();
+    ASSERT_NIL(enc.check(0, x::telem::Series(std::vector{1.0, 1.5}), 1));
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector{1.0}))),
+        nlohmann::json({{"v", 1}})
+    );
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector{1.5}))),
+        nlohmann::json({{"v", 1.5}})
+    );
+}
+
+/// @brief it should encode a sample whose buffer changed after its check.
+TEST(JSONEncoder, EncodesSampleWhoseBufferChangedAfterCheck) {
+    auto enc = float_encoder();
+    x::telem::Series s(std::vector{1.5});
+    ASSERT_NIL(enc.check(0, s, 0));
+    const double v = 2.5;
+    std::memcpy(s.data(), &v, sizeof(v));
+    ASSERT_EQ(encoded(enc, series_of(std::move(s))), nlohmann::json({{"v", 2.5}}));
+}
+
+/// @brief it should keep the text of the last good sample after a failed check.
+TEST(JSONEncoder, KeepsTextOfLastGoodSampleAfterFailedCheck) {
+    auto enc = float_encoder();
+    const auto nan = std::numeric_limits<double>::quiet_NaN();
+    ASSERT_NIL(enc.check(0, x::telem::Series(std::vector{1.5}), 0));
+    const auto err = enc.check(0, x::telem::Series(std::vector{nan}), 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data(), "message command: field v: NaN is not a JSON number");
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector{1.5}))),
+        nlohmann::json({{"v", 1.5}})
+    );
+    std::vector<std::uint8_t> payload;
+    const auto encode_err = enc.encode(
+        series_of(x::telem::Series(std::vector{nan})),
+        payload
+    );
+    ASSERT_OCCURRED_AS(encode_err, x::errors::VALIDATION);
+    ASSERT_EQ(encode_err.data(), err.data());
+}
+
+/// @brief it should match a checked string sample at an index by its bytes.
+TEST(JSONEncoder, MatchesCheckedStringSampleByBytes) {
+    auto enc = ASSERT_NIL_P(
+        JSONEncoder::create(
+            command({field<icd::StringJSONField>("state")}, {x::telem::STRING_T})
+        )
+    );
+    ASSERT_NIL(
+        enc.check(0, x::telem::Series(std::vector<std::string>{"run", "stop"}), 1)
+    );
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector<std::string>{"run"}))),
+        nlohmann::json({{"state", "run"}})
+    );
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector<std::string>{"stop"}))),
+        nlohmann::json({{"state", "stop"}})
+    );
+}
+
+/// @brief it should encode a checked JSON sample without allocating.
+TEST(JSONEncoder, EncodesCheckedJSONSampleWithoutAllocating) {
+    auto enc = ASSERT_NIL_P(
+        JSONEncoder::create(
+            command({field<icd::JSONJSONField>("config")}, {x::telem::JSON_T})
+        )
+    );
+    const auto samples = series_of(
+        x::telem::Series(std::string(R"({"rate":10,"mode":"auto"})"), x::telem::JSON_T)
+    );
+    std::vector<std::uint8_t> payload;
+    ASSERT_NIL(enc.check(0, samples[0], 0));
+    ASSERT_NIL(enc.encode(samples, payload));
+    const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
+    for (int i = 0; i < 100; i++)
+        ASSERT_NIL(enc.encode(samples, payload));
+    EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+    ASSERT_EQ(
+        std::string(payload.begin(), payload.end()),
+        R"({"config":{"rate":10,"mode":"auto"}})"
+    );
 }
 
 /// @brief it should write the sample of a JSON field as it is, and reject one that is
@@ -463,7 +585,7 @@ TEST(JSONEncoder, WritesJSONSample) {
         payload
     );
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "message command: field config: invalid JSON");
+    ASSERT_EQ(err.data(), "message command: field config: invalid JSON");
 }
 
 /// @brief it should reject a JSON sample that repeats a member name, in encode and in
@@ -480,10 +602,10 @@ TEST(JSONEncoder, RejectsJSONSampleWithRepeatedName) {
     std::vector<std::uint8_t> payload;
     const auto err = enc.encode(samples, payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "message command: field config: invalid JSON");
+    ASSERT_EQ(err.data(), "message command: field config: invalid JSON");
     const auto check_err = enc.check(0, samples[0], 0);
     ASSERT_OCCURRED_AS(check_err, x::errors::VALIDATION);
-    ASSERT_EQ(check_err.data, err.data);
+    ASSERT_EQ(check_err.data(), err.data());
 }
 
 /// @brief it should encode a document without allocating, once a first encode is done.
@@ -554,7 +676,7 @@ TEST(JSON, ListsFieldThatDoesNotConvert) {
     ASSERT_EQ(dec.failures(0)[0].binding, 0U);
     ASSERT_FALSE(dec.failures(0)[0].missing);
     ASSERT_OCCURRED_AS(dec.failures(0)[0].error, x::errors::VALIDATION);
-    ASSERT_EQ(dec.failures(0)[0].error.data, "field v: 1.5 is not an integer");
+    ASSERT_EQ(dec.failures(0)[0].error.data(), "field v: 1.5 is not an integer");
 }
 
 /// @brief it should list a field with no value and no default as missing.
@@ -566,7 +688,7 @@ TEST(JSON, ListsMissingField) {
     ASSERT_EQ(dec.failures(0)[0].binding, 1U);
     ASSERT_TRUE(dec.failures(0)[0].missing);
     ASSERT_OCCURRED_AS(dec.failures(0)[0].error, x::errors::VALIDATION);
-    ASSERT_EQ(dec.failures(0)[0].error.data, "field w: no value at /w");
+    ASSERT_EQ(dec.failures(0)[0].error.data(), "field w: no value at /w");
 }
 
 /// @brief it should list no failures for a decode after one that had them.
@@ -578,6 +700,16 @@ TEST(JSON, ClearsFailuresOnEachDecode) {
     ASSERT_EQ(dec.samples(0)[0].at<std::int64_t>(0), 1);
 }
 
+/// @brief it should return the first of two messages whose rules a document meets, with
+/// an error.
+TEST(JSON, ReturnsFirstOfTwoMatchingMessages) {
+    auto dec = ASSERT_NIL_P(JSON::create(routed(present("/other"), present("/temp"))));
+    const auto [message, err] = dec.decode(R"({"other": 1, "temp": 40})");
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data(), "document matches messages other and status");
+    ASSERT_EQ(message, std::size_t{0});
+}
+
 /// @brief it should name the message of a failure when the decoder holds more than one.
 TEST(JSON, NamesMessageOfFailure) {
     auto dec = ASSERT_NIL_P(JSON::create(routed(present("/other"), present("/temp"))));
@@ -587,7 +719,7 @@ TEST(JSON, NamesMessageOfFailure) {
     );
     ASSERT_EQ(dec.failures(1).size(), 1U);
     ASSERT_EQ(
-        dec.failures(1)[0].error.data,
+        dec.failures(1)[0].error.data(),
         "message status: field count: 1.5 is not an integer"
     );
 }

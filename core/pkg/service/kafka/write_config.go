@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/content"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // writeResolver resolves write configs against the ICDs and channels that they write.
@@ -32,9 +31,9 @@ type writeResolver struct {
 }
 
 // resolve moves the inline channels of cfg into targets that send a new ICD named name,
-// then checks cfg, read through snap. A config holds channels or targets, not both, and
-// the message of each enabled target must build from its ICD and its channels. It
-// returns the write that creates the ICD, or nil when cfg holds no inline channels.
+// then checks cfg, read through snap. The message of each enabled target must build
+// from its ICD and its channels. It returns the write that creates the ICD, or nil when
+// cfg holds no inline channels.
 func (r writeResolver) resolve(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -46,11 +45,6 @@ func (r writeResolver) resolve(
 	)
 	if err != nil {
 		return nil, err
-	}
-	if len(cfg.Channels) > 0 && len(cfg.Targets) > 0 {
-		return nil, validate.PathedError(
-			validate.Errorf("a task cannot have both channels and targets"), "targets",
-		)
 	}
 	icds := make(map[icd.Key]icd.ICD)
 	if ok {

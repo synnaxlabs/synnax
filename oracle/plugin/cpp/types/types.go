@@ -248,7 +248,7 @@ func (p *Plugin) generateFile(
 
 	for _, e := range enums {
 		if e.FilePath == filePath && !omit.IsSkipped(e, "cpp") {
-			data.Enums = append(data.Enums, p.processEnum(e))
+			data.Enums = append(data.Enums, p.processEnum(e, data))
 		}
 	}
 
@@ -376,10 +376,14 @@ func (p *Plugin) addSortedDecls(sortedTypes []resolution.Type, data *templateDat
 	}
 }
 
-func (p *Plugin) processEnum(e resolution.Type) enumData {
+func (p *Plugin) processEnum(e resolution.Type, data *templateData) enumData {
 	form, ok := e.Form.(resolution.EnumForm)
 	if !ok {
 		return enumData{Name: e.Name}
+	}
+	addDomainExtras(e, data)
+	if form.IsIntEnum {
+		data.AddSystem("cstdint")
 	}
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
@@ -1526,11 +1530,11 @@ func (p *Plugin) extractResource(
 }
 
 var templateFuncs = template.FuncMap{
-	"join":             strings.Join,
-	"toUpper":          strings.ToUpper,
-	"toScreamingSnake": cppnaming.ScreamingSnake,
-	"toSnakeCase":      casing.FieldSnake,
-	"formatDoc":        doc.FormatCpp,
+	"join":         strings.Join,
+	"toUpper":      strings.ToUpper,
+	"enumConstant": cppnaming.EnumConstant,
+	"toSnakeCase":  casing.FieldSnake,
+	"formatDoc":    doc.FormatCpp,
 }
 
 var fileTemplate = template.Must(
@@ -1566,7 +1570,7 @@ enum class {{$enum.Name}} : {{$enum.Base}} {
 };
 {{- else}}
 {{- range $enum.Values}}
-constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSnake}} = "{{.Value}}";
+constexpr const char* {{enumConstant $enum.Name .Name}} = "{{.Value}}";
 {{- end}}
 {{- end}}
 {{- end}}

@@ -9,8 +9,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Install embedded console into core
-# This script builds the console web assets and copies them to the core server
+# Install the embedded Console into the Core
+# This script builds the Console web assets and copies them to the Core
 
 set -e
 

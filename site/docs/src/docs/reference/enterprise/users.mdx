@@ -27,11 +27,14 @@ top bar to open Settings, then select **Users**. Synnax Desktop has one user and
 ## Register a user
 
 1. Click **Register user** on the **Users** page, or run the "Register user" command.
-2. Enter the **Name**, **Username**, and **Password**.
-3. Select a **Role**.
+2. Enter the **Name** and select a **Role**.
+3. Optional: enter a **Username** and **Password**. Give both or neither. The Console
+   shows these fields only when the Core accepts passwords.
 4. Click **Register**.
 
-Give the username and password to the person. They can log in at once.
+The **Sign-in** dialog then opens for the new user. Give the username and password to
+the person. To give a password later, see
+[create a first password](#create-a-first-password).
 
 <Video id="console/users/register" label="Register a user on the Users page" />
 
@@ -54,8 +57,7 @@ the root user.
 
 On the **Users** page, right-click the user and select **Rename**. Rename changes the
 name that the Console shows, not the username. To rename yourself, go to the **Profile**
-page of Settings. To change a username, see
-[manage users from code](#manage-users-from-code).
+page of Settings. To change a username, see [manage sign-in](#manage-sign-in).
 
 <Divider.Divider x />
 
@@ -71,7 +73,8 @@ sessions at once.
 
 ## Manage sign-in
 
-The **Sign-in** dialog sets the password of a user and holds the API keys of the user.
+The **Sign-in** dialog sets the username and password of a user and holds the API keys
+of the user. It hides the **Password** section when the Core does not accept passwords.
 An Owner can open it for any user: on the **Users** page, right-click the user and
 select **Manage sign-in**. To set your own password or API keys, go to the **Profile**
 or **API keys** page of Settings.
@@ -80,6 +83,16 @@ or **API keys** page of Settings.
   id="console/users/manage-credentials"
   label="Set a password and create an API key in the sign-in dialog"
 />
+
+### Create a first password
+
+For a user with no password, enter a **Username** and **Password** under **Password** in
+the **Sign-in** dialog, then click **Create password**.
+
+### Change a username
+
+Under **Password** in the **Sign-in** dialog, enter the new **Username** and click **Set
+username**.
 
 ### Set a password
 

@@ -16,6 +16,8 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <ranges>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -49,6 +51,10 @@ public:
     /// its tasks. A task should end a long wait when it stops. Valid only during the
     /// call.
     virtual void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) {}
+
+    /// @brief returns true if the task refuses every start. A disabled task answers a
+    /// start before exec returns, so no loading status announces its auto-start.
+    [[nodiscard]] virtual bool disabled() const { return false; }
 
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
@@ -116,6 +122,10 @@ public:
     /// @brief returns true when a status write failed, a re-send included, and no
     /// re-send has started since.
     [[nodiscard]] virtual bool statuses_stale() = 0;
+
+    /// @brief returns the latest status of the task that this Driver sent, or nullopt.
+    [[nodiscard]] virtual std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -138,10 +148,25 @@ public:
 
     bool statuses_stale() override { return false; }
 
+    std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) override {
+        std::lock_guard lock(this->mu);
+        const auto owner = synnax::task::resource_id(key);
+        for (const auto &status: std::views::reverse(this->statuses))
+            if (status.owner == owner) return status;
+        return std::nullopt;
+    }
+
     /// @brief returns a copy of the statuses, safe to read while tasks send more.
     std::vector<synnax::task::Status> snapshot() {
         std::lock_guard lock(this->mu);
         return this->statuses;
+    }
+
+    /// @brief drops every status, safe to call while tasks send more.
+    void clear() {
+        std::lock_guard lock(this->mu);
+        this->statuses.clear();
     }
 };
 
@@ -213,6 +238,11 @@ public:
 
     bool statuses_stale() override { return this->statuses->stale(); }
 
+    std::optional<synnax::task::Status>
+    latest_status(const synnax::task::Key &key) override {
+        return this->statuses->latest(key);
+    }
+
     /// @brief opens an operation that runs cmd on task, which is called name. The
     /// statuses that answer cmd go through it until end. The operation must not
     /// outlive this context.
@@ -241,9 +271,11 @@ public:
 
     /// @brief closes op. A later status for its command is written as it is, unless
     /// op was cancelled. Then the status still goes through op, so it answers nothing.
+    /// deployed_hash is the config hash of the instance that runs, or empty for none.
     /// @returns the joined starts that got no final status.
-    std::vector<synnax::task::Command> end(const std::shared_ptr<Operation> &op) {
-        auto joined = op->close();
+    std::vector<synnax::task::Command>
+    end(const std::shared_ptr<Operation> &op, const std::string &deployed_hash) {
+        auto joined = op->close(deployed_hash);
         std::lock_guard lock{this->operations_mu};
         const auto it = this->operations.find(op->cmd.key);
         if (it == this->operations.end() || it->second != op) return joined;
@@ -278,6 +310,12 @@ public:
 /// as at boot. Nothing is waiting on the outcome.
 inline constexpr auto NO_COMMAND = "";
 
+/// @brief the cmd_key given to configure_task when the task manager replaces a live
+/// instance on its own, as after a lost Core connection. The task must not start on its
+/// own: the manager starts it if the instance it replaces ran. It answers no command,
+/// so no status carries it.
+inline constexpr auto REDEPLOY = "redeploy";
+
 class Factory {
 public:
     /// @brief creates the tasks this factory runs on every rack, such as a scanner.
@@ -297,7 +335,8 @@ public:
     virtual std::string name() { return ""; }
 
     /// @brief builds a live instance of the task if this factory handles its type.
-    /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot.
+    /// @param cmd_key the start command driving the deploy, NO_COMMAND at boot, or
+    /// REDEPLOY.
     /// @param cancel stops when a stop cancels the start, or when the task manager
     /// stops its tasks. A factory should end a long wait when it stops. Valid only
     /// during the call.
@@ -622,12 +661,15 @@ private:
     /// a save of a record that its hash covers, such as an ICD, moves the stored hash
     /// during the configure. Refuses a pinned start instead. When the hash moves, the
     /// starts that joined operation run again as their own commands, and a task that
-    /// the save moved to another rack is released with a warning. A failed read fails
-    /// the deploy. tsk ends as the revision last configured.
+    /// the save moved to another rack is released with a warning, along with its live
+    /// instance. A failed read fails the deploy. tsk ends as the revision last
+    /// configured.
+    /// @param cmd_key the cmd_key given to the factory.
     /// @returns the configured task, or nullptr, and whether a factory handles tsk.
     std::pair<std::unique_ptr<Task>, bool> configure(
         synnax::task::Task &tsk,
         const Op &op,
+        const std::string &cmd_key,
         const std::shared_ptr<Entry> &entry,
         Operation &operation
     );
@@ -643,8 +685,12 @@ private:
     /// as stopped responding counts as running. Replaces only a status for this rack,
     /// does nothing once this Driver wrote a status for the task, and never starts the
     /// task. Call it after a boot deploy that configured the task, unless the deploy
-    /// was cancelled.
-    void replace_interrupted_status(const synnax::task::Task &tsk);
+    /// was cancelled. deployed_hash is the config hash of the instance that the deploy
+    /// built, or empty for none.
+    void replace_interrupted_status(
+        const synnax::task::Task &tsk,
+        const std::string &deployed_hash
+    );
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);
     /// @brief answers a stop that cancelled the start of a task, which left no live

@@ -1,0 +1,69 @@
+{
+  "description": "A failed field names the message when the decoder holds more than one.",
+  "messages": [
+    {
+      "name": "gga",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "$GPGGA",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 1
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    },
+    {
+      "name": "rmc",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "$GPRMC",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 1
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "$GPRMC",
+      "message": "rmc",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "message rmc: field a: no value at position 1: validation error"
+        }
+      ]
+    }
+  ]
+}

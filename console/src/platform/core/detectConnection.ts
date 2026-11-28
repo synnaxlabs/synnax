@@ -51,7 +51,6 @@ const pageConnection = (origin: string): ConnectionParams => {
 
 export const detectConnection = (): ConnectionParams | null => {
   if (Session.Runtime.ENGINE === "tauri") return null;
-  if (new URLSearchParams(window.location.search).has("select-core")) return null;
   if (Session.Runtime.CORE_SELECTABLE) return devConnection();
   return pageConnection(window.location.origin);
 };

@@ -9,19 +9,29 @@
 
 import "@/feature/mqtt/task/EntryLabel.css";
 
-import type { channel } from "@synnaxlabs/client";
+import type { channel, icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Tree } from "@synnaxlabs/lyra/tree";
+import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 
 import type { SparkplugTagID } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
+import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
+interface MessageOf {
+  message: icd.MessageKey;
+}
+
+/** A read entry names its messages, and a write target names its message. */
 interface PlainEntry {
   type: "plain";
   topic: string;
+  icd: icd.Key;
+  messages?: MessageOf[];
+  message?: MessageOf;
 }
 
 interface SparkplugEntry extends SparkplugTagID {
@@ -34,35 +44,53 @@ export interface EntryLabelProps {
 }
 
 const KINDS = {
-  plain: { kind: "JSON", color: "var(--pluto-secondary-z)", placeholder: "New topic" },
-  sparkplug: { kind: "SpB", color: "var(--pluto-primary-z)", placeholder: "New tag" },
+  plain: { color: "var(--pluto-secondary-z)", placeholder: "New topic" },
+  sparkplug: { color: "var(--pluto-primary-z)", placeholder: "New tag" },
 } as const;
 
 interface LabelProps {
   type: keyof typeof KINDS;
+  kind: string;
   identity: string;
 }
 
-const Label = ({ type, identity }: LabelProps) => {
-  const { kind, color, placeholder } = KINDS[type];
+const Label = ({ type, kind, identity }: LabelProps) => {
+  const { color, placeholder } = KINDS[type];
   return (
     <Flex.Box x align="center" gap={1.5} className={CSS.B("mqtt-entry-label")}>
       <Task.Views.ItemLabel
         kind={kind}
         kindColor={color}
         color={identity === "" ? 8 : 10}
-        variant="code"
       >
-        {/* Isolated so the right-to-left overflow still reads left to right. */}
-        {identity === "" ? placeholder : `⁦${identity}⁩`}
+        {identity === "" ? placeholder : identity}
       </Task.Views.ItemLabel>
     </Flex.Box>
   );
 };
 
-const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => (
-  <Label type="plain" identity={PForm.useFieldValue(path.topic)} />
-);
+const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => {
+  const formats = ICD.useFormats();
+  const icdKey = PForm.useFieldValue(path.icd);
+  const read = PForm.useFieldValue(deep.present(path.messages)[0].message, {
+    optional: true,
+  });
+  const written = PForm.useFieldValue(deep.present(path.message).message, {
+    optional: true,
+  });
+  // A topic with no message yet reads JSON.
+  const format = PForm.useFieldValue(
+    PICD.formPath.messages[read ?? written ?? ""].payload.format,
+    { optional: true, ctx: formats.get(icdKey) },
+  );
+  return (
+    <Label
+      type="plain"
+      kind={ICD.FORMAT_KINDS[format ?? "json"]}
+      identity={PForm.useFieldValue(path.topic)}
+    />
+  );
+};
 
 const SparkplugLabel = ({ path }: { path: deep.Path<SparkplugEntry> }) => {
   const group = PForm.useFieldValue(path.group);
@@ -73,7 +101,7 @@ const SparkplugLabel = ({ path }: { path: deep.Path<SparkplugEntry> }) => {
     tag === ""
       ? ""
       : [group, edgeNode, device, tag].filter((level) => level !== "").join("/");
-  return <Label type="sparkplug" identity={identity} />;
+  return <Label type="sparkplug" kind="SpB" identity={identity} />;
 };
 
 /**
@@ -86,6 +114,38 @@ export const EntryLabel = ({ path }: EntryLabelProps) => {
     <PlainLabel path={deep.variant(path, "type", "plain")} />
   ) : (
     <SparkplugLabel path={deep.variant(path, "type", "sparkplug")} />
+  );
+};
+
+/** @returns why the ICD has no message at the read of a topic, and what to do now. */
+export const describeMissing = (read: number): string =>
+  read === 0
+    ? "The ICD has no message for this topic. Add data to make one."
+    : "The ICD no longer has this message. Remove it from the topic.";
+
+/** Marks a plain entry whose message has a problem. */
+const PlainMark = ({ path }: { path: deep.Path<PlainEntry> }) => {
+  const icdKey = PForm.useFieldValue(path.icd);
+  const read = PForm.useFieldValue(deep.present(path.messages), { optional: true });
+  const written = PForm.useFieldValue(deep.present(path.message).message, {
+    optional: true,
+  });
+  if (read != null && read.length > 0)
+    return (
+      <ICD.MessageMark
+        icdKey={icdKey}
+        messages={read.map(({ message }) => message)}
+        missingDescription={describeMissing}
+      />
+    );
+  if (written == null) return null;
+  return (
+    <ICD.MessageMark
+      icdKey={icdKey}
+      messages={[written]}
+      missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+      jsonOnly
+    />
   );
 };
 
@@ -120,6 +180,7 @@ export const EntryItem = ({ path, ...props }: EntryItemProps) => {
       }
       off={disabled}
     >
+      {type === "plain" && <PlainMark path={deep.variant(path, "type", "plain")} />}
       <Task.EnabledCheckbox path={wide.disabled} />
     </Task.Views.TreeGroupItem>
   );

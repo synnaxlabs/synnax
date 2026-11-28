@@ -291,7 +291,6 @@ var _ = Describe("Writer open", func() {
 			db                       *cesium.DB
 			idxKey, dataKey, heldKey cesium.ChannelKey
 			deleted                  chan error
-			deleteDone               atomic.Bool
 			gate                     *fileGate
 		)
 
@@ -344,16 +343,13 @@ var _ = Describe("Writer open", func() {
 				opened <- err
 			}()
 			Eventually(gate.entered).Should(Receive())
-			deleteDone.Store(false)
 			deleted = make(chan error, 1)
 			go func() {
-				err := db.DeleteTimeRange(
+				deleted <- db.DeleteTimeRange(
 					context.Background(),
 					[]cesium.ChannelKey{idxKey, heldKey},
 					(10 * telem.SecondTS).Range(12*telem.SecondTS),
 				)
-				deleteDone.Store(true)
-				deleted <- err
 			}()
 			Consistently(deleted, 200*time.Millisecond).ShouldNot(Receive())
 			DeferCleanup(func() {
@@ -368,8 +364,15 @@ var _ = Describe("Writer open", func() {
 			Eventually(deleted).Should(Receive(Succeed()))
 		}
 
+		// indexLen returns the number of samples left in idxKey. It is 2 once the
+		// delete has run.
+		indexLen := func(ctx context.Context) int64 {
+			GinkgoHelper()
+			return MustSucceed(db.Read(ctx, telem.TimeRangeMax, idxKey)).Len()
+		}
+
 		It("Should make a new dependent wait for it", func(ctx SpecContext) {
-			created := make(chan bool, 1)
+			created := make(chan int64, 1)
 			go func() {
 				defer GinkgoRecover()
 				Expect(db.CreateChannel(ctx, cesium.Channel{
@@ -378,11 +381,11 @@ var _ = Describe("Writer open", func() {
 					Index:    idxKey,
 					DataType: telem.Int64T,
 				})).To(Succeed())
-				created <- deleteDone.Load()
+				created <- indexLen(ctx)
 			}()
 			Consistently(created, 200*time.Millisecond).ShouldNot(Receive())
 			finishDelete()
-			Eventually(created).Should(Receive(BeTrue()))
+			Eventually(created).Should(Receive(BeEquivalentTo(2)))
 		})
 
 		It("Should stop a new dependent from waiting when ctx ends", func() {
@@ -408,19 +411,19 @@ var _ = Describe("Writer open", func() {
 		})
 
 		It("Should make a dependent writer wait for it", func(ctx SpecContext) {
-			opened := make(chan bool, 1)
+			opened := make(chan int64, 1)
 			go func() {
 				defer GinkgoRecover()
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{dataKey},
 					Start:    10 * telem.SecondTS,
 				}))
-				opened <- deleteDone.Load()
+				opened <- indexLen(ctx)
 				Expect(w.Close()).To(Succeed())
 			}()
 			Consistently(opened, 200*time.Millisecond).ShouldNot(Receive())
 			finishDelete()
-			Eventually(opened).Should(Receive(BeTrue()))
+			Eventually(opened).Should(Receive(BeEquivalentTo(2)))
 		})
 
 		It("Should let an index writer write after it", func(ctx SpecContext) {

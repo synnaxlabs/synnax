@@ -16,7 +16,6 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id, unique } from "@synnaxlabs/x";
@@ -34,6 +33,7 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
@@ -134,19 +134,29 @@ const namingOf = (
 const messageName = ({ method, path }: RequestLine): string =>
   `${method} ${path}`.trim();
 
-/** @returns whether name is the message name of request, with or without a number. */
-const namedBy = (name: string, request: RequestLine): boolean => {
-  const base = messageName(request);
-  if (name === base) return true;
-  return name.startsWith(`${base} `) && /^\d+$/.test(name.slice(base.length + 1));
-};
-
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
+const MessageMark = ({ itemKey }: { itemKey: string }) => {
+  const path = icdPath(itemKey);
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const message = PForm.useFieldValue(path.message.message, { optional: true });
+  if (icdKey == null || message == null) return null;
+  return (
+    <ICD.MessageMark
+      icdKey={icdKey}
+      messages={[message]}
+      missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+      jsonOnly
+    />
+  );
+};
+
 const TargetItem = (props: Tree.ItemRenderProps<string>) => (
-  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
+  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]}>
+    <MessageMark itemKey={props.itemKey} />
+  </EndpointItem>
 );
 
 const duplicate = (ep: WriteEndpoint): WriteEndpoint => ({
@@ -188,6 +198,7 @@ const MessageDetails = ({ epKey, onAddField }: DetailsProps) => {
       <ICD.MessageWarning
         message={message}
         missingDescription={ICD.Write.MISSING_DESCRIPTION}
+        jsonOnly
       />
     </PForm.Section>
   );
@@ -237,7 +248,7 @@ const EndpointDetails = ({ epKey, onAddField, created }: EndpointDetailsProps) =
     const format = ICD.formatOf(formats, ep.icd);
     const { messages } = format.value();
     const message = messages.find(({ key }) => key === ep.message.message);
-    if (message == null || !namedBy(message.name, ep)) return;
+    if (message == null || !ICD.namedBy(message.name, messageName(ep))) return;
     format.set(
       PICD.formPath.messages[message.key].name,
       ICD.availableName(
@@ -353,6 +364,7 @@ const Endpoints = ({
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add endpoint");
+  const isPreview = Task.useIsPreview();
 
   return (
     <Task.Views.Panes
@@ -373,9 +385,12 @@ const Endpoints = ({
       title={pane?.title}
     >
       {pane?.details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Add an endpoint to send requests to</Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No endpoint selected"
+          action={isPreview ? undefined : "Add endpoint"}
+          onClick={handleAdd}
+        />
       )}
       {sending.map(({ key, icd: icdKey }) => (
         <ICD.Write.Suit key={key} icdKey={icdKey} path={icdPath(key).message} />

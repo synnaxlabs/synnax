@@ -16,7 +16,9 @@ import { documentIn } from "@/session/window/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
 /**
- * Opens the message format field that shows current, and searches for an ICD name.
+ * Opens the message format field that shows current, searches for an ICD name, and
+ * waits for the search to answer. Until then the list shows its first page, and the
+ * answer replaces those rows, so a row found there can be detached by the next read.
  * @returns the dialog.
  */
 export const searchMessageFormats = async (current: string, icdName: string) => {
@@ -26,28 +28,42 @@ export const searchMessageFormats = async (current: string, icdName: string) => 
   fireEvent.change(await dialog.findByPlaceholderText("Search message formats..."), {
     target: { value: icdName },
   });
+  await waitFor(() => {
+    const options = within(dialog.getByRole("listbox")).queryAllByRole("option");
+    if (
+      options.length === 0 ||
+      options.some((o) => o.textContent?.includes(icdName) !== true)
+    )
+      throw new Error(`the search for ${icdName} has not answered`);
+  });
   return dialog;
 };
 
-/**
- * Picks the message next of the ICD named icdName in the message format field that
- * shows current.
- */
+/** Picks the message next of the ICD named icdName in the field that shows current. */
 export const pickMessageFormat = async (
   current: string,
   next: string,
   icdName: string,
 ): Promise<void> => {
   const dialog = await searchMessageFormats(current, icdName);
-  // waitFor resolves a timer tick after its match. A render in that tick can replace
-  // the option. A click in the callback goes to the option on the page.
-  await waitFor(() => {
-    const [match] = dialog
-      .getAllByText(next)
-      .filter((n) => n.parentElement?.textContent?.includes(icdName));
+  const option = await waitFor(() => {
+    const options = within(dialog.getByRole("listbox")).queryAllByRole("option");
+    const match = options.find((o) => within(o).queryByText(next) != null);
     if (match == null) throw new Error(`no ${next} of ${icdName}`);
-    fireEvent.click(match);
+    return match;
   });
+  fireEvent.click(option);
+};
+
+/**
+ * Opens the message format field that shows current, and clicks its create item named
+ * text, such as "New text message".
+ */
+export const pickNewMessage = async (current: string, text: string): Promise<void> => {
+  fireEvent.click(await findDialogTriggerByText(current));
+  const dialogs = await screen.findAllByRole("dialog");
+  const dialog = within(dialogs[dialogs.length - 1]);
+  fireEvent.click(await dialog.findByRole("option", { name: text }));
 };
 
 /** A message of an ICD. */
@@ -108,6 +124,20 @@ export const selectedIn = (
   key: icd.Key,
 ): icd.MessageKey[] | undefined =>
   documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.selected;
+
+/** @returns the field that the editor of the ICD focuses next, in the store. */
+export const focusedIn = (
+  store: { getState: () => Session.State },
+  key: icd.Key,
+): icd.FieldKey | undefined =>
+  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.focused;
+
+/** @returns whether the store marks the ICD as just created, in the main window. */
+export const createdIn = (
+  store: { getState: () => Session.State },
+  key: icd.Key,
+): boolean | undefined =>
+  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.created;
 
 /** @returns the title of the group of the field picker that note marks. */
 export const titleOf = (note: HTMLElement): string =>

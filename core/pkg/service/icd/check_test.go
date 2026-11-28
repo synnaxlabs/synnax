@@ -22,7 +22,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -66,12 +68,105 @@ type checkFixture struct {
 
 var checkFixtures = os.DirFS("testdata/fixtures")
 
-func checkFixtureEntries(kind string) []TableEntry {
+// checkFixtureEntries returns an entry for each fixture of kind that keep accepts.
+func checkFixtureEntries(kind string, keep func(checkFixture) bool) []TableEntry {
 	GinkgoHelper()
-	paths := MustSucceed(fs.Glob(checkFixtures, kind+"/*.json"))
+	paths := lo.Filter(
+		MustSucceed(fs.Glob(checkFixtures, kind+"/*.json")),
+		func(path string, _ int) bool { return keep(loadCheckFixture(path)) },
+	)
 	return lo.Map(paths, func(path string, _ int) TableEntry {
 		name := strings.TrimSuffix(strings.TrimPrefix(path, kind+"/"), ".json")
 		return Entry(name, path)
+	})
+}
+
+// kindTypes holds, for each field kind, the data type of a channel that takes the field
+// unscaled.
+var kindTypes = map[payload.Kind]telem.DataType{
+	payload.KindFloat:     telem.Float64T,
+	payload.KindInteger:   telem.Int64T,
+	payload.KindUnsigned:  telem.Uint64T,
+	payload.KindBoolean:   telem.BooleanT,
+	payload.KindString:    telem.StringT,
+	payload.KindTimestamp: telem.TimestampT,
+	payload.KindJSON:      telem.JSONT,
+	payload.KindUUID:      telem.UUIDT,
+	payload.KindBytes:     telem.BytesT,
+}
+
+// codecRejects reports whether the Go codec rejects the JSON, text, or binary messages
+// of ic under the binding it refuses least: each field binds to the data type of its
+// kind, or to float64 when it scales or is text.
+func codecRejects(ic icd.ICD) bool {
+	var (
+		jsonMessages   []codec.JSONMessage
+		textMessages   []codec.TextMessage
+		binaryMessages []codec.BinaryMessage
+	)
+	for _, m := range ic.Messages {
+		switch p := m.Payload.Variant.(type) {
+		case icd.JSONPayload:
+			bindings := lo.Map(p.Fields, func(f icd.JSONField, _ int) codec.Binding {
+				b, dt := f.Base(), kindTypes[f.Type()]
+				if b.Scale != 1 || b.Offset != 0 {
+					dt = telem.Float64T
+				}
+				return codec.Binding{Field: b.Key, DataType: dt}
+			})
+			jsonMessages = append(jsonMessages, codec.JSONMessage{
+				Name: m.Name, Payload: p, Bindings: bindings,
+			})
+		case icd.TextPayload:
+			bindings := lo.Map(p.Fields, func(f icd.TextField, _ int) codec.Binding {
+				return codec.Binding{Field: f.Base().Key, DataType: telem.Float64T}
+			})
+			textMessages = append(textMessages, codec.TextMessage{
+				Name: m.Name, Payload: p, Bindings: bindings,
+			})
+		case icd.BinaryPayload:
+			bindings := lo.Map(p.Fields, func(f icd.BinaryField, _ int) codec.Binding {
+				b, dt := f.Base(), kindTypes[payload.Kind(f.Kind())]
+				if b.Scale != 1 || b.Offset != 0 {
+					dt = telem.Float64T
+				}
+				return codec.Binding{Field: b.Key, DataType: dt}
+			})
+			binaryMessages = append(binaryMessages, codec.BinaryMessage{
+				Name: m.Name, Payload: p, Bindings: bindings,
+			})
+		}
+	}
+	if len(jsonMessages) > 0 {
+		if _, err := codec.NewJSON(jsonMessages); err != nil {
+			return true
+		}
+	}
+	if len(textMessages) > 0 {
+		if _, err := codec.NewText(textMessages); err != nil {
+			return true
+		}
+	}
+	if len(binaryMessages) > 0 {
+		if _, err := codec.NewBinary(binaryMessages); err != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func anyFixture(checkFixture) bool { return true }
+
+// hasGoCodec reports whether f holds no framing and no CAN identifier, since Go has no
+// framer and reads no CAN frames.
+func hasGoCodec(f checkFixture) bool {
+	return f.ICD.Framing == nil && !lo.SomeBy(f.ICD.Messages, func(m icd.Message) bool {
+		p, binary := m.Payload.Variant.(icd.BinaryPayload)
+		if !binary || p.Identifier == nil {
+			return false
+		}
+		_, can := p.Identifier.Variant.(icd.CanIdentifier)
+		return can
 	})
 }
 
@@ -89,7 +184,7 @@ var _ = Describe("Check", func() {
 		f := loadCheckFixture(path)
 		Expect(f.Problems).To(BeEmpty())
 		Expect(problemsOf(f.ICD)).To(BeEmpty())
-	}, checkFixtureEntries("valid"))
+	}, checkFixtureEntries("valid", anyFixture))
 
 	DescribeTable(
 		"Should find exactly the problems an invalid fixture names",
@@ -98,7 +193,20 @@ var _ = Describe("Check", func() {
 			Expect(f.Problems).ToNot(BeEmpty())
 			Expect(problemsOf(f.ICD)).To(ConsistOf(f.Problems))
 		},
-		checkFixtureEntries("invalid"),
+		checkFixtureEntries("invalid", anyFixture),
+	)
+
+	DescribeTable("Should build the Go codec of a valid fixture", func(path string) {
+		Expect(codecRejects(loadCheckFixture(path).ICD)).To(BeFalse())
+	}, checkFixtureEntries("valid", hasGoCodec))
+
+	DescribeTable(
+		"Should reject an invalid fixture in the Go codec when it says the codec rejects it",
+		func(path string) {
+			f := loadCheckFixture(path)
+			Expect(codecRejects(f.ICD)).To(Equal(f.CodecRejects))
+		},
+		checkFixtureEntries("invalid", hasGoCodec),
 	)
 
 	It("Should store a valid fixture", func(ctx SpecContext) {
@@ -130,7 +238,7 @@ var _ = Describe("Check", func() {
 			problem{Path: "name", Message: "name is required"},
 			problem{
 				Path:    "messages.0.payload.fields.1.scale",
-				Message: "scale must be finite and non-zero",
+				Message: "scale must be non-zero",
 			},
 			problem{
 				Path:    "messages.0.payload.fields.1.multiplex_values.0",
@@ -337,11 +445,11 @@ var _ = Describe("Check", func() {
 		},
 		Entry("NaN scale",
 			func(f *icd.BinaryBaseField) { f.Scale = math.NaN() },
-			"scale", "scale must be finite and non-zero",
+			"scale", "scale must be finite",
 		),
 		Entry("infinite scale",
 			func(f *icd.BinaryBaseField) { f.Scale = math.Inf(1) },
-			"scale", "scale must be finite and non-zero",
+			"scale", "scale must be finite",
 		),
 		Entry("infinite offset",
 			func(f *icd.BinaryBaseField) { f.Offset = math.Inf(-1) },
@@ -367,13 +475,6 @@ var _ = Describe("Check", func() {
 				Max: new(100.0), Default: new(payload.Float(120)),
 			}}),
 			"default", "default 120 is above the max 100",
-		),
-		Entry("a scaled JSON default that decodes above the max",
-			jsonMessage(icd.JSONField{Variant: icd.IntegerJSONField{
-				Name: "v", Scale: 10, Pointer: "/v",
-				Max: new(100.0), Default: new(payload.Integer(12)),
-			}}),
-			"default", "default 12 decodes to 120, which is above the max 100",
 		),
 		Entry("a JSON enum value above the max",
 			jsonMessage(icd.JSONField{Variant: icd.UnsignedJSONField{
@@ -404,13 +505,6 @@ var _ = Describe("Check", func() {
 			}}),
 			"default", "default -1 is below the min 0",
 		),
-		Entry("an infinite default, which reports only that",
-			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
-				Name: "v", Scale: 1, Pointer: "/v",
-				Max: new(100.0), Default: new(payload.Float(math.Inf(1))),
-			}}),
-			"default", "default cannot be infinite",
-		),
 	)
 
 	DescribeTable("Should accept a value at a limit of its field",
@@ -418,12 +512,6 @@ var _ = Describe("Check", func() {
 			ic := icd.ICD{Name: "L", Messages: []icd.Message{m}}
 			Expect(problemsOf(ic)).To(BeEmpty())
 		},
-		Entry("a scaled JSON default that float error puts above the max",
-			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
-				Name: "v", Scale: 0.1, Pointer: "/v",
-				Max: new(0.3), Default: new(payload.Float(3)),
-			}}),
-		),
 		Entry("a JSON enum value at the max",
 			jsonMessage(icd.JSONField{Variant: icd.IntegerJSONField{
 				Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
@@ -489,84 +577,78 @@ var _ = Describe("Check", func() {
 		withKey := func(f icd.BinaryField) icd.BinaryField {
 			return updateBase(f, func(b *icd.BinaryBaseField) { b.Key = uuid.New() })
 		}
-		var mux icd.BinaryField
-		BeforeEach(func() {
-			mux = withKey(binaryField("mux", 0, 4))
-		})
+		mux := withKey(binaryField("mux", 0, 4))
+		other := withKey(binaryField("other", 4, 4))
 
-		It("Should find two fields that read the same bits", func() {
-			Expect(check(binaryField("a", 0, 8), binaryField("b", 4, 8))).
-				To(ConsistOf(overlapping(1)))
-		})
-
-		It("Should report a field against the first field it overlaps", func() {
-			Expect(check(
-				binaryField("a", 0, 8),
+		DescribeTable("Should report a field that reads the bits of an earlier field",
+			func(i int, fields ...icd.BinaryField) {
+				Expect(check(fields...)).To(ConsistOf(overlapping(i)))
+			},
+			Entry("with some of the same bits", 1,
+				binaryField("a", 0, 8), binaryField("b", 4, 8),
+			),
+			Entry("against the first field it overlaps", 2,
+				binaryField("a", 0, 8), binaryField("b", 8, 8), binaryField("c", 4, 8),
+			),
+			Entry("with a different byte order", 1,
+				binaryField("a", 0, 8), bigEndian(binaryField("b", 7, 8)),
+			),
+			Entry("multiplexed, over a field that is always present", 2,
+				mux,
+				binaryField("a", 8, 8),
+				multiplexed(binaryField("b", 8, 8), mux, 0),
+			),
+			Entry("always present, over a multiplexed field", 2,
+				mux,
+				multiplexed(binaryField("a", 8, 8), mux, 0),
 				binaryField("b", 8, 8),
-				binaryField("c", 4, 8),
-			)).To(ConsistOf(overlapping(2)))
-		})
-
-		It("Should not find fields that only touch", func() {
-			Expect(check(binaryField("a", 0, 8), binaryField("b", 8, 8))).To(BeEmpty())
-		})
-
-		It("Should compare fields with different byte orders", func() {
-			Expect(check(binaryField("a", 0, 8), bigEndian(binaryField("b", 7, 8)))).
-				To(ConsistOf(overlapping(1)))
-			Expect(check(bigEndian(binaryField("a", 7, 16)), binaryField("b", 16, 8))).
-				To(BeEmpty())
-		})
-
-		It(
-			"Should find a multiplexed field over a field that is always present",
-			func() {
-				Expect(check(
-					mux,
-					binaryField("a", 8, 8),
-					multiplexed(binaryField("b", 8, 8), mux, 0),
-				)).To(ConsistOf(overlapping(2)))
-			},
-		)
-
-		It(
-			"Should find a field that is always present over a multiplexed field",
-			func() {
-				Expect(check(
-					mux,
-					multiplexed(binaryField("a", 8, 8), mux, 0),
-					binaryField("b", 8, 8),
-				)).To(ConsistOf(overlapping(2)))
-			},
-		)
-
-		It("Should find multiplexed fields that share a multiplex value", func() {
-			Expect(check(
+			),
+			Entry("multiplexed, sharing a multiplex value", 2,
 				mux,
 				multiplexed(binaryField("a", 8, 8), mux, 0, 1),
 				multiplexed(binaryField("b", 8, 8), mux, 1, 2),
-			)).To(ConsistOf(overlapping(2)))
-		})
-
-		It(
-			"Should not find multiplexed fields that are never present together",
-			func() {
-				Expect(check(
-					mux,
-					multiplexed(binaryField("a", 8, 8), mux, 0),
-					multiplexed(binaryField("b", 8, 8), mux, 1),
-				)).To(BeEmpty())
-			},
+			),
 		)
 
-		It("Should not compare fields under different multiplexors", func() {
-			other := withKey(binaryField("other", 4, 4))
-			Expect(check(
+		DescribeTable("Should not report fields that never read one bit in one frame",
+			func(fields ...icd.BinaryField) { Expect(check(fields...)).To(BeEmpty()) },
+			Entry("fields that only touch",
+				binaryField("a", 0, 8), binaryField("b", 8, 8),
+			),
+			Entry("fields with different byte orders that only touch",
+				bigEndian(binaryField("a", 7, 16)), binaryField("b", 16, 8),
+			),
+			Entry("multiplexed fields with no shared multiplex value",
+				mux,
+				multiplexed(binaryField("a", 8, 8), mux, 0),
+				multiplexed(binaryField("b", 8, 8), mux, 1),
+			),
+			Entry("fields under different multiplexors",
 				mux,
 				other,
 				multiplexed(binaryField("a", 8, 8), mux, 0),
 				multiplexed(binaryField("b", 8, 8), other, 0),
-			)).To(BeEmpty())
-		})
+			),
+		)
 	})
+})
+
+var _ = Describe("CheckScale", func() {
+	DescribeTable("Should refuse a zero scale", func(scale float64) {
+		Expect(icd.CheckScale(scale)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("scale must be non-zero"),
+		))
+	},
+		Entry("zero", 0.0),
+		Entry("negative zero", math.Copysign(0, -1)),
+	)
+
+	DescribeTable("Should accept a non-zero scale", func(scale float64) {
+		Expect(icd.CheckScale(scale)).To(Succeed())
+	},
+		Entry("one", 1.0),
+		Entry("a negative scale", -0.5),
+		Entry("the smallest positive float", math.SmallestNonzeroFloat64),
+	)
 })

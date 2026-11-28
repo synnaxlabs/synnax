@@ -572,7 +572,11 @@ const Actions = ({ selectedGroup, onSelectGroup }: ActionsProps): ReactElement =
           <Button.Button
             variant="outlined"
             size="small"
-            tooltip="Create symbol"
+            tooltip={
+              isRemoteGroup
+                ? "Create symbol"
+                : "Select one of your groups to create a symbol"
+            }
             disabled={!isRemoteGroup}
             onClick={handleCreateSymbol}
           >
@@ -581,7 +585,11 @@ const Actions = ({ selectedGroup, onSelectGroup }: ActionsProps): ReactElement =
           <Button.Button
             variant="outlined"
             size="small"
-            tooltip="Import symbol"
+            tooltip={
+              isRemoteGroup
+                ? "Import symbol"
+                : "Select one of your groups to import a symbol"
+            }
             disabled={!isRemoteGroup}
             onClick={() => importSymbol(selectedGroup)}
           >

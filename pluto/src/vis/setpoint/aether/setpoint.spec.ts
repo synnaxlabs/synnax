@@ -16,7 +16,7 @@ import { renderAether } from "@/testutil/internal";
 import { Setpoint } from "@/vis/setpoint";
 import { setpoint } from "@/vis/setpoint/aether";
 
-// Mounts the aether Setpoint under the real provider stack with registered test telem.
+// Mounts the Aether Setpoint under the real provider stack with registered test telem.
 // The source's `setValue` drives the component's `value` through its real subscription.
 const setup = (sourceValue: number = NaN) => {
   const sink = telemTest.sink<number>();

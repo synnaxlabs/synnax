@@ -388,7 +388,7 @@ var _ = Describe("Service", func() {
 					"channel": 4242,
 				}},
 			})).Error().To(MatchError(
-				ContainSubstring("channels.channel: channel 4242 does not exist"),
+				ContainSubstring("channels.0.channel: channel 4242 does not exist"),
 			))
 		})
 

@@ -55,7 +55,7 @@ func makeIndexBenchEntries(n int) []indexBenchEntry {
 
 // indexSizes spans the range from "small enough to fit in cache" to "large
 // enough that scan vs index has a meaningful asymptotic gap". 100k is the
-// upper bound called out in the gorp index RFC.
+// upper bound called out in the Gorp index RFC.
 var indexSizes = []int{100, 1_000, 10_000, 100_000}
 
 // --- Lookup index ---
@@ -239,73 +239,68 @@ func BenchmarkLookupUpdate(b *testing.B) {
 	}
 }
 
-// BenchmarkUniqueCreate measures one create through a Table whose name index is a
-// LookupIndex, against the same create through a UniqueIndex, which also checks that
-// no other entry of its space holds the name.
-func BenchmarkUniqueCreate(b *testing.B) {
-	for _, kind := range []string{"lookup", "unique"} {
-		for _, size := range []int{1_000, 100_000} {
-			b.Run(fmt.Sprintf("index=%s/n=%d", kind, size), func(b *testing.B) {
-				benchUniqueCreate(b, kind == "unique", size)
-			})
-		}
-	}
-}
-
-func benchUniqueCreate(b *testing.B, unique bool, size int) {
-	b.Helper()
-	db := openBenchDB(b)
-	ctx := context.Background()
-	entries := makeIndexBenchEntries(size)
-	if err := gorp.NewCreate[int32, indexBenchEntry]().
-		Entries(&entries).Exec(ctx, db); err != nil {
-		b.Fatal(err)
-	}
-	lookup := gorp.NewLookupIndex(
-		"name", func(e *indexBenchEntry) string { return e.Name },
-	)
-	var idx gorp.Index[int32, indexBenchEntry] = lookup
-	if unique {
-		idx = gorp.NewUniqueIndex(
-			"name",
-			"name",
-			func(e *indexBenchEntry) (string, bool) { return e.Name, true },
-		)
-	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[int32, indexBenchEntry]{
-		DB:      db,
-		Name:    "entry",
-		Indexes: []gorp.Index[int32, indexBenchEntry]{idx},
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-	defer func() {
-		if err := table.Close(); err != nil {
-			b.Error(err)
-		}
-	}()
-	// A create waits for the populate of a unique index, and Get waits for a lookup.
-	warm := indexBenchEntry{ID: int32(size), Name: "warm"}
-	if err = table.NewCreate().Entry(&warm).Exec(ctx, db); err != nil {
-		b.Fatal(err)
-	}
-	if !unique {
-		if _, err = lookup.Get(ctx, nil, "warm"); err != nil {
-			b.Fatal(err)
-		}
-	}
-	names := make([]string, b.N)
-	for i := range names {
-		names[i] = "new-" + strconv.Itoa(i)
-	}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for i := range b.N {
-		e := indexBenchEntry{ID: int32(size + 1 + i), Name: names[i]}
-		if err = table.NewCreate().Entry(&e).Exec(ctx, db); err != nil {
-			b.Fatal(err)
-		}
+// BenchmarkTableCreate creates one entry per op through a Table with one index of each
+// kind, so allocs/op shows what the index adds to a write.
+func BenchmarkTableCreate(b *testing.B) {
+	for _, tc := range []struct {
+		kind    string
+		indexes func() []gorp.Index[int32, indexBenchEntry]
+	}{
+		{"none", func() []gorp.Index[int32, indexBenchEntry] { return nil }},
+		{"lookup", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewLookupIndex(
+				"name", func(e *indexBenchEntry) string { return e.Name },
+			)}
+		}},
+		{"sorted", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewSortedIndex(
+				"score", func(e *indexBenchEntry) int64 { return e.Score },
+			)}
+		}},
+		{"search", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewSearchIndex(
+				"name", func(e *indexBenchEntry) []string { return []string{e.Name} },
+			)}
+		}},
+		{"unique", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewUniqueIndex(
+				"name",
+				"name",
+				func(e *indexBenchEntry) (string, bool) { return e.Name, true },
+			)}
+		}},
+	} {
+		b.Run("index="+tc.kind, func(b *testing.B) {
+			db := openBenchDB(b)
+			ctx := context.Background()
+			table, err := gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[int32, indexBenchEntry]{
+					DB:      db,
+					Indexes: tc.indexes(),
+				},
+			)
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := range b.N {
+				e := indexBenchEntry{
+					ID:    int32(i),
+					Name:  "new-" + strconv.Itoa(i),
+					Score: int64(i),
+				}
+				if err := table.NewCreate().Entry(&e).Exec(ctx, db); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 

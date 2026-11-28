@@ -18,9 +18,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
+	"github.com/synnaxlabs/x/payload"
 )
 
 // jsonField returns a JSON field of an ICD message.
@@ -96,30 +95,56 @@ func writeTarget(
 	}
 }
 
-// lift moves records, which hold their fields inline, into a new ICD with one message
-// for each record, as a write of a config from before ICDs does.
-func lift(ctx context.Context, records ...kafka.InlineRecord) []kafka.ReadRecord {
+// stampedMessage returns a message that holds a unix_ns timestamp at /ts and a float at
+// /v, read when a record value meets match.
+func stampedMessage(name string, match *icd.JSONMatch) icd.Message {
+	return jsonMessage(name, match,
+		jsonField(
+			"ts",
+			"/ts",
+			icd.TimestampJSONField{TimeFormat: payload.TimeFormatUnixNs},
+		),
+		jsonField("v", "/v", icd.FloatJSONField{}),
+	)
+}
+
+// read returns the read of m that writes field i to channels[i], indexed by the field
+// named ts when m has one.
+func read(m icd.Message, channels ...channel.Channel) icd.ReadMessage {
 	GinkgoHelper()
-	cfg := kafka.ReadConfig{Inline: &kafka.InlineRead{Records: records}}
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		old, _, err := v1.ResolveReadConfig(
-			ctx,
-			tx,
-			icd.ReadChannels(channelSvc),
-			"Plant",
-			&cfg,
-			func(string, string) {},
-		)
-		if err != nil {
-			return err
+	rm := icd.ReadMessage{Message: m.Key}
+	for i, ch := range channels {
+		rm.Bindings = append(rm.Bindings, bind(m, i, ch))
+		if base := jsonFields(m)[i].Base(); base.Name == "ts" {
+			rm.Index = &base.Key
 		}
-		ic, err := icdv1.MigrateICD(ctx, old)
-		if err != nil {
-			return err
-		}
-		return icdSvc.NewWriter(tx).Create(ctx, &ic)
-	})).To(Succeed())
-	return cfg.Topics[0].Records
+	}
+	return rm
+}
+
+// record returns a record with recordKey that reads messages of ic.
+func record(
+	recordKey string,
+	ic icd.ICD,
+	messages ...icd.ReadMessage,
+) kafka.ReadRecord {
+	return kafka.ReadRecord{
+		Key:       "r-" + recordKey,
+		RecordKey: recordKey,
+		ICD:       ic.Key,
+		Messages:  messages,
+	}
+}
+
+// single creates an ICD that holds m, and returns one record that reads m into channels
+// as read does.
+func single(
+	ctx context.Context,
+	m icd.Message,
+	channels ...channel.Channel,
+) []kafka.ReadRecord {
+	GinkgoHelper()
+	return []kafka.ReadRecord{record("", createICD(ctx, m), read(m, channels...))}
 }
 
 // oneTopic returns the topics of a task that reads records from the topic name.

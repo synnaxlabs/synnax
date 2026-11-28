@@ -12,6 +12,7 @@
 package opcua
 
 import (
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -39,9 +40,9 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *ReadConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -63,6 +64,14 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i4, v5 := range e.Channels {
+					if v5.Channel == t {
+						return []string{"channels", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i2 := range e.Channels {
 					if e.Channels[i2].Channel == t {
@@ -70,10 +79,10 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
+			Retarget: func(e *ReadConfig, to map[channel.Key]channel.Key) {
 				for i3 := range e.Channels {
-					if e.Channels[i3].Channel == from {
-						e.Channels[i3].Channel = to
+					if t, ok := to[e.Channels[i3].Channel]; ok {
+						e.Channels[i3].Channel = t
 					}
 				}
 			},
@@ -101,9 +110,9 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					e.Device = ""
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to device.Key) {
-				if e.Device == from {
-					e.Device = to
+			Retarget: func(e *WriteConfig, to map[device.Key]device.Key) {
+				if t, ok := to[e.Device]; ok {
+					e.Device = t
 				}
 			},
 		}),
@@ -125,6 +134,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i4, v5 := range e.Channels {
+					if v5.CmdChannel == t {
+						return []string{"channels", strconv.Itoa(i4), "cmd_channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i2 := range e.Channels {
 					if e.Channels[i2].CmdChannel == t {
@@ -132,10 +149,10 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 			},
-			Retarget: func(e *WriteConfig, from, to channel.Key) {
+			Retarget: func(e *WriteConfig, to map[channel.Key]channel.Key) {
 				for i3 := range e.Channels {
-					if e.Channels[i3].CmdChannel == from {
-						e.Channels[i3].CmdChannel = to
+					if t, ok := to[e.Channels[i3].CmdChannel]; ok {
+						e.Channels[i3].CmdChannel = t
 					}
 				}
 			},

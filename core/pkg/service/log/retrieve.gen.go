@@ -14,6 +14,7 @@ package log
 import (
 	"context"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -68,9 +69,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Log, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Log, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Log, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -85,9 +88,11 @@ func newIndexes() indexes {
 				}
 				return []project.Key{*e.Project}
 			},
-			Retarget: func(e *Log, from, to project.Key) {
-				if e.Project != nil && *e.Project == from {
-					*e.Project = to
+			Retarget: func(e *Log, to map[project.Key]project.Key) {
+				if e.Project != nil {
+					if t, ok := to[*e.Project]; ok {
+						*e.Project = t
+					}
 				}
 			},
 		}),
@@ -107,6 +112,14 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Log, t channel.Key) []string {
+				for i4, v5 := range e.Channels {
+					if v5.Channel == t {
+						return []string{"channels", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Log, t channel.Key) {
 				e.Channels = slices.DeleteFunc(e.Channels, func(v2 ChannelEntry) bool {
 					if v2.Channel == t {
@@ -115,10 +128,10 @@ func newIndexes() indexes {
 					return false
 				})
 			},
-			Retarget: func(e *Log, from, to channel.Key) {
+			Retarget: func(e *Log, to map[channel.Key]channel.Key) {
 				for i3 := range e.Channels {
-					if e.Channels[i3].Channel == from {
-						e.Channels[i3].Channel = to
+					if t, ok := to[e.Channels[i3].Channel]; ok {
+						e.Channels[i3].Channel = t
 					}
 				}
 			},
@@ -143,6 +156,19 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Log, t color.Key) []string {
+				for i9, v10 := range e.Channels {
+					if v10.Color != nil {
+						switch v11 := v10.Color.Variant.(type) {
+						case color.NamedRef:
+							if v11.Key == t {
+								return []string{"channels", strconv.Itoa(i9), "color", "key"}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Log, t color.Key) {
 				for i5 := range e.Channels {
 					if e.Channels[i5].Color != nil {
@@ -152,13 +178,13 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Log, from, to color.Key) {
+			Retarget: func(e *Log, to map[color.Key]color.Key) {
 				for i7 := range e.Channels {
 					if e.Channels[i7].Color != nil {
 						switch v8 := e.Channels[i7].Color.Variant.(type) {
 						case color.NamedRef:
-							if v8.Key == from {
-								v8.Key = to
+							if t, ok := to[v8.Key]; ok {
+								v8.Key = t
 							}
 							e.Channels[i7].Color.Variant = v8
 						}

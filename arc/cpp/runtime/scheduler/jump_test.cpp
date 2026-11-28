@@ -313,7 +313,7 @@ TEST(ValidateTest, RejectsAJumpToAScopeThatIsNotTopLevel) {
     );
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "scope s has a transition to a scope that is not top-level: "
         "on s_node/output => exit to missing"
     );
@@ -327,7 +327,7 @@ TEST(ValidateTest, RejectsAStepTargetOnAParallelScope) {
     const auto err = validate_transition(t, ir::ScopeMode::Parallel);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "scope s has a transition with a step target it cannot take: "
         "on s_node/output => other"
     );

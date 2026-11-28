@@ -12,7 +12,6 @@ package kafka_test
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json/v2"
 	"encoding/pem"
 	"time"
 	"uuid"
@@ -41,24 +40,80 @@ var _ = Describe("Factory", func() {
 	BeforeEach(func() { f = newFactory() })
 
 	Describe("NewFactory", func() {
-		It("Should reject a config without a DB", func() {
-			Expect(kafka.NewFactory(kafka.FactoryConfig{
-				Device:  deviceSvc,
-				Channel: channelSvc,
-				Framer:  framerSvc,
-				Status:  statusSvc,
-			})).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
-
-		It("Should reject a config without an ICD service", func() {
-			Expect(kafka.NewFactory(kafka.FactoryConfig{
+		// services returns a config that holds every required service.
+		services := func() kafka.FactoryConfig {
+			return kafka.FactoryConfig{
 				DB:      db,
 				Device:  deviceSvc,
 				Channel: channelSvc,
 				Framer:  framerSvc,
 				Status:  statusSvc,
-			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
-		})
+				ICD:     icdSvc,
+			}
+		}
+
+		DescribeTable(
+			"Should reject a config with a missing service",
+			func(unset func(*kafka.FactoryConfig), msg string) {
+				cfg := services()
+				unset(&cfg)
+				Expect(kafka.NewFactory(cfg)).Error().To(MatchError(msg))
+			},
+			Entry(
+				"db",
+				func(c *kafka.FactoryConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
+			Entry(
+				"device",
+				func(c *kafka.FactoryConfig) { c.Device = nil },
+				"device: must be non-nil",
+			),
+			Entry(
+				"channel",
+				func(c *kafka.FactoryConfig) { c.Channel = nil },
+				"channel: must be non-nil",
+			),
+			Entry(
+				"framer",
+				func(c *kafka.FactoryConfig) { c.Framer = nil },
+				"framer: must be non-nil",
+			),
+			Entry(
+				"status",
+				func(c *kafka.FactoryConfig) { c.Status = nil },
+				"status: must be non-nil",
+			),
+			Entry(
+				"icd",
+				func(c *kafka.FactoryConfig) { c.ICD = nil },
+				"icd: must be non-nil",
+			),
+		)
+
+		DescribeTable(
+			"Should reject a duration that is not positive",
+			func(set func(*kafka.FactoryConfig), msg string) {
+				cfg := services()
+				set(&cfg)
+				Expect(kafka.NewFactory(cfg)).Error().To(MatchError(msg))
+			},
+			Entry(
+				"ping timeout",
+				func(c *kafka.FactoryConfig) { c.PingTimeout = -telem.Second },
+				"ping_timeout: must be positive",
+			),
+			Entry(
+				"fetch max wait",
+				func(c *kafka.FactoryConfig) { c.FetchMaxWait = -telem.Second },
+				"fetch_max_wait: must be positive",
+			),
+			Entry(
+				"skip hold",
+				func(c *kafka.FactoryConfig) { c.SkipHold = -telem.Second },
+				"skip_hold: must be positive",
+			),
+		)
 	})
 
 	It("Should be named after the device make", func() {
@@ -83,46 +138,55 @@ var _ = Describe("Factory", func() {
 		DescribeTable("Should reject a scan task with a rate that is not positive",
 			func(ctx SpecContext, rate float64) {
 				t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": rate})
-				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
-					To(MatchError(validate.ErrValidation))
+				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("rate: must be greater than 0"),
+				))
 			},
 			Entry("negative", -1.0),
 			Entry("an explicit zero", 0.0),
 		)
 
-		It("Should write an error status for an invalid config at boot",
+		It("Should start a scan task at boot", func(ctx SpecContext) {
+			t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": 2})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
+		})
+
+		It("Should leave the start of a scan task to the start command of a deploy",
 			func(ctx SpecContext) {
-				dev := createDevice(ctx, clusterProperties())
-				t := newTask(
-					ctx,
-					kafka.WriteTaskType,
-					kafka.WriteConfig{Device: dev.Key},
-				)
-				Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
-					To(MatchError(validate.ErrValidation))
-				stat := taskStatus(ctx, t)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+				t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": 2})
+				dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+				DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+					Entry(&task.Status{}).
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
-		It("Should answer the command with an error status for an invalid config",
-			func(ctx SpecContext) {
+		DescribeTable("Should write an error status for an invalid config",
+			func(ctx SpecContext, cmd string) {
 				dev := createDevice(ctx, clusterProperties())
 				t := newTask(
 					ctx,
 					kafka.WriteTaskType,
 					kafka.WriteConfig{Device: dev.Key},
 				)
-				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
-					To(MatchError(validate.ErrValidation))
+				const msg = "targets: the task has no enabled targets: validation error"
+				Expect(f.ConfigureTask(ctx, t, cmd)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(msg),
+				))
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Description).To(ContainSubstring("no enabled targets"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+				Expect(stat.Description).To(Equal(msg))
+				Expect(stat.Details.Cmd).To(Equal(cmd))
 			},
+			Entry("at boot", driver.NoCommand),
+			Entry("in answer to a command", "cmd-1"),
 		)
 	})
 
@@ -133,29 +197,15 @@ var _ = Describe("Factory", func() {
 		return kafka.ReadConfig{
 			AutoStart: autoStart,
 			Device:    dev,
-			Topics: oneTopic(uniqueTopic(), lift(ctx, kafka.InlineRecord{
-				Key: "r",
-				Fields: []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.Float64T,
-				}},
-			})),
+			Topics: oneTopic(uniqueTopic(), single(
+				ctx,
+				jsonMessage("Reading", nil, jsonField("v", "/v", icd.FloatJSONField{})),
+				data,
+			)),
 			StartOffset: kafka.StartOffsetEarliest,
 		}
 	}
 	writeConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
-		GinkgoHelper()
-		_, data := createIndexed(ctx, telem.Float64T)
-		return kafka.WriteConfig{
-			AutoStart: autoStart,
-			Device:    dev,
-			Topic:     uniqueTopic(),
-			Channels:  []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
-		}
-	}
-	targetsConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
 		GinkgoHelper()
 		_, data := createIndexed(ctx, telem.Float64T)
 		m := jsonMessage(
@@ -172,20 +222,33 @@ var _ = Describe("Factory", func() {
 	}
 	type buildConfig = func(ctx context.Context, dev device.Key, autoStart bool) any
 
-	DescribeTable("Should answer the command when an auto-started task fails to start",
+	DescribeTable("Should report a task that fails to auto-start at boot",
 		func(ctx SpecContext, typ string, build buildConfig) {
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
 			t := newTask(ctx, typ, build(ctx, dev.Key, true))
-			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
+			Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 				To(MatchError(ContainSubstring("connecting to cluster")))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Details.Running).To(BeFalse())
-			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
+	)
+
+	DescribeTable("Should leave the start to the start command of a deploy",
+		func(ctx SpecContext, typ string, build buildConfig) {
+			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
+			t := newTask(ctx, typ, build(ctx, dev.Key, true))
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			Expect(dt.Stop(false)).To(Succeed())
+			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+				Entry(&task.Status{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		},
+		Entry("read", kafka.ReadTaskType, readConfig),
+		Entry("write", kafka.WriteTaskType, writeConfig),
 	)
 
 	DescribeTable("Should answer a command that needs no work with the current state",
@@ -211,45 +274,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
-	)
-
-	It(
-		"Should keep and run the channels of a write config saved at the current version",
-		func(ctx SpecContext) {
-			dev := createDevice(ctx, clusterProperties())
-			t := task.Task{
-				Rack: rackSvc.EmbeddedKey,
-				Name: "Pump",
-				Type: kafka.WriteTaskType,
-				Config: toJSON(
-					writeConfig(ctx, dev.Key, false),
-					json.OmitZeroStructFields(true),
-				),
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return taskSvc.NewWriter(tx).Create(ctx, &t)
-			})).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
-				})).To(Succeed())
-			})
-			var saved task.Task
-			Expect(taskSvc.NewRetrieve().
-				Where(task.MatchKeys(t.Key)).
-				Entry(&saved).
-				Exec(ctx, db)).To(Succeed())
-			var cfg kafka.WriteConfig
-			Expect(saved.Config.Unmarshal(&cfg)).To(Succeed())
-			Expect(cfg.Channels).To(HaveLen(1))
-			Expect(cfg.Targets).To(BeEmpty())
-			dt := MustSucceed(f.ConfigureTask(ctx, saved, "cmd-1"))
-			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
-			start := task.Command{Task: t.Key, Type: "start", Key: "cmd-2"}
-			Expect(dt.Exec(ctx, start)).To(Succeed())
-			Expect(taskStatus(ctx, saved).Details.Running).To(BeTrue())
-		},
 	)
 
 	DescribeTable("Should reject an unknown command",
@@ -263,7 +287,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject a device that is not a Kafka cluster",
@@ -289,7 +312,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject a device whose properties do not parse",
@@ -313,7 +335,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject an unknown device",
@@ -324,7 +345,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	Describe("Scan task", func() {
@@ -370,7 +390,11 @@ var _ = Describe("Factory", func() {
 		expectInvalid := func(stat task.Status, reason string) {
 			GinkgoHelper()
 			Expect(stat.Variant).To(Equal(status.VariantError))
-			Expect(stat.Description).To(ContainSubstring(reason))
+			Expect(stat.Message).To(Equal("Invalid cluster settings"))
+			Expect(stat.Description).To(And(
+				ContainSubstring(reason),
+				HaveSuffix(". Edit the cluster settings."),
+			))
 			Expect(stat.Details.Data).To(BeEmpty())
 		}
 
@@ -483,7 +507,7 @@ var _ = Describe("Factory", func() {
 					Brokers:       brokers,
 					Secure:        true,
 					CaCertificate: "not a certificate",
-				}), "PEM-encoded certificate")
+				}), "ca_certificate: must contain a PEM-encoded certificate")
 			})
 		})
 

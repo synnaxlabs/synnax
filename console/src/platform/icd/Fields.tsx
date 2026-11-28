@@ -15,7 +15,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, payload, type record, uuid } from "@synnaxlabs/x";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
@@ -46,9 +46,10 @@ type Cell<F extends Field> = (
 ) => ReactElement;
 
 type Render<F extends Field> =
+  | "name"
   | "text"
   | "number"
-  | "default"
+  | "optional"
   | "byteOrder"
   | "type"
   | "jsonType"
@@ -66,7 +67,8 @@ interface Column<F extends Field> {
 
 const name = <F extends Field>(): Column<F> => ({
   name: "Name",
-  render: "text",
+  render: "name",
+  width: 24,
   get: ({ name }) => name,
   set: (f, cell) => ({ ...f, name: String(cell) }),
 });
@@ -143,11 +145,34 @@ const withDefault = <F extends icd.BinaryField | icd.TextField>(
 /** The default as text, empty when the field has none. */
 const defaultColumn = <F extends icd.BinaryField | icd.TextField>(): Column<F> => ({
   name: "Default",
-  render: "default",
+  render: "optional",
   width: 16,
   get: (f) => (f.default == null ? "" : String(f.default)),
   set: (f, cell) => withDefault(f, String(cell).trim()),
 });
+
+/**
+ * A min or a max as text, empty when the field has none. Text that is not a number
+ * stays as typed, as a default does.
+ */
+const limit = <F extends icd.BinaryField | icd.TextField>(
+  name: string,
+  key: "min" | "max",
+): Column<F> => ({
+  name,
+  render: "optional",
+  width: 11,
+  get: (f) => (f[key] == null ? "" : String(f[key])),
+  set: (f, cell) => {
+    const text = String(cell).trim();
+    return { ...f, [key]: text === "" ? undefined : (toFloat(text) ?? text) };
+  },
+});
+
+const limits = <F extends icd.BinaryField | icd.TextField>(): Column<F>[] => [
+  limit("Min", "min"),
+  limit("Max", "max"),
+];
 
 /** The kinds a binary field can hold. */
 type NumberKind = Extract<payload.Kind, "unsigned" | "integer" | "float">;
@@ -269,11 +294,12 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
     {
       name: "Type",
       render: "type",
-      width: 20,
+      width: 26,
       get: ({ kind }) => kind,
       set: (f, cell) => withBinaryKind(f, cell as NumberKind),
     },
     ...conversion<icd.BinaryField>(),
+    ...limits<icd.BinaryField>(),
     defaultColumn(),
     multiplexor,
     multiplexValues,
@@ -288,6 +314,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, position: Number(cell) }),
     },
     ...conversion<icd.DelimitedTextField>(),
+    ...limits<icd.DelimitedTextField>(),
     defaultColumn<icd.DelimitedTextField>(),
   ],
   tagged: [
@@ -300,6 +327,7 @@ const COLUMNS: { [E in Encoding]: Column<FieldOf<E>>[] } = {
       set: (f, cell) => ({ ...f, tag: String(cell) }),
     },
     ...conversion<icd.TaggedTextField>(),
+    ...limits<icd.TaggedTextField>(),
     defaultColumn<icd.TaggedTextField>(),
   ],
   json: [
@@ -333,27 +361,37 @@ const createJSON = (name: string, pointer: string): icd.JSONField => ({
   enumValues: [],
 });
 
+const createBase = (name: string) => ({
+  key: uuid.create(),
+  name,
+  scale: 1,
+  offset: 0,
+  units: "",
+});
+
+const createBinary = (name: string, startBit: number = 0): icd.BinaryField => ({
+  ...createBase(name),
+  startBit,
+  bitLength: 8,
+  byteOrder: "little_endian",
+  kind: "unsigned",
+  multiplexValues: [],
+});
+
 const createField = (
   encoding: Encoding,
   name: string = "",
   pointer: string = "",
 ): Field => {
-  if (encoding === "json") return createJSON(name, pointer);
-  const base = { key: uuid.create(), name, scale: 1, offset: 0, units: "" };
   switch (encoding) {
+    case "json":
+      return createJSON(name, pointer);
     case "binary":
-      return {
-        ...base,
-        startBit: 0,
-        bitLength: 8,
-        byteOrder: "little_endian",
-        kind: "unsigned",
-        multiplexValues: [],
-      };
+      return createBinary(name);
     case "delimited":
-      return { ...base, encoding, position: 0 };
+      return { ...createBase(name), encoding, position: 0 };
     case "tagged":
-      return { ...base, encoding, tag: "" };
+      return { ...createBase(name), encoding, tag: "" };
   }
 };
 
@@ -416,6 +454,31 @@ export const createJSONField = (fields: icd.JSONField[]): icd.JSONField => {
     fields.map((f) => f.pointer),
   );
   return createJSON(name, pointer);
+};
+
+/**
+ * @returns a field to add to a message with a free name. A text field reads the next
+ * free position. A binary field reads 8 unsigned bits after the last bit read.
+ */
+export const createMessageField = (value: icd.Message["payload"]): Field => {
+  if (value.format === "json") return createJSONField(value.fields);
+  const { name } = freeNameAndPointer(
+    value.fields.map((f) => f.name),
+    [],
+  );
+  if (value.format === "binary")
+    return createBinary(
+      name,
+      Math.max(0, ...value.fields.map((f) => f.startBit + f.bitLength)),
+    );
+  const after = value.fields.flatMap((f) =>
+    f.encoding === "delimited" ? [f.position + 1] : [],
+  );
+  return {
+    ...createBase(name),
+    encoding: "delimited",
+    position: Math.max(0, ...after),
+  };
 };
 
 /**
@@ -487,10 +550,25 @@ const selectColumn = (
   </Input.TableColumn>
 );
 
+interface NameCellProps extends Input.TableCellProps<string> {
+  path: deep.Target<string>;
+}
+
+/** The name of a field, which takes focus when the form asks it to. */
+const NameCell = ({ path, ...rest }: NameCellProps): ReactElement => {
+  const ref = useRef<HTMLInputElement>(null);
+  Form.useFocusHandler(path, () => {
+    ref.current?.focus();
+    ref.current?.select();
+  });
+  return <Input.Text ref={ref} {...rest} />;
+};
+
 const renderColumn = (
   column: Column<Field>,
   index: number,
   fields: Field[],
+  own: Field[],
   path: deep.Target<Field[]>,
 ): ReactElement<Input.TableColumnProps> => {
   const { name, render, width } = column;
@@ -505,11 +583,27 @@ const renderColumn = (
       </Input.TableColumn>
     );
   switch (render) {
+    // A custom column gives the row, and so the path of the field.
+    case "name":
+      return (
+        <Input.TableColumn<string>
+          key={index}
+          name={name}
+          width={width}
+          type="custom"
+          empty=""
+          parse={(text) => text}
+        >
+          {({ row, ...props }) => (
+            <NameCell {...props} path={deep.widen(path)[own[row].key].name} />
+          )}
+        </Input.TableColumn>
+      );
     case "number":
       return <Input.TableColumn key={index} name={name} width={width} />;
     case "text":
       return <Input.TableColumn key={index} name={name} width={width} type="string" />;
-    case "default":
+    case "optional":
       return (
         <Input.TableColumn key={index} name={name} width={width} type="string">
           {(props) => <Input.Text {...props} placeholder="None" onlyChangeOnBlur />}
@@ -547,6 +641,16 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const { push, remove } = Form.useFieldListUtils(path);
   const fields = Form.useFieldValue(path);
   const own = fields.filter((f) => encodingOf(f) === encoding);
+  // The fields that the grid added, whose pointers follow a rename as in the task form.
+  const [created, setCreated] = useState<string[]>([]);
+  const followName = (prev: Field, next: Field): Field => {
+    if (!("pointer" in prev) || !("pointer" in next) || !created.includes(prev.key))
+      return next;
+    if (next.name === prev.name || next.pointer !== prev.pointer) return next;
+    const json = fields.filter((f): f is icd.JSONField => "pointer" in f);
+    const pointer = renamedPointer(prev, next.name, json);
+    return pointer == null ? next : { ...next, pointer };
+  };
   const status = Form.useStatuses(path).find(({ key }) =>
     own.some((f) => matchOwnField(key, path, f)),
   );
@@ -555,8 +659,13 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const handleChange = (next: Input.TableCell[][]) => {
     const updated = fieldsFromRows(encoding, columns, own, rows, next);
     const entries = deep.widen<unknown>(path);
-    own.forEach((field, i) => writeField(ctx, entries[field.key], field, updated[i]));
-    if (updated.length > own.length) push(updated.slice(own.length));
+    own.forEach((field, i) =>
+      writeField(ctx, entries[field.key], field, followName(field, updated[i])),
+    );
+    if (updated.length <= own.length) return;
+    const added = updated.slice(own.length);
+    setCreated((prev) => [...prev, ...added.map(({ key }) => key)]);
+    push(added);
   };
   const handleRemove = (index: number) => remove(own[index].key);
   // A paste adds several rows before any is stored. Each grid's first column is the
@@ -584,7 +693,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         rowKey={(i) => own[i].key}
         preview={ctx.mode === "preview"}
       >
-        {columns.map((column, i) => renderColumn(column, i, fields, path))}
+        {columns.map((column, i) => renderColumn(column, i, fields, own, path))}
       </Input.Table>
       {helpText != null && (
         <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>
@@ -621,6 +730,59 @@ const ScaleControl = ({ offset, ...rest }: ScaleControlProps): ReactElement => (
   </div>
 );
 
+interface NamedSelectProps<K extends string> extends Input.Control<K> {
+  resourceName: string;
+  /** The name of each key, in the order that the select lists them. */
+  names: Record<K, string>;
+  preview?: boolean;
+}
+
+const NamedSelect = <K extends string>({
+  resourceName,
+  names,
+  value,
+  onChange,
+  preview,
+}: NamedSelectProps<K>): ReactElement => (
+  <Select.Simple<K>
+    resourceName={resourceName}
+    value={value}
+    onChange={onChange}
+    variant="floating"
+    allowNone={false}
+    preview={preview}
+  >
+    {Object.entries<string>(names).map(([key, name]) => (
+      <Select.Item key={key} itemKey={key}>
+        {name}
+      </Select.Item>
+    ))}
+  </Select.Simple>
+);
+
+interface ConversionProps {
+  path: deep.Path<Pick<icd.TextField, "scale" | "offset" | "units">>;
+  /** A command channel fills the field, so the scale and offset convert in reverse. */
+  commanded?: boolean;
+}
+
+const WRITE_CONVERSION = "The task sends (value − offset) ÷ scale.";
+
+/** The scale with the offset beside it, then the units. */
+const Conversion = ({ path, commanded = false }: ConversionProps): ReactElement => (
+  <>
+    <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
+      {(p) => (
+        <>
+          <ScaleControl {...p} offset={path.offset} />
+          {commanded && <Input.HelpText>{WRITE_CONVERSION}</Input.HelpText>}
+        </>
+      )}
+    </Form.Field>
+    <Form.TextField path={path.units} label="Units" padHelpText={false} />
+  </>
+);
+
 export interface JSONFieldProps {
   /** The form path of the field. */
   path: deep.Path<icd.JSONField>;
@@ -630,6 +792,8 @@ export interface JSONFieldProps {
   autoFocus?: boolean;
   /** Called with each new name, while the form still holds the old one. */
   onNameChange?: (name: string) => void;
+  /** A command channel fills the field, so the scale and offset convert in reverse. */
+  commanded?: boolean;
 }
 
 /**
@@ -641,6 +805,7 @@ export const JSONField = ({
   actions,
   autoFocus = false,
   onNameChange,
+  commanded = false,
 }: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
@@ -664,31 +829,116 @@ export const JSONField = ({
         inputProps={POINTER_INPUT_PROPS}
       />
       <Input.Item label="Type" padHelpText={false}>
-        <Select.Simple<JSONType>
+        <NamedSelect
           resourceName="type"
+          names={JSON_TYPE_NAMES}
           value={type}
           onChange={handleType}
-          variant="floating"
-          allowNone={false}
           preview={mode === "preview"}
-        >
-          {Object.entries(JSON_TYPE_NAMES).map(([key, name]) => (
-            <Select.Item key={key} itemKey={key}>
-              {name}
-            </Select.Item>
-          ))}
-        </Select.Simple>
+        />
       </Input.Item>
-      {isNumberKind(type) && (
-        <>
-          <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
-            {(p) => <ScaleControl {...p} offset={path.offset} />}
-          </Form.Field>
-          <Form.TextField path={path.units} label="Units" padHelpText={false} />
-        </>
-      )}
+      {isNumberKind(type) && <Conversion path={path} commanded={commanded} />}
       <Optional path={path} field={field} />
       <EnumValues path={path} label="Enum mapping" />
+    </Form.Section>
+  );
+};
+
+export interface TextFieldProps {
+  /** The form path of the field. */
+  path: deep.Path<icd.TextField>;
+  /** Actions in the header of the field's section. */
+  actions?: ReactNode;
+}
+
+/** A text field read the other way keeps its name, conversion, and limits. */
+const withTextEncoding = (
+  field: icd.TextField,
+  encoding: icd.TextFieldType,
+): icd.TextField => {
+  const { key, name, scale, offset, units, min, max } = field;
+  const base = { key, name, scale, offset, units, min, max, default: field.default };
+  return encoding === "delimited"
+    ? { ...base, encoding, position: 0 }
+    : { ...base, encoding, tag: "" };
+};
+
+/** Edits one field of a text message: its name, where it sits, and its conversion. */
+export const TextField = ({ path, actions }: TextFieldProps): ReactElement => {
+  const { get, set, mode } = Form.useContext();
+  const encoding = Form.useFieldValue(path.encoding);
+  const handleEncoding = (next: icd.TextFieldType) => {
+    if (next !== encoding) set(path, withTextEncoding(get(path).value, next));
+  };
+  return (
+    <Form.Section title="Field" actions={actions}>
+      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Input.Item label="Read by" padHelpText={false}>
+        <Select.Buttons<icd.TextFieldType>
+          value={encoding}
+          onChange={handleEncoding}
+          disabled={mode === "preview"}
+        >
+          <Select.Item<icd.TextFieldType> itemKey="delimited">Position</Select.Item>
+          <Select.Item<icd.TextFieldType> itemKey="tagged">Tag</Select.Item>
+        </Select.Buttons>
+      </Input.Item>
+      {encoding === "delimited" ? (
+        <Form.NumericField
+          path={deep.variant(path, "encoding", "delimited").position}
+          label="Position"
+          padHelpText={false}
+        />
+      ) : (
+        <Form.TextField
+          path={deep.variant(path, "encoding", "tagged").tag}
+          label="Tag"
+          padHelpText={false}
+        />
+      )}
+      <Conversion path={path} />
+    </Form.Section>
+  );
+};
+
+export interface BinaryFieldProps {
+  /** The form path of the field. */
+  path: deep.Path<icd.BinaryField>;
+  /** Actions in the header of the field's section. */
+  actions?: ReactNode;
+}
+
+/** Edits one field of a binary message: its name, bits, type, and conversion. */
+export const BinaryField = ({ path, actions }: BinaryFieldProps): ReactElement => {
+  const { get, set, mode } = Form.useContext();
+  const kind = Form.useFieldValue(path.kind);
+  const handleKind = (next: NumberKind) => {
+    if (next !== kind) set(path, withBinaryKind(get(path).value, next));
+  };
+  return (
+    <Form.Section title="Field" actions={actions}>
+      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.NumericField path={path.startBit} label="Start bit" padHelpText={false} />
+      <Form.NumericField path={path.bitLength} label="Bit length" padHelpText={false} />
+      <Form.Field<icd.ByteOrder>
+        path={path.byteOrder}
+        label="Byte order"
+        padHelpText={false}
+      >
+        {(p) => (
+          <NamedSelect {...p} resourceName="byte order" names={BYTE_ORDER_NAMES} />
+        )}
+      </Form.Field>
+      <Input.Item label="Type" padHelpText={false}>
+        <NamedSelect
+          resourceName="type"
+          names={NUMBER_KIND_NAMES}
+          value={kind}
+          onChange={handleKind}
+          preview={mode === "preview"}
+        />
+      </Input.Item>
+      <Conversion path={path} />
     </Form.Section>
   );
 };

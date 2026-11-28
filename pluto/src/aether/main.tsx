@@ -72,7 +72,7 @@ export const Provider = ({ children, ...config }: ProviderProps): ReactElement =
   if (error != null) throw error;
 
   // Spawn the worker on commit rather than in the Store constructor, which runs during
-  // render. A tree with no aether components still connects, so a worker that fails to
+  // render. A tree with no Aether components still connects, so a worker that fails to
   // load reports it without waiting for a first component.
   useLayoutEffect(() => store.connect(), [store]);
 
@@ -178,7 +178,7 @@ export const useLifecycle = <
 
 /** Mixin for React props of components that participate in the Aether tree. */
 export interface ComponentProps {
-  /** Optional override for the component's aether key. Stable for the component's
+  /** Optional override for the component's Aether key. Stable for the component's
    * lifetime; usually omitted to auto-generate. */
   aetherKey?: string;
 }
@@ -272,7 +272,7 @@ export interface CompositeProps extends PropsWithChildren {
   path: readonly string[];
 }
 
-/** Pushes a new aether path into the context so descendants register as children of the
+/** Pushes a new Aether path into the context so descendants register as children of the
  * composite component identified by `path`. */
 export const Composite = ({ children, path }: CompositeProps): ReactElement => {
   const ctx = useContext();

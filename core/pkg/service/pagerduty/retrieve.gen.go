@@ -12,6 +12,7 @@
 package pagerduty
 
 import (
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -38,6 +39,14 @@ func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *TaskConfig, t status.Key) []string {
+				for i4, v5 := range e.Alerts {
+					if v5.Status == t {
+						return []string{"alerts", strconv.Itoa(i4), "status"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *TaskConfig, t status.Key) {
 				for i2 := range e.Alerts {
 					if e.Alerts[i2].Status == t {
@@ -45,10 +54,10 @@ func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 					}
 				}
 			},
-			Retarget: func(e *TaskConfig, from, to status.Key) {
+			Retarget: func(e *TaskConfig, to map[status.Key]status.Key) {
 				for i3 := range e.Alerts {
-					if e.Alerts[i3].Status == from {
-						e.Alerts[i3].Status = to
+					if t, ok := to[e.Alerts[i3].Status]; ok {
+						e.Alerts[i3].Status = t
 					}
 				}
 			},

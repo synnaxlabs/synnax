@@ -31,6 +31,6 @@ describe("kindOf", () => {
   });
 
   it("should not map an unknown data type", () => {
-    expect(payload.kindOf(DataType.UNKNOWN)).toBeUndefined();
+    expect(payload.kindOf(new DataType("custom"))).toBeUndefined();
   });
 });

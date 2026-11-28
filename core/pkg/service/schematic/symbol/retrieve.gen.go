@@ -13,6 +13,7 @@ package symbol
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
@@ -66,9 +67,11 @@ func newIndexes() indexes {
 				return []group.Key{*e.Group}
 			},
 			Detach: func(e *Symbol, _ group.Key) { e.Group = nil },
-			Retarget: func(e *Symbol, from, to group.Key) {
-				if e.Group != nil && *e.Group == from {
-					*e.Group = to
+			Retarget: func(e *Symbol, to map[group.Key]group.Key) {
+				if e.Group != nil {
+					if t, ok := to[*e.Group]; ok {
+						*e.Group = t
+					}
 				}
 			},
 		}),
@@ -92,6 +95,17 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Symbol, t enumeration.Key) []string {
+				for i7, v8 := range e.Data.States {
+					switch v9 := v8.Variant.(type) {
+					case EnumerationState:
+						if v9.Enumeration != nil && *v9.Enumeration == t {
+							return []string{"data", "states", strconv.Itoa(i7), "enumeration"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Symbol, t enumeration.Key) {
 				for i3 := range e.Data.States {
 					switch v4 := e.Data.States[i3].Variant.(type) {
@@ -103,12 +117,14 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Symbol, from, to enumeration.Key) {
+			Retarget: func(e *Symbol, to map[enumeration.Key]enumeration.Key) {
 				for i5 := range e.Data.States {
 					switch v6 := e.Data.States[i5].Variant.(type) {
 					case EnumerationState:
-						if v6.Enumeration != nil && *v6.Enumeration == from {
-							*v6.Enumeration = to
+						if v6.Enumeration != nil {
+							if t, ok := to[*v6.Enumeration]; ok {
+								*v6.Enumeration = t
+							}
 						}
 						e.Data.States[i5].Variant = v6
 					}
@@ -138,15 +154,31 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
-			Retarget: func(e *Symbol, from, to color.Key) {
+			Locate: func(e *Symbol, t color.Key) []string {
+				for i10, v11 := range e.Data.Looks {
+					if v11.Fill != nil {
+						switch v12 := v11.Fill.Variant.(type) {
+						case ColorPaint:
+							switch v13 := v12.Value.Variant.(type) {
+							case color.NamedRef:
+								if v13.Key == t {
+									return []string{"data", "looks", strconv.Itoa(i10), "fill", "value", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
+			Retarget: func(e *Symbol, to map[color.Key]color.Key) {
 				for i7 := range e.Data.Looks {
 					if e.Data.Looks[i7].Fill != nil {
 						switch v8 := e.Data.Looks[i7].Fill.Variant.(type) {
 						case ColorPaint:
 							switch v9 := v8.Value.Variant.(type) {
 							case color.NamedRef:
-								if v9.Key == from {
-									v9.Key = to
+								if t, ok := to[v9.Key]; ok {
+									v9.Key = t
 								}
 								v8.Value.Variant = v9
 							}
@@ -205,15 +237,31 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
-			Retarget: func(e *Symbol, from, to color.Key) {
+			Locate: func(e *Symbol, t color.Key) []string {
+				for i10, v11 := range e.Data.Looks {
+					if v11.Stroke != nil {
+						switch v12 := v11.Stroke.Variant.(type) {
+						case ColorPaint:
+							switch v13 := v12.Value.Variant.(type) {
+							case color.NamedRef:
+								if v13.Key == t {
+									return []string{"data", "looks", strconv.Itoa(i10), "stroke", "value", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
+			Retarget: func(e *Symbol, to map[color.Key]color.Key) {
 				for i7 := range e.Data.Looks {
 					if e.Data.Looks[i7].Stroke != nil {
 						switch v8 := e.Data.Looks[i7].Stroke.Variant.(type) {
 						case ColorPaint:
 							switch v9 := v8.Value.Variant.(type) {
 							case color.NamedRef:
-								if v9.Key == from {
-									v9.Key = to
+								if t, ok := to[v9.Key]; ok {
+									v9.Key = t
 								}
 								v8.Value.Variant = v9
 							}

@@ -60,6 +60,19 @@ cc_test(
         "//x/cpp/breaker",
         "//x/cpp/notify",
         "//x/cpp/testutil",
+        "//x/cpp/thread/rt",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# Holds the specs of the loop that need no timing bound, so CI can run them under
+# TSan.
+cc_test(
+    name = "race_test",
+    srcs = ["race_test.cpp"],
+    deps = [
+        ":loop",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

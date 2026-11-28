@@ -1,0 +1,46 @@
+{
+  "description": "A tagged item belongs to the field with the longest tag that starts it, even when that field has no binding.",
+  "messages": [
+    {
+      "name": "line",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "t",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "tagged",
+            "tag": "T"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "te",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "tagged",
+            "tag": "TE"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "TE5,T3",
+      "message": "line",
+      "samples": [3]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { deep, TimeStamp, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
@@ -303,6 +304,9 @@ describe("Certificate.Field", () => {
       Validity: Secret.Validity.describeCertificate(c, TimeStamp.now()).text,
       "SHA-256": fingerprintOf(c),
     });
+    for (const value of [c.details.subject, fingerprintOf(c)])
+      for (const el of screen.getAllByText(value))
+        expect(treatment(el), value).toBe("prose");
     fireEvent.click(screen.getByRole("button", { name: "Hide details" }));
     expect(screen.queryByRole("term")).toBeNull();
     screen.getByRole("button", { name: "Details" });
