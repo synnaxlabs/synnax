@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { serial } from "@synnaxlabs/client";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -47,7 +48,11 @@ const beforeValidate = ({
 }: Flux.BeforeValidateParams<
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SCHEMAS>
->) => set(path.location, get(path.properties.port).value);
+>) => {
+  const port = get(path.properties.port).value.trim();
+  set(path.properties.port, port);
+  set(path.location, port);
+};
 
 const PARITY_NAMES: Record<serial.Parity, string> = {
   none: "None",
@@ -142,29 +147,35 @@ export const Connect = ({
           />
           <Form.Sections>
             <Form.Section title="Port">
-              <Form.TextField
-                path={path.properties.port}
-                label="Port"
-                padHelpText={false}
-                required
-                inputProps={PORT_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path={path.properties.baudRate}
-                label="Baud rate"
-                padHelpText={false}
-              />
+              <Flex.Box x>
+                <Form.TextField
+                  path={path.properties.port}
+                  label="Port"
+                  padHelpText={false}
+                  required
+                  inputProps={PORT_INPUT_PROPS}
+                />
+                <Form.NumericField
+                  path={path.properties.baudRate}
+                  label="Baud rate"
+                  padHelpText={false}
+                />
+              </Flex.Box>
               <PlatformDevice.RackField integration={INTEGRATION_KEY} />
             </Form.Section>
             <Form.Section title="Line">
-              <Form.NumericField
-                path={path.properties.dataBits}
-                label="Data bits"
-                padHelpText={false}
-              />
-              <ParityField path={path.properties.parity} />
-              <StopBitsField path={path.properties.stopBits} />
-              <FlowControlField path={path.properties.flowControl} />
+              <Flex.Box x>
+                <Form.NumericField
+                  path={path.properties.dataBits}
+                  label="Data bits"
+                  padHelpText={false}
+                />
+                <ParityField path={path.properties.parity} />
+              </Flex.Box>
+              <Flex.Box x>
+                <StopBitsField path={path.properties.stopBits} />
+                <FlowControlField path={path.properties.flowControl} />
+              </Flex.Box>
             </Form.Section>
           </Form.Sections>
         </Form.Form>
