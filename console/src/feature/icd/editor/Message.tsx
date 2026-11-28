@@ -97,11 +97,12 @@ export const Message = ({ path, autoFocus = false }: MessageProps): ReactElement
     if (current == null || current.format === next) return;
     const { fields } = current;
     if (fields.length > 0) {
-      const name = get<string>(path.name).value.trim();
+      const name = get<string>(path.name).value;
+      const shown = name.trim() === "" ? "this message" : name;
       const confirmed = await confirm({
         icd: { key, name: get<string>(PICD.formPath.name).value },
         title: "ICD.Change format",
-        message: `Change ${name === "" ? "this message" : name} to ${FORMAT_NAMES[next]}?`,
+        message: `Change ${shown} to ${FORMAT_NAMES[next]}?`,
         description: formatChangeDescription(fields.length),
         confirm: { label: "Change format" },
       });
