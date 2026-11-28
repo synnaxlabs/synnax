@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
-	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -35,9 +34,9 @@ var _ = Describe("Clash upgrade breaker", func() {
 			stored := storeV062(
 				ctx,
 				n,
-				[]string{groupv1.MetricsFolder, "less"},
+				[]string{channelv1.MetricsFolder, "less"},
 				func(cs []channelv1.Channel) { cs[1].Expression = "return Metrics-1" },
-				folder(groupv1.MetricsFolder),
+				folder(channelv1.MetricsFolder),
 			)
 			arcs := storeArcs(ctx, n, []string{"x := Metrics-1"}, nil)
 			// The layer opens with name validation on, the default, so v0.62 read
@@ -57,13 +56,13 @@ var _ = Describe("Clash upgrade breaker", func() {
 		stored := storeV062(
 			ctx,
 			n,
-			[]string{groupv1.MetricsFolder, groupv1.MetricsFolder, "doubled"},
+			[]string{channelv1.MetricsFolder, channelv1.MetricsFolder, "doubled"},
 			func(cs []channelv1.Channel) {
 				cs[0].Group = &plant.Key
 				cs[2].Expression = "return Metrics * 2"
 			},
 			plant,
-			folder(groupv1.MetricsFolder),
+			folder(channelv1.MetricsFolder),
 		)
 		// A v0.62 Core bound "Metrics" to its last channel in key order: the
 		// top-level one.
@@ -72,7 +71,7 @@ var _ = Describe("Clash upgrade breaker", func() {
 		l := MustOpen(svctestutil.OpenLayer(ctx, n))
 		names := namesOf(ctx, n, stored)
 		Expect(names[bound]).To(Equal("Metrics_2"))
-		Expect(names[other]).To(Equal(groupv1.MetricsFolder))
+		Expect(names[other]).To(Equal(channelv1.MetricsFolder))
 		var calc channel.Channel
 		Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
 			Where(gorp.MatchKeys[channel.Key, channel.Channel](stored[2].Key())).
@@ -88,12 +87,12 @@ var _ = Describe("Clash upgrade breaker", func() {
 			stored := storeV062(
 				ctx,
 				n,
-				[]string{groupv1.MetricsFolder, "scaled", "pt", "control"},
+				[]string{channelv1.MetricsFolder, "scaled", "pt", "control"},
 				func(cs []channelv1.Channel) {
 					cs[1].Expression = "Metrics_2 f32 := 2.0\nreturn Metrics * Metrics_2"
 					cs[3].Expression = "pt_2 f32 := 2.0\nreturn pt * pt_2"
 				},
-				folder(groupv1.MetricsFolder),
+				folder(channelv1.MetricsFolder),
 			)
 			l := MustOpen(svctestutil.OpenLayer(ctx, n))
 			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal("Metrics_2"))
@@ -163,9 +162,9 @@ var _ = Describe("Clash upgrade breaker", func() {
 			storeV062(
 				ctx,
 				n,
-				[]string{groupv1.MetricsFolder},
+				[]string{channelv1.MetricsFolder},
 				func([]channelv1.Channel) {},
-				folder(groupv1.MetricsFolder),
+				folder(channelv1.MetricsFolder),
 			)
 			storeArcs(ctx, n, nil, nil)
 			isRoot := func(_ gorp.Context, d *directory.Directory) (bool, error) {
@@ -187,7 +186,7 @@ var _ = Describe("Clash upgrade breaker", func() {
 					Functions: ir.Functions{{
 						Key: "scale",
 						Inputs: types.Params{
-							{Name: groupv1.MetricsFolder, Type: types.F64()},
+							{Name: channelv1.MetricsFolder, Type: types.F64()},
 						},
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.F64()},
@@ -205,7 +204,12 @@ var _ = Describe("Clash upgrade breaker", func() {
 	It("Should not report a folder clash for a Metrics channel when the store held no "+
 		"folder of the name", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)
-		storeV062(ctx, n, []string{groupv1.MetricsFolder}, func([]channelv1.Channel) {})
+		storeV062(
+			ctx,
+			n,
+			[]string{channelv1.MetricsFolder},
+			func([]channelv1.Channel) {},
+		)
 		MustOpen(svctestutil.OpenLayer(ctx, n))
 		Expect(renameStatuses(ctx, n)["Metrics_2"].Description).
 			ToNot(ContainSubstring("because a folder beside it held the same name"))
@@ -215,9 +219,9 @@ var _ = Describe("Clash upgrade breaker", func() {
 		func(ctx SpecContext) {
 			n := testutil.NewNode(ctx)
 			first, second := folder(
-				groupv1.MetricsFolder,
+				channelv1.MetricsFolder,
 			), folder(
-				groupv1.MetricsFolder,
+				channelv1.MetricsFolder,
 			)
 			first.Key = uuid.MustParse("00000000-0000-4000-8000-000000000001")
 			second.Key = uuid.MustParse("00000000-0000-4000-8000-000000000002")

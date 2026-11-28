@@ -41,12 +41,20 @@ type MoveMembers func(
 	top *resource.ID,
 ) error
 
+// NameRule returns name as a group stores it, or a validation error when a group of its
+// scope cannot hold it.
+type NameRule func(name string) (string, error)
+
 type ServiceConfig struct {
 	alamos.Instrumentation
 	DB *gorp.DB
 	// MoveMembers runs in each write that moves groups under a new top parent. Nil
 	// means no record belongs to the top parent of its group.
 	MoveMembers MoveMembers
+	// NameRules holds the rule of the names of the groups of each scope that has one,
+	// and each namespaced scope needs one. Each create of a group of the scope runs it,
+	// and each change of its name.
+	NameRules map[resource.Type]NameRule
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -56,6 +64,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.MoveMembers = override.Nil(c.MoveMembers, other.MoveMembers)
+	c.NameRules = override.Nil(c.NameRules, other.NameRules)
 	return c
 }
 
@@ -63,6 +72,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("group")
 	v.NotNil("db", c.DB)
+	for _, scope := range slices.Sorted(maps.Keys(memberRules)) {
+		if memberRules[scope].namespaced {
+			v.NotNil("name_rules."+string(scope), c.NameRules[scope])
+		}
+	}
 	return v.Error()
 }
 
@@ -120,8 +134,9 @@ func (s *Service) BuiltinDeleteMigration() gorp.Migration {
 }
 
 // CreateOrRetrieve returns the top-level group of scope named name, creating it when no
-// such group exists. A name of a namespaced scope matches after NFC, and a create that
-// another holder of the name refuses returns an error that matches
+// such group exists. The rule of the scope puts name in its stored form first, and
+// CreateOrRetrieve returns the error of the rule when no group can hold it. A create
+// that another holder of the name refuses returns an error that matches
 // query.ErrUniqueViolation.
 func (s *Service) CreateOrRetrieve(
 	ctx context.Context,
@@ -130,12 +145,17 @@ func (s *Service) CreateOrRetrieve(
 ) (Group, error) {
 	var g Group
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		found, err := s.retrieveTop(ctx, tx, name, scope, &g)
+		w := s.NewWriter(tx)
+		named := Group{Name: name, Scope: scope}
+		if err := w.checkName(&named); err != nil {
+			return err
+		}
+		found, err := s.retrieveTop(ctx, tx, named.Name, scope, &g)
 		if err != nil || found {
 			return err
 		}
-		g = Group{Name: name, Scope: scope}
-		return s.NewWriter(tx).Create(ctx, &g)
+		g, g.Key = named, uuid.New()
+		return w.insert(ctx, &g)
 	}); err != nil {
 		return Group{}, err
 	}
@@ -143,8 +163,7 @@ func (s *Service) CreateOrRetrieve(
 }
 
 // retrieveTop reads the top-level group of scope named name into g, and returns false
-// when there is none. A namespaced scope stores its names in NFC, so they match after
-// NFC.
+// when there is none.
 func (s *Service) retrieveTop(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -152,9 +171,6 @@ func (s *Service) retrieveTop(
 	scope resource.Type,
 	g *Group,
 ) (bool, error) {
-	if isNamespaced(scope) {
-		name = validate.NormalizeName(name)
-	}
 	err := s.NewRetrieve().
 		Where(MatchNames(name)).
 		Where(MatchScopes(scope)).
@@ -180,6 +196,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         tx,
 		table:      s.table,
 		onMove:     s.cfg.MoveMembers,
+		rules:      s.cfg.NameRules,
 		dispatcher: s.state.Dispatcher(),
 	}
 }
@@ -218,6 +235,7 @@ type Writer struct {
 	tx         gorp.Tx
 	table      *gorp.Table[Key, Group]
 	onMove     MoveMembers
+	rules      map[resource.Type]NameRule
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
@@ -248,9 +266,14 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 			return err
 		}
 	}
-	if err := checkName(g); err != nil {
+	if err := w.checkName(g); err != nil {
 		return err
 	}
+	return w.insert(ctx, g)
+}
+
+// insert creates g, whose name the rule of its scope has checked.
+func (w Writer) insert(ctx context.Context, g *Group) error {
 	if err := g.Validate(); err != nil {
 		return err
 	}
@@ -268,10 +291,10 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 // validate, or a move breaks a rule, and an error wrapping query.ErrNotFound when no
 // group has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	acts = normalizeNameActions(acts)
 	var (
-		top   *resource.ID
-		moved bool
+		top    *resource.ID
+		moved  bool
+		stored string
 	)
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Group](key)).
@@ -280,11 +303,13 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return Group{}, err
 			}
+			// A name that the upgrade kept stays writable while it does not change.
 			if next.Name != g.Name {
-				if err = checkName(&next); err != nil {
+				if err = w.checkName(&next); err != nil {
 					return Group{}, err
 				}
 			}
+			stored = next.Name
 			if err = next.Validate(); err != nil {
 				return Group{}, err
 			}
@@ -315,35 +340,43 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return err
 		}
 	}
-	w.dispatcher.Attach(w.tx, key, acts...)
+	w.dispatcher.Attach(w.tx, key, withName(acts, stored)...)
 	return nil
 }
 
-// normalizeNameActions returns acts with the name of each set of the name in NFC, so
-// the write and the broadcast both carry the stored name.
-func normalizeNameActions(acts []Action) []Action {
-	var out []Action
+// withName returns acts with the value of each set of the name replaced by name, so the
+// broadcast carries the name that the group stores.
+func withName(acts []Action, name string) []Action {
+	cloned := false
 	for i, a := range acts {
-		if a.Set == nil || !slices.Equal(a.Set.Path, []string{"name"}) {
+		if a.Set == nil || !slices.Equal(a.Set.Path, []string{"name"}) ||
+			a.Set.Value == name {
 			continue
 		}
-		name, ok := a.Set.Value.(string)
-		if !ok {
-			continue
+		if !cloned {
+			acts, cloned = slices.Clone(acts), true
 		}
-		if nfc := validate.NormalizeName(name); nfc != name {
-			if out == nil {
-				out = slices.Clone(acts)
-			}
-			p := *a.Set
-			p.Value = nfc
-			out[i].Set = &p
-		}
+		p := *a.Set
+		p.Value = name
+		acts[i].Set = &p
 	}
-	if out == nil {
-		return acts
+	return acts
+}
+
+// checkName puts the name of g in the form that the rule of its scope stores, and
+// returns the error of the rule when g cannot hold the name. A scope with no rule takes
+// any name.
+func (w Writer) checkName(g *Group) error {
+	rule, ok := w.rules[g.Scope]
+	if !ok {
+		return nil
 	}
-	return out
+	name, err := rule(g.Name)
+	if err != nil {
+		return err
+	}
+	g.Name = name
+	return nil
 }
 
 // SetParent moves the groups with keys under parent, or to the top level when parent is

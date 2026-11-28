@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
-	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,7 +36,7 @@ var _ = Describe("Folder text upgrade breaker", func() {
 			stored := storeV062(
 				ctx,
 				n,
-				[]string{"pt", "pt", groupv1.MetricsFolder, "doubled"},
+				[]string{"pt", "pt", channelv1.MetricsFolder, "doubled"},
 				func(cs []channelv1.Channel) {
 					cs[0].Internal, cs[0].Group = true, &stand.Key
 					cs[1].Group = &stand.Key
@@ -45,7 +44,7 @@ var _ = Describe("Folder text upgrade breaker", func() {
 						"return Metrics * Metrics_2 + pt"
 				},
 				stand,
-				folder(groupv1.MetricsFolder),
+				folder(channelv1.MetricsFolder),
 			)
 			MustOpen(svctestutil.OpenLayer(ctx, n))
 			names := namesOf(ctx, n, stored)

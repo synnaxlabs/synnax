@@ -303,8 +303,8 @@ var _ = Describe("Folder rewrite breaker", func() {
 				DB:        db,
 				Namespace: "channel",
 				Migrations: []gorp.Migration{
-					groupv1.NameRuleMigration,
 					v1.NameRuleMigration,
+					v1.FolderNameRuleMigration,
 					v1.NewClashMigration(host),
 					v1.NewCalculationTextMigration(parser.Config{}),
 				},
@@ -362,8 +362,8 @@ var _ = Describe("Folder rewrite breaker", func() {
 					DB:        db,
 					Namespace: "channel",
 					Migrations: []gorp.Migration{
-						groupv1.NameRuleMigration,
 						v1.NameRuleMigration,
+						v1.FolderNameRuleMigration,
 						v1.NewClashMigration(host),
 						v1.NewCalculationTextMigration(parser.Config{}),
 					},

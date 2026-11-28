@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -117,7 +118,8 @@ var _ = Describe("Task", Ordered, func() {
 		})
 		db = node.DB
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: node.DB,
+			NameRules: grouptestutil.NameRules(),
+			DB:        node.DB,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: node.DB,

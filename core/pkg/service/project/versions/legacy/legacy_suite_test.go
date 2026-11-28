@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -47,7 +48,8 @@ var (
 		node := testutil.NewNode(ctx)
 		db = node.DB
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
+			NameRules: grouptestutil.NameRules(),
+			DB:        db,
 		}))
 		panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 			DB: db,

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	svcranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	grpcranger "github.com/synnaxlabs/synnax/pkg/transport/grpc/ranger"
 	"github.com/synnaxlabs/x/filter"
@@ -179,7 +180,12 @@ var _ = Describe("Dispatch to a range", func() {
 	It("Should store a time range end above 2^53 exactly", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		groups := MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+			),
+		)
 		svc := MustOpen(svcranger.OpenService(ctx, svcranger.ServiceConfig{
 			DB:    db,
 			Group: groups,

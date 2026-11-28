@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
@@ -57,7 +58,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 	}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db,
+		NameRules: grouptestutil.NameRules(),
+		DB:        db,
 	}))
 	enumSvc := MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
