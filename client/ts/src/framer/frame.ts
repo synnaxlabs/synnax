@@ -316,8 +316,8 @@ export class Frame {
   /**
    * @returns the time of the channel: one time series for each series of the channel,
    * with the same length.
-   * @throws {NotFoundError} if the frame holds no time for the channel, as when the
-   * read marked it untimed.
+   * @throws {NotFoundError} if the frame holds no time for the channel: the read marked
+   * it untimed, or it has no index.
    */
   time(channel: channel.Key | channel.Name): MultiSeries;
 
@@ -354,6 +354,10 @@ export class Frame {
       if (offset + series.length <= time.length)
         return time.sub(offset, offset + series.length);
     }
+    if (series.clock === 0)
+      throw new NotFoundError(
+        `The frame holds no time for ${name}, which has no index`,
+      );
     throw new NotFoundError(
       `The frame holds no time for ${name}. The read marked it untimed`,
     );

@@ -273,8 +273,8 @@ class Frame:
     def time(self, target: channel.Key | str | Series) -> MultiSeries | Series:
         """Gets the time of a channel by its key or name, or of one series.
 
-        :raises NotFoundError: If the frame holds no time for the channel or series, as
-            when the read marked the channel untimed.
+        :raises NotFoundError: If the frame holds no time for the channel or series:
+            the read marked the channel untimed, or it has no index.
         """
         if isinstance(target, Series):
             return self._time_of(target, "the series")
@@ -292,6 +292,10 @@ class Frame:
             offset = start // step
             if offset + len(series) <= len(time):
                 return time[offset : offset + len(series)]
+        if series.clock == 0:
+            raise NotFoundError(
+                f"The frame holds no time for {name}, which has no index"
+            )
         raise NotFoundError(
             f"The frame holds no time for {name}. The read marked it untimed"
         )
