@@ -69,7 +69,7 @@ func (c CommanderConfig) Validate() error {
 	return v.Error()
 }
 
-// Commander answers the commands of a task apart from the command loop of the driver,
+// Commander answers the commands of a task apart from the command loop of the Driver,
 // so a slow command does not hold up the commands of other tasks. Safe for concurrent
 // use.
 type Commander struct {

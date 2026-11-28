@@ -7,10 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { icd } from "@synnaxlabs/client";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { icd } from "@synnaxlabs/client";
+import { caseconv } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { ICD } from "@/platform/icd";
+
+const TABLE_PATH = join(
+  import.meta.dirname,
+  "../../../../core/pkg/service/icd/testdata/routes.json",
+);
+
+const tableZ = z.object({
+  groups: z
+    .object({
+      description: z.string(),
+      messages: z.object({ name: z.string(), payload: icd.jsonPayloadZ }).array(),
+      cases: z
+        .object({ fields: z.string().array(), message: z.string().optional() })
+        .array(),
+    })
+    .array(),
+});
+
+const table = tableZ.parse(
+  caseconv.snakeToCamel(JSON.parse(readFileSync(TABLE_PATH, "utf8"))),
+);
 
 interface Message {
   match?: icd.JSONMatch;
@@ -18,9 +44,6 @@ interface Message {
 }
 
 describe("route", () => {
-  const present = (pointer: string): Message => ({
-    match: { type: "present", pointer },
-  });
   const kind = (value: string, ...pointers: string[]): Message => ({
     match: { type: "string", pointer: "/kind", value },
     pointers,
@@ -28,26 +51,6 @@ describe("route", () => {
   const fields = (...pointers: string[]) => pointers.map((pointer) => ({ pointer }));
   const route = (pointers: string[], messages: Message[]) =>
     ICD.route(fields(...pointers), messages, (m) => m.pointers ?? []);
-
-  it("should give the message whose present rule is at a field", () => {
-    const rpm = present("/rpm");
-    expect(route(["/t", "/rpm"], [present("/fault"), rpm])).toEqual({ message: rpm });
-  });
-
-  it("should give the message whose present rule holds a field", () => {
-    const status = present("/status");
-    expect(route(["/status/code"], [status])).toEqual({ message: status });
-    expect(route(["/statuses"], [status])).toEqual({});
-  });
-
-  it("should give the message with no rule when no present rule matches", () => {
-    const rest = {};
-    expect(route(["/t"], [present("/rpm"), rest])).toEqual({ message: rest });
-  });
-
-  it("should give no message when none matches and each has a rule", () => {
-    expect(route(["/t"], [present("/rpm")])).toEqual({});
-  });
 
   it("should give the message of a value rule that reads the most of the fields", () => {
     const status = kind("status", "/kind", "/code");
@@ -68,11 +71,26 @@ describe("route", () => {
     const messages = [kind("status", "/kind", "/code"), kind("fault", "/kind", "/rpm")];
     expect(route(["/kind", "/temp"], messages)).toEqual({ split: "/kind" });
   });
+});
 
-  it("should leave a value rule out when no field is at its pointer", () => {
-    const rest = {};
-    expect(route(["/temp"], [kind("status", "/temp"), rest])).toEqual({
-      message: rest,
-    });
-  });
+describe.each(table.groups)("route: $description", ({ messages, cases }) => {
+  const routed = messages.map(({ name, payload }) => ({
+    name,
+    match: payload.match,
+    pointers: payload.fields.map(({ pointer }) => pointer),
+  }));
+  it.each(cases)(
+    "should give a shape with fields $fields the message of the Core",
+    ({ fields, message }) => {
+      expect(
+        ICD.route(
+          fields.map((pointer) => ({ pointer })),
+          routed,
+          ({ pointers }) => pointers,
+        ),
+      ).toEqual(
+        message == null ? {} : { message: routed.find((m) => m.name === message) },
+      );
+    },
+  );
 });

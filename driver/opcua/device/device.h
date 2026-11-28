@@ -45,7 +45,7 @@ retrieve_connection(synnax::Synnax &client, const std::string &key) {
     if (err)
         return {
             connection::Config(),
-            x::errors::Error(err, "failed to retrieve device: " + err.data)
+            x::errors::Error(err, "failed to retrieve device: " + err.data())
         };
     const auto parser = x::json::Parser(dev.properties);
     auto cfg = connection::Config(parser.child("connection"));

@@ -17,6 +17,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/serial/errors.h"
+#include "driver/serial/native.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
@@ -71,7 +72,7 @@ TEST(TranslateOpen, ReportsADeniedPortAsInUseByAnotherProgram) {
         const auto err = translate_open("COM3", os(code));
         ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
         EXPECT_EQ(
-            err.data,
+            err.data(),
             "failed to open serial port COM3: the port is in use by another program"
         );
     }
@@ -82,7 +83,7 @@ TEST(TranslateOpen, MapsEveryOtherErrorThroughTranslate) {
     const auto err = translate_open("COM3", os(ERROR_FILE_NOT_FOUND));
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to open serial port COM3: " + message(ERROR_FILE_NOT_FOUND)
     );
 }
@@ -95,7 +96,7 @@ TEST(Translate, ReportsADeniedPortOutsideAnOpenWithTheSystemMessage) {
     );
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read from serial port COM3: " + message(ERROR_ACCESS_DENIED)
     );
 }
@@ -135,7 +136,7 @@ TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
 /// @brief it should put the context before the system message.
 TEST(Translate, PutsTheContextBeforeTheSystemMessage) {
     EXPECT_EQ(
-        translate("failed to open serial port COM3", os(ERROR_FILE_NOT_FOUND)).data,
+        translate("failed to open serial port COM3", os(ERROR_FILE_NOT_FOUND)).data(),
         "failed to open serial port COM3: " + message(ERROR_FILE_NOT_FOUND)
     );
 }
@@ -149,5 +150,14 @@ TEST(Translate, MapsWin32ErrorsFromTheSystemCategory) {
         ),
         transport::UNREACHABLE_ERROR
     );
+}
+
+/// @brief it should give each spelling of a COM port one identity, and another COM port
+/// another.
+TEST(Identity, IgnoresCaseAndDevicePrefixOfCOMPort) {
+    const auto com3 = ASSERT_NIL_P(native::identity("COM3"));
+    EXPECT_EQ(ASSERT_NIL_P(native::identity(R"(\\.\COM3)")), com3);
+    EXPECT_EQ(ASSERT_NIL_P(native::identity(R"(\\.\com3)")), com3);
+    EXPECT_NE(ASSERT_NIL_P(native::identity("COM30")), com3);
 }
 }

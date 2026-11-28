@@ -24,7 +24,7 @@ time_index = client.channels.create(
 
 sensor_one = sy.Channel(
     name="sensor_one",
-    data_type=np.float32,  # You can use numpy to define data types
+    data_type=np.float32,  # You can use NumPy to define data types
     index=time_index.key,
 )
 

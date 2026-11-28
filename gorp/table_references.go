@@ -415,11 +415,17 @@ func (t *Table[K, E]) DependentsEach(
 }
 
 // check validates the references e holds against tx. It reports whether every index
-// already holds the targets of e for its entry, with the changes of tx applied.
-func (t *Table[K, E]) check(ctx context.Context, tx Tx, e *E) (bool, error) {
+// already holds the targets of e for its entry, with the changes of tx applied. With
+// relations false, it leaves the unique and acyclic checks to the caller.
+func (t *Table[K, E]) check(
+	ctx context.Context,
+	tx Tx,
+	e *E,
+	relations bool,
+) (bool, error) {
 	current := true
 	for _, r := range t.references {
-		refCurrent, err := r.check(ctx, tx, t, e)
+		refCurrent, err := r.check(ctx, tx, t, e, relations)
 		if err != nil {
 			return false, err
 		}

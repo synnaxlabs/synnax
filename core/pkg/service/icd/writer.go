@@ -67,9 +67,10 @@ func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 // in the given format. An imported message keeps the key of the message with its name,
 // and each of its fields keeps the key of that message's field with its name. Problems
 // that Check finds do not stop the import. Import attaches a create action that carries
-// the stored ICD to the transaction and returns the ICD. It returns a path-scoped
-// validation error when data does not parse or the result breaks a rule of the ICD's
-// schema, and an error wrapping query.ErrNotFound when no ICD has the key.
+// the stored ICD to the transaction and returns the ICD. It returns a validation error
+// when data does not parse, a path-scoped validation error when the result breaks a
+// rule of the ICD's schema, and an error wrapping query.ErrNotFound when no ICD has the
+// key.
 func (w Writer) Import(
 	ctx context.Context,
 	key Key,
@@ -96,6 +97,28 @@ func (w Writer) Import(
 		return ICD{}, err
 	}
 	w.dispatcher.Attach(w.tx, key, NewCreateAction(CreatePayload{ICD: ic}))
+	return ic, nil
+}
+
+// ImportNew creates, as Create does, an ICD with the given key and name that holds the
+// messages parsed from data in the given format, and returns it. Problems that Check
+// finds do not stop the import. It returns a validation error when data does not parse,
+// and the errors of Create.
+func (w Writer) ImportNew(
+	ctx context.Context,
+	key Key,
+	name string,
+	format ImportFormat,
+	data []byte,
+) (ICD, error) {
+	messages, err := parse(format, data)
+	if err != nil {
+		return ICD{}, err
+	}
+	ic := ICD{Key: key, Name: name, Messages: messages}
+	if err = w.Create(ctx, &ic); err != nil {
+		return ICD{}, err
+	}
 	return ic, nil
 }
 

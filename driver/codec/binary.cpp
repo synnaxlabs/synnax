@@ -293,13 +293,6 @@ x::errors::Error Binary::Field::decode(
     const std::span<const std::uint8_t> payload,
     x::telem::Series &dst
 ) const {
-    if (payload.size() < this->bits.end()) {
-        if (this->fallback.has_value()) {
-            dst.write(*this->fallback);
-            return x::errors::NIL;
-        }
-        return too_short(payload.size(), this->bits.end());
-    }
     const auto *p = payload.data();
     if (this->encoding == Encoding::SIGNED)
         return this->append(static_cast<std::uint64_t>(this->bits.read_signed(p)), dst);
@@ -307,6 +300,7 @@ x::errors::Error Binary::Field::decode(
 }
 
 x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> payload) {
+    this->failures.clear();
     if (payload.size() < this->muxes.end()) {
         const auto &m = *std::ranges::find_if(
             this->muxes.all(),
@@ -330,7 +324,21 @@ x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> pay
             if (f.fallback.has_value()) dst.write(*f.fallback);
             continue;
         }
-        if (const auto err = f.decode(payload, dst)) return err.wrap("field " + f.name);
+        x::errors::Error err;
+        const bool missing = payload.size() < f.bits.end();
+        if (!missing)
+            err = f.decode(payload, dst);
+        else if (f.fallback.has_value())
+            dst.write(*f.fallback);
+        else
+            err = too_short(payload.size(), f.bits.end());
+        if (!err) continue;
+        dst.clear();
+        this->failures.push_back({
+            .binding = i,
+            .missing = missing,
+            .error = err.wrap("field " + f.name),
+        });
     }
     return x::errors::NIL;
 }
@@ -376,6 +384,7 @@ Binary::create(const std::vector<BinaryMessage> &messages) {
             msg.fields.push_back(std::move(field));
             msg.samples.emplace_back(b.data_type, 1);
         }
+        msg.failures.reserve(msg.fields.size());
         msg.raw.resize(msg.muxes.all().size());
         bin.messages.push_back(std::move(msg));
         if (auto err = bin.route(m, i, by_key)) return {Binary{}, err};
@@ -482,11 +491,13 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Binary::decode_as(
 ) {
     if (!i.has_value()) return {std::nullopt, x::errors::NIL};
     auto &m = this->messages[*i];
-    if (auto err = m.decode(payload)) {
-        if (this->messages.size() > 1) err = err.wrap("message " + m.name);
-        return {i, err};
+    auto err = m.decode(payload);
+    if (this->messages.size() > 1) {
+        if (err) err = err.wrap("message " + m.name);
+        for (auto &f: m.failures)
+            f.error = f.error.wrap("message " + m.name);
     }
-    return {i, x::errors::NIL};
+    return {i, err};
 }
 
 std::pair<std::optional<std::size_t>, x::errors::Error>

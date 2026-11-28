@@ -24,8 +24,8 @@ namespace driver::ni::daqmx {
 namespace {
 const std::string ERROR_MESSAGE = "Specified property is not supported.";
 
-/// @brief a DAQmx API that holds device attributes and answers a call with no buffer
-/// with the size the value needs, as DAQmx does.
+/// @brief an NI-DAQmx API that holds device attributes and answers a call with no
+/// buffer with the size the value needs, as NI-DAQmx does.
 class FakeAPI final : public MockAPI {
 public:
     std::unordered_map<int32, std::string> strings;
@@ -79,8 +79,8 @@ TEST(SugaredAPITest, testParsesPositiveStatus) {
     api->start_status = 200123;
     SugaredAPI dmx(api);
     const auto err = dmx.StartTask(nullptr);
-    EXPECT_EQ(err.type, CRITICAL_ERROR.sub("200123").type);
-    EXPECT_EQ(err.data, ERROR_MESSAGE);
+    EXPECT_EQ(err.type(), CRITICAL_ERROR.sub("200123").type());
+    EXPECT_EQ(err.data(), ERROR_MESSAGE);
 }
 
 /// @brief it should keep every digit of a negative status in the error type.
@@ -89,8 +89,8 @@ TEST(SugaredAPITest, testParsesNegativeStatus) {
     api->start_status = DAQmxErrorAttrNotSupported;
     SugaredAPI dmx(api);
     const auto err = dmx.StartTask(nullptr);
-    EXPECT_EQ(err.type, ATTRIBUTE_NOT_SUPPORTED.type);
-    EXPECT_EQ(err.data, ERROR_MESSAGE);
+    EXPECT_EQ(err.type(), ATTRIBUTE_NOT_SUPPORTED.type());
+    EXPECT_EQ(err.data(), ERROR_MESSAGE);
 }
 
 /// @brief it should ask for the size of a string first, so a long value is not cut.
@@ -131,11 +131,11 @@ TEST(SugaredAPITest, testReturnsSizeQueryError) {
         DAQmx_Dev_ProductType
     );
     EXPECT_EQ(value, "");
-    EXPECT_EQ(err.type, ATTRIBUTE_NOT_SUPPORTED.type);
+    EXPECT_EQ(err.type(), ATTRIBUTE_NOT_SUPPORTED.type());
     EXPECT_EQ(api->sizes, std::vector<uInt32>({0}));
 }
 
-/// @brief it should read a float64 array of the size that DAQmx gives.
+/// @brief it should read a float64 array of the size that NI-DAQmx gives.
 TEST(SugaredAPITest, testReadsDeviceDoubleArray) {
     auto api = std::make_shared<FakeAPI>();
     api->doubles[DAQmx_Dev_AI_VoltageRngs] = {-10, 10, -5, 5, -0.2, 0.2};

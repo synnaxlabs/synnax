@@ -11,7 +11,14 @@
 
 package v1
 
-import v0 "github.com/synnaxlabs/x/payload/versions/v0"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+
+	"github.com/synnaxlabs/x/errors"
+	v0 "github.com/synnaxlabs/x/payload/versions/v0"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Kind is the kind of value a payload field holds.
 type Kind = v0.Kind
@@ -100,13 +107,197 @@ type EnumEntry = v0.EnumEntry
 type JSONType = v0.JSONType
 
 const (
-	// JSONTypeNumber writes the value as a JSON number.
+	// JSONTypeNumber is a JSON number.
 	JSONTypeNumber JSONType = v0.JSONTypeNumber
-	// JSONTypeString writes the value as a JSON string.
+	// JSONTypeString is a JSON string.
 	JSONTypeString JSONType = v0.JSONTypeString
-	// JSONTypeBoolean writes the value as a JSON boolean.
+	// JSONTypeBoolean is a JSON boolean.
 	JSONTypeBoolean JSONType = v0.JSONTypeBoolean
 )
+
+// ScalarType is the type of a JSON scalar.
+type ScalarType string
+
+const (
+	// ScalarTypeNumber is a JSON number.
+	ScalarTypeNumber ScalarType = "number"
+	// ScalarTypeString is a JSON string.
+	ScalarTypeString ScalarType = "string"
+	// ScalarTypeBoolean is a JSON boolean.
+	ScalarTypeBoolean ScalarType = "boolean"
+	// ScalarTypeNull is JSON null.
+	ScalarTypeNull ScalarType = "null"
+)
+
+// IsValid reports whether s is one of the defined ScalarType
+// values.
+func (s ScalarType) IsValid() bool {
+	switch s {
+	case ScalarTypeNumber, ScalarTypeString, ScalarTypeBoolean, ScalarTypeNull:
+		return true
+	default:
+		return false
+	}
+}
+
+// ScalarVariant is implemented by every Scalar variant.
+type ScalarVariant interface {
+	isScalarVariant()
+}
+
+// NumberScalar is a JSON number.
+type NumberScalar struct {
+	// Value is the number.
+	Value float64 `json:"value" msgpack:"value"`
+}
+
+func (NumberScalar) isScalarVariant() {}
+
+// StringScalar is a JSON string.
+type StringScalar struct {
+	// Value is the string.
+	Value string `json:"value" msgpack:"value"`
+}
+
+func (StringScalar) isScalarVariant() {}
+
+// BooleanScalar is a JSON boolean.
+type BooleanScalar struct {
+	// Value is the boolean.
+	Value bool `json:"value" msgpack:"value"`
+}
+
+func (BooleanScalar) isScalarVariant() {}
+
+// NullScalar is JSON null.
+type NullScalar struct {
+}
+
+func (NullScalar) isScalarVariant() {}
+
+// Scalar is a JSON scalar: a number, a string, a boolean, or null.
+type Scalar struct {
+	Variant ScalarVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Scalar) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case NumberScalar:
+		return json.MarshalEncode(enc, struct {
+			Type ScalarType `json:"type"`
+			NumberScalar
+		}{Type: ScalarTypeNumber, NumberScalar: v})
+	case StringScalar:
+		return json.MarshalEncode(enc, struct {
+			Type ScalarType `json:"type"`
+			StringScalar
+		}{Type: ScalarTypeString, StringScalar: v})
+	case BooleanScalar:
+		return json.MarshalEncode(enc, struct {
+			Type ScalarType `json:"type"`
+			BooleanScalar
+		}{Type: ScalarTypeBoolean, BooleanScalar: v})
+	case NullScalar:
+		return json.MarshalEncode(enc, struct {
+			Type ScalarType `json:"type"`
+			NullScalar
+		}{Type: ScalarTypeNull, NullScalar: v})
+	default:
+		return errors.Newf("Scalar: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Scalar) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ScalarType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ScalarTypeNumber:
+		var v struct {
+			Type ScalarType `json:"type"`
+			NumberScalar
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.NumberScalar
+	case ScalarTypeString:
+		var v struct {
+			Type ScalarType `json:"type"`
+			StringScalar
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StringScalar
+	case ScalarTypeBoolean:
+		var v struct {
+			Type ScalarType `json:"type"`
+			BooleanScalar
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BooleanScalar
+	case ScalarTypeNull:
+		var v struct {
+			Type ScalarType `json:"type"`
+			NullScalar
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.NullScalar
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scalar: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scalar) Type() ScalarType {
+	switch u.Variant.(type) {
+	case NumberScalar:
+		return ScalarTypeNumber
+	case StringScalar:
+		return ScalarTypeString
+	case BooleanScalar:
+		return ScalarTypeBoolean
+	case NullScalar:
+		return ScalarTypeNull
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Scalar) Validate() error {
+	v := validate.New("Scalar")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
 
 // GeneratorType is the kind of value produced for a generated write field.
 type GeneratorType = v0.GeneratorType

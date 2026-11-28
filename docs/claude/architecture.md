@@ -15,7 +15,7 @@ real-time performance.
     access control, users, ranges, hardware (task/rack/device), arc automations,
     workspace items (schematic, lineplot, log, table).
   - **API** — transport-agnostic client interface: request/response types, validation,
-    freighter-compatible service definitions.
+    Freighter-compatible service definitions.
   - Alongside the stack: **transport** (concrete gRPC/HTTP bindings), **server**
     (multiplexes both protocols on one port), **security** (TLS/cert provider).
 - **Cesium** (`/cesium/`, Go) — embedded time-series DB: columnar storage, domain-based
@@ -66,7 +66,7 @@ Put code in the lowest package that can hold it without gaining a forbidden depe
 - `cesium` — single-node time-series storage. No networking, no cluster awareness.
 - `arc` — the Arc language toolchain: parser, analyzer, compiler, LSP, runtime.
 - `oracle` — schema codegen CLI. Generators only, no runtime code.
-- `core` — the server: composes cesium + gorp under the 4-layer architecture (see
+- `core` — the server: composes Cesium + Gorp under the 4-layer architecture (see
   `core/AGENTS.md`).
 - `client/*` — cluster API clients, feature parity across languages. No UI, no hardware.
 - `drift` — multi-window Redux sync. Knows Tauri + Redux, nothing about Synnax.

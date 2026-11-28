@@ -749,7 +749,7 @@ TEST(Bind, FindsTheSlavesAtTheirSavedPositions) {
 TEST(Bind, RejectsAMissingSlave) {
     const auto err = bind({saved(2, 0x2)}, {on_bus(1, 0x1)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Module 2 (Module 2) is not on the bus.");
+    EXPECT_EQ(err.data(), "Module 2 (Module 2) is not on the bus.");
 }
 
 /// @brief it should reject a slave of another vendor at a saved position.
@@ -757,7 +757,7 @@ TEST(Bind, RejectsAnotherVendor) {
     const auto err = bind({saved(1, 0x1, 0, 0x99)}, {on_bus(1, 0x1)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Module 1 (Module 1): expected vendor_id 0x00000099, found 0x00000002."
     );
 }
@@ -767,7 +767,7 @@ TEST(Bind, RejectsAnotherProduct) {
     const auto err = bind({saved(1, 0x87654321)}, {on_bus(1, 0x12345678)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Module 1 (Module 1): expected product_code 0x87654321, found 0x12345678."
     );
 }
@@ -781,7 +781,7 @@ TEST(Bind, ReportsTheLowestMismatchedPosition) {
                          .second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Module 3 (Module 3): expected product_code 0x00000009, found 0x00000003."
     );
 }
@@ -801,7 +801,7 @@ TEST(Bind, FindsASlaveBySerialNumberAfterItMoves) {
 TEST(Bind, RejectsASlaveWhoseSerialNumberIsNotOnTheBus) {
     const auto err = bind({saved(1, 0x1, 777)}, {on_bus(1, 0x1, 888)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Module 1 (serial 777) is not on the bus.");
+    EXPECT_EQ(err.data(), "Module 1 (serial 777) is not on the bus.");
 }
 
 /// @brief it should find each of two slaves with one serial number at its saved
@@ -836,7 +836,7 @@ TEST(Bind, RejectsASlaveWhosePositionHoldsAKnownUnit) {
     const auto err = bind({saved(1, 0x1), known}, {on_bus(1, 0x1, 777)}).second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "Module 1 (Module 1) is not on the bus. Module 1 is Known (serial 777)."
     );
 }
@@ -851,7 +851,7 @@ TEST(Bind, RejectsTwoSlavesWithOneSavedPosition) {
     )
                          .second;
     ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
-    EXPECT_EQ(err.data, "Module 1 and Other are both saved as module 1.");
+    EXPECT_EQ(err.data(), "Module 1 and Other are both saved as module 1.");
 }
 
 /// @brief it should leave out each saved slave that it does not find on the bus.

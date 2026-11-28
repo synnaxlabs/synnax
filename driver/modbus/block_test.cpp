@@ -134,7 +134,7 @@ TEST(Wrap, NamesChannelsAndAddresses) {
     );
     ASSERT_OCCURRED_AS(wrapped, device::CRITICAL_ERROR);
     EXPECT_EQ(
-        wrapped.data,
+        wrapped.data(),
         "pump_speed, flow (holding registers 100-124): Illegal data address"
     );
 }

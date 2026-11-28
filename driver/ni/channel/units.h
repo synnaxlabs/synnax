@@ -81,7 +81,7 @@ inline const std::map<std::string, int32_t> UNITS_MAP = {
     {"AccelUnit_g", DAQmx_Val_AccelUnit_g}
 };
 
-/// @brief maps an engineering-unit string to its DAQmx constant.
+/// @brief maps an engineering-unit string to its NI-DAQmx constant.
 inline std::pair<int32_t, x::errors::Error> parse_units(const std::string &s) {
     const auto units = UNITS_MAP.find(s);
     if (units == UNITS_MAP.end())
@@ -92,7 +92,7 @@ inline std::pair<int32_t, x::errors::Error> parse_units(const std::string &s) {
     return {units->second, x::errors::NIL};
 }
 
-/// @brief maps an engineering-unit string to its DAQmx constant, falling back
+/// @brief maps an engineering-unit string to its NI-DAQmx constant, falling back
 /// to volts when the string is unknown.
 inline int32_t units_or_volts(const std::string &s) {
     const auto it = UNITS_MAP.find(s);

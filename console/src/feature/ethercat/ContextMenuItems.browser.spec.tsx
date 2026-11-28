@@ -65,7 +65,7 @@ const Items = (props: Omit<Device.ContextMenuItemsProps, "onConfigure">) => {
 };
 
 /**
- * Mounts the context menu in two phases: first loads the slaves into the flux device
+ * Mounts the context menu in two phases: first loads the slaves into the Flux device
  * cache (the tree does this in production before a menu can open), then mounts the
  * menu items so their enabled/disabled computation sees the cached devices.
  */

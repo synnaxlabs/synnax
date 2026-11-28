@@ -100,7 +100,15 @@
     },
     {
       "document": { "type": "event" },
-      "error": "message event: field v: no value at /v: validation error"
+      "message": "event",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": true,
+          "error": "message event: field v: no value at /v: validation error"
+        }
+      ]
     }
   ]
 }
