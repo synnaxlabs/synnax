@@ -76,11 +76,13 @@ var _ = Describe("Cuts", func() {
 			)
 			id = MustSucceed(w.NewSegment(9))
 		})
-		commitOne := func() {
+		commitOne := func() *log.Commit {
 			GinkgoHelper()
 			n := MustSucceed(w.NewAlignment())
-			Expect(w.Commit(commit(1, n, 0, 100, 100, slot(id, 8)))).To(Succeed())
+			c := commit(1, n, 0, 100, 100, slot(id, 8))
+			Expect(w.Commit(c)).To(Succeed())
 			Expect(s.Channel(9).Segments[0].Pointers).To(HaveLen(1))
+			return c
 		}
 
 		DescribeTable("Should count each take back of visible samples, and no other "+
@@ -105,7 +107,22 @@ var _ = Describe("Cuts", func() {
 				Expect(w.TakeBackUnknown()).To(Succeed())
 				Expect(s.Channel(9).Segments[0].Pointers).To(BeEmpty())
 			}, uint64(1)),
-			Entry("a commit", commitOne, uint64(0)),
+			Entry("a take back of a segment whose commits are all durable", func() {
+				c := commitOne()
+				Expect(a.durable([]log.Record{create(id, 9, 9), c})).To(Succeed())
+				Expect(w.TakeBack()).To(HaveLen(1))
+				Expect(s.Channel(9).Segments[0].Pointers).To(HaveLen(1))
+			}, uint64(0)),
+			Entry("a take back of a segment with no durable Create and no sample",
+				func() {
+					Expect(w.TakeBack()).To(BeEmpty())
+					Expect(s.Channel(9).Segments).To(BeEmpty())
+				}, uint64(0)),
+			Entry("an unknown take back of a segment with no sample", func() {
+				Expect(w.TakeBackUnknown()).To(Succeed())
+				Expect(s.Channel(9).Segments[0].Sealed).To(BeTrue())
+			}, uint64(0)),
+			Entry("a commit", func() { commitOne() }, uint64(0)),
 			Entry("a switch that drops the segment, which holds no sample, as no "+
 				"durable Create made it", func() {
 				Expect(w.Close()).To(Succeed())
