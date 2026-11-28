@@ -974,7 +974,7 @@ describe("State", () => {
       const { baudRate } = deep.path<{ baudRate: number }>();
       form.set(baudRate, 0);
       expect(form.get(baudRate).status.message).toBe(
-        "baud rate must be greater than 0",
+        "Baud rate must be greater than 0",
       );
     });
 
@@ -1011,7 +1011,7 @@ describe("State", () => {
       await form.validateAsync();
       const { dataBits } = deep.path<{ dataBits: number }>();
       expect(form.get(dataBits).status.message).toBe(
-        "data bits must be less than or equal to 8",
+        "Data bits must be less than or equal to 8",
       );
     });
 
