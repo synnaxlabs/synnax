@@ -133,6 +133,68 @@ var _ = Describe("Multi", func() {
 		})
 	})
 
+	Describe("A key in none that a scope deletes", func() {
+		BeforeEach(func() { m.Stage(nil, 7, nil) })
+
+		It("Should hold none only outside its scope until the scope commits", func() {
+			m.StageDelete(txn, 7)
+			Expect(m.Holding(txn, false)).To(BeEmpty())
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+			Expect(m.Current(txn, 7, nil)).To(BeFalse())
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+		})
+
+		It("Should stay in none when the scope does not commit", func() {
+			m.StageDelete(txn, 7)
+			txn.end(false)
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+		})
+
+		It("Should hold none when the scope stages it with no value later", func() {
+			m.StageDelete(txn, 7)
+			m.Stage(txn, 7, nil)
+			Expect(m.Holding(txn, false)).To(ConsistOf(7))
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(ConsistOf(7))
+		})
+
+		It("Should hold the values that the scope stages for it later", func() {
+			m.StageDelete(txn, 7)
+			m.Stage(txn, 7, []string{"g"})
+			txn.end(true)
+			Expect(m.Holding(nil, false)).To(BeEmpty())
+			Expect(m.Get(nil, "g")).To(ConsistOf(7))
+		})
+
+		It("Should be deleted with no allocation", func() {
+			Expect(allocsPerScope(txn, func() { m.StageDelete(txn, 7) })).To(BeZero())
+		})
+	})
+
+	Describe("Changes of a scope", func() {
+		It("Should allocate nothing for a scope that stages nothing", func() {
+			values := []string{"a", "b"}
+			var current bool
+			Expect(allocsPerScope(txn, func() {
+				current = m.Current(txn, 1, values)
+			})).To(BeZero())
+			Expect(current).To(BeTrue())
+		})
+
+		It("Should reuse its changes, allocating nothing to stage a delete", func() {
+			Expect(allocsPerScope(txn, func() { m.StageDelete(txn, 2) })).To(BeZero())
+		})
+
+		It("Should allocate nothing to stage a new key with no value", func() {
+			key := 100
+			Expect(allocsPerScope(txn, func() {
+				key++
+				m.Stage(txn, key, nil)
+			})).To(BeZero())
+		})
+	})
+
 	Describe("HeldValues", func() {
 		all := func(int) bool { return true }
 

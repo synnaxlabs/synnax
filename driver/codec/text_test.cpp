@@ -76,14 +76,16 @@ TEST(Text, DecodeWithoutAllocating) {
     );
     constexpr std::string_view gga = "$GPGGA,-122.41941550000,T=1e3";
     constexpr std::string_view any = "1,2,3,0.000123456789012";
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(gga)), 0U);
-    ASSERT_EQ(ASSERT_NIL_P(dec.decode(any)), 1U);
+    ASSERT_EQ(dec.decode(gga), 0U);
+    ASSERT_EQ(dec.decode(any), 1U);
     const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
     for (int i = 0; i < 100; i++) {
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(gga)), 0U);
-        ASSERT_EQ(ASSERT_NIL_P(dec.decode(any)), 1U);
+        ASSERT_EQ(dec.decode(gga), 0U);
+        ASSERT_EQ(dec.decode(any), 1U);
     }
     EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+    EXPECT_TRUE(dec.failures(0).empty());
+    EXPECT_TRUE(dec.failures(1).empty());
 }
 
 namespace {

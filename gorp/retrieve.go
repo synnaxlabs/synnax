@@ -56,7 +56,7 @@ type Retrieve[K Key, E Entry[K]] struct {
 	// validators run after entries are collected; a non-nil return
 	// aborts Exec with that error.
 	validators []Validator[K, E]
-	// keyPrefix is the gorp key prefix for entry type E.
+	// keyPrefix is the Gorp key prefix for entry type E.
 	keyPrefix []byte
 	// missingKeysSkipped is true when Exec treats a key with no entry as a non-match.
 	missingKeysSkipped bool
@@ -251,9 +251,13 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, snap Snapshot) error {
 }
 
 // resolveFilter materializes the filter's deferred resolver against snap, merging
-// committed index state with any per-tx staged mutations. No-op when the filter has no
+// committed index state with any per-tx staged mutations. It fails with errTxEnded when
+// snap is a transaction that has ended, and does nothing more when the filter has no
 // resolver.
 func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, snap Snapshot) error {
+	if err := checkOpen(snap); err != nil {
+		return err
+	}
 	if r.filter.resolve == nil {
 		return nil
 	}

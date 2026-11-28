@@ -14,7 +14,6 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
-import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id, primitive, unique } from "@synnaxlabs/x";
@@ -54,6 +53,7 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
@@ -441,6 +441,7 @@ const Targets = ({
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add targets");
+  const isPreview = Task.useIsPreview();
 
   return (
     <Task.Views.Panes
@@ -461,11 +462,12 @@ const Targets = ({
       title={pane?.title}
     >
       {pane?.details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            Add targets to write to a topic or a tag
-          </Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No target selected"
+          action={isPreview ? undefined : "Add targets"}
+          onClick={handleAdd}
+        />
       )}
       {plain.map(({ key, icd: icdKey }) => (
         <ICD.Write.Suit key={key} icdKey={icdKey} path={plainPath(key).message} />

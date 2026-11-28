@@ -10,7 +10,11 @@
 export * from "@/platform/modals/factory";
 export { useBusy, useDismiss, useUnsaved } from "@/platform/modals/Modal";
 export * from "@/platform/modals/Stack";
-export { ConfirmLayout, useConfirm } from "@/platform/modals/useConfirm";
+export {
+  ConfirmLayout,
+  type ConfirmParams,
+  useConfirm,
+} from "@/platform/modals/useConfirm";
 export * from "@/platform/modals/useConfirmDelete";
 export * from "@/platform/modals/useRename";
 export * from "@/session/modals/external";

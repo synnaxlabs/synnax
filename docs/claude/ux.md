@@ -431,6 +431,19 @@ bound, a log precision, or the line plot X channel.
   access gets no menu.
 - An edit reaches every user of the item. When other places use the item and the Core
   can list them, the editor shows "Used by N".
+- When the Core refuses to delete an item that something uses, the delete dialog lists
+  the users before it asks and disables Delete while any remain, as for an ICD that a
+  task uses.
+- A format change of an ICD message that has fields asks first, because it removes them
+  all. A message with no fields changes at once. The confirm lists the tasks that use
+  the ICD under "Tasks that use <ICD>", because the Core lists users only per ICD. The
+  Core never refuses the save, so the confirm stays enabled when the task lookup fails,
+  and shows the error. A blank name reads "this message" or "this ICD". The editor
+  removes a field or a message at once: that is a direct edit of the ICD.
+- In a task's ICD tree, the menu of fields says "Delete from ICD", because a field
+  belongs to the ICD, so the delete reaches every task that uses it. It asks first, with
+  the same confirm. A message or a source keeps Remove, which changes only the task.
+  Fields of several ICDs get no delete. A blank field name reads "this field".
 
 ### Pickers
 
@@ -614,7 +627,10 @@ bound, a log precision, or the line plot X channel.
   trigger, before the caret (`Device.StatusBadge`). The badge says "Connected" or
   "Disconnected" from the status `connected` flag, in the color of the status variant.
   Its tooltip shows the message and the description. A word from the variant was
-  rejected, because one variant covers both states.
+  rejected, because one variant covers both states. The Core gives a device that no
+  Driver has reached the disabled status "Device status unknown", so its badge is a gray
+  "Disconnected". Only a device with no status shows a gray "Unknown" badge, with no
+  tooltip. The disabled variant alone never means unknown: a Driver also writes it.
 
 ### Devices
 

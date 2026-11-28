@@ -68,6 +68,7 @@ import {
 } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
@@ -490,10 +491,11 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   const topic = PForm.useFieldValue(path.topic);
   const reads = PForm.useFieldValue(path.messages);
   const icdKey = PForm.useFieldValue(path.icd);
-  const encoding = PForm.useFieldValue(
-    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload.format,
+  const read = PForm.useFieldValue(
+    PICD.formPath.messages[reads.length === 1 ? reads[0].message : ""].payload,
     { optional: true, ctx: format },
   );
+  const encoding = read?.format;
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -502,7 +504,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && (
+                {encoding != null && ICD.isTaskFormat(encoding) && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
@@ -537,6 +539,18 @@ const TopicDetails: FC<TopicDetailsProps> = ({
             padHelpText={false}
           />
         </PForm.Section>
+        {topic !== "" &&
+          read != null &&
+          read.format !== "json" &&
+          ICD.isTaskFormat(read.format) && (
+            <ICD.LastPayload
+              key={device.key}
+              payload={read}
+              source={topic}
+              duration={Device.BROWSE_DURATION}
+              sample={(client) => Device.sampleTopic(client, device, topic)}
+            />
+          )}
         {reads.length === 1 && (
           <MessageSections path={path} read={0} format={format} device={device} />
         )}
@@ -692,7 +706,7 @@ const Entries: FC<EntriesProps> = ({
           const message = ICD.messageOf(messages, e, r);
           const match =
             message?.payload.format === "json" ? message.payload.match : undefined;
-          return { match, fields: ICD.jsonFields(message) };
+          return { name: message?.name ?? "", match, fields: ICD.jsonFields(message) };
         }),
       };
     });
@@ -760,6 +774,7 @@ const Entries: FC<EntriesProps> = ({
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add data");
+  const isPreview = Task.useIsPreview();
 
   const entry =
     current == null ? undefined : entries.find(({ key }) => key === current.source);
@@ -854,9 +869,12 @@ const Entries: FC<EntriesProps> = ({
       title={title ?? undefined}
     >
       {details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Add data to read a topic or a tag</Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No entry selected"
+          action={isPreview || bindDisabled ? undefined : "Add data"}
+          onClick={handleAdd}
+        />
       )}
     </Task.Views.Panes>
   );

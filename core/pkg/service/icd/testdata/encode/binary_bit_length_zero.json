@@ -1,0 +1,30 @@
+{
+  "description": "A field must have at least 1 bit.",
+  "message": {
+    "name": "frame",
+    "payload": {
+      "format": "binary",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "v",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 0,
+          "bit_length": 0,
+          "byte_order": "little_endian",
+          "kind": "unsigned"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "uint8"
+      }
+    ]
+  },
+  "error": "message frame: field v: bit length must be from 1 to 64, got 0: validation error"
+}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd, NotFoundError } from "@synnaxlabs/client";
+import { icd, mqtt, NotFoundError } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -112,6 +112,37 @@ describe("ICD queries", () => {
       });
       await expect(client.icds.retrieve({ key: ic.key })).rejects.toThrow(
         NotFoundError,
+      );
+    });
+
+    it("should report an error when a task uses the ICD", async () => {
+      const message = icd.messageZ.parse({
+        key: uuid.create(),
+        name: "Command",
+        payload: { format: "json", fields: [] },
+      });
+      const ic = await client.icds.create({
+        name: `icd-${id.create()}`,
+        messages: [message],
+      });
+      const target = mqtt.plainWriteTargetZ.parse({
+        type: "plain",
+        icd: ic.key,
+        message: { message: message.key, bindings: [] },
+      });
+      const used = await client.tasks.create({
+        name: `task-${id.create()}`,
+        type: "mqtt_write",
+        config: mqtt.writeConfigZ.parse({ targets: [target] }),
+      });
+      const { result } = renderHook(() => ICD.useDelete(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(ic.key);
+      });
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.status.message).toEqual("Failed to delete ICD");
+      expect(result.current.status.description).toEqual(
+        `cannot delete icd ${ic.name} because task ${used.name} uses it`,
       );
     });
   });

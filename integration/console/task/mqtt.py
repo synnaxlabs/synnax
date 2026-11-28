@@ -50,7 +50,9 @@ class MQTTTask(TaskPage):
         return self._pane().locator(_DETAILS_SELECTOR).first
 
     def _add_button(self) -> Locator:
-        return self._pane().get_by_role("button", name=self.add_label, exact=True)
+        # The empty details pane shows an action of the same name.
+        list_ = self._pane().locator(_ENTRY_LIST_SELECTOR).first
+        return list_.get_by_role("button", name=self.add_label, exact=True)
 
     def _dialog(self) -> Locator:
         return self.page.locator(_DISCOVER_SELECTOR)
