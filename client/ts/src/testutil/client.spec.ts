@@ -13,13 +13,23 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { AuthError, type Synnax } from "@/index";
 import {
+  createEmptyRole,
   createRequestHold,
   createTestClient,
+  createTestUser,
   holdRequests,
   rejectRequests,
 } from "@/testutil";
 
 describe("createTestClient", () => {
+  it("should keep the stream denial of a restricted client out of the console", async () => {
+    const owner = createTestClient();
+    const { key: role } = await createEmptyRole(owner);
+    const { username, password } = await createTestUser(owner, { role });
+    const client = createTestClient({ username, password });
+    await expect.poll(() => client.connection.status.details.streamDenied).toBe(true);
+  });
+
   it("should retry a request without writing to the console", async () => {
     const client = createTestClient();
     const realFetch = globalThis.fetch;
