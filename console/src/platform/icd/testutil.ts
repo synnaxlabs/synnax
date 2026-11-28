@@ -10,6 +10,8 @@
 import { icd, type Synnax } from "@synnaxlabs/client";
 import type { payload } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { expect } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
@@ -146,3 +148,27 @@ export const titleOf = (note: HTMLElement): string =>
 /** @returns whether the field picker fades value, the name of one of its values. */
 export const isDimmed = (value: HTMLElement): boolean =>
   value.closest(".console--dimmed") != null;
+
+/** Types text into the input with label, then commits it on blur. */
+export const typeText = async (
+  label: RegExp,
+  text: string,
+): Promise<HTMLInputElement> => {
+  const input = await screen.findByLabelText<HTMLInputElement>(label);
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: text } });
+  fireEvent.blur(input);
+  return input;
+};
+
+/** Waits for input to refuse text, then checks that a hover shows error. */
+export const expectRefused = async (
+  input: HTMLInputElement,
+  text: string,
+  error: string,
+): Promise<void> => {
+  await waitFor(() => expect(input.getAttribute("aria-invalid")).toBe("true"));
+  expect(input.value).toBe(text);
+  await userEvent.hover(input);
+  await screen.findByText(error);
+};
