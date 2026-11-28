@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import type { Icon } from "@synnaxlabs/lyra/icon";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import type { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
@@ -48,7 +48,7 @@ const ListItem = ({
     {...props}
   >
     <Text.Text gap="medium">
-      {icon}
+      <Icon.Colored>{icon}</Icon.Colored>
       {name}
     </Text.Text>
     {endContent != null && <Flex.Box x>{endContent}</Flex.Box>}
