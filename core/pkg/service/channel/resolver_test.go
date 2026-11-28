@@ -196,6 +196,20 @@ var _ = Describe("NewArcSymbolResolver", func() {
 				To(HaveField("ID", int(ch.Key())))
 		})
 
+		It("Should resolve a channel that the subject can see in a folder that it "+
+			"cannot", func(ctx SpecContext) {
+			ch := create(ctx, UniqueChannelName(), &folder.Key)
+			r := svc.NewSubjectResolver(db, func(
+				context.Context,
+			) (func(resource.ID) bool, error) {
+				return func(id resource.ID) bool {
+					return id != folder.ResourceID()
+				}, nil
+			})
+			Expect(r.Resolve(ctx, ch.Name)).To(HaveField("ID", int(ch.Key())))
+			Expect(r.Resolve(ctx, ch.Key().String())).To(HaveField("ID", int(ch.Key())))
+		})
+
 		It("Should resolve the highest key of a bare name in two folders", func(
 			ctx SpecContext,
 		) {

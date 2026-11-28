@@ -112,6 +112,12 @@ var _ = Describe("KeysByPaths", func() {
 				To(Equal(channel.Keys{inHidden.Key()}))
 		})
 
+	It("Should look up by key a channel that the subject can see behind a folder that "+
+		"it cannot", func(ctx SpecContext) {
+		Expect(svc.KeysByPaths(ctx, db, allowed, []string{inHidden.Key().String()})).
+			To(Equal(channel.Keys{inHidden.Key()}))
+	})
+
 	It("Should name no path when no channel of the name exists", func(ctx SpecContext) {
 		missing := UniqueChannelName()
 		Expect(svc.KeysByPaths(ctx, db, nil, []string{missing})).Error().
