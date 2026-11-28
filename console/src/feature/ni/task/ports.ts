@@ -210,7 +210,7 @@ export interface PortKind<C extends Task.Channel> {
   /** The names of the ports the channel holds, its own port first. */
   holds: (channel: C, hardware?: ni.device.Hardware) => string[];
   /** The name a channel shows by. */
-  name: (channel: C, device: Device.Device) => string;
+  name: (channel: C, device: Device.View) => string;
 }
 
 /** The claims of the channels, all on one device. */
@@ -246,8 +246,8 @@ export const holdState = <C extends Task.Channel>(
   );
 };
 
-const identifierOf = (device: Device.Device): string =>
-  channel.escapeInvalidName(device.properties.identifier);
+const identifierOf = (device: Device.View): string =>
+  channel.escapeInvalidName(device.identifier);
 
 const named = (name: string, fallback: () => string): string =>
   primitive.isNonZero(name) ? name : fallback();
@@ -280,25 +280,25 @@ export const COUNTER_INPUT: PortKind<CIChannel> = {
 /** The name an analog output channel's state channel shows by. */
 export const analogOutputStateName = (
   c: Exclude<AOChannel, { type: "ao_func_gen" }>,
-  d: Device.Device,
+  d: Device.View,
 ): string => named(c.stateChannelName, () => `${identifierOf(d)}_ao_${c.port}_state`);
 
 /** The name a digital input channel shows by. */
 export const digitalInputName = (
   c: Pick<DIChannel, "name" | "port" | "line">,
-  d: Device.Device,
+  d: Device.View,
 ): string => named(c.name, () => `${identifierOf(d)}_di_${c.port}_${c.line}`);
 
 /** The name a digital output channel shows by: its command channel's. */
 export const digitalOutputName = (
   c: Pick<DOChannel, "cmdChannelName" | "port" | "line">,
-  d: Device.Device,
+  d: Device.View,
 ): string =>
   named(c.cmdChannelName, () => `${identifierOf(d)}_do_${c.port}_${c.line}_cmd`);
 
 /** The name of a digital output channel's state channel. */
 export const digitalOutputStateName = (
   c: Pick<DOChannel, "stateChannelName" | "port" | "line">,
-  d: Device.Device,
+  d: Device.View,
 ): string =>
   named(c.stateChannelName, () => `${identifierOf(d)}_do_${c.port}_${c.line}_state`);

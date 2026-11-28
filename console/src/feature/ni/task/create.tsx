@@ -41,10 +41,7 @@ const getAnalogReadInitialValues: Task.GetInitialValues<AnalogReadSchemas> = asy
   if (config == null && deviceKeys.length === 0)
     cfg.channels = [Channel.createNextAI([])];
   else if (config == null) {
-    const devices = await client.devices.retrieve({
-      key: deviceKeys,
-      schemas: Device.SCHEMAS,
-    });
+    const devices = await Device.retrieveViews(client, deviceKeys);
     // No channel copies another, so each takes the voltage range of its own device.
     cfg.channels = deviceKeys.map((device) =>
       Channel.createNextAI([], { device }, devices),
@@ -119,10 +116,8 @@ export const CounterReadSelectable: Selector.Selectable = {
 const retrieveDevice = async (
   client: Synnax,
   key: device.Key | undefined,
-): Promise<Device.Device | undefined> =>
-  key == null
-    ? undefined
-    : await client.devices.retrieve({ key, schemas: Device.SCHEMAS });
+): Promise<Device.View | undefined> =>
+  key == null ? undefined : (await Device.retrieveViews(client, [key]))[0];
 
 const getDigitalReadInitialValues: Task.GetInitialValues<DigitalReadSchemas> = async ({
   client,

@@ -9,7 +9,7 @@
 
 import { type device, ni } from "@synnaxlabs/client";
 import { Device as PDevice, Flux } from "@synnaxlabs/pluto";
-import { primitive, verbs } from "@synnaxlabs/x";
+import { verbs } from "@synnaxlabs/x";
 
 import { type Device, SCHEMAS } from "@/feature/ni/device/types";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -18,11 +18,6 @@ const { useResult } = PDevice.createRetrieve(SCHEMAS);
 
 /** The device the form's config names, or undefined until it resolves or on failure. */
 export const useFromConfig = PlatformDevice.createUseFromConfig(useResult);
-
-/** The device with the key, or undefined for an empty key, until it resolves, or on
- * failure. */
-export const useByKey = (key: device.Key): Device | undefined =>
-  useResult(primitive.isNonZero(key) ? { key } : null).data;
 
 const { useResult: useResultMultiple } = PDevice.createRetrieveMultiple(SCHEMAS);
 

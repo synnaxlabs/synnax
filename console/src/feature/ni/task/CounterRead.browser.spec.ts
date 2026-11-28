@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { task } from "@synnaxlabs/client";
+import { device, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { caseconv, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -435,6 +435,39 @@ describe("CounterRead channel names", () => {
     );
     const item = await findChannelListItem(`${dev.properties.identifier}_ctr_1`);
     expect(within(item).queryByText("No channel")).toBeNull();
+  });
+
+  it("should rename the channels in the list when the device's identifier changes", async () => {
+    const dev = await createNIDevice(client);
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 1, { device: dev.key })]),
+    );
+    await findChannelListItem(`${dev.properties.identifier}_ctr_1`);
+    const identifier = id.create();
+    await client.devices.dispatch(
+      dev.key,
+      device.set({ path: ["properties", "identifier"], value: identifier }),
+    );
+    expect(await findChannelListItem(`${identifier}_ctr_1`)).toBeTruthy();
+  });
+});
+
+describe("CounterRead hardware", () => {
+  it("should check the channels against hardware the device reports after the form opens", async () => {
+    const dev = await createNIDevice(client);
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 4, { device: dev.key })]),
+    );
+    await findChannelListItem(`${dev.properties.identifier}_ctr_4`);
+    expect(screen.queryByText("The device has no counter ctr4")).toBeNull();
+    await client.devices.dispatch(
+      dev.key,
+      device.set({
+        path: ["properties", "hardware"],
+        value: caseconv.camelToSnake(createHardware()),
+      }),
+    );
+    expect(await screen.findByText("The device has no counter ctr4")).toBeTruthy();
   });
 });
 

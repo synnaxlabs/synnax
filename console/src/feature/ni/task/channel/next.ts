@@ -52,10 +52,9 @@ const template = <C extends Task.Channel>(channels: C[], zero: C, copy?: string)
   deep.copy(Task.channelToCopy(channels, copy) ?? zero);
 
 const hardwareOf = (
-  devices: Device.Device[],
+  devices: Device.View[],
   key: string,
-): ni.device.Hardware | undefined =>
-  devices.find((d) => d.key === key)?.properties.hardware;
+): ni.device.Hardware | undefined => devices.find((d) => d.key === key)?.hardware;
 
 /**
  * Creates an analog input channel. Without a port, it takes the lowest port on its
@@ -66,7 +65,7 @@ const hardwareOf = (
 export const createNextAI = (
   channels: AIChannel[],
   { copy, device, port }: Placement = {},
-  devices: Device.Device[] = [],
+  devices: Device.View[] = [],
 ): AIChannel => {
   const source = Task.channelToCopy(channels, copy);
   const next: AIChannel = {
@@ -97,9 +96,9 @@ export const createNextAI = (
 export const createNextAO = (
   channels: AOChannel[],
   { copy, port }: Omit<Placement, "device"> = {},
-  device?: Device.Device,
+  device?: Device.View,
 ): AOChannel => {
-  const hardware = device?.properties.hardware;
+  const hardware = device?.hardware;
   const base = template(channels, createAOChannel(), copy);
   const next: AOChannel = isGenerated(base)
     ? { ...base, key: id.create() }
@@ -118,7 +117,7 @@ export const createNextAO = (
 export const createNextCI = (
   channels: CIChannel[],
   { copy, device, port }: Placement = {},
-  devices: Device.Device[] = [],
+  devices: Device.View[] = [],
 ): CIChannel => {
   const next: CIChannel = {
     ...template(channels, createCIChannel(), copy),
@@ -151,13 +150,13 @@ const createDigitalChannel = <C extends DigitalChannel>(
   zero: C,
   direction: "input" | "output",
   placement: LinePlacement,
-  device?: Device.Device,
+  device?: Device.View,
 ): C => {
   const next = { ...zero, key: id.create() };
   if (placement.port != null && placement.line != null)
     return { ...next, port: placement.port, line: placement.line };
   const taken = lineClaims(channels);
-  const hardware = device?.properties.hardware;
+  const hardware = device?.hardware;
   const ports = hardware == null ? [] : digitalPorts(hardware, direction);
   for (const { port, lines } of ports) {
     if (placement.port != null && port !== placement.port) continue;
@@ -178,7 +177,7 @@ const createDigitalChannel = <C extends DigitalChannel>(
 export const createNextDI = (
   channels: DIChannel[],
   placement: LinePlacement = {},
-  device?: Device.Device,
+  device?: Device.View,
 ): DIChannel =>
   createDigitalChannel(channels, createDIChannel(), "input", placement, device);
 
@@ -186,6 +185,6 @@ export const createNextDI = (
 export const createNextDO = (
   channels: DOChannel[],
   placement: LinePlacement = {},
-  device?: Device.Device,
+  device?: Device.View,
 ): DOChannel =>
   createDigitalChannel(channels, createDOChannel(), "output", placement, device);

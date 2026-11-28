@@ -1029,7 +1029,7 @@ export const AIChannelForm = ({ type, path, channelsPath }: AIChannelFormProps) 
       <Form.Section title="Signal">
         <SelectAIChannelTypeField
           path={path}
-          hardware={device?.properties.hardware}
+          hardware={device?.hardware}
           inputProps={{ allowNone: false, children: channelTypeItems(types) }}
         />
         <TypeFields type={type} path={path} />

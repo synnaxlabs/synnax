@@ -13,3 +13,4 @@ export * from "@/feature/ni/device/queries";
 export * from "@/feature/ni/device/Select";
 export * from "@/feature/ni/device/tree";
 export * from "@/feature/ni/device/types";
+export * from "@/feature/ni/device/view";

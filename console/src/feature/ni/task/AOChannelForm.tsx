@@ -107,9 +107,9 @@ export interface AOChannelFormProps {
 const TypeFields = createTypeFields<AOChannel>(CHANNEL_FORMS);
 
 export const AOChannelForm = ({ type, path, channelsPath }: AOChannelFormProps) => {
-  const device = Device.useFromConfig();
+  const device = Device.useViewFromConfig();
   const port = Form.useFieldValue(path.port);
-  const entry = device?.properties.hardware?.analogOutputs.find((p) => p.port === port);
+  const entry = device?.hardware?.analogOutputs.find((p) => p.port === port);
   const types = allowedTypes(AO_CHANNEL_TYPES, type, entry);
   return (
     <Form.Sections>
@@ -125,7 +125,7 @@ export const AOChannelForm = ({ type, path, channelsPath }: AOChannelFormProps) 
       <Form.Section title="Signal">
         <SelectAOChannelTypeField
           path={path}
-          hardware={device?.properties.hardware}
+          hardware={device?.hardware}
           inputProps={{ children: channelTypeItems(types) }}
         />
         <TypeFields type={type} path={path} />
