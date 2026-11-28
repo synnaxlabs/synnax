@@ -21,6 +21,23 @@
 #include "driver/pipeline/control.h"
 
 namespace driver::pipeline::testutil {
+/// @brief the channels of each set_channels() call on a mock Streamer.
+class ChannelSets {
+    std::mutex mu;
+    std::vector<std::vector<synnax::channel::Key>> calls;
+
+public:
+    void push(const std::vector<synnax::channel::Key> &channels) {
+        std::lock_guard lock(this->mu);
+        this->calls.push_back(channels);
+    }
+
+    std::vector<std::vector<synnax::channel::Key>> snapshot() {
+        std::lock_guard lock(this->mu);
+        return this->calls;
+    }
+};
+
 // Configuration for a mock Streamer that allows controlling its behavior in tests.
 struct StreamerConfig {
     // A sequence of frames that the Streamer will return on each read() call.
@@ -35,6 +52,12 @@ struct StreamerConfig {
 
     // Error to return when close() is called on the Streamer.
     x::errors::Error close_err;
+
+    // Records each set_channels() call if not nullptr.
+    std::shared_ptr<ChannelSets> channel_sets;
+
+    // Error to return when set_channels() is called on the Streamer.
+    x::errors::Error set_channels_err;
 };
 
 // Mock implementation of pipeline::Streamer for testing.
@@ -80,6 +103,13 @@ public:
         this->config.read_errors->push_back(freighter::STREAM_CLOSED);
     }
 
+    x::errors::Error
+    set_channels(const std::vector<synnax::channel::Key> &channels) override {
+        if (this->config.channel_sets != nullptr)
+            this->config.channel_sets->push(channels);
+        return this->config.set_channels_err;
+    }
+
 private:
     // Guards config.read_errors, which close_send() changes while read() runs.
     std::mutex read_errors_mu;
@@ -102,6 +132,9 @@ public:
     // When valid, open_streamer blocks until it is ready.
     std::shared_future<void> open_gate;
 
+    // Counts calls to open_streamer, including those still waiting on open_gate.
+    std::atomic<size_t> open_calls{0};
+
     // Counts how many times open_streamer has been called.
     // Atomic with release semantics so that readers who observe the incremented
     // value are guaranteed to see the config assignment that precedes it.
@@ -115,6 +148,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(const synnax::framer::StreamerConfig config) override {
+        this->open_calls.fetch_add(1);
         if (this->open_gate.valid()) this->open_gate.wait();
         this->config = config;
         this->streamer_opens.fetch_add(1, std::memory_order_release);

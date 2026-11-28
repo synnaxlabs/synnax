@@ -67,6 +67,26 @@ TEST(StreamerTest, DeliversLocalBusFrames) {
     ASSERT_NIL(streamer->close());
 }
 
+/// @brief it should deliver bus frames of the channels that set_channels names, and
+/// not of the channels it replaced.
+TEST(StreamerTest, SetChannelsReplacesBusChannels) {
+    auto bus = std::make_shared<Bus>();
+    auto mock_factory = ::driver::pipeline::testutil::simple_streamer_factory(
+        {1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    StreamerFactory factory(mock_factory, bus, TEST_SUBJECT, TEST_BREAKER);
+    auto streamer = ASSERT_NIL_P(factory.open_streamer({.channels = {1}}));
+    ASSERT_NIL(streamer->set_channels({2}));
+    bus->publish(x::telem::Frame(1, x::telem::Series(1.0f)));
+    bus->publish(x::telem::Frame(2, x::telem::Series(2.0f)));
+    auto frame = ASSERT_NIL_P(streamer->read());
+    ASSERT_EQ(frame.size(), 1);
+    ASSERT_TRUE(frame.contains(2));
+    streamer->close_send();
+    ASSERT_NIL(streamer->close());
+}
+
 TEST(StreamerTest, DeliversCoreFrames) {
     auto bus = std::make_shared<Bus>();
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();

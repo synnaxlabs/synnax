@@ -11,6 +11,8 @@
 
 #include <memory>
 #include <mutex>
+#include <utility>
+#include <vector>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -75,6 +77,12 @@ public:
     /// should return as soon as possible.
     virtual void close_send() = 0;
 
+    /// @brief replaces the channels that the streamer streams. Safe to call while
+    /// read() runs, but not with close(), close_send(), or itself. A streamer that
+    /// fails to set them returns the error, and its next read() fails too.
+    virtual x::errors::Error
+    set_channels(const std::vector<synnax::channel::Key> &channels) = 0;
+
     virtual ~Streamer() = default;
 };
 
@@ -111,6 +119,10 @@ public:
 
     /// @brief implements pipeline::Streamer to close the streamer.
     void close_send() override;
+
+    /// @brief implements pipeline::Streamer to set the channels of the streamer.
+    x::errors::Error
+    set_channels(const std::vector<synnax::channel::Key> &channels) override;
 };
 
 /// @brief an implementation of the pipeline::StreamerFactory interface that is backed
@@ -142,7 +154,8 @@ class Control final : public Base {
     synnax::framer::StreamerConfig config;
     /// @brief the sink that the control pipeline will write frames to.
     std::shared_ptr<Sink> sink;
-    /// @brief protects streamer, which a stop reads from another thread.
+    /// @brief protects streamer and config.channels, which a stop or set_channels
+    /// reads from another thread.
     std::mutex streamer_mu;
     /// @brief the current open streamer reading data from the network.
     std::unique_ptr<Streamer> streamer = nullptr;
@@ -190,6 +203,13 @@ public:
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
+
+    /// @brief sets the channels that the streamer streams, on the open streamer and
+    /// on each later open. Safe to call from any thread.
+    /// @returns the error of an open streamer that rejects the channels. The pipeline
+    /// then keeps the channels it had.
+    [[nodiscard]] x::errors::Error
+    set_channels(const std::vector<synnax::channel::Key> &channels);
 
     void run() override;
 

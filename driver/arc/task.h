@@ -9,14 +9,20 @@
 
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <set>
+#include <string>
+#include <thread>
 #include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
 
 #include "client/cpp/arc/arc.h"
+#include "client/cpp/errors/errors.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
@@ -27,6 +33,7 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "driver/arc/calculator.h"
 #include "driver/arc/ranges/ranges.h"
 #include "driver/arc/status/status.h"
 #include "driver/bypass/pipeline/factory.h"
@@ -38,21 +45,67 @@
 #include "driver/task/task.h"
 
 namespace driver::arc {
+/// @brief the compiled program of an automation and the calculations it reads.
+struct Compiled {
+    ::arc::program::Program program;
+    /// @brief the calculated channels that the program reads, dependencies first.
+    std::vector<synnax::arc::Calculation> calculations;
+};
+
+/// @brief retrieves and compiles the automation with the given key.
+inline std::pair<Compiled, x::errors::Error>
+retrieve_automation(const synnax::Synnax &client, const x::uuid::UUID &key) {
+    auto [arc_data, err] = client.arcs.retrieve(
+        key,
+        synnax::arc::RetrieveOptions{.include_program = true}
+    );
+    if (err) return {{}, err};
+    auto *automation = std::get_if<synnax::arc::AutomationArc>(&arc_data);
+    if (automation == nullptr)
+        return {
+            {},
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "Modules cannot be deployed independently. Import \"" +
+                    synnax::arc::base(arc_data).name + "\" from an automation instead."
+            )
+        };
+    if (!automation->program.has_value())
+        return {
+            {},
+            x::errors::Error(x::errors::INTERNAL, "The Arc program is not compiled.")
+        };
+    return {
+        Compiled{
+            .program = std::move(*automation->program),
+            .calculations = std::move(automation->calculations),
+        },
+        x::errors::NIL,
+    };
+}
+
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : ::synnax::task::PersistConfig {
     x::uuid::UUID arc_key;
     ::arc::program::Program program;
+    /// @brief the calculated channels that the program reads, dependencies first.
+    std::vector<synnax::arc::Calculation> calculations;
     ::arc::runtime::loop::Config loop;
     /// @brief loop iterations and function calls that the program can run in one
     /// cycle. Not read from the task's JSON config.
     std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET;
+    /// @brief how long to wait after a calculated channel changes before loading the
+    /// calculations again. A Driver setting, not read from the task's JSON config.
+    x::telem::TimeSpan reload_delay = 100 * x::telem::MILLISECOND;
 
     TaskConfig(TaskConfig &&other) noexcept:
         ::synnax::task::PersistConfig(std::move(other)),
         arc_key(other.arc_key),
         program(std::move(other.program)),
+        calculations(std::move(other.calculations)),
         loop(other.loop),
-        loop_budget(other.loop_budget) {}
+        loop_budget(other.loop_budget),
+        reload_delay(other.reload_delay) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
@@ -66,31 +119,10 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_data, arc_err] = client->arcs.retrieve(
-            cfg.arc_key,
-            synnax::arc::RetrieveOptions{.include_program = true}
-        );
-        if (arc_err) return {std::move(cfg), arc_err};
-        const auto *automation = std::get_if<synnax::arc::AutomationArc>(&arc_data);
-        if (automation == nullptr)
-            return {
-                std::move(cfg),
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    "Modules cannot be deployed independently. Import \"" +
-                        synnax::arc::base(arc_data).name +
-                        "\" from an automation instead."
-                )
-            };
-        if (!automation->program.has_value())
-            return {
-                std::move(cfg),
-                x::errors::Error(
-                    x::errors::INTERNAL,
-                    "The Arc program is not compiled."
-                )
-            };
-        cfg.program = *automation->program;
+        auto [compiled, err] = retrieve_automation(*client, cfg.arc_key);
+        if (err) return {std::move(cfg), err};
+        cfg.program = std::move(compiled.program);
+        cfg.calculations = std::move(compiled.calculations);
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -105,8 +137,25 @@ class Task final : public task::Task {
     /// fills it at each start and releases it at each stop, so a task built beside a
     /// running one takes no core.
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
+    /// @brief computes calculated channels on the control thread.
+    Calculator calculator;
+    /// @brief guards reloaded and retired.
+    std::mutex reload_mu;
+    /// @brief a calculator to swap in before the next compute.
+    std::unique_ptr<Calculator> reloaded;
+    /// @brief true while reloaded holds a calculator. Lets the control thread skip
+    /// reload_mu on each frame.
+    std::atomic<bool> has_reloaded = false;
+    /// @brief the calculator that a swap replaced, which the reload thread destroys
+    /// so that the control thread does not.
+    std::unique_ptr<Calculator> retired;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
+    class Reloader;
+    /// @brief loads the calculations again when they change.
+    std::unique_ptr<Reloader> reloader;
+    /// @brief streams the channel changes that ask the reloader for a reload.
+    std::unique_ptr<pipeline::Control> watch;
     /// @brief guards state, opening, and pending_starts, which the command, pipeline,
     /// and runtime threads all touch.
     std::mutex state_mu;
@@ -115,6 +164,16 @@ class Task final : public task::Task {
     bool opening = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
+
+    /// @brief swaps in the reloaded calculator, if there is one. A restore can take it
+    /// back after has_reloaded was read, so this checks again under reload_mu.
+    void swap_reloaded() {
+        std::lock_guard lock(this->reload_mu);
+        if (this->reloaded == nullptr) return;
+        std::swap(this->calculator, *this->reloaded);
+        this->retired = std::move(this->reloaded);
+        this->has_reloaded.store(false, std::memory_order_release);
+    }
 
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
@@ -165,6 +224,9 @@ class Task final : public task::Task {
 
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
+            if (this->task.has_reloaded.load(std::memory_order_acquire))
+                this->task.swap_reloaded();
+            this->task.calculator.compute(frame);
             const auto err = this->task.runtime->write(std::move(frame));
             // A runtime that stopped itself already reported why, so the frame drops.
             if (err.matches(::arc::runtime::errors::CLOSED)) return x::errors::NIL;
@@ -175,6 +237,7 @@ class Task final : public task::Task {
         // send commands at once, and the program reads its own first writes.
         void opened() override {
             this->task.start_runtime();
+            if (this->task.reloader) this->task.reloader->retry();
             std::lock_guard lock(this->task.state_mu);
             if (this->task.opening) this->task.answer_pending_starts();
         }
@@ -188,6 +251,291 @@ class Task final : public task::Task {
             }
             this->task.state.error(err, message);
             this->task.answer_pending_starts();
+        }
+    };
+
+    /// @brief loads the calculations again on its own thread, so the control thread
+    /// never waits on the Core. Requests that come within the reload delay of each
+    /// other load once.
+    class Reloader {
+        Task &task;
+        std::shared_ptr<synnax::Synnax> client;
+        x::uuid::UUID arc_key;
+        ::arc::runtime::Config cfg;
+        ::arc::runtime::scheduler::ErrorHandler on_error;
+        x::telem::TimeSpan delay;
+        /// @brief guards watched, failed, requested, running, and thread.
+        mutable std::mutex mu;
+        std::condition_variable cv;
+        /// @brief the channels whose change or delete reloads the calculations. It
+        /// only grows, so that a calculation the Core leaves out stays watched.
+        std::set<::arc::types::ChannelKey> watched;
+        /// @brief true if the last reload failed on a transient error, so that the next
+        /// open of the control pipeline retries it.
+        bool failed = false;
+        bool requested = false;
+        bool running = false;
+        std::thread thread;
+        /// @brief the calculations last loaded.
+        x::json::json loaded;
+        /// @brief each calculated channel last loaded and the channels it reads.
+        std::vector<
+            std::pair<::arc::types::ChannelKey, std::set<::arc::types::ChannelKey>>>
+            dependencies;
+        /// @brief the channels that the control pipeline streams.
+        std::vector<::arc::types::ChannelKey> streamed;
+
+        void run() {
+            std::unique_lock lock(this->mu);
+            while (true) {
+                this->cv.wait(lock, [this] {
+                    return this->requested || !this->running;
+                });
+                if (!this->running) return;
+                this->cv.wait_for(lock, this->delay.chrono(), [this] {
+                    return !this->running;
+                });
+                if (!this->running) return;
+                this->requested = false;
+                lock.unlock();
+                const auto err = this->reload();
+                if (err) {
+                    std::lock_guard state_lock(this->task.state_mu);
+                    this->task.state.send_warning(
+                        "Failed to reload calculations",
+                        "The Arc keeps its previous calculations. " + err.data
+                    );
+                }
+                lock.lock();
+                this->failed = false;
+                if (err) {
+                    const auto kind = synnax::errors::classify(err);
+                    this->failed = kind == synnax::errors::Kind::TRANSIENT ||
+                                   kind == synnax::errors::Kind::INTERRUPTED;
+                }
+            }
+        }
+
+        /// @returns an error if the Arc, or a calculation in next, still needs a
+        /// calculation that the Core left out, as the Core keeps computing its last
+        /// good version. A calculation whose channel, or a channel it reads, was
+        /// deleted can go.
+        [[nodiscard]] x::errors::Error check_dropped(const Calculator &next) const {
+            const auto &arc_reads = this->task.runtime->read_channels;
+            std::set needed(arc_reads.begin(), arc_reads.end());
+            std::set<::arc::types::ChannelKey> kept;
+            for (const auto &[key, reads]: next.dependencies()) {
+                kept.insert(key);
+                needed.insert(reads.begin(), reads.end());
+            }
+            std::set<::arc::types::ChannelKey> gone;
+            for (const auto &[key, reads]: this->dependencies) {
+                if (kept.contains(key)) continue;
+                if (std::ranges::any_of(reads, [&](const auto k) {
+                        return gone.contains(k);
+                    })) {
+                    gone.insert(key);
+                    continue;
+                }
+                std::vector keys(reads.begin(), reads.end());
+                keys.push_back(key);
+                const auto [channels, err] = this->client->channels.retrieve(keys);
+                if (err.matches(x::errors::NOT_FOUND)) {
+                    gone.insert(key);
+                    continue;
+                }
+                if (err) return err;
+                if (needed.contains(key))
+                    return x::errors::Error(
+                        x::errors::VALIDATION,
+                        "The Core cannot compute " + channels.back().name +
+                            ". Fix its expression."
+                    );
+            }
+            return x::errors::NIL;
+        }
+
+        /// @brief takes back the calculator that reload handed over, and puts back the
+        /// calculator for the channels that the control pipeline still streams:
+        /// previous, the one that reload replaced before the control thread took it,
+        /// or else the one that the control thread replaced.
+        void restore(std::unique_ptr<Calculator> previous) {
+            std::unique_ptr<Calculator> dropped;
+            std::lock_guard lock(this->task.reload_mu);
+            const auto taken = !this->task.has_reloaded.load(std::memory_order_acquire);
+            if (previous != nullptr) {
+                dropped = taken ? std::move(this->task.retired)
+                                : std::move(this->task.reloaded);
+                this->task.reloaded = std::move(previous);
+            } else if (taken)
+                this->task.reloaded = std::move(this->task.retired);
+            else
+                dropped = std::move(this->task.reloaded);
+            this->task.has_reloaded.store(
+                this->task.reloaded != nullptr,
+                std::memory_order_release
+            );
+        }
+
+        x::errors::Error reload() {
+            auto [compiled, err] = retrieve_automation(*this->client, this->arc_key);
+            if (err) return err;
+            auto loaded = x::json::to_array(compiled.calculations);
+            if (loaded == this->loaded) return x::errors::NIL;
+            auto [calc, load_err] = Calculator::load(
+                compiled.calculations,
+                this->cfg,
+                this->on_error
+            );
+            if (load_err) return load_err;
+            if (const auto drop_err = this->check_dropped(calc)) return drop_err;
+            auto streamed = calc.streamed(this->task.runtime->read_channels);
+            auto dependencies = calc.dependencies();
+            const auto channels = calc.channels();
+            // The calculator goes out before the channels change, so that a frame of
+            // the new channels never reaches the old calculator.
+            std::unique_ptr<Calculator> retired;
+            std::unique_ptr<Calculator> unused;
+            {
+                std::lock_guard lock(this->task.reload_mu);
+                retired = std::move(this->task.retired);
+                unused = std::move(this->task.reloaded);
+                this->task.reloaded = std::make_unique<Calculator>(std::move(calc));
+                this->task.has_reloaded.store(true, std::memory_order_release);
+            }
+            if (streamed != this->streamed) {
+                if (const auto set_err = this->task.control->set_channels(streamed)) {
+                    this->restore(std::move(unused));
+                    return set_err;
+                }
+                this->streamed = std::move(streamed);
+            }
+            this->loaded = std::move(loaded);
+            this->dependencies = std::move(dependencies);
+            std::lock_guard lock(this->mu);
+            this->watched.insert(channels.begin(), channels.end());
+            return x::errors::NIL;
+        }
+
+    public:
+        Reloader(
+            Task &task,
+            std::shared_ptr<synnax::Synnax> client,
+            const x::uuid::UUID &arc_key,
+            ::arc::runtime::Config cfg,
+            ::arc::runtime::scheduler::ErrorHandler on_error,
+            const x::telem::TimeSpan delay,
+            const std::vector<synnax::arc::Calculation> &calculations
+        ):
+            task(task),
+            client(std::move(client)),
+            arc_key(arc_key),
+            cfg(std::move(cfg)),
+            on_error(std::move(on_error)),
+            delay(delay),
+            watched(task.calculator.channels()),
+            loaded(x::json::to_array(calculations)),
+            dependencies(task.calculator.dependencies()),
+            streamed(task.calculator.streamed(task.runtime->read_channels)) {
+            this->watched.insert(
+                task.runtime->read_channels.begin(),
+                task.runtime->read_channels.end()
+            );
+        }
+
+        /// @brief starts the reload thread. Does nothing if it runs.
+        void start() {
+            std::lock_guard lock(this->mu);
+            if (this->running) return;
+            this->running = true;
+            this->requested = false;
+            this->thread = std::thread(&Reloader::run, this);
+        }
+
+        /// @brief stops the reload thread and waits for a reload in progress. Safe to
+        /// call from any thread but the reload thread.
+        void stop() {
+            std::thread done;
+            {
+                std::lock_guard lock(this->mu);
+                this->running = false;
+                done = std::move(this->thread);
+            }
+            this->cv.notify_all();
+            if (done.joinable()) done.join();
+        }
+
+        /// @brief asks for a reload after the delay if the last reload failed.
+        void retry() {
+            {
+                std::lock_guard lock(this->mu);
+                if (!this->failed) return;
+                this->requested = true;
+            }
+            this->cv.notify_all();
+        }
+
+        /// @brief asks for a reload after the delay.
+        void request() {
+            {
+                std::lock_guard lock(this->mu);
+                this->requested = true;
+            }
+            this->cv.notify_all();
+        }
+
+        /// @brief returns true if frame, from the channel set or delete channel,
+        /// changes a watched channel.
+        [[nodiscard]] bool changes(
+            const x::telem::Frame &frame,
+            const synnax::channel::Key set_key,
+            const synnax::channel::Key delete_key
+        ) const {
+            std::lock_guard lock(this->mu);
+            for (const auto [key, series]: frame)
+                if (key == delete_key) {
+                    for (const auto k: series.values<synnax::channel::Key>())
+                        if (this->watched.contains(k)) return true;
+                } else if (key == set_key)
+                    for (const auto &ch: series.json_values())
+                        if (this->watched.contains(
+                                ch.at("key").get<synnax::channel::Key>()
+                            ))
+                            return true;
+            return false;
+        }
+    };
+
+    /// @brief sink that asks for a reload of the calculations when a channel they use
+    /// changes, and each time its streamer opens, so that edits made during an outage
+    /// apply.
+    class Watch final : public pipeline::Sink {
+        Task &task;
+        synnax::channel::Key set_key;
+        synnax::channel::Key delete_key;
+
+    public:
+        Watch(
+            Task &task,
+            const synnax::channel::Key set_key,
+            const synnax::channel::Key delete_key
+        ):
+            task(task), set_key(set_key), delete_key(delete_key) {}
+
+        x::errors::Error write(x::telem::Frame &frame) override {
+            if (this->task.reloader->changes(frame, this->set_key, this->delete_key))
+                this->task.reloader->request();
+            return x::errors::NIL;
+        }
+
+        void opened() override { this->task.reloader->request(); }
+
+        void stopped_with_err(const x::errors::Error &err) override {
+            std::lock_guard lock(this->task.state_mu);
+            this->task.state.send_warning(
+                "Failed to watch calculations",
+                "The Arc keeps its previous calculations. " + err.data
+            );
         }
     };
 
@@ -214,7 +562,8 @@ public:
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
-        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr,
+        std::shared_ptr<pipeline::StreamerFactory> watch_factory = nullptr
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
@@ -309,6 +658,23 @@ public:
         if (err) return {nullptr, err};
 
         task->runtime = std::move(rt);
+        const auto on_calc_error = [task_ptr = task.get()](
+                                       const ::arc::ir::Node &node,
+                                       const x::errors::Error &err
+                                   ) {
+            std::lock_guard lock(task_ptr->state_mu);
+            task_ptr->state.send_warning(
+                "Failed to run calculation",
+                "The " + node.type + " node failed: " + err.data
+            );
+        };
+        auto [calculator, calc_err] = Calculator::load(
+            cfg.calculations,
+            runtime_cfg,
+            on_calc_error
+        );
+        if (calc_err) return {nullptr, calc_err};
+        task->calculator = std::move(calculator);
 
         if (!writer_factory)
             writer_factory = bypass::pipeline::create_writer_factory(ctx);
@@ -346,11 +712,49 @@ public:
             task->control = std::make_unique<pipeline::Control>(
                 streamer_factory,
                 synnax::framer::StreamerConfig{
-                    .channels = task->runtime->read_channels,
+                    .channels = task->calculator.streamed(task->runtime->read_channels),
                 },
                 std::move(sink),
                 x::breaker::default_config("arc_control"),
                 "arc_control"
+            );
+        }
+        if (task->control && !cfg.calculations.empty()) {
+            auto [signals, signals_err] = ctx->client->channels.retrieve(
+                std::vector{
+                    synnax::channel::SET_CHANNEL,
+                    synnax::channel::DELETE_CHANNEL,
+                }
+            );
+            if (signals_err) return {nullptr, signals_err};
+            synnax::channel::Key set_key = 0;
+            synnax::channel::Key delete_key = 0;
+            for (const auto &ch: signals)
+                if (ch.name == synnax::channel::SET_CHANNEL)
+                    set_key = ch.key;
+                else if (ch.name == synnax::channel::DELETE_CHANNEL)
+                    delete_key = ch.key;
+            if (!watch_factory)
+                watch_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
+                    ctx->client
+                );
+            auto calc_cfg = runtime_cfg;
+            calc_cfg.program = {};
+            task->reloader = std::make_unique<Reloader>(
+                *task,
+                ctx->client,
+                cfg.arc_key,
+                std::move(calc_cfg),
+                on_calc_error,
+                cfg.reload_delay,
+                cfg.calculations
+            );
+            task->watch = std::make_unique<pipeline::Control>(
+                std::move(watch_factory),
+                synnax::framer::StreamerConfig{.channels = {set_key, delete_key}},
+                std::make_unique<Watch>(*task, set_key, delete_key),
+                x::breaker::default_config("arc_watch"),
+                "arc_watch"
             );
         }
 
@@ -376,7 +780,22 @@ public:
             }
         }
         if (this->control) {
-            if (this->control->start()) return true;
+            // No compute runs while the control pipeline is stopped. A restored
+            // calculator has computed before, so it resets too.
+            this->swap_reloaded();
+            if (const auto err = this->calculator.reset()) {
+                std::lock_guard lock(this->state_mu);
+                this->state.error(err, "Failed to load calculations");
+                this->answer_pending_starts();
+                return false;
+            }
+            if (this->control->start()) {
+                if (this->watch) {
+                    this->reloader->start();
+                    this->watch->start();
+                }
+                return true;
+            }
             // The pipeline of a start that failed can still be on its way out.
             std::lock_guard lock(this->state_mu);
             for (const auto &key: this->pending_starts)
@@ -392,6 +811,10 @@ public:
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
+        if (this->watch) {
+            this->watch->stop();
+            this->reloader->stop();
+        }
         auto control_stopped = true;
         if (this->control) control_stopped = this->control->stop();
         this->runtime->close_outputs();

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -61,15 +62,45 @@ void Control::stopped_with_err(const x::errors::Error &err) {
     this->sink->stopped_with_err(err);
 }
 
+x::errors::Error
+Control::set_channels(const std::vector<synnax::channel::Key> &channels) {
+    std::lock_guard lock{this->streamer_mu};
+    if (this->streamer != nullptr)
+        if (const auto err = this->streamer->set_channels(channels)) return err;
+    this->config.channels = channels;
+    return x::errors::NIL;
+}
+
 bool Control::run_once() {
-    auto [s, open_err] = this->factory->open_streamer(this->config);
+    synnax::framer::StreamerConfig config;
+    {
+        std::lock_guard lock{this->streamer_mu};
+        config = this->config;
+    }
+    auto [s, open_err] = this->factory->open_streamer(config);
+    x::errors::Error set_err;
     {
         std::lock_guard lock{this->streamer_mu};
         this->streamer = std::move(s);
+        // A set_channels that ran during the open missed this streamer.
+        if (this->streamer != nullptr && this->config.channels != config.channels)
+            set_err = this->streamer->set_channels(this->config.channels);
     }
     if (open_err) {
         if (this->wait_for_core(open_err)) return true;
         this->sink->stopped_with_err(open_err);
+        return false;
+    }
+    if (set_err) {
+        x::errors::Error close_err;
+        {
+            std::lock_guard lock{this->streamer_mu};
+            close_err = this->streamer->close();
+            this->streamer = nullptr;
+        }
+        const auto err = close_err ? close_err : set_err;
+        if (this->wait_for_core(err)) return true;
+        this->sink->stopped_with_err(err);
         return false;
     }
     this->breaker.reset_unlimited();
@@ -87,7 +118,14 @@ bool Control::run_once() {
         }
         this->breaker.reset();
     }
-    const auto close_err = this->streamer->close();
+    x::errors::Error close_err;
+    {
+        std::lock_guard lock{this->streamer_mu};
+        close_err = this->streamer->close();
+        // A set_channels while the pipeline waits for the Core then changes only the
+        // channels of the next open.
+        this->streamer = nullptr;
+    }
     if (this->wait_for_core(close_err)) return true;
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
@@ -109,6 +147,11 @@ x::errors::Error SynnaxStreamer::close() {
 
 void SynnaxStreamer::close_send() {
     this->internal.close_send();
+}
+
+x::errors::Error
+SynnaxStreamer::set_channels(const std::vector<synnax::channel::Key> &channels) {
+    return this->internal.set_channels(channels);
 }
 
 SynnaxStreamerFactory::SynnaxStreamerFactory(

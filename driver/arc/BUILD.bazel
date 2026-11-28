@@ -21,6 +21,7 @@ cc_library(
     srcs = ["factory.cpp"],
     hdrs = [
         "arc.h",
+        "calculator.h",
         "task.h",
     ],
     visibility = ["//visibility:public"],
@@ -29,6 +30,7 @@ cc_library(
         "//arc/cpp/runtime",
         "//arc/cpp/runtime/loop",
         "//client/cpp/arc",
+        "//client/cpp/errors",
         "//client/cpp/task",
         "//driver/arc/ranges",
         "//driver/arc/status",
@@ -37,6 +39,7 @@ cc_library(
         "//driver/pipeline",
         "//driver/task",
         "//x/cpp/breaker",
+        "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/telem",
         "//x/cpp/uuid",
@@ -55,10 +58,24 @@ cc_test(
         "//driver/control",
         "//driver/pipeline/testutil",
         "//driver/task",
+        "//freighter/cpp:freighter",
         "//x/cpp/defer",
         "//x/cpp/sync",
         "//x/cpp/testutil",
         "//x/cpp/thread/rt",
+        "@cpp-httplib//:cpp-httplib",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "calculator_test",
+    srcs = ["calculator_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/arc",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
