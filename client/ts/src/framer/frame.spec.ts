@@ -366,6 +366,11 @@ describe("framer.Frame", () => {
       const pld = new framer.Frame(12, new Series({ data })).toPayload();
       expect(Array.from(new Float32Array(pld.series[0].data))).toEqual([2, 3]);
     });
+
+    it("should keep the clock of each series", () => {
+      const s = new Series({ data: new Float32Array([1]), clock: 7 });
+      expect(new framer.Frame(12, s).toPayload().series[0].clock).toEqual(7);
+    });
   });
 
   describe("latest", () => {
