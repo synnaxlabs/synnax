@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <memory>
 #include <set>
 #include <string>
@@ -79,14 +80,15 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     x::json::Parser parser(task.config);
     const auto cfg = synnax::serial::ReadConfig::parse(parser);
     if (cfg.device.empty()) parser.field_err("device", "this field is required");
-    if (cfg.entries.empty())
-        parser.field_err("entries", "at least one entry is required");
+    if (std::ranges::all_of(cfg.entries, &synnax::icd::ReadEntry::disabled))
+        parser.field_err("entries", "at least one entry must be enabled");
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
     auto [dev, dev_err] = retrieve_device(ctx->client->devices, cfg.device);
     if (dev_err) return {common::ConfigureResult{}, dev_err};
     std::set<synnax::icd::Key> icds;
     std::set<synnax::channel::Key> channels;
     for (const auto &entry: cfg.entries) {
+        if (entry.disabled) continue;
         icds.insert(entry.icd);
         for (const auto &rm: entry.messages)
             for (const auto &b: rm.bindings)

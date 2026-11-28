@@ -688,6 +688,8 @@ class ReadEntry(BaseModel):
     """Reads the messages of one device on a serial port or a socket.
 
     Attributes:
+        key: Uniquely identifies the entry within the task.
+        disabled: Is true when the entry is excluded from the task.
         icd: Is the key of the ICD that holds the messages of the entry.
         messages: Are the messages the device sends. Each frame is read as the message
             whose match rule it meets.
@@ -695,9 +697,15 @@ class ReadEntry(BaseModel):
             its own.
     """
 
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
     icd: Key
     messages: list[ReadMessage] = Field(default_factory=list)
     poll: Poll | None = None
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class WriteMessage(BaseModel):

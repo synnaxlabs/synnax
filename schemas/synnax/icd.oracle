@@ -867,6 +867,13 @@ Poll struct {
 }
 
 ReadEntry struct {
+    key      string = create {
+        @doc value "uniquely identifies the entry within the task."
+        @key
+    }
+    disabled bool = false {
+        @doc value "is true when the entry is excluded from the task."
+    }
     icd      Key           {
         @doc value     "is the key of the ICD that holds the messages of the entry."
         @ref kind      use

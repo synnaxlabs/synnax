@@ -46,16 +46,22 @@ type Read struct {
 	Framed bool
 }
 
-// Entries returns the framed read of each of entries, at entries.i of a config.
+// Entries returns the framed read of each enabled entry of entries, at entries.i of a
+// config.
 func Entries(entries []icd.ReadEntry) []Read {
-	return lo.Map(entries, func(e icd.ReadEntry, i int) Read {
-		return Read{
+	var reads []Read
+	for i, e := range entries {
+		if e.Disabled {
+			continue
+		}
+		reads = append(reads, Read{
 			Path:     []string{"entries", strconv.Itoa(i)},
 			ICD:      e.ICD,
 			Messages: e.Messages,
 			Framed:   true,
-		}
-	})
+		})
+	}
+	return reads
 }
 
 // Resolver checks and hashes reads against the ICDs and the channels that they name.

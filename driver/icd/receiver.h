@@ -119,7 +119,8 @@ class Receiver {
 
 public:
     /// @brief creates a Receiver.
-    /// @param entries the entries to read, in task order.
+    /// @param entries the entries of the task, in task order. It skips a disabled
+    /// entry.
     /// @param icds the ICDs of entries, which must share one framing.
     /// @param channels the channels of the bindings of entries.
     /// @param datagram true when each transport read gives one datagram. A datagram

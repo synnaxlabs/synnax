@@ -437,31 +437,37 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.ReadEntry{
-				ICD: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Key:      "test_1",
+				Disabled: false,
+				ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 				Messages: []v1.ReadMessage{
 					{
-						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-						Index:   new(v1.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+						Index:   new(v1.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 						Bindings: []v1.ReadBinding{
 							{
-								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-								Channel:  channel.Key(8),
-								DataType: telem.DataType("test_8"),
+								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+								Channel:  channel.Key(10),
+								DataType: telem.DataType("test_10"),
 							},
 						},
 					},
 				},
-				Poll: new(v1.Poll{Query: []byte{10, 11, 12}, Rate: telem.Rate(11.5)}),
+				Poll: new(v1.Poll{Query: []byte{12, 13, 14}, Rate: telem.Rate(13.5)}),
 			}),
 			Entry("zero values", v1.ReadEntry{
+				Key:      "",
+				Disabled: false,
 				ICD:      uuid.Nil(),
 				Messages: []v1.ReadMessage{},
 				Poll:     nil,
 			}),
 			Entry("empty collections", v1.ReadEntry{
-				ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Key:      "test_1",
+				Disabled: false,
+				ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 				Messages: []v1.ReadMessage{},
-				Poll:     new(v1.Poll{Query: []byte{4, 5, 6}, Rate: telem.Rate(5.5)}),
+				Poll:     new(v1.Poll{Query: []byte{6, 7, 8}, Rate: telem.Rate(7.5)}),
 			}),
 		)
 	})
@@ -904,21 +910,23 @@ func BenchmarkEncodeDecodePoll(b *testing.B) {
 
 func BenchmarkEncodeDecodeReadEntry(b *testing.B) {
 	seed := v1.ReadEntry{
-		ICD: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Key:      "test_1",
+		Disabled: false,
+		ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 		Messages: []v1.ReadMessage{
 			{
-				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-				Index:   new(v1.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+				Index:   new(v1.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 				Bindings: []v1.ReadBinding{
 					{
-						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-						Channel:  channel.Key(8),
-						DataType: telem.DataType("test_8"),
+						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+						Channel:  channel.Key(10),
+						DataType: telem.DataType("test_10"),
 					},
 				},
 			},
 		},
-		Poll: new(v1.Poll{Query: []byte{10, 11, 12}, Rate: telem.Rate(11.5)}),
+		Poll: new(v1.Poll{Query: []byte{12, 13, 14}, Rate: telem.Rate(13.5)}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1843,21 +1851,23 @@ func FuzzDecodePoll(f *testing.F) {
 func FuzzDecodeReadEntry(f *testing.F) {
 	{
 		seed := v1.ReadEntry{
-			ICD: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Key:      "test_1",
+			Disabled: false,
+			ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 			Messages: []v1.ReadMessage{
 				{
-					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-					Index:   new(v1.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567804"))),
+					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567805"),
+					Index:   new(v1.FieldKey(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"))),
 					Bindings: []v1.ReadBinding{
 						{
-							Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-							Channel:  channel.Key(8),
-							DataType: telem.DataType("test_8"),
+							Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"),
+							Channel:  channel.Key(10),
+							DataType: telem.DataType("test_10"),
 						},
 					},
 				},
 			},
-			Poll: new(v1.Poll{Query: []byte{10, 11, 12}, Rate: telem.Rate(11.5)}),
+			Poll: new(v1.Poll{Query: []byte{12, 13, 14}, Rate: telem.Rate(13.5)}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1867,6 +1877,8 @@ func FuzzDecodeReadEntry(f *testing.F) {
 	}
 	{
 		seed := v1.ReadEntry{
+			Key:      "",
+			Disabled: false,
 			ICD:      uuid.Nil(),
 			Messages: []v1.ReadMessage{},
 			Poll:     nil,
@@ -1879,9 +1891,11 @@ func FuzzDecodeReadEntry(f *testing.F) {
 	}
 	{
 		seed := v1.ReadEntry{
-			ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Key:      "test_1",
+			Disabled: false,
+			ICD:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 			Messages: []v1.ReadMessage{},
-			Poll:     new(v1.Poll{Query: []byte{4, 5, 6}, Rate: telem.Rate(5.5)}),
+			Poll:     new(v1.Poll{Query: []byte{6, 7, 8}, Rate: telem.Rate(7.5)}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

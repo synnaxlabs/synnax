@@ -58,15 +58,15 @@ protected:
         ASSERT_NIL(this->client->devices.create(this->dev));
     }
 
-    /// @returns the task of a commanded configure of a read task named name with entry,
-    /// or nullptr when the configure fails.
+    /// @returns the task of a commanded configure of a read task named name with
+    /// entries, or nullptr when the configure fails.
     std::unique_ptr<task::Task> configure_task(
-        const synnax::icd::ReadEntry &entry,
+        const std::vector<synnax::icd::ReadEntry> &entries,
         const std::string &name = "serial read"
     ) {
         synnax::serial::ReadConfig cfg;
         cfg.device = this->dev.key;
-        cfg.entries = {entry};
+        cfg.entries = entries;
         this->cancel.start();
         auto [tsk, handled] = this->factory.configure_task(
             this->ctx,
@@ -84,10 +84,10 @@ protected:
         return std::move(tsk);
     }
 
-    /// @returns the status of a commanded configure of a read task with entry that
+    /// @returns the status of a commanded configure of a read task with entries that
     /// fails.
-    synnax::task::Status configure(const synnax::icd::ReadEntry &entry) {
-        EXPECT_EQ(this->configure_task(entry), nullptr);
+    synnax::task::Status configure(const std::vector<synnax::icd::ReadEntry> &entries) {
+        EXPECT_EQ(this->configure_task(entries), nullptr);
         const auto statuses = this->ctx->snapshot();
         EXPECT_FALSE(statuses.empty());
         return statuses.empty() ? synnax::task::Status{} : statuses.back();
@@ -137,7 +137,7 @@ TEST_F(SerialConfigure, NamesMissingICD) {
         .icd = x::uuid::create(),
         .messages = {{.message = x::uuid::create()}},
     };
-    const auto status = this->configure(entry);
+    const auto status = this->configure({entry});
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to configure task");
     EXPECT_EQ(
@@ -150,7 +150,7 @@ TEST_F(SerialConfigure, NamesMissingICD) {
 /// name the channel.
 TEST_F(SerialConfigure, NamesChannelOfBadBinding) {
     const auto missing = this->channel().key + 1000000;
-    const auto status = this->configure(this->lines(missing));
+    const auto status = this->configure({this->lines(missing)});
     EXPECT_EQ(status.message, "Failed to configure task");
     EXPECT_EQ(
         status.description,
@@ -162,9 +162,9 @@ TEST_F(SerialConfigure, NamesChannelOfBadBinding) {
 /// configure the second once the first is gone.
 TEST_F(SerialConfigure, RefusesSecondReadTaskOnDevice) {
     const auto entry = this->lines(this->channel().key);
-    auto first = this->configure_task(entry, "oven");
+    auto first = this->configure_task({entry}, "oven");
     ASSERT_NE(first, nullptr);
-    const auto status = this->configure(entry);
+    const auto status = this->configure({entry});
     EXPECT_EQ(status.message, "Failed to configure task");
     EXPECT_EQ(
         status.description,
@@ -172,6 +172,29 @@ TEST_F(SerialConfigure, RefusesSecondReadTaskOnDevice) {
         "this device. Add these entries to that task."
     );
     first.reset();
-    EXPECT_NE(this->configure_task(entry), nullptr);
+    EXPECT_NE(this->configure_task({entry}), nullptr);
+}
+
+/// @brief it should refuse a task whose entries are all disabled.
+TEST_F(SerialConfigure, RefusesTaskWithNoEnabledEntry) {
+    auto entry = this->lines(this->channel().key);
+    entry.disabled = true;
+    const auto status = this->configure({entry});
+    EXPECT_EQ(status.message, "Failed to configure task");
+    EXPECT_EQ(status.description, "entries: at least one entry must be enabled");
+}
+
+/// @brief it should configure a task whose disabled entry names an ICD and a channel
+/// that do not exist.
+TEST_F(SerialConfigure, SkipsDisabledEntry) {
+    const synnax::icd::ReadEntry off{
+        .disabled = true,
+        .icd = x::uuid::create(),
+        .messages = {{
+            .message = x::uuid::create(),
+            .bindings = {{.field = x::uuid::create(), .channel = 4000000}},
+        }},
+    };
+    EXPECT_NE(this->configure_task({off, this->lines(this->channel().key)}), nullptr);
 }
 }
