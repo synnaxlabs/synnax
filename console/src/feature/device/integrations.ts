@@ -20,6 +20,7 @@ import { OPCUA } from "@/feature/opcua";
 import { Serial } from "@/feature/serial";
 import { Sift } from "@/feature/sift";
 import { TCP } from "@/feature/tcp";
+import { UDP } from "@/feature/udp";
 import { FLAGS } from "@/flags";
 import type { Device as PlatformDevice } from "@/platform/device";
 import type { Task } from "@/platform/task";
@@ -60,6 +61,7 @@ export const NETWORK: Network[] = [
     ? [
         { ...Serial.Device.NETWORK, ContextMenuItems: Serial.ContextMenuItems },
         { ...TCP.Device.NETWORK, ContextMenuItems: TCP.ContextMenuItems },
+        { ...UDP.Device.NETWORK, ContextMenuItems: UDP.ContextMenuItems },
       ]
     : []),
 ];
