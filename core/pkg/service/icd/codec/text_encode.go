@@ -10,6 +10,7 @@
 package codec
 
 import (
+	"bytes"
 	"encoding/binary"
 	"math"
 	"strconv"
@@ -404,11 +405,60 @@ func widen(v float32) float64 {
 // a tie, as C++ std::to_chars writes it.
 func appendDecimal(dst []byte, v float64) []byte {
 	start := len(dst)
-	dst = strconv.AppendFloat(dst, v, 'f', -1, 64)
-	fixed := len(dst) - start
 	dst = strconv.AppendFloat(dst, v, 'e', -1, 64)
-	if len(dst)-start-fixed < fixed {
-		return append(dst[:start], dst[start+fixed:]...)
+	if dst[start] == '-' {
+		start++
 	}
-	return dst[:start+fixed]
+	text := dst[start:]
+	e := bytes.IndexByte(text, 'e')
+	var digits [17]byte
+	n := copy(digits[:], text[:1])
+	if e > 1 {
+		n += copy(digits[n:], text[2:e])
+	}
+	exp := 0
+	for _, c := range text[e+2:] {
+		exp = exp*10 + int(c-'0')
+	}
+	if text[e+1] == '-' {
+		exp = -exp
+	}
+	if fixedWidth(n, exp) > len(text) {
+		return dst
+	}
+	return appendFixed(dst[:start], digits[:n], exp)
+}
+
+// fixedWidth returns the length of the fixed notation of n digits whose first digit has
+// the decimal exponent exp.
+func fixedWidth(n, exp int) int {
+	switch {
+	case exp < 0:
+		return 1 - exp + n
+	case n <= exp+1:
+		return exp + 1
+	}
+	return n + 1
+}
+
+// appendFixed appends the fixed notation of digits, whose first digit has the decimal
+// exponent exp, to dst.
+func appendFixed(dst, digits []byte, exp int) []byte {
+	switch {
+	case exp < 0:
+		dst = append(dst, '0', '.')
+		for range -exp - 1 {
+			dst = append(dst, '0')
+		}
+		return append(dst, digits...)
+	case len(digits) <= exp+1:
+		dst = append(dst, digits...)
+		for range exp + 1 - len(digits) {
+			dst = append(dst, '0')
+		}
+		return dst
+	}
+	dst = append(dst, digits[:exp+1]...)
+	dst = append(dst, '.')
+	return append(dst, digits[exp+1:]...)
 }

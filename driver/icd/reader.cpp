@@ -139,16 +139,23 @@ x::errors::Error check_selections(
 
 /// @brief returns the series of fr for key, after adding an empty series of dt that
 /// holds cap samples when fr has none.
+/// @param at the position of the series in fr at the last call for key, which series
+/// checks before it scans fr, and then sets.
 x::telem::Series &series(
     x::telem::Frame &fr,
     const synnax::channel::Key key,
     const x::telem::DataType &dt,
-    const std::size_t cap
+    const std::size_t cap,
+    std::size_t &at
 ) {
-    for (std::size_t i = 0; i < fr.size(); i++)
-        if ((*fr.channels)[i] == key) return (*fr.series)[i];
-    fr.emplace(key, x::telem::Series(dt, cap));
-    return fr.series->back();
+    if (at < fr.size() && (*fr.channels)[at] == key) return (*fr.series)[at];
+    const auto n = fr.size();
+    std::size_t i = 0;
+    while (i < n && (*fr.channels)[i] != key)
+        i++;
+    if (i == n) fr.emplace(key, x::telem::Series(dt, cap));
+    at = i;
+    return (*fr.series)[i];
 }
 
 /// @brief Decoded holds the codec messages of each format of a reader.
@@ -334,6 +341,8 @@ std::pair<Reader, x::errors::Error> Reader::create(
                 },
                 msg->payload
             );
+            m.positions.assign(m.channels.size(), 0);
+            m.index_positions.assign(m.indexes.size(), 0);
             r.messages.push_back(std::move(m));
         }
     // With no messages, the reader holds a Binary decoder, which matches no payload.
@@ -392,7 +401,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     this->failed.clear();
     if (err || !i.has_value()) return {i, err};
     const auto msg = *i;
-    const auto &m = this->messages[msg];
+    auto &m = this->messages[msg];
     const auto &samples = std::visit(
         [msg](const auto &d) -> const std::vector<x::telem::Series> & {
             return d.samples(msg);
@@ -422,7 +431,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     for (std::size_t g = 0; g < m.indexes.size(); g++) {
         if (!this->present[g]) continue;
         const auto &[key, field] = m.indexes[g];
-        series(fr, key, x::telem::TIMESTAMP_T, cap)
+        series(fr, key, x::telem::TIMESTAMP_T, cap, m.index_positions[g])
             .write(
                 field.has_value() ? samples[*field].at<x::telem::TimeStamp>(0)
                                   : received
@@ -434,10 +443,10 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
             continue;
         const auto &dt = samples[k].data_type();
         if (this->filled[k])
-            series(fr, m.channels[k], dt, cap)
+            series(fr, m.channels[k], dt, cap, m.positions[k])
                 .write(dt.cast(std::numeric_limits<double>::quiet_NaN()));
         else if (!samples[k].empty())
-            series(fr, m.channels[k], dt, cap).write(samples[k]);
+            series(fr, m.channels[k], dt, cap, m.positions[k]).write(samples[k]);
     }
     return {msg, x::errors::NIL};
 }

@@ -63,6 +63,34 @@ var _ = Describe("TextEncoder", func() {
 		))
 	})
 
+	DescribeTable("Should write the shorter of fixed and exponent notation, and fixed "+
+		"on a tie", func(v float64, expected string) {
+		enc := MustSucceed(
+			codec.NewTextEncoder(textMessage("cmd", "", delimited("a", 0))),
+		)
+		Expect(enc.Encode(nil, [][]byte{telem.NewSeriesV(v).Data})).
+			To(BeEquivalentTo(expected))
+	},
+		Entry("zero", 0.0, "0"),
+		Entry("negative zero", math.Copysign(0, -1), "-0"),
+		Entry("an integer shorter in fixed", 123456.0, "123456"),
+		Entry("an integer with trailing zeros", 1200.0, "1200"),
+		Entry("an integer tied between the two", 10000.0, "10000"),
+		Entry("an integer shorter in exponent", 100000.0, "1e+05"),
+		Entry("a large power of ten", 1e21, "1e+21"),
+		Entry("a large value with digits", 1.5e20, "1.5e+20"),
+		Entry("a value with a fraction", 1234.5678, "1234.5678"),
+		Entry("a fraction at exponent -1", 0.25, "0.25"),
+		Entry("a fraction tied between the two", 0.001, "0.001"),
+		Entry("a fraction shorter in exponent", 0.0001, "1e-04"),
+		Entry("a negative fraction", -1.25e-07, "-1.25e-07"),
+		Entry("a 17-digit fraction", 0.30000000000000004, "0.30000000000000004"),
+		Entry("a 17-digit value at exponent 16", 12345678901234568.0,
+			"12345678901234568"),
+		Entry("the largest float", math.MaxFloat64, "1.7976931348623157e+308"),
+		Entry("the smallest float", 5e-324, "5e-324"),
+	)
+
 	It("Should accept a field at the last position", func() {
 		Expect(codec.NewTextEncoder(
 			textMessage("cmd", "", delimited("a", 65535)),

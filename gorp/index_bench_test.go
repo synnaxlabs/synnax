@@ -262,6 +262,13 @@ func BenchmarkTableCreate(b *testing.B) {
 				"name", func(e *indexBenchEntry) []string { return []string{e.Name} },
 			)}
 		}},
+		{"unique", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewUniqueIndex(
+				"name",
+				"name",
+				func(e *indexBenchEntry) (string, bool) { return e.Name, true },
+			)}
+		}},
 	} {
 		b.Run("index="+tc.kind, func(b *testing.B) {
 			db := openBenchDB(b)
