@@ -274,6 +274,22 @@ describe("ICD.Entries", () => {
       );
     });
 
+    it("should save a new query while the rate is invalid, and keep the rate error", async () => {
+      const key = await renderEntry();
+      await typeText(/^Query/, "01");
+      await waitFor(async () => expect(await retrievePoll(key)).toBeDefined());
+      const rate = await typeText(/^Rate/, "0");
+      await waitFor(() => expect(rate.getAttribute("aria-invalid")).toBe("true"));
+      await typeText(/^Query/, "02");
+      await waitFor(async () =>
+        expect(await retrievePoll(key)).toEqual({
+          query: new Uint8Array([0x02]),
+          rate: 1,
+        }),
+      );
+      expect(rate.getAttribute("aria-invalid")).toBe("true");
+    });
+
     it("should keep query text that does not parse, with its error", async () => {
       const key = await renderEntry();
       await expectRefused(await typeText(/^Query/, "01 0"), "01 0", QUERY_ERROR);

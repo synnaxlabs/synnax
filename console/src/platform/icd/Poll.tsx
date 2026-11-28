@@ -16,6 +16,8 @@ import type { ReactElement } from "react";
 import {
   formatHexBytes,
   FormattedField,
+  orError,
+  type Parsed,
   parseHexBytes,
 } from "@/platform/icd/FormattedField";
 
@@ -27,33 +29,54 @@ export interface PollFieldsProps {
   path: deep.Path<icd.ReadEntry>;
 }
 
+/** @returns the query bytes of the text, or why it holds none. */
+const parseQuery = (text: string): Parsed<Uint8Array> =>
+  orError(parseHexBytes(text), QUERY_ERROR);
+
+// The task cache holds config as the Core sent it, so the query can be base64.
+const formatQuery = (query: Uint8Array): string =>
+  formatHexBytes(binary.bytesZ.parse(query));
+
 /**
- * The query that polls the device of an entry, and its rate. A query turns the poll on,
- * and clearing it turns the poll off, so the poll is never stored without a query.
+ * The query that polls the device of an entry, and its rate. A query starts a poll at
+ * the default rate, and clearing the query stops the poll.
  */
 export const PollFields = ({ path }: PollFieldsProps): ReactElement => {
+  const { set } = Form.useContext();
   const poll = Form.useFieldValue(path.poll, { optional: true });
+  const present = deep.present(path.poll);
   return (
     <Flex.Box x>
-      <FormattedField<icd.Poll>
-        path={path.poll}
-        label="Query"
-        placeholder="None"
-        optional
-        // The task cache holds config as the Core sent it, so the query can be base64.
-        format={({ query }) => formatHexBytes(binary.bytesZ.parse(query))}
-        parse={(text) => {
-          const query = parseHexBytes(text);
-          if (query == null) return { error: QUERY_ERROR };
-          return { value: icd.pollZ.parse({ query, rate: poll?.rate }) };
-        }}
-      />
-      {poll != null && (
-        <Form.NumericField
-          path={deep.present(path.poll).rate}
-          label="Rate"
-          inputProps={RATE_INPUT_PROPS}
+      {poll == null ? (
+        <FormattedField<icd.Poll>
+          path={path.poll}
+          label="Query"
+          placeholder="None"
+          optional
+          format={({ query }) => formatQuery(query)}
+          parse={(text) => {
+            const parsed = parseQuery(text);
+            if ("error" in parsed) return parsed;
+            return { value: icd.pollZ.parse({ query: parsed.value }) };
+          }}
         />
+      ) : (
+        <>
+          <FormattedField<Uint8Array>
+            path={present.query}
+            label="Query"
+            placeholder="None"
+            optional
+            onClear={() => set(path.poll, undefined)}
+            format={formatQuery}
+            parse={parseQuery}
+          />
+          <Form.NumericField
+            path={present.rate}
+            label="Rate"
+            inputProps={RATE_INPUT_PROPS}
+          />
+        </>
       )}
     </Flex.Box>
   );
