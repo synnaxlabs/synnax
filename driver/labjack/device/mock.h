@@ -247,7 +247,8 @@ public:
         int connection_type = LJM_ctUSB;
         int serial_number = 0;
     };
-    /// @brief the devices that list_all() reports on their connection type.
+    /// @brief the devices that list_all() reports on their connection type. As in
+    /// LJM, a TCP scan reports Ethernet and Wi-Fi devices.
     std::vector<Listing> listed;
 
     x::errors::Error list_all(
@@ -261,7 +262,10 @@ public:
     ) override {
         *num_found = 0;
         for (const auto &listing: this->listed) {
-            if (conn_type != LJM_ctANY && listing.connection_type != conn_type)
+            const bool tcp = conn_type == LJM_ctTCP &&
+                             (listing.connection_type == LJM_ctETHERNET ||
+                              listing.connection_type == LJM_ctWIFI);
+            if (conn_type != LJM_ctANY && listing.connection_type != conn_type && !tcp)
                 continue;
             dev_types[*num_found] = listing.device_type;
             conn_types[*num_found] = listing.connection_type;

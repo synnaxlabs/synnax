@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -26,6 +27,13 @@
 #include "core/pkg/transport/grpc/labjack/device/device.pb.h"
 
 namespace synnax::labjack::device {
+/// @brief the channel on which the Core publishes each LabJack device that a write
+/// sets.
+const std::string SET_CHANNEL = "sy_labjack_device_set";
+/// @brief the channel on which the Core publishes the key of each deleted LabJack
+/// device.
+const std::string DELETE_CHANNEL = "sy_labjack_device_delete";
+
 /// @brief the transport that creates LabJack devices.
 using CreateClient = freighter::UnaryClient<
     grpc::labjack_device::CreateRequest,
