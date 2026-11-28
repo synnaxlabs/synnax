@@ -48,7 +48,7 @@ TEST(ErrorModule, PanicInvokesHandlerWithCorrectMessage) {
     (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
     EXPECT_NE(
-        captured.data.find("The program panicked: test error message"),
+        captured.data().find("The program panicked: test error message"),
         std::string::npos
     );
 }
@@ -72,7 +72,7 @@ TEST(ErrorModule, PanicReportsOutOfBoundsForInvalidPointer) {
     );
     (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
-    EXPECT_NE(captured.data.find("unreadable message"), std::string::npos);
+    EXPECT_NE(captured.data().find("unreadable message"), std::string::npos);
 }
 
 TEST(ErrorModule, PanicBeforeSetWasmContextReportsNoMemory) {
@@ -92,6 +92,9 @@ TEST(ErrorModule, PanicBeforeSetWasmContextReportsNoMemory) {
     );
     (void) trigger.call(store, {});
     EXPECT_TRUE(captured.matches(runtime::errors::WASM_PANIC));
-    EXPECT_NE(captured.data.find("before its memory was available"), std::string::npos);
+    EXPECT_NE(
+        captured.data().find("before its memory was available"),
+        std::string::npos
+    );
 }
 }

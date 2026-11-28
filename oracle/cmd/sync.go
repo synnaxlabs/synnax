@@ -167,7 +167,7 @@ func generateBuf(
 	}
 
 	// buf generate emits .pb.go and _grpc.pb.go files alongside their .proto sources
-	// without a license header. Run them through the same formatter chain the oracle
+	// without a license header. Run them through the same formatter chain the Oracle
 	// plugin outputs use so the header is added and gofmt is applied. Idempotent on
 	// cached / unchanged files because the license formatter no-ops when a header is
 	// already present and gofmt is stable.

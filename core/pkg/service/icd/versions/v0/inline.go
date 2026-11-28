@@ -230,12 +230,12 @@ func channelName(name string) string {
 }
 
 // liftField returns the JSON field of base for old, the data type of a new channel for
-// it, and a description of each change. The data type of ch, when old has a channel,
-// picks the kind. Otherwise the stored data type picks it, and a numeric kind keeps it
-// as the data type of a new channel. The returned data type is empty for any other
-// field. An index field lifts to the timestamp kind, and so does a field with a time
-// format, no entries, and the default or an unknown data type. An entry that the kind
-// cannot hold is dropped, and a time format that is not valid becomes ISO 8601.
+// it, and a description of each change. The data type of ch, when old has a channel
+// with one, picks the kind. Otherwise the stored data type picks it, and a numeric kind
+// keeps it as the data type of a new channel. The returned data type is empty for any
+// other field. An index field lifts to the timestamp kind, and so does a field with a
+// time format, no entries, and the default or an unknown data type. An entry that the
+// kind cannot hold is dropped, and a time format that is not valid becomes ISO 8601.
 func liftField(
 	old InlineField,
 	index bool,
@@ -250,7 +250,7 @@ func liftField(
 	if dt == "" {
 		dt = telem.Float64T
 	}
-	if ch != nil && ch.DataType != dt {
+	if ch != nil && ch.DataType != "" && ch.DataType != dt {
 		note("data type %s became %s, the data type of its channel", dt, ch.DataType)
 		dt = ch.DataType
 	}

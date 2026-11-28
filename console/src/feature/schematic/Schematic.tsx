@@ -21,6 +21,7 @@ import { Controller } from "@/feature/schematic/Controller";
 import { Controls } from "@/feature/schematic/Controls";
 import { Legend } from "@/feature/schematic/Legend";
 import { Navigate } from "@/feature/schematic/navigate";
+import { SymbolMenuItems } from "@/feature/schematic/toolbar/selection";
 import { ContextMenu } from "@/platform/context-menu";
 import { Empty } from "@/platform/empty";
 import { Framer } from "@/platform/framer";
@@ -88,6 +89,7 @@ const Internal = (): ReactElement => {
 
   const renderExtraMenuItems = (): ReactElement => (
     <>
+      {isCurrentlyEditable && <SymbolMenuItems />}
       {canEdit && <Diagram.Menu.ToggleEditItem />}
       {canCommand && <Control.Menu.ToggleItem />}
       <Menu.Divider />

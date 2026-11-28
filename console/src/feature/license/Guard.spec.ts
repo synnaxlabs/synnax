@@ -12,6 +12,7 @@ import {
   connection,
   ExpiredLicenseError,
   license,
+  type Synnax,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
@@ -55,6 +56,10 @@ const EXPIRED_STATUS: connection.Status = {
 };
 
 const MISSING_TITLE = "This Core needs a license";
+
+// Fake timers trip the keep-alive deadline of a stream, so a spec that fakes time uses
+// a client without the cache, which opens no streams.
+const createStreamlessClient = (): Synnax => createTestClient({ cache: false });
 
 const getKeyField = (): HTMLElement =>
   screen.getByRole("textbox", { name: "License key" });
@@ -192,7 +197,7 @@ describe("License.Guard", () => {
           );
         }),
     );
-    await renderGuard(createTestClient(), UNLICENSED_STATUS, portal);
+    await renderGuard(createStreamlessClient(), UNLICENSED_STATUS, portal);
     await findPortalLink("Activate on the portal");
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     onTestFinished(() => {
@@ -212,7 +217,7 @@ describe("License.Guard", () => {
     const { client: portal, fetch: hub } = createTestPortal(
       async () => new Response(null, { status: 204 }),
     );
-    await renderGuard(createTestClient(), UNLICENSED_STATUS, portal);
+    await renderGuard(createStreamlessClient(), UNLICENSED_STATUS, portal);
     await findPortalLink("Activate on the portal");
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     onTestFinished(() => {

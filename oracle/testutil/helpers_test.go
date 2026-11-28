@@ -65,7 +65,7 @@ User struct {
 }
 `
 
-// AllPrimitivesTemplate contains all primitive types supported by oracle.
+// AllPrimitivesTemplate contains all primitive types supported by Oracle.
 // Format: domain directive.
 const allPrimitivesTemplate = `
 %s

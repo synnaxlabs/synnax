@@ -32,13 +32,19 @@ describe("detectConnection", () => {
     expect(Core.detectConnection()).toBeNull();
   });
 
-  it("should return null when the select-core param is set", () => {
-    pinLocationOrigin("http://example.com", "?select-core");
-    expect(Core.detectConnection()).toBeNull();
-  });
-
   it("should parse an insecure origin with an explicit port", () => {
     pinLocationOrigin("http://example.com:8080");
+    expect(Core.detectConnection()).toEqual({
+      key: Session.Core.SERVED_KEY,
+      name: "Core",
+      host: "example.com",
+      port: 8080,
+      secure: false,
+    });
+  });
+
+  it("should detect the serving Core when the page has a select-core param", () => {
+    pinLocationOrigin("http://example.com:8080", "?select-core");
     expect(Core.detectConnection()).toEqual({
       key: Session.Core.SERVED_KEY,
       name: "Core",

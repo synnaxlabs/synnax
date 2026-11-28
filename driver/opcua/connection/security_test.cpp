@@ -174,7 +174,10 @@ TEST_F(SecurityTest, CertificateMismatch) {
     cfg.server_certificate = other_id.certificate;
     const auto [client, err] = connect(cfg, security(), "test");
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
-    ASSERT_EQ(err.data, mismatch_message(server_id.certificate, other_id.certificate));
+    ASSERT_EQ(
+        err.data(),
+        mismatch_message(server_id.certificate, other_id.certificate)
+    );
     ASSERT_FALSE(activated(client.get()));
     ASSERT_EQ(server_certificate(client.get()), server_id.certificate);
 }
@@ -196,7 +199,7 @@ TEST_F(SecurityTest, CertificateHoldingTrustedPem) {
     cfg.server_certificate = other_id.certificate;
     const auto [client, err] = connect(cfg, security(), "test");
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
-    ASSERT_EQ(err.data, mismatch_message(forged.certificate, other_id.certificate));
+    ASSERT_EQ(err.data(), mismatch_message(forged.certificate, other_id.certificate));
     ASSERT_FALSE(activated(client.get()));
 }
 
@@ -207,7 +210,7 @@ TEST_F(SecurityTest, NoTrustedCertificate) {
     const auto [client, err] = connect(config(), security(), "test");
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "The Driver does not trust the server certificate " +
             server_id.certificate.thumbprint() +
             " yet. Compare the thumbprint with the certificate on the server, then "
@@ -228,7 +231,10 @@ TEST_F(SecurityTest, FirstCertificateLocks) {
     this->start_server(other_id);
     const auto err = reconnect(client, ENDPOINT);
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
-    ASSERT_EQ(err.data, mismatch_message(other_id.certificate, server_id.certificate));
+    ASSERT_EQ(
+        err.data(),
+        mismatch_message(other_id.certificate, server_id.certificate)
+    );
     ASSERT_FALSE(activated(client.get()));
 }
 
@@ -277,7 +283,7 @@ TEST_F(SecurityTest, ExpiredCertificate) {
     const auto err = connect(cfg, sec, "test").second;
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_TIME_INVALID);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "The server certificate is valid from " + cert.not_before().iso8601() + " to " +
             cert.not_after().iso8601() + ", and the Driver's clock reads " +
             now.iso8601() +
@@ -294,7 +300,7 @@ TEST_F(SecurityTest, ServerRejectsClient) {
     const auto err = connect(cfg, security(), "test").second;
     ASSERT_MATCHES(err, errors::CLIENT_CERTIFICATE_REJECTED);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "The server rejected the connection's security checks "
         "(BadSecurityChecksFailed). Most often, the server does not trust the client "
         "certificate " +
@@ -410,12 +416,12 @@ TEST_F(SecurityTest, PoolBreakerCountsCertificateRejections) {
     for (int i = 0; i < 3; i++) {
         const auto err = pool.acquire(cfg, LOG_PREFIX).second;
         ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
-        ASSERT_EQ(err.data, expected);
+        ASSERT_EQ(err.data(), expected);
     }
     this->server->stop();
     const auto err = pool.acquire(cfg, LOG_PREFIX).second;
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
-    ASSERT_EQ(err.data, expected);
+    ASSERT_EQ(err.data(), expected);
 }
 
 /// @brief it should connect at once when the configuration trusts a new certificate
@@ -514,7 +520,7 @@ TEST_F(SecurityTest, PoolRefreshKeepsConnectionWhenRejected) {
     const auto err = pool.refresh(conn, cfg, LOG_PREFIX).second;
     ASSERT_MATCHES(err, errors::CLIENT_CERTIFICATE_REJECTED);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "The server rejected the connection's security checks "
         "(BadSecurityChecksFailed). Most often, the server does not trust the client "
         "certificate " +
@@ -538,7 +544,10 @@ TEST_F(SecurityTest, PoolRefreshKeepsTrustedServer) {
     this->start_server(other_id);
     const auto err = pool.refresh(conn, cfg, LOG_PREFIX).second;
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
-    ASSERT_EQ(err.data, mismatch_message(other_id.certificate, server_id.certificate));
+    ASSERT_EQ(
+        err.data(),
+        mismatch_message(other_id.certificate, server_id.certificate)
+    );
     ASSERT_EQ(conn.get(), first);
 }
 }

@@ -88,13 +88,45 @@ type EnumEntry = versions.EnumEntry
 type JSONType = versions.JSONType
 
 const (
-	// JSONTypeNumber writes the value as a JSON number.
+	// JSONTypeNumber is a JSON number.
 	JSONTypeNumber JSONType = versions.JSONTypeNumber
-	// JSONTypeString writes the value as a JSON string.
+	// JSONTypeString is a JSON string.
 	JSONTypeString JSONType = versions.JSONTypeString
-	// JSONTypeBoolean writes the value as a JSON boolean.
+	// JSONTypeBoolean is a JSON boolean.
 	JSONTypeBoolean JSONType = versions.JSONTypeBoolean
 )
+
+// ScalarType is the type of a JSON scalar.
+type ScalarType = versions.ScalarType
+
+const (
+	// ScalarTypeNumber is a JSON number.
+	ScalarTypeNumber ScalarType = versions.ScalarTypeNumber
+	// ScalarTypeString is a JSON string.
+	ScalarTypeString ScalarType = versions.ScalarTypeString
+	// ScalarTypeBoolean is a JSON boolean.
+	ScalarTypeBoolean ScalarType = versions.ScalarTypeBoolean
+	// ScalarTypeNull is JSON null.
+	ScalarTypeNull ScalarType = versions.ScalarTypeNull
+)
+
+// Scalar is a JSON scalar: a number, a string, a boolean, or null.
+type Scalar = versions.Scalar
+
+// ScalarVariant is implemented by every Scalar variant.
+type ScalarVariant = versions.ScalarVariant
+
+// NumberScalar is a JSON number.
+type NumberScalar = versions.NumberScalar
+
+// StringScalar is a JSON string.
+type StringScalar = versions.StringScalar
+
+// BooleanScalar is a JSON boolean.
+type BooleanScalar = versions.BooleanScalar
+
+// NullScalar is JSON null.
+type NullScalar = versions.NullScalar
 
 // GeneratorType is the kind of value produced for a generated write field.
 type GeneratorType = versions.GeneratorType

@@ -46,7 +46,7 @@ class NIInvalidConfig(TestCase):
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
-            self.skip("Windows DAQmx drivers required")
+            self.skip("Windows NI-DAQmx drivers required")
         self.devices = {"E101Mod4": retrieve_present_device(self.client, "E101Mod4")}
 
     def run(self) -> None:
@@ -200,7 +200,7 @@ class NIInvalidConfig(TestCase):
 
 
 class NIMissingLibraries(HardwareCase):
-    """Verify the driver rejects NI tasks when DAQmx libraries are not installed.
+    """Verify the driver rejects NI tasks when NI-DAQmx libraries are not installed.
 
     Only runs on non-Windows platforms where NI-DAQmx is unavailable.
     """
@@ -210,7 +210,7 @@ class NIMissingLibraries(HardwareCase):
             self.skip("NI-DAQmx is available on Windows")
 
     def run(self) -> None:
-        self.log("Testing: NI task on machine without DAQmx libraries")
+        self.log("Testing: NI task on machine without NI-DAQmx libraries")
         rack = self.client.racks.retrieve(name=self.options.driver_rack)
         [device] = self.create_test_devices(
             [
@@ -246,7 +246,7 @@ class NIMissingLibraries(HardwareCase):
             ],
         )
         message = assert_start_rejected(
-            self.client, task, "NI task without DAQmx libraries"
+            self.client, task, "NI task without NI-DAQmx libraries"
         )
         expected = (
             "Failed to configure task: National Instruments NI-DAQmx shared library "

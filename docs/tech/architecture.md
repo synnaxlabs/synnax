@@ -122,5 +122,4 @@ The highest layer of the Core is the interface layer. This layer takes the funct
 in the service layer and exposes a clean network API to clients. The interface layer
 implements as little service specific functionality as possible, and is designed in such
 a way that it can be easily extended to support new protocols. Currently, it only
-supports HTTP (+ Websockets), but in the future it will support gRPC and other
-protocols.
+supports HTTP (+ WebSocket), but in the future it will support gRPC and other protocols.

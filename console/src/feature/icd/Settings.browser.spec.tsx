@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { ICD } from "@/feature/icd";
 import { client, createICD } from "@/feature/icd/testutil";
+import { createdIn } from "@/platform/icd/testutil";
 import { Modals } from "@/platform/modals";
 import { findLastButton } from "@/platform/modals/testutil";
 import { createActiveState } from "@/platform/project/testutil";
@@ -31,12 +32,19 @@ import {
 const TAB_TYPES = [project.TYPE_RESOURCE_ID, panel.TYPE_RESOURCE_ID];
 
 // The page lists every ICD its user can read, and other specs leave theirs on the
-// Core. A user that reads only the ICD of the test sees the same rows on any Core.
-const renderSettings = async (shown: icd.ICD): Promise<{ store: TestStore }> => {
+// Core. A user that reads only the ICD of the test sees the same rows on any Core. A
+// user that creates ICDs reads them all.
+const renderSettings = async (
+  shown: icd.ICD,
+  canCreate = false,
+): Promise<{ store: TestStore }> => {
   const proj = await client.projects.create({ name: uniqueName("project") });
   const subject = await createTestClientWithGrants(client, {
-    retrieve: [icd.resourceID(shown.key), ...TAB_TYPES],
-    create: TAB_TYPES,
+    retrieve: [
+      canCreate ? icd.TYPE_RESOURCE_ID : icd.resourceID(shown.key),
+      ...TAB_TYPES,
+    ],
+    create: canCreate ? [icd.TYPE_RESOURCE_ID, ...TAB_TYPES] : TAB_TYPES,
     update: [icd.TYPE_RESOURCE_ID, ...TAB_TYPES],
     delete: [icd.TYPE_RESOURCE_ID],
   });
@@ -66,6 +74,15 @@ describe("ICD.Settings", () => {
     await renderSettings(ic);
     const item = await screen.findByRole("option", { name: ic.name });
     expect(within(item).getByText("0")).toBeTruthy();
+  });
+
+  it("should open a created ICD in a tab, marked to focus its name", async () => {
+    const ic = await createICD();
+    const { store } = await renderSettings(ic, true);
+    fireEvent.click(await screen.findByRole("button", { name: "Create ICD" }));
+    const key = await focusedResourceKey(store);
+    expect(key).not.toBe(ic.key);
+    expect(createdIn(store, key)).toBe(true);
   });
 
   it("should open an ICD in a tab on click", async () => {

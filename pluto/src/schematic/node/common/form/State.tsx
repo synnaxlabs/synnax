@@ -11,7 +11,7 @@ import type { channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { DataType, deep } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import { Channel } from "@/channel";
 
@@ -25,10 +25,12 @@ export const VARIABLE_CHANNELS: Channel.ListQuery = {
 export interface StateSectionProps {
   /** The channels the select offers. */
   query?: Channel.ListQuery;
+  /** Fields after the channel. */
+  children?: ReactNode;
 }
 
 /** StateSection edits the channel a control reads the device's value back from. */
-export const StateSection = ({ query }: StateSectionProps): ReactElement => {
+export const StateSection = ({ query, children }: StateSectionProps): ReactElement => {
   const { value, onChange } = Form.useField(path);
   return (
     <Form.Section title="State">
@@ -42,6 +44,7 @@ export const StateSection = ({ query }: StateSectionProps): ReactElement => {
           query={query}
         />
       </Input.Item>
+      {children}
     </Form.Section>
   );
 };

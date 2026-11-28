@@ -41,7 +41,7 @@ TEST(Parse, testRejectsEmptyName) {
     for (const auto *field: {"", "a..b", ".a", "a."}) {
         auto [path, err] = parse(field);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        EXPECT_EQ(err.data, "the field " + std::string(field) + " has an empty name");
+        EXPECT_EQ(err.data(), "the field " + std::string(field) + " has an empty name");
     }
 }
 
@@ -49,7 +49,7 @@ TEST(Parse, testRejectsEmptyName) {
 TEST(Parse, testRejectsTrailingEscape) {
     auto [path, err] = parse("a&");
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "the field a& ends in &");
+    EXPECT_EQ(err.data(), "the field a& ends in &");
 }
 
 /// @brief it should escape names so that parse returns the same path.
@@ -144,7 +144,7 @@ TEST_F(TypesTest, testDescribesArrayMember) {
     EXPECT_TRUE(readings.is_array);
     const auto err = types.field(this->sensor_type, {"Readings"}).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "Readings is an array");
+    EXPECT_EQ(err.data(), "Readings is an array");
 }
 
 /// @brief it should reject a path through a member that holds an array.
@@ -152,7 +152,7 @@ TEST_F(TypesTest, testRejectsMemberOfArray) {
     const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->sensor_type}));
     const auto err = types.describe(this->sensor_type, {"Readings", "X"}).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "Readings is an array");
+    EXPECT_EQ(err.data(), "Readings is an array");
 }
 
 /// @brief it should print a member that holds an array as a JSON array.
@@ -170,7 +170,7 @@ TEST_F(TypesTest, testRejectsUnknownMember) {
     const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->motor_type}));
     auto [field, err] = types.field(this->motor_type, {"Position", "Z"});
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "Point has no member Z");
+    EXPECT_EQ(err.data(), "Point has no member Z");
 }
 
 /// @brief it should give the reason that a type the server defined does not build.
@@ -182,7 +182,7 @@ TEST_F(TypesTest, testReportsTypeThatDoesNotBuild) {
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_FALSE(err.matches(UNDEFINED));
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "cannot decode Broken: the server did not define the type of a member"
     );
 }
@@ -193,7 +193,10 @@ TEST_F(TypesTest, testRejectsUndefinedType) {
     const auto types = ASSERT_NIL_P(Types::read(this->conn, {opaque}));
     auto [field, err] = types.field(opaque, {"X"});
     ASSERT_OCCURRED_AS(err, UNDEFINED);
-    EXPECT_EQ(err.data, "the server gives no definition of the data type of the node");
+    EXPECT_EQ(
+        err.data(),
+        "the server gives no definition of the data type of the node"
+    );
 }
 
 /// @brief it should decode a structure value and convert the member at a field.
@@ -219,7 +222,7 @@ TEST_F(TypesTest, testRejectsStructureOfOtherType) {
     const auto field = ASSERT_NIL_P(types.field(point, {"X"}));
     auto [sample, err] = Types::sample(value.get(), field, x::telem::FLOAT32_T);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "the value is a Motor, not a Point");
+    EXPECT_EQ(err.data(), "the value is a Motor, not a Point");
 }
 
 /// @brief it should reject a value whose type the server did not define.
@@ -228,7 +231,7 @@ TEST_F(TypesTest, testRejectsUndefinedValue) {
     const auto res = this->read(this->motor);
     auto [value, err] = types.decode(res.get().results[0].value);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "the server did not define the type of the value");
+    EXPECT_EQ(err.data(), "the server did not define the type of the value");
 }
 
 /// @brief it should convert members of a structure type that the client knows.

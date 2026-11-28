@@ -202,7 +202,6 @@ export const Info = (): ReactElement => {
             <>
               <Text.Text
                 level="small"
-                variant="code"
                 color={9}
                 className={CSS.BE("license-info", "detail")}
               >
@@ -210,7 +209,6 @@ export const Info = (): ReactElement => {
               </Text.Text>
               <Text.Text
                 level="small"
-                variant="code"
                 color={9}
                 className={CSS.BE("license-info", "detail")}
               >
@@ -220,7 +218,6 @@ export const Info = (): ReactElement => {
           )}
           <Text.Text
             level="small"
-            variant="code"
             color={9}
             className={CSS.BE("license-info", "detail")}
           >

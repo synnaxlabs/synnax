@@ -20,7 +20,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, uuid } from "@synnaxlabs/x";
+import { deep, payload, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -44,6 +44,7 @@ import {
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
@@ -371,6 +372,8 @@ interface EndpointDetailsProps {
   onAddMessage: () => void;
   /** Reads a message of an ICD instead of the one message that the endpoint reads. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** Makes the endpoint read a new message of the format with no fields. */
+  onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
 }
 
@@ -385,6 +388,7 @@ const EndpointDetails: FC<EndpointDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  onFormatCreate,
   bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
@@ -403,7 +407,7 @@ const EndpointDetails: FC<EndpointDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && (
+                {encoding != null && ICD.isTaskFormat(encoding) && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
@@ -419,6 +423,8 @@ const EndpointDetails: FC<EndpointDetailsProps> = ({
               icdKey={icdKey}
               message={reads[0].message}
               onChange={onFormatChange}
+              formats={payload.FORMATS}
+              onCreate={onFormatCreate}
               disabled={bindDisabled}
             />
           )}
@@ -473,6 +479,7 @@ const Endpoints: FC<EndpointsProps> = ({
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   } = ICD.Tree.use({
     sources: root.config.endpoints,
     sourceOf: (ep) => (readsICD(ep) ? ep : null),
@@ -554,6 +561,7 @@ const Endpoints: FC<EndpointsProps> = ({
       onSelect([ep.key]);
       tree.expand(ep.key);
     }, "Failed to add endpoint");
+  const isPreview = Task.useIsPreview();
 
   const handleAddMessage = (key: string) => {
     const path = root.config.endpoints[key];
@@ -618,6 +626,7 @@ const Endpoints: FC<EndpointsProps> = ({
         onAddField={() => addField(ep.key, 0)}
         onAddMessage={() => handleAddMessage(ep.key)}
         onFormatChange={(icdKey, message) => setMessage(ep.key, icdKey, message)}
+        onFormatCreate={(format) => setNewMessage(ep.key, format)}
         bindDisabled={bindDisabled}
       />
     );
@@ -641,11 +650,12 @@ const Endpoints: FC<EndpointsProps> = ({
       title={title ?? undefined}
     >
       {details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            Select an endpoint or field to configure
-          </Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No endpoint selected"
+          action={isPreview ? undefined : "Add endpoint"}
+          onClick={handleAdd}
+        />
       )}
     </Task.Views.Panes>
   );

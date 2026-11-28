@@ -46,9 +46,9 @@ func newIndexes() indexes {
 			Targets: func(e *APIKey) []gorp.Target {
 				return []gorp.Target{resourceTarget(e.Subject)}
 			},
-			Retarget: func(e *APIKey, from, to gorp.Target) {
-				if (gorp.Target{Table: string(e.Subject.Type), Key: e.Subject.Key}) == from {
-					e.Subject.Key = to.Key
+			Retarget: func(e *APIKey, to map[gorp.Target]gorp.Target) {
+				if t, ok := to[gorp.Target{Table: string(e.Subject.Type), Key: e.Subject.Key}]; ok {
+					e.Subject.Key = t.Key
 				}
 			},
 		}),

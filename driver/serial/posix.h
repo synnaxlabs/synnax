@@ -24,6 +24,10 @@ namespace driver::serial::native {
 /// @returns the translated errno for a setting that the port rejected.
 x::errors::Error failed(const std::string &setting, const std::string &port);
 
+/// @returns the device node that names the port at path: /dev/cu.X for /dev/tty.X on
+/// macOS, whose two nodes are one port, or else path.
+std::string node(const std::string &path);
+
 /// @returns true when a program holds the terminal at fd with TIOCEXCL. macOS cannot
 /// read the flag and returns false.
 std::pair<bool, std::error_code> exclusive(int fd);

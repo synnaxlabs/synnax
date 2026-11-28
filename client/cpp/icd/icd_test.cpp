@@ -68,7 +68,7 @@ TEST(ICDClient, RejectsDuplicateKeyOnCreate) {
     auto duplicate = ic;
     const auto err = client.icds.create(duplicate);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "icd " + ic.key.to_string() + " already exists");
+    ASSERT_EQ(err.data(), "icd " + ic.key.to_string() + " already exists");
 }
 
 /// @brief it should retrieve several ICDs by key.
@@ -98,6 +98,6 @@ TEST(ICDClient, RetrieveMissingKeyNotFound) {
     const auto key = x::uuid::create();
     const auto [_, err] = client.icds.retrieve(key);
     ASSERT_OCCURRED_AS(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "Found no ICD where key = \"" + key.to_string() + "\"");
+    ASSERT_EQ(err.data(), "Found no ICD where key = \"" + key.to_string() + "\"");
 }
 }
