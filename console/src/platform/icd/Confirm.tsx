@@ -41,7 +41,7 @@ const Confirm = ({
       {tasks.length > 0 && (
         <Flex.Box y gap="small">
           <Text.Text level="small" color={9}>
-            Tasks that use {name}
+            Tasks that use {name.trim() === "" ? "this ICD" : name}
           </Text.Text>
           <UsedBy.List
             kind="ICD"
